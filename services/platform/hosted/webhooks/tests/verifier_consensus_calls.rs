@@ -452,6 +452,7 @@ fn read_request(stream: &mut impl Read) -> (String, Value) {
 fn serve(
     listener: TcpListener,
     identity: Identity,
+    expected_path: &'static str,
     responses: Vec<Value>,
 ) -> thread::JoinHandle<Vec<(String, Value)>> {
     thread::spawn(move || {
@@ -472,9 +473,17 @@ fn serve(
             let mut stream = checked(acceptor.accept(socket));
             let (path, request) = read_request(&mut stream);
             calls.push((path, request));
-            let body = serde_json::to_vec(&json!({"jsonrpc":"2.0","id":1,"result":response}))
-                .unwrap_or_default();
-            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).unwrap_or_else(|error| panic!("response headers: {error}"));
+            let matched = calls.last().is_some_and(|(path, _)| path == expected_path);
+            let (status, body) = if matched {
+                (
+                    "200 OK",
+                    serde_json::to_vec(&json!({"jsonrpc":"2.0","id":1,"result":response}))
+                        .unwrap_or_default(),
+                )
+            } else {
+                ("404 Not Found", b"not found".to_vec())
+            };
+            write!(stream, "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).unwrap_or_else(|error| panic!("response headers: {error}"));
             stream
                 .write_all(&body)
                 .unwrap_or_else(|error| panic!("response body: {error}"));
@@ -510,6 +519,7 @@ fn verifier_consensus_calls_use_the_fixture_and_preserve_a_comet_path() {
     let consensus = serve(
         consensus_listener,
         material.server.clone(),
+        "/comet",
         vec![
             json!({"node_info":{"network":CHAIN_ID}}),
             evidence.commit.clone(),
@@ -521,6 +531,7 @@ fn verifier_consensus_calls_use_the_fixture_and_preserve_a_comet_path() {
     let node = serve(
         node_listener,
         material.server.clone(),
+        "/",
         vec![
             json!("0x7d"),
             receipt_json,
@@ -531,6 +542,7 @@ fn verifier_consensus_calls_use_the_fixture_and_preserve_a_comet_path() {
     let source = serve(
         source_listener,
         material.server.clone(),
+        "/readyz",
         vec![json!({"ready":true}); 4],
     );
     let policy_path = material.root.join("chain.json");
@@ -573,14 +585,14 @@ fn verifier_consensus_calls_use_the_fixture_and_preserve_a_comet_path() {
     );
     std::env::set_var(
         "LAYERX_WEBHOOKS_COMET_URL",
-        format!("https://localhost:{consensus_port}/comet"),
+        format!("https://localhost:{consensus_port}/comet/"),
     );
     std::env::set_var("LAYERX_WEBHOOKS_NODE_TOKEN_FILE", &node_token_path);
     let sources = checked(TrustedSources::from_environment());
     assert!(sources.ready_until(Instant::now() + Duration::from_secs(10)));
     let verifier = checked(ReceiptVerifier::new(
         &format!("https://localhost:{node_port}"),
-        &format!("https://localhost:{consensus_port}/comet"),
+        &format!("https://localhost:{consensus_port}/comet/"),
         "token".to_owned(),
         &material.ca,
         material.client_identity(),
@@ -592,7 +604,7 @@ fn verifier_consensus_calls_use_the_fixture_and_preserve_a_comet_path() {
     let node_calls = checked(node.join());
     assert_eq!(consensus_calls.len(), calls.len());
     for ((path, request), expected) in consensus_calls.iter().zip(calls) {
-        assert_eq!(path, "/comet/");
+        assert_eq!(path, "/comet");
         assert_eq!(request["method"], expected["method"]);
         assert_eq!(request["params"], expected["params"]);
     }
@@ -601,4 +613,35 @@ fn verifier_consensus_calls_use_the_fixture_and_preserve_a_comet_path() {
     assert_eq!(node_calls[1].1["method"], "pax_sequencerReceipt");
     assert_eq!(node_calls[2].1["method"], "eth_getBlockByNumber");
     assert_eq!(checked(source.join()).len(), 4);
+}
+
+#[test]
+fn verifier_readiness_rejects_a_consensus_origin_that_only_answers_with_a_trailing_slash() {
+    let material = material();
+    let (consensus_listener, consensus_port) = free_listener();
+    let consensus = serve(
+        consensus_listener,
+        material.server.clone(),
+        "/comet/",
+        vec![json!({"node_info":{"network":CHAIN_ID}})],
+    );
+    let (node_listener, node_port) = free_listener();
+    let node = serve(
+        node_listener,
+        material.server.clone(),
+        "/",
+        vec![json!("0x7d")],
+    );
+    let verifier = checked(ReceiptVerifier::new(
+        &format!("https://localhost:{node_port}"),
+        &format!("https://localhost:{consensus_port}/comet"),
+        "token".to_owned(),
+        &material.ca,
+        material.client_identity(),
+        policy(),
+    ));
+
+    assert!(!verifier.ready_until(Instant::now() + Duration::from_secs(10)));
+    assert_eq!(checked(node.join())[0].0, "/");
+    assert_eq!(checked(consensus.join())[0].0, "/comet");
 }

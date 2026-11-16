@@ -112,7 +112,7 @@ function RouteTriggerWithPicker({
   );
 }
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 function DialogTriggerRoute({
   label,
@@ -126,6 +126,16 @@ function DialogTriggerRoute({
   dialog: ReactNode;
 }) {
   const [ open, setOpen ] = useState(false);
+  useEffect(() => {
+    const pageElements = [ ...document.querySelectorAll<HTMLElement>('header, main, footer, .skip-link') ];
+    pageElements.forEach((element) => {
+      if (open) element.inert = true;
+      else element.inert = false;
+    });
+    return () => pageElements.forEach((element) => {
+      element.inert = false;
+    });
+  }, [ open ]);
   return (
     <>
       <RouteTrigger option={ option } label={ label } onClick={ () => setOpen(true) }/>

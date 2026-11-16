@@ -67,8 +67,8 @@ The active `TrustedSources::from_environment` constructs the node-backed
 
 | Key | Meaning |
 | --- | --- |
-| `LAYERX_WEBHOOKS_NODE_URL` | HTTPS node JSON-RPC origin; requests are POSTed to `/`. It may name the node front. |
-| `LAYERX_WEBHOOKS_COMET_URL` | HTTPS consensus JSON-RPC origin; requests are POSTed to `/`. It may include the path of the node front's consensus route. |
+| `LAYERX_WEBHOOKS_NODE_URL` | HTTPS node JSON-RPC origin; calls use the origin path exactly (the root path when none is given). It may name the node front. |
+| `LAYERX_WEBHOOKS_COMET_URL` | HTTPS consensus JSON-RPC origin; calls use the origin path exactly (the node front's consensus route ends in `/comet`). |
 | `LAYERX_WEBHOOKS_NODE_TOKEN_FILE` | Bearer credential used for both origins |
 | `LAYERX_WEBHOOKS_CHAIN_POLICY_FILE` | JSON policy containing `chain_id` and pinned `validators` |
 

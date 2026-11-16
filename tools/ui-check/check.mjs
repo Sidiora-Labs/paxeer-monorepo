@@ -95,9 +95,15 @@ async function renderView(browser, surface, view, state, configuration, out, ind
   });
   const findings = [];
   const addLoad = (values) => findings.push({ kind: "load", selector: "document", values });
+  const expects = state.expects ?? [];
+  const matchedExpectations = new Set();
+  const expectedResponses = new WeakSet();
+  const failedResponses = [];
+  const consoleErrors = [];
   const render = { view: view.name, state: state.name, size: { width, height }, scheme, mode, rendered: false, screenshot: `${String(index + 1).padStart(5, "0")}.png`, findings: [] };
   let page;
   try {
+    await context.grantPermissions(["clipboard-write"], { origin: surface.address });
     await context.addInitScript(observePage);
     await context.route("**/*", async (route) => {
       const request = route.request();
@@ -141,15 +147,20 @@ async function renderView(browser, surface, view, state, configuration, out, ind
     page.setDefaultTimeout(LIMITS.navigationMs);
     page.setDefaultNavigationTimeout(LIMITS.navigationMs);
     page.on("console", (message) => {
-      if (message.type() === "error") addLoad({ source: "console", message: message.text(), location: message.location() });
+      if (message.type() === "error") consoleErrors.push({ source: "console", message: message.text(), location: message.location() });
     });
     page.on("pageerror", (error) => addLoad({ source: "pageerror", message: error.message }));
     page.on("requestfailed", (request) => addLoad({ source: "requestfailed", method: request.method(), address: request.url(), resource: request.resourceType(), message: request.failure()?.errorText }));
     page.on("response", (response) => {
-      if (response.status() >= 400) addLoad({ source: "response", address: response.url(), status: response.status(), resource: response.request().resourceType() });
+      if (response.status() < 400) return;
+      const matches = expects.filter((entry) => entry.method === response.request().method() && entry.matcher.test(response.url()) && entry.status === response.status());
+      for (const entry of matches) matchedExpectations.add(entry);
+      if (matches.length) expectedResponses.add(response);
+      else addLoad({ source: "response", method: response.request().method(), address: response.url(), status: response.status(), resource: response.request().resourceType() });
+      failedResponses.push({ address: response.url(), status: response.status(), expected: matches.length > 0 });
     });
     const response = await page.goto(new URL(view.path, surface.address).href, { waitUntil: "load" });
-    if (!response?.ok()) throw new Error(`View did not answer successfully: ${response?.status() ?? "no response"}`);
+    if (!response || (!response.ok() && !expectedResponses.has(response))) throw new Error(`View did not answer successfully: ${response?.status() ?? "no response"}`);
     if (new URL(page.url()).origin !== surface.address) throw new Error("View navigated outside the surface");
     if (state.steps.length) {
       const shiftStart = await page.evaluate(() => window.__uiCheck.shifts.length);
@@ -185,6 +196,14 @@ async function renderView(browser, surface, view, state, configuration, out, ind
       }
     }
     await context.close();
+    for (const error of consoleErrors) {
+      const status = error.message.match(/^Failed to load resource: the server responded with a status of (\d{3})(?: \(.*\))?$/);
+      const responses = status ? failedResponses.filter((response) => response.address === error.location.url && response.status === Number(status[1])) : [];
+      if (!responses.length || !responses.every((response) => response.expected) || error.location.lineNumber !== 0 || error.location.columnNumber !== 0) addLoad(error);
+    }
+    for (const entry of expects) {
+      if (!matchedExpectations.has(entry)) addLoad({ source: "unmatched-expectation", method: entry.method, pattern: entry.pattern, status: entry.status });
+    }
   }
   render.findings = findings.map((finding) => ({ view: view.name, state: state.name, size: render.size, scheme, mode, ...finding }));
   return render;
@@ -205,7 +224,7 @@ export async function checkSurface({ surface: filename, out: destination, view: 
     browser = await chromium.launch();
     for (const view of views) {
       const first = result.renders.length;
-      for (const state of [{ name: "default", steps: [] }, ...(view.states ?? [])]) {
+      for (const state of [{ name: "default", steps: [], expects: view.expects }, ...(view.states ?? [])]) {
         for (const configuration of renderMatrix()) {
           result.renders.push(await renderView(browser, surface, view, state, configuration, out, result.renders.length));
         }

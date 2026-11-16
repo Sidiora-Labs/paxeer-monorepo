@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Copy text</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/base.css">
+<body>
+<button id="copy" type="button">Copy text</button>
+<p id="result" role="status">Ready</p>
+<script>
+  document.getElementById("copy").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText("Copied text");
+      const read = await navigator.permissions.query({ name: "clipboard-read" });
+      document.getElementById("result").textContent = read.state === "granted" ? "Clipboard read allowed" : "Copied; clipboard read ungranted";
+    } catch (error) {
+      document.getElementById("result").textContent = error.message;
+    }
+  });
+</script>
+</body>
+</html>

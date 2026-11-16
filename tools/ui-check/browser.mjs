@@ -18,11 +18,48 @@ export function observePage() {
     return parts.join(" > ").replace(" >>> > ", " >>> ");
   };
   const elements = (root = document) => [...root.querySelectorAll("*")].flatMap((element) => [element, ...(element.shadowRoot ? elements(element.shadowRoot) : [])]);
+  const parentElement = (element) => element.parentElement ?? element.getRootNode().host;
+  const clippedToNothing = (element) => {
+    for (let box = element; box; box = parentElement(box)) {
+      const style = getComputedStyle(box);
+      const rect = box.getBoundingClientRect();
+      if (rect.width <= 1 && rect.height <= 1 && ["hidden", "clip"].includes(style.overflowX) && ["hidden", "clip"].includes(style.overflowY)) return true;
+      const length = (value, size) => value.endsWith("%") ? parseFloat(value) * size / 100 : parseFloat(value);
+      const clip = style.clip.match(/^rect\((.*)\)$/);
+      if (clip && ["absolute", "fixed"].includes(style.position)) {
+        const edges = clip[1].split(/[,\s]+/).filter(Boolean);
+        const [top, right, bottom, left] = edges.map((edge, index) => edge === "auto" ? [0, rect.width, rect.height, 0][index] : parseFloat(edge));
+        if (right <= left || bottom <= top) return true;
+      }
+      const inset = style.clipPath.match(/^inset\(([^)]*)\)/);
+      if (inset) {
+        const edges = inset[1].split(/\s+round\s+/)[0].trim().split(/\s+/);
+        const [top, right = top, bottom = top, left = right] = edges;
+        if (length(top, rect.height) + length(bottom, rect.height) >= rect.height || length(left, rect.width) + length(right, rect.width) >= rect.width) return true;
+      }
+      const radius = style.clipPath.match(/^(circle|ellipse)\(([^)]*)\)/);
+      if (radius) {
+        const radii = radius[2].split(/\s+at\s+/)[0].trim().split(/\s+/);
+        if (radii.some((value) => parseFloat(value) === 0)) return true;
+      }
+      const polygon = style.clipPath.match(/^polygon\((.*)\)$/);
+      if (polygon) {
+        const points = polygon[1].replace(/^(nonzero|evenodd),\s*/, "").split(",").map((point) => {
+          const [x, y] = point.trim().split(/\s+/);
+          return [length(x, rect.width), length(y, rect.height)];
+        });
+        const first = points[0];
+        const second = points.find(([x, y]) => x !== first[0] || y !== first[1]);
+        if (points.every((point) => point.every(Number.isFinite)) && (!second || points.every(([x, y]) => (x - first[0]) * (second[1] - first[1]) === (y - first[1]) * (second[0] - first[0])))) return true;
+      }
+    }
+    return false;
+  };
   const visible = (element) => {
     const style = getComputedStyle(element);
-    return element.getClientRects().length > 0 && element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && style.visibility === "visible" && style.display !== "none";
+    return element.getClientRects().length > 0 && element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && style.visibility === "visible" && style.display !== "none" && !clippedToNothing(element);
   };
-  const measurements = { shifts: [], motions: [], selector, elements, visible };
+  const measurements = { shifts: [], motions: [], selector, elements, visible, parentElement };
   Object.defineProperty(window, "__uiCheck", { value: measurements });
   new PerformanceObserver((list) => {
     for (const entry of list.getEntries()) {
@@ -68,7 +105,7 @@ export function doubleText() {
 }
 
 export function measurePage({ limits, typeScale, doubled, reduced }) {
-  const { elements, visible, selector, shifts, motions } = window.__uiCheck;
+  const { elements, visible, selector, shifts, motions, parentElement } = window.__uiCheck;
   const findings = [];
   const add = (kind, element, values) => findings.push({ kind, selector: typeof element === "string" ? element : selector(element), values });
   const width = window.innerWidth;
@@ -78,8 +115,16 @@ export function measurePage({ limits, typeScale, doubled, reduced }) {
     if (!visible(element)) continue;
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
-    if (rect.width > width + 0.5 || rect.right > width + 0.5 || rect.left < -0.5) {
-      add("sideways", element, { left: rect.left, right: rect.right, width: rect.width, viewport: width });
+    let left = rect.left;
+    let right = rect.right;
+    for (let ancestor = parentElement(element); ancestor; ancestor = parentElement(ancestor)) {
+      if (!["auto", "scroll"].includes(getComputedStyle(ancestor).overflowX)) continue;
+      const box = ancestor.getBoundingClientRect();
+      left = Math.max(left, box.left);
+      right = Math.min(right, box.right);
+    }
+    if (right > left && (right - left > width + 0.5 || right > width + 0.5 || left < -0.5)) {
+      add("sideways", element, { left, right, width: right - left, viewport: width });
     }
     if (element.textContent.trim() && style.textOverflow !== "ellipsis") {
       const clipsX = ["hidden", "clip"].includes(style.overflowX);
@@ -166,7 +211,7 @@ export function focusedElement() {
   return {
     selector: selector(active),
     changed: baseline !== undefined && baseline !== appearance(active),
-    outside: rect.left < -0.5 || rect.top < -0.5 || rect.right > innerWidth + 0.5 || rect.bottom > innerHeight + 0.5,
+    outside: rect.left < -0.5 || rect.top < -0.5 || rect.left > innerWidth + 0.5 || rect.top > innerHeight + 0.5 || (rect.width <= innerWidth && rect.right > innerWidth + 0.5) || (rect.height <= innerHeight && rect.bottom > innerHeight + 0.5),
     values: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight },
   };
 }
