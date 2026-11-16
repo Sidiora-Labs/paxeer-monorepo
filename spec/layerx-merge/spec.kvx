@@ -177913,7 +177913,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.11]
 title = "Close the explorer: one pass over every view on every device width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.2", "22.44.3", "22.44.4", "22.44.5", "22.44.6", "22.44.7", "22.44.8", "22.44.9", "22.44.10"]
