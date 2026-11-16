@@ -5,7 +5,7 @@ export const arenaRuleMap = {
         content: "**How to participate:**",
         type: "text" as const,
         listStyle: "none" as const, // Use numbers for the 5 steps
-        className: "oui-text-[20px] oui-font-semibold",
+        className: "oui-text-xl oui-font-semibold",
         children: [
           {
             content:
@@ -46,6 +46,8 @@ export const arenaRuleMap = {
       },
       {
         content: "/leaderboard/rule_120.png",
+        width: 1920,
+        height: 1081,
         type: "image" as const,
         listStyle: "none" as const,
         children: [
@@ -61,7 +63,7 @@ export const arenaRuleMap = {
         content: "**Welcome bonus**",
         type: "markdown" as const,
         listStyle: "none" as const, // Use bullet points for bonus details
-        className: "oui-text-[20px] oui-font-semibold",
+        className: "oui-text-xl oui-font-semibold",
         children: [
           {
             content:

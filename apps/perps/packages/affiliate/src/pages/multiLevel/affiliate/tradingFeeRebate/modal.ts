@@ -1,9 +1,9 @@
-import { registerSimpleDialog } from "@paxeer-network/ui";
+import { registerAffiliateDialog } from "../../../../components/dialog";
 import { TradingFeeRebateWidget } from "./tradingFeeRebate.widget";
 
 export const TradingFeeRebateDialogId = "TradingFeeRebateDialogId";
 
-registerSimpleDialog(TradingFeeRebateDialogId, TradingFeeRebateWidget, {
+registerAffiliateDialog(TradingFeeRebateDialogId, TradingFeeRebateWidget, {
   size: "sm",
   closable: true,
   classNames: {

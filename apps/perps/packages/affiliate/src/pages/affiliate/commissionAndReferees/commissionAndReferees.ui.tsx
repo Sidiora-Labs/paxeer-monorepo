@@ -1,3 +1,4 @@
+import surface from "../../../surface.module.css";
 import { FC, ReactNode, useMemo } from "react";
 import { RefferalAPI } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -33,7 +34,7 @@ export const CommissionAndReferees: FC<CommissionAndRefereesReturns> = (
       width={"100%"}
       gap={4}
       direction={"column"}
-      className="oui-bg-base-9 oui-tabular-nums"
+      className={`${surface.surface} oui-bg-base-9 oui-tabular-nums`}
     >
       <Tabs defaultValue="account" className="oui-w-full" variant="contained">
         <TabPanel value="account" title={t("affiliate.commission")}>
@@ -70,7 +71,7 @@ const MobileCellItem: FC<{
           // @ts-ignore
           formatString={formatString}
           prefix={prefix}
-          className="oui-text-base-contrast-80 oui-text-sm oui-mt-[6px]"
+          className="oui-text-base-contrast-80 oui-text-sm oui-mt-1"
         >
           {value}
         </Text.formatted>
@@ -98,7 +99,6 @@ const CommissionList: FC<CommissionAndRefereesReturns> = (props) => {
             })}
           </Text>
         ),
-        width: 216,
       },
       {
         title: `${t("affiliate.referralVol")} (USDC)`,
@@ -113,19 +113,16 @@ const CommissionList: FC<CommissionAndRefereesReturns> = (props) => {
             })}
           </Text>
         ),
-        width: 216,
       },
       {
         title: t("affiliate.commission.column.activeUsers"),
         dataIndex: "daily_traded_referral",
         render: (value) => <Text>{value}</Text>,
-        width: 216,
       },
       {
         title: t("common.date"),
         dataIndex: "date",
         render: (value) => formatYMDTime(value),
-        width: 216,
       },
     ];
 
@@ -139,7 +136,7 @@ const CommissionList: FC<CommissionAndRefereesReturns> = (props) => {
           RefferalAPI.ReferralRebateSummary,
           RefferalAPI.ReferralRebateSummary[]
         >
-          className="oui-max-h-[200px] oui-w-full"
+          className="oui-max-h-[calc(var(--oui-space-24)*2)] oui-w-full"
           dataSource={props.commission.data}
           loadMore={props.commission.loadMore}
           isLoading={props.commission.isLoading}
@@ -186,19 +183,26 @@ const CommissionList: FC<CommissionAndRefereesReturns> = (props) => {
     }
 
     return (
-      <AuthGuardDataTable
-        bordered
-        columns={columns}
-        loading={props.commission.isLoading}
-        ignoreLoadingCheck={true}
-        dataSource={props.commission.data}
-        pagination={props.commission.pagination}
-        onRow={(record) => {
-          return {
-            className: "oui-h-[41px]",
-          };
-        }}
-      />
+      <div
+        role="region"
+        aria-label="Referral data"
+        tabIndex={0}
+        className={surface.scrollRegion}
+      >
+        <AuthGuardDataTable
+          bordered
+          columns={columns}
+          loading={props.commission.isLoading}
+          ignoreLoadingCheck={true}
+          dataSource={props.commission.data}
+          pagination={props.commission.pagination}
+          onRow={(record) => {
+            return {
+              className: "oui-h-10",
+            };
+          }}
+        />
+      </div>
     );
   }, [columns, isMobile, props.commission, t]);
 
@@ -280,7 +284,7 @@ const RefereesList: FC<CommissionAndRefereesReturns> = (props) => {
     if (isMobile) {
       return (
         <ListView<RefferalAPI.RefereeInfoItem, RefferalAPI.RefereeInfoItem[]>
-          className="oui-w-full oui-max-h-[200px]"
+          className="oui-w-full oui-max-h-[calc(var(--oui-space-24)*2)]"
           dataSource={props.referees.data}
           loadMore={props.referees.loadMore}
           isLoading={props.referees.isLoading}
@@ -306,7 +310,7 @@ const RefereesList: FC<CommissionAndRefereesReturns> = (props) => {
                       prefix: "$",
                       padEnd: true,
                     })}
-                    className="oui-min-w-[102px]"
+                    className="oui-min-w-[calc(var(--oui-space-24)*1)]"
                   />
                   <MobileCellItem
                     title={t("affiliate.referees.column.totalVol")}
@@ -341,19 +345,26 @@ const RefereesList: FC<CommissionAndRefereesReturns> = (props) => {
     }
 
     return (
-      <AuthGuardDataTable
-        bordered
-        loading={props.referees.isLoading}
-        ignoreLoadingCheck={true}
-        columns={columns}
-        dataSource={props.referees.data}
-        pagination={props.referees.pagination}
-        onRow={(record) => {
-          return {
-            className: "oui-h-[41px]",
-          };
-        }}
-      />
+      <div
+        role="region"
+        aria-label="Referral data"
+        tabIndex={0}
+        className={surface.scrollRegion}
+      >
+        <AuthGuardDataTable
+          bordered
+          loading={props.referees.isLoading}
+          ignoreLoadingCheck={true}
+          columns={columns}
+          dataSource={props.referees.data}
+          pagination={props.referees.pagination}
+          onRow={(record) => {
+            return {
+              className: "oui-h-10",
+            };
+          }}
+        />
+      </div>
     );
   }, [columns, isMobile, props.referees, t]);
 
@@ -378,7 +389,11 @@ const DateFiler: FC<{
   setValue: any;
 }> = (props) => {
   return (
-    <Flex width={"100%"} height={49} className="oui-border-b oui-border-line-6">
+    <Flex
+      width={"100%"}
+      height={"calc(var(--oui-space-1) * 12.25)"}
+      className="oui-border-b oui-border-line-6"
+    >
       <div>
         <DatePicker.range
           size="xs"

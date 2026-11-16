@@ -1,3 +1,5 @@
+import { PeriodSelect } from "../../../components/periodSelect";
+import surface from "../../../surface.module.css";
 import { useEffect, useMemo, useState } from "react";
 import { VolBarChart } from "@paxeer-network/chart";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -122,7 +124,7 @@ export const MultiLevelTraderPage = () => {
       id="oui-affiliate-multiLevel-trader-page"
       width="100%"
       direction="column"
-      className="oui-gap-8 md:oui-gap-10 oui-tabular-nums"
+      className={`${surface.surface} oui-gap-8 md:oui-gap-10 oui-tabular-nums`}
     >
       <Flex
         width="100%"
@@ -134,7 +136,7 @@ export const MultiLevelTraderPage = () => {
         <Flex width="100%" justify="between" itemAlign="center">
           <Text size="lg">{t("affiliate.summary")}</Text>
           <div className="oui-min-w-14 oui-shrink-0">
-            <Select.options
+            <PeriodSelect
               size="xs"
               value={summaryPeriod}
               onValueChange={(value) => setSummaryPeriod(value as ChartPeriod)}
@@ -147,12 +149,12 @@ export const MultiLevelTraderPage = () => {
             direction="column"
             justify="between"
             itemAlign="start"
-            className="oui-min-h-[160px] oui-rounded-2xl oui-bg-base-contrast-4 oui-p-5 md:oui-min-h-[180px]"
+            className="oui-min-h-[calc(var(--oui-space-24)*2)] oui-rounded-2xl oui-bg-base-contrast-4 oui-p-5 md:oui-min-h-[calc(var(--oui-space-24)*2)]"
           >
             <Text size="sm" intensity={54}>
               {t("affiliate.trader.yourRebateRate")}
             </Text>
-            <Text className="oui-text-3xl oui-leading-10">{rateText}</Text>
+            <Text className="oui-text-3xl oui-leading-normal">{rateText}</Text>
             <Text size="sm" intensity={54}>
               {referralInfo?.referee_info?.referer_code
                 ? t("affiliate.referredBy", {
@@ -165,7 +167,7 @@ export const MultiLevelTraderPage = () => {
             direction="column"
             justify="between"
             itemAlign="start"
-            className="oui-min-h-[160px] oui-rounded-2xl oui-bg-base-contrast-4 oui-p-5 md:oui-min-h-[180px]"
+            className="oui-min-h-[calc(var(--oui-space-24)*2)] oui-rounded-2xl oui-bg-base-contrast-4 oui-p-5 md:oui-min-h-[calc(var(--oui-space-24)*2)]"
           >
             <Text size="sm" intensity={54}>
               {t("affiliate.trader.refereeRebate")} (USDC)
@@ -191,7 +193,7 @@ export const MultiLevelTraderPage = () => {
             direction="column"
             justify="between"
             itemAlign="start"
-            className="oui-min-h-[160px] oui-rounded-2xl oui-bg-base-contrast-4 oui-p-5 md:oui-min-h-[180px]"
+            className="oui-min-h-[calc(var(--oui-space-24)*2)] oui-rounded-2xl oui-bg-base-contrast-4 oui-p-5 md:oui-min-h-[calc(var(--oui-space-24)*2)]"
           >
             <Text size="sm" intensity={54}>
               {t("affiliate.trader.tradingVolume")}
@@ -220,7 +222,7 @@ export const MultiLevelTraderPage = () => {
         <Flex width="100%" justify="between" itemAlign="center">
           <Text size="lg">{t("affiliate.trader.refereeRebate")} (USDC)</Text>
           <div className="oui-min-w-14 oui-shrink-0">
-            <Select.options
+            <PeriodSelect
               size="xs"
               value={chartPeriod}
               onValueChange={(value) => setChartPeriod(value as ChartPeriod)}
@@ -236,12 +238,12 @@ export const MultiLevelTraderPage = () => {
           <Flex
             justify="center"
             itemAlign="center"
-            className="oui-h-[200px] md:oui-h-[240px]"
+            className="oui-h-[calc(var(--oui-space-24)*2)] md:oui-h-[calc(var(--oui-space-24)*2)]"
           >
             <Spinner />
           </Flex>
         ) : (
-          <div className="oui-h-[200px] oui-w-full md:oui-h-[240px]">
+          <div className="oui-h-[calc(var(--oui-space-24)*2)] oui-w-full md:oui-h-[calc(var(--oui-space-24)*2)]">
             <VolBarChart
               data={chartData}
               colors={{ fill: "rgb(var(--oui-color-success))" }}
@@ -279,7 +281,7 @@ export const MultiLevelTraderPage = () => {
           <Flex
             justify="center"
             itemAlign="center"
-            className="oui-min-h-[160px]"
+            className="oui-min-h-[calc(var(--oui-space-24)*2)]"
           >
             <Spinner />
           </Flex>
@@ -311,14 +313,21 @@ export const MultiLevelTraderPage = () => {
             )}
           />
         ) : (
-          <DataTable
-            bordered
-            loading={tableRebates.isLoading || tableVolume.isLoading}
-            columns={columns}
-            dataSource={tableRows}
-            pagination={pagination}
-            manualPagination={false}
-          />
+          <div
+            role="region"
+            aria-label="Referral data"
+            tabIndex={0}
+            className={surface.scrollRegion}
+          >
+            <DataTable
+              bordered
+              loading={tableRebates.isLoading || tableVolume.isLoading}
+              columns={columns}
+              dataSource={tableRows}
+              pagination={pagination}
+              manualPagination={false}
+            />
+          </div>
         )}
       </Flex>
     </Flex>
