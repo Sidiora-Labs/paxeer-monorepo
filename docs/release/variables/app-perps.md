@@ -9,6 +9,12 @@ in the reader column are relative to `apps/perps`.
 are read by the API routes or the process that runs the application. Empty
 optional values use the defaults in the named reader.
 
+The production build takes
+`NEXT_PUBLIC_PERPS_GATEWAY_URL=https://perps-api.paxeer.app` from
+[`deploy/build-args.production.env`](../../../apps/perps/deploy/build-args.production.env).
+Another deployment sets its own gateway origin; the environment example leaves
+this value empty.
+
 ## Workspace and chain settings
 
 | Name | What it sets | Default or requirement | Reader |
