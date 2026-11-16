@@ -175747,7 +175747,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.17]
 title = "Bring the affiliate, leaderboard, rewards and share views of the trading workspace to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.12"]
