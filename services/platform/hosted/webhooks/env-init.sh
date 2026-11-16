@@ -9,9 +9,9 @@
 # LAYERX_WEBHOOKS_LISTEN (default [::]:9443) with the certificate of the developer
 # row of tools/bringup/ca.sh, requiring an internal-CA client leaf with a webhook
 # role URI SAN, and reads the trigger, operator, source, receipt and sequencer
-# credentials. The TLS form answers GET /healthz on LAYERX_HEALTH_ADDR, else on
+# credentials. The TLS form answers GET /livez and GET /healthz on LAYERX_HEALTH_ADDR, else on
 # [::]:$PORT when PORT is set, else on [::]:9442 (public) or [::]:8080 (ingress);
-# the plain public form answers it on the application listener. Each replica is
+# the plain public form answers both routes on the application listener. Each replica is
 # its own delivery instance, named by RAILWAY_REPLICA_ID or the hostname, and
 # the service runs as uid 65532.
 set -eu

@@ -2,8 +2,8 @@
 kind = "repo"
 dockerfile = "docker/platform-webhooks/Dockerfile"
 root = "."
-watch = ["docker/platform-webhooks/**", "docker/common/**", "services/**", "programs/**"]
-health = "/healthz"
+watch = ["docker/platform-webhooks/**", "docker/common/**", "services/**", "programs/**", "include/layerx/**", "spec/layerx-merge/contracts/address-table.md", "tools/platform/cli/src/wallet_gateway.rs", "tools/paxeer-x/route-catalogue.json"]
+health = "/livez"
 restart = "ALWAYS"
 replicas = 3
 public = 0

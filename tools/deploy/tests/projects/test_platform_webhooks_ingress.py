@@ -259,7 +259,8 @@ def test_ingress_service_matches_rollout_and_private_topology():
     rollout = load_rows(ROOT / "deploy/rollout.kvx")
     original = rollout[f"service.{SERVICE}"]
     assert service["kind"] == "repo"
-    assert service["health"] == original["health"]
+    assert service["health"] == "/livez"
+    assert original["health"] == "/healthz"
     assert service["order"] == original["order"]
     assert original["railway_service"] == SERVICE
     assert service["restart"] == "ALWAYS"
@@ -339,6 +340,9 @@ def test_ingress_health_uses_port_and_preserves_mutual_tls():
     assert "setpriv --reuid=65532 --regid=65532 --clear-groups --no-new-privs" in source
     main = (SOURCE / "src/main.rs").read_text()
     assert f'request.path == "{service["health"]}"' in main
+    assert 'request.path == "/livez"' in main
+    assert '"live": true' in main
+    assert '"role": role' in main
     assert ".map(TcpListener::bind)" in main
     assert "serve_health(&listener" in main
     assert "WebPkiClientVerifier::builder" in main

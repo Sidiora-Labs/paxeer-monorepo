@@ -449,7 +449,7 @@ func TestMarketsNullableSnapshotsReachMountedView(t *testing.T) {
 	_, source, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(filepath.Dir(source), "../../../../.."))
 	cmd := exec.CommandContext(ctx, "node", "--import", "tsx", "--test", "--test-concurrency=1", "--test-reporter=tap", "--test-name-pattern=^(marketsNullableSnapshotsReachMountedView|marketsRowsCrossExportsIntoTheRealTableWithoutStaleResults)$", "tests/proof_widgets.test.ts")
-	cmd.Dir = filepath.Join(root, "apps/perps")
+	cmd.Dir = filepath.Join(root, "apps", "perps")
 	controlDir := t.TempDir()
 	cmd.Env = append(os.Environ(), "NEXT_PUBLIC_PERPS_GATEWAY_URL="+server.URL, "NEXT_PUBLIC_MARKET_PROXY_HOST="+server.URL, "PROOF_NULLABLE_MARKETS=1", "PROOF_PHASE_DIR="+controlDir)
 	output, err := cmd.StdoutPipe()

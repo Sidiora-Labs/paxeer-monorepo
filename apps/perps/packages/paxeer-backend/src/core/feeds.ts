@@ -17,6 +17,13 @@ export function getFeedOrigin(origin?: string): string {
   return "/api/price-feed";
 }
 export const FEED_ORIGIN = getFeedOrigin();
+export function getStreamSocketOrigin(feedOrigin = FEED_ORIGIN): string {
+  const gateway = process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL;
+  return (gateway ? new URL(gateway).origin : feedOrigin).replace(
+    /^http/,
+    "ws",
+  );
+}
 export const MARKET_DATA_URL = process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL
   ? `${new URL(process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL).origin}/api`
   : "";
