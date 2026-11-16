@@ -181,6 +181,49 @@ def test_compose_documents_have_digests_and_private_files(tmp_path: Path) -> Non
     assert len(budgets) == 1
 
 
+def test_compose_expected_schema_file_form_preserves_other_documents(tmp_path: Path) -> None:
+    values = _values(tmp_path)
+    baseline_out = tmp_path / "baseline"
+    baseline = _run(values, baseline_out, "social", "livestream")
+    assert baseline.returncode == 0, baseline.stderr
+    baseline_records = {
+        service: json.loads((baseline_out / f"{service}.json").read_bytes())
+        for service in ("social", "livestream")
+    }
+    expected = values / "expected-schema"
+    schema_bytes = (expected / "social.json").read_bytes()
+    (expected / "runtime-paths.json").write_text(json.dumps({"social": "/run/launchpad/social/expected-schema.json"}))
+
+    out = tmp_path / "file-form"
+    result = _run(values, out, "social", "livestream")
+    assert result.returncode == 0, result.stderr
+    social = json.loads((out / "social.json").read_bytes())
+    livestream = json.loads((out / "livestream.json").read_bytes())
+    assert social["EXPECTED_SCHEMA_FILE"] == "/run/launchpad/social/expected-schema.json"
+    assert social["EXPECTED_SCHEMA_SHA256"] == hashlib.sha256(schema_bytes).hexdigest()
+    assert "EXPECTED_SCHEMA_DOCUMENT" not in social
+    assert livestream["EXPECTED_SCHEMA_DOCUMENT"] == baseline_records["livestream"]["EXPECTED_SCHEMA_DOCUMENT"]
+    assert livestream["EXPECTED_SCHEMA_SHA256"] == baseline_records["livestream"]["EXPECTED_SCHEMA_SHA256"]
+    for service in ("social", "livestream"):
+        assert json.loads((out / f"{service}.json").read_bytes())["DB_BUDGET_DOCUMENT"] == baseline_records[service]["DB_BUDGET_DOCUMENT"]
+        assert json.loads((out / f"{service}.json").read_bytes())["DB_BUDGET_SHA256"] == baseline_records[service]["DB_BUDGET_SHA256"]
+
+
+@pytest.mark.parametrize(
+    ("paths", "member"),
+    [([], None), ({"unknown": "/run/unknown.json"}, "unknown"), ({"social": "relative.json"}, "social")],
+)
+def test_compose_refuses_invalid_expected_schema_runtime_paths(tmp_path: Path, paths: object, member: str | None) -> None:
+    values = _values(tmp_path)
+    path = values / "expected-schema" / "runtime-paths.json"
+    path.write_text(json.dumps(paths))
+    result = _run(values, tmp_path / "out", "social")
+    assert result.returncode == 2
+    assert "expected-schema/runtime-paths.json" in result.stderr
+    if member is not None:
+        assert member in result.stderr
+
+
 def test_compose_refuses_unknown_service(tmp_path: Path) -> None:
     result = _run(_values(tmp_path), tmp_path / "out", "unknown")
     assert result.returncode != 0

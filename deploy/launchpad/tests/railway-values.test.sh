@@ -20,6 +20,12 @@ fail() {
 python3 - "$manifest" "$fixture" "$tmp/replay.json" <<'PY'
 import json, sys
 services = list(json.load(open(sys.argv[1])))
+manifest = json.load(open(sys.argv[1]))
+for service in services:
+
+    entry = manifest[service]
+    if "EXPECTED_SCHEMA_SHA256" in entry.get("required", []):
+        assert entry.get("documentSources", {}).get("EXPECTED_SCHEMA_DOCUMENT") == "EXPECTED_SCHEMA_FILE", service
 replay = json.load(open(sys.argv[2]))
 project = next(e for e in replay if e["op"] == "Project")
 env = next(n["node"]["id"] for n in project["data"]["project"]["environments"]["edges"] if n["node"]["name"] == "production")
