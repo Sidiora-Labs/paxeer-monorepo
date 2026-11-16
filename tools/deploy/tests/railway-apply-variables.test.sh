@@ -330,6 +330,7 @@ import json, sys
 indexer = json.load(open(sys.argv[1]))["indexer"]
 sources = indexer["documentSources"]
 assert sources == {
+    "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE",
     "INDEXER_RECEIPT_CONFIG_DOCUMENT": "INDEXER_RECEIPT_CONFIG_FILE",
     "INDEXER_LIFECYCLE_CONFIG_DOCUMENT": "INDEXER_LIFECYCLE_CONFIG_FILE",
 }
@@ -340,6 +341,7 @@ project["data"]["project"]["services"]["edges"] = [{"node": {"id": "svc-indexer"
 for form in ("document", "file"):
     selected = dict(values)
     for document, path in sources.items():
+        selected.pop(path if form == "document" else document, None)
         selected[document if form == "document" else path] = (
             f"sentinel-{document}" if form == "document" else f"/run/launchpad/indexer/{path}.json")
     json.dump({"indexer": selected}, open(f"{sys.argv[2]}/indexer-{form}-values.json", "w"))
@@ -375,7 +377,7 @@ PY
 				--replay "$tmp/indexer-$form-replay.json" --values "$tmp/indexer-$form-values.json" \
 				"--$mode" >"$tmp/indexer-$form-$mode.out" 2>&1 ||
 				fail "indexer $form $mode exited $?: $(cat "$tmp/indexer-$form-$mode.out")"
-			for name in INDEXER_RECEIPT_CONFIG INDEXER_LIFECYCLE_CONFIG; do
+			for name in EXPECTED_SCHEMA INDEXER_RECEIPT_CONFIG INDEXER_LIFECYCLE_CONFIG; do
 				if [ "$form" = document ]; then alternate=FILE; else alternate=DOCUMENT; fi
 				grep -q "^  missing ${name}_${form^^} = " "$tmp/indexer-$form-$mode.out" ||
 					fail "indexer $form $mode omitted $name"
@@ -387,7 +389,7 @@ PY
 		done
 		grep -q "^  applied $(cat "$tmp/indexer-$form-count") variables$" "$tmp/indexer-$form-apply.out" ||
 			fail "indexer $form apply did not upsert the selected variables"
-		for name in INDEXER_RECEIPT_CONFIG INDEXER_LIFECYCLE_CONFIG; do
+		for name in EXPECTED_SCHEMA INDEXER_RECEIPT_CONFIG INDEXER_LIFECYCLE_CONFIG; do
 			set +e
 			python3 "$tool" proj-test production --manifest "$tmp/indexer.json" \
 				--replay "$tmp/indexer-$form-replay.json" \
@@ -399,7 +401,7 @@ PY
 			grep -q "${name}_SHA256 has no value" "$tmp/indexer-no-digest.out" || fail "indexer missing digest not named"
 		done
 	done
-	for name in INDEXER_RECEIPT_CONFIG INDEXER_LIFECYCLE_CONFIG; do
+	for name in EXPECTED_SCHEMA INDEXER_RECEIPT_CONFIG INDEXER_LIFECYCLE_CONFIG; do
 		for invalid in both neither; do
 			for mode in plan apply; do
 				set +e
@@ -446,6 +448,7 @@ import json, sys
 
 api = json.load(open(sys.argv[1]))["api"]
 assert api["documentSources"] == {
+    "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE",
     "NETWORK_AUTHORITY_CONFIG_DOCUMENT": "NETWORK_AUTHORITY_CONFIG_FILE",
 }
 required = set(api["required"])
