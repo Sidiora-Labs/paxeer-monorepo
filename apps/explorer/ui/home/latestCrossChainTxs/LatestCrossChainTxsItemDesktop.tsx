@@ -21,12 +21,12 @@ const LatestCrossChainTxsItemDesktop = ({ data, isLoading }: Props) => {
 
   return (
     <TableRow>
-      <TableCell w="42px">
+      <TableCell w="var(--chakra-spacing-10)">
         <CrossChainTxsStatusTag status={ data.status } loading={ isLoading }/>
       </TableCell>
       <TableCell>
         <VStack alignItems="start">
-          <CrossChainMessageEntity id={ data.message_id } isLoading={ isLoading } lineHeight="24px" fontWeight={ 700 }/>
+          <CrossChainMessageEntity id={ data.message_id } isLoading={ isLoading } lineHeight="h2" fontWeight="bold"/>
           <TimeWithTooltip timestamp={ data.send_timestamp || data.receive_timestamp } isLoading={ isLoading } color="text.secondary" timeFormat="absolute"/>
         </VStack>
       </TableCell>
@@ -40,7 +40,7 @@ const LatestCrossChainTxsItemDesktop = ({ data, isLoading }: Props) => {
               noIcon
               noCopy
               truncation="constant"
-              lineHeight="24px"
+              lineHeight="h2"
             />
           ) : (
             <chakra.span color="text.secondary">{ mdash }</chakra.span>
@@ -49,7 +49,7 @@ const LatestCrossChainTxsItemDesktop = ({ data, isLoading }: Props) => {
             data={ data.source_chain }
             isLoading={ isLoading }
             color="text.secondary"
-            textStyle="xs"
+            textStyle="text.xs"
           />
         </VStack>
       </TableCell>
@@ -63,7 +63,7 @@ const LatestCrossChainTxsItemDesktop = ({ data, isLoading }: Props) => {
               noIcon
               noCopy
               truncation="constant"
-              lineHeight="24px"
+              lineHeight="h2"
             />
           ) : (
             <chakra.span color="text.secondary">{ mdash }</chakra.span>
@@ -72,12 +72,12 @@ const LatestCrossChainTxsItemDesktop = ({ data, isLoading }: Props) => {
             data={ data.destination_chain }
             isLoading={ isLoading }
             color="text.secondary"
-            textStyle="xs"
+            textStyle="text.xs"
           />
         </VStack>
       </TableCell>
       <TableCell>
-        <CrossChainBridgeLink data={ data.bridge } isLoading={ isLoading } lineHeight="24px"/>
+        <CrossChainBridgeLink data={ data.bridge } isLoading={ isLoading } lineHeight="h2"/>
       </TableCell>
     </TableRow>
   );

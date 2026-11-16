@@ -22,7 +22,7 @@ const PaxeerXReceiptsTableItem = ({ item, isLoading }: Props) => {
     <TableRow data-receipt={ item.id }>
       <TableCell verticalAlign="middle">
         <Flex overflow="hidden" w="100%" alignItems="center">
-          <Skeleton loading={ isLoading } fontWeight={ 600 }>
+          <Skeleton loading={ isLoading } fontWeight="semibold">
             { item.transaction_hash === null ? (
               <HashStringShorten hash={ item.id } type="long"/>
             ) : (
@@ -54,7 +54,7 @@ const PaxeerXReceiptsTableItem = ({ item, isLoading }: Props) => {
             isLoading={ isLoading }
             number={ item.block_number }
             truncation="none"
-            fontWeight={ 600 }
+            fontWeight="semibold"
             noIcon
           />
         ) }

@@ -39,10 +39,20 @@ const Flashblocks = () => {
   }
 
   return (
-    <Box>
+    <Box css={{
+      '& button': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } },
+      '& [data-scope="switch"]': { _motionReduce: { transitionProperty: 'none' } },
+    }}>
       <FlashblocksStats itemsNum={ itemsNum } txsNum={ txsNum } initialTs={ initialTs }/>
-      <HStack gap={ 2 } mb={ 4 }>
-        <Switch size="md" flexDirection="row-reverse" onCheckedChange={ handleFormatChange } checked={ isRealTime }>
+      <HStack gap={ 2 } mb={ 4 } flexWrap="wrap" minW={ 0 }>
+        <Switch
+          size="md"
+          minH="touchTarget"
+          flexDirection="row-reverse"
+          onCheckedChange={ handleFormatChange }
+          checked={ isRealTime }
+          _focusWithin={{ outlineWidth: '2', outlineStyle: 'solid', outlineColor: 'focusRing', outlineOffset: '2' }}
+        >
           Real-time feed
         </Switch>
         <Hint

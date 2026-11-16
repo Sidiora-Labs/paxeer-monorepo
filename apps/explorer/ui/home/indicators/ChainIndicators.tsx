@@ -65,7 +65,7 @@ const ChainIndicators = () => {
           return `Number of transactions yesterday (0:00 - 23:59 UTC). The chart displays daily transactions for the past 30 days.`;
         })(),
         // FIXME use non-navigation icon
-        icon: <IconSvg name="navigation/transactions" boxSize={ 6 } bgColor="indicator.transactions" borderRadius="base" color="white"/>,
+        icon: <IconSvg name="navigation/transactions" boxSize={ 6 } bgColor="indicator.transactions" borderRadius="base" color="onAccent"/>,
       },
       {
         id: 'daily_operational_txs' as const,
@@ -105,7 +105,7 @@ const ChainIndicators = () => {
           return `Number of operational transactions yesterday (0:00 - 23:59 UTC). The chart displays daily operational transactions for the past 30 days.`;
         })(),
         // FIXME use non-navigation icon
-        icon: <IconSvg name="navigation/transactions" boxSize={ 6 } bgColor="indicator.transactions" borderRadius="base" color="white"/>,
+        icon: <IconSvg name="navigation/transactions" boxSize={ 6 } bgColor="indicator.transactions" borderRadius="base" color="onAccent"/>,
       },
       {
         id: 'coin_price' as const,
@@ -139,7 +139,7 @@ const ChainIndicators = () => {
           '$' + Number(statsApiQueryResult.data.market_cap).toLocaleString(undefined, { maximumFractionDigits: 2, notation: 'compact' }),
         // eslint-disable-next-line max-len
         hint: 'The total market value of a cryptocurrency\'s circulating supply. It is analogous to the free-float capitalization in the stock market. Market Cap = Current Price x Circulating Supply.',
-        icon: <IconSvg name="globe" boxSize={ 6 } bgColor="indicator.addresses" borderRadius="base" color="white"/>,
+        icon: <IconSvg name="globe" boxSize={ 6 } bgColor="indicator.addresses" borderRadius="base" color="onAccent"/>,
       },
       {
         id: 'secondary_coin_market_cap' as const,
@@ -157,7 +157,7 @@ const ChainIndicators = () => {
           '$N/A' :
           '$' + Number(statsApiQueryResult.data.tvl).toLocaleString(undefined, { maximumFractionDigits: 2, notation: 'compact' }),
         hint: 'Total value of digital assets locked or staked in a chain',
-        icon: <IconSvg name="lock" boxSize={ 6 } bgColor="indicator.locked" borderRadius="base" color="white"/>,
+        icon: <IconSvg name="lock" boxSize={ 6 } bgColor="indicator.locked" borderRadius="base" color="onAccent"/>,
       },
     ]
       .filter(isIndicatorEnabled)
