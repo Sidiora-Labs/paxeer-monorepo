@@ -16,7 +16,7 @@ export const ConvertAction: React.FC<ConvertActionButtonProps> = (props) => {
   const { disabled, loading, networkId, onConvert } = props;
   const { t } = useTranslation();
   return (
-    <Box className="oui-w-full lg:oui-w-auto lg:oui-min-w-[184px]">
+    <Box className="oui-w-full lg:oui-w-auto lg:oui-min-w-44">
       <AuthGuard
         status={AccountStatusEnum.EnableTrading}
         networkId={networkId}

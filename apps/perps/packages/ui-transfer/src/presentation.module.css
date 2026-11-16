@@ -1,0 +1,342 @@
+.surface {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  container-type: inline-size;
+}
+
+.surface
+  :is(
+    button,
+    [role="tab"],
+    [role="combobox"],
+    [role="menuitem"],
+    [role="menuitemcheckbox"]
+  ) {
+  min-block-size: var(--oui-space-12);
+  min-inline-size: var(--oui-space-12);
+  block-size: auto;
+  white-space: normal;
+  @apply oui-leading-normal;
+}
+
+.surface :is(button, a, input, textarea, [tabindex]):focus-visible {
+  outline: var(--oui-focus-ring-width) solid rgb(var(--oui-color-focus-ring));
+  outline-offset: var(--oui-focus-ring-offset);
+}
+
+.surface :is(input, textarea) {
+  min-inline-size: 0;
+  font-size: var(--oui-font-size-base);
+  @apply oui-leading-normal;
+}
+
+.surface :global(.oui-tabs-trigger) {
+  color: rgb(var(--oui-color-base-foreground) / 0.8);
+  flex-shrink: 0;
+}
+
+.surface :global(.oui-tabs-trigger[data-state="active"]) {
+  color: rgb(var(--oui-color-base-foreground));
+}
+
+.surface :global(.oui-tabs-content) {
+  min-inline-size: 0;
+}
+
+.surface :global(.oui-text-base-contrast-36),
+.surface :global(.oui-text-base-contrast-54) {
+  color: rgb(var(--oui-color-base-foreground) / 0.8);
+}
+
+.surface :is(th, td) {
+  font-variant-numeric: tabular-nums;
+}
+
+.surface :is(th, td) button {
+  text-align: inherit;
+}
+
+.surface :is(button:disabled, [aria-disabled="true"]) {
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface :is([class*="animate-"], [class*="transition-"]) {
+    animation: none;
+    transition-property: color, background-color, border-color;
+  }
+}
+
+.surface :global(.oui-input-root) {
+  min-block-size: var(--oui-space-12);
+  block-size: auto;
+}
+
+.quantity.quantity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--oui-space-2);
+  padding: var(--oui-space-2) var(--oui-space-3);
+  min-block-size: var(--oui-space-16);
+}
+
+.quantity > input {
+  grid-column: 1;
+  grid-row: 2;
+  position: static;
+  block-size: auto;
+  min-inline-size: 0;
+  font-size: var(--oui-font-size-base);
+}
+
+.quantityLabel {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--oui-space-1);
+  color: rgb(var(--oui-color-base-foreground) / 0.8);
+  font-size: var(--oui-font-size-2xs);
+}
+
+.quantityToken {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  max-inline-size: 100%;
+}
+
+.quantityToken > button {
+  min-block-size: var(--oui-space-12);
+  block-size: auto;
+  white-space: normal;
+}
+
+.textarea {
+  field-sizing: content;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: var(--oui-space-16);
+  max-block-size: calc(var(--oui-space-24) * 3);
+  block-size: auto;
+  resize: vertical;
+  overflow-y: auto;
+}
+
+.option {
+  min-block-size: var(--oui-space-12);
+  inline-size: 100%;
+  block-size: auto;
+  text-align: start;
+  padding-block: var(--oui-space-2);
+}
+
+.popover {
+  max-inline-size: calc(100vw - var(--oui-space-6));
+  max-block-size: min(
+    calc(var(--oui-space-24) * 3),
+    var(--radix-popper-available-height)
+  );
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.hint {
+  min-block-size: var(--oui-space-6);
+  font-size: var(--oui-font-size-2xs);
+  @apply oui-leading-normal;
+  overflow-wrap: anywhere;
+}
+
+.infoRow.infoRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--oui-space-2);
+}
+
+.infoRow > * {
+  min-inline-size: 0;
+}
+
+.infoRow > :last-child {
+  justify-self: end;
+}
+
+.infoValues {
+  flex-wrap: wrap;
+}
+
+.infoValues > * {
+  white-space: nowrap;
+}
+
+@container (max-width: 20rem) {
+  .infoRow.infoRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .infoRow > :last-child {
+    justify-self: start;
+  }
+}
+
+.surface :is(h1, h2, h3, p) {
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.surface :is(th, td) {
+  vertical-align: middle;
+}
+
+.surface :is(th, td) {
+  min-inline-size: var(--oui-space-20);
+}
+
+.surface :global(.oui-table-scroll) {
+  max-inline-size: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.surface [role="tablist"] {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.surface :global(.oui-tabs),
+.surface :global(.oui-tabs-list),
+.surface :global(.oui-tabs-content) {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.surface :global(.oui-table-scroll) table {
+  table-layout: auto;
+  min-inline-size: 100%;
+}
+
+.surface :global(.oui-tabular-nums) {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.quantity > input {
+  min-block-size: var(--oui-space-12);
+}
+
+@container (max-width: 20rem) {
+  .quantity.quantity {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .quantityToken {
+    grid-column: 1;
+    grid-row: 3;
+    justify-self: start;
+  }
+}
+
+.available.available {
+  flex-wrap: wrap;
+  gap: var(--oui-space-2);
+}
+
+.available > *,
+.availableGroup.availableGroup {
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: var(--oui-space-1);
+}
+
+.available :is(span, button) {
+  white-space: nowrap;
+}
+
+.surface :global(.oui-text-primary),
+.surface :global(.oui-text-primary-light) {
+  color: color-mix(
+    in srgb,
+    rgb(var(--oui-color-primary)) 55%,
+    rgb(var(--oui-color-base-foreground))
+  );
+}
+
+.surface :global(.oui-text-success),
+.surface :global(.oui-text-success-light) {
+  color: color-mix(
+    in srgb,
+    rgb(var(--oui-color-success)) 55%,
+    rgb(var(--oui-color-base-foreground))
+  );
+}
+
+.surface :global(.oui-text-danger),
+.surface :global(.oui-text-danger-light) {
+  color: color-mix(
+    in srgb,
+    rgb(var(--oui-color-danger)) 55%,
+    rgb(var(--oui-color-base-foreground))
+  );
+}
+
+.surface :global(.oui-text-warning),
+.surface :global(.oui-text-warning-darken) {
+  color: color-mix(
+    in srgb,
+    rgb(var(--oui-color-warning)) 55%,
+    rgb(var(--oui-color-base-foreground))
+  );
+}
+
+.surface :global(.oui-bg-clip-text) {
+  background-image: linear-gradient(
+    to right,
+    color-mix(
+      in srgb,
+      rgb(var(--oui-gradient-brand-start)) 55%,
+      rgb(var(--oui-color-base-foreground))
+    ),
+    color-mix(
+      in srgb,
+      rgb(var(--oui-gradient-brand-end)) 55%,
+      rgb(var(--oui-color-base-foreground))
+    )
+  );
+}
+
+.surface :global(.oui-table-thead),
+.surface :global(.oui-table-thead-th) {
+  background-color: rgb(var(--oui-color-base-9));
+}
+
+.option :global(.oui-flex) {
+  min-block-size: var(--oui-space-12);
+  block-size: auto;
+  flex-wrap: wrap;
+  gap: var(--oui-space-2);
+}
+
+.popover [role="option"] {
+  min-block-size: var(--oui-space-12);
+}
+
+.surface :is(input:not([type="checkbox"]):not([type="radio"]), textarea) {
+  min-block-size: var(--oui-space-12);
+}
+
+.surface :global(.oui-text-trade-profit) {
+  color: color-mix(
+    in srgb,
+    rgb(var(--oui-color-trading-profit)) 55%,
+    rgb(var(--oui-color-base-foreground))
+  );
+}
+
+.surface :global(.oui-text-trade-loss) {
+  color: color-mix(
+    in srgb,
+    rgb(var(--oui-color-trading-loss)) 55%,
+    rgb(var(--oui-color-base-foreground))
+  );
+}

@@ -1,20 +1,14 @@
+import { ApiDialog } from "./apiDialog";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
-import {
-  Box,
-  CopyIcon,
-  Flex,
-  SimpleDialog,
-  Statistic,
-  Text,
-} from "@paxeer-network/ui";
+import { Box, CopyIcon, Flex, Statistic, Text } from "@paxeer-network/ui";
 import { ApiManagerScriptReturns } from "../apiManager.script";
 
 export const CreatedAPIKeyDialog: FC<ApiManagerScriptReturns> = (props) => {
   const ip = props.generateKey?.ip ?? "--";
   const { t } = useTranslation();
   return (
-    <SimpleDialog
+    <ApiDialog
       size="sm"
       open={props.showCreatedDialog}
       onOpenChange={(open) => {
@@ -25,8 +19,7 @@ export const CreatedAPIKeyDialog: FC<ApiManagerScriptReturns> = (props) => {
         primary: {
           label: t("common.ok"),
           "data-testid": "oui-testid-apiKey-createdApiKey-dialog-ok-btn",
-          className:
-            "oui-w-[120px] lg:oui-w-[154px] oui-bg-base-2 hover:oui-bg-base-3",
+          className: "oui-w-28 lg:oui-w-40 oui-bg-base-2 hover:oui-bg-base-3",
           size: "md",
           onClick: async () => {
             return props.doConfirm();
@@ -36,7 +29,7 @@ export const CreatedAPIKeyDialog: FC<ApiManagerScriptReturns> = (props) => {
           label: t("portfolio.apiKey.created.button.copyApiInfo"),
           "data-testid": "oui-testid-apiKey-createdApiKey-dialog-copy-btn",
           className:
-            "oui-w-[120px] lg:oui-w-[154px] oui-bg-primary-darken hover:oui-opacity-80",
+            "oui-w-28 lg:oui-w-40 oui-bg-primary-darken hover:oui-opacity-80",
           size: "md",
           onClick: async () => {
             return props.onCopyApiKeyInfo();
@@ -45,8 +38,7 @@ export const CreatedAPIKeyDialog: FC<ApiManagerScriptReturns> = (props) => {
       }}
       classNames={{
         footer: "oui-justify-center",
-        content:
-          "oui-bg-base-8 oui-w-[300px] lg:oui-w-[360px] oui-font-semibold",
+        content: "oui-bg-base-8 oui-w-72 lg:oui-w-96 oui-font-semibold",
         body: "oui-py-0 oui-pt-5",
       }}
     >
@@ -91,30 +83,32 @@ export const CreatedAPIKeyDialog: FC<ApiManagerScriptReturns> = (props) => {
         </Statistic>
         <Statistic label={t("portfolio.apiKey.ip")}>
           <Flex
-            width={320}
+            width="100%"
             gap={1}
             itemAlign={"center"}
             className="oui-text-base-contrast-80 oui-text-sm"
           >
-            <Box className="oui-max-h-[100px] oui-flex-1 oui-overflow-hidden oui-text-ellipsis oui-line-clamp-5 oui-break-all">
+            <Box className="oui-max-h-48 oui-min-w-0 oui-flex-1 oui-overflow-auto oui-break-all">
               {ip}
             </Box>
             {ip !== "--" && (
               <Box
-                width={16}
-                height={16}
+                width="var(--oui-space-12)"
+                height="var(--oui-space-12)"
                 className="oui-cursor-pointer oui-flex-shrink-0"
               >
-                <CopyIcon
-                  color="white"
-                  opacity={0.54}
-                  size={16}
+                <button
+                  type="button"
                   onClick={(e) => {
                     if (props.generateKey?.ip)
                       navigator.clipboard.writeText(props.generateKey?.ip);
                     props?.onCopyIP();
                   }}
-                />
+                  aria-label="Copy"
+                  className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+                >
+                  <CopyIcon color="inherit" opacity={0.54} size={16} />
+                </button>
               </Box>
             )}
           </Flex>
@@ -133,6 +127,6 @@ export const CreatedAPIKeyDialog: FC<ApiManagerScriptReturns> = (props) => {
           {t("portfolio.apiKey.created.warning")}
         </Text>
       </Flex>
-    </SimpleDialog>
+    </ApiDialog>
   );
 };

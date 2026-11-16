@@ -22,14 +22,14 @@ export const SwapIndicator: React.FC<{
     >
       <Flex itemAlign="center" justify="center" gap={1}>
         <Flex itemAlign="center" justify="center" gap={1}>
-          <TokenIcon className="oui-size-[18px]" name={sourceToken} />
+          <TokenIcon className="oui-size-4" name={sourceToken} />
           <Text weight="semibold" intensity={80} size="sm">
             {sourceToken}
           </Text>
         </Flex>
         <ArrowRightIcon className="oui-size-4" />
         <Flex itemAlign="center" justify="center" gap={1}>
-          <TokenIcon className="oui-size-[18px]" name={targetToken} />
+          <TokenIcon className="oui-size-4" name={targetToken} />
           <Text weight="semibold" intensity={80} size="sm">
             {targetToken}
           </Text>

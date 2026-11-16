@@ -31,22 +31,33 @@ export const PortfolioValueMobile: FC<Props> = (props) => {
       p={4}
     >
       <Flex direction="row" gapX={1} itemAlign={"center"}>
-        <Text className="oui-text-sm oui-text-primary-contrast/[0.54]">
+        <Text className="oui-text-sm oui-text-primary-contrast/80">
           {t("portfolio.overview.handle.title")}
         </Text>
-        <EyeIcon
-          size={16}
-          className={cn(
-            props.canTrade ? "oui-text-primary-contrast/[0.54]" : "oui-hidden",
-          )}
-          onClick={props.toggleVisible}
-        />
+        {props.canTrade && (
+          <button
+            type="button"
+            onClick={props.toggleVisible}
+            aria-label={
+              props.visible ? "Hide portfolio value" : "Show portfolio value"
+            }
+            aria-pressed={props.visible}
+            className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+          >
+            <EyeIcon
+              size={16}
+              className={cn(
+                props.canTrade ? "oui-text-primary-contrast/80" : "oui-hidden",
+              )}
+            />
+          </button>
+        )}
       </Flex>
       <Flex
         direction="row"
         gapX={1}
         itemAlign={"baseline"}
-        className="oui-mt-1"
+        className="oui-mt-1 oui-flex-wrap"
       >
         <Text.numeral
           visible={props.visible}
@@ -62,7 +73,7 @@ export const PortfolioValueMobile: FC<Props> = (props) => {
         direction="row"
         gapX={1}
         itemAlign={"center"}
-        className="oui-text-sm oui-text-primary-contrast"
+        className="oui-flex-wrap oui-text-sm oui-text-primary-contrast"
       >
         <Text.pnl visible={props.visible}>{props.unrealPnL ?? "--"}</Text.pnl>
         <Text.roi
@@ -74,21 +85,26 @@ export const PortfolioValueMobile: FC<Props> = (props) => {
           {props.unrealROI ?? "--"}
         </Text.roi>
       </Flex>
-      <div
-        className="oui-absolute oui-end-0 oui-top-0 oui-flex oui-h-full oui-items-center oui-justify-center oui-px-4"
+      <button
+        type="button"
+        aria-label={t("common.assets")}
         onClick={() =>
           props.routerAdapter?.onRouteChange({
             href: PortfolioLeftSidebarPath.Assets,
             name: "Assets",
           })
         }
+        className={[
+          "oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed",
+          "oui-ms-auto oui-mt-2 oui-flex oui-items-center oui-justify-center oui-px-4",
+        ].join(" ")}
       >
         <ArrowRightShortIcon
           size={18}
           opacity={0.99}
           className="oui-text-primary-contrast"
         />
-      </div>
+      </button>
     </Flex>
   );
 };

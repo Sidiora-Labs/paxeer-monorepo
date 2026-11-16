@@ -65,10 +65,10 @@ export const WoofiIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
     xmlns="http://www.w3.org/2000/svg"
     {...props}
   >
-    <rect width="24" height="24" rx="12" fill="#07080A" />
+    <rect width="24" height="24" rx="12" fill="rgb(var(--oui-color-base-10))" />
     <path
       d="M5.077 7.385h2.269l1.604 5.28c.106.348.196.73.196.73s.138-.413.28-.742l.885-2.052a1.8 1.8 0 0 1 .66-.782 1.81 1.81 0 0 1 1.974 0c.293.191.523.463.662.782l2.143 4.91v1.095h-1.402c-.235 0-.464-.07-.66-.2a1.17 1.17 0 0 1-.434-.53l-1.303-3.16-1.243 3.152a1.19 1.19 0 0 1-1.105.747h-.848c-.235 0-.465-.075-.654-.214a1.1 1.1 0 0 1-.4-.556z"
-      fill="#FEFEFE"
+      fill="rgb(var(--oui-color-base-foreground))"
     />
     <path d="m18.146 10.846 1.066-3.461h-2.396l-1.066 3.461z" fill="url(#a)" />
     <path
@@ -84,8 +84,8 @@ export const WoofiIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
         y2="7.455"
         gradientUnits="userSpaceOnUse"
       >
-        <stop stopColor="#59B0FE" />
-        <stop offset="1" stopColor="#26FEFE" />
+        <stop stopColor="rgb(var(--oui-gradient-brand-start))" />
+        <stop offset="1" stopColor="rgb(var(--oui-gradient-brand-end))" />
       </linearGradient>
       <linearGradient
         id="b"
@@ -95,8 +95,8 @@ export const WoofiIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
         y2="7.458"
         gradientUnits="userSpaceOnUse"
       >
-        <stop stopColor="#59B0FE" />
-        <stop offset="1" stopColor="#26FEFE" />
+        <stop stopColor="rgb(var(--oui-gradient-brand-start))" />
+        <stop offset="1" stopColor="rgb(var(--oui-gradient-brand-end))" />
       </linearGradient>
     </defs>
   </svg>

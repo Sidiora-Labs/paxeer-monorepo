@@ -1,3 +1,4 @@
+import styles from "../../../presentation.module.css";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { cn, Text, TokenIcon } from "@paxeer-network/ui";
@@ -17,12 +18,14 @@ export const LatestWithdrawUI: FC<LatestWithdrawUIProps> = (props) => {
   }
 
   return (
-    <div className="oui-mt-3 oui-flex oui-flex-col oui-gap-2">
-      <div className="oui-text-xs oui-font-normal oui-text-base-contrast-54">
+    <div
+      className={`${styles.surface} oui-mt-3 oui-flex oui-flex-col oui-gap-2`}
+    >
+      <div className="oui-text-xs oui-font-normal oui-text-base-contrast-80">
         {t("vaults.withdraw.latestWithdraw")}
       </div>
-      <div className="oui-h-[44px] oui-rounded-lg oui-border oui-border-line-12 oui-p-3">
-        <div className="oui-flex oui-items-center">
+      <div className="oui-min-h-12 oui-rounded-lg oui-border oui-border-line-12 oui-p-3">
+        <div className="oui-flex oui-flex-wrap oui-gap-y-2 oui-items-center">
           <div
             className={cn(
               "oui-me-1 oui-size-1 oui-rounded-full",

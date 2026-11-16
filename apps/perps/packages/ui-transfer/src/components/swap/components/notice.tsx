@@ -45,10 +45,10 @@ export const Notice: FC<NoticeProps> = (props) => {
           <Trans
             i18nKey="transfer.swapDeposit.crossSwap.notice"
             components={[
-              <Text
+              <button
+                type="button"
                 key="0"
-                className="oui-cursor-pointer"
-                color="primaryLight"
+                className="oui-min-h-12 oui-text-primary-light"
                 onClick={showChainSelect}
               />,
             ]}

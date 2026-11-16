@@ -8,10 +8,16 @@ type ExchangeDividerProps = {
 
 export const ExchangeDivider: FC<ExchangeDividerProps> = ({ icon }) => {
   return (
-    <Flex height={40} gapX={3}>
-      <Flex height={1} className="oui-flex-1 oui-bg-base-contrast-12"></Flex>
+    <Flex height="var(--oui-space-10)" gapX={3}>
+      <Flex
+        height="var(--oui-space-0)"
+        className="oui-flex-1 oui-bg-base-contrast-12"
+      ></Flex>
       {icon || <ArrowDownIcon className="oui-text-primary-light" />}
-      <Flex height={1} className="oui-flex-1 oui-bg-base-contrast-12"></Flex>
+      <Flex
+        height="var(--oui-space-0)"
+        className="oui-flex-1 oui-bg-base-contrast-12"
+      ></Flex>
     </Flex>
   );
 };

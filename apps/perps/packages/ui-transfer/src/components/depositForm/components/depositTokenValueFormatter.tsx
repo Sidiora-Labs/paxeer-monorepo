@@ -1,12 +1,6 @@
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
-import {
-  CaretDownIcon,
-  Flex,
-  Text,
-  TokenIcon,
-  Tips,
-} from "@paxeer-network/ui";
+import { CaretDownIcon, Flex, Text, TokenIcon, Tips } from "@paxeer-network/ui";
 
 type DepositTokenValueFormatterProps = {
   value: string;
@@ -20,7 +14,7 @@ export const DepositTokenValueFormatter: FC<
 
   const tipContent = (
     <Flex direction="column" itemAlign="start">
-      <Text size="2xs" weight="semibold" intensity={36}>
+      <Text size="2xs" weight="semibold" intensity={80}>
         {t("transfer.depositCap.tooltip")}
         <Text as="span" size="2xs" weight="semibold" intensity={80}>
           {value}.
@@ -40,22 +34,22 @@ export const DepositTokenValueFormatter: FC<
   return (
     <Flex direction="column" itemAlign="end" gapY={1}>
       <Flex gapX={1} itemAlign="center">
-        <TokenIcon name={value} className="oui-size-[16px]" />
-        <Text weight="semibold" intensity={54}>
+        <TokenIcon name={value} className="oui-size-4" />
+        <Text weight="semibold" intensity={80}>
           {value}
         </Text>
         <CaretDownIcon
           size={12}
-          className="oui-text-base-contrast-54"
+          className="oui-text-base-contrast-80"
           opacity={1}
         />
       </Flex>
-      <Flex itemAlign="center" className="oui-gap-[2px]">
+      <Flex itemAlign="center" className="oui-gap-0.5">
         <Text
           size="2xs"
-          intensity={36}
+          intensity={80}
           weight="regular"
-          className="oui-leading-[10px]"
+          className="oui-leading-normal"
         >
           {t("transfer.depositCap", "Deposit cap")}{" "}
           <Text.numeral
@@ -63,7 +57,7 @@ export const DepositTokenValueFormatter: FC<
             size="2xs"
             intensity={80}
             weight="regular"
-            className="oui-leading-[10px]"
+            className="oui-leading-normal"
             dp={0}
           >
             {userMaxQty ?? 0}

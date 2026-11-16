@@ -1,3 +1,5 @@
+import { withMarketTableControls } from "../shared/tableColumns";
+import styles from "../../presentation.module.css";
 import { FC, useState } from "react";
 import { DataTable, cn } from "@paxeer-network/ui";
 import { useFundingOverviewColumns } from "./columns";
@@ -15,12 +17,13 @@ export const MobileFundingOverview: FC<MobileFundingOverviewProps> = (
 
   return (
     <DataTable
-      columns={columns}
+      className={`${styles.surface} ${styles.table}`}
+      columns={withMarketTableControls(columns)}
       dataSource={dataSource}
       loading={isLoading}
       onRow={() => {
         return {
-          className: cn("oui-h-[34px] oui-cursor-pointer"),
+          className: cn("oui-h-8 oui-cursor-pointer"),
         };
       }}
       classNames={{

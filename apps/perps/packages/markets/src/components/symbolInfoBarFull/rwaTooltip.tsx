@@ -56,7 +56,11 @@ export const RwaTooltip = (props: RwaTooltipProps) => {
   }
 
   if (isMobile) {
-    return <button onClick={handleClick}>{triggerView}</button>;
+    return (
+      <button type="button" onClick={handleClick}>
+        {triggerView}
+      </button>
+    );
   }
 
   return (
@@ -67,6 +71,7 @@ export const RwaTooltip = (props: RwaTooltipProps) => {
       disableHoverableContent={false}
     >
       <button
+        type="button"
         onMouseEnter={() => {
           setIsOpen(true);
         }}
@@ -127,7 +132,7 @@ const Content = ({
     <Flex
       direction="column"
       gapY={1}
-      className="oui-text-2xs oui-max-w-[275px]"
+      className="oui-text-2xs oui-max-w-72"
       itemAlign="start"
       py={1}
     >
@@ -135,7 +140,7 @@ const Content = ({
         ? t("trading.rwa.tooltip.description.open")
         : t("trading.rwa.tooltip.description.close")}
 
-      <div className="oui-text-base-contrast-54">
+      <div className="oui-text-base-contrast-80">
         {timeInterval && (
           <Trans
             i18nKey={
@@ -194,7 +199,7 @@ const CountdownText: React.FC<React.PropsWithChildren> = (props) => {
       {days > 0 ? (
         <span>
           {daysStr}
-          <span className="oui-text-base-contrast-54 oui-me-1 oui-ms-[2px]">
+          <span className="oui-text-base-contrast-80 oui-me-1 oui-ms-0.5">
             {t("common.dayShort")}
           </span>
         </span>
