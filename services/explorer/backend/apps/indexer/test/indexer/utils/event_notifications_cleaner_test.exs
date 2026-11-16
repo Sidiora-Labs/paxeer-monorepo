@@ -21,9 +21,12 @@ defmodule Indexer.Utils.EventNotificationsCleanerTest do
 
   describe "start_link/1" do
     test "starts the GenServer with the given name" do
-      assert {:ok, pid} = EventNotificationsCleaner.start_link([])
+      pid = start_supervised!(EventNotificationsCleaner)
       assert Process.alive?(pid)
-      Process.exit(pid, :normal)
+      monitor = Process.monitor(pid)
+      assert :ok = stop_supervised(EventNotificationsCleaner)
+      assert_receive {:DOWN, ^monitor, :process, ^pid, :shutdown}
+      refute Process.alive?(pid)
     end
   end
 
@@ -43,8 +46,8 @@ defmodule Indexer.Utils.EventNotificationsCleanerTest do
       config = Application.get_env(:indexer, EventNotificationsCleaner)
       Application.put_env(:indexer, EventNotificationsCleaner, Keyword.put(config, :max_age, 1000))
 
-      assert {:ok, _pid} = EventNotificationsCleaner.start_link([])
-      Process.sleep(500)
+      pid = start_supervised!(EventNotificationsCleaner)
+      assert :sys.get_state(pid) == []
 
       # Verify only the old notification was deleted
       assert EventNotificationsRepo.aggregate(EventNotification, :count) == 1
@@ -68,8 +71,8 @@ defmodule Indexer.Utils.EventNotificationsCleanerTest do
       config = Application.get_env(:indexer, EventNotificationsCleaner)
       Application.put_env(:indexer, EventNotificationsCleaner, Keyword.put(config, :max_age, 1000))
 
-      assert {:ok, _pid} = EventNotificationsCleaner.start_link([])
-      Process.sleep(500)
+      pid = start_supervised!(EventNotificationsCleaner)
+      assert :sys.get_state(pid) == []
 
       # Verify only the new notification remains
       assert EventNotificationsRepo.aggregate(EventNotification, :count) == 1
@@ -88,8 +91,8 @@ defmodule Indexer.Utils.EventNotificationsCleanerTest do
       config = Application.get_env(:indexer, EventNotificationsCleaner)
       Application.put_env(:indexer, EventNotificationsCleaner, Keyword.put(config, :max_age, 1000))
 
-      assert {:ok, _pid} = EventNotificationsCleaner.start_link([])
-      Process.sleep(500)
+      pid = start_supervised!(EventNotificationsCleaner)
+      assert :sys.get_state(pid) == []
 
       # Verify all notifications still exist
       assert EventNotificationsRepo.aggregate(EventNotification, :count) == 3

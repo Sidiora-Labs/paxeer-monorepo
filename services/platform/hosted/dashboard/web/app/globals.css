@@ -78,6 +78,7 @@
 }
 
 .dashboard-tabs {
+  position: relative;
   display: flex;
   flex: none;
   align-items: stretch;
@@ -89,6 +90,15 @@
   padding: var(--space-2);
   border-radius: var(--radius-lg);
   background: var(--surface-sunken);
+}
+
+.dashboard-tabs::after {
+  content: "";
+  position: sticky;
+  inset-inline-end: 0;
+  flex: 0 0 var(--space-3);
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--surface-sunken));
 }
 
 .dashboard-tabs [role="tab"] {
@@ -253,6 +263,51 @@
 
 .dashboard-field input {
   font-size: var(--font-size-body);
+}
+
+.dashboard-no-quota,
+.dashboard-key-actions,
+.dashboard-secret,
+.dashboard-scope-option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.dashboard-no-quota {
+  justify-content: space-between;
+}
+
+.dashboard-scope-list {
+  display: grid;
+  gap: var(--space-2);
+  border: 0;
+  padding: 0;
+}
+
+.dashboard-scope-list legend {
+  margin-block-end: var(--space-2);
+  font-size: var(--font-size-label);
+  font-weight: var(--weight-semibold);
+}
+
+.dashboard-scope-option {
+  min-block-size: var(--touch-target);
+}
+
+.dashboard-scope-option input {
+  inline-size: var(--space-5);
+  block-size: var(--space-5);
+  accent-color: var(--accent);
+}
+
+.dashboard-secret code {
+  flex: 1 1 var(--space-summary);
+  overflow-wrap: anywhere;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
 }
 .dashboard-field p.dashboard-field-error {
   color: var(--destructive);

@@ -94,7 +94,7 @@ defmodule BlockScoutWeb.ReceiptAuthorityAndIdentityTest do
       assert {:ok, keys} = SequencerReceipt.decode_receipt_keys([CommittedEvidence.receipt_key()])
       options = CommittedEvidence.verification_options(settlement)
       mutated = mutate_settlement(settlement, unquote(mutation))
-      options = Keyword.put(options, :settlement, mutated)
+      options = Keyword.put(options, :receipt_inclusion, mutated)
 
       assert {:error, _step} =
                SequencerReceipt.verify(
@@ -145,9 +145,8 @@ defmodule BlockScoutWeb.ReceiptAuthorityAndIdentityTest do
         |> CommittedEvidence.replace_call("px_getSequenceBatch", invalid_batch)
 
       CommittedEvidence.serve_rpc(calls)
-      response = json_response(get(conn, receipt_path(settlement, unquote(route))), 200)
-      assert response["rung"] == "receipted"
-      refute response["committed_height"]
+      response = json_response(get(conn, receipt_path(settlement, unquote(route))), 404)
+      assert response == %{"message" => "Not found"}
       CommittedEvidence.assert_calls(calls)
     end
   end
@@ -301,8 +300,7 @@ defmodule BlockScoutWeb.ReceiptAuthorityAndIdentityTest do
                 changed = :binary.replace(bytes, "73700000", "73700001")
                 assert bytes != changed
 
-                {"block", params,
-                 put_in(result, ["block", "data", "txs"], [batch, Base.encode64(changed)])}
+                {"block", params, put_in(result, ["block", "data", "txs"], [batch, Base.encode64(changed)])}
 
               call ->
                 call
@@ -324,8 +322,7 @@ defmodule BlockScoutWeb.ReceiptAuthorityAndIdentityTest do
               {"block_results", params, result} ->
                 [batch, tx] = result["txs_results"]
 
-                {"block_results", params,
-                 Map.put(result, "txs_results", [batch, Map.put(tx, "gas_used", "1")])}
+                {"block_results", params, Map.put(result, "txs_results", [batch, Map.put(tx, "gas_used", "1")])}
 
               call ->
                 call
@@ -358,13 +355,7 @@ defmodule BlockScoutWeb.ReceiptAuthorityAndIdentityTest do
 
       CommittedEvidence.serve_rpc(calls)
 
-      if unquote(mutation) in ["successor-link", "successor-power"] do
-        assert %{"message" => "Not found"} =
-                 json_response(get(conn, receipt_path(settlement, unquote(route))), 404)
-      else
-        assert %{"rung" => "receipted"} =
-                 json_response(get(conn, receipt_path(settlement, unquote(route))), 200)
-      end
+      assert json_response(get(conn, receipt_path(settlement, unquote(route))), 404) == %{"message" => "Not found"}
 
       CommittedEvidence.assert_calls(calls)
     end

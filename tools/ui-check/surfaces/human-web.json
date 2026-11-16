@@ -1,0 +1,27 @@
+{
+  "name": "LayerX human web device list",
+  "directory": "../../../",
+  "build": "npm --prefix apps/web run build",
+  "start": "node tools/ui-check/surfaces/human-web/start.mjs",
+  "address": "http://127.0.0.1:3100",
+  "readyPath": "/",
+  "views": [
+    { "name": "settings-devices", "path": "/app/settings/devices" },
+    { "name": "settings-devices-empty", "path": "/app/settings/devices?state=empty" },
+    { "name": "settings-devices-error", "path": "/app/settings/devices?state=error" },
+    { "name": "security-devices", "path": "/app/security/devices" },
+    { "name": "security-devices-empty", "path": "/app/security/devices?state=empty" },
+    { "name": "security-devices-error", "path": "/app/security/devices?state=error" }
+  ],
+  "answers": [],
+  "typeScale": [
+    { "min": 9, "max": 10 },
+    { "min": 11, "max": 12 },
+    { "min": 13, "max": 14 },
+    { "min": 15, "max": 16 },
+    { "min": 16, "max": 18 },
+    { "min": 17, "max": 20 },
+    { "min": 20, "max": 24 },
+    { "min": 28, "max": 40 }
+  ]
+}

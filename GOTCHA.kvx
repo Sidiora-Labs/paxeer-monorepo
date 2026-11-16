@@ -22445,3 +22445,113 @@ fix = "Decision 3606. Task 22.39.692; the verifications of tasks 22.39.679 and 2
 title = "A class merge that is not told the names of a theme takes a font size of the theme for a colour"
 symptom = "The helper cn of a surface joins class names and lets the last of two classes of one kind stand. The merge library sorts a class with the prefix text- into the font sizes only for the sizes it knows, and every other name of that prefix counts as a colour. A theme that names font sizes of its own, such as text-body-sm, then loses the colour class that stands before the size class, or the size class that stands before the colour class, and a control keeps the colour of the text around it. The same holds for each other prefix a theme uses for two kinds of value, such as shadow- and border-. The helper in apps/bridge/src/lib/utils.ts tells the merge the font sizes of its theme."
 fix = "Decision 3607. Tasks 22.44.49 to 22.44.51."
+
+[gotcha.4525]
+title = "A surface that renders the components of a package shows what that package holds"
+symptom = "The developer dashboard under services/platform/hosted/dashboard/web renders the components of the interface package under apps/web/packages/layerx-ui, and its paths do not hold that package. A render check of the dashboard measures the controls of the package as the package gives them."
+fix = "Decision 3608. The order of tasks 22.44.44 and 22.44.40."
+
+[gotcha.4526]
+title = "Cases of the fast path state chain ids of chain names the product does not hold"
+symptom = "The chain id of the virtual machine comes from one table in modules/evm/config/config.go, which holds the chain name of the product, and every other chain name takes the default chain id. The package engine/deps/xevm/config reads that same table. The case TestGetChainID of engine/deps/xevm/keeper/keeper_test.go and cases of engine/deps/xevm/config/config_test.go state chain ids for chain names the table does not hold, and a verification that runs the package engine/deps/xevm/keeper whole holds the first of them."
+fix = "Decision 3609. Task 22.39.693; the verifications of tasks 22.39.679 and 22.39.689."
+
+[gotcha.4527]
+title = "The dashboard web lists the keys of a developer and the gateway issues them"
+symptom = "The gateway issues, lists, rotates and revokes the keys of a developer at /v1/keys for a caller whose session authorizes the signer: POST /v1/keys with an idempotency key header and the fields signer_public_key, scopes, quota_requests and quota_window_seconds, POST /v1/keys/ID/rotate, and DELETE /v1/keys/ID. The dashboard web keeps the session of the developer in a cookie the page cannot read, and its Keys view lists the keys the dashboard API returns. A control of the page reaches the gateway only through a route of the web that reads that cookie."
+fix = "Decision 3610. Task 22.39.694."
+
+[gotcha.4528]
+title = "Cases of the web app of the explorer backend call tools the builder holds"
+symptom = "The cases of the web app under services/explorer/backend/apps/block_scout_web/test/block_scout_web/features drive a browser against pages whose lists and controls are rendered by the scripts built from services/explorer/backend/apps/block_scout_web/assets. The cases of the sign-in by wallet call the native library of the sign-in message package that services/explorer/backend/apps/explorer/mix.exs names. The cases of contract verification call the compiler tools the script services/explorer/deploy/tools/mix-in-builder.sh checks for and the adapter services/explorer/backend/apps/explorer/lib/explorer/third_party_integrations/sourcify.ex. A run of these cases passes where the builder holds the built page assets, the native library and the compiler tools, and these lie outside the paths of a task of the app alone."
+fix = "Decision 3611. Task 22.39.695; the verification of task 22.39.686."
+
+[gotcha.4529]
+title = "The public role of the webhooks service is reached through the front of the hosting platform, which ends TLS"
+symptom = "The definition deploy/projects/platform/webhooks-public.kvx marks the service public, sets the TLS form of the listener on port 9444 and names the health listener on port 9442 as PORT. The front of the hosting platform ends TLS and passes plain HTTP to the port PORT names, so the public name of the service reaches the health listener, and the routes under /v1/webhooks are served by the other listener. The binary holds a plain form of the listener for the public role, and the init script services/platform/hosted/webhooks/env-init.sh selects the TLS form for both roles. The definitions of the gateway and of the dashboard API take the plain form."
+fix = "Decision 3612. Task 22.39.696."
+
+[gotcha.4530]
+title = "The build script of the types crate reads files of the repository root, and an image that copies chosen directories holds them"
+symptom = "The build script services/agent/crates/layerx-types/build.rs reads include/layerx/lxp_result.h, include/layerx/programs.h and spec/layerx-merge/contracts/address-table.md. The build stages of docker/platform-webhooks/Dockerfile and docker/platform-core/Dockerfile copy the directories services and programs and then build a binary whose crates depend on the types crate. The image of the gateway copies the whole context. A build stage that copies chosen directories copies each file a build script of its crates reads."
+fix = "Decision 3613. Task 22.39.697."
+
+[gotcha.4531]
+title = "The receipt verifier of the webhooks ingress and the consensus route of the node front name the consensus calls each on its own"
+symptom = "The receipt verifier in services/platform/hosted/webhooks/src/trusted.rs posts to its consensus origin the calls status, commit with a height, block with a height, and a proved abci_query for the path /store/sequencer/key with the key 0x03. A consensus origin given with a path is addressed at that path. The consensus route of the node front in services/platform/hosted/paxeer/src/comet.rs admits status, commit, validators and a proved abci_query for /store/evm/key and for two key forms of /store/lxphost/key. The definition deploy/projects/platform/paxeer-boundary.kvx names no consensus origin for the node front. A reader and the front it reads through name the same calls."
+fix = "Decision 3614. Task 22.39.698."
+
+[gotcha.4532]
+title = "The key routes of the gateway derive a key from a provisioning key, and the keys view of the dashboard web signs with the browser key of the session"
+symptom = "The gateway in services/platform/hosted/gateway/src/main.rs issues and rotates a developer key only with the setting LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE, a file of 64 hexadecimal characters, and answers a key request without it as an unavailable identity backend. The file table docker/platform-gateway/files.tsv holds the row ENDPOINT_KEY_PROVISIONING_KEY for that file. The definition deploy/projects/platform/gateway.kvx selects the file table docker/platform-gateway/native-files.tsv, which holds no such row, and names neither the setting nor an input for it. The shell of the dashboard web in services/platform/hosted/dashboard/web/app/dashboard-client.tsx reads the state of the browser key once when it is mounted and passes it to the keys view, while the sign-in view creates the browser key later. A view that offers a control and the settings and state the control needs are stated together."
+fix = "Decision 3615. Tasks 22.39.699 and 22.39.700."
+
+[gotcha.4533]
+title = "The render check measures boxes, and a state of a surface holds text for assistive technology, rows that scroll, panels and answers of refusal"
+symptom = "The command of tools/ui-check counts for the kind sideways every element with a box that passes a side of the viewport, for the kind focus every focused element with a part of its box outside the viewport, and for the kind load every response with a status from 400 on with the console line the browser writes for it. A surface holds text kept for assistive technology in a box clipped to nothing, rows that scroll sideways inside their own box, focusable panels taller than a phone, views whose state is an answer of refusal such as a sign-in view, and controls that write to the clipboard. The measurement of a kind states what a person meets, and a state that is an answer of refusal is declared with that answer."
+fix = "Decision 3616. Task 22.44.52."
+
+[gotcha.4534]
+title = "A row that scrolls sideways and a row of a list have a form the render check does not measure"
+symptom = "The tab row of the developer dashboard under services/platform/hosted/dashboard/web holds five tabs and scrolls sideways at a width that does not hold them. A row of the key list holds the id of the key, its quota line, the two actions or the mark of a revoked key, and the remaining count. The render check measures boxes, contrast, touch sizes and shifts. It does not tell whether a person sees that a row continues past the edge, whether the parts of a row sit on one line and end at the edge of their card, or whether a caption states something that still holds."
+fix = "Decision 3617. Task 22.44.44; tasks 22.44.38, 22.44.39, 22.44.40 and 22.44.44 require task 22.44.52."
+
+[gotcha.4535]
+title = "A page that listens for the unload event and a page that logs its error state report the kind load"
+symptom = "The page of apps/inference-peer registers its leave for three events in apps/inference-peer/src/page.mjs: pagehide, beforeunload and unload. A browser refuses the unload listener of a document by its permissions policy and writes a console line, and a page with an unload listener is kept out of the back and forward cache. The codebase map in tools/codebase-map/app.js shows a map it cannot read as an error state on the page and also writes the error to the console. The render check reports a console error as the kind load, and the paths of task 22.44.47 held the two documents and not these two scripts."
+fix = "Decision 3618. Task 22.44.47."
+
+[gotcha.4536]
+title = "The webhooks ingress joins the path of an origin with a slash, and the node front serves its consensus route at one exact path"
+symptom = "The node front in services/platform/hosted/paxeer/src/main.rs answers consensus calls at the path /comet and no other. The webhooks ingress in services/platform/hosted/webhooks/src/trusted.rs posts each node call and each consensus call with the request path of a single slash, and services/platform/hosted/webhooks/src/boundary.rs joins the path of the origin with that request path, so an origin that ends in /comet is addressed at /comet followed by a slash. The case of services/platform/hosted/webhooks/tests/verifier_consensus_calls.rs states the joined path with the slash, and its stand-in answers at any path."
+fix = "Decision 3619. Task 22.39.701."
+
+[gotcha.4537]
+title = "The keyboard measurement of the render check does not follow an open modal dialog"
+symptom = "A dialog opened as a modal makes every element outside it inert without the inert attribute and moves the focus to a control inside it. The list of elements the kind focus expects in tools/ui-check/browser.mjs leaves out only the elements under the inert attribute, so the controls behind the dialog are expected and the traversal cannot reach them. The appearance before focus is recorded after the focus is moved to the body, and the body of a document with an open modal dialog does not take the focus, so the control that holds the focus is recorded in its focused appearance and shows no change when the traversal comes to it."
+fix = "Decision 3620. Task 22.44.53."
+
+[gotcha.4538]
+title = "A state of a surface that receives a refusal by design is declared in the surface file"
+symptom = "A state of a surface under tools/ui-check/surfaces may show what the page does with an answer of refusal: a failed sign-in, an ended session, an account that is not there. The render check reports each answer with a status from 400 on under the kind load unless the state declares it in the field expects. Files of a surface that answer such a request with another status, or that alter a node the framework renders, change what the render shows."
+fix = "Decision 3621. Task 22.44.42."
+
+[gotcha.4539]
+title = "A view that draws nothing passes every measurement of the render check"
+symptom = "The measurements of tools/ui-check/browser.mjs go over the visible elements of a page. A page that answers with status 200 and draws nothing has no visible element, so no measurement reports it, and a run over such views ends with no finding while every screenshot holds a single colour. A page whose tree is drawn below a layer that covers the viewport gives the same screenshots."
+fix = "Decision 3622. Task 22.44.54."
+
+[gotcha.4540]
+title = "The type check of the trading workspace reads the built output of a package of the workspace"
+symptom = "The web application under apps/perps/apps/web imports the market data client under apps/perps/packages/chainflow through its built output. The type check script of apps/perps/package.json checks the web application, and task 22.39.674 gives that script the build of the packages the web application imports. A task whose build command runs the type check after an install takes the script in the form task 22.39.674 gives it."
+fix = "Decision 3623. Tasks 22.39.567 and 22.39.674."
+
+[gotcha.4541]
+title = "The device list of a proof task is the list of sizes of the render check"
+symptom = "A proof task of the series closes a surface on the device list: the sizes, schemes and modes tools/ui-check/README.md names. The views of a surface file are the routes of its application. The human web application under apps/web/src/app holds a page file for each route, among them routes with a parameter, and the surface file tools/ui-check/surfaces/human-web.json names its views by route."
+fix = "Decision 3624. Tasks 22.44.55, 22.44.38 and 22.44.39."
+
+[gotcha.4542]
+title = "The container check without a service name checks the layout of the whole repository"
+symptom = "The script tools/containers/check.sh takes service names and then checks only the rows of those services. Without a name it checks every row of its table, every tracked recipe outside the directory docker against its list of recipes that stay where they are, every reference to the recipe at the root and the inputs of every recipe from the context of its row. The recipe apps/perps/Dockerfile is a line of that list and has no service name. A task that adds one image and verifies with the script without a name answers for every image of the repository."
+fix = "Decision 3625. Task 22.39.703; the verification of task 22.39.564."
+
+[gotcha.4543]
+title = "The health route of the webhooks service is its readiness"
+symptom = "The webhooks service answers GET /healthz with 200 only when it is ready and with 503 otherwise, on the health listener and on the application listener. The ingress role is ready when its node and consensus calls pass and each of the four event sources answers ready, and an event source without an enrolled principal answers 503 with the state waiting-principals. The service has no route that states only that the process serves. A hosting platform that admits a deployment by one health path reads readiness there."
+fix = "Decision 3626. Task 22.39.702."
+
+[gotcha.4544]
+title = "A look at renders names details that the measurements of the render check do not state"
+symptom = "The render check measures sizes, overflow, contrast, the type scale and, in its keyboard pass, for each element that takes focus a change of its appearance and of the pixels of the view. The form of a small mark, such as the mark beside the status text of the names shell, is seen only in the image: two strokes with square ends read as a tick at the size of a line of text. The link that skips to the content is the first element of a keyboard pass, and its change with focus is read like that of every other control."
+fix = "Decision 3627. Tasks 22.44.56 and 22.44.57."
+
+[gotcha.4545]
+title = "The error widgets of the trading workspace name three modules of their directory"
+symptom = "The files ErrorToast.tsx and index.ts under apps/perps/packages/paxeer-backend/src/widgets/errors import the modules ErrorPanel, ReportFeedbackModal and ToastActionBridge of the same directory. A reader that loads the collateral modal or the global error handling of the package loads the error widgets and with them these modules. A case of another package that starts a case of the workspace, such as the parity case of the perps precompile, loads them too."
+fix = "Decision 3628. Task 22.39.704."
+
+[gotcha.4546]
+title = "The render check renders one render after the other, and its calls to a page have no limit of time"
+symptom = "The function checkSurface of tools/ui-check/check.mjs renders the views of a surface one after the other, each view and each state in the thirty-four configurations of the matrix of tools/ui-check/config.mjs. The calls that measure a page wait for the page without a limit of time, so the time of a check has no bound. Twelve of the configurations are the modes reduced-motion, double-text and keyboard, and the keyboard mode presses Tab through every control of the page. The time of a check grows with the count of views, the configurations and the controls of each page."
+fix = "Decision 3629. Task 22.44.58; task 22.44.48."

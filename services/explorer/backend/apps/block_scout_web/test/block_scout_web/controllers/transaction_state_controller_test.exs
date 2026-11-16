@@ -250,7 +250,14 @@ defmodule BlockScoutWeb.TransactionStateControllerTest do
       full_text = Enum.join(items)
 
       assert(length(items) == 3)
-      assert(String.contains?(full_text, format_wei_value(Wei.zero(), :ether)))
+      refute String.contains?(full_text, format_wei_value(Wei.zero(), :ether))
+
+      for item <- items do
+        assert item
+               |> Floki.parse_fragment!()
+               |> Floki.find("td:nth-child(3), td:nth-child(4)")
+               |> Enum.map(&(Floki.text(&1) |> String.trim())) == ["", ""]
+      end
 
       1 |> :timer.seconds() |> :timer.sleep()
       conn = get(conn, transaction_state_path(conn, :index, transaction), %{type: "JSON"})

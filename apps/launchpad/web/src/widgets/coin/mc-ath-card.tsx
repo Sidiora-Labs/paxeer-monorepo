@@ -22,7 +22,7 @@ export default function McAthCard({ poolAddress, liveStats }: { poolAddress: str
   return (
     <section aria-labelledby="mc-ath-title" className="flex flex-col gap-1.5 rounded-md bg-surface-1 px-3 py-2.5">
       <h2 id="mc-ath-title" className="sr-only">Market cap vs ATH</h2>
-      <dl className="flex items-center gap-3 text-xs">
+      <dl className="flex flex-wrap items-center gap-3 text-xs">
         <div className="flex shrink-0 items-baseline gap-1">
           <dt className="text-text-faint">MC</dt>
           <dd data-numeric className={`text-sm font-bold tabular-nums ${mcap ? 'text-text' : 'text-text-faint'}`} aria-busy={loading || undefined}>

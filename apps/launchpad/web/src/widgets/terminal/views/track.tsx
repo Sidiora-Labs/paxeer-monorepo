@@ -1,5 +1,6 @@
 'use client';
 
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
@@ -110,7 +111,7 @@ export function trackRows(page: FollowingPage, identities: Readonly<Record<strin
 
 function FollowCounts({ wallet }: { wallet: string }) {
   const stats = useFollowStats(wallet);
-  if (stats.state === 'loading') return <Skeleton width={96} height={12} />;
+  if (stats.state === 'loading') return <Skeleton width={surfaceSpacing(24)} height={surfaceSpacing(3)} />;
   if (stats.state !== 'ready') return <span className="text-xs text-text-faint" title={stats.state === 'unsupported' ? 'Follow counts are not available yet' : userFacingMessage(stats.error)} data-operation={stats.state === 'unsupported' ? technicalDetail(stats.operation, stats.status) ?? undefined : undefined}>Follow counts not available yet</span>;
   return (
     <span data-numeric className="text-xs tabular-nums text-text-muted">
@@ -124,7 +125,7 @@ function FollowCounts({ wallet }: { wallet: string }) {
 function TrackRowItem({ row }: { row: TrackRow }) {
   return (
     <li className="relative flex h-11 items-center gap-3 bg-surface-1 px-3 transition-colors duration-fast hover:bg-surface-hover">
-      <Link href={row.href} aria-label={`Open profile of ${row.label}`} className="absolute inset-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus" />
+      <Link href={row.href} aria-label={`Open profile of ${row.label}`} className="absolute inset-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-[calc(var(--sl-focus-offset)*-1)] focus-visible:outline-focus" />
       <Avatar src={row.avatarUrl} name={row.label} size="md" decorative />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-sm font-bold text-text">{row.label}</span>

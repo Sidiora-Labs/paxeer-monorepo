@@ -2,16 +2,18 @@
 # Init of one webhooks service on Railway (services/platform/hosted/webhooks/railway.env.example),
 # run as root after layerx-env-files has written the role's files under /run/layerx.
 # LAYERX_ROLE selects the role:
-# public serves only the developer API, private TLS on [::]:9444 behind the
-# unified endpoint, and reads only the developer identity token of the role credentials.
+# public serves only the developer API, either with private TLS on [::]:9444
+# behind the unified endpoint or as plain HTTP on the front's listener, and
+# reads only the developer identity token of the role credentials.
 # ingress serves only the internal producer and operator routes, TLS on
 # LAYERX_WEBHOOKS_LISTEN (default [::]:9443) with the certificate of the developer
 # row of tools/bringup/ca.sh, requiring an internal-CA client leaf with a webhook
 # role URI SAN, and reads the trigger, operator, source, receipt and sequencer
-# credentials. Both roles answer GET /healthz in plain HTTP on LAYERX_HEALTH_ADDR,
-# else on [::]:$PORT when PORT is set, else on [::]:9442 (public) or [::]:8080
-# (ingress). Each replica is its own delivery instance, named by RAILWAY_REPLICA_ID
-# or the hostname, and the service runs as uid 65532.
+# credentials. The TLS form answers GET /healthz on LAYERX_HEALTH_ADDR, else on
+# [::]:$PORT when PORT is set, else on [::]:9442 (public) or [::]:8080 (ingress);
+# the plain public form answers it on the application listener. Each replica is
+# its own delivery instance, named by RAILWAY_REPLICA_ID or the hostname, and
+# the service runs as uid 65532.
 set -eu
 [ "$#" -eq 0 ] || {
 	echo "usage: LAYERX_ROLE=public|ingress webhooks-env-init" >&2
@@ -34,11 +36,31 @@ health() {
 }
 case "${LAYERX_ROLE:-}" in
 public)
-	export LAYERX_WEBHOOKS_ROLE=public LAYERX_WEBHOOKS_LISTENER=tls LAYERX_WEBHOOKS_LISTEN="${LAYERX_WEBHOOKS_LISTEN:-[::]:9444}" \
-		LAYERX_WEBHOOKS_HEALTH_LISTEN="$(health "[::]:9442")" \
-		LAYERX_WEBHOOKS_TLS_CERT_DER=/run/layerx/tls/server.der \
-		LAYERX_WEBHOOKS_TLS_KEY_DER=/run/layerx/tls/server-key.der \
-		LAYERX_WEBHOOKS_IDENTITY_TOKEN_FILE=/run/layerx/tokens/identity
+	case "${LAYERX_WEBHOOKS_LISTENER:-tls}" in
+	tls)
+		export LAYERX_WEBHOOKS_ROLE=public LAYERX_WEBHOOKS_LISTENER=tls LAYERX_WEBHOOKS_LISTEN="${LAYERX_WEBHOOKS_LISTEN:-[::]:9444}" \
+			LAYERX_WEBHOOKS_HEALTH_LISTEN="$(health "[::]:9442")" \
+			LAYERX_WEBHOOKS_TLS_CERT_DER=/run/layerx/tls/server.der \
+			LAYERX_WEBHOOKS_TLS_KEY_DER=/run/layerx/tls/server-key.der \
+			LAYERX_WEBHOOKS_IDENTITY_TOKEN_FILE=/run/layerx/tokens/identity
+		;;
+	plain)
+		if [ -n "${LAYERX_WEBHOOKS_LISTEN:-}" ]; then
+			listen="$LAYERX_WEBHOOKS_LISTEN"
+		elif [ -n "${PORT:-}" ]; then
+			listen="[::]:$PORT"
+		else
+			listen="[::]:9444"
+		fi
+		unset LAYERX_HEALTH_ADDR LAYERX_WEBHOOKS_HEALTH_LISTEN LAYERX_WEBHOOKS_TLS_CERT_DER LAYERX_WEBHOOKS_TLS_KEY_DER
+		export LAYERX_WEBHOOKS_ROLE=public LAYERX_WEBHOOKS_LISTENER=plain LAYERX_WEBHOOKS_LISTEN="$listen" \
+			LAYERX_WEBHOOKS_IDENTITY_TOKEN_FILE=/run/layerx/tokens/identity
+		;;
+	*)
+		echo "webhooks-env-init: LAYERX_WEBHOOKS_LISTENER must be tls or plain" >&2
+		exit 2
+		;;
+	esac
 	;;
 ingress)
 	export LAYERX_WEBHOOKS_ROLE=ingress LAYERX_WEBHOOKS_LISTENER=tls LAYERX_WEBHOOKS_LISTEN="${LAYERX_WEBHOOKS_LISTEN:-[::]:9443}" \

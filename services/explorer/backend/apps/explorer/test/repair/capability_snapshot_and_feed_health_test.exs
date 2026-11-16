@@ -74,6 +74,8 @@ defmodule Explorer.Repair.CapabilitySnapshotAndFeedHealthTest do
   end
 
   setup do
+    LastFetchedCounter.delete(@success_counter)
+
     keys = [
       {:explorer, :json_rpc_named_arguments},
       {:explorer, Capabilities},

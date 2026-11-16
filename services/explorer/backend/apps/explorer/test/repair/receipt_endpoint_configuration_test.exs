@@ -29,10 +29,12 @@ defmodule Explorer.ReceiptEndpointConfigurationTest do
 
   setup do
     original_env = Map.new(@endpoint_env, &{&1, System.get_env(&1)})
+    original_bucket_folder = System.get_env("NFT_MEDIA_HANDLER_BUCKET_FOLDER")
     original_receipts = Application.fetch_env(:explorer, SequencerReceipt)
     original_adapter = Application.fetch_env(:tesla, :adapter)
 
     Enum.each(@endpoint_env, &System.delete_env/1)
+    System.put_env("NFT_MEDIA_HANDLER_BUCKET_FOLDER", "test")
     Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
     {:ok, _} = Application.ensure_all_started(:plug_cowboy)
 
@@ -41,6 +43,10 @@ defmodule Explorer.ReceiptEndpointConfigurationTest do
         {key, nil} -> System.delete_env(key)
         {key, value} -> System.put_env(key, value)
       end)
+
+      if original_bucket_folder,
+        do: System.put_env("NFT_MEDIA_HANDLER_BUCKET_FOLDER", original_bucket_folder),
+        else: System.delete_env("NFT_MEDIA_HANDLER_BUCKET_FOLDER")
 
       case original_receipts do
         {:ok, config} -> Application.put_env(:explorer, SequencerReceipt, config)

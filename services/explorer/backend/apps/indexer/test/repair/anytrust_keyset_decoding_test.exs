@@ -33,11 +33,15 @@ defmodule Indexer.AnytrustKeysetDecodingTest do
   @block 15_016_829
 
   setup do
-    :ok = SQL.Sandbox.checkout(Repo)
-    SQL.Sandbox.mode(Repo, {:shared, self()})
+    original_repo = Repo.get_dynamic_repo()
+    repo = start_supervised!({Repo, name: nil, pool_size: 1})
+    Repo.put_dynamic_repo(repo)
+    on_exit(fn -> Repo.put_dynamic_repo(original_repo) end)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(repo)
+    :ok = Ecto.Adapters.SQL.Sandbox.mode(repo, {:shared, self()})
 
     # Match AddDaInfo's schema in a transaction-local table on every chain type.
-    SQL.query!(Repo, """
+    SQL.query!(repo, """
     CREATE TEMPORARY TABLE arbitrum_da_multi_purpose (
       data_key bytea PRIMARY KEY NOT NULL,
       data_type integer NOT NULL,
@@ -343,4 +347,3 @@ defmodule Indexer.AnytrustKeysetDecodingTest do
 
   defp hex(bytes), do: "0x" <> Base.encode16(bytes, case: :lower)
 end
-

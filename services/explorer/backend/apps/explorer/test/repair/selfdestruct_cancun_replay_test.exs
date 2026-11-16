@@ -26,6 +26,7 @@ defmodule Explorer.Repair.SelfdestructCancunReplayTest do
 
   alias Ecto.Multi
   alias Explorer.Chain.{Address, Block, Data, Hash, Import, InternalTransaction, PendingBlockOperation}
+  alias Explorer.Chain.Cache.BlockNumber
   alias Explorer.Chain.Import.Runner.InternalTransactions
 
   @runtime "33ff"
@@ -33,6 +34,10 @@ defmodule Explorer.Repair.SelfdestructCancunReplayTest do
   @moduletag timeout: 120_000
 
   setup context do
+    replace_env(:explorer, BlockNumber, enabled: false)
+    Supervisor.terminate_child(Explorer.Supervisor, BlockNumber.child_id())
+    Supervisor.restart_child(Explorer.Supervisor, BlockNumber.child_id())
+
     node = fixture_node(Map.get(context, :fork, :cancun))
     replace_env(:explorer, :json_rpc_named_arguments, node.arguments)
     replace_env(:indexer, :json_rpc_named_arguments, node.arguments)

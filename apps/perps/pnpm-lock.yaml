@@ -19,6 +19,9 @@ importers:
       '@playwright/test':
         specifier: ^1.56.0
         version: 1.64.1
+      '@tanstack/react-query':
+        specifier: ^5.90.21
+        version: 5.104.3(react@18.3.1)
       '@types/lodash':
         specifier: ^4.17.7
         version: 4.17.26
@@ -46,12 +49,21 @@ importers:
       jiti:
         specifier: 1.21.7
         version: 1.21.7
+      next:
+        specifier: 15.5.27
+        version: 15.5.27(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.64.1)(@types/node@22.20.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       postcss:
         specifier: ^8.5.26
         version: 8.5.30
       prettier:
         specifier: 3.8.1
         version: 3.8.1
+      react:
+        specifier: 18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: 18.3.1
+        version: 18.3.1(react@18.3.1)
       tailwindcss:
         specifier: 3.4.19
         version: 3.4.19(tsx@4.23.15)(yaml@2.9.0)

@@ -165,7 +165,13 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.Repair2233416Evidence do
 
   def restart_endpoint do
     original = Application.fetch_env(:block_scout_web, BlockScoutWeb.Endpoint)
-    on_exit(fn -> restore_env(:block_scout_web, BlockScoutWeb.Endpoint, original) end)
+
+    on_exit(fn ->
+      restore_env(:block_scout_web, BlockScoutWeb.Endpoint, original)
+      assert :ok = Supervisor.terminate_child(BlockScoutWeb.Supervisor, BlockScoutWeb.Endpoint)
+      assert {:ok, _pid} = Supervisor.restart_child(BlockScoutWeb.Supervisor, BlockScoutWeb.Endpoint)
+    end)
+
     {:ok, config} = original
     http = config |> Keyword.fetch!(:http) |> Keyword.put(:port, 0)
     Application.put_env(:block_scout_web, BlockScoutWeb.Endpoint, Keyword.put(config, :http, http))

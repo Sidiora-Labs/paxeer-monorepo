@@ -274,7 +274,7 @@ service address, and `LAYERX_GATEWAY_TENANT` from the operator input
 `PLATFORM_GATEWAY_LAYERX_GATEWAY_TENANT` with the tenant format above.
 
 The [native file table](../../docker/platform-gateway/native-files.tsv) selects
-four additional rows for this role, each with mode `0600`. The project reads
+five additional rows for this role, each with mode `0600`. The project reads
 each file input from a launch input named `PLATFORM_GATEWAY_` followed by the
 file input name. The image stages the files for the gateway's runtime user.
 
@@ -282,10 +282,16 @@ file input name. The image stages the files for the gateway's runtime user.
 | --- | --- | --- | --- |
 | `ENDPOINT_IDENTITY_TOKEN` | `/run/secrets/identity-token` | `LAYERX_GATEWAY_IDENTITY_TOKEN_FILE` | `operator`: base64 of token text issued by the identity service |
 | `ENDPOINT_IDENTITY_PROVISIONING_TOKEN` | `/run/secrets/identity-provisioning-token` | `LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE` | `operator`: base64 of provisioning token text issued by identity |
+| `ENDPOINT_KEY_PROVISIONING_KEY` | `/run/secrets/key-provisioning-key` | `LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE` | `generated`: base64 of 64 hexadecimal characters, generated once and equal on every replica |
 | `ENDPOINT_CLIENT_P12` | `/run/secrets/client.p12` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12` | `generated`: base64 PKCS#12 bundle written by the launcher |
 | `ENDPOINT_CLIENT_PASSWORD` | `/run/secrets/client-password` | `LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE` | `generated`: base64 client password written by the launcher |
 
-The role selects eight rows including the four `*` rows for outbound CA,
+The key issuance and rotation routes require the key provisioning key. The
+platform project definition holds it as the generated input
+`PLATFORM_GATEWAY_ENDPOINT_KEY_PROVISIONING_KEY`: base64 of 64 hexadecimal
+characters, generated once and equal on every replica.
+
+The role selects nine rows including the four `*` rows for outbound CA,
 Redis username, Redis password and receipt keys. A native start without the
 role and identity settings selects only those four chain files and serves
 the chain methods; `px_register` and `px_openSession` answer
@@ -311,8 +317,16 @@ replicas; do not clear that state to recover an uncertain operation.
 | `gateway:pending` | Pending operation references |
 | `gateway:activity:{id}`, `gateway:activity-operation:{id}` | Activity owner and operation pointer |
 | `gateway:audit`, `gateway:audit:head` | Hash-chained audit stream and head |
+| `gateway:principal:{digest}:audit` | Gateway-written principal audit stream with the common stream's IDs and fields; the dashboard reads absent entries and an absent version as empty history |
+| `gateway:principal:{digest}:audit:version` | Gateway-written index version `1`; other versions and entries without a version are refused by the dashboard |
+| `gateway:audit:principal-index:cursor` | Durable position for background recovery in pages of at most 256 common audit entries |
 | `gateway:tap:nonce:{scope}`, `gateway:tap:binding:{digest}` | TAP replay protection and credential binding |
 | `gateway:events:*` | Durable event outbox, observations and sequence tracking |
+
+The gateway writes each principal audit entry and version in the same script
+as the common audit entry. At startup it recovers principal indexes in the
+background from the stored cursor without delaying serving. Recovery reports
+its stage on failure and leaves serving available.
 
 Stored continuations are bounded at 2 MiB in at most 16 chunks. The presence
 of operation storage does not make the removed public submission routes

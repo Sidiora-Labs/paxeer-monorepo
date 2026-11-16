@@ -38,7 +38,7 @@ export function PositionsTable({ positions, token, symbol }: PositionsTableProps
   const decimals = token.decimalsQuality === 'verified' ? token.decimals : null;
   return (
     <div role="region" aria-label="Positions table" tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
-      <table aria-label="Your positions in this pair" className="w-full min-w-[36rem] text-xs [&_td]:whitespace-nowrap [&_td]:px-3">
+      <table aria-label="Your positions in this pair" className="w-full min-w-144 text-xs [&_td]:whitespace-nowrap [&_td]:px-3">
         <thead className="bg-surface-1">
           <tr>
             <SortHeader className="h-6" label="Token" />

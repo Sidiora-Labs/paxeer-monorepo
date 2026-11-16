@@ -1,0 +1,44 @@
+[manifest]
+task = "22.44.12"
+surface = "The perps interface package and trading workspace global style"
+
+[guide.tokens]
+id = "web-platform/design-tokens"
+directories = ["apps/perps/packages/ui/src/tailwind", "apps/perps/apps/web/src/styles"]
+
+[guide.global-style]
+id = "web-platform/global-style"
+directories = ["apps/perps/packages/ui/src/tailwind", "apps/perps/apps/web/src/styles"]
+
+[guide.interaction-states]
+id = "web-platform/interaction-states"
+directories = ["apps/perps/packages/ui", "apps/perps/packages/storybook-theme-tool"]
+
+[guide.storybook-theme]
+id = "web-platform/theme-customization"
+directories = ["apps/perps/packages/storybook-theme-tool"]
+
+[view.trade]
+route = "/trade"
+widths = [390, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.trade-grid]
+route = "/trade/grid"
+widths = [390, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.markets]
+route = "/markets"
+widths = [390, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.portfolio]
+route = "/portfolio"
+widths = [390, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.portfolio-history]
+route = "/portfolio/history"
+widths = [390, 768, 1440]
+schemes = ["light", "dark"]

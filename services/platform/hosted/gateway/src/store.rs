@@ -272,16 +272,19 @@ impl RedisStore {
         valid_key_quota(record)?;
         let key = format!("gateway:key:{}", record.key_id);
         let principal_keys = format!("gateway:principal:{}:keys", record.principal_digest);
+        let (principal_audit, principal_version) = principal_audit_keys(audit_event);
         for _ in 0..AUDIT_ATTEMPTS {
             let (head, chain) = self.audit_values(audit_event)?;
             let response = self.command(&[
                 "EVAL",
                 ISSUE_SCRIPT,
-                "4",
+                "6",
                 &key,
                 &principal_keys,
                 "gateway:audit",
                 "gateway:audit:head",
+                &principal_audit,
+                &principal_version,
                 &record.key_id,
                 &record.principal_digest,
                 &record.salt,
@@ -391,17 +394,20 @@ impl RedisStore {
         let old_key = format!("gateway:key:{}", old.key_id);
         let new_key = format!("gateway:key:{}", replacement.key_id);
         let principal_keys = format!("gateway:principal:{}:keys", old.principal_digest);
+        let (principal_audit, principal_version) = principal_audit_keys(audit_event);
         for _ in 0..AUDIT_ATTEMPTS {
             let (head, chain) = self.audit_values(audit_event)?;
             let response = self.command(&[
                 "EVAL",
                 ROTATE_SCRIPT,
-                "5",
+                "7",
                 &old_key,
                 &new_key,
                 &principal_keys,
                 "gateway:audit",
                 "gateway:audit:head",
+                &principal_audit,
+                &principal_version,
                 &old.principal_digest,
                 &old.epoch.to_string(),
                 &replacement.key_id,
@@ -440,15 +446,18 @@ impl RedisStore {
         audit_event: &str,
     ) -> Result<bool, String> {
         let key = format!("gateway:key:{key_id}");
+        let (principal_audit, principal_version) = principal_audit_keys(audit_event);
         for _ in 0..AUDIT_ATTEMPTS {
             let (head, chain) = self.audit_values(audit_event)?;
             let response = self.command(&[
                 "EVAL",
                 REVOKE_SCRIPT,
-                "3",
+                "5",
                 &key,
                 "gateway:audit",
                 "gateway:audit:head",
+                &principal_audit,
+                &principal_version,
                 principal_digest,
                 audit_event,
                 &head,
@@ -491,6 +500,7 @@ impl RedisStore {
         let owner = format!("gateway:activity:{activity_id}");
         let activity_operation = format!("gateway:activity-operation:{activity_id}");
         let retry = record.quota_window_seconds - now % record.quota_window_seconds;
+        let (principal_audit, principal_version) = principal_audit_keys(audit_event);
         for _ in 0..AUDIT_ATTEMPTS {
             let audit_started = Instant::now();
             let (head, chain) = self.audit_values(audit_event)?;
@@ -503,7 +513,7 @@ impl RedisStore {
             let mut arguments = vec![
                 "EVAL",
                 RESERVE_SCRIPT,
-                "8",
+                "10",
                 key.as_str(),
                 usage.as_str(),
                 idem.as_str(),
@@ -512,6 +522,8 @@ impl RedisStore {
                 "gateway:pending",
                 owner.as_str(),
                 activity_operation.as_str(),
+                &principal_audit,
+                &principal_version,
                 epoch.as_str(),
                 quota_requests.as_str(),
                 retry.as_str(),
@@ -605,16 +617,19 @@ impl RedisStore {
         let window = now / record.quota_window_seconds;
         let usage = format!("gateway:quota:{}:{window}", record.key_id);
         let retry = record.quota_window_seconds - now % record.quota_window_seconds;
+        let (principal_audit, principal_version) = principal_audit_keys(audit_event);
         for _ in 0..AUDIT_ATTEMPTS {
             let (head, chain) = self.audit_values(audit_event)?;
             let response = self.command(&[
                 "EVAL",
                 CONSUME_SCRIPT,
-                "4",
+                "6",
                 &key,
                 &usage,
                 "gateway:audit",
                 "gateway:audit:head",
+                &principal_audit,
+                &principal_version,
                 &record.epoch.to_string(),
                 &record.quota_requests.to_string(),
                 &retry.to_string(),
@@ -755,6 +770,7 @@ impl RedisStore {
             |activity_id| format!("gateway:activity:{activity_id}"),
         );
         let bind_owner = if activity_id.is_some() { "1" } else { "0" };
+        let (principal_audit, principal_version) = principal_audit_keys(audit_event);
         for _ in 0..AUDIT_ATTEMPTS {
             let audit_started = Instant::now();
             let (head, chain) = self.audit_values(audit_event)?;
@@ -763,7 +779,7 @@ impl RedisStore {
             let response = self.command(&[
                 "EVAL",
                 COMPLETE_SCRIPT,
-                "9",
+                "11",
                 &idem,
                 "gateway:pending",
                 "gateway:audit",
@@ -773,6 +789,8 @@ impl RedisStore {
                 "gateway:events:queue",
                 "gateway:events:observations",
                 "gateway:events:sequences",
+                &principal_audit,
+                &principal_version,
                 request_digest,
                 state,
                 response_hex,
@@ -911,16 +929,19 @@ impl RedisStore {
         let nonce_key = format!("gateway:tap:nonce:{nonce_scope}");
         let binding_key = format!("gateway:tap:binding:{binding_digest}");
         let ttl = replay_until - now;
+        let (principal_audit, principal_version) = principal_audit_keys(audit_event);
         for _ in 0..AUDIT_ATTEMPTS {
             let (head, chain) = self.audit_values(audit_event)?;
             let response = self.command(&[
                 "EVAL",
                 TAP_CONSUME_SCRIPT,
-                "4",
+                "6",
                 &nonce_key,
                 &binding_key,
                 "gateway:audit",
                 "gateway:audit:head",
+                &principal_audit,
+                &principal_version,
                 &ttl.to_string(),
                 &binding_digest,
                 &record.principal_digest,
@@ -994,6 +1015,78 @@ impl RedisStore {
                 Ok(Some(record))
             }
             _ => Err("gateway TAP binding response is invalid".to_owned()),
+        }
+    }
+
+    /// Reconciles principal audit streams from the durable common-stream cursor.
+    /// # Errors
+    /// Returns the recovery stage and the store or decoding error.
+    pub fn reconcile_principal_audit_indexes(&self) -> Result<(), String> {
+        loop {
+            let mut cursor = match self
+                .command(&["GET", PRINCIPAL_AUDIT_CURSOR])
+                .map_err(|error| format!("read_cursor: {error}"))?
+            {
+                Resp::Bulk(None) => "0-0".to_owned(),
+                Resp::Bulk(Some(value)) => {
+                    String::from_utf8(value).map_err(|error| format!("read_cursor: {error}"))?
+                }
+                _ => return Err("read_cursor: invalid response".to_owned()),
+            };
+            let start = format!("({cursor}");
+            let Resp::Array(entries) = self
+                .command(&["XRANGE", "gateway:audit", &start, "+", "COUNT", "256"])
+                .map_err(|error| format!("read_page: {error}"))?
+            else {
+                return Err("read_page: invalid response".to_owned());
+            };
+            if entries.is_empty() {
+                return Ok(());
+            }
+            if entries.len() > 256 {
+                return Err("read_page: excessive entry count".to_owned());
+            }
+            for entry in entries {
+                let Resp::Array(parts) = entry else {
+                    return Err("decode_entry: invalid entry".to_owned());
+                };
+                if parts.len() != 2 {
+                    return Err("decode_entry: invalid entry length".to_owned());
+                }
+                let id = text(&parts[0]).ok_or("decode_entry: missing id")?;
+                let Resp::Array(values) = &parts[1] else {
+                    return Err("decode_entry: invalid fields".to_owned());
+                };
+                let fields = pairs(values).map_err(|error| format!("decode_entry: {error}"))?;
+                let event = fields.get("event").ok_or("decode_entry: missing event")?;
+                let (index, version) = principal_audit_keys(event);
+                let fields = values
+                    .iter()
+                    .map(text)
+                    .collect::<Option<Vec<_>>>()
+                    .ok_or("decode_entry: invalid field text")?;
+                let mut arguments = vec![
+                    "EVAL",
+                    PRINCIPAL_AUDIT_BACKFILL_SCRIPT,
+                    "3",
+                    &index,
+                    &version,
+                    PRINCIPAL_AUDIT_CURSOR,
+                    &cursor,
+                    &id,
+                ];
+                arguments.extend(fields.iter().map(String::as_str));
+                let tag = array_tag(
+                    self.command(&arguments)
+                        .map_err(|error| format!("write_index: {error}"))?,
+                )
+                .map_err(|error| format!("write_index: {error}"))?;
+                match tag.as_str() {
+                    "indexed" => cursor = id,
+                    "retry" => break,
+                    _ => return Err("write_index: invalid response".to_owned()),
+                }
+            }
         }
     }
 
@@ -1155,6 +1248,33 @@ else redis.call('HSET', KEYS[2], ARGV[1], ARGV[3]) end
 return 1
 ";
 
+const PRINCIPAL_AUDIT_CURSOR: &str = "gateway:audit:principal-index:cursor";
+
+fn principal_audit_keys(event: &str) -> (String, String) {
+    let principal = event.split(':').next().unwrap_or_default();
+    let index = format!("gateway:principal:{principal}:audit");
+    let version = format!("{index}:version");
+    (index, version)
+}
+
+const PRINCIPAL_AUDIT_BACKFILL_SCRIPT: &str = r"
+local cursor = redis.call('GET', KEYS[3]) or '0-0'
+if cursor ~= ARGV[1] then return {'retry'} end
+local last = redis.call('XREVRANGE', KEYS[1], '+', '-', 'COUNT', 1)
+local function below(left, right)
+ local lm, ls = string.match(left, '^(%d+)%-(%d+)$')
+ local rm, rs = string.match(right, '^(%d+)%-(%d+)$')
+ if lm ~= rm then return #lm < #rm or (#lm == #rm and lm < rm) end
+ return #ls < #rs or (#ls == #rs and ls < rs)
+end
+if #last == 0 or below(last[1][1], ARGV[2]) then
+ redis.call('XADD', KEYS[1], ARGV[2], unpack(ARGV, 3))
+end
+redis.call('SET', KEYS[2], '1')
+redis.call('SET', KEYS[3], ARGV[2])
+return {'indexed'}
+";
+
 const ISSUE_SCRIPT: &str = r"
 local current = redis.call('GET', KEYS[4]) or ''
 if current ~= ARGV[12] then return {'audit_retry'} end
@@ -1162,7 +1282,9 @@ if redis.call('EXISTS', KEYS[1]) == 1 then return {'conflict'} end
 if redis.call('SCARD', KEYS[2]) >= tonumber(ARGV[10]) then return {'limit'} end
 redis.call('HSET', KEYS[1], 'principal', ARGV[2], 'salt', ARGV[3], 'secret_digest', ARGV[4], 'signer_public_key', ARGV[5], 'scopes', ARGV[6], 'quota_requests', ARGV[7], 'quota_window_seconds', ARGV[8], 'epoch', ARGV[9], 'disabled', '0')
 redis.call('SADD', KEYS[2], ARGV[1])
-redis.call('XADD', KEYS[3], '*', 'previous', ARGV[12], 'chain', ARGV[13], 'event', ARGV[11])
+local audit_id = redis.call('XADD', KEYS[3], '*', 'previous', ARGV[12], 'chain', ARGV[13], 'event', ARGV[11])
+redis.call('XADD', KEYS[5], audit_id, 'previous', ARGV[12], 'chain', ARGV[13], 'event', ARGV[11])
+redis.call('SET', KEYS[6], '1')
 redis.call('SET', KEYS[4], ARGV[13])
 return {'issued'}
 ";
@@ -1176,7 +1298,9 @@ if redis.call('SCARD', KEYS[3]) >= tonumber(ARGV[14]) then return {'limit'} end
 redis.call('HSET', KEYS[1], 'disabled', '1', 'epoch', tostring(tonumber(ARGV[2]) + 1))
 redis.call('HSET', KEYS[2], 'principal', ARGV[1], 'salt', ARGV[4], 'secret_digest', ARGV[5], 'signer_public_key', ARGV[6], 'scopes', ARGV[7], 'quota_requests', ARGV[8], 'quota_window_seconds', ARGV[9], 'epoch', ARGV[10], 'disabled', '0')
 redis.call('SADD', KEYS[3], ARGV[3])
-redis.call('XADD', KEYS[4], '*', 'previous', ARGV[12], 'chain', ARGV[13], 'event', ARGV[11]); redis.call('SET', KEYS[5], ARGV[13])
+local audit_id = redis.call('XADD', KEYS[4], '*', 'previous', ARGV[12], 'chain', ARGV[13], 'event', ARGV[11])
+redis.call('XADD', KEYS[6], audit_id, 'previous', ARGV[12], 'chain', ARGV[13], 'event', ARGV[11])
+redis.call('SET', KEYS[7], '1'); redis.call('SET', KEYS[5], ARGV[13])
 return {'rotated'}
 ";
 
@@ -1186,7 +1310,9 @@ if redis.call('HGET', KEYS[1], 'disabled') == '1' then return {'already_revoked'
 local current = redis.call('GET', KEYS[3]) or ''
 if current ~= ARGV[3] then return {'audit_retry'} end
 redis.call('HSET', KEYS[1], 'disabled', '1'); redis.call('HINCRBY', KEYS[1], 'epoch', 1)
-redis.call('XADD', KEYS[2], '*', 'previous', ARGV[3], 'chain', ARGV[4], 'event', ARGV[2]); redis.call('SET', KEYS[3], ARGV[4])
+local audit_id = redis.call('XADD', KEYS[2], '*', 'previous', ARGV[3], 'chain', ARGV[4], 'event', ARGV[2])
+redis.call('XADD', KEYS[4], audit_id, 'previous', ARGV[3], 'chain', ARGV[4], 'event', ARGV[2])
+redis.call('SET', KEYS[5], '1'); redis.call('SET', KEYS[3], ARGV[4])
 return {'revoked'}
 ";
 
@@ -1202,7 +1328,9 @@ local operation = redis.call('GET', KEYS[8])
 if operation and operation ~= KEYS[3] then return {'conflict'} end
 local used = tonumber(redis.call('GET', KEYS[2]) or '0')
 if used >= tonumber(ARGV[2]) then
- redis.call('XADD', KEYS[4], '*', 'previous', ARGV[8], 'chain', ARGV[9], 'event', ARGV[6], 'outcome', 'rate_limited'); redis.call('SET', KEYS[5], ARGV[9])
+ local audit_id = redis.call('XADD', KEYS[4], '*', 'previous', ARGV[8], 'chain', ARGV[9], 'event', ARGV[6], 'outcome', 'rate_limited')
+redis.call('XADD', KEYS[9], audit_id, 'previous', ARGV[8], 'chain', ARGV[9], 'event', ARGV[6], 'outcome', 'rate_limited')
+redis.call('SET', KEYS[10], '1'); redis.call('SET', KEYS[5], ARGV[9])
  return {'rate_limited', ARGV[3]}
 end
 redis.call('INCR', KEYS[2]); redis.call('EXPIRE', KEYS[2], ARGV[3])
@@ -1212,7 +1340,9 @@ for index = 1, continuation_count do redis.call('HSET', KEYS[3], 'continuation_'
 redis.call('EXPIRE', KEYS[3], ARGV[4]); redis.call('SADD', KEYS[6], KEYS[3])
 redis.call('SET', KEYS[7], ARGV[10], 'EX', ARGV[4])
 redis.call('SET', KEYS[8], KEYS[3], 'EX', ARGV[4])
-redis.call('XADD', KEYS[4], '*', 'previous', ARGV[8], 'chain', ARGV[9], 'event', ARGV[6], 'outcome', 'pending'); redis.call('SET', KEYS[5], ARGV[9])
+local audit_id = redis.call('XADD', KEYS[4], '*', 'previous', ARGV[8], 'chain', ARGV[9], 'event', ARGV[6], 'outcome', 'pending')
+redis.call('XADD', KEYS[9], audit_id, 'previous', ARGV[8], 'chain', ARGV[9], 'event', ARGV[6], 'outcome', 'pending')
+redis.call('SET', KEYS[10], '1'); redis.call('SET', KEYS[5], ARGV[9])
 return {'reserved'}
 ";
 
@@ -1223,7 +1353,9 @@ if previous ~= ARGV[5] then return {'audit_retry'} end
 local used = tonumber(redis.call('GET', KEYS[2]) or '0')
 local outcome = 'consumed'
 if used >= tonumber(ARGV[2]) then outcome = 'rate_limited' else redis.call('INCR', KEYS[2]); redis.call('EXPIRE', KEYS[2], ARGV[3]) end
-redis.call('XADD', KEYS[3], '*', 'previous', ARGV[5], 'chain', ARGV[6], 'event', ARGV[4], 'outcome', outcome); redis.call('SET', KEYS[4], ARGV[6])
+local audit_id = redis.call('XADD', KEYS[3], '*', 'previous', ARGV[5], 'chain', ARGV[6], 'event', ARGV[4], 'outcome', outcome)
+redis.call('XADD', KEYS[5], audit_id, 'previous', ARGV[5], 'chain', ARGV[6], 'event', ARGV[4], 'outcome', outcome)
+redis.call('SET', KEYS[6], '1'); redis.call('SET', KEYS[4], ARGV[6])
 return {outcome}
 ";
 
@@ -1251,7 +1383,9 @@ if ARGV[10] ~= '' and not stored_event then
  redis.call('RPUSH', KEYS[7], ARGV[10])
 end
 redis.call('HSET', KEYS[1], 'state', ARGV[2], 'response', ARGV[3], 'receipt', ARGV[4]); if ARGV[2] ~= 'pending' then redis.call('SREM', KEYS[2], KEYS[1]) end
-redis.call('XADD', KEYS[3], '*', 'previous', ARGV[6], 'chain', ARGV[7], 'event', ARGV[5], 'outcome', ARGV[2]); redis.call('SET', KEYS[4], ARGV[7])
+local audit_id = redis.call('XADD', KEYS[3], '*', 'previous', ARGV[6], 'chain', ARGV[7], 'event', ARGV[5], 'outcome', ARGV[2])
+redis.call('XADD', KEYS[10], audit_id, 'previous', ARGV[6], 'chain', ARGV[7], 'event', ARGV[5], 'outcome', ARGV[2])
+redis.call('SET', KEYS[11], '1'); redis.call('SET', KEYS[4], ARGV[7])
 return {'completed'}
 ";
 
@@ -1264,7 +1398,9 @@ if existing then
  if existing == ARGV[2] then
   if redis.call('HGET', KEYS[2], 'principal') == ARGV[3] and redis.call('HGET', KEYS[2], 'key_id') == ARGV[4] and redis.call('HGET', KEYS[2], 'layerx_agent') == ARGV[5] and redis.call('HGET', KEYS[2], 'trusted_agent_id') == ARGV[6] and redis.call('HGET', KEYS[2], 'trusted_agent_domain') == ARGV[7] and redis.call('HGET', KEYS[2], 'intent') == ARGV[8] and redis.call('HGET', KEYS[2], 'evidence_digest') == ARGV[9] and redis.call('HGET', KEYS[2], 'activity_id') == ARGV[10] and redis.call('HGET', KEYS[2], 'signer_public_key') == ARGV[11] and redis.call('HGET', KEYS[2], 'target_authority') == ARGV[12] and redis.call('HGET', KEYS[2], 'target_path') == ARGV[13] and redis.call('HGET', KEYS[2], 'operation_identity') == ARGV[14] and redis.call('HGET', KEYS[2], 'credential_expires_at') == ARGV[15] then outcome = 'existing' else outcome = 'corrupt' end
  end
- redis.call('XADD', KEYS[3], '*', 'previous', ARGV[18], 'chain', ARGV[19], 'event', ARGV[17], 'outcome', outcome)
+ local audit_id = redis.call('XADD', KEYS[3], '*', 'previous', ARGV[18], 'chain', ARGV[19], 'event', ARGV[17], 'outcome', outcome)
+redis.call('XADD', KEYS[5], audit_id, 'previous', ARGV[18], 'chain', ARGV[19], 'event', ARGV[17], 'outcome', outcome)
+redis.call('SET', KEYS[6], '1')
  redis.call('SET', KEYS[4], ARGV[19])
  if outcome == 'existing' then return {'existing'} end
  if outcome == 'corrupt' then return {'conflict'} end
@@ -1275,7 +1411,9 @@ local consumed = redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[1], 'NX')
 if not consumed then return {'conflict'} end
 redis.call('HSET', KEYS[2], 'principal', ARGV[3], 'key_id', ARGV[4], 'layerx_agent', ARGV[5], 'trusted_agent_id', ARGV[6], 'trusted_agent_domain', ARGV[7], 'intent', ARGV[8], 'evidence_digest', ARGV[9], 'activity_id', ARGV[10], 'signer_public_key', ARGV[11], 'target_authority', ARGV[12], 'target_path', ARGV[13], 'operation_identity', ARGV[14], 'credential_expires_at', ARGV[15], 'consumed_at', ARGV[16])
 redis.call('EXPIRE', KEYS[2], ARGV[1])
-redis.call('XADD', KEYS[3], '*', 'previous', ARGV[18], 'chain', ARGV[19], 'event', ARGV[17], 'outcome', 'consumed')
+local audit_id = redis.call('XADD', KEYS[3], '*', 'previous', ARGV[18], 'chain', ARGV[19], 'event', ARGV[17], 'outcome', 'consumed')
+redis.call('XADD', KEYS[5], audit_id, 'previous', ARGV[18], 'chain', ARGV[19], 'event', ARGV[17], 'outcome', 'consumed')
+redis.call('SET', KEYS[6], '1')
 redis.call('SET', KEYS[4], ARGV[19])
 return {'consumed'}
 ";
@@ -1469,7 +1607,7 @@ fn read_resp(stream: &mut impl Read, depth: usize) -> Result<Resp, String> {
             let length = line
                 .parse::<usize>()
                 .map_err(|_| "gateway Redis array length is invalid".to_owned())?;
-            if length > 128 {
+            if length > 256 {
                 return Err("gateway Redis array exceeds its bound".to_owned());
             }
             let mut values = Vec::with_capacity(length);
