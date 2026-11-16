@@ -1006,14 +1006,14 @@
       ],
       "sequences": [],
       "id": "app_app_newWithRuntimePool_1",
-      "source_sha256": "d2759b21bc5f0e5579107e50d3ca64df18859f187bb1db113405a3edd47410d9"
+      "source_sha256": "5a5f318f6f5699b803e2d61455f577dbd6b86807878a3b669c6a50bee5458a4c"
     },
     {
-      "file": "services/launchpad/stats-workers/internal/app/app.go",
-      "function": "newWithRuntimePool",
-      "call": 2,
+      "file": "services/launchpad/stats-workers/internal/search/readiness.go",
+      "function": "Store.Ready",
+      "call": 1,
       "expression": "\"SELECT g.state='active' AND g.validated_at IS NOT NULL FROM stats_search.active_v2 a JOIN stats_search.generations_v2 g USING(generation) WHERE a.singleton\"",
-      "line": 427,
+      "line": 15,
       "sql": "SELECT g.state='active' AND g.validated_at IS NOT NULL FROM stats_search.active_v2 a JOIN stats_search.generations_v2 g USING(generation) WHERE a.singleton",
       "kind": "SELECT",
       "tables": [
@@ -1028,8 +1028,8 @@
       ],
       "functions": [],
       "sequences": [],
-      "id": "app_app_newWithRuntimePool_2",
-      "source_sha256": "d2759b21bc5f0e5579107e50d3ca64df18859f187bb1db113405a3edd47410d9"
+      "id": "search_readiness_Store.Ready_1",
+      "source_sha256": "c277e1177b7fa830478d3fd512412c73528129a2e91e51abe76c70b7bfcaa0a7"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/app.go",
@@ -1059,7 +1059,7 @@
       ],
       "sequences": [],
       "id": "app_app_catchUpStatsHolders_1",
-      "source_sha256": "d2759b21bc5f0e5579107e50d3ca64df18859f187bb1db113405a3edd47410d9"
+      "source_sha256": "5a5f318f6f5699b803e2d61455f577dbd6b86807878a3b669c6a50bee5458a4c"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/app.go",
@@ -1088,7 +1088,7 @@
       "functions": [],
       "sequences": [],
       "id": "app_app_catchUpStatsHolders_2",
-      "source_sha256": "d2759b21bc5f0e5579107e50d3ca64df18859f187bb1db113405a3edd47410d9"
+      "source_sha256": "5a5f318f6f5699b803e2d61455f577dbd6b86807878a3b669c6a50bee5458a4c"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/canonical_multihop.go",
