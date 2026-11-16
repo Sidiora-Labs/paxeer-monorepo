@@ -332,7 +332,7 @@ func newMarketAggregationFixture(t *testing.T) *marketAggregationFixture {
 	}
 	// The canonical peer holds actual codec output, in the production commit shape.
 	f.exec(t, `CREATE TABLE accounting_market_commits(publication_id TEXT PRIMARY KEY,source_fill_id TEXT NOT NULL,source_fact_digest TEXT NOT NULL,projection_version TEXT NOT NULL,pool TEXT NOT NULL,fill TEXT NOT NULL,UNIQUE(source_fill_id,projection_version))`)
-	if err = f.store.EnsureHolderBalanceIndex(context.Background()); err != nil {
+	if _, err = f.pool.Exec(context.Background(), `CREATE INDEX idx_ph_balance_numeric ON stats.pool_holders (pool_address, (balance::numeric) DESC, holder_address ASC)`); err != nil {
 		t.Fatal(err)
 	}
 	return f

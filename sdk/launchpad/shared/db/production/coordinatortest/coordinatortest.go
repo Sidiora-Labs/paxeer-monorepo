@@ -380,6 +380,7 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 	}
 	exec("migration control owner", "DO $$ BEGIN "+ddl[:first+1]+" EXCEPTION WHEN duplicate_object THEN NULL; END $$")
 	exec("migration control", ddl[first+1:])
+	exec("migration attempts", production.OnlineIndexControlDDL())
 
 	// Owner roles of every planned schema (NOLOGIN, no attributes).
 	planSchemas := make([]string, 0, len(schemas))
@@ -519,6 +520,20 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 			exec("history", historyDDL)
 			histories[m.Service] = true
 		}
+		if m.TransactionMode == "nontransactional" {
+			if m.OnlineIndex == nil {
+				t.Fatalf("migration %d requires an online index plan", m.MigrationID)
+			}
+			statement, err := m.OnlineIndex.CreateSQL()
+			if err != nil || string(raw) != statement {
+				t.Fatalf("migration %d online index source differs: %v", m.MigrationID, err)
+			}
+			if err = production.ApplyOnlineIndexMigrationAsOwner(ctx, conn, m, *m.OnlineIndex, rename(owner), registered, production.Checksum(rolesBytes), registry.ApprovalDigest, 1, nil); err != nil {
+				t.Fatalf("migration %d: %v", m.MigrationID, err)
+			}
+			db.Applied[m.MigrationID] = m.SHA256
+			continue
+		}
 		tx, err := conn.Begin(ctx)
 		if err != nil {
 			t.Fatal(err)
@@ -557,13 +572,13 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 	// The reviewed runtime privileges of every requested role.
 	for _, m := range requested {
 		scoped := m
-		scoped.OwnerRole, scoped.RuntimeRole, scoped.OwnerReadGrants, scoped.SchemaCapabilities = rename(m.OwnerRole), rename(m.RuntimeRole), nil, nil
+		scoped.OwnerReadGrants = nil
 		grants, err := scoped.GrantSQL()
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, statement := range grants {
-			exec("runtime grant "+m.RuntimeRole, statement)
+			exec("runtime grant "+m.RuntimeRole, bind([]byte(statement)))
 		}
 	}
 	if schemas["recovery"] {
