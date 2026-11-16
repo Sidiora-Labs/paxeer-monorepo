@@ -19,6 +19,8 @@ const PageMetadata = <Pathname extends Route['pathname']>(props: Props<Pathname>
   return (
     <Head>
       <title>{ title }</title>
+      <meta name="color-scheme" content="light dark"/>
+      <meta name="text-scale" content="scale"/>
       <meta name="description" content={ description }/>
       { canonical && <link rel="canonical" href={ canonical }/> }
 
@@ -35,8 +37,7 @@ const PageMetadata = <Pathname extends Route['pathname']>(props: Props<Pathname>
       { opengraph.description && <meta name="twitter:description" content={ opengraph.description }/> }
       <meta property="twitter:image" content={ opengraph.imageUrl }/>
 
-      { /* Prevent auto zoom in inputs on mobile */ }
-      <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+      <meta name="viewport" content="width=device-width, initial-scale=1"/>
     </Head>
   );
 };

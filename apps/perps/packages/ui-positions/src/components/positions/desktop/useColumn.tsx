@@ -64,7 +64,7 @@ export const useColumn = (config: ColumnConfig) => {
               width={4}
               height={24}
               className={cn(
-                "oui-h-[42px] oui-rounded-[1px]",
+                "oui-h-[42px] oui-rounded-sm",
                 record.position_qty > 0
                   ? "oui-bg-trade-profit"
                   : "oui-bg-trade-loss",

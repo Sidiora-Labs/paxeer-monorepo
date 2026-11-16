@@ -44,14 +44,14 @@ export const recipe = defineRecipe({
       lg: {
         textStyle: 'md',
         px: '4',
-        '--input-height': '60px',
+        '--input-height': 'var(--chakra-spacing-15)',
       },
     },
 
     variant: {
       outline: {
         bg: 'input.bg',
-        borderWidth: '1px',
+        borderWidth: 'var(--chakra-border-widths-1)',
         borderColor: 'input.border.filled',
         focusVisibleRing: 'none',
         _placeholder: {
@@ -113,7 +113,7 @@ export const recipe = defineRecipe({
       size: 'lg',
       floating: true,
       css: {
-        padding: '26px 10px 10px 16px',
+        padding: 'var(--chakra-spacing-6\\.5) var(--chakra-spacing-2\\.5) var(--chakra-spacing-2\\.5) var(--chakra-spacing-4)',
       },
     },
   ],

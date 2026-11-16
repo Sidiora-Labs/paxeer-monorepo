@@ -1,7 +1,9 @@
-import { FC, useEffect, useState } from "react";
+import { ApiDialog } from "./apiDialog";
+import styles from "../../../presentation.module.css";
+import { FC, useEffect, useState, useId } from "react";
 import { APIKeyItem } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
-import { cn, Flex, SimpleDialog, Statistic, Text } from "@paxeer-network/ui";
+import { cn, Flex, Statistic, Text } from "@paxeer-network/ui";
 import { Checkbox } from "./createApiKey";
 
 export const EditAPIKeyDialog: FC<{
@@ -17,6 +19,7 @@ export const EditAPIKeyDialog: FC<{
   const [trade, setTrade] = useState(true);
   const [hint, setHint] = useState("");
   const { t } = useTranslation();
+  const inputId = useId();
 
   useEffect(() => {
     setIpText(item.ip_restriction_list.join(","));
@@ -31,7 +34,7 @@ export const EditAPIKeyDialog: FC<{
   }, [ipText]);
 
   return (
-    <SimpleDialog
+    <ApiDialog
       size="sm"
       open={open}
       onOpenChange={setOpen}
@@ -40,7 +43,7 @@ export const EditAPIKeyDialog: FC<{
         primary: {
           label: t("common.confirm"),
           "data-testid": "oui-testid-apiKey-editApiKey-dialog-confirm-btn",
-          className: "oui-w-[120px] lg:oui-w-[154px]",
+          className: "oui-w-28 lg:oui-w-40",
           onClick: async () => {
             if (ipText.length > 0) {
               const hint = props.verifyIP(ipText);
@@ -59,42 +62,55 @@ export const EditAPIKeyDialog: FC<{
       }}
       classNames={{
         footer: "oui-justify-center",
-        content:
-          "oui-bg-base-8 oui-w-[300px] lg:oui-w-[360px] oui-font-semibold",
+        content: cn(
+          styles.surface,
+          "oui-bg-base-8 oui-w-72 lg:oui-w-96 oui-max-w-[calc(100vw-var(--oui-space-6))] oui-font-semibold",
+        ),
       }}
     >
       <Flex direction={"column"} gap={6}>
         {/* <TextField label={"IP restriction (optional)"} rows={5} className="oui-w-full oui-h-auto" classNames={{
-          input: "oui-h-[100px]",
-          root: "oui-h-[100px]"
+          input: "oui-h-24",
+          root: "oui-h-24"
         }}/> */}
         <Flex direction={"column"} gap={1} width={"100%"} itemAlign={"start"}>
-          <Text intensity={54} size="2xs">
+          <label
+            htmlFor={inputId}
+            className="oui-text-2xs oui-text-base-contrast-80"
+          >
             {t("portfolio.apiKey.create.ipRestriction")}
-          </Text>
+          </label>
           <textarea
+            autoFocus
+            id={inputId}
+            name="ip-restriction"
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            aria-invalid={hint.length > 0}
+            aria-describedby={hint ? `${inputId}-hint` : undefined}
+            onBlur={() => setHint(ipText ? props.verifyIP(ipText) : "")}
             data-testid="oui-testid-apiKey-editApiKey-dialog-textarea"
             placeholder={t("portfolio.apiKey.create.ipRestriction.placeholder")}
             className={cn(
-              "oui-h-[100px] oui-w-full oui-rounded-xl oui-bg-base-6 oui-p-3 oui-text-sm oui-text-base-contrast-80",
+              styles.textarea,
+              "oui-min-h-24 oui-w-full oui-rounded-xl oui-bg-base-6 oui-p-3 oui-text-sm oui-text-base-contrast-80",
               "oui-border-0 oui-outline-none focus:oui-border-2 focus:oui-border-primary-darken",
-              "oui-placeholder-base-contrast-20",
+              "placeholder:oui-text-base-contrast-80",
               hint.length > 0 &&
                 "oui-outline-1 oui-outline-danger focus:oui-outline-none",
             )}
             value={ipText}
             onChange={(e) => {
               setIpText(e.target.value);
-            }}
-            style={{
-              resize: "none",
+              setHint("");
             }}
           />
           {hint.length > 0 && (
-            <Flex gap={1} className="oui-relative">
+            <Flex id={`${inputId}-hint`} gap={1} className="oui-relative">
               <div
                 className={cn(
-                  "oui-absolute oui-top-[10px]",
+                  "oui-absolute oui-top-2.5",
                   "oui-size-1 oui-rounded-full oui-bg-danger",
                 )}
               />
@@ -106,7 +122,7 @@ export const EditAPIKeyDialog: FC<{
         </Flex>
         <Statistic
           label={
-            <Text size="xs" intensity={54}>
+            <Text size="xs" intensity={80}>
               {t("portfolio.apiKey.permissions")}
             </Text>
           }
@@ -116,7 +132,7 @@ export const EditAPIKeyDialog: FC<{
             direction={"row"}
             gap={6}
             itemAlign={"start"}
-            className="oui-mt-2"
+            className={`${styles.permissions} oui-mt-2`}
           >
             <Checkbox
               disabled
@@ -135,6 +151,6 @@ export const EditAPIKeyDialog: FC<{
           </Flex>
         </Statistic>
       </Flex>
-    </SimpleDialog>
+    </ApiDialog>
   );
 };

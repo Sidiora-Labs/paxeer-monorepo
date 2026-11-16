@@ -14,8 +14,10 @@ import { OrderStatus } from "@paxeer-network/types";
 import { toast } from "@paxeer-network/ui";
 import { getOrderExecutionReportMsg } from "./getOrderExecutionReportMsg";
 
-export const PAXEER_NETWORK_ORDER_SOUND_ALERT_KEY = "paxeerNetwork_order_sound_alert";
-export const PAXEER_NETWORK_ORDER_SOUND_OPTION_KEY = "paxeerNetwork_order_sound_option";
+export const PAXEER_NETWORK_ORDER_SOUND_ALERT_KEY =
+  "paxeerNetwork_order_sound_alert";
+export const PAXEER_NETWORK_ORDER_SOUND_OPTION_KEY =
+  "paxeerNetwork_order_sound_option";
 
 export const useExecutionReport = () => {
   const ee = useEventEmitter();
@@ -89,9 +91,7 @@ export const useExecutionReport = () => {
           <div>
             {title}
             <br />
-            <div className="paxeer-network-text-white/[0.54] paxeer-network-text-xs">
-              {msg}
-            </div>
+            <div className="oui-text-base-contrast-80 oui-text-xs">{msg}</div>
           </div>,
           { id: orderType },
         );

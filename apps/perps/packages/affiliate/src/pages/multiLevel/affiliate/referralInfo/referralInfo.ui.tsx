@@ -1,3 +1,4 @@
+import surface from "../../../../surface.module.css";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -26,7 +27,7 @@ export const ReferralInfo: FC<ReferralInfoReturns> = (props) => {
       direction={"column"}
       itemAlign="start"
       intensity={900}
-      className="oui-affiliate-referralInfo oui-border oui-border-line-6"
+      className={`${surface.surface} oui-affiliate-referralInfo oui-border oui-border-line-6`}
     >
       <Flex
         direction={"row"}
@@ -50,12 +51,12 @@ export const ReferralInfo: FC<ReferralInfoReturns> = (props) => {
         <Flex
           r="full"
           px={2}
-          height={20}
+          height={"var(--oui-space-5)"}
           justify={"center"}
           itemAlign={"center"}
           className="oui-border oui-border-primary-light"
         >
-          <Text intensity={98} className="oui-text-[10px] oui-leading-[10px]">
+          <Text intensity={98} className="oui-text-3xs oui-leading-normal">
             {t("affiliate.multiLevel")}
           </Text>
         </Flex>
@@ -77,7 +78,7 @@ export const ReferralInfo: FC<ReferralInfoReturns> = (props) => {
       <Text
         size="lg"
         intensity={98}
-        className="oui-w-full oui-text-left oui-tracking-[0.03em]"
+        className="oui-w-full oui-text-left oui-tracking-normal"
       >
         {t("affiliate.yourCommissionRates")}
       </Text>
@@ -119,13 +120,13 @@ export const ReferralInfo: FC<ReferralInfoReturns> = (props) => {
           >
             <Tooltip
               content={t("affiliate.tradingFeeRebate.description")}
-              className="oui-max-w-[280px]"
+              className="oui-max-w-[calc(var(--oui-space-24)*3)]"
             >
               <Text
                 size="base"
                 intensity={98}
                 tabIndex={0}
-                className="oui-min-w-0 oui-cursor-help oui-leading-6 oui-tracking-[0.03em] oui-underline oui-decoration-dotted oui-underline-offset-[6px]"
+                className="oui-min-w-0 oui-cursor-help oui-leading-normal oui-tracking-normal oui-underline oui-decoration-dotted oui-underline-offset-1"
               >
                 {t("affiliate.tradingFeeRebate")}: {props.tradingFeeRebateRate}%
               </Text>
@@ -170,7 +171,7 @@ const CommissionRateCard: FC<CommissionRateCardProps> = (props) => {
           size="sm"
           intensity={98}
           weight="semibold"
-          className="oui-w-full oui-tracking-[0.03em]"
+          className="oui-w-full oui-tracking-normal"
         >
           {props.title}
         </Text>
@@ -180,7 +181,7 @@ const CommissionRateCard: FC<CommissionRateCardProps> = (props) => {
             size="3xl"
             weight="semibold"
             color="success"
-            className="oui-leading-9 oui-tracking-[0.03em]"
+            className="oui-leading-normal oui-tracking-normal"
           >
             {props.rate}%
           </Text>
@@ -188,7 +189,7 @@ const CommissionRateCard: FC<CommissionRateCardProps> = (props) => {
             size="sm"
             intensity={54}
             weight="semibold"
-            className="oui-w-full oui-leading-5 oui-tracking-[0.03em]"
+            className="oui-w-full oui-leading-normal oui-tracking-normal"
           >
             {props.description}
           </Text>

@@ -37,8 +37,8 @@ export const AccordionItemTrigger = React.forwardRef<
         display: 'block',
         bgColor: '{currentColor}',
         w: '100%',
-        h: '2px',
-        borderRadius: '2px',
+        h: 'var(--chakra-spacing-0\\.5)',
+        borderRadius: 'var(--chakra-radii-indicator)',
         left: '0',
         top: '50%',
         transform: 'translateY(-50%)',
@@ -48,13 +48,13 @@ export const AccordionItemTrigger = React.forwardRef<
         position: 'absolute',
         display: 'block',
         bgColor: '{currentColor}',
-        w: '2px',
+        w: 'var(--chakra-spacing-0\\.5)',
         h: '100%',
-        borderRadius: '2px',
+        borderRadius: 'var(--chakra-radii-indicator)',
         left: '50%',
         top: '0',
         transform: 'translateX(-50%)',
-        transition: 'transform 0.2s ease-in-out',
+        _motionSafe: { transition: 'transform var(--chakra-durations-normal) var(--chakra-easings-standard)' },
       }}
       _open={{
         _after: {

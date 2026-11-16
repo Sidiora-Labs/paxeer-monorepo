@@ -22555,3 +22555,43 @@ fix = "Decision 3628. Task 22.39.704."
 title = "The render check renders one render after the other, and its calls to a page have no limit of time"
 symptom = "The function checkSurface of tools/ui-check/check.mjs renders the views of a surface one after the other, each view and each state in the thirty-four configurations of the matrix of tools/ui-check/config.mjs. The calls that measure a page wait for the page without a limit of time, so the time of a check has no bound. Twelve of the configurations are the modes reduced-motion, double-text and keyboard, and the keyboard mode presses Tab through every control of the page. The time of a check grows with the count of views, the configurations and the controls of each page."
 fix = "Decision 3629. Task 22.44.58; task 22.44.48."
+
+[gotcha.4547]
+title = "A case or a proof that reads a shared part follows the task that gives the part"
+symptom = "The parity case of the perps precompile starts a case of the trading workspace, and that case loads the error widgets of the workspace. The measurement of a render that shows nothing and the proofs of the surfaces with many views run inside the loop of the render check that task 22.44.58 changes. A task names the task that gives such a part among its requirements."
+fix = "Decision 3630. Tasks 22.39.569, 22.44.54, 22.44.38, 22.44.39 and 22.44.48."
+
+[gotcha.4548]
+title = "The route catalogue is compiled into the gateway, and each top key of the file is part of the answer of the route listing"
+symptom = "The gateway compiles tools/paxeer-x/route-catalogue.json and the location map services/platform/hosted/gateway/route-locations.json into one document in the function unified_service_catalogue of services/platform/hosted/gateway/src/lib.rs and gives that document to a caller of GET /v1/routes. Each top key of the file is therefore part of the answer. The file holds the key pending_wiring beside the keys of the product: schema, canonical_origin, chain_id, rpc_records, preserve_api1_original_host, wallet_authentication, wallet_placement, services, routes, denied_surfaces, node_signing_methods and rpc_paths. The gateway admits a route of the explorer backend through the table of services/platform/hosted/gateway/src/explorer_proxy.rs and a page through the table of services/platform/hosted/gateway/src/ui_proxy.rs."
+fix = "Decision 3631. Task 22.39.705."
+
+[gotcha.4549]
+title = "The streams of the trading workspace take their socket from the feed origin, and the reads take theirs from the perps data gateway"
+symptom = "In apps/perps/packages/paxeer-backend/src/core/feeds.ts the address of the reads, MARKET_DATA_URL, comes from NEXT_PUBLIC_PERPS_GATEWAY_URL, and the feed origin FEED_ORIGIN is a path of the application or the public feed. The stream of the markets, the stream of the explorer and the stream of a spot market build their socket address from FEED_ORIGIN; the stream of the SID and PAX market builds its address from the gateway. The perps data gateway serves the sockets /ws, /ws/markets, /ws/explorer and /ws/SYMBOL. A view that is mounted against a gateway reads its stream from the socket of that gateway."
+fix = "Decision 3632. Task 22.39.675."
+
+[gotcha.4550]
+title = "A block is applied in more than one form, and the state of a home differs from the state of a new genesis"
+symptom = "A node with sequencing on executes a transaction when it arrives and builds the block, and a node that follows applies the committed block. The settings of the fast execution path select a second executor beside the ordinary one. A case that starts from a new genesis reads the values that genesis sets, and a home that went through upgrades can hold a parameter without a value or an account in an earlier form. A transaction of a new kind is therefore compared in every form over the state of the home it is meant for."
+fix = "Decision 3633. Task 22.39.706."
+
+[gotcha.4551]
+title = "The receipt authority names a batch evidence origin, and the core service answers that contract as retired"
+symptom = "The receipt authority reads its settings for a loopback origin of batch evidence with an identity, a bearer and a range of batches, and its readiness asks that origin beside the node. The core service answers the route of batch evidence with the refusal of a retired contract, and its readiness names no such origin. A service and the services beside it name the same contracts, and a setting that only a retired contract can fill is not a required setting."
+fix = "Decision 3634. Task 22.39.707."
+
+[gotcha.4552]
+title = "The hosted gateway reads origins and bindings that its definition does not name"
+symptom = "The hosted gateway reads an indexer origin, a consensus route and a document of bindings for the routes of the products, each as an optional setting, and its readiness names a backend without its setting as not configured. The definition of the gateway in deploy/projects/platform/gateway.kvx names none of the three, and the file table the definition selects holds no row for the document of bindings. A setting a service reads and its definition does not name cannot be given through the definition."
+fix = "Decision 3635. Tasks 22.39.708 and 22.39.709."
+
+[gotcha.4553]
+title = "A source file imports a package by its name from a package that declares it"
+symptom = "The consent module of the trading workspace in apps/perps/apps/web/src/legal/useCookieConsent.ts imports the error reporter through a relative path into the module directory of the package apps/perps/packages/paxeer-backend. The web application does not declare that package among its dependencies. An import through such a path does not take the entry the package gives a bundle of the browser, and the production build of the workspace reads the entry the import names. A task that adds a module to the web application builds the workspace in the production form."
+fix = "Decision 3636. Tasks 22.39.710 and 22.39.564."
+
+[gotcha.4554]
+title = "The render step of a task of the explorer names the form of the surface, the sizes and the count of passes"
+symptom = "The explorer is a large application. Its development server compiles a page when the page is first asked for and stays in the foreground of the command that starts it; its production form is built once and then served from the built files. The tasks 22.44.1 to 22.44.11 each hold a step that renders the views of their paths, and the proof 22.44.38 renders every route at the whole device list with the render check. A render step names the form of the surface it renders, the sizes, the count of passes and the order of the work, and no command of it stays in the foreground."
+fix = "Decision 3637. Tasks 22.44.1 to 22.44.11 and 22.44.38."

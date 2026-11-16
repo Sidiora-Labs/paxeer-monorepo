@@ -6,7 +6,7 @@ import {
   watchSocket,
   type CancelTask,
 } from "@paxeer-network/paxeer-backend/core/net/realtime";
-import { FEED_ORIGIN } from "@paxeer-network/paxeer-backend/core/feeds";
+import { getStreamSocketOrigin } from "@paxeer-network/paxeer-backend/core/feeds";
 
 import { useEffect, useState } from "react";
 import type { SpotBookLevel } from "@paxeer-network/paxeer-backend/core/perps/bookLevels";
@@ -32,7 +32,7 @@ import {
    correct upstream internally.
    ══════════════════════════════════════════════════════════════════════ */
 
-const MARKET_WS_ORIGIN = FEED_ORIGIN.replace(/^http/, "ws");
+const MARKET_WS_ORIGIN = getStreamSocketOrigin();
 
 /** Symbols that have a SPOT stream available. */
 const SUPPORTED_SPOT_SYMBOLS = new Set(["SID", "BNB", "ETH", "PAX"]);

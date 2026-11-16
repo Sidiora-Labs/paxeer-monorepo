@@ -1,3 +1,4 @@
+import surface from "../../../surface.module.css";
 import { Divider, Flex, Text } from "@paxeer-network/ui";
 import { FC } from "react";
 import { TitleConfig } from "./title.script";
@@ -14,11 +15,15 @@ export const Title: FC<TitleConfig> = (props) => {
       direction={"column"}
       itemAlign={"start"}
       gap={4}
-      className="oui-bg-base-9 oui-font-semibold"
+      className={`${surface.surface} oui-bg-base-9 oui-font-semibold`}
       r={"2xl"}
       width={"100%"}
     >
-      {title || <Text size="lg">{t("common.tradingRewards")}</Text>}
+      {title || (
+        <Text asChild size="lg">
+          <h1>{t("common.tradingRewards")}</h1>
+        </Text>
+      )}
       <Divider intensity={8} className="oui-w-full" />
       <Flex direction={"column"} itemAlign={"start"} gap={1}>
         {subtitle || (
@@ -44,46 +49,12 @@ const MultiLineText: FC<{
 }> = (props) => {
   const { t } = useTranslation();
 
-  // const clickableParts = [
-  //   {
-  //     content: "Learn more here",
-  //     isLink: true,
-  //   },
-  //   // {
-  //   //   content: "about paxeer-network Trading rewards Program.",
-  //   //   isLink: false,
-  //   // },
-  //   // {
-  //   //   content: "Trading rewards Docs",
-  //   //   isLink: true,
-  //   // },
-  // ];
-  // const renderText = () => {
-  //   return clickableParts.map((item, index) => {
-  //     return (
-  //       <span
-  //         key={index}
-  //         className={`${
-  //           item.isLink
-  //             ? "oui-text-primary-light hover:oui-text-primary-darken oui-cursor-pointer"
-  //             : ""
-  //         }`}
-  //         dangerouslySetInnerHTML={{ __html: item.content }}
-  //       />
-  //     );
-  //   });
-  // };
-
   return (
-    <div
-      className="oui-text-sm oui-text-base-contrast-54 oui-font-normal oui-flex oui-gap-1 oui-items-center hover:oui-text-primary-darken oui-text-primary-light oui-cursor-pointer"
-      onClick={() => [
-        window.open(
-          props.docOpenOptions?.url,
-          props.docOpenOptions?.target,
-          props.docOpenOptions?.features
-        ),
-      ]}
+    <a
+      href={props.docOpenOptions?.url}
+      target={props.docOpenOptions?.target}
+      rel="noopener noreferrer"
+      className="oui-inline-flex oui-items-center oui-gap-1 oui-text-sm oui-text-primary-light oui-underline"
     >
       <span className="oui-text-primary-light hover:oui-text-primary-darken oui-cursor-pointer">
         {t("tradingRewards.learnMore")}
@@ -97,7 +68,7 @@ const MultiLineText: FC<{
       >
         <path d="M4.008 7.995c0-.368.298-.666.666-.666H9.71L7.733 5.331l.937-.936 3.143 3.122c.13.13.195.304.195.479a.67.67 0 0 1-.195.478L8.67 11.596l-.937-.937 1.978-1.998H4.674a.666.666 0 0 1-.666-.666" />
       </svg>
-    </div>
+    </a>
   );
 };
 

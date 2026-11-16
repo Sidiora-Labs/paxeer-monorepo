@@ -322,12 +322,15 @@ process (`src/hosted.rs`).
 ## HTTP surface
 
 The public role returns `404` for internal paths, and ingress returns `404` for
-developer paths. `/healthz` is available on the application listener and on the
-optional dedicated health listener; the health listener serves no other routes.
-Ingress application TLS still requires a client certificate even for health.
+developer paths. `/livez` reports that the process is alive without checking
+dependencies. `/healthz` reports readiness and is available on the application
+listener and on the optional dedicated health listener; the health listener
+serves no other routes. Ingress application TLS still requires a client
+certificate even for health.
 
 | Method | Path | Role / authentication | Success |
 | --- | --- | --- | --- |
+| GET | `/livez` | Either role; no bearer; health listener allowed | `200` |
 | GET | `/healthz` | Either role; health listener needs no application bearer | `200` or `503` |
 | GET | `/v1/webhooks/scheme` | Public; no session | `200` |
 | GET / POST | `/v1/webhooks/endpoints` | Public; session; POST needs idempotency key | `200` / `201` |
@@ -380,7 +383,9 @@ turn a failed evidence fetch into a verified event.
 
 ## Readiness
 
-Public `/healthz` checks durable delivery state and signer readiness. Ingress
+`/livez` always returns `200` with `{"live":true,"role":"public"}` or
+`{"live":true,"role":"ingress"}` and does not contact dependencies. Public
+`/healthz` checks durable delivery state and signer readiness. Ingress
 also checks canonical sources and the node receipt verifier. Responses name
 `delivery_state_and_signer` and, for ingress,
 `canonical_sources_and_node_receipts`. Overall readiness is `200` only when the
@@ -394,7 +399,7 @@ checks each source `/readyz`; the node verifier checks root JSON-RPC
 match. Readiness does not replace per-event receipt and commit verification.
 
 The Kubernetes public probe uses HTTPS application `/healthz`; ingress probes
-its dedicated HTTP health port `9447`. Both use TCP application-listener
+its dedicated HTTP health port `9447` with `/livez`. Both use TCP application-listener
 liveness. The separate producer route `/internal/v1/readiness/{kind}` checks the
 source reader admission document and delivery readiness, and accepts an optional
 `x-layerx-admission-deadline-ms` bounded to five seconds.

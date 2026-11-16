@@ -1,3 +1,4 @@
+import { withMarketTableControls } from "../../components/shared/tableColumns";
 import { FC } from "react";
 import { cn, DataTable } from "@paxeer-network/ui";
 import { CollapseMarkets } from "../../components/collapseMarkets";
@@ -34,12 +35,22 @@ export const NewListingList: FC<NewListingListProps> = (props) => {
         header: cn("oui-h-9", props.tableClassNames?.header),
         scroll: props.tableClassNames?.scroll,
       }}
-      columns={columns}
+      columns={withMarketTableControls(columns)}
       dataSource={dataSource}
       loading={loading}
       onRow={(record, index) => {
         return {
-          className: cn("oui-h-[53px]", props.rowClassName),
+          tabIndex: 0,
+          onKeyDown: (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+            if (
+              event.target === event.currentTarget &&
+              (event.key === "Enter" || event.key === " ")
+            ) {
+              event.preventDefault();
+              event.currentTarget.click();
+            }
+          },
+          className: cn("oui-h-13", props.rowClassName),
           onClick: () => {
             onSymbolChange?.(record);
             favorite.addToHistory(record);

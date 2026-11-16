@@ -2,10 +2,10 @@
   z-index: 100;
 }
 .react-grid-item > .react-resizable-handle::after {
-  border-inline-end: 2px solid
+  border-inline-end: var(--oui-focus-ring-width) solid
     rgb(var(--oui-color-base-6) / var(--tw-border-opacity, 1));
-  border-bottom: 2px solid
+  border-bottom: var(--oui-focus-ring-width) solid
     rgb(var(--oui-color-base-6) / var(--tw-border-opacity, 1));
-  width: 8px;
-  height: 8px;
+  width: var(--oui-space-2);
+  height: var(--oui-space-2);
 }

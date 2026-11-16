@@ -59,7 +59,10 @@ export const PricePoolDesktopUI: FC<PricePoolDesktopUIProps> = ({
             buttonProps={{
               size: "md",
               fullWidth: true,
-              className: cn(["oui-px-5", !isMobile && "oui-w-[590px]"]),
+              className: cn([
+                "oui-px-5",
+                !isMobile && "oui-w-[calc(var(--oui-space-24)*6)]",
+              ]),
             }}
           >
             {shouldShowJoinButton && (
@@ -107,9 +110,9 @@ export const PricePoolDesktopUI: FC<PricePoolDesktopUIProps> = ({
   return (
     <div
       className={cn([
-        "oui-rounded-[24px] oui-border oui-border-solid oui-border-base-contrast/[0.08] oui-bg-primary/[0.08] oui-p-6 oui-backdrop-blur-[10px]",
+        "oui-rounded-2xl oui-border oui-border-solid oui-border-base-contrast/[0.08] oui-bg-primary/[0.08] oui-p-6 oui-backdrop-blur-md",
         "oui-flex oui-flex-col",
-        isMobile ? "oui-w-[calc(100vw-24px)]" : "oui-w-[640px]",
+        isMobile ? "oui-w-full" : "oui-w-[calc(var(--oui-space-24)*7)]",
       ])}
     >
       <div className="oui-flex oui-items-center">
@@ -124,8 +127,8 @@ export const PricePoolDesktopUI: FC<PricePoolDesktopUIProps> = ({
               className={cn([
                 "oui-trading-leaderboard-title ",
                 isMobile
-                  ? "oui-text-[20px] oui-leading-[28px]"
-                  : "oui-text-[32px] oui-leading-[28px]",
+                  ? "oui-text-xl oui-leading-normal"
+                  : "oui-text-4xl oui-leading-normal",
               ])}
             >
               {totalPrizePool
@@ -147,10 +150,10 @@ export const PricePoolDesktopUI: FC<PricePoolDesktopUIProps> = ({
                 weight="bold"
                 color="brand"
                 className={cn([
-                  "oui-trading-leaderboard-title oui-leading-[28px]",
+                  "oui-trading-leaderboard-title oui-leading-normal",
                   isMobile
-                    ? "oui-text-[20px] oui-leading-[28px]"
-                    : "oui-text-[32px] oui-leading-[28px]",
+                    ? "oui-text-xl oui-leading-normal"
+                    : "oui-text-4xl oui-leading-normal",
                 ])}
               >
                 {formatPrizeAmount(
@@ -191,11 +194,11 @@ export const PricePoolDesktopUI: FC<PricePoolDesktopUIProps> = ({
               fullWidth
               size="md"
               variant="outlined"
-              className="oui-flex-1 
-      oui-border-[rgb(var(--oui-gradient-brand-start))] 
-      oui-text-[rgb(var(--oui-gradient-brand-start))] 
-      hover:oui-bg-[rgb(var(--oui-gradient-brand-start))]/[0.08]
-      active:oui-bg-[rgb(var(--oui-gradient-brand-start))]/[0.08]
+              className="oui-flex-1
+      oui-border-primary
+      oui-text-primary
+      hover:oui-bg-primary/[0.08]
+      active:oui-bg-primary/[0.08]
       "
               onClick={onLearnMore}
             >
@@ -233,13 +236,14 @@ const TradingVolumeAndParticipation = ({
       <div className="oui-ms-1 oui-text-base-contrast-54">
         <Text.numeral dp={0}>{statistics?.total_participants}</Text.numeral>
       </div>
-      <div
-        className="oui-ms-auto oui-flex oui-cursor-pointer oui-items-center oui-gap-0.5 oui-text-2xs oui-leading-[15px] oui-text-base-contrast-36"
+      <button
+        type="button"
+        className="oui-ms-auto oui-flex oui-cursor-pointer oui-items-center oui-gap-0.5 oui-text-2xs oui-leading-normal oui-text-base-contrast-36"
         onClick={onLearnMore}
       >
         {t("tradingLeaderboard.viewRules")}
         <ChevronRightIcon size={16} className="oui-text-base-contrast-36" />
-      </div>
+      </button>
     </div>
   );
 };
@@ -267,20 +271,22 @@ const PricePoolProgress: FC<PricePoolProgressProps> = ({
     <div
       className={cn([
         "oui-relative oui-flex oui-items-center oui-p-4 oui-pe-12 oui-font-medium",
-        "oui-rounded-[10px] oui-border oui-border-solid oui-border-base-contrast/[0.12]",
+        "oui-rounded-xl oui-border oui-border-solid oui-border-base-contrast/[0.12]",
         "oui-trading-leaderboard-title",
-        isMobile ? "oui-h-[88px] oui-text-3xs" : "oui-h-[114px] oui-text-sm",
+        isMobile
+          ? "oui-h-20 oui-text-3xs"
+          : "oui-h-[calc(var(--oui-space-24)*1)] oui-text-sm",
       ])}
     >
-      <div className="oui-absolute oui-flex oui-h-6 oui-w-[calc(100%-64px)] oui-items-center">
+      <div className="oui-absolute oui-flex oui-h-6 oui-w-full oui-items-center">
         <div
           className={cn([
-            "oui-relative oui-flex oui-flex-1 oui-flex-col oui-rounded-[14px] oui-bg-base-5 oui-p-0.5",
+            "oui-relative oui-flex oui-flex-1 oui-flex-col oui-rounded-2xl oui-bg-base-5 oui-p-0.5",
             isMobile ? "oui-h-3" : "oui-h-4",
           ])}
         >
           <div
-            className="oui-h-full oui-rounded-[14px] oui-bg-[linear-gradient(270deg,rgb(var(--oui-gradient-brand-start))_0%,rgb(var(--oui-gradient-brand-end))_100%)]"
+            className="oui-h-full oui-rounded-2xl oui-gradient-brand"
             style={{ width: `${progressWidth}%` }}
           />
           <div
@@ -298,7 +304,7 @@ const PricePoolProgress: FC<PricePoolProgressProps> = ({
       </div>
       <div
         className={cn(
-          "oui-absolute oui-start-1 oui-flex oui-w-[calc(100%-64px)] oui-items-center",
+          "oui-absolute oui-start-1 oui-flex oui-w-full oui-items-center",
           "oui-p-4 oui-pe-12",
         )}
       >
@@ -315,7 +321,7 @@ const PricePoolProgress: FC<PricePoolProgressProps> = ({
             >
               <div
                 className={cn(
-                  "oui-absolute oui-top-[-12px] lg:oui-top-[-24px]",
+                  "oui-absolute -oui-top-3 lg:-oui-top-6",
                   "-oui-translate-x-1/2",
                   isReached
                     ? "oui-text-base-contrast"
@@ -327,15 +333,13 @@ const PricePoolProgress: FC<PricePoolProgressProps> = ({
                 className={cn(
                   "oui-absolute",
                   " oui-rounded-full",
-                  isMobile ? "oui-size-[4px]" : "oui-size-[6px]",
-                  isReached
-                    ? "oui-bg-base-contrast-80"
-                    : "oui-bg-[rgb(var(--oui-gradient-brand-start))]",
+                  isMobile ? "oui-size-1" : "oui-size-1",
+                  isReached ? "oui-bg-base-contrast-80" : "oui-bg-primary",
                 )}
                 style={{ left }}
               />
               <div
-                className="oui-absolute oui-bottom-[-12px] -oui-translate-x-1/2 lg:oui-bottom-[-24px]"
+                className="oui-absolute -oui-bottom-3 -oui-translate-x-1/2 lg:-oui-bottom-6"
                 style={{ left }}
               >
                 {isCurrentTier ? (

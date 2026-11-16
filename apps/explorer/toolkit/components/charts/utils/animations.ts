@@ -1,5 +1,7 @@
 import * as d3 from 'd3';
 
+import { motionDuration } from '../../../theme/motion';
+
 export type AnimationType = 'left' | 'fadeIn' | 'none';
 
 export const animateLeft = (path: SVGPathElement) => {
@@ -9,7 +11,7 @@ export const animateLeft = (path: SVGPathElement) => {
     .attr('stroke-dasharray', `${ totalLength },${ totalLength }`)
     .attr('stroke-dashoffset', totalLength)
     .transition()
-    .duration(750)
+    .duration(motionDuration('chart'))
     .ease(d3.easeLinear)
     .attr('stroke-dashoffset', 0);
 };
@@ -17,13 +19,13 @@ export const animateLeft = (path: SVGPathElement) => {
 export const animateFadeIn = (path: SVGPathElement) => {
   d3.select(path)
     .transition()
-    .duration(750)
+    .duration(motionDuration('chart'))
     .ease(d3.easeLinear)
     .attr('opacity', 1);
 };
 
 export const noneAnimation = (path: SVGPathElement) => {
-  d3.select(path).attr('opacity', 1);
+  d3.select(path).interrupt().attr('stroke-dashoffset', 0).attr('opacity', 1);
 };
 
 export const ANIMATIONS: Record<AnimationType, (path: SVGPathElement) => void> = {

@@ -39,11 +39,10 @@ export const CloseAllPositions: FC<CloseAllPositionsProps> = (props) => {
 
   const radioRow = (label: string, value: CloseType) => {
     return (
-      <Flex
-        justify={"start"}
-        itemAlign="center"
-        gap={2}
-        className="oui-w-full oui-cursor-pointer"
+      <button
+        type="button"
+        aria-pressed={selectedCloseType === value}
+        className="oui-flex oui-min-h-11 oui-w-full oui-cursor-pointer oui-items-center oui-justify-start oui-gap-2 oui-rounded oui-text-start focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary"
         onClick={() => setSelectedCloseType(value)}
       >
         <Checkbox
@@ -54,7 +53,7 @@ export const CloseAllPositions: FC<CloseAllPositionsProps> = (props) => {
         <Text size={isMobile ? "xs" : "2xs"} weight="semibold" className="">
           {label}
         </Text>
-      </Flex>
+      </button>
     );
   };
 
@@ -148,6 +147,7 @@ export const CloseAllPositions: FC<CloseAllPositionsProps> = (props) => {
             <button
               onClick={() => setOpen(false)}
               className="oui-text-base-contrast-54 hover:oui-text-base-contrast transition-colors oui-cursor-pointer"
+              type="button"
             >
               <CloseIcon size={16} color="inherit" opacity={1} />
             </button>

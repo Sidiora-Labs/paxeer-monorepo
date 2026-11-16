@@ -82,7 +82,11 @@ and sessions. `LAYERX_GATEWAY_IDENTITY_URL` reads the operator input
 `PLATFORM_GATEWAY_LAYERX_GATEWAY_IDENTITY_URL`, an absolute HTTPS address of
 the identity service. `LAYERX_GATEWAY_TENANT` reads the operator input
 `PLATFORM_GATEWAY_LAYERX_GATEWAY_TENANT`, a tenant of 1–95 lowercase letters,
-digits, dots, underscores or hyphens.
+digits, dots, underscores or hyphens. `LAYERX_GATEWAY_INDEXER_URL` is the
+private HTTPS origin of the `indexer` service on its listener port.
+`LAYERX_GATEWAY_CONSENSUS_RPC_URL` reads the operator input
+`PLATFORM_GATEWAY_LAYERX_GATEWAY_CONSENSUS_RPC_URL`, an absolute HTTPS address
+with a DNS host that may hold a path; calls go to exactly that path.
 
 The native table adds these four `identity` rows, each with mode `0600`.
 Each file input reads `PLATFORM_GATEWAY_` followed by its name from the launch

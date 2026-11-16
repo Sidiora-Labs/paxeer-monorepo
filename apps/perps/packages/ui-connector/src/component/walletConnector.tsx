@@ -1,6 +1,7 @@
+import { registerSimpleDialog, registerSimpleSheet } from "../platformOverlays";
 import React from "react";
 import { i18n } from "@paxeer-network/i18n";
-import { registerSimpleDialog, registerSimpleSheet } from "@paxeer-network/ui";
+
 import { useWalletConnectorBuilder } from "./useWalletConnectorBuilder";
 import { WalletConnectContent } from "./walletConnectorContent";
 

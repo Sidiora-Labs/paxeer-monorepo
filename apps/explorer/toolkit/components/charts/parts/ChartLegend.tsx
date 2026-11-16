@@ -40,7 +40,7 @@ export const ChartLegend = React.memo(({ data, selectedIndexes, onItemClick, ...
             display="flex"
             alignItems="center"
             columnGap={ 1 }
-            p="2px"
+            p={ 'var(--chakra-spacing-0\\.5)' }
             onClick={ handleItemClick }
             cursor="pointer"
           >

@@ -1,3 +1,5 @@
+import { withMarketTableControls } from "../shared/tableColumns";
+import styles from "../../presentation.module.css";
 import type { FC } from "react";
 import { cn } from "@paxeer-network/ui";
 import { DataTable } from "@paxeer-network/ui";
@@ -9,12 +11,13 @@ export const MobileFundingComparison: FC<FundingComparisonReturn> = (props) => {
 
   return (
     <DataTable
-      columns={columns}
+      className={`${styles.surface} ${styles.table}`}
+      columns={withMarketTableControls(columns)}
       dataSource={props.dataSource}
       loading={props.isLoading}
       onRow={() => {
         return {
-          className: cn("oui-h-[34px] oui-cursor-pointer"),
+          className: cn("oui-h-8 oui-cursor-pointer"),
         };
       }}
       onSort={props.onSort}

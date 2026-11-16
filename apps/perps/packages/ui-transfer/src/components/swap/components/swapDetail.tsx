@@ -127,7 +127,7 @@ export const SwapDetail: FC<SwapDetailProps> = (props) => {
             {info.swapFee}
           </Text.numeral>
           {` ${src?.token} `}
-          <Text className="oui-text-[#63666D]">
+          <Text className="oui-text-base-contrast-80">
             ($
             <Text.numeral padding={false} rm={Decimal.ROUND_UP} dp={2}>
               {new Decimal(info.swapFee).mul(markPrice || 0).toString()}
@@ -150,7 +150,7 @@ export const SwapDetail: FC<SwapDetailProps> = (props) => {
             {info.bridgeFee}
           </Text.numeral>
           {` ${src?.token} `}
-          <Text className="oui-text-[#63666D]">
+          <Text className="oui-text-base-contrast-80">
             ($
             <Text.numeral padding={false} rm={Decimal.ROUND_UP} dp={2}>
               {new Decimal(info.bridgeFee).mul(markPrice || 0).toString()}
@@ -205,7 +205,7 @@ export const SwapDetail: FC<SwapDetailProps> = (props) => {
 
   const swapButton = (
     <Flex justify="center" mt={8}>
-      <Button className="oui-w-full lg:oui-w-[184px]" onClick={props.onConfirm}>
+      <Button className="oui-w-full lg:oui-w-44" onClick={props.onConfirm}>
         {t("transfer.swapDeposit.confirmSwap")}
       </Button>
     </Flex>
@@ -235,7 +235,7 @@ type ListItemProps = {
 const ListItem: FC<ListItemProps> = (props) => {
   return (
     <Flex gapX={2} justify="between" width="100%">
-      <Text size="sm" intensity={54}>
+      <Text size="sm" intensity={80}>
         {props.label}
       </Text>
       <Text size="sm" intensity={98} as="div">
@@ -272,7 +272,7 @@ const SwapSymbol: FC<SwapSymbolProps> = (props) => {
         <Text.numeral intensity={98} size="lg" dp={props.dp}>
           {props.amount}
         </Text.numeral>
-        <Text intensity={54} size="xs">
+        <Text intensity={80} size="xs">
           {props.symbol}
         </Text>
       </Flex>
@@ -290,9 +290,9 @@ const SwapTime: FC<{ time: number }> = (props) => {
         justify="center"
         py={1}
         mt={2}
-        width={210}
+        width="calc(var(--oui-space-24)*2)"
       >
-        <Text size="sm" intensity={54}>
+        <Text size="sm" intensity={80}>
           {/* @ts-ignore */}
           <Trans
             i18nKey="transfer.swapDeposit.averageSwapTime"
