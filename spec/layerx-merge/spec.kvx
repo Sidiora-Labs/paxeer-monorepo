@@ -249758,7 +249758,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.768]
 title = "Make the readiness refresh of the canonical source a reader that holds on a moving head and names its cause"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.760"]
