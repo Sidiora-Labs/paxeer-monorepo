@@ -174254,7 +174254,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.54]
 title = "Let the render check report a render that shows nothing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.53", "22.44.58"]
