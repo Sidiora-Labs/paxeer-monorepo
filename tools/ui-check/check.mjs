@@ -10,6 +10,7 @@ import { PNG } from "pngjs";
 import { DEVICES, LIMITS, MODES, outputDirectory, readSurface, renderMatrix } from "./config.mjs";
 import { startSurface } from "./server.mjs";
 import { doubleText, focusedElement, focusSnapshot, measureContrast, measurePage, observePage } from "./browser.mjs";
+import { geometryFindings, measureParts, readGeometry, writeGeometry } from "./geometry.mjs";
 
 const require = createRequire(import.meta.url);
 const axeSource = await readFile(require.resolve("axe-core/axe.min.js"), "utf8");
@@ -122,7 +123,7 @@ async function openBrowser(worker) {
   worker.browser = await chromium.connect(worker.server.wsEndpoint());
 }
 
-async function renderView(worker, surface, view, state, configuration, out, index, renderMs) {
+async function renderView(worker, surface, view, state, configuration, out, index, renderMs, geometry) {
   const { width, height, scheme, mode } = configuration;
   let context;
   let active = true;
@@ -143,7 +144,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
   const endedFailures = [];
   const failedResponses = [];
   const consoleErrors = [];
-  const render = { view: view.name, state: state.name, size: { width, height }, scheme, mode, rendered: false, hasContent: false, cancelled: 0, screenshot: `${String(index + 1).padStart(5, "0")}.png`, findings: [] };
+  const render = { view: view.name, state: state.name, size: { width, height }, scheme, mode, rendered: false, hasContent: false, cancelled: 0, screenshot: out ? `${String(index + 1).padStart(5, "0")}.png` : null, findings: [] };
   let page;
   const work = async () => {
     try {
@@ -261,17 +262,25 @@ async function renderView(worker, surface, view, state, configuration, out, inde
       startStep("measurement");
       const measurements = await page.evaluate(measurePage, { limits: LIMITS, typeScale: surface.typeScale, doubled: mode === "double-text", reduced: mode === "reduced-motion" });
       if (!active) return;
-      findings.push(...measurements);
+      findings.push(...measurements.filter((finding) => !geometry?.writing || finding.kind === "load"));
+      if (geometry) {
+        startStep("geometry");
+        render.geometry = await measureParts(page, geometry.parts);
+        if (!active) return;
+        findings.push(...geometryFindings(render.geometry, geometry.stored, geometry.writing));
+      }
       startStep("screenshot");
       const viewportHasContent = screenshotHasContent(await page.screenshot({ fullPage: false, timeout: LIMITS.navigationMs, animations: "allow" }));
       if (!active) return;
       if (!viewportHasContent) addLoad({ source: "single-colour-viewport", message: "Viewport screenshot contains a single colour" });
       render.hasContent = viewportHasContent && !measurements.some((finding) => finding.kind === "load" && finding.values.source === "empty-document");
-      startStep("contrast");
-      await page.evaluate(axeSource);
-      const contrast = await page.evaluate(measureContrast, LIMITS);
-      if (!active) return;
-      findings.push(...contrast);
+      if (!geometry?.writing) {
+        startStep("contrast");
+        await page.evaluate(axeSource);
+        const contrast = await page.evaluate(measureContrast, LIMITS);
+        if (!active) return;
+        findings.push(...contrast);
+      }
       if (mode === "keyboard") {
         startStep("keyboard");
         await page.bringToFront();
@@ -286,7 +295,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
       addLoad({ source: "render", message: error.message });
       render.rendered = false;
     }
-    if (page && active) {
+    if (page && active && out) {
       startStep("screenshot");
       try {
         await page.screenshot({ path: join(out, render.screenshot), fullPage: true, timeout: LIMITS.navigationMs, animations: "allow" });
@@ -334,14 +343,17 @@ function jobCount(value = Math.min(availableParallelism(), 4)) {
   return Number(value);
 }
 
-export async function checkSurface({ surface: filename, out: destination, view: selected, jobs, renderMs = LIMITS.renderMs }, print = console.log) {
+export async function checkSurface({ surface: filename, out: destination, view: selected, jobs, renderMs = LIMITS.renderMs, writeGeometry: writing = false }, print = console.log) {
   const count = jobCount(jobs);
   if (!Number.isSafeInteger(renderMs) || renderMs <= 0 || renderMs > LIMITS.renderMs) throw new Error("renderMs must be a positive whole number within the render limit");
-  const out = await outputDirectory(destination);
   const surface = await readSurface(filename);
+  if (writing && !surface.geometry) throw new Error("--write-geometry requires surface.geometry");
+  const geometry = surface.geometry ? await readGeometry(surface.geometry.file, writing) : null;
+  const out = writing ? null : await outputDirectory(destination);
   const views = selected ? surface.views.filter((view) => view.name === selected) : surface.views;
   if (!views.length) throw new Error(`Unknown view: ${selected}`);
-  await mkdir(out, { recursive: true });
+  if (writing && !views.some((view) => view.parts?.length)) throw new Error("--write-geometry requires a selected view with parts");
+  if (out) await mkdir(out, { recursive: true });
   const summaries = views.map((view) => ({
     name: view.name,
     modes: view.modes,
@@ -350,7 +362,33 @@ export async function checkSurface({ surface: filename, out: destination, view: 
   }));
   const reducedModeCount = summaries.reduce((total, view) => total + Number(view.modes.length < MODES.length) + view.states.filter((state) => state.modes.length < MODES.length).length, 0);
   const result = { surface: surface.name, buildMs: surface.buildMs ?? LIMITS.buildMs, outputs: [], devices: DEVICES, limits: LIMITS, views: summaries, reducedModeCount, renders: [], findings: [], passed: false };
-  const tasks = views.flatMap((view) => [{ name: "default", steps: [], expects: view.expects, modes: view.modes }, ...(view.states ?? [])].flatMap((state) => renderMatrix(state.modes).map((configuration) => ({ view, state, configuration }))));
+  const tasks = views.flatMap((view) => {
+    const initial = { name: "default", steps: [], expects: view.expects, modes: view.modes };
+    const entries = geometry?.entries.filter((entry) => entry.view === view.name) ?? [];
+    const tracksGeometry = surface.geometry && (view.parts?.length || entries.length);
+    const configurations = tracksGeometry ? surface.geometry.widths.map((width) => ({ width, height: 900, scheme: "dark", mode: "default" })) : [];
+    if (writing && !view.parts?.length) return [];
+    return (writing ? [initial] : [initial, ...(view.states ?? [])]).flatMap((state) => {
+      const matrix = writing ? configurations : renderMatrix(state.modes);
+      if (!writing && state === initial) {
+        for (const configuration of configurations) {
+          if (!matrix.some((entry) => entry.width === configuration.width && entry.height === configuration.height && entry.scheme === configuration.scheme && entry.mode === configuration.mode)) matrix.push(configuration);
+        }
+      }
+      return matrix.map((configuration) => {
+        let plan;
+        if (state === initial && configuration.mode === "default" && configuration.scheme === "dark" && configuration.height === 900 && configurations.some((entry) => entry.width === configuration.width)) {
+          const stored = entries.filter((entry) => entry.width === configuration.width);
+          const parts = new Map((writing ? [] : stored).map((entry) => [entry.part, { name: entry.part, selector: entry.selector }]));
+          for (const part of view.parts ?? []) parts.set(part.name, part);
+          plan = { stored, parts: [...parts.values()], writing };
+        }
+        return { view, state, configuration, geometry: plan };
+      });
+    });
+  });
+  const reported = (findings) => findings.filter((finding) => surface.reportedKinds?.includes(finding.kind)).length;
+  const counts = (findings) => surface.reportedKinds === undefined ? "" : `, ${reported(findings)} reported, ${findings.length - reported(findings)} failing`;
   const workers = Array.from({ length: Math.min(count, tasks.length) }, () => ({}));
   let next = 0;
   let service;
@@ -361,9 +399,9 @@ export async function checkSurface({ surface: filename, out: destination, view: 
       try {
         while (next < tasks.length) {
           const index = next++;
-          const { view, state, configuration } = tasks[index];
+          const { view, state, configuration, geometry: plan } = tasks[index];
           await openBrowser(worker);
-          result.renders[index] = await renderView(worker, surface, view, state, configuration, out, index, renderMs);
+          result.renders[index] = await renderView(worker, surface, view, state, configuration, out, index, renderMs, plan);
         }
       } finally {
         await closeBrowser(worker);
@@ -373,7 +411,8 @@ export async function checkSurface({ surface: filename, out: destination, view: 
     if (failed) throw failed.reason;
     for (const view of views) {
       const renders = result.renders.filter((render) => render.view === view.name);
-      print(`${view.name}: ${renders.length} renders, ${renders.filter((render) => !render.rendered).length} did not render, ${renders.filter((render) => !render.hasContent).length} showed nothing, ${renders.reduce((total, render) => total + render.findings.length, 0)} findings`);
+      const findings = renders.flatMap((render) => render.findings);
+      print(`${view.name}: ${renders.length} renders, ${renders.filter((render) => !render.rendered).length} did not render, ${renders.filter((render) => !render.hasContent).length} showed nothing, ${findings.length} findings${counts(findings)}`);
     }
   } catch (error) {
     result.findings.push({ kind: "load", view: null, state: null, size: null, scheme: null, mode: null, selector: "document", values: { source: "surface", message: error.message } });
@@ -382,21 +421,27 @@ export async function checkSurface({ surface: filename, out: destination, view: 
   }
   result.renders = result.renders.filter(Boolean);
   result.findings.push(...result.renders.flatMap((render) => render.findings));
-  result.passed = result.renders.length === tasks.length && result.renders.every((render) => render.rendered) && result.findings.length === 0;
-  await writeFile(join(out, "result.json"), `${JSON.stringify(result, null, 2)}\n`);
-  print(`Total: ${result.renders.length} renders, ${result.renders.filter((render) => !render.hasContent).length} showed nothing, ${result.findings.length} findings, ${result.renders.reduce((total, render) => total + render.cancelled, 0)} cancelled, ${result.passed ? "pass" : "fail"}, ${reducedModeCount} views and states with fewer than all modes`);
+  result.passed = result.renders.length === tasks.length && result.renders.every((render) => render.rendered) && result.findings.length === reported(result.findings);
+  if (surface.reportedKinds !== undefined) {
+    result.reportedKinds = surface.reportedKinds;
+    result.reportedCount = reported(result.findings);
+    result.failingCount = result.findings.length - result.reportedCount;
+  }
+  if (writing && result.passed) await writeGeometry(surface.geometry.file, result.renders, geometry, selected);
+  if (out) await writeFile(join(out, "result.json"), `${JSON.stringify(result, null, 2)}\n`);
+  print(`Total: ${result.renders.length} renders, ${result.renders.filter((render) => !render.hasContent).length} showed nothing, ${result.findings.length} findings${counts(result.findings)}, ${result.renders.reduce((total, render) => total + render.cancelled, 0)} cancelled, ${result.passed ? "pass" : "fail"}, ${reducedModeCount} views and states with fewer than all modes`);
   return result;
 }
 
 export async function main(args = process.argv.slice(2)) {
-  const { values } = parseArgs({ args, options: { surface: { type: "string" }, out: { type: "string" }, view: { type: "string" }, list: { type: "boolean" }, jobs: { type: "string" } }, allowPositionals: false });
+  const { values } = parseArgs({ args, options: { surface: { type: "string" }, out: { type: "string" }, view: { type: "string" }, list: { type: "boolean" }, jobs: { type: "string" }, "write-geometry": { type: "boolean" } }, allowPositionals: false });
   if (values.jobs !== undefined) jobCount(values.jobs);
   if (values.list) {
     for (const device of DEVICES) console.log(`${device.width} x ${device.height}`);
     return 0;
   }
-  if (!values.surface || !values.out) throw new Error("Usage: node tools/ui-check/check.mjs --surface FILE --out DIRECTORY [--view NAME] [--jobs COUNT] | --list");
-  const result = await checkSurface(values);
+  if (!values.surface || (!values.out && !values["write-geometry"])) throw new Error("Usage: node tools/ui-check/check.mjs --surface FILE [--out DIRECTORY | --write-geometry] [--view NAME] [--jobs COUNT] | --list");
+  const result = await checkSurface({ ...values, writeGeometry: values["write-geometry"] });
   return result.passed ? 0 : 1;
 }
 

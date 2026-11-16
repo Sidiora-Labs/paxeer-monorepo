@@ -15340,6 +15340,24 @@ value = "The cutoff of a run is the second of the clock of the database, read in
 basis = "Gotcha 4624."
 affects = []
 
+[decision.3705]
+title = "The trading workspace keeps the presentation of its reference source"
+value = "The presentation of the trading workspace under apps/perps is the one of its reference source: the size scale of text, the line heights, the distances, the heights of controls and rows, the tracks of the shell and of the grids, the breakpoints and the colours. The changes of tasks 22.44.12 to 22.44.18 under apps/perps leave the tree whole; the binding to the native markets, the legal pages, the build and the image of the workspace stay. For this surface the reference source stands before the size rules of decision 3588: the sizes of text, of controls and of touch areas and the contrast of its colours are the ones of the reference source. The render check holds the surface to it by a geometry file: the place and the size of the named parts of each view at the widths 390, 1280, 1440, 1920 and 2560, written once from the reference presentation and compared at every later run. A later change of the presentation of this surface moves no part of that file and changes no colour; it may add a mark of focus, a label, a role or a rule for reduced motion. Decisions 3588, 3589 and 3591 stay as they are for every other surface."
+basis = "Gotcha 4625. Decisions 3588, 3589 and 3591."
+affects = []
+
+[decision.3706]
+title = "The check command of the launchpad parts states that the certificate of the local surface is made for the run"
+value = "The verification of each part of the launchpad surface starts the render check with the variable NODE_TLS_REJECT_UNAUTHORIZED set to 0 for that one command, written in front of it. The variable reaches the check and the local surface it starts and nothing else of the verification; the surface listens on the local machine only and every address outside it is answered by the fixed answers of the surface files. A run by hand uses the same form. No file of the application and no file of the check reads or sets the variable, and the surface keeps its secure origin."
+basis = "Gotcha 4626. Decisions 3591 and 3681."
+affects = []
+
+[decision.3707]
+title = "A surface that had a build before the series is measured against that earlier state"
+value = "Each surface that had a build before the tasks of series 22.44 is measured once against that earlier state with the geometry file of the render check: the named parts of its views at the widths 390, 1280, 1440, 1920 and 2560, written from the earlier state and compared with the present state. The record of the measuring task holds the size tokens of both states and every part that moved by more than one pixel. The measuring task corrects nothing and the surface file names no geometry file through it. The record is the basis on which the presentation of the surface is confirmed or a move is taken back by a later task. Tasks 22.44.75 to 22.44.78 measure the wallet application, the human web application, the developer dashboard and the bridge application; the launchpad and the explorer are measured when their surface files are on the main line, and the trading workspace follows decision 3705."
+basis = "Gotcha 4627. Decisions 3588, 3591 and 3705."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45000,6 +45018,60 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.78]
+title = "Measure the bridge application against its state before the tasks of series 22.44"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/surfaces/bridge.json"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.78.kvx && test -s tools/ui-check/surfaces/bridge/earlier-geometry.json && (cd tools/ui-check && npm ci) && node tools/ui-check/check.mjs --list --surface tools/ui-check/surfaces/bridge.json"
+do_1 = "do_1 Gotcha 4627, decision 3707. Read tools/ui-check/README.md with its part on the geometry file, tools/ui-check/surfaces/bridge.json and the files it names. Find on the main line the first change whose subject names a task of series 22.44 and that changes a file under apps/bridge: the revision before it is the earlier state. Name that revision and the present one in the record."
+symbols = []
+
+[capability.22.44.77]
+title = "Measure the developer dashboard against its state before the tasks of series 22.44"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/surfaces/dashboard.json"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.77.kvx && test -s tools/ui-check/surfaces/dashboard/earlier-geometry.json && (cd tools/ui-check && npm ci) && node tools/ui-check/check.mjs --list --surface tools/ui-check/surfaces/dashboard.json"
+do_1 = "do_1 Gotcha 4627, decision 3707. Read tools/ui-check/README.md with its part on the geometry file, tools/ui-check/surfaces/dashboard.json and the files it names. Find on the main line the first change whose subject names a task of series 22.44 and that changes a file under services/platform/hosted/dashboard/web: the revision before it is the earlier state. Name that revision and the present one in the record."
+symbols = []
+
+[capability.22.44.76]
+title = "Measure the human web application against its state before the tasks of series 22.44"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/surfaces/human-web.json"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.76.kvx && test -s tools/ui-check/surfaces/human-web/earlier-geometry.json && (cd tools/ui-check && npm ci) && node tools/ui-check/check.mjs --list --surface tools/ui-check/surfaces/human-web.json"
+do_1 = "do_1 Gotcha 4627, decision 3707. Read tools/ui-check/README.md with its part on the geometry file, tools/ui-check/surfaces/human-web.json and the files it names. Find on the main line the first change whose subject names a task of series 22.44 and that changes a file under apps/web: the revision before it is the earlier state. Name that revision and the present one in the record."
+symbols = []
+
+[capability.22.44.75]
+title = "Measure the wallet application against its state before the tasks of series 22.44"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/surfaces/wallet.json"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.75.kvx && test -s tools/ui-check/surfaces/wallet/earlier-geometry.json && (cd tools/ui-check && npm ci) && node tools/ui-check/check.mjs --list --surface tools/ui-check/surfaces/wallet.json"
+do_1 = "do_1 Gotcha 4627, decision 3707. Read tools/ui-check/README.md with its part on the geometry file, tools/ui-check/surfaces/wallet.json and the files it names. Find on the main line the first change whose subject names a task of series 22.44 and that changes a file under apps/wallet: the revision before it is the earlier state. Name that revision and the present one in the record."
+symbols = []
+
+[capability.22.44.74]
+title = "Let the render check hold a view to a stored geometry and report chosen kinds without failing"
+reqs = ["22998.1"]
+touches = ["tools/ui-check"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4625, decision 3705. Read tools/ui-check/README.md, tools/ui-check/check.mjs, tools/ui-check/config.mjs, tools/ui-check/browser.mjs and the cases under tools/ui-check/test. State in the final message how a surface file is validated, where a finding gets its kind, and how the exit status is formed."
+symbols = []
+
+[capability.22.44.73]
+title = "Take the trading workspace back to the presentation of its reference source"
+reqs = ["22998.1"]
+touches = ["apps/perps"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.18.kvx && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps test"
+do_1 = "do_1 Gotcha 4625, decision 3705. Read the history of apps/perps on the main line: each of the tasks 22.44.12, 22.44.13, 22.44.14, 22.44.15, 22.44.16, 22.44.17 and 22.44.18 has one change there whose subject names its task. Read apps/perps/scripts/check-ui-source.mjs, apps/perps/scripts/ui-presentation.mjs and apps/perps/docs/ui-source-baseline.json with the reference commit it names. List in the final message the seven changes with the count of files of each."
+symbols = []
 
 [capability.22.39.770]
 title = "Take the cutoff of a ranking run from the clock of the database and name the step that refused"
@@ -175087,6 +175159,198 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.78]
+title = "Measure the bridge application against its state before the tasks of series 22.44"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.74", "22.44.45"]
+reqs = ["22998.1"]
+capabilities = ["22.44.78"]
+interfaces = []
+do_1 = "do_1 Gotcha 4627, decision 3707. Read tools/ui-check/README.md with its part on the geometry file, tools/ui-check/surfaces/bridge.json and the files it names. Find on the main line the first change whose subject names a task of series 22.44 and that changes a file under apps/bridge: the revision before it is the earlier state. Name that revision and the present one in the record."
+do_2 = "do_2 Give parts to the views of tools/ui-check/surfaces/bridge.json: for every template of the surface the header, the navigation, the main region, the first heading, the primary control, the first row of each table or list, one card of each kind and the footer, each with a selector that holds in the earlier and in the present state. Where no selector holds in both, choose the part by landmark or role; a part that only one state has is named in the record. The surface file names no geometry file, so the proof of the surface runs as before."
+do_3 = "do_3 Add a second working tree of the version control at the earlier state outside the checkout and build the surface there the way the surface file builds it; a change that build needs in the earlier state is made in the second working tree only and named in the record. Run the check with a copy of the surface file outside the checkout whose build and start run in the second working tree, with the fixed answers of the surface, and write the geometry with the option --write-geometry. Store the result as tools/ui-check/surfaces/bridge/earlier-geometry.json."
+do_4 = "do_4 Run the check by hand on the present state with a second copy of the surface file that names tools/ui-check/surfaces/bridge/earlier-geometry.json as its geometry file, and read every finding of the kind geometry. Write the record spec/layerx-merge/programme/records/ui/22.44.78.kvx in present tense: the two revisions; a table of every size token of the surface, text sizes, line heights, distances, heights of controls and radii, with its value in the earlier state and in the present state at the widths 390, 1440 and 1920; for each view and width every part that differs by more than one pixel with the stored and the measured values; and the count of such parts per view. The record states measures and no judgement."
+do_5 = "do_5 This task corrects nothing in the surface: no file under apps/bridge changes, and no case and no fixed answer is changed. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/surfaces/bridge.json"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/bridge", "spec/layerx-merge/programme/records/ui/22.44.78.kvx"]
+build_cmd = "node --version && npm --version"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.78.kvx && test -s tools/ui-check/surfaces/bridge/earlier-geometry.json && (cd tools/ui-check && npm ci) && node tools/ui-check/check.mjs --list --surface tools/ui-check/surfaces/bridge.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.77]
+title = "Measure the developer dashboard against its state before the tasks of series 22.44"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.74", "22.44.44"]
+reqs = ["22998.1"]
+capabilities = ["22.44.77"]
+interfaces = []
+do_1 = "do_1 Gotcha 4627, decision 3707. Read tools/ui-check/README.md with its part on the geometry file, tools/ui-check/surfaces/dashboard.json and the files it names. Find on the main line the first change whose subject names a task of series 22.44 and that changes a file under services/platform/hosted/dashboard/web: the revision before it is the earlier state. Name that revision and the present one in the record."
+do_2 = "do_2 Give parts to the views of tools/ui-check/surfaces/dashboard.json: for every template of the surface the header, the navigation, the main region, the first heading, the primary control, the first row of each table or list, one card of each kind and the footer, each with a selector that holds in the earlier and in the present state. Where no selector holds in both, choose the part by landmark or role; a part that only one state has is named in the record. The surface file names no geometry file, so the proof of the surface runs as before."
+do_3 = "do_3 Add a second working tree of the version control at the earlier state outside the checkout and build the surface there the way the surface file builds it; a change that build needs in the earlier state is made in the second working tree only and named in the record. Run the check with a copy of the surface file outside the checkout whose build and start run in the second working tree, with the fixed answers of the surface, and write the geometry with the option --write-geometry. Store the result as tools/ui-check/surfaces/dashboard/earlier-geometry.json."
+do_4 = "do_4 Run the check by hand on the present state with a second copy of the surface file that names tools/ui-check/surfaces/dashboard/earlier-geometry.json as its geometry file, and read every finding of the kind geometry. Write the record spec/layerx-merge/programme/records/ui/22.44.77.kvx in present tense: the two revisions; a table of every size token of the surface, text sizes, line heights, distances, heights of controls and radii, with its value in the earlier state and in the present state at the widths 390, 1440 and 1920; for each view and width every part that differs by more than one pixel with the stored and the measured values; and the count of such parts per view. The record states measures and no judgement."
+do_5 = "do_5 This task corrects nothing in the surface: no file under services/platform/hosted/dashboard/web changes, and no case and no fixed answer is changed. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/surfaces/dashboard.json"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/dashboard/earlier-geometry.json", "spec/layerx-merge/programme/records/ui/22.44.77.kvx"]
+build_cmd = "node --version && npm --version"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.77.kvx && test -s tools/ui-check/surfaces/dashboard/earlier-geometry.json && (cd tools/ui-check && npm ci) && node tools/ui-check/check.mjs --list --surface tools/ui-check/surfaces/dashboard.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.76]
+title = "Measure the human web application against its state before the tasks of series 22.44"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.74", "22.44.43"]
+reqs = ["22998.1"]
+capabilities = ["22.44.76"]
+interfaces = []
+do_1 = "do_1 Gotcha 4627, decision 3707. Read tools/ui-check/README.md with its part on the geometry file, tools/ui-check/surfaces/human-web.json and the files it names. Find on the main line the first change whose subject names a task of series 22.44 and that changes a file under apps/web: the revision before it is the earlier state. Name that revision and the present one in the record."
+do_2 = "do_2 Give parts to the views of tools/ui-check/surfaces/human-web.json: for every template of the surface the header, the navigation, the main region, the first heading, the primary control, the first row of each table or list, one card of each kind and the footer, each with a selector that holds in the earlier and in the present state. Where no selector holds in both, choose the part by landmark or role; a part that only one state has is named in the record. The surface file names no geometry file, so the proof of the surface runs as before."
+do_3 = "do_3 Add a second working tree of the version control at the earlier state outside the checkout and build the surface there the way the surface file builds it; a change that build needs in the earlier state is made in the second working tree only and named in the record. Run the check with a copy of the surface file outside the checkout whose build and start run in the second working tree, with the fixed answers of the surface, and write the geometry with the option --write-geometry. Store the result as tools/ui-check/surfaces/human-web/earlier-geometry.json."
+do_4 = "do_4 Run the check by hand on the present state with a second copy of the surface file that names tools/ui-check/surfaces/human-web/earlier-geometry.json as its geometry file, and read every finding of the kind geometry. Write the record spec/layerx-merge/programme/records/ui/22.44.76.kvx in present tense: the two revisions; a table of every size token of the surface, text sizes, line heights, distances, heights of controls and radii, with its value in the earlier state and in the present state at the widths 390, 1440 and 1920; for each view and width every part that differs by more than one pixel with the stored and the measured values; and the count of such parts per view. The record states measures and no judgement."
+do_5 = "do_5 This task corrects nothing in the surface: no file under apps/web changes, and no case and no fixed answer is changed. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/surfaces/human-web.json"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/human-web/earlier-geometry.json", "spec/layerx-merge/programme/records/ui/22.44.76.kvx"]
+build_cmd = "node --version && npm --version"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.76.kvx && test -s tools/ui-check/surfaces/human-web/earlier-geometry.json && (cd tools/ui-check && npm ci) && node tools/ui-check/check.mjs --list --surface tools/ui-check/surfaces/human-web.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.75]
+title = "Measure the wallet application against its state before the tasks of series 22.44"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.74", "22.44.63"]
+reqs = ["22998.1"]
+capabilities = ["22.44.75"]
+interfaces = []
+do_1 = "do_1 Gotcha 4627, decision 3707. Read tools/ui-check/README.md with its part on the geometry file, tools/ui-check/surfaces/wallet.json and the files it names. Find on the main line the first change whose subject names a task of series 22.44 and that changes a file under apps/wallet: the revision before it is the earlier state. Name that revision and the present one in the record."
+do_2 = "do_2 Give parts to the views of tools/ui-check/surfaces/wallet.json: for every template of the surface the header, the navigation, the main region, the first heading, the primary control, the first row of each table or list, one card of each kind and the footer, each with a selector that holds in the earlier and in the present state. Where no selector holds in both, choose the part by landmark or role; a part that only one state has is named in the record. The surface file names no geometry file, so the proof of the surface runs as before."
+do_3 = "do_3 Add a second working tree of the version control at the earlier state outside the checkout and build the surface there the way the surface file builds it; a change that build needs in the earlier state is made in the second working tree only and named in the record. Run the check with a copy of the surface file outside the checkout whose build and start run in the second working tree, with the fixed answers of the surface, and write the geometry with the option --write-geometry. Store the result as tools/ui-check/surfaces/wallet/earlier-geometry.json."
+do_4 = "do_4 Run the check by hand on the present state with a second copy of the surface file that names tools/ui-check/surfaces/wallet/earlier-geometry.json as its geometry file, and read every finding of the kind geometry. Write the record spec/layerx-merge/programme/records/ui/22.44.75.kvx in present tense: the two revisions; a table of every size token of the surface, text sizes, line heights, distances, heights of controls and radii, with its value in the earlier state and in the present state at the widths 390, 1440 and 1920; for each view and width every part that differs by more than one pixel with the stored and the measured values; and the count of such parts per view. The record states measures and no judgement."
+do_5 = "do_5 This task corrects nothing in the surface: no file under apps/wallet changes, and no case and no fixed answer is changed. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/surfaces/wallet.json"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/wallet/earlier-geometry.json", "spec/layerx-merge/programme/records/ui/22.44.75.kvx"]
+build_cmd = "node --version && npm --version"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.75.kvx && test -s tools/ui-check/surfaces/wallet/earlier-geometry.json && (cd tools/ui-check && npm ci) && node tools/ui-check/check.mjs --list --surface tools/ui-check/surfaces/wallet.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.74]
+title = "Let the render check hold a view to a stored geometry and report chosen kinds without failing"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.59"]
+reqs = ["22998.1"]
+capabilities = ["22.44.74"]
+interfaces = []
+do_1 = "do_1 Gotcha 4625, decision 3705. Read tools/ui-check/README.md, tools/ui-check/check.mjs, tools/ui-check/config.mjs, tools/ui-check/browser.mjs and the cases under tools/ui-check/test. State in the final message how a surface file is validated, where a finding gets its kind, and how the exit status is formed."
+do_2 = "do_2 A surface file may name a geometry file, with a path relative to the surface file, and a view may list parts, each with a name and a selector. With the option --write-geometry the command renders every view that lists parts in the default mode and the dark scheme at the widths the surface file gives for the geometry, by default 390, 1280, 1440, 1920 and 2560, measures for each part the left edge, the top edge, the width and the height of its box and the computed size and line height of its text, and writes the geometry file in a stable order. It writes nothing else, and with --view it changes only the entries of that view. Without the option a surface with a geometry file gets the same measures at every run, and each part that differs from the file by more than one pixel in an edge or a size is a finding of the kind geometry, with the view, the width, the part, the stored and the measured values. A part of the file that the page does not hold and a listed part that the file does not hold are findings of that kind as well."
+do_3 = "do_3 A surface file may list kinds of findings that are reported and do not fail the command. Such findings stay in the report and in the summaries with their full context and are counted apart in the total line; the exit status is zero when every render succeeded and no finding of another kind exists. The kind geometry and the kinds of a surface or a render that did not load cannot be listed: a surface file that lists one of them, or a kind the command does not know, is rejected before rendering. A surface file without the two new keys behaves as before."
+do_4 = "do_4 Cases with local static pages and real Chromium: a geometry file written and read back gives no finding; a part moved by two pixels, a part with another text size, a part that is missing and a part that is not in the file each give one finding of the kind geometry; a difference of one pixel gives none; --view writes only the entries of its view; a listed kind is reported, counted apart and leaves the exit status zero, and the same finding fails the command when the kind is not listed; a surface file that lists geometry, a kind of loading or an unknown kind is rejected. Describe the geometry file, the option and the list of kinds in tools/ui-check/README.md in present tense. The surface files under tools/ui-check/surfaces stay as they are."
+do_5 = "do_5 Run the cases by hand and read each message. The files of tools/ui-check are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. No case is removed or weakened. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.73]
+title = "Take the trading workspace back to the presentation of its reference source"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.18"]
+reqs = ["22998.1"]
+capabilities = ["22.44.73"]
+interfaces = []
+do_1 = "do_1 Gotcha 4625, decision 3705. Read the history of apps/perps on the main line: each of the tasks 22.44.12, 22.44.13, 22.44.14, 22.44.15, 22.44.16, 22.44.17 and 22.44.18 has one change there whose subject names its task. Read apps/perps/scripts/check-ui-source.mjs, apps/perps/scripts/ui-presentation.mjs and apps/perps/docs/ui-source-baseline.json with the reference commit it names. List in the final message the seven changes with the count of files of each."
+do_2 = "do_2 Take the seven changes back whole with the revert of the version control, the newest first, and commit the result as the change of this task. Nothing is taken back by hand and no part of a change is kept: not the type scale that grows with the window, not the tokens of distance, not the heights of controls, not the tracks of the shell and the grids. Where the take-back meets a place a later task changed, keep the change of the later task and take back the rest of that file. The take-back also removes the records of the seven tasks under spec/layerx-merge/programme/records/ui: restore those seven files to the state of the main line before the commit, they are outside the paths of this task."
+do_3 = "do_3 After the take-back compare the directories apps/perps/packages and apps/perps/apps/web/src with the reference commit that apps/perps/docs/ui-source-baseline.json names; where the checkout does not hold that commit, fetch it from the origin. List in the final message every file that differs with the task that changed it. A difference in a size, a distance, a height, a track, a breakpoint or a colour that no task other than the seven explains is taken back as well. Change nothing in the binding to the native markets, the legal pages, the consent notice, the build files, the image and the deployment folder."
+do_4 = "do_4 Cases that pin the markup, the class names or the styles of the seven changes go back with them through the take-back. A case of another task that reads the presentation the seven changes gave is brought in line with the reference presentation; no assertion on behaviour is weakened and no case is removed or skipped. The presentation check of the package passes with the entries the take-back restores in apps/perps/docs/ui-source-baseline.json; an entry of a file a later task changed keeps what that task wrote."
+do_5 = "do_5 Run by hand the type check, the presentation check, the tests at the root of the workspace and the suite of each member of the workspace whose files the take-back changes, with the command the workflow .github/workflows/perps-test.yml uses for a member, and read each summary. The files of apps/perps are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.18.kvx && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.72]
 title = "Give the explorer cases that render a whole page or the whole layout their own time bounds"
 status = "done"
@@ -175201,7 +175465,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.69.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.69.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.69.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -175233,7 +175497,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.68.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.68.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json --out /tmp/ui-check/launchpad-live && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.68.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json --out /tmp/ui-check/launchpad-live && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -175265,7 +175529,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.67.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.67.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.67.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -175297,7 +175561,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.66.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.66.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json --out /tmp/ui-check/launchpad-explore && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.66.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json --out /tmp/ui-check/launchpad-explore && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -175329,7 +175593,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.65.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.65.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.65.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -175361,7 +175625,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.64.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.64.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/community.json --out /tmp/ui-check/launchpad-community && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.64.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/community.json --out /tmp/ui-check/launchpad-community && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -176620,7 +176884,7 @@ touches = ["apps/launchpad/web/src"]
 tests = []
 planned_paths = ["tools/ui-check/surfaces/launchpad.json", "tools/ui-check/surfaces/launchpad", "spec/layerx-merge/programme/records/ui/22.44.40.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.40.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.40.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -176639,7 +176903,7 @@ title = "Close the trading workspace on the device list with the render check"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.44.18", "22.44.37", "22.44.52", "22.44.58", "22.44.59"]
+requires = ["22.44.18", "22.44.37", "22.44.52", "22.44.58", "22.44.59", "22.44.73", "22.44.74"]
 reqs = ["22998.1"]
 capabilities = ["22.44.39"]
 interfaces = []
@@ -176668,6 +176932,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "do_7 Decision 3624, gotcha 4541. The device list of a proof task is the list of sizes of the render check and not a page of the application. The views of the surface file are every route the application serves: one view at least for each page file of its router, a route with a parameter under a stand-in value, and each view with the states worth a render. Give in the final message the count of page files and the count of routes that have a view; the two are equal. Measure each screenshot of the last run for content, the count of distinct colours and the text drawn; a screenshot of a single colour is a view that draws nothing and is corrected at its cause. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 do_8 = "do_8 Decisions 3629 and 3630. The surface file holds every route of the application as a view, and every view renders in the mode default on every device in both schemes. Where the surface holds more than twenty-four views, give the key modes with the value default alone to views that share a template with a view that renders in every mode, so that each template and each kind of state keeps at least one view in every mode, and name these views and states in the record. Run the check by hand before the counted verification and measure its time: the whole check ends within forty minutes with the default count of renders at once. Give the time, the count of renders and the count of findings in the final message. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+do_9 = "do_9 Decision 3705, gotcha 4625. This task starts from the main line that holds tasks 22.44.73 and 22.44.74. The surface is proved in the presentation of its reference source: the surface file and its answer files of an earlier candidate are carried over, its corrections of the presentation are not. Before any correction give parts to the views of the trade, markets and portfolio routes and to one view of every other template: the header, the row of tickers, the row of the symbol, the frame of the chart, the order book, the order entry, the tabs below the chart, the footer, the summary cards, the lists and the table of the markets view, the side navigation and the panels of the portfolio. Write the geometry file tools/ui-check/surfaces/trading/geometry.json once with the option of the command and commit it with the surface file. The surface file lists the kinds of contrast, of touch size and of the type scale as reported kinds; their findings are given in the record with their counts and are not corrected. Every other finding is corrected without a move of a part of the geometry file and without a change of a colour or a size of the reference source. Where content that leaves the screen or cut text can only be corrected by a move at a width of the file, name the view, the width and the part in the record and write that entry again. The steps above that ask for values from the tokens, for a touch size or for a type scale do not apply to this surface. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.38]
 title = "Close the explorer on the device list with the render check"
@@ -249820,7 +250085,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.769]
 title = "Try a ranking publication row at its attempt bound again at a slower pace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.766"]

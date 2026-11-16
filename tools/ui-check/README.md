@@ -26,6 +26,7 @@ From the repository root:
 ```sh
 node tools/ui-check/check.mjs --surface /path/to/surface.json --out /tmp/surface-renders
 node tools/ui-check/check.mjs --surface /path/to/surface.json --out /tmp/surface-renders --view home
+node tools/ui-check/check.mjs --surface /path/to/surface.json --write-geometry
 node tools/ui-check/check.mjs --list
 ```
 
@@ -60,7 +61,8 @@ cancelled requests across the run. The view summary also counts renders that did
 not render. The report also lists the modes for each view and
 named state. The total line counts views and named states using fewer than all
 four modes, counting the initial state as its view. Exit status is zero only when
-every requested render succeeds with no findings. Startup, navigation and
+every requested render succeeds and every finding belongs to `reportedKinds`.
+Without that list, any finding fails the command. Startup, navigation and
 screenshot errors produce a nonzero exit.
 A surface that cannot start has a surface-level load finding with null render
 context. Invalid arguments or surface files are rejected before rendering.
@@ -227,8 +229,95 @@ controls can complete their normal interaction. Clipboard reading is ungranted.
 fluid ranges. Doubled-text renders compare half the computed size with the
 scale. A 0.05-pixel comparison tolerance accounts for browser size rounding.
 Unknown fields are rejected at every structured level, including fields for
-limits or exemptions. Surface files cannot alter a finding's limits or omit a
-finding kind.
+limits or exemptions. Surface files cannot alter a finding's limits or omit its
+measurements.
+
+## Stored geometry
+
+A surface may declare `geometry` with a `file` path relative to the surface file
+and optional `widths`. Widths are unique positive whole CSS pixel numbers; they
+default to 390, 1280, 1440, 1920 and 2560. Each view may declare `parts`, a list
+of unique names and Playwright selectors:
+
+```json
+"geometry": { "file": "example/geometry.json", "widths": [390, 1280, 1440, 1920, 2560] },
+"views": [
+  {
+    "name": "home",
+    "path": "/",
+    "parts": [
+      { "name": "header", "selector": "header" },
+      { "name": "summary", "selector": "#summary" }
+    ]
+  }
+]
+```
+
+`--write-geometry` renders every view with parts in its initial state, in default
+mode and dark scheme, at the geometry widths and height 900. Each selector must
+match exactly one visible element. The command stores the element's bounding
+box (`left`, `top`, `width`, `height`), computed `fontSize` and computed
+`lineHeight` in CSS pixels. A computed line height of `normal` keeps that keyword.
+Edges are relative to the viewport after settling and returning to the top.
+The file contains version 1 and entries sorted by view name, numeric width and
+part name, without rounding the measurements:
+
+```json
+{
+  "version": 1,
+  "entries": [
+    {
+      "view": "home",
+      "width": 390,
+      "part": "header",
+      "selector": "header",
+      "values": { "left": 0, "top": 0, "width": 390, "height": 64, "fontSize": 16, "lineHeight": 24 }
+    }
+  ]
+}
+```
+
+Writing requires `geometry` and at least one selected view with parts. It saves
+only the geometry file: no PNGs, result report or output directory. `--out` is
+optional and produces no files in this mode. Named states and views without
+parts do not render. `--view NAME` replaces only that view's entries and preserves
+the entries of other views. Loading errors and missing or ambiguous parts fail
+the write and leave the stored file intact. Presentation findings do not prevent
+capturing the geometry.
+
+Without `--write-geometry`, a surface with `geometry` reads the existing file and
+measures parts on every run in the same initial state, mode, scheme and sizes.
+Widths outside the regular device list add renders; matching regular renders
+provide the measurements without duplication. Other modes, schemes and named
+states keep their regular checks. A difference greater than one CSS pixel in
+any measurement produces one `geometry` finding per part and width. A change
+between `normal` and a numeric line height also produces a finding. Exactly one
+pixel is allowed. A listed part without a stored entry and a stored part absent
+from the page each produce a finding. Stored selectors keep parts measurable
+even when their declaration is removed. The report gives the view, width, part,
+selector, stored values and measured values; missing values are `null`. Normal
+runs leave the geometry file unchanged. Invalid geometry files are rejected
+before rendering.
+
+## Reported kinds
+
+The optional surface-level `reportedKinds` list contains unique names from
+`sideways`, `cut`, `contrast`, `touch`, `focus`, `shift`, `motion` and `scale`:
+
+```json
+"reportedKinds": ["contrast", "touch", "scale"]
+```
+
+These findings retain their complete context in the render and report findings
+and contribute to the finding count in every summary. With this list, each view
+summary and the total line also give separate `reported` and `failing` counts.
+The JSON report contains `reportedKinds`, `reportedCount` and `failingCount`.
+The exit status is zero when every requested render succeeds and the failing
+count is zero. `geometry` and `load` cannot appear in the list: geometry changes,
+surface startup failures, render failures and all other loading findings remain
+fatal. Unknown, duplicate or forbidden kinds are rejected before any surface
+command or browser render. Omitting both `geometry` and `reportedKinds` preserves
+the regular device matrix, report and exit behavior.
 
 ## Measurements
 
@@ -243,6 +332,7 @@ finding kind.
 | `shift` | Sum of layout-shift entries without recent input, from initial painting through settling, exceeds 0.05. |
 | `motion` | Under reduced motion, a running animation or transition lasts over 100 milliseconds, including iterations. Start events preserve measurements of motion that finishes before settling. |
 | `scale` | Visible text's computed font size is outside every declared step or fluid range. |
+| `geometry` | A named part differs from its stored box or text metrics by more than one CSS pixel, has no stored entry, or is absent or ambiguous on the page. |
 
 The command waits for fonts, visits the full document to load lazy content,
 returns to the top and observes a further 600 milliseconds before measuring.
