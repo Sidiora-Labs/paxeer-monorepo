@@ -74,6 +74,7 @@ function assertMatrix(result) {
   assert.equal(result.renders.filter((render) => render.size.width === 844 && render.size.height === 390).length, 2);
   for (const render of result.renders) {
     assert.ok(render.rendered, JSON.stringify(render.findings));
+    assert.equal(typeof render.hasContent, "boolean");
     for (const finding of render.findings) {
       for (const key of ["view", "state", "size", "scheme", "mode", "selector", "values"]) assert.ok(key in finding, key);
       assert.equal(finding.view, render.view);
@@ -91,10 +92,11 @@ async function cleanPagePassesWholeDeviceList() {
   const { result, out, lines } = await execute("clean");
   assertMatrix(result);
   assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.ok(result.renders.every((render) => render.hasContent));
   assert.deepEqual(result.findings, []);
   assert.equal(lines.length, 2);
-  assert.match(lines[0], /^clean: 34 renders, 0 did not render, 0 findings$/);
-  assert.match(lines[1], /^Total: 34 renders, 0 findings, pass, 0 views and states with fewer than all modes$/);
+  assert.match(lines[0], /^clean: 34 renders, 0 did not render, 0 showed nothing, 0 findings$/);
+  assert.match(lines[1], /^Total: 34 renders, 0 showed nothing, 0 findings, pass, 0 views and states with fewer than all modes$/);
   assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 34);
   const png = await readFile(join(out, result.renders[0].screenshot));
   assert.equal(png.readUInt32BE(16), 360);
@@ -104,6 +106,125 @@ async function cleanPagePassesWholeDeviceList() {
   }
 }
 test(cleanPagePassesWholeDeviceList);
+
+async function emptyBodyReportsLoadAtEverySize() {
+  const { result, lines } = await execute("blank");
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  for (const render of result.renders) {
+    assert.equal(render.hasContent, false);
+    assert.deepEqual(render.findings.map((finding) => finding.kind), ["load", "load"]);
+    assert.deepEqual(render.findings.map((finding) => finding.values.source), ["empty-document", "single-colour-viewport"]);
+  }
+  assert.deepEqual(lines, [
+    "blank: 34 renders, 0 did not render, 34 showed nothing, 68 findings",
+    "Total: 34 renders, 34 showed nothing, 68 findings, fail, 0 views and states with fewer than all modes",
+  ]);
+}
+test(emptyBodyReportsLoadAtEverySize);
+
+async function onlyClippedTextReportsLoad() {
+  const { result } = await execute("blank", { views: [{ name: "clipped", path: "/blank.html?clipped" }] });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  for (const render of result.renders) {
+    assert.equal(render.hasContent, false);
+    assert.deepEqual(render.findings.map((finding) => finding.kind), ["load", "load"]);
+    assert.deepEqual(render.findings.map((finding) => finding.values.source), ["empty-document", "single-colour-viewport"]);
+  }
+}
+test(onlyClippedTextReportsLoad);
+
+async function coveredTextReportsTheViewportMeasurement() {
+  const { result, lines, out } = await execute("covered", { views: [{
+    name: "covered", path: "/covered.html", states: [{ name: "revealed", steps: [
+      { action: "press", selector: "body", key: "Escape" },
+    ] }],
+  }] });
+  assert.equal(result.renders.length, 68);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 34);
+  for (const state of ["default", "revealed"]) {
+    const renders = result.renders.filter((render) => render.state === state);
+    assertMatrix({ renders });
+    for (const render of renders) {
+      assert.equal(render.hasContent, state === "revealed");
+      if (state === "default") {
+        assert.equal(render.findings.length, 1);
+        assert.equal(render.findings[0].kind, "load");
+        assert.equal(render.findings[0].values.source, "single-colour-viewport");
+      } else assert.deepEqual(render.findings, []);
+    }
+  }
+  const png = await readFile(join(out, result.renders[0].screenshot));
+  assert.ok(png.readUInt32BE(20) > 900, "Viewport content is measured separately from the full-page screenshot");
+  assert.deepEqual(lines, [
+    "covered: 68 renders, 0 did not render, 34 showed nothing, 34 findings",
+    "Total: 68 renders, 34 showed nothing, 34 findings, fail, 0 views and states with fewer than all modes",
+  ]);
+}
+test(coveredTextReportsTheViewportMeasurement);
+
+async function oneLineOfTextShowsContent() {
+  const { result } = await execute("blank", { views: [{ name: "text", path: "/blank.html?text" }] });
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.ok(result.renders.every((render) => render.hasContent));
+}
+test(oneLineOfTextShowsContent);
+
+async function imageWithAreaShowsContent() {
+  const { result } = await execute("blank", { views: [{ name: "image", path: "/blank.html?image" }] });
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.ok(result.renders.every((render) => render.hasContent));
+}
+test(imageWithAreaShowsContent);
+
+async function contentMeasurementCannotBeOmitted() {
+  for (const change of [
+    { checkContent: false },
+    { views: [{ name: "blank", path: "/blank.html", checkContent: false }] },
+    { views: [{ name: "blank", path: "/blank.html", states: [{ name: "ready", checkContent: false, steps: [{ action: "press", selector: "body", key: "Escape" }] }] }] },
+    { views: [{ name: "blank", path: "/blank.html", states: [{ name: "ready", steps: [{ action: "press", selector: "body", key: "Escape", checkContent: false }] }] }] },
+  ]) {
+    const surface = await surfaceFor("blank", change);
+    await assert.rejects(readSurface(surface), /unknown field checkContent/);
+  }
+}
+test(contentMeasurementCannotBeOmitted);
+
+async function parallelRendersPreserveContentFindingsAndCounts() {
+  const surface = await surfaceFor("content", { views: [
+    { name: "blank", path: "/blank.html" },
+    { name: "covered", path: "/covered.html", states: [{ name: "revealed", steps: [
+      { action: "press", selector: "body", key: "Escape" },
+    ] }] },
+    { name: "text", path: "/blank.html?text" },
+  ] });
+  const results = [];
+  for (const jobs of [1, 4]) {
+    const out = join(root, `content-${sequence}-${jobs}`);
+    const lines = [];
+    const result = await checkSurface({ surface, out, jobs }, (line) => lines.push(line));
+    assert.deepEqual(JSON.parse(await readFile(join(out, "result.json"), "utf8")), result);
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 136);
+    assert.ok(result.renders.every((render) => render.rendered));
+    assert.equal(result.renders.filter((render) => !render.hasContent).length, 68);
+    assert.equal(result.findings.length, 102);
+    assert.deepEqual([...new Set(result.findings.map((finding) => finding.values.source))], ["empty-document", "single-colour-viewport"]);
+    assert.deepEqual(lines, [
+      "blank: 34 renders, 0 did not render, 34 showed nothing, 68 findings",
+      "covered: 68 renders, 0 did not render, 34 showed nothing, 34 findings",
+      "text: 34 renders, 0 did not render, 0 showed nothing, 0 findings",
+      "Total: 136 renders, 68 showed nothing, 102 findings, fail, 0 views and states with fewer than all modes",
+    ]);
+    results.push({ result, lines });
+  }
+  assert.deepEqual(results[1], results[0]);
+}
+test(parallelRendersPreserveContentFindingsAndCounts);
 
 async function eachPageReportsOnlyItsFindingKind() {
   for (const kind of ["load", "sideways", "cut", "contrast", "touch", "focus", "shift", "motion", "scale"]) {
@@ -275,7 +396,7 @@ async function commandBuildsAndServesFiles() {
   });
   const result = await runCli(["--surface", surface, "--out", join(root, "self-served"), "--jobs", "1"]);
   assert.equal(result.code, 0, result.stderr + result.stdout);
-  assert.match(result.stdout, /34 renders, 0 findings, pass/);
+  assert.match(result.stdout, /34 renders, 0 showed nothing, 0 findings, pass/);
 }
 test(commandBuildsAndServesFiles);
 
@@ -569,7 +690,7 @@ async function renderDeadlineContinuesWithTheNextView() {
   assert.ok(following.every((render) => render.rendered && render.findings.length === 0), JSON.stringify(following));
   assert.equal(following[0].screenshot, "00023.png");
   assert.equal(result.findings.filter((finding) => finding.values.source === "deadline").length, 22);
-  assert.match(lines[1], /^following: 22 renders, 0 did not render, 0 findings$/);
+  assert.match(lines[1], /^following: 22 renders, 0 did not render, 0 showed nothing, 0 findings$/);
 }
 test(renderDeadlineContinuesWithTheNextView);
 
@@ -611,7 +732,7 @@ async function modesRestrictTheMatrixAndStatesInheritThem() {
   }
   assert.deepEqual(result.views, [{ name: "states", modes: ["default"], states: [{ name: "waiting", modes: ["default"] }] }]);
   assert.equal(result.reducedModeCount, 2);
-  assert.equal(lines.at(-1), "Total: 44 renders, 0 findings, pass, 2 views and states with fewer than all modes");
+  assert.equal(lines.at(-1), "Total: 44 renders, 0 showed nothing, 0 findings, pass, 2 views and states with fewer than all modes");
   const surface = await surfaceFor("states", { views: [{
     name: "states", path: "/states.html", modes: ["default"], states: [
       { name: "all", modes: [...MODES].reverse(), steps: [{ action: "wait", text: "Waiting" }] },

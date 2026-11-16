@@ -13,8 +13,9 @@ npx playwright install --with-deps chromium
 npm test
 ```
 
-Only `playwright` and `axe-core` are dependencies, at the exact versions in
-`package.json`. The browser and its system packages are installed separately.
+Only `playwright`, `axe-core` and the PNG decoder `pngjs` are dependencies, at
+the exact versions in `package.json`. The browser and its system packages are
+installed separately.
 Tests use Node's test runner, local static pages and real Chromium.
 
 From the repository root:
@@ -46,12 +47,16 @@ when it uses all modes:
   record each focused selector.
 
 Every render has a numbered PNG and an entry in `result.json`, with the view,
-state, width, height, scheme, mode, render status and findings. Findings include
-that context, a selector and measured values. A view summary and a total print
-to stdout. The report also lists the modes for each view and named state. The
-total line counts views and named states using fewer than all four modes, counting
-the initial state as its view. Exit status is zero only when every requested render succeeds with
-no findings. Startup, navigation and screenshot errors produce a nonzero exit.
+state, width, height, scheme, mode, render status, `hasContent` and findings.
+`hasContent` is true only when the document has visible content and the viewport
+screenshot contains more than one colour. Findings include that context, a
+selector and measured values. A view summary and a total print to stdout, each
+including the count of renders that showed nothing. The view summary also counts
+renders that did not render. The report also lists the modes for each view and
+named state. The total line counts views and named states using fewer than all
+four modes, counting the initial state as its view. Exit status is zero only when
+every requested render succeeds with no findings. Startup, navigation and
+screenshot errors produce a nonzero exit.
 A surface that cannot start has a surface-level load finding with null render
 context. Invalid arguments or surface files are rejected before rendering.
 
@@ -175,7 +180,7 @@ finding kind.
 
 | Kind | Finding |
 | --- | --- |
-| `load` | Undeclared failed HTTP response, expected refusal without a matching response, failed request, console error, uncaught error or rejection, unmatched external request, startup or render error. A render has a 300000-millisecond deadline across navigation, settling, measurement, contrast, keyboard traversal and screenshots. A deadline finding records `source: "deadline"` and the last started `step`; the render is marked not rendered. Its context is closed; if closing exceeds the navigation limit, its browser is ended and replaced before the next render. A matching declared refusal and its browser failed-resource console line are allowed. |
+| `load` | Undeclared failed HTTP response, expected refusal without a matching response, failed request, console error, uncaught error or rejection, unmatched external request, startup or render error. A document without visible text of an element's own, media with an area (image, SVG drawing, canvas, video or embedded frame) or controls, or a viewport screenshot containing a single colour, also produces a finding. Text clipped to nothing does not count as content. The finding names the document or screenshot measurement. A render has a 300000-millisecond deadline across navigation, settling, measurement, contrast, keyboard traversal and screenshots. A deadline finding records `source: "deadline"` and the last started `step`; the render is marked not rendered. Its context is closed; if closing exceeds the navigation limit, its browser is ended and replaced before the next render. A matching declared refusal and its browser failed-resource console line are allowed. |
 | `sideways` | Document wider than the viewport, or visible element extending past either side or wider than the viewport. Text clipped to no area is excluded. Descendants of horizontal scroll containers are measured within those containers, whose boxes are measured against the viewport. Element geometry has a 0.5-pixel rounding tolerance. |
 | `cut` | Text with hidden or clipped overflow exceeds its box by more than 1 pixel, without declared ellipsis. Scrollable text is allowed. |
 | `contrast` | Axe measures text below 4.5:1, or large text below 3:1 (24 pixels, or bold at approximately 18.67 pixels). A custom axe check measures visible control borders, identifying fills and SVG fills/strokes below 3:1. Disabled controls are excluded. |

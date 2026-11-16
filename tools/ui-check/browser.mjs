@@ -109,6 +109,7 @@ export function measurePage({ limits, typeScale, doubled, reduced }) {
   const findings = [];
   const add = (kind, element, values) => findings.push({ kind, selector: typeof element === "string" ? element : selector(element), values });
   const width = window.innerWidth;
+  let hasContent = false;
   if (document.documentElement.scrollWidth > width) add("sideways", "html", { width: document.documentElement.scrollWidth, viewport: width });
   const hasText = (element) => [...element.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim()) || (element.matches("input,textarea,select") && (element.value || element.placeholder));
   for (const element of elements()) {
@@ -149,11 +150,13 @@ export function measurePage({ limits, typeScale, doubled, reduced }) {
       }
     }
     const interactive = element.matches("button,a[href],input:not([type=hidden]),textarea,select,summary,[role=button],[role=link],[role=checkbox],[role=radio],[role=switch],[role=slider],[role=tab],[role=menuitem],[onclick],[tabindex]:not([tabindex='-1']),[contenteditable=true]");
+    if (hasText(element) || (rect.width > 0 && rect.height > 0 && (interactive || element.matches("img,svg,canvas,video,iframe,object,embed")))) hasContent = true;
     const inlineLink = element.matches("a[href]") && style.display === "inline" && element.parentElement && [...element.parentElement.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
     if (width <= limits.touchWidth && interactive && !element.matches(":disabled,[aria-disabled=true]") && !inlineLink && (rect.width < limits.touch || rect.height < limits.touch)) {
       add("touch", element, { width: rect.width, height: rect.height, minimum: limits.touch });
     }
   }
+  if (!hasContent) add("load", "document", { source: "empty-document", message: "Document has no visible text, media or controls" });
   const shift = shifts.reduce((total, entry) => total + entry.value, 0);
   if (shift > limits.shift) add("shift", shifts.flatMap((entry) => entry.sources)[0] ?? "html", { score: shift, maximum: limits.shift, entries: shifts });
   if (reduced) {
