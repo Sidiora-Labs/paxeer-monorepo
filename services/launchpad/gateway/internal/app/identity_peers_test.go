@@ -46,6 +46,7 @@ import (
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production/coordinatortest"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/process"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/testpki"
 )
 
@@ -203,7 +204,11 @@ func newIdentityE2E(t *testing.T) *identityE2E {
 	}
 	e.public = httptest.NewServer(publicGatewayHandler(mux, config.Config{NodeEnv: "production", CORSAllowedOrigins: e2eOrigin}))
 	t.Cleanup(e.public.Close)
-	e.private = httptest.NewUnstartedServer(privateIdentityHandler(mux))
+	tracker := process.NewTracker()
+	if err := tracker.SetReady(); err != nil {
+		t.Fatal(err)
+	}
+	e.private = httptest.NewUnstartedServer(privateIdentityHandler(mux, tracker))
 	e.private.TLS = privateListenerTLS(e.pki.Roots(), e.gatewayServer.Pair)
 	e.private.StartTLS()
 	t.Cleanup(e.private.Close)
