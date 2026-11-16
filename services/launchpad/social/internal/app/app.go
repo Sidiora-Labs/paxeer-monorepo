@@ -760,7 +760,7 @@ func newSocialConnectedRuntime(ctx context.Context, cfg config.Config, pool *pgx
 	if e != nil {
 		return nil, e
 	}
-	accounts, e := socialIdentifier(b.AccountSchema, "account_state")
+	accounts, e := socialIdentifier(b.AccountSchema, "account_profiles_v1")
 	if e != nil {
 		return nil, e
 	}

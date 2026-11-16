@@ -1929,8 +1929,8 @@
     "file": "services/launchpad/api/internal/store/chain_reads.go",
     "function": "Store.LaunchedChains",
     "line": 102,
-    "expression": "`SELECT count(*)::int,COALESCE(max(chain),0)::text FROM indexer.launched_chains`",
-    "sql": "SELECT count(*)::int,COALESCE(max(chain),0)::text FROM indexer.launched_chains",
+    "expression": "`SELECT count(*)::int,COALESCE(max(chain),0)::text FROM indexer.launched_chains_v1`",
+    "sql": "SELECT count(*)::int,COALESCE(max(chain),0)::text FROM indexer.launched_chains_v1",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -1940,7 +1940,7 @@
       "SELECT"
     ],
     "tables": [
-      "indexer.launched_chains"
+      "indexer.launched_chains_v1"
     ],
     "sequences": [],
     "functions": [
@@ -1957,8 +1957,8 @@
     "file": "services/launchpad/api/internal/store/chain_reads.go",
     "function": "Store.LaunchedChains",
     "line": 111,
-    "expression": "`SELECT `+chainColumns+` FROM indexer.launched_chains ORDER BY block_number DESC,chain DESC LIMIT $1 OFFSET $2`",
-    "sql": "SELECT chain::text,chain_id::text,pool,token,fee_right,creator,block_number::text,status FROM indexer.launched_chains ORDER BY block_number DESC,chain DESC LIMIT $1 OFFSET $2",
+    "expression": "`SELECT `+chainColumns+` FROM indexer.launched_chains_v1 ORDER BY block_number DESC,chain DESC LIMIT $1 OFFSET $2`",
+    "sql": "SELECT chain::text,chain_id::text,pool,token,fee_right,creator,block_number::text,status FROM indexer.launched_chains_v1 ORDER BY block_number DESC,chain DESC LIMIT $1 OFFSET $2",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -1968,7 +1968,7 @@
       "SELECT"
     ],
     "tables": [
-      "indexer.launched_chains"
+      "indexer.launched_chains_v1"
     ],
     "sequences": [],
     "functions": [],
@@ -1989,8 +1989,8 @@
     "file": "services/launchpad/api/internal/store/chain_reads.go",
     "function": "Store.LaunchedChain",
     "line": 133,
-    "expression": "`SELECT `+chainColumns+` FROM indexer.launched_chains WHERE chain=$1`",
-    "sql": "SELECT chain::text,chain_id::text,pool,token,fee_right,creator,block_number::text,status FROM indexer.launched_chains WHERE chain=$1",
+    "expression": "`SELECT `+chainColumns+` FROM indexer.launched_chains_v1 WHERE chain=$1`",
+    "sql": "SELECT chain::text,chain_id::text,pool,token,fee_right,creator,block_number::text,status FROM indexer.launched_chains_v1 WHERE chain=$1",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -2000,7 +2000,7 @@
       "SELECT"
     ],
     "tables": [
-      "indexer.launched_chains"
+      "indexer.launched_chains_v1"
     ],
     "sequences": [],
     "functions": [],
@@ -2021,8 +2021,8 @@
     "file": "services/launchpad/api/internal/store/chain_reads.go",
     "function": "Store.ChainRevenue",
     "line": 163,
-    "expression": "`SELECT count(*)::int,COALESCE(max(epoch),0)::text FROM indexer.chain_revenue_epochs WHERE chain=$1`",
-    "sql": "SELECT count(*)::int,COALESCE(max(epoch),0)::text FROM indexer.chain_revenue_epochs WHERE chain=$1",
+    "expression": "`SELECT count(*)::int,COALESCE(max(epoch),0)::text FROM indexer.chain_revenue_epochs_v1 WHERE chain=$1`",
+    "sql": "SELECT count(*)::int,COALESCE(max(epoch),0)::text FROM indexer.chain_revenue_epochs_v1 WHERE chain=$1",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -2032,7 +2032,7 @@
       "SELECT"
     ],
     "tables": [
-      "indexer.chain_revenue_epochs"
+      "indexer.chain_revenue_epochs_v1"
     ],
     "sequences": [],
     "functions": [
@@ -2050,8 +2050,8 @@
     "file": "services/launchpad/api/internal/store/chain_reads.go",
     "function": "Store.ChainRevenue",
     "line": 172,
-    "expression": "`SELECT epoch::text,amount,snapshot_block::text,eligible_supply FROM indexer.chain_revenue_epochs WHERE chain=$1 ORDER BY epoch DESC LIMIT $2 OFFSET $3`",
-    "sql": "SELECT epoch::text,amount,snapshot_block::text,eligible_supply FROM indexer.chain_revenue_epochs WHERE chain=$1 ORDER BY epoch DESC LIMIT $2 OFFSET $3",
+    "expression": "`SELECT epoch::text,amount,snapshot_block::text,eligible_supply FROM indexer.chain_revenue_epochs_v1 WHERE chain=$1 ORDER BY epoch DESC LIMIT $2 OFFSET $3`",
+    "sql": "SELECT epoch::text,amount,snapshot_block::text,eligible_supply FROM indexer.chain_revenue_epochs_v1 WHERE chain=$1 ORDER BY epoch DESC LIMIT $2 OFFSET $3",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -2061,7 +2061,7 @@
       "SELECT"
     ],
     "tables": [
-      "indexer.chain_revenue_epochs"
+      "indexer.chain_revenue_epochs_v1"
     ],
     "sequences": [],
     "functions": [],
@@ -2079,8 +2079,8 @@
     "file": "services/launchpad/api/internal/store/chain_reads.go",
     "function": "Store.ChainRevenue",
     "line": 209,
-    "expression": "`SELECT epoch::text,holder,amount,block_number::text FROM indexer.chain_revenue_claims WHERE chain=$1 AND holder=$2 AND epoch BETWEEN $3::numeric AND $4::numeric ORDER BY epoch DESC`",
-    "sql": "SELECT epoch::text,holder,amount,block_number::text FROM indexer.chain_revenue_claims WHERE chain=$1 AND holder=$2 AND epoch BETWEEN $3::numeric AND $4::numeric ORDER BY epoch DESC",
+    "expression": "`SELECT epoch::text,holder,amount,block_number::text FROM indexer.chain_revenue_claims_v1 WHERE chain=$1 AND holder=$2 AND epoch BETWEEN $3::numeric AND $4::numeric ORDER BY epoch DESC`",
+    "sql": "SELECT epoch::text,holder,amount,block_number::text FROM indexer.chain_revenue_claims_v1 WHERE chain=$1 AND holder=$2 AND epoch BETWEEN $3::numeric AND $4::numeric ORDER BY epoch DESC",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -2090,7 +2090,7 @@
       "SELECT"
     ],
     "tables": [
-      "indexer.chain_revenue_claims"
+      "indexer.chain_revenue_claims_v1"
     ],
     "sequences": [],
     "functions": [],
@@ -2108,8 +2108,8 @@
     "file": "services/launchpad/api/internal/store/chain_reads.go",
     "function": "Store.PoolHomeChains",
     "line": 261,
-    "expression": "`SELECT lower(pool_address),home_chain::text FROM indexer.pools WHERE lower(pool_address)=ANY($1)`",
-    "sql": "SELECT lower(pool_address),home_chain::text FROM indexer.pools WHERE lower(pool_address)=ANY($1)",
+    "expression": "`SELECT lower(pool_address),home_chain::text FROM indexer.pools_read_v1 WHERE lower(pool_address)=ANY($1)`",
+    "sql": "SELECT lower(pool_address),home_chain::text FROM indexer.pools_read_v1 WHERE lower(pool_address)=ANY($1)",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -2119,7 +2119,7 @@
       "SELECT"
     ],
     "tables": [
-      "indexer.pools"
+      "indexer.pools_read_v1"
     ],
     "sequences": [],
     "functions": [
@@ -2166,8 +2166,8 @@
     "file": "services/launchpad/api/internal/store/holder_rewards_readmodel.go",
     "function": "holderRewardsTotals",
     "line": 102,
-    "expression": "`SELECT COALESCE((SELECT sum(amount::numeric) FROM indexer.fee_distributions WHERE strategy=$1), 0)::text, (SELECT count(DISTINCT lower(holder)) FROM indexer.airdrop_claims)`",
-    "sql": "SELECT COALESCE((SELECT sum(amount::numeric) FROM indexer.fee_distributions WHERE strategy=$1), 0)::text, (SELECT count(DISTINCT lower(holder)) FROM indexer.airdrop_claims)",
+    "expression": "`SELECT COALESCE((SELECT sum(amount::numeric) FROM indexer.fee_distributions_v1 WHERE strategy=$1), 0)::text, (SELECT count(DISTINCT lower(holder)) FROM indexer.airdrop_claims_v1)`",
+    "sql": "SELECT COALESCE((SELECT sum(amount::numeric) FROM indexer.fee_distributions_v1 WHERE strategy=$1), 0)::text, (SELECT count(DISTINCT lower(holder)) FROM indexer.airdrop_claims_v1)",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -2177,8 +2177,8 @@
       "SELECT"
     ],
     "tables": [
-      "indexer.airdrop_claims",
-      "indexer.fee_distributions"
+      "indexer.airdrop_claims_v1",
+      "indexer.fee_distributions_v1"
     ],
     "sequences": [],
     "functions": [
@@ -2198,8 +2198,8 @@
     "file": "services/launchpad/api/internal/store/holder_rewards_readmodel.go",
     "function": "Store.HolderRewardPools",
     "line": 129,
-    "expression": "`WITH dist AS (SELECT pool_id, sum(amount::numeric) AS distributed FROM indexer.fee_distributions WHERE strategy=$1 GROUP BY pool_id),\nclaims AS (SELECT pool_id, count(DISTINCT lower(holder)) AS holders FROM indexer.airdrop_claims WHERE pool_id IS NOT NULL GROUP BY pool_id),\nevents AS (SELECT pool_id, block_number, log_index, new_strategy AS strategy FROM indexer.fee_strategy_changes UNION ALL SELECT pool_id, block_number, log_index, strategy FROM indexer.fee_distributions),\nlatest AS (SELECT DISTINCT ON (pool_id) pool_id, strategy FROM events ORDER BY pool_id, block_number DESC, log_index DESC),\ncandidates AS (SELECT pool_id FROM dist UNION SELECT pool_id FROM claims UNION SELECT pool_id FROM latest WHERE strategy=$1)\nSELECT lower(p.pool_address), lower(p.token_address), COALESCE(d.distributed, 0)::text, COALESCE(c.holders, 0), l.strategy, COALESCE(cc.block_timestamp, p.created_at), ps.market_cap\nFROM candidates k JOIN indexer.pools p ON p.pool_id=k.pool_id\nLEFT JOIN dist d ON d.pool_id=k.pool_id\nLEFT JOIN claims c ON c.pool_id=k.pool_id\nLEFT JOIN latest l ON l.pool_id=k.pool_id\nLEFT JOIN indexer.indexer_canonical_creations_v1 cc ON cc.pool=lower(p.pool_address)\nLEFT JOIN stats.pool_stats ps ON lower(ps.pool_address)=lower(p.pool_address)\nORDER BY lower(p.pool_address)`",
-    "sql": "WITH dist AS (SELECT pool_id, sum(amount::numeric) AS distributed FROM indexer.fee_distributions WHERE strategy=$1 GROUP BY pool_id),\nclaims AS (SELECT pool_id, count(DISTINCT lower(holder)) AS holders FROM indexer.airdrop_claims WHERE pool_id IS NOT NULL GROUP BY pool_id),\nevents AS (SELECT pool_id, block_number, log_index, new_strategy AS strategy FROM indexer.fee_strategy_changes UNION ALL SELECT pool_id, block_number, log_index, strategy FROM indexer.fee_distributions),\nlatest AS (SELECT DISTINCT ON (pool_id) pool_id, strategy FROM events ORDER BY pool_id, block_number DESC, log_index DESC),\ncandidates AS (SELECT pool_id FROM dist UNION SELECT pool_id FROM claims UNION SELECT pool_id FROM latest WHERE strategy=$1)\nSELECT lower(p.pool_address), lower(p.token_address), COALESCE(d.distributed, 0)::text, COALESCE(c.holders, 0), l.strategy, COALESCE(cc.block_timestamp, p.created_at), ps.market_cap\nFROM candidates k JOIN indexer.pools p ON p.pool_id=k.pool_id\nLEFT JOIN dist d ON d.pool_id=k.pool_id\nLEFT JOIN claims c ON c.pool_id=k.pool_id\nLEFT JOIN latest l ON l.pool_id=k.pool_id\nLEFT JOIN indexer.indexer_canonical_creations_v1 cc ON cc.pool=lower(p.pool_address)\nLEFT JOIN stats.pool_stats ps ON lower(ps.pool_address)=lower(p.pool_address)\nORDER BY lower(p.pool_address)",
+    "expression": "`WITH dist AS (SELECT pool_id, sum(amount::numeric) AS distributed FROM indexer.fee_distributions_v1 WHERE strategy=$1 GROUP BY pool_id),\nclaims AS (SELECT pool_id, count(DISTINCT lower(holder)) AS holders FROM indexer.airdrop_claims_v1 WHERE pool_id IS NOT NULL GROUP BY pool_id),\nevents AS (SELECT pool_id, block_number, log_index, new_strategy AS strategy FROM indexer.fee_strategy_changes_v1 UNION ALL SELECT pool_id, block_number, log_index, strategy FROM indexer.fee_distributions_v1),\nlatest AS (SELECT DISTINCT ON (pool_id) pool_id, strategy FROM events ORDER BY pool_id, block_number DESC, log_index DESC),\ncandidates AS (SELECT pool_id FROM dist UNION SELECT pool_id FROM claims UNION SELECT pool_id FROM latest WHERE strategy=$1)\nSELECT lower(p.pool_address), lower(p.token_address), COALESCE(d.distributed, 0)::text, COALESCE(c.holders, 0), l.strategy, COALESCE(cc.block_timestamp, p.created_at), ps.market_cap\nFROM candidates k JOIN indexer.pools_read_v1 p ON p.pool_id=k.pool_id\nLEFT JOIN dist d ON d.pool_id=k.pool_id\nLEFT JOIN claims c ON c.pool_id=k.pool_id\nLEFT JOIN latest l ON l.pool_id=k.pool_id\nLEFT JOIN indexer.indexer_canonical_creations_v1 cc ON cc.pool=lower(p.pool_address)\nLEFT JOIN stats.pool_market_caps_v1 ps ON lower(ps.pool_address)=lower(p.pool_address)\nORDER BY lower(p.pool_address)`",
+    "sql": "WITH dist AS (SELECT pool_id, sum(amount::numeric) AS distributed FROM indexer.fee_distributions_v1 WHERE strategy=$1 GROUP BY pool_id),\nclaims AS (SELECT pool_id, count(DISTINCT lower(holder)) AS holders FROM indexer.airdrop_claims_v1 WHERE pool_id IS NOT NULL GROUP BY pool_id),\nevents AS (SELECT pool_id, block_number, log_index, new_strategy AS strategy FROM indexer.fee_strategy_changes_v1 UNION ALL SELECT pool_id, block_number, log_index, strategy FROM indexer.fee_distributions_v1),\nlatest AS (SELECT DISTINCT ON (pool_id) pool_id, strategy FROM events ORDER BY pool_id, block_number DESC, log_index DESC),\ncandidates AS (SELECT pool_id FROM dist UNION SELECT pool_id FROM claims UNION SELECT pool_id FROM latest WHERE strategy=$1)\nSELECT lower(p.pool_address), lower(p.token_address), COALESCE(d.distributed, 0)::text, COALESCE(c.holders, 0), l.strategy, COALESCE(cc.block_timestamp, p.created_at), ps.market_cap\nFROM candidates k JOIN indexer.pools_read_v1 p ON p.pool_id=k.pool_id\nLEFT JOIN dist d ON d.pool_id=k.pool_id\nLEFT JOIN claims c ON c.pool_id=k.pool_id\nLEFT JOIN latest l ON l.pool_id=k.pool_id\nLEFT JOIN indexer.indexer_canonical_creations_v1 cc ON cc.pool=lower(p.pool_address)\nLEFT JOIN stats.pool_market_caps_v1 ps ON lower(ps.pool_address)=lower(p.pool_address)\nORDER BY lower(p.pool_address)",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -2209,12 +2209,12 @@
       "SELECT"
     ],
     "tables": [
-      "indexer.airdrop_claims",
-      "indexer.fee_distributions",
-      "indexer.fee_strategy_changes",
+      "indexer.airdrop_claims_v1",
+      "indexer.fee_distributions_v1",
+      "indexer.fee_strategy_changes_v1",
       "indexer.indexer_canonical_creations_v1",
-      "indexer.pools",
-      "stats.pool_stats"
+      "indexer.pools_read_v1",
+      "stats.pool_market_caps_v1"
     ],
     "sequences": [],
     "functions": [
@@ -2505,8 +2505,8 @@
     "file": "services/launchpad/api/internal/store/pool_registry.go",
     "function": "Store.PoolReserves",
     "line": 99,
-    "expression": "`SELECT DISTINCT ON (lower(p.pool_address)) lower(p.pool_address),st.virtual_reserve,st.real_reserve,st.token_reserve,st.block_number FROM indexer.pools p JOIN indexer.pool_state_snapshots st ON st.pool_id=p.pool_id WHERE lower(p.pool_address)=ANY($1) ORDER BY lower(p.pool_address),st.block_number DESC,st.log_index DESC`",
-    "sql": "SELECT DISTINCT ON (lower(p.pool_address)) lower(p.pool_address),st.virtual_reserve,st.real_reserve,st.token_reserve,st.block_number FROM indexer.pools p JOIN indexer.pool_state_snapshots st ON st.pool_id=p.pool_id WHERE lower(p.pool_address)=ANY($1) ORDER BY lower(p.pool_address),st.block_number DESC,st.log_index DESC",
+    "expression": "`SELECT DISTINCT ON (lower(p.pool_address)) lower(p.pool_address),st.virtual_reserve,st.real_reserve,st.token_reserve,st.block_number FROM indexer.pools_read_v1 p JOIN indexer.pool_state_snapshots_v1 st ON st.pool_id=p.pool_id WHERE lower(p.pool_address)=ANY($1) ORDER BY lower(p.pool_address),st.block_number DESC,st.log_index DESC`",
+    "sql": "SELECT DISTINCT ON (lower(p.pool_address)) lower(p.pool_address),st.virtual_reserve,st.real_reserve,st.token_reserve,st.block_number FROM indexer.pools_read_v1 p JOIN indexer.pool_state_snapshots_v1 st ON st.pool_id=p.pool_id WHERE lower(p.pool_address)=ANY($1) ORDER BY lower(p.pool_address),st.block_number DESC,st.log_index DESC",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -2516,8 +2516,8 @@
       "SELECT"
     ],
     "tables": [
-      "indexer.pool_state_snapshots",
-      "indexer.pools"
+      "indexer.pool_state_snapshots_v1",
+      "indexer.pools_read_v1"
     ],
     "sequences": [],
     "functions": [
@@ -3533,8 +3533,8 @@
     "file": "services/launchpad/discovery/leaderboard.go",
     "function": "SQLIntervalAuthority.Intervals",
     "line": 252,
-    "expression": "`WITH admitted AS(SELECT DISTINCT ON(wallet) snapshot_id,wallet,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_v3 WHERE start_at<=$1 AND end_at>=$2 ORDER BY wallet,generation DESC) SELECT r.snapshot_id::text,r.wallet,r.input_digest,r.watermark,COALESCE(jsonb_agg(i.payload ORDER BY i.bucket) FILTER(WHERE i.bucket IS NOT NULL),'[]'::jsonb) FROM admitted r LEFT JOIN pnl.inventory_l16_wallet_intervals_v3 i ON i.snapshot_id=r.snapshot_id AND i.interval='1h' AND i.bucket>=$1 AND i.bucket<$2 GROUP BY r.snapshot_id,r.wallet,r.input_digest,r.watermark ORDER BY r.wallet LIMIT 10001`",
-    "sql": "WITH admitted AS(SELECT DISTINCT ON(wallet) snapshot_id,wallet,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_v3 WHERE start_at<=$1 AND end_at>=$2 ORDER BY wallet,generation DESC) SELECT r.snapshot_id::text,r.wallet,r.input_digest,r.watermark,COALESCE(jsonb_agg(i.payload ORDER BY i.bucket) FILTER(WHERE i.bucket IS NOT NULL),'[]'::jsonb) FROM admitted r LEFT JOIN pnl.inventory_l16_wallet_intervals_v3 i ON i.snapshot_id=r.snapshot_id AND i.interval='1h' AND i.bucket>=$1 AND i.bucket<$2 GROUP BY r.snapshot_id,r.wallet,r.input_digest,r.watermark ORDER BY r.wallet LIMIT 10001",
+    "expression": "`WITH admitted AS(SELECT DISTINCT ON(wallet) snapshot_id,wallet,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_read_v3 WHERE start_at<=$1 AND end_at>=$2 ORDER BY wallet,generation DESC) SELECT r.snapshot_id::text,r.wallet,r.input_digest,r.watermark,COALESCE(jsonb_agg(i.payload ORDER BY i.bucket) FILTER(WHERE i.bucket IS NOT NULL),'[]'::jsonb) FROM admitted r LEFT JOIN pnl.inventory_l16_wallet_intervals_read_v3 i ON i.snapshot_id=r.snapshot_id AND i.interval='1h' AND i.bucket>=$1 AND i.bucket<$2 GROUP BY r.snapshot_id,r.wallet,r.input_digest,r.watermark ORDER BY r.wallet LIMIT 10001`",
+    "sql": "WITH admitted AS(SELECT DISTINCT ON(wallet) snapshot_id,wallet,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_read_v3 WHERE start_at<=$1 AND end_at>=$2 ORDER BY wallet,generation DESC) SELECT r.snapshot_id::text,r.wallet,r.input_digest,r.watermark,COALESCE(jsonb_agg(i.payload ORDER BY i.bucket) FILTER(WHERE i.bucket IS NOT NULL),'[]'::jsonb) FROM admitted r LEFT JOIN pnl.inventory_l16_wallet_intervals_read_v3 i ON i.snapshot_id=r.snapshot_id AND i.interval='1h' AND i.bucket>=$1 AND i.bucket<$2 GROUP BY r.snapshot_id,r.wallet,r.input_digest,r.watermark ORDER BY r.wallet LIMIT 10001",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -3544,8 +3544,8 @@
       "SELECT"
     ],
     "tables": [
-      "pnl.inventory_l16_wallet_intervals_v3",
-      "pnl.inventory_l16_wallet_ranges_v3"
+      "pnl.inventory_l16_wallet_intervals_read_v3",
+      "pnl.inventory_l16_wallet_ranges_read_v3"
     ],
     "sequences": [],
     "functions": [
@@ -5039,8 +5039,8 @@
     "file": "services/launchpad/notifications/authorities.go",
     "function": "NewRuntimeAuthorities",
     "line": 115,
-    "expression": "`SELECT snapshot_id,wallet,generation,start_at,end_at,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_v3 LIMIT 0`",
-    "sql": "SELECT snapshot_id,wallet,generation,start_at,end_at,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_v3 LIMIT 0",
+    "expression": "`SELECT snapshot_id,wallet,generation,start_at,end_at,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_read_v3 LIMIT 0`",
+    "sql": "SELECT snapshot_id,wallet,generation,start_at,end_at,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_read_v3 LIMIT 0",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -5050,7 +5050,7 @@
       "SELECT"
     ],
     "tables": [
-      "pnl.inventory_l16_wallet_ranges_v3"
+      "pnl.inventory_l16_wallet_ranges_read_v3"
     ],
     "sequences": [],
     "functions": [],
@@ -5070,8 +5070,8 @@
     "file": "services/launchpad/notifications/authorities.go",
     "function": "NewRuntimeAuthorities",
     "line": 116,
-    "expression": "`SELECT snapshot_id,interval,bucket,payload FROM pnl.inventory_l16_wallet_intervals_v3 LIMIT 0`",
-    "sql": "SELECT snapshot_id,interval,bucket,payload FROM pnl.inventory_l16_wallet_intervals_v3 LIMIT 0",
+    "expression": "`SELECT snapshot_id,interval,bucket,payload FROM pnl.inventory_l16_wallet_intervals_read_v3 LIMIT 0`",
+    "sql": "SELECT snapshot_id,interval,bucket,payload FROM pnl.inventory_l16_wallet_intervals_read_v3 LIMIT 0",
     "bindings": {},
     "roles": [
       "api_rest_runtime"
@@ -5081,7 +5081,7 @@
       "SELECT"
     ],
     "tables": [
-      "pnl.inventory_l16_wallet_intervals_v3"
+      "pnl.inventory_l16_wallet_intervals_read_v3"
     ],
     "sequences": [],
     "functions": [],

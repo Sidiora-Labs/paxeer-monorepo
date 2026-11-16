@@ -65,7 +65,7 @@ func (d AuditedDeadLetters) serve(w http.ResponseWriter, r *http.Request, scope 
 		var audience string
 		var issued, expires, mfa time.Time
 		var scopes []string
-		err := d.DB.QueryRow(ctx, "SELECT actor,audience,issued_at,expires_at,mfa_expires_at,scopes FROM "+pgx.Identifier{d.SecuritySchema, "operator_sessions"}.Sanitize()+" WHERE session_id=$1 AND wallet=$2 AND NOT revoked AND expires_at>clock_timestamp()", principal.SessionID, principal.Wallet).Scan(&actor, &audience, &issued, &expires, &mfa, &scopes)
+		err := d.DB.QueryRow(ctx, "SELECT actor,audience,issued_at,expires_at,mfa_expires_at,scopes FROM "+pgx.Identifier{d.SecuritySchema, "operator_session_authority_v1"}.Sanitize()+" WHERE session_id=$1 AND wallet=$2 AND NOT revoked AND expires_at>clock_timestamp()", principal.SessionID, principal.Wallet).Scan(&actor, &audience, &issued, &expires, &mfa, &scopes)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, "authorization unavailable", http.StatusServiceUnavailable)
 			return
@@ -87,7 +87,7 @@ func (d AuditedDeadLetters) serve(w http.ResponseWriter, r *http.Request, scope 
 	if len(actor) > 160 {
 		actor = ""
 	}
-	_, err := d.DB.Exec(ctx, "INSERT INTO "+pgx.Identifier{d.SecuritySchema, "authorization_decisions"}.Sanitize()+"(actor,scope,request_id,policy_version,allowed) VALUES($1,$2,$3,$4,$5)", actor, scope, requestID, d.PolicyVersion, allowed)
+	_, err := d.DB.Exec(ctx, "SELECT "+pgx.Identifier{d.SecuritySchema, "record_authorization_decision_v1"}.Sanitize()+"($1,$2,$3,$4,$5)", actor, scope, requestID, d.PolicyVersion, allowed)
 	if err != nil {
 		http.Error(w, "audit unavailable", http.StatusServiceUnavailable)
 		return

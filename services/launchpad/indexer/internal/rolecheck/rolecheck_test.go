@@ -19,6 +19,9 @@ var parameterMarker = regexp.MustCompile(`\$[0-9]+`)
 // TestRuntimeRoleStatements plans every connected-form indexer statement as
 // indexer_runtime against the coordinator's least-privilege database.
 func TestRuntimeRoleStatements(t *testing.T) {
+	if len(Waiting) != 0 {
+		t.Fatal("every connected runtime statement requires an asserted plan")
+	}
 	admin := os.Getenv(coordinatorDSNEnv)
 	if admin == "" {
 		t.Skipf("%s is not set", coordinatorDSNEnv)
