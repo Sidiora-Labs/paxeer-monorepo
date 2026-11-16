@@ -31,7 +31,7 @@ const AuthModalScreenSuccessWallet = ({ address, onAddEmail, onClose, isAuth, pr
       <Box>
         <Text>
           Your account was linked to{ ' ' }
-          <chakra.span fontWeight="700">{ shortenString(address) }</chakra.span>{ ' ' }
+          <chakra.span fontWeight="bold">{ shortenString(address) }</chakra.span>{ ' ' }
           wallet. Use for the next login.
         </Text>
         { rewardsAuthFailed && <AuthModalRewardsRetry onClose={ onClose }/> }
@@ -50,7 +50,7 @@ const AuthModalScreenSuccessWallet = ({ address, onAddEmail, onClose, isAuth, pr
     <Box>
       <Text>
         Wallet{ ' ' }
-        <chakra.span fontWeight="700">{ shortenString(address) }</chakra.span>{ ' ' }
+        <chakra.span fontWeight="bold">{ shortenString(address) }</chakra.span>{ ' ' }
         has been successfully used to log in to your Blockscout account
         { Boolean(rewardsToken) && ` and Merits Program` }.
       </Text>

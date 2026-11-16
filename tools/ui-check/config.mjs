@@ -1,5 +1,5 @@
-import { readFile, realpath, stat } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { lstat, readFile, readlink, realpath, stat } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve, sep, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const LIMITS = Object.freeze({
@@ -70,10 +70,42 @@ async function canonicalDestination(path) {
     return await realpath(path);
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
+    try {
+      if ((await lstat(path)).isSymbolicLink()) {
+        return canonicalDestination(resolve(dirname(path), await readlink(path)));
+      }
+    } catch (entryError) {
+      if (entryError.code !== "ENOENT") throw entryError;
+    }
     const parent = dirname(path);
     if (parent === path) throw error;
     return join(await canonicalDestination(parent), path.slice(parent.length + (parent.endsWith(sep) ? 0 : 1)));
   }
+}
+
+export async function surfaceOutput(directory, path, name) {
+  const label = `Surface ${name} outputs`;
+  text(path, label);
+  const destination = resolve(directory, path);
+  if (isAbsolute(path) || win32.isAbsolute(path) || !within(directory, destination) || destination === directory) {
+    throw new Error(`${label} must name relative paths inside the surface directory, not the directory itself`);
+  }
+  if (path.split(/[\\/]/).includes("node_modules")) {
+    throw new Error(`${label} must not contain node_modules`);
+  }
+  let canonical;
+  try {
+    canonical = await canonicalDestination(destination);
+  } catch (error) {
+    throw new Error(`${label}: ${error.message}`, { cause: error });
+  }
+  if (!within(directory, canonical) || canonical === directory) {
+    throw new Error(`${label} must stay inside the surface directory after resolving links, not name the directory itself`);
+  }
+  if (relative(directory, canonical).split(sep).includes("node_modules")) {
+    throw new Error(`${label} must not resolve into node_modules`);
+  }
+  return destination;
 }
 export async function outputDirectory(path) {
   const destination = await canonicalDestination(resolve(path));
@@ -117,13 +149,24 @@ export async function readSurface(filename) {
   const file = await realpath(resolve(filename));
   const base = dirname(file);
   const value = JSON.parse(await readFile(file, "utf8"));
-  object(value, ["name", "directory", "build", "start", "address", "readyPath", "views", "answers", "typeScale"], "surface");
+  object(value, ["name", "directory", "build", "buildMs", "outputs", "start", "address", "readyPath", "views", "answers", "typeScale"], "surface");
   text(value.name, "surface.name");
   text(value.directory, "surface.directory");
   const directory = await realpath(resolve(base, value.directory));
   if (!(await stat(directory)).isDirectory()) throw new Error("surface.directory must be a directory");
   for (const key of ["build", "start"]) {
     if (value[key] !== undefined) text(value[key], `surface.${key}`);
+  }
+  if (value.buildMs !== undefined && (!Number.isInteger(value.buildMs) || value.buildMs < 1000 || value.buildMs > 1800000)) {
+    throw new Error(`Surface ${value.name} buildMs must be a whole number from 1000 to 1800000`);
+  }
+  if (value.outputs !== undefined) {
+    const label = `Surface ${value.name} outputs`;
+    if (!value.build) throw new Error(`${label} requires a build command`);
+    if (!Array.isArray(value.outputs) || value.outputs.length < 1 || value.outputs.length > 16) {
+      throw new Error(`${label} must be a list of one to sixteen paths`);
+    }
+    for (const path of value.outputs) await surfaceOutput(directory, path, value.name);
   }
   text(value.address, "surface.address");
   const address = new URL(value.address);

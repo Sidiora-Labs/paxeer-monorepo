@@ -2,7 +2,6 @@ import { Box, Flex, Text } from '@chakra-ui/react';
 import React from 'react';
 
 import config from 'configs/app';
-import { CONTENT_MAX_WIDTH } from 'ui/shared/layout/utils';
 import NavigationDesktop from 'ui/snippets/navigation/horizontal/NavigationDesktop';
 import NetworkIcon from 'ui/snippets/networkLogo/NetworkIcon';
 import SearchBar from 'ui/snippets/searchBar/SearchBarDesktop';
@@ -23,18 +22,32 @@ const HeaderDesktop = ({ renderSearchBar }: Props) => {
       top={ 0 }
       zIndex="sticky"
       bg="header.sticky.bg"
-      backdropFilter="blur(12px)"
-      borderBottomWidth="1px"
+      backdropFilter="blur(var(--chakra-blurs-header-bar))"
+      borderBottomWidth="var(--chakra-border-widths-1)"
       borderColor="hairline"
     >
-      <Flex h="56px" maxW={ `${ CONTENT_MAX_WIDTH }px` } mx="auto" px={ 6 } align="center" gap={ 3 }>
+      <Flex
+        minH="var(--chakra-spacing-14)"
+        py={ 1 }
+        flexWrap="wrap"
+        maxW={ config.UI.maxContentWidth ? 'calc(var(--chakra-spacing-80) * 4)' : 'none' }
+        mx="auto"
+        px={ 6 }
+        align="center"
+        gap={ 3 }
+      >
         <Flex data-label="header-brand" align="center" gap={ 2 } flexShrink={ 0 }>
           <NetworkIcon/>
-          <Text textStyle="body" fontWeight={ 600 } maxW={{ lg: '80px', xl: '140px' }} lineClamp={ 2 }>{ config.chain.name }</Text>
+          <Text
+            textStyle="body"
+            fontWeight="semibold"
+            maxW={{ lg: 'var(--chakra-spacing-20)', xl: 'calc(var(--chakra-spacing-30) + var(--chakra-spacing-5))' }}
+            lineClamp={ 2 }
+          >{ config.chain.name }</Text>
         </Flex>
-        <Box mx="auto"><NavigationDesktop/></Box>
-        <Flex data-label="header-controls" align="center" gap={ 2 } flexShrink={ 0 }>
-          <Box data-label="header-search" w="320px">
+        <Box mx="auto" minW={ 0 }><NavigationDesktop/></Box>
+        <Flex data-label="header-controls" align="center" gap={ 2 } flex="1" minW={ 0 } flexWrap="wrap" justify="flex-end">
+          <Box data-label="header-search" w="var(--chakra-spacing-80)" maxW="100%" minW={ 0 }>
             { renderSearchBar ? renderSearchBar() : <SearchBar compact/> }
           </Box>
           <TopBar/>

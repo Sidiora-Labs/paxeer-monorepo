@@ -11,11 +11,11 @@ const STATUS_MAP = {
   },
   success: {
     text: 'Contract successfully verified',
-    leftElement: <IconSvg name="verified" boxSize={ 5 } color="green.500"/>,
+    leftElement: <IconSvg name="verified" boxSize={ 5 } color="text.success"/>,
   },
   failed: {
     text: 'Contract not verified automatically. Please verify manually.',
-    leftElement: <IconSvg name="status/warning" boxSize={ 5 } color="orange.400"/>,
+    leftElement: <IconSvg name="status/warning" boxSize={ 5 } color="text.warning"/>,
   },
 };
 

@@ -39,7 +39,7 @@ const VerifiedAddressesListItem = ({ item, application, onAdd, onEdit, isLoading
 
   const tokenInfo = (() => {
     if (isLoading) {
-      return <Skeleton loading height={ 6 } width="140px"/>;
+      return <Skeleton loading height={ 6 } width="calc({spacing.30} + {spacing.5})"/>;
     }
 
     if (!item.metadata.tokenName) {
@@ -72,7 +72,6 @@ const VerifiedAddressesListItem = ({ item, application, onAdd, onEdit, isLoading
             aria-label="edit"
             variant="link"
             size="2xs"
-            borderRadius="none"
             onClick={ handleEditClick }
           >
             <IconSvg name="edit"/>

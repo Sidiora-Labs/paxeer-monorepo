@@ -83,6 +83,8 @@ const AuthModalScreenEmail = ({ onSubmit, isAuth, mixpanelConfig }: Props) => {
         <Text>Account email, used for transaction notifications from your watchlist.</Text>
         <FormFieldEmail<EmailFormFields>
           name="email"
+          label="Email"
+          inputProps={{ type: 'email', inputMode: 'email', autoComplete: 'email' }}
           required
           placeholder="Email"
           bgColor="dialog.bg"

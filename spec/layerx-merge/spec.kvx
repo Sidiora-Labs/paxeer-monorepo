@@ -15070,6 +15070,60 @@ value = "An instance of the indexer that finds the ingestion lease held by anoth
 basis = "Gotcha 4576. Decisions 3658 and 3046."
 affects = []
 
+[decision.3660]
+title = "The verification of the deployment identity of the indexer runs the delivery cases that need no object store"
+value = "The verification of task 22.39.722 runs the cases of the publisher and of the application of the indexer and the cases of the delivery package, and it leaves out the function TestArchiveCapturesCommittedSourceWithActualObjectStore, which runs where an object store is given. The build stays as it is."
+basis = "Gotcha 4577. Decisions 3654 and 3653."
+affects = []
+
+[decision.3661]
+title = "The grants document gives the runtime role of the charts service every right the statements of the service use"
+value = "The runtime role of the charts service holds on the table chart_outbox the rights the relay needs: to take the row lock of its read and to set the publication time. The right is the narrowest that serves both statements. Every other statement the charts service runs on the pool of its runtime role is compared with the grants of that role, and a right a statement needs and the document lacks is added in the narrowest form. The digest of the grants document in the registry follows the document. No right is taken away and no other role changes. A case runs the relay with a connection of the runtime role on a database made by the helper Bootstrap from the registered migrations and the grants document."
+basis = "Gotcha 4578. Decisions 3046 and 3052."
+affects = []
+
+[decision.3662]
+title = "The composer admits the expected schema document in the form the schema command writes"
+value = "The composer holds one table from the platform name of each service it composes to the registry name of that service, and it admits an expected schema document whose service member is that registry name. The file of the document in the values directory keeps the platform name. A document with another service member is refused, the platform name among them. A case holds every registry name of the table equal to a service of the grants document. The cases that write an expected schema document for the composer write the registry name. The document of the composer states the form."
+basis = "Gotcha 4579. Decisions 3046 and 3052."
+affects = []
+
+[decision.3663]
+title = "The composer takes the two indexer documents from the files the indexer command renders and writes the file form"
+value = "Where the values of the indexer name for the receipt document or for the lifecycle document a rendered file and the path at which the service reads it, the composer takes the bytes of that file, writes the file variable with the path and the digest variable with the digest of the bytes, and writes no document variable for it. Without these values the composer composes the document as it does now. The variables file admits for each of the two documents either the document variable or the file variable, each with the digest, and never both, and the tool under tools/deploy that applies the variables of the launchpad follows that rule. A case renders nothing: it uses a file it writes, and it loads the configuration of the indexer from the composed file form."
+basis = "Gotcha 4580. Decisions 3662 and 3046."
+affects = []
+
+[decision.3664]
+title = "A command of the shared module issues the certificates and assertion keys of the private channels"
+value = "A package sdk/launchpad/shared/meshpki with a command beside it makes a private authority, issues for a named service a certificate usable as server and as client with the names it is given, makes an assertion key, and prints for a service the public values in the forms the values files of the composer and the variables of the services take: the digest of a certificate file, the digest of a certificate as the peers compare it, and the public key of an assertion key. Private keys are written with the mode of a private file into a directory the operator names, an existing file is never replaced, and no private key is printed. Cases hold each printed form equal to the form the loader of the gateway and the loaders of the services compute. The package for tests stays as it is."
+basis = "Gotcha 4581. Decisions 3046 and 3052."
+affects = []
+
+[decision.3665]
+title = "A command of the shared module provisions the streams and durables a document names and checks them"
+value = "A package sdk/launchpad/shared/brokerprovision with a command beside it reads a document that lists streams with their subjects and limits and durables with the members of the configuration of a consumer, and makes them on a broker in the form the services check: a stream kept in files, a durable equal to the form the function BrokerConsumerConfig derives. A check action changes nothing and names every stream and durable that is absent or differs. A second run of the provisioning changes nothing. A durable or a stream the document does not name is never removed. An example of the document lies beside the examples of the composer, and a case holds every stream, durable, subject and number an example of the composer names equal to an entry of the example document."
+basis = "Gotcha 4582. Decisions 3663 and 3046."
+affects = []
+
+[decision.3666]
+title = "The stats service changes no schema on the pool of its runtime role"
+value = "A registered migration of the stats service makes the index idx_ph_balance_numeric with the definition the statement of the service holds now, in the form the coordinator admits for an index on a table that holds rows. The registry follows with its order, its digests and its approval. The stats service runs no statement that changes the schema: at start it reads from the catalog that the index is present and valid, and it ends the start with a message that names the index where it is not. The reads that use the index stay as they are. A case holds the index and the start check with a connection of the runtime role on a database made by the helper Bootstrap from the registered migrations and the grants document."
+basis = "Gotcha 4583. Decisions 3661, 3046 and 3052."
+affects = []
+
+[decision.3667]
+title = "A surface file may name the bound of its build and the outputs its build makes"
+value = "A surface file may hold the key buildMs, a whole number of milliseconds from 1000 to 1800000 that bounds the build of that surface in place of the common bound, and the key outputs, a list of paths inside the directory of the surface that the build makes. The render check removes each named output before it runs the build, so the start command serves what the build of that run made. A path of the list that is absolute, that leaves the directory of the surface, that names the directory itself or that names a directory of installed packages is refused with the name of the surface. A surface file without the two keys runs as before. The result names the bound that applied and the outputs that were removed."
+basis = "Gotcha 4584. Decisions 3591 and 3588."
+affects = []
+
+[decision.3668]
+title = "The surface file of the wallet application builds the production form its start serves"
+value = "The build of the surface file of the wallet application runs the script build of the package with the public values the start command names, so the compile and the start hold the same addresses. The surface file names the outputs of that build and a bound that fits it, in the keys of decision 3667. The render check of the wallet surface passes on the whole device list, in both schemes and in every mode, in a tree that held no output of an earlier build. A finding that shows there is corrected in the application, and no view, state, mode or expectation is taken out of the surface file."
+basis = "Gotcha 4585. Decisions 3667, 3591 and 3588."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -44730,6 +44784,78 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.61]
+title = "Build the production form of the wallet application in its surface file and close the render check on it"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/surfaces/wallet.json", "tools/ui-check/surfaces/wallet", "apps/wallet"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.61.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && rm -rf apps/wallet/.next && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/wallet.json --out /tmp/ui-check/wallet && pnpm --dir apps/wallet run typecheck && pnpm --dir apps/wallet exec vitest run --passWithNoTests src/components src/widgets src/surfaces"
+do_1 = "do_1 Gotcha 4585, decision 3668. Read tools/ui-check/surfaces/wallet.json with the files under tools/ui-check/surfaces/wallet, the scripts of apps/wallet/package.json, apps/wallet/scripts/build-pwa.mjs, the next configuration of the application, the part of tools/ui-check/README.md on the keys buildMs and outputs, and the record of task 22.44.41 under spec/layerx-merge/programme/records/ui."
+symbols = []
+
+[capability.22.44.60]
+title = "Let a surface file of the render check name the bound of its build and the outputs its build makes"
+reqs = ["22998.1"]
+touches = ["tools/ui-check"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4584, decision 3667. Read tools/ui-check/config.mjs with the function readSurface and the limits, tools/ui-check/server.mjs with the function startSurface and the process helper, tools/ui-check/check.mjs where it writes the result, the part of tools/ui-check/README.md on commands and limits, the cases of tools/ui-check/test/check.test.mjs on surface files and on the build, and every surface file under tools/ui-check/surfaces with its build and start commands."
+symbols = []
+
+[capability.22.39.733]
+title = "Make the holder balance index of the stats service by a registered migration and read it at start"
+reqs = ["22998.1"]
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad"]
+tests = []
+verification_contract = "cd services/launchpad/stats-*ers && go test -count=1 -timeout 30m -run '^TestRuntimeRoleHolderIndex' ./internal/store/ && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 30m -run '^(TestMigrationRegistryHonorsPredecessorOrder|TestRepositoryRegistryRequiresApproval|TestExpectedSchemaPrivilegeMatrix|TestPlatformRuntimeRolesPassReadiness)' ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/"
+do_1 = "do_1 Gotcha 4583, decision 3666. Read the function EnsureHolderBalanceIndex of internal/store/holders.go in the directory of the stats service under services/launchpad, whose binary is statsd, with the reads beside it that order by the numeric balance, its call in internal/app/app.go and the cases that call it, the file migrations/00001_init.sql of that directory with the table pool_holders and its indexes, the registrations of the stats service in migrations/registry.json with their files under migrations, the file sdk/launchpad/shared/db/production/online_indexes.go and every place that calls its apply function, the query of the schema digest in sdk/launchpad/shared/db/production/migrations.go, the command of the schema under sdk/launchpad/shared/db/production/cmd with its cases, the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, and the history of the registration that was added last with every file that changed with it."
+symbols = []
+
+[capability.22.39.732]
+title = "Add the command that provisions and checks the streams and durables of the launchpad on a broker"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad/documents", "sdk/launchpad/shared/go.mod", "sdk/launchpad/shared/go.sum"]
+tests = []
+verification_contract = "cd sdk/launchpad/shared && go test -count=1 -timeout 30m ./brokerprovision/... && cd ../../.. && python3 -m pytest -q deploy/launchpad/documents/test_compose.py"
+do_1 = "do_1 Gotcha 4582, decision 3665. Read sdk/launchpad/shared/delivery/natsdriver/driver.go with the configuration of a consumer, its bounds, the function BrokerConsumerConfig and the function NewConsumer, the function NewPublisher, the helpers of the tests that make streams and durables in sdk/launchpad/shared/delivery/natsdriver and in services/launchpad/trading-charts/internal/internaltest, the delivery part of every module under deploy/launchpad/documents with the examples under deploy/launchpad/documents/values, and in the services under services/launchpad the places that publish to a stream or construct a consumer, with the names of stream, durable and subject each takes from its configuration."
+symbols = []
+
+[capability.22.39.731]
+title = "Add the command that issues the certificates and assertion keys of the private channels of the launchpad"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/go.mod", "sdk/launchpad/shared/go.sum"]
+tests = []
+verification_contract = "cd sdk/launchpad/shared && go test -count=1 -timeout 20m ./meshpki/..."
+do_1 = "do_1 Gotcha 4581, decision 3664. Read sdk/launchpad/shared/testpki/testpki.go, the part of services/launchpad/gateway/internal/app/app.go that reads the runtime document with the function that reads a file bound by a digest, the identity peers and the assertion key, the configuration packages and the private channel files of the services user, metadata, social, livestream and api under services/launchpad with every variable of a certificate, of a peer digest and of an assertion key, and the values deploy/launchpad/documents/values/gateway.example.json with the module deploy/launchpad/documents/gateway.py. Write down for each value the form its reader takes: the encoding of a key, whether a digest is taken over the file or over the certificate in its binary form, and the names a certificate must hold."
+symbols = []
+
+[capability.22.39.730]
+title = "Write the file form of the receipt and lifecycle documents of the indexer from rendered files in the composer"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad", "services/launchpad/indexer/internal/config", "services/launchpad/indexer/.env.example", "tools/deploy"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/indexer && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/)"
+do_1 = "do_1 Gotcha 4580, decision 3663. Read deploy/launchpad/documents/indexer.py, the place in deploy/launchpad/documents/compose.py that turns the documents of a module into variables and the place that reads the variables file, the entry of the indexer in the variables file of the platform directory under deploy/launchpad, the tool under tools/deploy that applies the variables of the launchpad with its case under tools/deploy/tests, the cases under deploy/launchpad/tests that read the variables file, the fields of the two documents in services/launchpad/indexer/internal/config/config.go with the checks on them, the function ReadBoundDocument, the two places of services/launchpad/indexer/internal/app/app.go that read a bound file, and the command under services/launchpad/indexer/cmd/indexer-runtime-docs with the files it writes."
+symbols = []
+
+[capability.22.39.729]
+title = "Admit in the composer the expected schema document with the registry name of the service"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad/documents", "services/launchpad", "sdk/launchpad/shared/db/production/platform_documents_test.go"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && (cd sdk/launchpad/shared && go test -count=1 -timeout 20m -run PlatformDocuments ./db/production/) && (cd services/launchpad/api && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/gateway && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/indexer && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/livestream && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/metadata && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/pnl-tracker && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/social && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/stats-*ers && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/trading-charts && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/user && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/)"
+do_1 = "do_1 Gotcha 4579, decision 3662. Read the function _expected_schema of deploy/launchpad/documents/common.py with its callers, deploy/launchpad/documents/compose.py, the cases of deploy/launchpad/documents/test_compose.py with their helper that writes the documents, the place in the command of the schema under sdk/launchpad/shared/db/production/cmd that writes the expected schema document, the role entries of migrations/grants.json with their service names, and in each configuration package of the services under services/launchpad and in sdk/launchpad/shared/db/production the file platform_documents_test.go with the expected schema document it writes."
+symbols = []
+
+[capability.22.39.728]
+title = "Give the runtime role of the charts service the rights its outbox relay uses and hold them with a case under that role"
+reqs = ["22998.1"]
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad/trading-charts"]
+tests = []
+verification_contract = "cd services/launchpad/trading-charts && go test -count=1 -timeout 30m -run '^(TestRuntimeRoleOutboxRelay|TestCommittedCandleOutboxPublishesOnce)' ./internal/store/ && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 30m -run '^(TestRuntimeGrantsRequireExactObjectAuthority|TestExpectedSchemaPrivilegeMatrix|TestPlatformRuntimeRolesPassReadiness)' ./db/production/ ./db/production/coordinatortest/"
+do_1 = "do_1 Gotcha 4578, decision 3661. Read the function PublishNextCommitted of services/launchpad/trading-charts/internal/store/transactional.go with its two statements, the place in services/launchpad/trading-charts/internal/app/app.go that starts the relay and the pool it runs on, the entry of the charts service in migrations/grants.json, the place in migrations/registry.json that holds the digest of the grants document with the code of sdk/launchpad/shared/db/production that checks it, the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest with the case beside it, the cases of sdk/launchpad/shared/db/production/admission_matrix_coverage_test.go, and services/launchpad/trading-charts/cmd/charts-rebuild/runtime_binding_test.go."
+symbols = []
 
 [capability.22.39.727]
 title = "Let an instance of the launchpad indexer that finds the lease held wait as a standby"
@@ -174313,6 +174439,72 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.61]
+title = "Build the production form of the wallet application in its surface file and close the render check on it"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.60"]
+reqs = ["22998.1"]
+capabilities = ["22.44.61"]
+interfaces = []
+do_1 = "do_1 Gotcha 4585, decision 3668. Read tools/ui-check/surfaces/wallet.json with the files under tools/ui-check/surfaces/wallet, the scripts of apps/wallet/package.json, apps/wallet/scripts/build-pwa.mjs, the next configuration of the application, the part of tools/ui-check/README.md on the keys buildMs and outputs, and the record of task 22.44.41 under spec/layerx-merge/programme/records/ui."
+do_2 = "do_2 The build of the surface file runs the script build of the package, the production form of the product, with every public value the start command names set to the same value. The surface file names in outputs the directory of the production build and each file the script of the offline files writes, and in buildMs a bound that fits the build with room. Measure the build once by hand and state the time in the final message."
+do_3 = "do_3 Remove the directory of the production build and the files of the offline form by hand, then run the render check of the surface by hand for one view and read the result: zero renders or a view that shows nothing is a finding. Look at four of the written images, one narrow and one wide in each scheme, and state in the final message what they show."
+do_4 = "do_4 Run the render check of the whole surface by hand in that tree. Correct every finding in the application under apps/wallet: spacing, type, colour, contrast, focus, touch size, overflow and layout shift as the check names them. Take no view, state, mode or expectation out of the surface file and loosen no limit. Run again until the whole surface passes with zero findings."
+do_5 = "do_5 The record of task 22.44.41 stays as it is. Write the record of this task at spec/layerx-merge/programme/records/ui/22.44.61.kvx with the count of renders, the device list, the time of the build and the revision, in the form of the record of task 22.44.41. The present cases of the application stay and none is weakened. Run by hand the type check of the application and the cases of the directories src/components, src/widgets and src/surfaces and read each message."
+do_6 = "do_6 The surface file, the files under tools/ui-check/surfaces/wallet and the files of apps/wallet are inside the paths of this task: a case there that does not pass is corrected here whether or not it passed before, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/surfaces/wallet.json", "tools/ui-check/surfaces/wallet", "apps/wallet"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.61.kvx"]
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir apps/wallet install --frozen-lockfile && pnpm --dir apps/wallet run typecheck"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.61.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && rm -rf apps/wallet/.next && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/wallet.json --out /tmp/ui-check/wallet && pnpm --dir apps/wallet run typecheck && pnpm --dir apps/wallet exec vitest run --passWithNoTests src/components src/widgets src/surfaces"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.60]
+title = "Let a surface file of the render check name the bound of its build and the outputs its build makes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.60"]
+interfaces = []
+do_1 = "do_1 Gotcha 4584, decision 3667. Read tools/ui-check/config.mjs with the function readSurface and the limits, tools/ui-check/server.mjs with the function startSurface and the process helper, tools/ui-check/check.mjs where it writes the result, the part of tools/ui-check/README.md on commands and limits, the cases of tools/ui-check/test/check.test.mjs on surface files and on the build, and every surface file under tools/ui-check/surfaces with its build and start commands."
+do_2 = "do_2 The function readSurface admits the key buildMs: a whole number from 1000 to 1800000. Another value is refused with the name of the surface. The function startSurface bounds the build with that number where the surface names it and with the common bound where it does not. The message of a build that ran out of time names the bound that applied."
+do_3 = "do_3 The function readSurface admits the key outputs: a list of one to sixteen paths, each relative and inside the directory of the surface after resolving links. It refuses, with the name of the surface, an absolute path, a path that leaves the directory, a path that is the directory itself, a path whose last part or any part is node_modules, and a list on a surface without a build command. The function startSurface removes each named output with everything under it before the build runs, and removes nothing else. A named output that is absent is no error."
+do_4 = "do_4 The result the check writes names for the surface the bound that applied to its build and the outputs that were removed. The README states both keys, their limits, the refusals and the order: remove the outputs, build, start. The surface files that are present stay as they are."
+do_5 = "do_5 Cases in tools/ui-check/test/check.test.mjs with surfaces made in a temporary directory: a build that takes longer than the common bound passes with a larger buildMs and ends with the bound in its message under a smaller one; each refusal of do_2 and do_3; a surface whose start serves a file that only its build writes passes when a stale copy of that file with other content is present and named in outputs, and the render shows the content of the new build; a file beside the outputs is still present after the run; a surface without the keys behaves as before. Use short bounds through the keys so the cases stay fast. The present cases stay and none is weakened. Run the cases by hand and read each message."
+do_6 = "do_6 The files of tools/ui-check are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.723]
 title = "Copy every compile file the web compile reads into the perps image and hold it with a case"
 status = "done"
@@ -174413,7 +174605,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.716]
 title = "Give the trading workspace one lockfile and a workflow for the suites of its members"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176597,7 +176789,7 @@ do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decis
 
 [task.22.44.7]
 title = "Bring the address and name views of the explorer to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.1"]
@@ -176777,7 +176969,7 @@ do_9 = "do_9 Decision 3637, gotcha 4554. The render step takes the form of decis
 
 [task.22.44.2]
 title = "Bring the explorer shell, its header, navigation, search, footer and page files to the web platform guidance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.1"]
@@ -248590,6 +248782,204 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.733]
+title = "Make the holder balance index of the stats service by a registered migration and read it at start"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.728"]
+reqs = ["22998.1"]
+capabilities = ["22.39.733"]
+interfaces = []
+do_1 = "do_1 Gotcha 4583, decision 3666. Read the function EnsureHolderBalanceIndex of internal/store/holders.go in the directory of the stats service under services/launchpad, whose binary is statsd, with the reads beside it that order by the numeric balance, its call in internal/app/app.go and the cases that call it, the file migrations/00001_init.sql of that directory with the table pool_holders and its indexes, the registrations of the stats service in migrations/registry.json with their files under migrations, the file sdk/launchpad/shared/db/production/online_indexes.go and every place that calls its apply function, the query of the schema digest in sdk/launchpad/shared/db/production/migrations.go, the command of the schema under sdk/launchpad/shared/db/production/cmd with its cases, the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest, and the history of the registration that was added last with every file that changed with it."
+do_2 = "do_2 Add a registered migration of the stats service that makes the index idx_ph_balance_numeric on the table pool_holders with the columns, the expression and the order of the statement the service holds now. Use the form the coordinator admits for an index on a table that holds rows, and state in the final message which form that is and why. The registry follows: the registration with its predecessor, the application order, the digests, the approval, and every file the code of sdk/launchpad/shared/db/production and the command of the schema hold equal to the registry. A file that records an approval of an earlier release stays as it is where the code reads it as history."
+do_3 = "do_3 The stats service runs no statement that changes the schema on the pool of its runtime role. At start it reads from the catalog, with a statement the runtime role may run, that the index is present, valid and of the expected definition, and it ends the start with a message that names the index where it is not. Remove the statement that makes the index from the service, or keep the function only for the cases where they make their own tables and name it so. The reads that use the index stay as they are."
+do_4 = "do_4 Read the start path of both commands of the stats service, of its search part and of every other service under services/launchpad for a statement that changes the schema or that PostgreSQL admits only from the owner of an object, run on a pool of a runtime role. Change the stats service and its search part in the way of do_2 and do_3. For every other service name file, function and statement in the final message and change nothing there."
+do_5 = "do_5 Cases: a case in internal/store of the stats service whose name starts with TestRuntimeRoleHolderIndex makes a database with the helper Bootstrap for the runtime role of the stats service, where the database of the coordinator is given, asserts that the index is present with the expected definition after the registered migrations, runs the start check and one read that orders by the numeric balance with the connection of the runtime role, and asserts that a statement that makes an index is refused for that role. A case asserts that the start check ends with a message that names the index on a database where the index was removed by the owner. The present cases stay and none is weakened. Run by hand the cases of internal/store and internal/app of the stats service, the cases of sdk/launchpad/shared/db/production, of sdk/launchpad/shared/db/production/coordinatortest and of the command of the schema, and read each message."
+do_6 = "do_6 The files under migrations, the files of sdk/launchpad/shared/db/production and the files of the stats service under services/launchpad are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/stats-*ers && go vet ./... && cd ../../../sdk/launchpad/shared && go vet ./db/production/..."
+verify_cmd = "cd services/launchpad/stats-*ers && go test -count=1 -timeout 30m -run '^TestRuntimeRoleHolderIndex' ./internal/store/ && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 30m -run '^(TestMigrationRegistryHonorsPredecessorOrder|TestRepositoryRegistryRequiresApproval|TestExpectedSchemaPrivilegeMatrix|TestPlatformRuntimeRolesPassReadiness)' ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.732]
+title = "Add the command that provisions and checks the streams and durables of the launchpad on a broker"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.730"]
+reqs = ["22998.1"]
+capabilities = ["22.39.732"]
+interfaces = []
+do_1 = "do_1 Gotcha 4582, decision 3665. Read sdk/launchpad/shared/delivery/natsdriver/driver.go with the configuration of a consumer, its bounds, the function BrokerConsumerConfig and the function NewConsumer, the function NewPublisher, the helpers of the tests that make streams and durables in sdk/launchpad/shared/delivery/natsdriver and in services/launchpad/trading-charts/internal/internaltest, the delivery part of every module under deploy/launchpad/documents with the examples under deploy/launchpad/documents/values, and in the services under services/launchpad the places that publish to a stream or construct a consumer, with the names of stream, durable and subject each takes from its configuration."
+do_2 = "do_2 Add the package sdk/launchpad/shared/brokerprovision: it reads a document that lists streams, each with a name, its subjects and its limits, and durables, each with the members of the configuration of a consumer in sdk/launchpad/shared/delivery/natsdriver. It refuses a document with a value outside the bounds of that configuration, with a durable on a stream the document does not list, or with a subject of a durable that no subject of its stream covers. It makes each stream kept in files and each durable in the form the function BrokerConsumerConfig derives, by calling that function."
+do_3 = "do_3 Add under sdk/launchpad/shared/brokerprovision/cmd a command with two actions. Provision makes what is absent, leaves what is equal, and refuses to change a stream or a durable that differs unless an argument names it. Check changes nothing, prints one line for every stream and durable that is absent or differs, and ends with a status that tells whether all are equal. Neither action removes anything. The broker address and the credentials come from arguments that name files or variables, and no credential is printed."
+do_4 = "do_4 Add an example of the document beside the examples of the composer under deploy/launchpad/documents/values. It lists every stream and durable the examples of the composer name, each with the subject and the numbers of that example. Where two examples of the composer state one durable with different numbers, or name a stream no publisher of the repository writes, read the service and bring the example of the composer in line with the code. The final message names each example value that was changed and the code that states it."
+do_5 = "do_5 Cases in sdk/launchpad/shared/brokerprovision, run against a broker started from the broker binary in the way the cases of sdk/launchpad/shared/delivery/natsdriver start one: after provisioning, the function NewConsumer admits every durable of the example document; a second provisioning changes nothing; the check action names a durable whose number was changed and a stream that is absent; a durable outside the document stays; the refusals of do_2. A case reads the examples of the composer and the example document and asserts the rule of do_4. The present cases stay and none is weakened. Run by hand the cases of sdk/launchpad/shared/brokerprovision and of deploy/launchpad/documents/test_compose.py and read each message."
+do_6 = "do_6 The files of deploy/launchpad/documents are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad/documents", "sdk/launchpad/shared/go.mod", "sdk/launchpad/shared/go.sum"]
+tests = []
+planned_paths = ["sdk/launchpad/shared/brokerprovision"]
+build_cmd = "cd sdk/launchpad/shared && go vet ./brokerprovision/..."
+verify_cmd = "cd sdk/launchpad/shared && go test -count=1 -timeout 30m ./brokerprovision/... && cd ../../.. && python3 -m pytest -q deploy/launchpad/documents/test_compose.py"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.731]
+title = "Add the command that issues the certificates and assertion keys of the private channels of the launchpad"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.731"]
+interfaces = []
+do_1 = "do_1 Gotcha 4581, decision 3664. Read sdk/launchpad/shared/testpki/testpki.go, the part of services/launchpad/gateway/internal/app/app.go that reads the runtime document with the function that reads a file bound by a digest, the identity peers and the assertion key, the configuration packages and the private channel files of the services user, metadata, social, livestream and api under services/launchpad with every variable of a certificate, of a peer digest and of an assertion key, and the values deploy/launchpad/documents/values/gateway.example.json with the module deploy/launchpad/documents/gateway.py. Write down for each value the form its reader takes: the encoding of a key, whether a digest is taken over the file or over the certificate in its binary form, and the names a certificate must hold."
+do_2 = "do_2 Add the package sdk/launchpad/shared/meshpki: it makes a private authority with a key of the kind and the lifetime the readers admit, issues a certificate for a service name and a list of names, usable as server and as client, and makes an assertion key of the kind the readers take. The lifetimes are arguments with stated bounds. Use the standard library."
+do_3 = "do_3 Add under sdk/launchpad/shared/meshpki/cmd a command with these actions: make the authority, issue a certificate for a service, make an assertion key for a service, and describe a service, which prints as one JSON object the public values of the service in the forms of do_1 and no private value. Every file goes into a directory the operator names. A private key is written with the mode of a private file, an existing file is never replaced, and the command refuses a directory that lies inside a working copy of the repository. No action prints a private key."
+do_4 = "do_4 Cases in sdk/launchpad/shared/meshpki: the authority verifies each issued certificate for both uses and for each name, and a certificate of another authority is refused; each printed digest equals the digest computed in the way the reader of that value computes it, with the computation copied into the case and the reader named in a comment; the public key of an assertion key has the length and the encoding the gateway takes for an identity peer; a private key file has the mode of a private file; a second run does not replace a file; the describe action prints no private value. A case builds one full set for the gateway and its four upstream services and loads the pair of each service with the standard library."
+do_5 = "do_5 A document sdk/launchpad/shared/meshpki/README.md states the actions, the files, the forms of the public values and where each value goes in the values files of the composer. It holds no host name and no key. The package sdk/launchpad/shared/testpki stays as it is. Run by hand the cases of sdk/launchpad/shared/meshpki and read each message."
+do_6 = "do_6 A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/go.mod", "sdk/launchpad/shared/go.sum"]
+tests = []
+planned_paths = ["sdk/launchpad/shared/meshpki"]
+build_cmd = "cd sdk/launchpad/shared && go vet ./meshpki/..."
+verify_cmd = "cd sdk/launchpad/shared && go test -count=1 -timeout 20m ./meshpki/..."
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.730]
+title = "Write the file form of the receipt and lifecycle documents of the indexer from rendered files in the composer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.729"]
+reqs = ["22998.1"]
+capabilities = ["22.39.730"]
+interfaces = []
+do_1 = "do_1 Gotcha 4580, decision 3663. Read deploy/launchpad/documents/indexer.py, the place in deploy/launchpad/documents/compose.py that turns the documents of a module into variables and the place that reads the variables file, the entry of the indexer in the variables file of the platform directory under deploy/launchpad, the tool under tools/deploy that applies the variables of the launchpad with its case under tools/deploy/tests, the cases under deploy/launchpad/tests that read the variables file, the fields of the two documents in services/launchpad/indexer/internal/config/config.go with the checks on them, the function ReadBoundDocument, the two places of services/launchpad/indexer/internal/app/app.go that read a bound file, and the command under services/launchpad/indexer/cmd/indexer-runtime-docs with the files it writes."
+do_2 = "do_2 The values of the indexer may name for the receipt document and for the lifecycle document each a rendered file and the path at which the service reads the file. Where both are given for a document, the module hands the composer the bytes of the file and the path, and the composer writes the file variable with the path and the digest variable with the digest of the bytes, and no document variable. The digest is the one the indexer computes over a bound file. A rendered file that is absent, empty or no JSON object is refused with the name of the value. A value that gives only the file or only the path is refused. Without these values the document is composed as now."
+do_3 = "do_3 The variables file admits for each of the two documents either the document variable or the file variable, each with the digest variable, and the composer and the tool that applies the variables refuse both together and refuse neither. The other required names stay as they are. The example of the environment of the indexer and the documents under deploy/launchpad state the two forms."
+do_4 = "do_4 Cases: a case of deploy/launchpad/documents/test_compose.py composes the indexer with two files it writes and asserts the file variables, the digests and the absence of the document variables, and the refusals of do_2; a case of services/launchpad/indexer/internal/config whose name starts with TestPlatformDocumentsFileForm composes in that way, places the files at the paths, loads the configuration and reads both bound files; the case of the tool under tools/deploy/tests covers both forms and the two refusals. The present cases stay and none is weakened. Run by hand these cases and the cases under deploy/launchpad/tests that read the variables file, and read each message."
+do_5 = "do_5 The files under deploy/launchpad, the configuration package of the indexer, the tool under tools/deploy that applies the variables of the launchpad and its case are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad", "services/launchpad/indexer/internal/config", "services/launchpad/indexer/.env.example", "tools/deploy"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/documents/compose.py deploy/launchpad/documents/indexer.py && (cd services/launchpad/indexer && go vet ./internal/config/)"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/indexer && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.729]
+title = "Admit in the composer the expected schema document with the registry name of the service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.729"]
+interfaces = []
+do_1 = "do_1 Gotcha 4579, decision 3662. Read the function _expected_schema of deploy/launchpad/documents/common.py with its callers, deploy/launchpad/documents/compose.py, the cases of deploy/launchpad/documents/test_compose.py with their helper that writes the documents, the place in the command of the schema under sdk/launchpad/shared/db/production/cmd that writes the expected schema document, the role entries of migrations/grants.json with their service names, and in each configuration package of the services under services/launchpad and in sdk/launchpad/shared/db/production the file platform_documents_test.go with the expected schema document it writes."
+do_2 = "do_2 The composer holds one table from the platform name of each service it composes to the registry name of that service: the two services of the interface share the registry name of the interface, and each other service takes the registry name the grants document gives it. The function _expected_schema admits a document whose service member is the registry name of the table and refuses every other value. The file name in the values directory stays the platform name. The message of a refusal names the service and the name it expects."
+do_3 = "do_3 A case of deploy/launchpad/documents/test_compose.py reads migrations/grants.json and asserts that every registry name of the table is a service of a role entry there. A case asserts the refusal of a document that holds the platform name and of a document that holds the registry name of another service. The helper of the cases writes the registry name."
+do_4 = "do_4 In each file platform_documents_test.go under services/launchpad and in sdk/launchpad/shared/db/production the expected schema document the case writes for the composer holds the registry name of its service. Change in these files the service member of that document and what follows from it, and nothing else. Where a case compares the service of the loaded document, it compares the registry name."
+do_5 = "do_5 The document deploy/launchpad/documents/README.md states that the expected schema document is the output of the command of the schema, and names the member the composer compares."
+do_6 = "do_6 The present cases stay and none is weakened. Run by hand the cases of deploy/launchpad/documents/test_compose.py and in each service under services/launchpad and in sdk/launchpad/shared/db/production the cases whose name starts with TestPlatformDocuments, and read each message."
+do_7 = "do_7 The files of deploy/launchpad/documents, the files platform_documents_test.go of the services under services/launchpad and the file sdk/launchpad/shared/db/production/platform_documents_test.go are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad/documents", "services/launchpad", "sdk/launchpad/shared/db/production/platform_documents_test.go"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/documents/compose.py deploy/launchpad/documents/common.py && (cd sdk/launchpad/shared && go vet ./db/production/)"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && (cd sdk/launchpad/shared && go test -count=1 -timeout 20m -run PlatformDocuments ./db/production/) && (cd services/launchpad/api && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/gateway && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/indexer && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/livestream && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/metadata && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/pnl-tracker && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/social && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/stats-*ers && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/trading-charts && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/) && (cd services/launchpad/user && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.728]
+title = "Give the runtime role of the charts service the rights its outbox relay uses and hold them with a case under that role"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.728"]
+interfaces = []
+do_1 = "do_1 Gotcha 4578, decision 3661. Read the function PublishNextCommitted of services/launchpad/trading-charts/internal/store/transactional.go with its two statements, the place in services/launchpad/trading-charts/internal/app/app.go that starts the relay and the pool it runs on, the entry of the charts service in migrations/grants.json, the place in migrations/registry.json that holds the digest of the grants document with the code of sdk/launchpad/shared/db/production that checks it, the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest with the case beside it, the cases of sdk/launchpad/shared/db/production/admission_matrix_coverage_test.go, and services/launchpad/trading-charts/cmd/charts-rebuild/runtime_binding_test.go."
+do_2 = "do_2 The grants document gives the runtime role of the charts service on the table chart_outbox the right the relay needs for the row lock of its read and for setting the publication time, in the narrowest form that serves both statements. Read in the documentation of PostgreSQL which right a read under a row lock needs and state the choice in the final message."
+do_3 = "do_3 List every statement the charts service runs on the pool of its runtime role, in the packages store, engine, consumer and app and in the delivery package of sdk/launchpad/shared as the charts service calls it, with the tables, the columns and the kind of each statement, and compare the list with the grants of the role. Add each right a statement needs and the document lacks, in the narrowest form. Take no right away and change no other role. The final message names each right that was added and the statement that needs it."
+do_4 = "do_4 The digest of the grants document in migrations/registry.json follows the document. Read every file the code of sdk/launchpad/shared/db/production and the command of the schema under sdk/launchpad/shared/db/production/cmd hold equal to the registry or to the grants document, and bring each in line. A file that records an approval of an earlier release stays as it is where the code reads it as history."
+do_5 = "do_5 Cases: a case in services/launchpad/trading-charts/internal/store whose name starts with TestRuntimeRoleOutboxRelay makes a database with the helper Bootstrap for the runtime role of the charts service, where the database of the coordinator is given, inserts one committed row with the connection of the role, runs the relay with that connection against a broker made by the helper of services/launchpad/trading-charts/internal/internaltest, and asserts that the row is published once and holds a publication time, and that a second run finds no row. A case asserts for each statement of the list of do_3 that the grants of the role cover it, by running the statement or its plan with the connection of the role. The present cases stay and none is weakened. Run by hand the cases of services/launchpad/trading-charts/internal/store, the cases of sdk/launchpad/shared/db/production and of sdk/launchpad/shared/db/production/coordinatortest and read each message."
+do_6 = "do_6 The grants document, the registry, the files of sdk/launchpad/shared/db/production and the files of services/launchpad/trading-charts are inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad/trading-charts"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/trading-charts && go vet ./... && cd ../../../sdk/launchpad/shared && go vet ./db/production/..."
+verify_cmd = "cd services/launchpad/trading-charts && go test -count=1 -timeout 30m -run '^(TestRuntimeRoleOutboxRelay|TestCommittedCandleOutboxPublishesOnce)' ./internal/store/ && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 30m -run '^(TestRuntimeGrantsRequireExactObjectAuthority|TestExpectedSchemaPrivilegeMatrix|TestPlatformRuntimeRolesPassReadiness)' ./db/production/ ./db/production/coordinatortest/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.727]
 title = "Let an instance of the launchpad indexer that finds the lease held wait as a standby"
 status = "pending"
@@ -248658,7 +249048,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.725]
 title = "Hold the receipts of a block in the eth namespace equal to the transactions the block lists"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -248741,7 +249131,7 @@ touches = ["services/launchpad/indexer", "sdk/launchpad/shared/delivery"]
 tests = []
 planned_paths = []
 build_cmd = "cd services/launchpad/indexer && go vet ./... && cd ../../../sdk/launchpad/shared && go vet ./delivery/..."
-verify_cmd = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/publisher/... ./internal/app/... && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 20m ./delivery/..."
+verify_cmd = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/publisher/... ./internal/app/... && cd ../../../sdk/launchpad/shared && go test -count=1 -timeout 20m -skip 'TestArchiveCapturesCommittedSourceWithActualObjectStore' ./delivery/..."
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-launchpad"
@@ -248753,6 +249143,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3660, gotcha 4577. The verification now leaves out the function TestArchiveCapturesCommittedSourceWithActualObjectStore of the delivery package, which runs where an object store is given: change nothing in that function. The work of the earlier candidate stays as it is. Run the commands of the verification by hand once and correct what they name inside the paths, then run the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.39.721]
 title = "Bring three cases of the node package and the parts of the product they read in line"
@@ -386218,7 +386609,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.571]
 title = "Point the package, lockfile and advisory checks at the trading workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.563", "22.39.564", "22.39.716", "22.39.717"]

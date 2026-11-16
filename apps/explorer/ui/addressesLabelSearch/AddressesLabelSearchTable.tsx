@@ -15,7 +15,7 @@ interface Props {
 
 const AddressesLabelSearchTable = ({ items, top, isLoading }: Props) => {
   return (
-    <TableRoot>
+    <TableRoot aria-label="Address label search results">
       <TableHeaderSticky top={ top }>
         <TableRow>
           <TableColumnHeader width="70%">Address</TableColumnHeader>

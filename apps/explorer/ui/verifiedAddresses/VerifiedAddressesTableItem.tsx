@@ -40,7 +40,7 @@ const VerifiedAddressesTableItem = ({ item, application, onAdd, onEdit, isLoadin
 
   const tokenInfo = (() => {
     if (isLoading) {
-      return <Skeleton loading height={ 6 } width="140px"/>;
+      return <Skeleton loading height={ 6 } width="calc({spacing.30} + {spacing.5})"/>;
     }
 
     if (!item.metadata.tokenName) {
@@ -76,7 +76,7 @@ const VerifiedAddressesTableItem = ({ item, application, onAdd, onEdit, isLoadin
         <AddressEntity
           address={{ hash: item.contractAddress, is_contract: true }}
           isLoading={ isLoading }
-          fontWeight="600"
+          fontWeight="semibold"
         />
       </TableCell>
       <TableCell fontSize="sm" verticalAlign="middle" pr={ 1 }>
@@ -89,7 +89,6 @@ const VerifiedAddressesTableItem = ({ item, application, onAdd, onEdit, isLoadin
               aria-label="edit"
               variant="link"
               size="2xs"
-              borderRadius="none"
               onClick={ handleEditClick }
             >
               <IconSvg name="edit"/>

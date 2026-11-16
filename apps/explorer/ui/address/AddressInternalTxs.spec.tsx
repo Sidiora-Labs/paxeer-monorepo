@@ -62,7 +62,8 @@ describe('AddressInternalTxs', () => {
 
     expect(viewAll.getAttribute('href')).toBe('/internal-txs');
     expect(viewAll.textContent).toBe('View all internal transactions →');
-    expect(Array.from(container.querySelectorAll('[data-csv-export-label]')).map((item) => item.textContent))
-      .toEqual([ 'Download Page Data', 'CSV Export' ]);
+    expect(Array.from(container.querySelectorAll('[data-scan-table-card] [data-actions] [download], [data-csv-export-label]'))
+      .map((item) => item.textContent?.trim()))
+      .toEqual([ 'Download Page Data', 'Date-range CSV Export' ]);
   });
 });
