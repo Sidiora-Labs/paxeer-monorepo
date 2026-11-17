@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	iface "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
@@ -442,10 +443,8 @@ func TestRewardRequestSchemaRecovery(t *testing.T) {
 	}
 	rewardSchemaSQL(t, ctx, pool, epochSQL)
 	rewardSchemaSQL(t, ctx, pool, `INSERT INTO recovery.recovery_control(singleton,epoch,region,revision,checkpoint_sha256) VALUES(true,1,'local',1,$1)`, strings.Repeat("a", 64))
-	rewardSchemaSQL(t, ctx, pool, `CREATE TABLE indexer.indexer_canonical_creations (
-  nft_id numeric PRIMARY KEY,pool text NOT NULL,creator text NOT NULL,
-  height bigint NOT NULL,block_hash text NOT NULL,transaction_hash text NOT NULL,
-  transaction_index numeric NOT NULL,log_index numeric NOT NULL)`)
+	rewardSchemaSQL(t, ctx, pool, internaltest.RegisteredObjectSQL(t, 190001, "TABLE", "indexer.indexer_canonical_creations"))
+	rewardSchemaSQL(t, ctx, pool, internaltest.RegisteredObjectSQL(t, 190001, "VIEW", "indexer.indexer_canonical_creations_v1"))
 	var creation *types.Log
 	for _, entry := range minted.Logs {
 		if entry.Address == addresses["SidioraNFT"] && len(entry.Topics) == 4 && entry.Topics[0] == crypto.Keccak256Hash([]byte("Transfer(address,address,uint256)")) && entry.Topics[1] == (common.Hash{}) {
@@ -455,7 +454,8 @@ func TestRewardRequestSchemaRecovery(t *testing.T) {
 	if creation == nil {
 		t.Fatal("real NFT mint produced no creation event")
 	}
-	rewardSchemaSQL(t, ctx, pool, `INSERT INTO indexer.indexer_canonical_creations VALUES(1,$1,$2,$3,$4,$5,$6,$7)`, strings.ToLower(addresses["SidioraPool"].Hex()), wallet, creation.BlockNumber, creation.BlockHash.Hex(), creation.TxHash.Hex(), creation.TxIndex, creation.Index)
+	rewardSchemaSQL(t, ctx, pool, `INSERT INTO indexer.indexer_canonical_creations(nft_id,pool,creator,height,block_hash,transaction_hash,transaction_index,log_index,token,factory,optical,block_timestamp,provenance,payload)
+ VALUES(1,$1,$2,$3,$4,$5,$6,$7,$8,$2,$9,$10,'{}','{}')`, strings.ToLower(addresses["SidioraPool"].Hex()), wallet, creation.BlockNumber, creation.BlockHash.Hex(), creation.TxHash.Hex(), creation.TxIndex, creation.Index, strings.ToLower(addresses["Token"].Hex()), zero.Hex(), head.Time)
 	hashes := map[string]string{}
 	for _, target := range []string{l18.NFT, l18.Accumulator, l18.FeesRouter, l18.USDL} {
 		var code, slot hexutil.Bytes
