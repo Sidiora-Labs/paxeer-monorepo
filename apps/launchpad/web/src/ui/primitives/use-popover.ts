@@ -2,6 +2,7 @@
 
 import { surfaceToken } from '@/core/app-foundation/surface-token';
 import { useCallback, useEffect, useLayoutEffect, useState, type RefObject } from 'react';
+import { flushSync } from 'react-dom';
 
 export interface PopoverPosition {
   top: number;
@@ -11,14 +12,15 @@ export interface PopoverPosition {
 
 const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
-/** Fixed-position anchor placement for portalled layers. Flips above the anchor when it would overflow the viewport. */
+/** Anchors portalled layers. Fixed layers flip to fit the viewport; absolute layers move with their trigger. */
 export function usePopoverPosition(
   anchorRef: RefObject<HTMLElement | null>,
   layerRef: RefObject<HTMLElement | null>,
   open: boolean,
   align: 'start' | 'end' | 'center' = 'start',
   offset?: number,
-  popover: 'manual' | 'hint' | 'auto' = 'manual'
+  popover: 'manual' | 'hint' | 'auto' = 'manual',
+  strategy: 'fixed' | 'absolute' = 'fixed'
 ): PopoverPosition | null {
   const [position, setPosition] = useState<PopoverPosition | null>(null);
 
@@ -46,28 +48,35 @@ export function usePopoverPosition(
           : rect.left;
     left = Math.max(gutter, Math.min(left, viewportW - layerWidth - gutter));
     let top = rect.bottom + gap;
-    if (
-      layerHeight &&
-      top + layerHeight > viewportH - gutter &&
-      rect.top - gap - layerHeight > gutter
-    ) {
-      top = rect.top - gap - layerHeight;
+    if (strategy === 'fixed') {
+      if (
+        layerHeight &&
+        top + layerHeight > viewportH - gutter &&
+        rect.top - gap - layerHeight > gutter
+      ) {
+        top = rect.top - gap - layerHeight;
+      }
+      top = Math.max(gutter, Math.min(top, viewportH - layerHeight - gutter));
     }
-    top = Math.max(gutter, Math.min(top, viewportH - layerHeight - gutter));
+    if (strategy === 'absolute') {
+      top += window.scrollY;
+      left += window.scrollX;
+    }
     setPosition((current) =>
       current?.top === top && current.left === left && current.minWidth === rect.width
         ? current
         : { top, left, minWidth: rect.width }
     );
-  }, [anchorRef, layerRef, align, offset, popover]);
+  }, [anchorRef, layerRef, align, offset, popover, strategy]);
 
   useIsoLayoutEffect(() => {
     if (!open) return;
     measure();
     const layer = layerRef.current;
     if (!layer || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => measure());
+    const observer = new ResizeObserver(() => flushSync(measure));
     observer.observe(layer);
+    if (anchorRef.current) observer.observe(anchorRef.current);
     return () => observer.disconnect();
   });
 
@@ -80,7 +89,7 @@ export function usePopoverPosition(
       return;
     }
     measure();
-    const onChange = () => measure();
+    const onChange = () => flushSync(measure);
     window.addEventListener('resize', onChange);
     window.addEventListener('scroll', onChange, true);
     return () => {

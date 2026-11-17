@@ -14,6 +14,10 @@
           "name": "grid",
           "steps": [
             {
+              "action": "wait",
+              "text": "Showing 1 of 1 loaded coins."
+            },
+            {
               "action": "click",
               "selector": "html:has([data-shell-ready]) [aria-label=\"Grid view\"]"
             }
@@ -23,6 +27,10 @@
           "name": "filters",
           "steps": [
             {
+              "action": "wait",
+              "text": "Showing 1 of 1 loaded coins."
+            },
+            {
               "action": "click",
               "selector": "html:has([data-shell-ready]) button[aria-label=\"Filters\"]"
             }
@@ -31,6 +39,10 @@
         {
           "name": "sort",
           "steps": [
+            {
+              "action": "wait",
+              "text": "Showing 1 of 1 loaded coins."
+            },
             {
               "action": "press",
               "selector": "html:has([data-shell-ready]) select[name=\"Sort by\"]",

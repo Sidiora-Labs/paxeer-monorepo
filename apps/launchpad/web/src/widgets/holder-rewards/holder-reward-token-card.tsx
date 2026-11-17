@@ -136,7 +136,7 @@ export default function HolderRewardTokenCard({
 
   const title = (
     <>
-      <span className="truncate" title={name}>{name}</span>
+      <span className="min-w-0 truncate" title={name}>{name}</span>
       <span className="sr-only">
         {distributedRaw ? `, ${rewardsText(distributedRaw)} distributed to holders` : ', rewards not available yet'}
         {mcapRaw ? `, market cap ${mcapText(mcapRaw)} USDL` : ', market cap not available yet'}
@@ -151,7 +151,7 @@ export default function HolderRewardTokenCard({
         <div className="min-w-0 flex-1 basis-24">
           <div className="flex items-center gap-1">
             {href ? (
-              <Link prefetch={false} href={href} className="flex min-h-touch-target-min min-w-touch-target-min items-center text-base font-semibold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">
+              <Link prefetch={false} href={href} className="flex min-h-touch-target-min min-w-touch-target-min flex-1 items-center text-base font-semibold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">
                 {title}
               </Link>
             ) : (
@@ -171,7 +171,7 @@ export default function HolderRewardTokenCard({
       <dl className="flex flex-col gap-1">
         <div className="flex min-w-0 flex-col gap-1">
           <dt className="text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Holder rewards</dt>
-          <dd data-numeric className={cn('truncate text-xl font-bold [font-variant-numeric:proportional-nums]', distributedRaw === null ? 'text-text-faint' : 'text-success')}>
+          <dd data-numeric className={cn('truncate text-xl font-bold tabular-nums', distributedRaw === null ? 'text-text-faint' : 'text-success')}>
             {distributedRaw === null ? <span aria-label="Not available yet">{'—'}</span> : <>{usdlAmountText(distributedRaw)}<span className="ml-1 text-xs font-semibold text-text-faint">USDL</span></>}
           </dd>
         </div>

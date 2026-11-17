@@ -73,7 +73,7 @@ export function DropdownMenu({
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
   const mounted = useMounted();
   const menuId = useId();
-  const position = usePopoverPosition(triggerRef, menuRef, open, align);
+  const position = usePopoverPosition(triggerRef, menuRef, open, align, undefined, 'manual', 'absolute');
   const close = useCallback(() => {
     setOpen(false);
   }, []);
@@ -90,7 +90,7 @@ export function DropdownMenu({
     }
     const first = firstEnabledRef.current;
     setActiveIndex(first);
-    const frame = requestAnimationFrame(() => itemRefs.current[first]?.focus());
+    const frame = requestAnimationFrame(() => itemRefs.current[first]?.focus({ preventScroll: true }));
     return () => cancelAnimationFrame(frame);
   }, [open]);
 
@@ -194,8 +194,15 @@ export function DropdownMenu({
               role="menu"
               aria-label={menuLabel ?? label}
               onKeyDown={onMenuKey}
+              onBlur={(event) => {
+                const next = event.relatedTarget;
+                if (next instanceof Node && (menuRef.current?.contains(next) || triggerRef.current?.contains(next))) return;
+                const menu = menuRef.current;
+                if (menu?.matches(':popover-open')) menu.hidePopover();
+                setOpen(false);
+              }}
               style={{ top: position.top, left: position.left }}
-              className="sl-popover fixed z-[var(--sl-z-dropdown)] min-w-[min(var(--sl-menu-min-width),calc(100dvw-var(--sl-space-6)))] max-w-[calc(100dvw-var(--sl-space-6))] max-h-[var(--sl-dialog-max-height)] overflow-y-auto rounded-md bg-surface-3 p-1 shadow-pop"
+              className="sl-popover absolute z-[var(--sl-z-dropdown)] min-w-[min(var(--sl-menu-min-width),calc(100dvw-var(--sl-space-6)))] max-w-[calc(100dvw-var(--sl-space-6))] max-h-[var(--sl-dialog-max-height)] overflow-y-auto rounded-md bg-surface-3 p-1 shadow-pop"
             >
               {items.map((item, index) => {
                 const role = item.selected !== undefined ? 'menuitemradio' : 'menuitem';
