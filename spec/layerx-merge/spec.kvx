@@ -15454,6 +15454,12 @@ value = "Decision 3708 holds for the developer dashboard in this reading: a part
 basis = "Gotcha 4643. Decisions 3708, 3710, 3712 and 3720."
 affects = []
 
+[decision.3724]
+title = "The wallet application takes the fixed steps of text of its earlier state, and the tokens the series added keep their names with those values"
+value = "Decision 3708 holds for the wallet application under apps/wallet. A token for a size of text or a line height that only the present state holds keeps its name where code reads it and takes the fixed value the part had in the earlier state, so that a heading, a line of text, a control and a card measure at every width what the earlier geometry file holds for them. No value of such a token grows with the window. A link or a control that takes touch reaches 44 pixels at the widths up to 834 alone and keeps its earlier box above. A view or a state that the earlier state does not hold takes the sizes of the like parts of the earlier state. Task 22.44.94 brings the wallet application to this rule and gives its surface file a geometry file."
+basis = "Gotcha 4644. Decisions 3707, 3708 and 3712."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45114,6 +45120,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.94]
+title = "Bring the wallet application back to the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/wallet", "tools/ui-check/surfaces/wallet.json", "tools/ui-check/surfaces/wallet"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.94.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && rm -rf apps/wallet/.next && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/wallet.json --out /tmp/ui-check/wallet && pnpm --dir apps/wallet run typecheck && pnpm --dir apps/wallet exec vitest run --passWithNoTests src/components src/widgets src/surfaces"
+do_1 = "do_1 Gotcha 4644, decisions 3708 and 3724. The record spec/layerx-merge/programme/records/ui/22.44.75.kvx is large: read its sections surface, templates and counts in full, the token sections, and the part sections of the views onboarding, account, privacy, offline and bridge first, then the others view by view as you work. Read tools/ui-check/surfaces/wallet/earlier-geometry.json, tools/ui-check/surfaces/wallet.json, apps/wallet/src/app/globals.css, apps/wallet/tailwind.config.ts and the state of apps/wallet at the earlier revision the record names. List in the final message the tokens for sizes that only the present state holds, with the fixed value each takes, and the count of differing parts per view."
+symbols = []
 
 [capability.22.44.93]
 title = "Bring the parts of the developer dashboard that still differ back to the measures of their earlier state"
@@ -175449,6 +175464,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.94]
+title = "Bring the wallet application back to the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.75"]
+reqs = ["22998.1"]
+capabilities = ["22.44.94"]
+interfaces = []
+do_1 = "do_1 Gotcha 4644, decisions 3708 and 3724. The record spec/layerx-merge/programme/records/ui/22.44.75.kvx is large: read its sections surface, templates and counts in full, the token sections, and the part sections of the views onboarding, account, privacy, offline and bridge first, then the others view by view as you work. Read tools/ui-check/surfaces/wallet/earlier-geometry.json, tools/ui-check/surfaces/wallet.json, apps/wallet/src/app/globals.css, apps/wallet/tailwind.config.ts and the state of apps/wallet at the earlier revision the record names. List in the final message the tokens for sizes that only the present state holds, with the fixed value each takes, and the count of differing parts per view."
+do_2 = "do_2 The sizes of text and the line heights are the fixed steps of the earlier state at every width: the first heading of the first view 24 pixels with a line of 32, the first heading of the privacy view 30 pixels with a line of 36, the heading of a module view 18 pixels with a line of 28, the heading of the offline view 20 pixels with a line of 28, small text 14 pixels with a line of 20, the text of the privacy view 14 pixels with a line of 22.75, and the text of the first control of the navigation 11 pixels with a line of 16.5. A token for a size of text or a line height that only the present state holds keeps its name where code reads it and takes the fixed value the part had in the earlier state; no value grows with the width of the window. Tokens for distances, radii, icons and the sizes of cards keep their names and take the values that give each part its earlier box. The declared steps of the type scale in the surface file follow the fixed values."
+do_3 = "do_3 At the widths above 834 every part that both states hold has the box and the measures of text of the earlier state in every view of the record: the first heading, the main region, the navigation, the primary control, the cards, with the card of the wallet choice at 80.3 pixels in height and the box of the icon of the offline view at 72 pixels, the first rows of the lists, the status of the connection and the link at the end of the privacy view with its earlier height. A part below content that the earlier state does not hold, such as the links of the sign-in on the account views, may differ in its top edge by the height of that content and in nothing else. At the widths up to 834 a control or a link that takes touch measures at least 44 pixels and no more than the rule asks, and the sizes of text and the heights of rows are the earlier ones where the rule does not ask for more."
+do_4 = "do_4 What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading, empty and error states, the rule for reduced motion, values from tokens, and a colour that was changed for the contrast rule. Content that only the present state holds, the inference view, the links of the sign-in, the page of the return from the sign-in and the signed-in forms of the views, stays and takes the sizes of the like parts of the earlier state. No behaviour changes. A case that pins a size the series gave is brought to the earlier value; no assertion on behaviour is weakened and no case is removed or skipped."
+do_5 = "do_5 The surface file names tools/ui-check/surfaces/wallet/geometry.json as its geometry file with the widths 390, 1280, 1440, 1920 and 2560; write that file once from the corrected state with the option --write-geometry. tools/ui-check/surfaces/wallet/earlier-geometry.json stays as it is. Run the check by hand with a copy of the surface file outside the checkout that names tools/ui-check/surfaces/wallet/earlier-geometry.json and write the record spec/layerx-merge/programme/records/ui/22.44.94.kvx in present tense: for each view and width the count of parts that still differ from the earlier state, beside the count the record of task 22.44.75 holds, and for each such part its cause, content the earlier state does not hold or the touch rule at the widths up to 834. A difference with another cause is corrected."
+do_6 = "do_6 Run the render check of the surface by hand over the whole device list and read the summary per view: it ends without a finding, and no size of text, line height, distance or height of a control or a row grows to settle a finding. Then run the type check and the cases of the package by hand. Keep one hour of the time of the task for the build and the counted verification. The files of apps/wallet and of the surface are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/wallet", "tools/ui-check/surfaces/wallet.json", "tools/ui-check/surfaces/wallet"]
+tests = []
+planned_paths = ["tools/ui-check/surfaces/wallet/geometry.json", "spec/layerx-merge/programme/records/ui/22.44.94.kvx"]
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir apps/wallet install --frozen-lockfile && pnpm --dir apps/wallet run typecheck"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.94.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && rm -rf apps/wallet/.next && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/wallet.json --out /tmp/ui-check/wallet && pnpm --dir apps/wallet run typecheck && pnpm --dir apps/wallet exec vitest run --passWithNoTests src/components src/widgets src/surfaces"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
