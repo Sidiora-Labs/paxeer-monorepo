@@ -251268,7 +251268,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.780]
 title = "Carry the price of a market at the start of the window of 24 hours in the reads of the perps data service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
