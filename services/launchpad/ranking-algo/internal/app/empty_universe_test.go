@@ -30,6 +30,7 @@ import (
 )
 
 func TestEmptyUniverseVisibilityContract(t *testing.T) {
+	now := time.Date(2026, time.January, 2, 3, 4, 5, 123456789, time.UTC)
 	for _, tc := range []struct {
 		name     string
 		status   int
@@ -41,8 +42,14 @@ func TestEmptyUniverseVisibilityContract(t *testing.T) {
 		{"incomplete", 200, func(v map[string]any) { v["complete"] = false }, false},
 		{"missing pools", 200, func(v map[string]any) { delete(v, "pools") }, false},
 		{"null pools", 200, func(v map[string]any) { v["pools"] = nil }, false},
-		{"future observation", 200, func(v map[string]any) { v["observedAt"] = time.Now().Add(time.Minute) }, false},
-		{"stale observation", 200, func(v map[string]any) { v["observedAt"] = time.Now().Add(-61 * time.Second) }, false},
+		{"future observation", 200, func(v map[string]any) { v["observedAt"] = now.Add(time.Minute) }, false},
+		{"stale observation", 200, func(v map[string]any) { v["observedAt"] = now.Add(-61 * time.Second) }, false},
+		{"observation at clock allowance", 200, func(v map[string]any) { v["observedAt"] = now.Add(store.RankingVisibilityClockAllowance) }, true},
+		{"observation beyond clock allowance", 200, func(v map[string]any) {
+			v["observedAt"] = now.Add(store.RankingVisibilityClockAllowance + time.Nanosecond)
+		}, false},
+		{"observation at older bound", 200, func(v map[string]any) { v["observedAt"] = now.Add(-60 * time.Second) }, true},
+		{"observation beyond older bound", 200, func(v map[string]any) { v["observedAt"] = now.Add(-60*time.Second - time.Nanosecond) }, false},
 		{"missing observation", 200, func(v map[string]any) { delete(v, "observedAt") }, false},
 		{"empty revision", 200, func(v map[string]any) { v["revision"] = "" }, false},
 		{"short revision", 200, func(v map[string]any) { v["revision"] = strings.Repeat("a", 63) }, false},
@@ -50,10 +57,13 @@ func TestEmptyUniverseVisibilityContract(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			revision := fmt.Sprintf("%x", sha256.Sum256(nil))
-			observed := time.Now().UTC().Truncate(time.Second)
+			observed := now
 			body := map[string]any{"complete": true, "pools": map[string]bool{}, "revision": revision, "observedAt": observed}
 			if tc.change != nil {
 				tc.change(body)
+			}
+			if value, ok := body["observedAt"].(time.Time); ok {
+				observed = value
 			}
 			peer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != http.MethodGet || r.URL.Path != "/internal/v2/social/ranking-visibility" {
@@ -65,7 +75,7 @@ func TestEmptyUniverseVisibilityContract(t *testing.T) {
 				}
 			}))
 			defer peer.Close()
-			client := &rankingVisibilityClient{peer.URL + "/internal/v2/social/ranking-visibility", peer.Client()}
+			client := &rankingVisibilityClient{endpoint: peer.URL + "/internal/v2/social/ranking-visibility", client: peer.Client(), now: func() time.Time { return now }}
 			out, err := client.ReadRankingVisibility(context.Background())
 			if !tc.accepted {
 				if err != ranker.ErrUnavailable {
@@ -148,7 +158,7 @@ func TestEmptyUniversePublicationReadinessAndFirstMarket(t *testing.T) {
 	transport.TLSClientConfig.ServerName = visibilityDNS
 	transport.TLSClientConfig.Certificates = []tls.Certificate{clientLeaf.pair(t)}
 	defer httpClient.CloseIdleConnections()
-	visibility := &rankingVisibilityClient{peer.URL + "/internal/v2/social/ranking-visibility", httpClient}
+	visibility := &rankingVisibilityClient{endpoint: peer.URL + "/internal/v2/social/ranking-visibility", client: httpClient, now: time.Now}
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logs, nil))
 	runtime := emptyUniverseRuntime(t, pool, visibility, logger)

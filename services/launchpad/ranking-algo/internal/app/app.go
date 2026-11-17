@@ -352,6 +352,7 @@ type nativeRankingRuntime struct {
 type rankingVisibilityClient struct {
 	endpoint string
 	client   *http.Client
+	now      func() time.Time
 }
 
 func (c *rankingVisibilityClient) ReadRankingVisibility(ctx context.Context) (store.RankingVisibility, error) {
@@ -381,8 +382,8 @@ func (c *rankingVisibilityClient) ReadRankingVisibility(ctx context.Context) (st
 	if json.Unmarshal(raw, &out) != nil || !out.Complete || len(out.Revision) != 64 || out.Pools == nil || len(out.Pools) > 1000000 || out.ObservedAt.IsZero() {
 		return out, ranker.ErrUnavailable
 	}
-	now := time.Now()
-	if out.ObservedAt.After(now) || now.Sub(out.ObservedAt) > 60*time.Second {
+	now := c.now()
+	if out.ObservedAt.After(now.Add(store.RankingVisibilityClockAllowance)) || now.Sub(out.ObservedAt) > 60*time.Second {
 		return out, ranker.ErrUnavailable
 	}
 	return out, nil
@@ -477,7 +478,7 @@ func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		return nil, ranker.ErrUnavailable
 	}
 	native.client = &http.Client{Transport: &http.Transport{TLSClientConfig: pinned, Proxy: nil, MaxIdleConns: 8, MaxIdleConnsPerHost: 4, ResponseHeaderTimeout: 2 * time.Second}, Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	native.visibility = &rankingVisibilityClient{b.VisibilityEndpoint, native.client}
+	native.visibility = &rankingVisibilityClient{endpoint: b.VisibilityEndpoint, client: native.client, now: time.Now}
 	certificate, err = rankingBoundBytes(b.ServerCertFile, b.ServerCertSHA256)
 	if err != nil {
 		return nil, err
