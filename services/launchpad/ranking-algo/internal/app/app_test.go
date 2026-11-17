@@ -380,7 +380,8 @@ func TestNewServesAndRanks(t *testing.T) {
 
 	roots := x509.NewCertPool()
 	roots.AddCert(pki.caCert)
-	base := fmt.Sprintf("https://127.0.0.1:%d", port)
+	base := fmt.Sprintf("https://127.0.0.1:%d", privatePort)
+	healthBase := fmt.Sprintf("http://127.0.0.1:%d", port)
 	httpsClient := func(identity *leaf) *http.Client {
 		cfg := &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: roots, ServerName: rankingDNS}
 		if identity != nil {
@@ -423,6 +424,24 @@ func TestNewServesAndRanks(t *testing.T) {
 			t.Fatalf("rankingd listener not live: %v", err)
 		}
 		time.Sleep(100 * time.Millisecond)
+	}
+	healthClient := &http.Client{Timeout: 5 * time.Second}
+	defer healthClient.CloseIdleConnections()
+	for _, path := range []string{"/health/live", "/health/ready", "/rankings/trending"} {
+		response, err := healthClient.Get(healthBase + path)
+		if err != nil {
+			t.Fatalf("plain health listener GET %s: %v", path, err)
+		}
+		response.Body.Close()
+		want := http.StatusOK
+		if path == "/health/ready" {
+			want = http.StatusServiceUnavailable
+		} else if path == "/rankings/trending" {
+			want = http.StatusNotFound
+		}
+		if response.StatusCode != want {
+			t.Fatalf("plain health listener %s = %d, want %d", path, response.StatusCode, want)
+		}
 	}
 
 	// mTLS is mandatory: no client certificate, no connection.
