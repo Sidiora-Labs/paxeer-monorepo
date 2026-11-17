@@ -175683,7 +175683,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.100]
 title = "Repeat once a render of the render check whose navigation ran out of time or whose request was closed by the application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.99"]
