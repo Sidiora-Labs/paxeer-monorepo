@@ -16,7 +16,7 @@ import { PageFilterInput } from './PageFilterInput';
 
 const formatFileSize = (fileSizeInBytes: number) => `${ (fileSizeInBytes / 1_024).toFixed(2) } Kb`;
 
-interface IconInfo {
+export interface IconInfo {
   name: string;
   file_size: number;
 }
@@ -43,7 +43,6 @@ const Item = ({ name, file_size: fileSize }: IconInfo) => {
         p={ 2 }
         _hover={{ bg: 'raised' }}
         _active={{ bg: 'accent.soft' }}
-        css={{ contentVisibility: 'auto', containIntrinsicBlockSize: 'auto var(--chakra-spacing-65)' }}
       >
         <IconSvg name={ name.replace('.svg', '') as IconName } boxSize="var(--chakra-spacing-24)" bgColor="surface" borderRadius="base"/>
         <Box as="span" maxW="100%" fontWeight="medium" mt={ 2 }>{ name }</Box>
@@ -53,19 +52,20 @@ const Item = ({ name, file_size: fileSize }: IconInfo) => {
   );
 };
 
-const Sprite = () => {
+const Sprite = ({ initialData }: { initialData?: Array<IconInfo> }) => {
   const [ searchTerm, setSearchTerm ] = React.useState('');
 
   const fetch = useFetch();
-  const { data, isFetching, isError } = useQuery({
+  const { data, isFetching, isPending, isError } = useQuery({
     queryKey: [ 'sprite' ],
+    initialData,
     queryFn: () => {
       return fetch<Array<IconInfo>, unknown>('/explorer/icons/registry.json');
     },
   });
 
   const content = (() => {
-    if (isFetching) {
+    if (isPending) {
       return <ContentLoader/>;
     }
 

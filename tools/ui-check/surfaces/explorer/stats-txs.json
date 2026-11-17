@@ -1,0 +1,37 @@
+{
+  "pending_transactions_30m": {
+    "id": "stub",
+    "value": "9074405",
+    "title": "Placeholder Counter",
+    "description": "Placeholder description",
+    "units": ""
+  },
+  "transactions_24h": {
+    "id": "stub",
+    "value": "9074405",
+    "title": "Placeholder Counter",
+    "description": "Placeholder description",
+    "units": ""
+  },
+  "operational_transactions_24h": {
+    "id": "stub",
+    "value": "9074405",
+    "title": "Placeholder Counter",
+    "description": "Placeholder description",
+    "units": ""
+  },
+  "transactions_fee_24h": {
+    "id": "stub",
+    "value": "9074405",
+    "title": "Placeholder Counter",
+    "description": "Placeholder description",
+    "units": ""
+  },
+  "average_transactions_fee_24h": {
+    "id": "stub",
+    "value": "9074405",
+    "title": "Placeholder Counter",
+    "description": "Placeholder description",
+    "units": ""
+  }
+}

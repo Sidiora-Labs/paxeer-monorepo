@@ -1,0 +1,3157 @@
+{
+  "name": "Paxscan explorer",
+  "directory": "../../../apps/explorer",
+  "build": "node ../../tools/ui-check/surfaces/explorer/build.mjs",
+  "buildMs": 1800000,
+  "start": "node ../../tools/ui-check/surfaces/explorer/start.mjs",
+  "address": "http://localhost:4173",
+  "readyPath": "/__surface_ready",
+  "views": [
+    {
+      "name": "/404",
+      "path": "/explorer/404",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/404",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/404.json",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/account/api-key",
+      "path": "/explorer/account/api-key",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/account/api-key",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/account/custom-abi",
+      "path": "/explorer/account/custom-abi",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/account/custom-abi",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/account/merits",
+      "path": "/explorer/account/merits",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/account/merits",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/account/tag-address",
+      "path": "/explorer/account/tag-address",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/account/tag-address",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/account/verified-addresses",
+      "path": "/explorer/account/verified-addresses",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/account/verified-addresses",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/account/watchlist",
+      "path": "/explorer/account/watchlist",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/account/watchlist",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/accounts",
+      "path": "/explorer/accounts",
+      "states": [
+        {
+          "name": "empty",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "Top accounts"
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/addresses/",
+              "file": "explorer/empty.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/addresses/?*",
+              "file": "explorer/empty.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/addresses",
+              "file": "explorer/empty.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/addresses?*",
+              "file": "explorer/empty.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 200
+            }
+          ]
+        },
+        {
+          "name": "loading",
+          "steps": [
+            {
+              "action": "press",
+              "selector": "body",
+              "key": "Escape"
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/addresses/",
+              "file": "explorer/empty.txt",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true",
+                "location": "http://localhost:4173/__surface_pending"
+              },
+              "status": 307
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/addresses/?*",
+              "file": "explorer/empty.txt",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true",
+                "location": "http://localhost:4173/__surface_pending"
+              },
+              "status": 307
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/addresses",
+              "file": "explorer/empty.txt",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true",
+                "location": "http://localhost:4173/__surface_pending"
+              },
+              "status": 307
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/addresses?*",
+              "file": "explorer/empty.txt",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true",
+                "location": "http://localhost:4173/__surface_pending"
+              },
+              "status": 307
+            }
+          ]
+        },
+        {
+          "name": "error",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "Something went wrong. Try refreshing the page or come back later."
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/addresses/",
+              "file": "explorer/unavailable.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 503
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/addresses/?*",
+              "file": "explorer/unavailable.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 503
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/addresses",
+              "file": "explorer/unavailable.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 503
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/addresses?*",
+              "file": "explorer/unavailable.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 503
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4173/explorer/node-api/proxy/api/v2/addresses*",
+              "status": 503
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "/accounts/label/[slug]",
+      "path": "/explorer/accounts/label/example",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/accounts/label/example",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/address/[hash]/contract-verification",
+      "path": "/explorer/address/0x0000000000000000000000000000000000000002/contract-verification"
+    },
+    {
+      "name": "/address/[hash]",
+      "path": "/explorer/address/0x0000000000000000000000000000000000000002"
+    },
+    {
+      "name": "/advanced-filter",
+      "path": "/explorer/advanced-filter"
+    },
+    {
+      "name": "/api-docs",
+      "path": "/explorer/api-docs"
+    },
+    {
+      "name": "/apps/[id]",
+      "path": "/explorer/apps/1",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/apps/1",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/apps",
+      "path": "/explorer/apps",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/apps",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/auth/profile",
+      "path": "/explorer/auth/profile",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/auth/profile",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/batches/[number]",
+      "path": "/explorer/batches/1",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/batches/1",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/batches/celestia/[height]/[commitment]",
+      "path": "/explorer/batches/celestia/9000000/0x1111111111111111111111111111111111111111111111111111111111111111",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/batches/celestia/9000000/0x1111111111111111111111111111111111111111111111111111111111111111",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/batches",
+      "path": "/explorer/batches",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/batches",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/blobs/[hash]",
+      "path": "/explorer/blobs/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/blobs/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/block/[height_or_hash]",
+      "path": "/explorer/block/8988736"
+    },
+    {
+      "name": "/block/countdown/[height]",
+      "path": "/explorer/block/countdown/9000000"
+    },
+    {
+      "name": "/block/countdown",
+      "path": "/explorer/block/countdown"
+    },
+    {
+      "name": "/blocks",
+      "path": "/explorer/blocks",
+      "states": [
+        {
+          "name": "empty",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "Blocks"
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/blocks",
+              "file": "explorer/empty.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/blocks?*",
+              "file": "explorer/empty.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 200
+            }
+          ]
+        },
+        {
+          "name": "loading",
+          "steps": [
+            {
+              "action": "press",
+              "selector": "body",
+              "key": "Escape"
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/blocks",
+              "file": "explorer/empty.txt",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true",
+                "location": "http://localhost:4173/__surface_pending"
+              },
+              "status": 307
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/blocks?*",
+              "file": "explorer/empty.txt",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true",
+                "location": "http://localhost:4173/__surface_pending"
+              },
+              "status": 307
+            }
+          ]
+        },
+        {
+          "name": "error",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "Something went wrong. Try refreshing the page or come back later."
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/blocks",
+              "file": "explorer/unavailable.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 503
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/blocks?*",
+              "file": "explorer/unavailable.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 503
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4173/explorer/node-api/proxy/api/v2/blocks*",
+              "status": 503
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "/cc/tx/[hash]",
+      "path": "/explorer/cc/tx/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/accounts/label/[slug]",
+      "path": "/explorer/chain/paxeer/accounts/label/example",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/accounts/label/example",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/advanced-filter",
+      "path": "/explorer/chain/paxeer/advanced-filter",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/advanced-filter",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/block/[height_or_hash]",
+      "path": "/explorer/chain/paxeer/block/8988736",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/block/8988736",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/block/countdown/[height]",
+      "path": "/explorer/chain/paxeer/block/countdown/9000000",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/block/countdown/9000000",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/block/countdown",
+      "path": "/explorer/chain/paxeer/block/countdown",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/block/countdown",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/csv-export",
+      "path": "/explorer/chain/paxeer/csv-export",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/csv-export",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/op/[hash]",
+      "path": "/explorer/chain/paxeer/op/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/op/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/token/[hash]",
+      "path": "/explorer/chain/paxeer/token/0x0000000000000000000000000000000000000002",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/token/0x0000000000000000000000000000000000000002",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/token/[hash]/instance/[id]",
+      "path": "/explorer/chain/paxeer/token/0x0000000000000000000000000000000000000002/instance/1",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/token/0x0000000000000000000000000000000000000002/instance/1",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/tx/[hash]",
+      "path": "/explorer/chain/paxeer/tx/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/tx/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chain/[chain_slug]/visualize/sol2uml",
+      "path": "/explorer/chain/paxeer/visualize/sol2uml",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/chain/paxeer/visualize/sol2uml",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/chains/[id]",
+      "path": "/explorer/chains/1",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "/chains",
+      "path": "/explorer/chains",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "/chakra",
+      "path": "/explorer/chakra",
+      "states": [
+        {
+          "name": "dialog-open",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[role=tab][data-value=dialog]"
+            },
+            {
+              "action": "click",
+              "selector": "button:has-text(\"Open Dialog\") >> nth=0"
+            },
+            {
+              "action": "wait",
+              "text": "Dialog Title"
+            }
+          ]
+        },
+        {
+          "name": "menu-open",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[role=\"tab\"][data-value=\"menu\"]"
+            },
+            {
+              "action": "click",
+              "selector": "button[aria-label=\"Open actions\"]:visible >> nth=0"
+            },
+            {
+              "action": "wait",
+              "text": "Refresh metadata"
+            }
+          ]
+        },
+        {
+          "name": "popover-open",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[role=\"tab\"][data-value=\"popover\"]"
+            },
+            {
+              "action": "click",
+              "selector": "button:has-text(\"Trigger\"):visible >> nth=0"
+            },
+            {
+              "action": "wait",
+              "text": "Popover content"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "/contract-verification",
+      "path": "/explorer/contract-verification"
+    },
+    {
+      "name": "/cross-chain-tx/[id]",
+      "path": "/explorer/cross-chain-tx/1",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/cross-chain-tx/1",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/csv-export",
+      "path": "/explorer/csv-export",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/csv-export",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/deposits",
+      "path": "/explorer/deposits",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/deposits",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/dispute-games",
+      "path": "/explorer/dispute-games",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/dispute-games",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/ecosystems",
+      "path": "/explorer/ecosystems",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "/epochs/[number]",
+      "path": "/explorer/epochs/1",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/epochs/1",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/epochs",
+      "path": "/explorer/epochs",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/epochs",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/essential-dapps/[id]",
+      "path": "/explorer/essential-dapps/1",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/essential-dapps/1",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/feed",
+      "path": "/explorer/feed",
+      "states": [
+        {
+          "name": "empty",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "There are no price feed markets."
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets",
+              "file": "explorer/empty.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets?*",
+              "file": "explorer/empty.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 200
+            }
+          ]
+        },
+        {
+          "name": "loading",
+          "steps": [
+            {
+              "action": "press",
+              "selector": "body",
+              "key": "Escape"
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets",
+              "file": "explorer/empty.txt",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true",
+                "location": "http://localhost:4173/__surface_pending"
+              },
+              "status": 307
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets?*",
+              "file": "explorer/empty.txt",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true",
+                "location": "http://localhost:4173/__surface_pending"
+              },
+              "status": 307
+            }
+          ]
+        },
+        {
+          "name": "error",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "Something went wrong. Try refreshing the page or come back later."
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets",
+              "file": "explorer/unavailable.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 503
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets?*",
+              "file": "explorer/unavailable.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 503
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4173/explorer/node-api/proxy/api/v2/paxeer-x/feed/markets*",
+              "status": 503
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "/feed/market/[id]",
+      "path": "/explorer/feed/market/0"
+    },
+    {
+      "name": "/feed/update/[hash]",
+      "path": "/explorer/feed/update/0x0000000000000000000000000000000000000000000000000000000000000006"
+    },
+    {
+      "name": "/gas-tracker",
+      "path": "/explorer/gas-tracker"
+    },
+    {
+      "name": "/hot-contracts",
+      "path": "/explorer/hot-contracts",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/hot-contracts",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/",
+      "path": "/explorer/",
+      "states": [
+        {
+          "name": "search-suggestions",
+          "steps": [
+            {
+              "action": "press",
+              "selector": "body",
+              "key": "/"
+            },
+            {
+              "action": "fill",
+              "selector": "input:visible >> nth=0",
+              "value": "example"
+            }
+          ]
+        },
+        {
+          "name": "navigation-open",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[aria-label=\"Menu button\"]:visible, button[data-label=\"nav-group\"]:visible >> nth=0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "/internal-txs",
+      "path": "/explorer/internal-txs",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "/interop-messages",
+      "path": "/explorer/interop-messages",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/interop-messages",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/login",
+      "path": "/explorer/login"
+    },
+    {
+      "name": "/mud-worlds",
+      "path": "/explorer/mud-worlds",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/mud-worlds",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/name-services/clusters/[name]",
+      "path": "/explorer/name-services/clusters/example.eth",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/name-services/clusters/example.eth",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/name-services/domains/[name]",
+      "path": "/explorer/name-services/domains/example.eth",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/name-services/domains/example.eth",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/name-services",
+      "path": "/explorer/name-services",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/name-services",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/op/[hash]",
+      "path": "/explorer/op/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/op/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/operation/[id]",
+      "path": "/explorer/operation/1",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/operation/1",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/operations",
+      "path": "/explorer/operations",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/operations",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/ops",
+      "path": "/explorer/ops",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/ops",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/output-roots",
+      "path": "/explorer/output-roots",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/output-roots",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/paxeer-x/account/[hash]",
+      "path": "/explorer/paxeer-x/account/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2"
+    },
+    {
+      "name": "/paxeer-x/inference",
+      "path": "/explorer/paxeer-x/inference",
+      "expects": [
+        {
+          "method": "POST",
+          "pattern": "http://localhost:4173/explorer/api/inference",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "/pools/[hash]",
+      "path": "/explorer/pools/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/pools/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/pools",
+      "path": "/explorer/pools",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/pools",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/public-tags/submit",
+      "path": "/explorer/public-tags/submit",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/public-tags/submit",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/search-results",
+      "path": "/explorer/search-results?q=example",
+      "states": [
+        {
+          "name": "empty",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "Search results"
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/search",
+              "file": "explorer/empty.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/search?*",
+              "file": "explorer/empty.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 200
+            }
+          ]
+        },
+        {
+          "name": "loading",
+          "steps": [
+            {
+              "action": "press",
+              "selector": "body",
+              "key": "Escape"
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/search",
+              "file": "explorer/empty.txt",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true",
+                "location": "http://localhost:4173/__surface_pending"
+              },
+              "status": 307
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/search?*",
+              "file": "explorer/empty.txt",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true",
+                "location": "http://localhost:4173/__surface_pending"
+              },
+              "status": 307
+            }
+          ]
+        },
+        {
+          "name": "error",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "Something went wrong. Try refreshing the page or come back later."
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/search",
+              "file": "explorer/unavailable.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 503
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/search?*",
+              "file": "explorer/unavailable.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 503
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4173/explorer/node-api/proxy/api/v2/search*",
+              "status": 503
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "/sprite",
+      "path": "/explorer/sprite"
+    },
+    {
+      "name": "/stats/[id]",
+      "path": "/explorer/stats/coinPrice"
+    },
+    {
+      "name": "/stats",
+      "path": "/explorer/stats"
+    },
+    {
+      "name": "/token/[hash]",
+      "path": "/explorer/token/0x0000000000000000000000000000000000000002"
+    },
+    {
+      "name": "/token/[hash]/instance/[id]",
+      "path": "/explorer/token/0x0000000000000000000000000000000000000002/instance/188882"
+    },
+    {
+      "name": "/token-transfers",
+      "path": "/explorer/token-transfers",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "/tokens",
+      "path": "/explorer/tokens",
+      "states": [
+        {
+          "name": "empty",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "Tokens"
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/tokens",
+              "file": "explorer/empty.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/tokens?*",
+              "file": "explorer/empty.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 200
+            }
+          ]
+        },
+        {
+          "name": "loading",
+          "steps": [
+            {
+              "action": "press",
+              "selector": "body",
+              "key": "Escape"
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/tokens",
+              "file": "explorer/empty.txt",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true",
+                "location": "http://localhost:4173/__surface_pending"
+              },
+              "status": 307
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/tokens?*",
+              "file": "explorer/empty.txt",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true",
+                "location": "http://localhost:4173/__surface_pending"
+              },
+              "status": 307
+            }
+          ]
+        },
+        {
+          "name": "error",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "Something went wrong. Try refreshing the page or come back later."
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/tokens",
+              "file": "explorer/unavailable.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 503
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/tokens?*",
+              "file": "explorer/unavailable.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 503
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4173/explorer/node-api/proxy/api/v2/tokens*",
+              "status": 503
+            }
+          ]
+        },
+        {
+          "name": "filter-open",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[aria-label=\"Filter\"]"
+            },
+            {
+              "action": "wait",
+              "text": "ERC-20"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "/tx/[hash]",
+      "path": "/explorer/tx/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2"
+    },
+    {
+      "name": "/txn-withdrawals",
+      "path": "/explorer/txn-withdrawals",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/txn-withdrawals",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/txs",
+      "path": "/explorer/txs",
+      "states": [
+        {
+          "name": "empty",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "Transactions"
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/transactions",
+              "file": "explorer/empty.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/transactions?*",
+              "file": "explorer/empty.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 200
+            }
+          ]
+        },
+        {
+          "name": "loading",
+          "steps": [
+            {
+              "action": "press",
+              "selector": "body",
+              "key": "Escape"
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/transactions",
+              "file": "explorer/empty.txt",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true",
+                "location": "http://localhost:4173/__surface_pending"
+              },
+              "status": 307
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/transactions?*",
+              "file": "explorer/empty.txt",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true",
+                "location": "http://localhost:4173/__surface_pending"
+              },
+              "status": 307
+            }
+          ]
+        },
+        {
+          "name": "error",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "Something went wrong. Try refreshing the page or come back later."
+            }
+          ],
+          "answers": [
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/transactions",
+              "file": "explorer/unavailable.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 503
+            },
+            {
+              "method": "GET",
+              "pattern": "https://explorer.example.test/api/v2/transactions?*",
+              "file": "explorer/unavailable.json",
+              "headers": {
+                "content-type": "application/json",
+                "access-control-allow-origin": "http://localhost:4173",
+                "access-control-allow-credentials": "true"
+              },
+              "status": 503
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4173/explorer/node-api/proxy/api/v2/transactions*",
+              "status": 503
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "/txs/kettle/[hash]",
+      "path": "/explorer/txs/kettle/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/txs/kettle/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/uptime",
+      "path": "/explorer/uptime",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/uptime",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/validators/[id]",
+      "path": "/explorer/validators/1",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/validators/1",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/validators",
+      "path": "/explorer/validators",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/validators",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "/verified-contracts",
+      "path": "/explorer/verified-contracts",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "/visualize/sol2uml",
+      "path": "/explorer/visualize/sol2uml",
+      "modes": [
+        "default"
+      ]
+    },
+    {
+      "name": "/withdrawals",
+      "path": "/explorer/withdrawals",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/withdrawals",
+          "status": 404
+        }
+      ]
+    }
+  ],
+  "answers": [
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/coin-balance-history-by-day?*",
+      "file": "explorer/empty-array.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/coin-balance-history-by-day",
+      "file": "explorer/empty-array.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/smart-contracts/verification/config?*",
+      "file": "explorer/contract-config.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/internal-transactions?*",
+      "file": "explorer/internal-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/smart-contracts/verification/config",
+      "file": "explorer/contract-config.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/internal-transactions",
+      "file": "explorer/internal-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances/*/transfers-count?*",
+      "file": "explorer/object.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances/*/transfers-count",
+      "file": "explorer/object.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/internal-transactions?*",
+      "file": "explorer/internal-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/internal-transactions",
+      "file": "explorer/internal-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/coin-balance-history?*",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/coin-balance-history",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets/*/updates?*",
+      "file": "explorer/market-updates.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets/*/updates",
+      "file": "explorer/market-updates.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/blocks/*/internal-transactions?*",
+      "file": "explorer/internal-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/token-transfers?*",
+      "file": "explorer/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/blocks/*/internal-transactions",
+      "file": "explorer/internal-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/token-transfers",
+      "file": "explorer/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances/*/transfers?*",
+      "file": "explorer/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/state-changes?*",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/blocks-validated?*",
+      "file": "explorer/blocks.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances/*/transfers",
+      "file": "explorer/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/state-changes",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/blocks-validated",
+      "file": "explorer/blocks.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/token-transfers?*",
+      "file": "explorer/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/nft/collections?*",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/archive/receipts/*?*",
+      "file": "explorer/receipt.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances/*/holders?*",
+      "file": "explorer/token-holders.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/stats/charts/transactions?*",
+      "file": "explorer/chart-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/main-page/indexing-status?*",
+      "file": "explorer/indexing.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/archive/receipts?*",
+      "file": "explorer/receipts.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/token-transfers",
+      "file": "explorer/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/nft/collections",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/archive/receipts/*",
+      "file": "explorer/receipt.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/token-balances?*",
+      "file": "explorer/address-tokens.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances/*/holders",
+      "file": "explorer/token-holders.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/stats/charts/transactions",
+      "file": "explorer/chart-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/main-page/indexing-status",
+      "file": "explorer/indexing.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/archive/receipts",
+      "file": "explorer/receipts.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/smart-contracts/counters?*",
+      "file": "explorer/object.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/advanced-filters/methods?*",
+      "file": "explorer/empty-array.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/token-balances",
+      "file": "explorer/address-tokens.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/tabs-counters?*",
+      "file": "explorer/address-tabs.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/smart-contracts/counters",
+      "file": "explorer/object.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/advanced-filters/methods",
+      "file": "explorer/empty-array.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/tabs-counters",
+      "file": "explorer/address-tabs.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/signature?*",
+      "file": "explorer/transaction-signature.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/raw-trace?*",
+      "file": "explorer/raw-trace.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/transactions?*",
+      "file": "explorer/transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/main-page/transactions?*",
+      "file": "explorer/home-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/config/backend-version?*",
+      "file": "explorer/version.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/signature",
+      "file": "explorer/transaction-signature.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/raw-trace",
+      "file": "explorer/raw-trace.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/transactions",
+      "file": "explorer/transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/updates/*?*",
+      "file": "explorer/price-update.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/main-page/transactions",
+      "file": "explorer/home-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/config/backend-version",
+      "file": "explorer/version.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/internal-transactions?*",
+      "file": "explorer/internal-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/search/check-redirect?*",
+      "file": "explorer/search-redirect.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/capabilities?*",
+      "file": "explorer/capabilities.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets?*",
+      "file": "explorer/markets.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/updates/*",
+      "file": "explorer/price-update.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/internal-transactions",
+      "file": "explorer/internal-transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/search/check-redirect",
+      "file": "explorer/search-redirect.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/capabilities",
+      "file": "explorer/capabilities.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets",
+      "file": "explorer/markets.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/advanced-filters/csv?*",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/blocks/*/transactions?*",
+      "file": "explorer/transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/status?*",
+      "file": "explorer/tx-status.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/advanced-filters/csv",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/stats/charts/market?*",
+      "file": "explorer/chart-market.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/blocks/*/transactions",
+      "file": "explorer/transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/status",
+      "file": "explorer/tx-status.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/counters?*",
+      "file": "explorer/address-counters.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/stats/charts/market",
+      "file": "explorer/chart-market.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/stats?*",
+      "file": "explorer/transactions-stats.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/counters",
+      "file": "explorer/address-counters.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/logs?*",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/unified?*",
+      "file": "explorer/unified-account.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances/*?*",
+      "file": "explorer/token-instance.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/stats",
+      "file": "explorer/transactions-stats.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*/logs",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/unified",
+      "file": "explorer/unified-account.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/tokens?*",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/transfers?*",
+      "file": "explorer/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances?*",
+      "file": "explorer/token-instances.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances/*",
+      "file": "explorer/token-instance.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/main-page/blocks?*",
+      "file": "explorer/home-blocks.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/advanced-filters?*",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/tokens",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/transfers",
+      "file": "explorer/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/instances",
+      "file": "explorer/token-instances.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/counters?*",
+      "file": "explorer/token-counters.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/main-page/blocks",
+      "file": "explorer/home-blocks.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/advanced-filters",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/token-transfers?*",
+      "file": "explorer/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/smart-contracts?*",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/counters",
+      "file": "explorer/token-counters.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/logs?*",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/holders?*",
+      "file": "explorer/token-holders.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/token-transfers",
+      "file": "explorer/token-transfers.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/smart-contracts",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/logs",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*/holders",
+      "file": "explorer/token-holders.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/nft?*",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*/nft",
+      "file": "explorer/empty.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*?*",
+      "file": "explorer/transaction.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions?*",
+      "file": "explorer/transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/search/quick?*",
+      "file": "explorer/search-quick.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions/*",
+      "file": "explorer/transaction.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/transactions",
+      "file": "explorer/transactions.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/search/quick",
+      "file": "explorer/search-quick.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/?*",
+      "file": "explorer/addresses.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*?*",
+      "file": "explorer/address.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/",
+      "file": "explorer/addresses.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses?*",
+      "file": "explorer/addresses.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses/*",
+      "file": "explorer/address.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/addresses",
+      "file": "explorer/addresses.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/media/token.svg",
+      "file": "explorer/token.svg",
+      "headers": {
+        "content-type": "image/svg+xml"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/blocks/*?*",
+      "file": "explorer/block.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*?*",
+      "file": "explorer/token.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/config?*",
+      "file": "explorer/config.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/blocks?*",
+      "file": "explorer/blocks.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens?*",
+      "file": "explorer/tokens.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/search?*",
+      "file": "explorer/search.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/blocks/*",
+      "file": "explorer/block.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens/*",
+      "file": "explorer/token.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/config",
+      "file": "explorer/config.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/blocks",
+      "file": "explorer/blocks.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/tokens",
+      "file": "explorer/tokens.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/search",
+      "file": "explorer/search.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/stats?*",
+      "file": "explorer/stats.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/api/v2/stats",
+      "file": "explorer/stats.json",
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://explorer.example.test/openapi.yaml",
+      "file": "explorer/openapi.yaml",
+      "headers": {
+        "content-type": "application/yaml",
+        "access-control-allow-origin": "http://localhost:4173"
+      }
+    },
+    {
+      "method": "HEAD",
+      "pattern": "https://explorer.example.test/openapi.yaml",
+      "file": "explorer/openapi.yaml",
+      "headers": {
+        "content-type": "application/yaml",
+        "access-control-allow-origin": "http://localhost:4173"
+      }
+    },
+    {
+      "method": "OPTIONS",
+      "pattern": "https://explorer.example.test/api/*",
+      "file": "explorer/empty.txt",
+      "headers": {
+        "access-control-allow-origin": "http://localhost:4173",
+        "access-control-allow-credentials": "true",
+        "access-control-allow-methods": "GET,POST,OPTIONS",
+        "access-control-allow-headers": "content-type,updated-gas-oracle,show-scam-tokens,api-v2-temp-token"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://fonts.googleapis.com/*",
+      "file": "explorer/fonts.css",
+      "headers": {
+        "content-type": "text/css"
+      }
+    }
+  ],
+  "typeScale": [
+    10,
+    11,
+    12,
+    13,
+    14,
+    16,
+    18,
+    20,
+    24,
+    30,
+    36,
+    48,
+    60,
+    72,
+    96,
+    128,
+    {
+      "min": 18,
+      "max": 20
+    },
+    {
+      "min": 24,
+      "max": 28
+    },
+    {
+      "min": 32,
+      "max": 40
+    }
+  ],
+  "outputs": [
+    ".next/server",
+    ".next/static"
+  ]
+}
