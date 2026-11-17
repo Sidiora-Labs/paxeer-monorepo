@@ -69,6 +69,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang="en">
+      <head>
+        <link rel="preload" href="/fonts/manrope-medium.otf" as="font" type="font/otf" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/manrope-semibold.otf" as="font" type="font/otf" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/manrope-bold.otf" as="font" type="font/otf" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/manrope-extrabold.otf" as="font" type="font/otf" crossOrigin="anonymous" />
+      </head>
       <body className="bg-canvas text-text">
         <PlatformRulesModal />
         <CookieBanner />

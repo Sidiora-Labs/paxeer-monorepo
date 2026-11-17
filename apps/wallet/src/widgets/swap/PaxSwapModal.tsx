@@ -1,22 +1,19 @@
 'use client';
 
-import NumberFlow from '@number-flow/react';
-import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
 import { ArrowDownUp, ChevronDown, Equal, Loader2, X } from 'lucide-react';
-import React, { useMemo, useRef, useState } from 'react';
-import useMeasure from 'react-use-measure';
+import NumberFlow from '@number-flow/react';
+import React, { useMemo, useState } from 'react';
 import Image from 'next/image';
-import { cn } from '@/lib/cn';
+import { ModalPanel } from '@/components/ui/primitives';
 import { useWalletState } from '@/providers/WalletProvider';
 import { usePaxPriceQuery } from '@/lib/queries';
 import { type SwapToken } from '@/lib/swap';
 import { useHeldTokens } from './useHeldTokens';
-import { useOutputTokens } from './useOutputTokens';
+import { useOutputTokenCatalogue } from './useOutputTokens';
 import { useSwapBalances } from './useSwapBalances';
 import type { UseSwapQuotesResult } from './useSwapQuotes';
 import { formatBalanceFull, parseAmountToWei } from './util';
 import { formatUsd } from '@/lib/format';
-import { motionDurations } from '@/theme/motion';
 
 function TokenIcon({ token }: { token: SwapToken }) {
   return (
@@ -39,6 +36,8 @@ function TokenSelectorSheet({
   onSelect,
   onClose,
   enableSearch = false,
+  loading = false,
+  error,
 }: {
   title: string;
   tokens: SwapToken[];
@@ -46,6 +45,8 @@ function TokenSelectorSheet({
   onSelect: (t: SwapToken) => void;
   onClose: () => void;
   enableSearch?: boolean;
+  loading?: boolean;
+  error?: Error | null;
 }) {
   const [query, setQuery] = useState('');
   const list = useMemo(() => {
@@ -61,15 +62,18 @@ function TokenSelectorSheet({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div className="absolute inset-0 bg-pax-scrim backdrop-blur-sm" onClick={onClose} />
-      <div
-        className="relative w-full max-w-[430px] bg-pax-surface rounded-t-3xl flex flex-col"
+      <ModalPanel
+        onDismiss={onClose}
+        aria-label={title}
+        className="pax-token-sheet relative w-full max-w-size-430 bg-pax-surface rounded-t-3xl flex flex-col"
         style={{ maxHeight: 'var(--size-modal-max-height)' }}
       >
-        <div className="flex items-center justify-between px-5 pt-5 pb-3  ">
+        <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3  ">
           <span className="text-sm font-semibold">{title}</span>
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close token selector"
             className="min-h-[var(--touch-target)] p-1.5 rounded-full bg-pax-control hover:bg-pax-overlay"
           >
             <X className="size-4 opacity-60" />
@@ -91,41 +95,53 @@ function TokenSelectorSheet({
             />
           </div>
         )}
-        <div className="flex-1 overflow-y-auto p-3 space-y-1">
-          {list.length === 0 && (
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 space-y-1">
+          {loading && (
+            <p role="status" className="py-8 text-center text-pax-muted">
+              Loading tokens…
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="py-8 text-center text-pax-error">
+              {error.message}
+            </p>
+          )}
+          {!loading && !error && list.length === 0 && (
             <p className="text-center text-sm text-pax-muted py-8">No tokens found</p>
           )}
-          {list.map((t) => (
-            <button
-              type="button"
-              key={t.address || 'native'}
-              onClick={() => onSelect(t)}
-              className="w-full flex items-center gap-3 px-3 py-3 rounded-xl bg-pax-card hover:bg-pax-control transition-colors"
-            >
-              <TokenIcon token={t} />
-              <div className="flex-1 text-left min-w-0">
-                <p className="text-sm font-semibold">{t.symbol}</p>
-                <p className="text-xs text-pax-muted truncate">{t.name}</p>
-              </div>
-              {t.isStablecoin && (
-                <span className="text-xs px-1.5 py-0.5 rounded bg-pax-info-muted text-pax-info">
-                  Stable
-                </span>
-              )}
-              {t.isNative && (
-                <span className="text-xs px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
-                  Native
-                </span>
-              )}
-              {t.isLaunchpad && (
-                <span className="text-xs px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
-                  Launchpad
-                </span>
-              )}
-            </button>
-          ))}
+          {!loading &&
+            !error &&
+            list.map((t) => (
+              <button
+                type="button"
+                key={t.address || 'native'}
+                onClick={() => onSelect(t)}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl bg-pax-card hover:bg-pax-control transition-colors"
+              >
+                <TokenIcon token={t} />
+                <div className="flex-1 text-left min-w-0">
+                  <p className="text-sm font-semibold">{t.symbol}</p>
+                  <p className="text-xs text-pax-muted truncate">{t.name}</p>
+                </div>
+                {t.isStablecoin && (
+                  <span className="text-size-10 px-1.5 py-0.5 rounded bg-pax-info-muted text-pax-info">
+                    Stable
+                  </span>
+                )}
+                {t.isNative && (
+                  <span className="text-size-10 px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
+                    Native
+                  </span>
+                )}
+                {t.isLaunchpad && (
+                  <span className="text-size-10 px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
+                    Launchpad
+                  </span>
+                )}
+              </button>
+            ))}
         </div>
-      </div>
+      </ModalPanel>
     </div>
   );
 }
@@ -155,11 +171,9 @@ export const PaxSwapModal = (props: PaxSwapModalProps) => {
   const value = parseFloat(inputValue || '0') || 0;
 
   const [selectorTarget, setSelectorTarget] = useState<'from' | 'to' | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [ref, bounds] = useMeasure();
-  const [ref2, bounds2] = useMeasure();
   const heldTokens = useHeldTokens(recipient);
-  const outputTokens = useOutputTokens();
+  const outputCatalogue = useOutputTokenCatalogue();
+  const outputTokens = outputCatalogue.data ?? [];
   const balances = useSwapBalances(recipient, fromToken, toToken);
   const { data: paxPriceData } = usePaxPriceQuery();
   const quotes = props.quotes;
@@ -179,7 +193,6 @@ export const PaxSwapModal = (props: PaxSwapModalProps) => {
     return 0;
   }, [value, fromToken.isNative, paxPriceData, toToken.isStablecoin, quotes.bestQuote]);
   const showUsdValue = usdValue > 0 && !isInsufficient && !quotes.quoting;
-  const ETH_BALANCE = fromBalanceNum; // alias for max-button logic
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value;
@@ -194,7 +207,6 @@ export const PaxSwapModal = (props: PaxSwapModalProps) => {
     setInputValue('');
   };
   const handleFlip = props.onFlip;
-  const digits = (inputValue || '0').split('');
   const receiveDisplay = quotes.quoting
     ? null
     : quotes.bestQuote
@@ -207,16 +219,18 @@ export const PaxSwapModal = (props: PaxSwapModalProps) => {
       : null;
 
   return (
-    <MotionConfig transition={{ type: 'spring', stiffness: 400, damping: 35 }}>
+    <>
       {selectorTarget && (
         <TokenSelectorSheet
           title={selectorTarget === 'from' ? 'You Pay' : 'You Receive'}
           tokens={selectorTarget === 'from' ? heldTokens : outputTokens}
           selected={selectorTarget === 'from' ? fromToken : toToken}
           enableSearch={selectorTarget === 'to'}
-          onSelect={(t) => {
-            if (selectorTarget === 'from') setFromToken(t);
-            else setToToken(t);
+          loading={selectorTarget === 'to' && outputCatalogue.isPending}
+          error={selectorTarget === 'to' ? outputCatalogue.error : null}
+          onSelect={(token) => {
+            if (selectorTarget === 'from') setFromToken(token);
+            else setToToken(token);
             setSelectorTarget(null);
             handleClear();
           }}
@@ -225,18 +239,19 @@ export const PaxSwapModal = (props: PaxSwapModalProps) => {
       )}
       <div className="font-sans w-full text-pax-light">
         <div className="flex flex-col gap-3">
-          <div className="relative flex w-full flex-col items-center justify-center gap-5 rounded-3xl bg-pax-card px-3 py-3">
-            <div className="flex w-full items-center justify-between">
+          <div className="relative flex w-full flex-col gap-5 rounded-3xl bg-pax-card p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
+                aria-label="Select pay token"
                 onClick={() => setSelectorTarget('from')}
-                className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+                className="flex max-w-full items-center gap-2.5 rounded-xl p-2"
               >
                 <TokenIcon token={fromToken} />
-                <div className="text-left">
+                <div className="min-w-0 text-left break-words">
                   <div className="flex items-center gap-1">
                     <h2 className="text-base font-semibold">{fromToken.symbol}</h2>
-                    <ChevronDown className="size-3.5 opacity-50" />
+                    <ChevronDown className="size-3.5 shrink-0" />
                   </div>
                   <p className="text-xs text-pax-muted">
                     {balances.loading ? '…' : (balances.fromBalance ?? '—')}
@@ -247,192 +262,105 @@ export const PaxSwapModal = (props: PaxSwapModalProps) => {
                 type="button"
                 onClick={handleUseMax}
                 disabled={fromBalanceNum === 0}
-                className="min-h-[var(--touch-target)] flex items-center gap-1 rounded-full bg-pax-control px-3 py-1 text-sm font-semibold transition-colors hover:bg-pax-overlay disabled:opacity-30"
+                className="rounded-full bg-pax-control px-3 py-1 text-sm font-semibold disabled:opacity-30"
               >
-                <motion.span animate={{ width: bounds.width > 0 ? bounds.width : 'auto' }}>
-                  <span ref={ref} className="inline-flex overflow-hidden">
-                    <AnimatePresence mode="popLayout">
-                      {value > 0 && value >= fromBalanceNum && fromBalanceNum > 0 ? (
-                        <motion.span
-                          key="using"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                        >
-                          Using{' '}
-                        </motion.span>
-                      ) : (
-                        <motion.span
-                          key="use"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                        >
-                          Use{' '}
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                  </span>
-                </motion.span>
-                Max
+                {value > 0 && value >= fromBalanceNum && fromBalanceNum > 0
+                  ? 'Using Max'
+                  : 'Use Max'}
               </button>
             </div>
-
-            <div className="w-full" />
-
-            <div className="mb-6 flex w-full flex-col items-center justify-center gap-4">
-              <div className="relative w-full overflow-hidden text-center">
-                <input
-                  id="pax-swap-amount"
-                  ref={inputRef}
-                  type="text"
-                  name="swap-amount"
-                  autoComplete="off"
-                  aria-label={selectorTarget === 'from' ? 'Amount to pay' : 'Amount to receive'}
-                  className={cn(
-                    'inset-0 w-full cursor-pointer bg-transparent text-center text-display font-semibold tracking-tight text-transparent caret-white outline-none',
-                    inputValue === '' && 'caret-transparent'
-                  )}
-                  placeholder="0"
-                  value={inputValue}
-                  onChange={handleInputChange}
-                />
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                  <AnimatePresence initial={false} mode="popLayout">
-                    {digits.map((digit, index) => (
-                      <motion.span
-                        key={`${digit}-${index}`}
-                        className="text-display font-semibold tracking-tight"
-                        initial={{ y: '100%', opacity: 0 }}
-                        animate={{ y: '0%', opacity: 1 }}
-                        exit={{ y: '100%', opacity: 0 }}
-                      >
-                        {digit}
-                      </motion.span>
-                    ))}
-                  </AnimatePresence>
-                </div>
-              </div>
-
-              <div className="flex w-full items-center justify-center gap-2">
-                <AnimatePresence initial={false} mode="popLayout">
-                  {errorMessage ? (
-                    <motion.p
-                      key="err"
-                      initial={{ opacity: 0, scale: 0 }}
-                      animate={{
-                        opacity: 1,
-                        scale: 1,
-                        x: [0, -5, 5, -3, 3, 0],
-                        transition: {
-                          x: { delay: motionDurations.normal, times: [0, 0.2, 0.4, 0.6, 0.8, 1] },
-                        },
-                      }}
-                      exit={{ opacity: 0, scale: 0 }}
-                      style={{ transformOrigin: 'bottom center' }}
-                      className="font-lg w-max text-center font-semibold tracking-tight text-pax-error"
-                    >
-                      {errorMessage}
-                    </motion.p>
-                  ) : quotes.quoting ? (
-                    <motion.div
-                      key="loading"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                    >
-                      <Loader2 className="size-5 animate-spin text-pax-muted" />
-                    </motion.div>
-                  ) : showUsdValue ? (
-                    <motion.div
-                      key="usd-value"
-                      style={{ transformOrigin: 'top center' }}
-                      initial={{ opacity: 0, y: '100%', scale: 0 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0 }}
-                      className="flex items-center justify-center gap-2"
-                    >
-                      <div className="rounded-full bg-pax-control p-1">
-                        <Equal className="size-5" />
-                      </div>
-                      <motion.div
-                        animate={{ width: bounds2.width > 0 ? bounds2.width : 'auto' }}
-                        className="flex items-center gap-2 overflow-hidden"
-                      >
-                        <div
-                          ref={ref2}
-                          className="font-lg flex justify-between font-semibold tracking-tight"
-                        >
-                          {formatUsd(usdValue)}
-                        </div>
-                      </motion.div>
-                      <ArrowDownUp className="size-5" />
-                    </motion.div>
-                  ) : value > 0 ? (
-                    <motion.p
-                      key="hint"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="text-sm text-pax-muted font-medium"
-                    >
-                      {inputValue} {fromToken.symbol}
-                    </motion.p>
-                  ) : null}
-                </AnimatePresence>
+            <div className="mb-6 flex w-full flex-col items-center gap-4">
+              <input
+                id="pax-swap-amount"
+                type="text"
+                name="swap-amount"
+                inputMode="decimal"
+                autoComplete="off"
+                aria-label="Amount to pay"
+                className="w-full rounded-xl bg-transparent px-3 py-2 text-center text-size-45 font-semibold tracking-tight text-pax-light"
+                placeholder="0"
+                value={inputValue}
+                onChange={handleInputChange}
+              />
+              <div
+                aria-live="polite"
+                className="flex min-h-14 w-full items-center justify-center gap-2 text-center"
+              >
+                {errorMessage ? (
+                  <p role="alert" className="font-semibold text-pax-error">
+                    {errorMessage}
+                  </p>
+                ) : quotes.quoting ? (
+                  <Loader2
+                    aria-label="Loading quote"
+                    className="size-5 animate-spin text-pax-muted"
+                  />
+                ) : showUsdValue ? (
+                  <p className="flex flex-wrap items-center justify-center gap-2 font-semibold">
+                    <Equal className="size-5" />
+                    {formatUsd(usdValue)}
+                    <ArrowDownUp className="size-5" />
+                  </p>
+                ) : value > 0 ? (
+                  <p className="break-words text-sm text-pax-muted">
+                    {inputValue} {fromToken.symbol}
+                  </p>
+                ) : null}
               </div>
             </div>
             <button
               type="button"
               onClick={handleFlip}
-              className="min-h-[var(--touch-target)] absolute -bottom-6 rounded-full bg-pax-surface p-1.5 hover:bg-pax-control transition-colors"
+              className="absolute -bottom-6 self-center rounded-full bg-pax-surface p-1.5"
               aria-label="Flip tokens"
             >
-              <ChevronDown className="size-5 opacity-50" />
+              <ChevronDown className="size-5" />
             </button>
           </div>
-
-          <div className="flex w-full flex-col items-start justify-start gap-5 rounded-3xl bg-pax-card px-3 py-3">
-            <div className="flex w-full items-center justify-between">
-              <button
-                type="button"
-                onClick={() => setSelectorTarget('to')}
-                className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
-              >
-                <TokenIcon token={toToken} />
-                <div className="text-left">
-                  <div className="flex items-center gap-1">
-                    <h2 className="text-base font-semibold">{toToken.symbol}</h2>
-                    <ChevronDown className="size-3.5 opacity-50" />
-                  </div>
-                  <p className="text-sm text-pax-muted">Receive {toToken.name}</p>
+          <div className="flex w-full flex-wrap items-center justify-between gap-3 rounded-3xl bg-pax-card p-3">
+            <button
+              type="button"
+              aria-label="Select receive token"
+              onClick={() => setSelectorTarget('to')}
+              className="flex max-w-full items-center gap-2.5 rounded-xl p-2"
+            >
+              <TokenIcon token={toToken} />
+              <div className="min-w-0 text-left break-words">
+                <div className="flex items-center gap-1">
+                  <h2 className="text-base font-semibold">{toToken.symbol}</h2>
+                  <ChevronDown className="size-3.5 shrink-0" />
                 </div>
-              </button>
-              <p className="rounded-full pr-2 text-lg font-semibold">
-                {quotes.quoting ? (
-                  <Loader2 className="size-5 animate-spin text-pax-muted" />
-                ) : receiveDisplay ? (
-                  <NumberFlow
-                    value={parseFloat(receiveDisplay) || 0}
-                    format={{ maximumFractionDigits: 8 }}
-                  />
-                ) : (
-                  <span className="text-pax-muted">—</span>
-                )}
-              </p>
-            </div>
+                <p className="text-sm text-pax-muted">Receive {toToken.name}</p>
+              </div>
+            </button>
+            <p className="min-h-8 max-w-full break-words pr-2 text-lg font-semibold">
+              {quotes.quoting ? (
+                <Loader2
+                  aria-label="Loading received amount"
+                  className="size-5 animate-spin text-pax-muted"
+                />
+              ) : receiveDisplay ? (
+                <NumberFlow
+                  animated={false}
+                  value={parseFloat(receiveDisplay)}
+                  format={{ maximumFractionDigits: 8 }}
+                />
+              ) : (
+                <span className="text-pax-muted">—</span>
+              )}
+            </p>
           </div>
           {inputValue && (
             <button
               type="button"
               onClick={handleClear}
-              className="min-h-[var(--touch-target)] w-full rounded-full bg-pax-control py-2 text-pax-muted text-sm transition-colors hover:bg-pax-overlay"
+              className="w-full rounded-full bg-pax-control py-2 text-sm text-pax-muted"
             >
               Clear
             </button>
           )}
         </div>
       </div>
-    </MotionConfig>
+    </>
   );
 };

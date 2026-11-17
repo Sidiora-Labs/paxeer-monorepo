@@ -535,7 +535,8 @@ async function token_detail_precision_is_null_aware_and_validated() {
         current?.status === 'ready' &&
         client.getQueryState(scopedQueryKey(['tokenMeta', CHAIN_ID, TOKEN_A.toLowerCase(), false]))
           ?.status === 'success' &&
-        client.isFetching() === 0
+        client.isFetching() === 0 &&
+        metric('Decimals') === '0'
     );
     expect(metric('Decimals')).toBe('0');
     expect(button('Send').disabled).toBe(false);

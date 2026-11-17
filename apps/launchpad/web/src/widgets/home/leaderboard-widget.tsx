@@ -91,7 +91,7 @@ export function LeaderboardWidget({ filter }: WidgetProps) {
                 <li key={entry.wallet} className="relative flex h-table-row items-center gap-3 px-3 hover:bg-surface-hover">
                   <RankBadge rank={entry.rank} className="w-7 shrink-0" />
                   <Avatar src={identity?.avatarUrl ?? null} name={name ?? shortAddress(entry.wallet)} size="md" decorative />
-                  <Link href={`/profile/${entry.wallet}`} className={cn('min-w-0 flex-1 truncate after:absolute after:inset-0 after:content-[\'\']', name ? 'text-md font-bold text-text' : 'font-mono text-sm text-text-muted')}>
+                  <Link prefetch={false} href={`/profile/${entry.wallet}`} className={cn('min-w-0 flex-1 truncate after:absolute after:inset-0 after:content-[\'\']', name ? 'text-md font-bold text-text' : 'font-mono text-sm text-text-muted')}>
                     {name ?? shortAddress(entry.wallet)}
                   </Link>
                   {entry.quality === 'partial' ? <span className="text-2xs text-text-faint" title="Still counting">partial</span> : null}

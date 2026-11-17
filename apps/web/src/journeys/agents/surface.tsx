@@ -68,13 +68,17 @@ export function AgentsSurface({
   );
 }
 
-function AgentsContent({ ownerAccount: accountId }: Readonly<{ ownerAccount?: string }>) {
+function AgentsContent({
+  ownerAccount: accountId,
+}: Readonly<{ ownerAccount?: string }>) {
   const router = useRouter();
   const shell = useAgentsShell();
   const layout = agentsLayout(shell);
   const agents = useMemo(() => new Agents(), []);
   const request = useRef(0);
-  const [items, setItems] = useState<readonly AgentListItemView[] | undefined>(undefined);
+  const [items, setItems] = useState<readonly AgentListItemView[] | undefined>(
+    undefined,
+  );
   const [selected, setSelected] = useState<string | undefined>(undefined);
   const [loadError, setLoadError] = useState<unknown>(undefined);
   const [offline, setOffline] = useState(false);
@@ -91,11 +95,12 @@ function AgentsContent({ ownerAccount: accountId }: Readonly<{ ownerAccount?: st
         return;
       }
       setItems(nextItems);
-      setSelected((current) => (
-        current !== undefined && nextItems.some((item) => item.agentId === current)
+      setSelected((current) =>
+        current !== undefined &&
+        nextItems.some((item) => item.agentId === current)
           ? current
-          : nextItems[0]?.agentId
-      ));
+          : nextItems[0]?.agentId,
+      );
     } catch (error) {
       if (current !== request.current) {
         return;
@@ -123,7 +128,13 @@ function AgentsContent({ ownerAccount: accountId }: Readonly<{ ownerAccount?: st
     return <LoadingSurface />;
   }
   if (items === undefined && offline) {
-    return <OfflineSurface onRetry={() => { void load(); }} />;
+    return (
+      <OfflineSurface
+        onRetry={() => {
+          void load();
+        }}
+      />
+    );
   }
   if (items === undefined) {
     return (
@@ -131,8 +142,12 @@ function AgentsContent({ ownerAccount: accountId }: Readonly<{ ownerAccount?: st
         error={errorPresentation(loadError)}
         route="/app/agents"
         platform={shell}
-        onRetry={() => { void load(); }}
-        onReload={() => { window.location.reload(); }}
+        onRetry={() => {
+          void load();
+        }}
+        onReload={() => {
+          window.location.reload();
+        }}
       />
     );
   }
@@ -168,7 +183,7 @@ function AgentsContent({ ownerAccount: accountId }: Readonly<{ ownerAccount?: st
     );
   } else {
     body = (
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+      <div className="grid min-w-0 grid-cols-[minmax(280px,var(--space-agent-list))_minmax(0,1fr)] items-start gap-6">
         <AgentList
           items={items}
           {...(selected === undefined ? {} : { selected })}
@@ -180,7 +195,9 @@ function AgentsContent({ ownerAccount: accountId }: Readonly<{ ownerAccount?: st
           <AgentDetailScreen
             agentId={selected}
             embedded
-            onChanged={() => { void load(); }}
+            onChanged={() => {
+              void load();
+            }}
             {...(accountId === undefined ? {} : { ownerAccount: accountId })}
           />
         )}
@@ -195,7 +212,11 @@ function AgentsContent({ ownerAccount: accountId }: Readonly<{ ownerAccount?: st
       description={copyEntry("agents.summary").message}
     >
       <div className="flex">{newAgent}</div>
-      {items.some((item) => item.verificationSentence === copyEntry("agent.state.unverified").message) ? (
+      {items.some(
+        (item) =>
+          item.verificationSentence ===
+          copyEntry("agent.state.unverified").message,
+      ) ? (
         <InlineNotice tone="warning" role="status">
           {copyEntry("agent.state.unverified").message}
         </InlineNotice>
@@ -212,7 +233,13 @@ function AgentsContent({ ownerAccount: accountId }: Readonly<{ ownerAccount?: st
       )}
       {offline || loadError !== undefined ? (
         <div className="flex">
-          <KitButton variant="secondary" loading={loading} onClick={() => { void load(); }}>
+          <KitButton
+            variant="secondary"
+            loading={loading}
+            onClick={() => {
+              void load();
+            }}
+          >
             {copyEntry("agent.create.check").message}
           </KitButton>
         </div>

@@ -1,4 +1,3 @@
-import styles from "../../../presentation.module.css";
 import { FC } from "react";
 import { ENVType, useGetEnv } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -104,7 +103,7 @@ export const MobileOverview: FC<MobileOverviewProps> = (props) => {
             height={"100%"}
             className="oui-gap-3"
           >
-            <div className={`${styles.charts} oui-w-full`}>
+            <Flex direction="row" className="oui-flex-1 oui-gap-3">
               {!hideAffiliateCard && (
                 <AffiliateCardMobile
                   referralInfo={rewardsData.referralInfo}
@@ -117,7 +116,7 @@ export const MobileOverview: FC<MobileOverviewProps> = (props) => {
                   routerAdapter={layoutContext?.routerAdapter}
                 />
               )}
-            </div>
+            </Flex>
             {/* Disable trading rewards card for now. Set to row */}
             {/* <Flex direction="column" className="oui-flex-1">
             <TradingRewardsCardMobile {...rewardsData} goToClaim={goToClaim} />

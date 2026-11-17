@@ -169,7 +169,7 @@ async function middlewareConfigurationErrorsRemainRenderable() {
     }
     expect(origins.browserConnectOrigins()).toEqual([]);
 
-    const response = middleware(new NextRequest('https://launchpad.example.test/explore'));
+    const response = await middleware(new NextRequest('https://launchpad.example.test/explore'));
     baselineHeaders(response);
     const policy = response.headers.get('Content-Security-Policy') ?? '';
     expect(directive(policy, 'connect-src')).toEqual(["'self'"]);
@@ -181,7 +181,7 @@ async function middlewareConfigurationErrorsRemainRenderable() {
     expect(directive(policy, 'object-src')).toEqual(["'none'"]);
     expect(directive(policy, 'base-uri')).toEqual(["'self'"]);
     expect(response.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
-    expect(response.headers.get('Permissions-Policy')).toBe('clipboard-write=(self), clipboard-read=(self)');
+    expect(response.headers.get('Permissions-Policy')).toBe('clipboard-write=(self), clipboard-read=(self), unload=(self)');
 
     const layout = await RootLayout({ children: createElement('div', { 'data-state': 'configured-app' }) });
     const body = layout.props.children;
@@ -196,7 +196,7 @@ async function middlewareConfigurationErrorsRemainRenderable() {
     expect(markup).toContain(plainCopy.configuration);
     expect(markup).not.toMatch(/configured-app|NEXT_PUBLIC_|data-detail/);
 
-    const chart = middleware(new NextRequest('https://launchpad.example.test/charting_library/charting_library.js'));
+    const chart = await middleware(new NextRequest('https://launchpad.example.test/charting_library/charting_library.js'));
     baselineHeaders(chart);
     expect(chart.headers.get('Content-Security-Policy')).toBe("default-src 'self' 'unsafe-eval' 'unsafe-inline' blob: data:; worker-src 'self' blob:; child-src 'self' blob:");
   }
@@ -215,7 +215,7 @@ async function middlewareConfigurationErrorsRemainRenderable() {
     expect(directive(policy, 'frame-ancestors')).toEqual(["'self'", ...expectedWallets]);
     expect(directive(policy, 'frame-src')).toEqual(["'self'", 'blob:', ...expectedWallets]);
     expect(response.headers.get('X-Frame-Options')).toBe(wallet ? null : 'SAMEORIGIN');
-    expect(response.headers.get('Permissions-Policy')).toBe('clipboard-write=(self), clipboard-read=(self)');
+    expect(response.headers.get('Permissions-Policy')).toBe('clipboard-write=(self), clipboard-read=(self), unload=(self)');
     expect(directive(policy, 'connect-src').slice(1).sort()).toEqual([
       'https://api-production-e4bd.up.railway.app',
       'https://api.paxscan.io',

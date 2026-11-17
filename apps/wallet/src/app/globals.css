@@ -110,21 +110,7 @@ body {
   line-height: var(--line-height-body);
   font-family: var(--font-sans);
   font-synthesis: none;
-  font-size-adjust: from-font;
   overflow-wrap: anywhere;
-}
-
-h1,
-h2,
-h3,
-h4 {
-  text-wrap: balance;
-}
-
-p,
-li,
-dd {
-  text-wrap: pretty;
 }
 
 button,
@@ -432,10 +418,16 @@ select,
 textarea {
   min-height: var(--touch-target);
 }
-button,
-[role='button'],
-summary {
-  min-width: var(--touch-target);
+@media (max-width: 834px) {
+  button,
+  [role='button'],
+  summary {
+    min-width: var(--touch-target);
+  }
+  a {
+    display: inline-flex;
+    align-items: center;
+  }
 }
 
 /* Dynamic viewport height for virtual keyboard */
@@ -448,11 +440,6 @@ summary {
   }
 }
 
-input:not([type='checkbox']):not([type='radio']),
-select,
-textarea {
-  font-size: max(var(--font-size-md), 1em);
-}
 .pax-modal-panel[open] {
   border-style: none;
   position: fixed;
@@ -561,11 +548,6 @@ textarea {
 }
 :where(.overflow-x-auto) > * {
   flex-shrink: 0;
-}
-
-a {
-  display: inline-flex;
-  align-items: center;
 }
 
 .pax-signin {
@@ -701,4 +683,97 @@ a {
 .flex:has(+ [data-testid='appearance-settings']) > h2 {
   flex: 0 0 auto;
   max-inline-size: 100%;
+}
+
+.pax-asset-card {
+  overflow-wrap: anywhere;
+}
+.pax-asset-card > .flex.w-full {
+  flex-wrap: wrap;
+}
+.pax-asset-card span {
+  max-inline-size: 100%;
+}
+.pax-asset-row:has(> :only-child) {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (max-width: 640px) {
+  .pax-asset-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+section[aria-label='Fee choice'] button {
+  overflow-wrap: anywhere;
+}
+select {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.pax-filled-field,
+body
+  :is(
+    button,
+    input:not([type='hidden']),
+    textarea,
+    select,
+    [role='button'],
+    [role='checkbox'],
+    [role='radio'],
+    [role='switch'],
+    [role='slider']
+  ):is([class^='bg-pax-'], [class*=' bg-pax-'], input, textarea, select):not(.bg-pax-accent):not(
+    .bg-transparent
+  ) {
+  --color-text-strong: var(--color-control-ink);
+  --color-text-primary: var(--color-control-ink);
+  --color-text-secondary: var(--color-control-ink);
+  --color-text-tertiary: var(--color-control-ink);
+  --color-status-success: var(--color-control-success);
+  --color-status-danger: var(--color-control-danger);
+  --color-status-warning: var(--color-control-warning);
+  --color-status-info: var(--color-control-info);
+  --color-action-text: var(--color-control-accent);
+  --color-action-primary: var(--color-action-control-fill);
+  --color-action-on-primary: var(--color-action-control-ink);
+  --color-surface-base: var(--color-control-fill);
+  --color-surface-raised: var(--color-control-fill);
+  --color-surface-card: var(--color-control-fill);
+  --color-surface-control: var(--color-control-fill);
+  --color-surface-overlay: var(--color-control-fill);
+  --color-focus-ring: var(--color-control-ink);
+  background-color: var(--color-control-fill);
+  color: var(--color-control-ink);
+}
+
+body :is(button, [role='button'], [role='radio'], [role='checkbox']).bg-pax-accent {
+  --color-action-on-primary: var(--color-action-control-ink);
+  --color-focus-ring: var(--color-action-control-ink);
+  background-color: var(--color-action-control-fill);
+}
+
+body :is(button, input, textarea, select, a, [tabindex]):focus-visible {
+  outline: var(--size-focus-ring) solid var(--color-focus-ring);
+  outline-offset: calc(-1 * var(--size-focus-ring));
+  box-shadow: inset 0 0 0 var(--size-focus-ring) var(--color-focus-ring);
+}
+.pax-token-sheet[open] {
+  height: min(40rem, calc(100dvh - var(--space-8)));
+}
+
+.pax-discover-slide:focus-visible::after {
+  content: '';
+  position: absolute;
+  inset: var(--space-1);
+  z-index: 1;
+  outline: var(--size-focus-ring) solid var(--color-focus-ring);
+  outline-offset: calc(-1 * var(--size-focus-ring));
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 0 var(--size-focus-ring) var(--color-surface-base);
+  pointer-events: none;
+}
+@media (min-width: 640px) {
+  .pax-token-sheet[open] {
+    height: min(40rem, calc(100dvh - var(--space-8)));
+  }
 }

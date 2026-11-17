@@ -67,7 +67,7 @@ export function SettingsWidget({ onNavigate, onPaxscan }: SettingsWidgetProps) {
 
   return (
     <div className="grid grid-cols-2 gap-2.5 px-3 pt-3 pb-4">
-      <div className="col-span-2 bg-pax-surface rounded-xl p-4 text-left w-full">
+      <div className="col-span-2 bg-pax-surface rounded-3xl p-4 text-left w-full">
         <div className="flex items-center gap-3">
           <Image
             src={getAvatarPath(activeAccount?.address || '')}
@@ -82,7 +82,7 @@ export function SettingsWidget({ onNavigate, onPaxscan }: SettingsWidgetProps) {
               {activeAccount ? shortenAddress(activeAccount.address, 6) : '—'}
             </p>
             {isEmbedded && (
-              <p className="text-xs text-pax-accent/80 mt-0.5">
+              <p className="text-size-10 text-pax-accent/80 mt-0.5">
                 Paxeer Wallet · {t.settings.managedCustody}
               </p>
             )}
@@ -91,7 +91,7 @@ export function SettingsWidget({ onNavigate, onPaxscan }: SettingsWidgetProps) {
       </div>
 
       <div className="col-span-2 px-1 pt-1">
-        <p className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em]">
+        <p className="text-size-13 font-bold text-pax-muted uppercase tracking-[0.06em]">
           {t.settings.addressBook}
         </p>
       </div>
@@ -105,14 +105,14 @@ export function SettingsWidget({ onNavigate, onPaxscan }: SettingsWidgetProps) {
       </div>
 
       <div className="col-span-2 px-1 pt-1">
-        <p className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em]">
+        <p className="text-size-13 font-bold text-pax-muted uppercase tracking-[0.06em]">
           {t.account.title}
         </p>
       </div>
       <div className="col-span-2 bg-pax-surface rounded-xl  divide-pax-line overflow-hidden">
         {wallet.identity?.email && (
           <div className="px-4 py-3 text-sm">
-            <p className="text-xs text-pax-muted uppercase tracking-wider">
+            <p className="text-size-11 text-pax-muted uppercase tracking-wider">
               {t.settings.signedInAs}
             </p>
             <p className="text-sm mt-0.5 truncate">{wallet.identity.email}</p>
@@ -128,7 +128,7 @@ export function SettingsWidget({ onNavigate, onPaxscan }: SettingsWidgetProps) {
           </span>
           <div className="flex-1 text-left min-w-0">
             <span className="block">{t.settings.signOut}</span>
-            <span className="block text-xs text-pax-muted">{t.settings.signOutSubtitle}</span>
+            <span className="block text-size-11 text-pax-muted">{t.settings.signOutSubtitle}</span>
           </div>
           <SvgIcon name="chevron-right" className="w-4 h-4" />
         </button>
@@ -140,7 +140,7 @@ export function SettingsWidget({ onNavigate, onPaxscan }: SettingsWidgetProps) {
       </div>
 
       <div className="col-span-2 px-1 pt-1">
-        <p className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em]">
+        <p className="text-size-13 font-bold text-pax-muted uppercase tracking-[0.06em]">
           {t.settings.general}
         </p>
       </div>
@@ -178,11 +178,11 @@ export function SettingsWidget({ onNavigate, onPaxscan }: SettingsWidgetProps) {
       </div>
 
       <div className="col-span-2 px-1 pt-1">
-        <p className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em]">
+        <p className="text-size-13 font-bold text-pax-muted uppercase tracking-[0.06em]">
           {t.settings.about}
         </p>
       </div>
-      <div className="col-span-2 bg-pax-surface rounded-xl p-1 space-y-1 overflow-hidden">
+      <div className="col-span-2 bg-pax-surface rounded-3xl p-1 space-y-1 overflow-hidden">
         <NotificationToggle />
         <InstallPrompt />
       </div>
@@ -238,7 +238,7 @@ function PreferencesView({ onBack }: { onBack: () => void }) {
     <SettingsSubPage title={t.settings.displayPreferences} onBack={onBack}>
       <div className="space-y-5">
         <div>
-          <p className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em] mb-3 px-1">
+          <p className="text-size-13 font-bold text-pax-muted uppercase tracking-[0.06em] mb-3 px-1">
             {t.settings.currency}
           </p>
           <div className="bg-pax-surface rounded-2xl overflow-hidden  divide-pax-line">
@@ -260,18 +260,18 @@ function PreferencesView({ onBack }: { onBack: () => void }) {
             ))}
           </div>
           <div className="mt-2 flex items-center justify-between px-1">
-            <p className="text-xs text-pax-muted">Live USD conversion rates: {rateStatus}</p>
+            <p className="text-size-11 text-pax-muted">Live USD conversion rates: {rateStatus}</p>
             <button
               type="button"
               onClick={refreshRates}
-              className="min-h-[var(--touch-target)] text-xs text-pax-accent press-scale"
+              className="min-h-[var(--touch-target)] text-size-11 text-pax-accent press-scale"
             >
               {t.common.retry}
             </button>
           </div>
         </div>
         <div>
-          <p className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em] mb-3 px-1">
+          <p className="text-size-13 font-bold text-pax-muted uppercase tracking-[0.06em] mb-3 px-1">
             {t.settings.language}
           </p>
           <div className="bg-pax-surface rounded-2xl overflow-hidden  divide-pax-line">
@@ -376,16 +376,16 @@ function NetworkView({ onBack }: { onBack: () => void }) {
             placeholder={t.settings.rpcPlaceholder}
             className="w-full px-3 py-2.5 rounded-xl bg-pax-control   text-sm outline-none  placeholder:text-pax-muted"
           />
-          <p id="custom-rpc-hint" className="text-xs text-pax-muted">
+          <p id="custom-rpc-hint" className="text-size-11 text-pax-muted">
             {t.settings.rpcHint}
           </p>
           {status && (
-            <p className="text-xs text-pax-success" role="status">
+            <p className="text-size-11 text-pax-success" role="status">
               {status}
             </p>
           )}
           {error && (
-            <p className="text-xs text-pax-error" role="alert">
+            <p className="text-size-11 text-pax-error" role="alert">
               {error}
             </p>
           )}
@@ -526,7 +526,7 @@ function AdvancedView({ onBack }: { onBack: () => void }) {
             </div>
             {feeMode === 'custom' && (
               <div className="grid grid-cols-2 gap-2">
-                <label className="space-y-1 text-xs text-pax-muted">
+                <label className="space-y-1 text-size-11 text-pax-muted">
                   Max fee (Gwei)
                   <input
                     inputMode="decimal"
@@ -535,7 +535,7 @@ function AdvancedView({ onBack }: { onBack: () => void }) {
                     className="w-full rounded-lg bg-pax-control px-3 py-2 text-sm text-pax-light outline-none"
                   />
                 </label>
-                <label className="space-y-1 text-xs text-pax-muted">
+                <label className="space-y-1 text-size-11 text-pax-muted">
                   Priority fee (Gwei)
                   <input
                     inputMode="decimal"
@@ -548,7 +548,7 @@ function AdvancedView({ onBack }: { onBack: () => void }) {
                 </label>
               </div>
             )}
-            <p className="text-xs text-pax-muted">
+            <p className="text-size-11 text-pax-muted">
               The selected fee policy is used by the self-custody signer and shown before
               confirmation.
             </p>
@@ -591,24 +591,24 @@ function AdvancedView({ onBack }: { onBack: () => void }) {
                   className="w-full px-3 py-2.5 rounded-xl bg-pax-control   text-sm outline-none  placeholder:text-pax-muted"
                 />
                 {nonceInvalid && (
-                  <p id="custom-nonce-error" role="alert" className="text-xs text-pax-warning">
+                  <p id="custom-nonce-error" role="alert" className="text-size-11 text-pax-warning">
                     Enter a whole number from 0 to 9007199254740991. Automatic nonce selection is
                     used until a valid value is entered.
                   </p>
                 )}
-                <p className="flex items-start gap-2 text-xs text-pax-warning/80">
+                <p className="flex items-start gap-2 text-size-11 text-pax-warning/80">
                   <TriangleAlert aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span>{t.settings.customNonceWarning}</span>
                 </p>
               </>
             )}
             {nonceMode === 'auto' && (
-              <p className="text-xs text-pax-muted">
+              <p className="text-size-11 text-pax-muted">
                 Nonce is managed automatically from the chain.
               </p>
             )}
             {nonceMode === 'manual' && (
-              <p className="text-xs text-pax-muted">
+              <p className="text-size-11 text-pax-muted">
                 The manual nonce is consumed once and then returns to automatic mode.
               </p>
             )}
@@ -679,7 +679,7 @@ function SettingsRow({
       <span className="text-pax-muted">{icon}</span>
       <div className="flex-1 text-left min-w-0">
         <span className="block">{label}</span>
-        {subtitle && <span className="block text-xs text-pax-muted">{subtitle}</span>}
+        {subtitle && <span className="block text-size-11 text-pax-muted">{subtitle}</span>}
       </div>
       <SvgIcon name="chevron-right" className="w-4 h-4" />
     </button>

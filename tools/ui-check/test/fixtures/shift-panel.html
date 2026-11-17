@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panel layout</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/base.css">
+<style>
+  #panel { height: 220px; background: #eee; }
+  main { height: 360px; background: black; color: white; }
+  p { margin: 0; }
+</style>
+<body>
+<button id="open">Open panel</button>
+<section id="panel" hidden></section>
+<main><p id="status">Panel closed</p></main>
+<script>
+  window.shiftFixture = { delayMs: 650 };
+  document.getElementById("open").addEventListener("click", () => {
+    setTimeout(() => {
+      document.getElementById("panel").hidden = false;
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        document.getElementById("status").textContent = "Panel opened";
+      }));
+    }, shiftFixture.delayMs);
+  });
+</script>
+</body>
+</html>

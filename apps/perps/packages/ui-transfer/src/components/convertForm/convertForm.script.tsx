@@ -48,6 +48,8 @@ import {
   resolveIsCeFiQuote,
 } from "./quoteAmount";
 
+const EMPTY_CONVERT_HISTORY: ConvertHistoryResponse["rows"] = [];
+
 export type ConvertFormScriptReturn = ReturnType<typeof useConvertFormScript>;
 
 const PAXEER_NETWORK_CONVERT_SLIPPAGE_KEY = "paxeerNetwork_convert_slippage";
@@ -198,7 +200,7 @@ export const useConvertFormScript = (options: ConvertFormScriptOptions) => {
     },
   });
 
-  const convertHistoryRows = convertHistory?.rows ?? [];
+  const convertHistoryRows = convertHistory?.rows ?? EMPTY_CONVERT_HISTORY;
   const latestPendingRecord = useMemo(
     () => findLatestPendingConvertRecord(convertHistoryRows),
     [convertHistoryRows],

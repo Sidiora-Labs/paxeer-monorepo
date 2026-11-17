@@ -135,22 +135,24 @@ export function ContactsWidget({ onBack }: ContactsWidgetProps) {
   return (
     <div className="min-h-screen flex flex-col px-4 pt-4 safe-area-pt">
       {/* Saved toast */}
-      <AnimatePresence>
-        {savedToast && (
-          <motion.div
-            initial={{ opacity: 0, y: -12, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.95 }}
-            transition={{ duration: motionDurations.normal }}
-            className="fixed top-[calc(env(safe-area-inset-top,0px)+70px)] left-1/2 -translate-x-1/2 z-50"
-          >
-            <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-pax-card   shadow-2xl">
-              <CheckCircle className="w-4 h-4 text-pax-success shrink-0" />
-              <span className="text-xs font-medium">{savedToast}</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div role="status" aria-live="polite">
+        <AnimatePresence>
+          {savedToast && (
+            <motion.div
+              initial={{ opacity: 0, y: -12, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.95 }}
+              transition={{ duration: motionDurations.normal }}
+              className="fixed top-[calc(env(safe-area-inset-top,0px)+70px)] left-1/2 -translate-x-1/2 z-50"
+            >
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-pax-card   shadow-2xl">
+                <CheckCircle className="w-4 h-4 text-pax-success shrink-0" />
+                <span className="text-xs font-medium">{savedToast}</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
       <div className="flex items-center gap-3 mb-4">
         <button
           type="button"
@@ -247,11 +249,11 @@ export function ContactsWidget({ onBack }: ContactsWidgetProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{c.name}</p>
-                    <p className="text-xs text-pax-muted font-mono truncate">
+                    <p className="text-size-11 text-pax-muted font-mono truncate">
                       {c.address.slice(0, 6)}...{c.address.slice(-4)}
                     </p>
                     {c.note && (
-                      <p className="text-xs text-pax-muted/60 truncate mt-0.5">{c.note}</p>
+                      <p className="text-size-10 text-pax-muted/60 truncate mt-0.5">{c.note}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">

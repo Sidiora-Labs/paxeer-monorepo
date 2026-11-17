@@ -21,23 +21,15 @@ import {
 } from "@paxeer-network/ui-positions";
 import { DataListState, DataListTabType } from "./dataList.script";
 
-const LazySettingWidget = React.lazy(() =>
-  import("./setting").then((mod) => {
-    return { default: mod.SettingWidget };
-  }),
-);
+import { SettingWidget } from "./setting";
 
-const LazyPositionHeaderWidget = React.lazy(() =>
-  import("../../base/positionHeader").then((mod) => {
-    return { default: mod.PositionHeaderWidget };
-  }),
-);
+import { PositionHeaderWidget } from "../../base/positionHeader";
 
 const PositionsView: React.FC<DataListState> = (props) => {
   return (
     <Flex direction="column" width="100%" height="100%">
       <React.Suspense fallback={null}>
-        <LazyPositionHeaderWidget
+        <PositionHeaderWidget
           setPnlNotionalDecimalPrecision={props.setPnlNotionalDecimalPrecision}
           pnlNotionalDecimalPrecision={props.pnlNotionalDecimalPrecision}
           symbol={!!props.showAllSymbol ? undefined : props.symbol}
@@ -226,7 +218,7 @@ export const DataList: React.FC<DataListState> = (props) => {
       variant="contained"
       trailing={
         <React.Suspense fallback={null}>
-          <LazySettingWidget
+          <SettingWidget
             pnlNotionalDecimalPrecision={pnlNotionalDecimalPrecision}
             setPnlNotionalDecimalPrecision={setPnlNotionalDecimalPrecision}
             unPnlPriceBasis={unPnlPriceBasis}

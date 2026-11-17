@@ -1,6 +1,7 @@
-import { Drawer as ChakraDrawer, Portal } from '@chakra-ui/react';
+import { Drawer as ChakraDrawer, Portal, useDrawerContext } from '@chakra-ui/react';
 import * as React from 'react';
 
+import useModalInert from '../hooks/useModalInert';
 import { CloseButton } from './close-button';
 
 interface DrawerContentProps extends ChakraDrawer.ContentProps {
@@ -15,11 +16,19 @@ export const DrawerContent = React.forwardRef<
   DrawerContentProps
 >(function DrawerContent(props, ref) {
   const { children, portalled = true, portalRef, offset, backdrop = true, ...rest } = props;
+  const { open } = useDrawerContext();
+  const [ content, setContent ] = React.useState<HTMLDivElement | null>(null);
+  useModalInert(content, open && content?.getAttribute('aria-modal') === 'true');
+  const attachContent = React.useCallback((element: HTMLDivElement | null) => {
+    setContent(element);
+    if (typeof ref === 'function') ref(element);
+    else if (ref) ref.current = element;
+  }, [ ref ]);
   return (
     <Portal disabled={ !portalled } container={ portalRef }>
       { backdrop && <ChakraDrawer.Backdrop/> }
       <ChakraDrawer.Positioner padding={ offset }>
-        <ChakraDrawer.Content ref={ ref } { ...rest } asChild={ false }>
+        <ChakraDrawer.Content ref={ attachContent } { ...rest } asChild={ false }>
           { children }
         </ChakraDrawer.Content>
       </ChakraDrawer.Positioner>
@@ -44,11 +53,22 @@ export const DrawerCloseTrigger = React.forwardRef<
   );
 });
 
-const EMPTY_ELEMENT = () => null;
-
 export const DrawerRoot = (props: ChakraDrawer.RootProps) => {
-  const { initialFocusEl = EMPTY_ELEMENT, lazyMount = true, unmountOnExit = true, ...rest } = props;
-  return <ChakraDrawer.Root { ...rest } initialFocusEl={ initialFocusEl } lazyMount={ lazyMount } unmountOnExit={ unmountOnExit }/>;
+  const { initialFocusEl, modal = true, onFocusOutside, lazyMount = true, unmountOnExit = true, ...rest } = props;
+  const handleFocusOutside = React.useCallback<NonNullable<ChakraDrawer.RootProps['onFocusOutside']>>((event) => {
+    onFocusOutside?.(event);
+    if (modal) event.preventDefault();
+  }, [ modal, onFocusOutside ]);
+  return (
+    <ChakraDrawer.Root
+      { ...rest }
+      modal={ modal }
+      initialFocusEl={ initialFocusEl }
+      lazyMount={ lazyMount }
+      unmountOnExit={ unmountOnExit }
+      onFocusOutside={ handleFocusOutside }
+    />
+  );
 };
 
 export const DrawerTrigger = (props: ChakraDrawer.TriggerProps) => {

@@ -1,4 +1,3 @@
-import styles from "../../../presentation.module.css";
 import { FC, useMemo } from "react";
 import { useSymbolsInfo } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -41,7 +40,7 @@ export const FundingHistoryMobile: FC<FundingHistoryProps> = (props) => {
         gapY={2}
         className="oui-rounded-xl oui-bg-base-9 oui-font-semibold"
       >
-        <Flex direction="row" justify="between" width="100%" height="auto">
+        <Flex direction="row" justify="between" width="100%" height="20px">
           <Text.formatted
             rule="symbol"
             formatString="base"
@@ -61,20 +60,15 @@ export const FundingHistoryMobile: FC<FundingHistoryProps> = (props) => {
 
           <Text.formatted
             rule="date"
-            className="oui-text-base-contrast-80 oui-text-2xs oui-ms-auto"
+            className="oui-text-base-contrast-36 oui-text-2xs oui-ms-auto"
           >
             {item.created_time}
           </Text.formatted>
         </Flex>
-        <div className="oui-w-full oui-h-px oui-bg-base-6" />
-        <Flex
-          className={styles.listMetrics}
-          direction="row"
-          justify="between"
-          width="100%"
-        >
+        <div className="oui-w-full oui-h-[1px] oui-bg-base-6" />
+        <Flex direction="row" justify="between" width="100%">
           <Flex direction="column">
-            <Text className="oui-text-base-contrast-80 oui-text-2xs">
+            <Text className="oui-text-base-contrast-36 oui-text-2xs">
               {t("funding.fundingRate")}
             </Text>
             <Text.numeral
@@ -86,7 +80,7 @@ export const FundingHistoryMobile: FC<FundingHistoryProps> = (props) => {
             </Text.numeral>
           </Flex>
           <Flex direction="column">
-            <Text className="oui-text-base-contrast-80 oui-text-2xs">
+            <Text className="oui-text-base-contrast-36 oui-text-2xs">
               {t("funding.annualRate")}
             </Text>
             <Text.numeral
@@ -98,9 +92,9 @@ export const FundingHistoryMobile: FC<FundingHistoryProps> = (props) => {
             </Text.numeral>
           </Flex>
           <Flex direction="column">
-            <Text className="oui-text-base-contrast-80 oui-text-2xs">
+            <Text className="oui-text-base-contrast-36 oui-text-2xs">
               {t("funding.fundingFee")}{" "}
-              <Text className="oui-text-base-contrast-80">(USDC)</Text>
+              <Text className="oui-text-base-contrast-20">(USDC)</Text>
             </Text>
             <Text.numeral
               dp={6}
@@ -160,7 +154,7 @@ export const FundingHistoryMobile: FC<FundingHistoryProps> = (props) => {
         onFilter={(value) => {
           onFilter(value);
         }}
-        className="oui-px-3 oui-py-2 oui-sticky oui-top-12 oui-z-10 oui-bg-base-10"
+        className="oui-px-3 oui-py-2 oui-sticky oui-top-[44px] oui-z-10 oui-bg-base-10"
       />
       <ListView
         dataSource={dataSource}

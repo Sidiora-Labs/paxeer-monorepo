@@ -42,11 +42,12 @@ const HeaderDesktop = ({ renderSearchBar }: Props) => {
             textStyle="body"
             fontWeight="semibold"
             maxW={{ lg: 'var(--chakra-spacing-20)', xl: 'calc(var(--chakra-spacing-30) + var(--chakra-spacing-5))' }}
-            lineClamp={ 2 }
+            overflowWrap="anywhere"
+            textWrap="balance"
           >{ config.chain.name }</Text>
         </Flex>
         <Box mx="auto" minW={ 0 }><NavigationDesktop/></Box>
-        <Flex data-label="header-controls" align="center" gap={ 2 } flex="1" minW={ 0 } flexWrap="wrap" justify="flex-end">
+        <Flex data-label="header-controls" align="center" gap={ 2 } flex="1 1 var(--chakra-spacing-80)" minW={ 0 } flexWrap="wrap" justify="flex-end">
           <Box data-label="header-search" w="var(--chakra-spacing-80)" maxW="100%" minW={ 0 }>
             { renderSearchBar ? renderSearchBar() : <SearchBar compact/> }
           </Box>

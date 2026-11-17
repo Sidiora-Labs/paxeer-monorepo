@@ -8,11 +8,13 @@ export const ViewFAQs: FC = () => {
       <Trans
         i18nKey="transfer.swapDeposit.viewFAQs"
         components={[
-          <a
-            href="https://learn.woo.org/woofi/faqs/woofi-pro"
-            target="_blank"
-            rel="noreferrer"
-            className="oui-inline-flex oui-min-h-12 oui-items-center oui-text-xs oui-text-primary-light"
+          <Text
+            size="xs"
+            color="primaryLight"
+            onClick={() => {
+              window.open("https://learn.woo.org/woofi/faqs/woofi-pro");
+            }}
+            className="oui-cursor-pointer"
             key="0"
           />,
         ]}

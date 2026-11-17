@@ -15,41 +15,17 @@ import {
 } from "@paxeer-network/ui";
 import type { TabName } from "./historyDataGroup.script";
 
-const LazyAssetHistoryWidget = React.lazy(() =>
-  import("../assetHistory").then((mod) => {
-    return { default: mod.AssetHistoryWidget };
-  }),
-);
+import { AssetHistoryWidget } from "../assetHistory";
 
-const LazyFundingHistoryWidget = React.lazy(() =>
-  import("../funding").then((mod) => {
-    return { default: mod.FundingHistoryWidget };
-  }),
-);
+import { FundingHistoryWidget } from "../funding";
 
-const LazyDistributionHistoryWidget = React.lazy(() =>
-  import("../distribution").then((mod) => {
-    return { default: mod.DistributionHistoryWidget };
-  }),
-);
+import { DistributionHistoryWidget } from "../distribution";
 
-const LazyTransferHistoryWidget = React.lazy(() =>
-  import("../TransferHistory").then((mod) => {
-    return { default: mod.TransferHistoryWidget };
-  }),
-);
+import { TransferHistoryWidget } from "../TransferHistory";
 
-const LazyConvertHistoryWidget = React.lazy(() =>
-  import("../../assets/convertPage/convert.widget").then((mod) => {
-    return { default: mod.ConvertHistoryWidget };
-  }),
-);
+import { ConvertHistoryWidget } from "../../assets/convertPage/convert.widget";
 
-const LazyVaultsHistoryWidget = React.lazy(() =>
-  import("../VaultsHistory").then((mod) => {
-    return { default: mod.VaultsHistoryWidget };
-  }),
-);
+import { VaultsHistoryWidget } from "../VaultsHistory";
 
 export const HistoryDataGroupDesktop: React.FC<{
   active?: TabName;
@@ -77,7 +53,7 @@ export const HistoryDataGroupDesktop: React.FC<{
           value={"deposit"}
         >
           <React.Suspense fallback={null}>
-            <LazyAssetHistoryWidget side={AssetHistorySideEnum.DEPOSIT} />
+            <AssetHistoryWidget side={AssetHistorySideEnum.DEPOSIT} />
           </React.Suspense>
         </TabPanel>
         <TabPanel
@@ -86,7 +62,7 @@ export const HistoryDataGroupDesktop: React.FC<{
           value={"withdraw"}
         >
           <React.Suspense fallback={null}>
-            <LazyAssetHistoryWidget side={AssetHistorySideEnum.WITHDRAW} />
+            <AssetHistoryWidget side={AssetHistorySideEnum.WITHDRAW} />
           </React.Suspense>
         </TabPanel>
         <TabPanel
@@ -95,7 +71,7 @@ export const HistoryDataGroupDesktop: React.FC<{
           value={"funding"}
         >
           <React.Suspense fallback={null}>
-            <LazyFundingHistoryWidget />
+            <FundingHistoryWidget />
           </React.Suspense>
         </TabPanel>
         <TabPanel
@@ -104,7 +80,7 @@ export const HistoryDataGroupDesktop: React.FC<{
           value={"distribution"}
         >
           <React.Suspense fallback={null}>
-            <LazyDistributionHistoryWidget />
+            <DistributionHistoryWidget />
           </React.Suspense>
         </TabPanel>
         <TabPanel
@@ -113,7 +89,7 @@ export const HistoryDataGroupDesktop: React.FC<{
           value={"transfer"}
         >
           <React.Suspense fallback={null}>
-            <LazyTransferHistoryWidget />
+            <TransferHistoryWidget />
           </React.Suspense>
         </TabPanel>
         <TabPanel
@@ -121,7 +97,7 @@ export const HistoryDataGroupDesktop: React.FC<{
           value={"convert"}
         >
           <React.Suspense fallback={null}>
-            <LazyConvertHistoryWidget />
+            <ConvertHistoryWidget />
           </React.Suspense>
         </TabPanel>
         {isMainAccount && (
@@ -131,7 +107,7 @@ export const HistoryDataGroupDesktop: React.FC<{
             title={t("portfolio.overview.vaults")}
           >
             <React.Suspense fallback={null}>
-              <LazyVaultsHistoryWidget />
+              <VaultsHistoryWidget />
             </React.Suspense>
           </TabPanel>
         )}

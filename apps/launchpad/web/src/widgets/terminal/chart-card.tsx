@@ -1,7 +1,7 @@
 'use client';
 import { launchpadGeometry, surfaceSpacing } from '@/app/presentation-tokens';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
+import TvChart from '@/widgets/trading/tv-chart';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import PremiumErrorBoundary from '@/ui/common/error-boundary';
 import { IconButton, Skeleton } from '@/ui/primitives';
@@ -9,8 +9,6 @@ import { cn } from '@/lib/utils';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import { useMarketClock } from '@/page-modules/token/market-session-context';
 import { CHART_MAX_HEIGHT, useChartSettings, type ChartInterval } from '@/widgets/coin/use-chart-settings';
-
-const TvChart = dynamic(() => import('@/widgets/trading/tv-chart'), { ssr: false, loading: () => <Skeleton variant="block" height={surfaceSpacing(95)} label="price chart" /> });
 
 /** Quick picks set the candle interval only: TvChart exposes no visible-range API to its host. */
 const QUICK_INTERVALS: readonly { value: ChartInterval; label: string; description: string }[] = [
@@ -40,7 +38,7 @@ export default function TerminalChartCard({ poolAddress }: { poolAddress: string
   const now = useMarketClock();
   const [fullscreen, setFullscreen] = useState(false);
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
-  const pool = snapshot.data?.pool.poolAddress ?? null;
+  const pool = snapshot.data?.pool.poolAddress ?? poolAddress;
   const symbol = snapshot.data?.metadata?.displaySymbol ?? snapshot.data?.token?.symbol;
 
   useEffect(() => {

@@ -120,8 +120,8 @@ function agent_spend_sentence_for_retired_level_is_unverified() {
     ],
   };
   const cases: readonly (readonly [VerificationLevel, string])[] = [
-    ["settlement-anchored", "verification.unverified"],
-    ["paxeer-finalised", "verification.unverified"],
+    ["settlement-anchored", "verification.checkpoint_finalised"],
+    ["paxeer-finalised", "verification.checkpoint_finalised"],
     ["unverified", "verification.unverified"],
     ["receipt-verified", "verification.receipt_verified"],
     ["checkpoint-finalised", "verification.checkpoint_finalised"],

@@ -107,7 +107,7 @@ export function PresetTabs({ active, className }: PresetTabsProps) {
             const selected = preset.id === active;
             return (
               <li key={preset.id} className={cn('shrink-0', inlineClass[presetTier(index)])}>
-                <Link
+                <Link prefetch={false}
                   href={presetHref(preset)}
                   aria-current={selected ? 'page' : undefined}
                   title={preset.description}

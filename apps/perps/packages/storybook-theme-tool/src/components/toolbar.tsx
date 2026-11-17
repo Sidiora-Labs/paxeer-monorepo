@@ -6,11 +6,11 @@ const Wrap = styled.div`
   display: flex;
   flex-direction: row;
   justify-content: center;
-  gap: var(--oui-space-2, 0.5rem);
-  font-size: var(--oui-font-size-2xs, 0.75rem);
+  gap: 10px;
+  font-size: 12px;
   // padding: 6px 10px;
-  border-bottom: 1px solid rgb(var(--oui-color-line, 255 255 255) / 0.12);
-  background: rgb(var(--oui-color-surface-raised, 22 18 32));
+  border-bottom: 1px solid #eee;
+  background: white;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -23,16 +23,13 @@ const TabButton = styled.button<{ active?: boolean }>`
   // border-radius: 4px;
   border: none;
   //   width: 24px;
-  padding: var(--oui-space-3, 0.75rem) var(--oui-space-2, 0.5rem);
+  padding: 14px 10px;
   background: transparent;
   cursor: pointer;
-  min-height: var(--oui-space-8, 2rem);
-  color: ${({ active }) =>
-    active ? "rgb(var(--oui-color-primary, 176 132 233))" : "inherit"};
+  height: 24px;
+  color: ${({ active }) => (active ? "#b084e9" : "#888")};
   border-bottom: ${(props) =>
-    props.active
-      ? "2px solid rgb(var(--oui-color-primary, 176 132 233))"
-      : "2px solid transparent"};
+    props.active ? "2px solid #b084e9" : "2px solid transparent"};
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;

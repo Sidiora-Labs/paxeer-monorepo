@@ -65,7 +65,7 @@ export const FundingHistoryDesktop: FC<FundingHistoryProps> = (props) => {
         dataSource={dataSource}
         loading={isLoading}
         generatedRowKey={(record) => `${record.updated_time}`}
-        classNames={{ root: "oui-h-[calc(100%_-_var(--oui-space-12))]" }}
+        classNames={{ root: "oui-h-[calc(100%_-_49px)]" }}
         pagination={props.pagination}
       />
     </>

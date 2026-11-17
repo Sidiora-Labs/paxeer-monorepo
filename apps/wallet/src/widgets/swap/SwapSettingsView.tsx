@@ -88,7 +88,7 @@ export function SwapSettingsView({
         {slippageBps > HIGH_SLIP_THRESHOLD_BPS && (
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-3.5 h-3.5 text-pax-warning mt-0.5 shrink-0" />
-            <p className="text-xs text-pax-warning/80">
+            <p className="text-size-11 text-pax-warning/80">
               High slippage may result in unfavorable rates
             </p>
           </div>

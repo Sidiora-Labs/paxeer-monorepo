@@ -183,6 +183,10 @@ func (m *Markets) Record(ctx context.Context, symbol string) (MarketRecord, bool
 
 func (m *Markets) records(ctx context.Context, symbol *string) (result0 []MarketRecord, resultErr error) {
 	now := m.now()
+	prices, err := records.PriceWindow(ctx, m.db, now)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := m.db.QueryContext(ctx, marketRecordsSQL, usdScale, now.Add(-window24h), symbol)
 	if err != nil {
 		return nil, err
@@ -238,6 +242,7 @@ func (m *Markets) records(ctx context.Context, symbol *string) (result0 []Market
 		if hourly.Valid && eight.Valid {
 			rec.LastFundingRateHourly, rec.PerpFundingRate, rec.Funding8h = &hourly.String, &hourly.String, &eight.String
 		}
+		rec.Price24h = prices[rec.MarketID].Price
 		rec.Price = rec.PerpIndexPrice
 		rec.OpenInterest = long + short
 		rec.PerpOIUSD = rec.OpenInterest

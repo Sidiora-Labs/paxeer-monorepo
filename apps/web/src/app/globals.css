@@ -8,7 +8,6 @@
   html {
     box-sizing: border-box;
     min-inline-size: 100%;
-    scrollbar-gutter: stable;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     text-wrap: pretty;
@@ -33,7 +32,6 @@
 
   :where(button, input, select, textarea) {
     font: inherit;
-    font-size: max(1rem, 1em);
   }
 
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
@@ -73,7 +71,6 @@
     contain: inline-size;
     overflow: auto;
     overscroll-behavior-inline: contain;
-    scrollbar-gutter: stable;
     max-block-size: min(70dvh, 32rem);
   }
 
@@ -86,9 +83,26 @@
     outline-offset: var(--focus-ring-offset);
   }
 
+  .human-native-scroll {
+    max-inline-size: 100%;
+    overflow-x: auto;
+  }
+
+  .human-native-table {
+    overflow-wrap: normal;
+  }
+
+  .human-identifier-line,
+  .human-native-identities dd {
+    max-inline-size: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
   .human-data-table {
     inline-size: 100%;
-    min-inline-size: max-content;
+    min-inline-size: var(--table-explorer-min-width);
+    overflow-wrap: normal;
   }
 
   .human-activity-table {
@@ -114,31 +128,38 @@
     inset-inline-end: var(--space-6);
     z-index: 40;
     display: flex;
-    inline-size: var(--space-notification-wide);
-    max-block-size: calc(100dvh - var(--space-20));
+    inline-size: var(--space-support);
+    max-block-size: calc(100dvh - var(--space-support-clearance));
     max-inline-size: calc(100vw - var(--space-12));
     flex-direction: column;
   }
 
   .human-support-card {
-    min-block-size: clamp(20rem, 60dvh, 36rem);
+    min-block-size: 0;
   }
 
   .human-agent-loading {
-    min-block-size: 55.5rem;
+    min-block-size: var(--space-agent-content);
   }
 
   .human-support-bubble {
-    max-inline-size: var(--space-notification-wide);
+    max-inline-size: var(--support-bubble-max);
   }
 
   .human-support-history {
-    max-block-size: var(--space-notification);
+    max-block-size: 50dvh;
   }
 }
 
 @media (forced-colors: active) {
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
     outline: var(--focus-ring-width) solid CanvasText;
+  }
+}
+
+@media (max-width: 834px) {
+  .human-native-pages a {
+    display: inline-flex;
+    align-items: center;
   }
 }

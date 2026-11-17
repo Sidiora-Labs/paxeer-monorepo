@@ -141,13 +141,15 @@ export function ResultGroup({
   label,
   children,
   trailing,
+  className,
 }: {
   label: string;
   children: ReactNode;
   trailing?: ReactNode;
+  className?: string;
 }) {
   return (
-    <section aria-label={label} className="py-1">
+    <section aria-label={label} className={cn('shrink-0 py-1', className)}>
       <div className="flex items-center justify-between px-3 py-1.5">
         <span className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
           {label}
@@ -161,7 +163,7 @@ export function ResultGroup({
 
 function rowClass(active: boolean, disabled = false) {
   return cn(
-    'flex min-h-12 py-2 w-full items-center gap-3 rounded-sm px-3 text-left transition-colors duration-fast',
+    'flex min-h-12 py-2 w-full flex-wrap items-center gap-3 rounded-sm px-3 text-left transition-colors duration-fast',
     active ? 'bg-surface-3' : 'hover:bg-surface-hover',
     disabled && 'cursor-not-allowed'
   );
@@ -203,10 +205,10 @@ export function CoinRow({
       className={rowClass(active, disabled)}
     >
       <Avatar src={logo} name={title} size="sm" shape="square" decorative />
-      <span className="min-w-0 flex-1">
+      <span className="min-w-0 flex-1 basis-24">
         <span className="flex flex-wrap items-baseline gap-1.5">
           <span className="truncate text-sm font-bold text-text">{name || title}</span>
-          {symbol ? <span className="min-w-0 text-xs text-text-muted">${symbol}</span> : null}
+          {symbol ? <span className="min-w-0 truncate text-xs text-text-muted">${symbol}</span> : null}
         </span>
         <span className="block truncate text-2xs text-text-faint">
           Coin{address ? ` ${shortAddress(address, 6, 4)}` : ''}
@@ -218,7 +220,7 @@ export function CoinRow({
           raw={mcapRaw}
           compact
           size="sm"
-          className={cn(disabled && 'text-text-disabled')}
+          className={cn('ml-auto shrink-0 whitespace-nowrap text-right tabular-nums', disabled && 'text-text-disabled')}
         />
       ) : null}
     </button>

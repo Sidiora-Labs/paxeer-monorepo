@@ -1,9 +1,8 @@
 'use client';
-import { surfaceSpacing } from '@/app/presentation-tokens';
 import Link from 'next/link';
 import { Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Avatar, Chip, Skeleton } from '@/ui/primitives';
+import { Avatar, Chip } from '@/ui/primitives';
 import { poolPath } from '@/core/app-foundation/navigation';
 import { shortAddress } from '@/utils/format';
 import type { LiveDirectoryEntry } from './use-live-directory';
@@ -64,7 +63,7 @@ export interface StreamCardProps {
 export function StreamCard({ entry, creatorLabel, className }: StreamCardProps) {
   const name = coinLabel(entry);
   return (
-    <Link
+    <Link prefetch={false}
       href={streamHref(entry)}
       aria-label={streamCardLabel(entry)}
       data-stream-id={entry.stream.id}
@@ -95,18 +94,7 @@ export function StreamCard({ entry, creatorLabel, className }: StreamCardProps) 
 }
 
 export function StreamCardSkeleton({ className }: { className?: string }) {
-  return (
-    <div aria-hidden="true" className={cn('flex flex-col overflow-hidden rounded-lg bg-surface-1', className)}>
-      <Skeleton variant="block" className="aspect-video h-auto w-full rounded-none" />
-      <div className="flex items-start gap-3 p-3">
-        <Skeleton variant="circle" width={surfaceSpacing(10)} height={surfaceSpacing(10)} />
-        <div className="flex-1 space-y-2">
-          <Skeleton variant="text" width="60%" />
-          <Skeleton variant="text" width="40%" />
-        </div>
-      </div>
-    </div>
-  );
+  return <StreamCardPlaceholder loading className={className} />;
 }
 
 /**
@@ -114,15 +102,15 @@ export function StreamCardSkeleton({ className }: { className?: string }) {
  * unavailable or empty. Static surfaces only: it never shimmers (nothing is
  * loading) and never carries stream text or numbers.
  */
-export function StreamCardPlaceholder({ className }: { className?: string }) {
+export function StreamCardPlaceholder({ className, loading = false }: { className?: string; loading?: boolean }) {
   return (
-    <div aria-hidden="true" data-placeholder="" className={cn('flex flex-col overflow-hidden rounded-lg bg-surface-1', className)}>
-      <span className="block aspect-video w-full bg-surface-2" />
+    <div aria-hidden="true" data-placeholder={loading ? undefined : ''} className={cn('flex flex-col overflow-hidden rounded-lg bg-surface-1', className)}>
+      <span className={cn('block aspect-video w-full bg-surface-2', loading && 'sl-skeleton')} />
       <span className="flex items-start gap-2 p-2 md:gap-3 md:p-3">
-        <span className="hidden size-10 shrink-0 rounded-pill bg-surface-2 sm:block" />
+        <span className={cn('hidden size-10 shrink-0 rounded-pill bg-surface-2 sm:block', loading && 'sl-skeleton')} />
         <span className="flex flex-1 flex-col gap-2 pt-1">
-          <span className="h-3 w-3/5 rounded-xs bg-surface-2" />
-          <span className="h-3 w-2/5 rounded-xs bg-surface-2" />
+          <span className={cn('h-3 w-3/5 rounded-xs bg-surface-2', loading && 'sl-skeleton')} />
+          <span className={cn('h-3 w-2/5 rounded-xs bg-surface-2', loading && 'sl-skeleton')} />
         </span>
       </span>
     </div>

@@ -1,132 +1,136 @@
-import { FC, useEffect, useRef, useState } from "react";
+import { FC, useEffect, useRef } from "react";
 import jsQR from "jsqr";
-import { useTranslation } from "@paxeer-network/i18n";
 
 type ScannerProps = {
   onSuccess?: (data: string) => void;
 };
 
-// Capture resolution is independent of the responsive display size.
 export const QRCODE_WIDTH = 320;
 export const QRCODE_HEIGHT = 320;
 const RATIO = 2;
 
+/**
+ * QR Code Scanner
+ * reference https://github.com/cozmo/jsQR/blob/master/docs/index.html
+ */
 export const QRCodeScanner: FC<ScannerProps> = (props) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const onSuccessRef = useRef(props.onSuccess);
-  onSuccessRef.current = props.onSuccess;
-  const [cameraUnavailable, setCameraUnavailable] = useState(false);
-  const { t } = useTranslation();
 
-  useEffect(() => {
+  const tick = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      setCameraUnavailable(true);
-      return;
+
+    const ctx = canvas.getContext("2d")!;
+
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
+
+      const canvasAspectRatio = canvas.width / canvas.height;
+      const videoAspectRatio = videoWidth / videoHeight;
+
+      let sx, sy, sWidth, sHeight;
+
+      if (videoAspectRatio > canvasAspectRatio) {
+        // The video is wide. Crop the left and right sides
+        sHeight = videoHeight;
+        sWidth = videoHeight * canvasAspectRatio;
+        sx = (videoWidth - sWidth) / 2;
+        sy = 0;
+      } else {
+        // The video is high. Crop the top and bottom sides
+        sWidth = videoWidth;
+        sHeight = videoWidth / canvasAspectRatio;
+        sx = 0;
+        sy = (videoHeight - sHeight) / 2;
+      }
+
+      ctx.drawImage(
+        video,
+        sx,
+        sy,
+        sWidth,
+        sHeight,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      );
+
+      // ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const res = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "dontInvert",
+      });
+
+      if (res?.data) {
+        console.log("scan result", res.data);
+        props.onSuccess?.(res.data);
+      }
     }
-    let cancelled = false;
-    let frame = 0;
-    let stream: MediaStream | undefined;
+    requestAnimationFrame(tick);
+  };
 
-    const tick = () => {
-      if (cancelled) return;
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        const videoWidth = video.videoWidth;
-        const videoHeight = video.videoHeight;
-        const canvasAspectRatio = canvas.width / canvas.height;
-        const videoAspectRatio = videoWidth / videoHeight;
-        const sWidth =
-          videoAspectRatio > canvasAspectRatio
-            ? videoHeight * canvasAspectRatio
-            : videoWidth;
-        const sHeight =
-          videoAspectRatio > canvasAspectRatio
-            ? videoHeight
-            : videoWidth / canvasAspectRatio;
-        ctx.drawImage(
-          video,
-          (videoWidth - sWidth) / 2,
-          (videoHeight - sHeight) / 2,
-          sWidth,
-          sHeight,
-          0,
-          0,
-          canvas.width,
-          canvas.height,
-        );
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const result = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "dontInvert",
-        });
-        if (result?.data) onSuccessRef.current?.(result.data);
-      }
-      frame = requestAnimationFrame(tick);
-    };
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!open || !video) return;
 
-    const start = async () => {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraUnavailable(true);
-        return;
-      }
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "environment",
-            width: { ideal: QRCODE_WIDTH * RATIO },
-            height: { ideal: QRCODE_HEIGHT * RATIO },
-          },
-        });
-        if (cancelled) {
-          stream.getTracks().forEach((track) => track.stop());
-          return;
-        }
+    // Use facingMode: environment to attemt to get the front camera on phones
+    navigator?.mediaDevices
+      ?.getUserMedia({
+        video: {
+          facingMode: "environment",
+          width: { ideal: QRCODE_WIDTH * RATIO },
+          height: { ideal: QRCODE_HEIGHT * RATIO },
+        },
+      })
+      .then((stream) => {
         video.srcObject = stream;
-        await video.play();
-        if (!cancelled) frame = requestAnimationFrame(tick);
-      } catch {
-        stream?.getTracks().forEach((track) => track.stop());
-        video.srcObject = null;
-        if (!cancelled) setCameraUnavailable(true);
-      }
-    };
-    void start();
+        // required to tell iOS safari we don't want fullscreen
+        video.setAttribute("playsinline", "true");
+        video.play();
+
+        video.onloadeddata = () => {
+          console.log("Video data loaded.");
+          // const videoTrack = stream.getVideoTracks()[0];
+          // const settings = videoTrack.getSettings();
+          // console.log("video size", `${settings.width}x${settings.height}`);
+
+          requestAnimationFrame(tick);
+        };
+      })
+      .catch((err) => {
+        console.error("Error accessing camera:", err);
+      });
+
     return () => {
-      cancelled = true;
-      cancelAnimationFrame(frame);
-      stream?.getTracks().forEach((track) => track.stop());
+      // Cleanup: stop video stream when component unmounts
+      const stream = video.srcObject as MediaStream;
+      if (stream) {
+        const tracks = stream.getTracks();
+        tracks.forEach((track: any) => track.stop());
+      }
       video.srcObject = null;
     };
-  }, []);
+  }, [videoRef, canvasRef]);
 
   return (
     <>
       <video
         ref={videoRef}
-        playsInline
-        muted
         width={QRCODE_WIDTH}
         height={QRCODE_HEIGHT}
-        className="oui-hidden"
+        className="oui-hidden oui-rounded-2xl oui-bg-base-10"
       />
       <canvas
         ref={canvasRef}
         width={QRCODE_WIDTH * RATIO}
         height={QRCODE_HEIGHT * RATIO}
-        aria-label={t("linkDevice.scanQRCode")}
-        className="oui-size-full oui-rounded-2xl oui-bg-base-10"
+        style={{ width: QRCODE_WIDTH, height: QRCODE_HEIGHT }}
+        className="oui-rounded-2xl oui-bg-base-10"
       />
-      {cameraUnavailable && (
-        <p
-          role="alert"
-          className="oui-absolute oui-inset-0 oui-flex oui-items-center oui-justify-center oui-rounded-2xl oui-bg-base-8 oui-p-4 oui-text-center oui-text-xs oui-text-base-contrast"
-        >
-          {t("linkDevice.scanQRCode.cameraUnavailable")}
-        </p>
-      )}
     </>
   );
 };

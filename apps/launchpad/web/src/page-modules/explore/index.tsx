@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { TrendingUp } from 'lucide-react';
 import { SourceNotice } from '@/ui/common/source-notice';
-import { Button, EmptyState, Skeleton, StateNotice, UnavailableState } from '@/ui/primitives';
+import { Button, EmptyState, StateNotice, UnavailableState } from '@/ui/primitives';
 import { ExploreView } from '@/widgets/explore/explore-view';
 import { presetFor, PresetTabs } from '@/widgets/explore/preset-tabs';
 import { useExploreRows } from '@/widgets/explore/use-explore-rows';
@@ -39,7 +39,7 @@ function ExplorePage() {
   const body = (
     <ExploreView
       rows={rankingFailed ? [] : data.rows}
-      loading={rankingFailed ? false : data.loading}
+      loading={rankingFailed ? false : data.loading || data.enrichmentPending}
       hasMore={rankingFailed ? false : data.hasMore}
       loadingMore={rankingFailed ? false : data.loadingMore}
       moreError={rankingFailed ? null : data.moreError}
@@ -55,27 +55,43 @@ function ExplorePage() {
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-content-max-width flex-col gap-4 px-4 py-4 md:px-6">
-      <h1 className="text-lg font-medium text-text">Explore coins</h1>
+    <>
       {!rankingFailed && [data.stats, data.metadata].some(source => source.state === 'unsupported' || source.state === 'error') ? <div className="flex flex-col gap-2">{notices}</div> : null}
       {body}
-    </div>
+    </>
   );
 }
 
 function ExploreFallback() {
   return (
-    <div className="mx-auto flex w-full max-w-content-max-width flex-col gap-4 px-4 py-4 md:px-6" aria-busy="true">
-      <h1 className="text-lg font-medium text-text">Explore coins</h1>
-      <Skeleton variant="rows" rows={8} label="coins" className="rounded-md bg-surface-1" />
+    <div aria-busy="true">
+      <span className="sr-only">Loading coins</span>
+      <ExploreView
+        rows={[]}
+        loading
+        hasMore={false}
+        loadingMore={false}
+        moreError={null}
+        onLoadMore={() => undefined}
+        onRetryMore={() => undefined}
+        defaultSort={null}
+        sortResetKey="movers"
+        sourceLabel="coins"
+        leading={<PresetTabs active="movers" />}
+        caption="Movers coins"
+        empty={null}
+      />
     </div>
   );
 }
 
 export default function ExploreModule() {
   return (
-    <Suspense fallback={<ExploreFallback />}>
-      <ExplorePage />
-    </Suspense>
+    <div className="mx-auto flex w-full max-w-content-max-width flex-col gap-4 px-4 py-4 md:px-6">
+      <h1 className="text-lg font-medium text-text">Explore coins</h1>
+      <Suspense fallback={<ExploreFallback />}>
+        <ExplorePage />
+      </Suspense>
+    </div>
   );
 }

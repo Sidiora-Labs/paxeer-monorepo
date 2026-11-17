@@ -8,6 +8,13 @@ import { SubAccount } from "@paxeer-network/hooks";
 import { Decimal } from "@paxeer-network/utils";
 import { useAccountsData } from "./useAccountsData";
 
+const EMPTY_SUB_ACCOUNTS: NonNullable<
+  ReturnType<typeof useAccount>["state"]["subAccounts"]
+> = [];
+
+const EMPTY_HOLDINGS: NonNullable<ReturnType<typeof useCollateral>["holding"]> =
+  [];
+
 const isNumber = (val: unknown): val is number => {
   return typeof val === "number" && !Number.isNaN(val);
 };
@@ -35,11 +42,11 @@ export const calculateTotalHolding = (
 
 export const useAssetTotalValue = () => {
   const { state, isMainAccount } = useAccount();
-  const { holding = [] } = useCollateral();
+  const { holding = EMPTY_HOLDINGS } = useCollateral();
   const { getIndexPrice } = useIndexPricesStream();
   const allAccounts = useAccountsData();
 
-  const subAccounts = state.subAccounts ?? [];
+  const subAccounts = state.subAccounts ?? EMPTY_SUB_ACCOUNTS;
 
   // Calculate main account total value
   const mainTotalValue = useMemo<Decimal>(

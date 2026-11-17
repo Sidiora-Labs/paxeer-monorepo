@@ -26,11 +26,11 @@ export function PairRow({ row, active, now }: PairRowProps) {
       <Avatar src={row.image} name={row.name} size="md" decorative badge={row.stage ? <StageBadge stage={row.stage} size={14} decorative surface={active ? 3 : 1} /> : undefined} />
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <Link
+          <Link prefetch={false}
             href={row.href}
             aria-current={active ? 'page' : undefined}
             title={row.name}
-            className="min-w-0 truncate text-sm font-bold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
+            className="min-w-0 [@media(max-width:834px)]:min-w-touch-target-min truncate text-sm font-bold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
           >
             {row.symbol}
             <span className="sr-only">{`, ${row.name}, market cap ${row.mcap === null ? 'not available yet' : formatCompactUsd(row.mcap)}`}</span>

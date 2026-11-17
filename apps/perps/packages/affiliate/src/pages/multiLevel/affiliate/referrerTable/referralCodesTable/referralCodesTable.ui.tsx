@@ -1,7 +1,12 @@
-import surface from "../../../../../surface.module.css";
 import { FC, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
-import { Column, Text, ListView, Divider, useScreen } from "@paxeer-network/ui";
+import {
+  Column,
+  Text,
+  ListView,
+  Divider,
+  useScreen,
+} from "@paxeer-network/ui";
 import { AuthGuardDataTable } from "@paxeer-network/ui-connector";
 import { Decimal } from "@paxeer-network/utils";
 import { ReferralCodesRow } from "../../../../../hooks/useMultiLevelReferralCodes";
@@ -105,8 +110,7 @@ const MobileReferralCodeItem: FC<{
       </MobileCell>
 
       <MobileCell label={t("common.action")}>
-        <button
-          type="button"
+        <Text
           className="oui-referralCodesTable-copyCode-btn oui-cursor-pointer oui-text-primary-light"
           onClick={(e) => {
             e.stopPropagation();
@@ -114,7 +118,7 @@ const MobileReferralCodeItem: FC<{
           }}
         >
           {t("common.copy")}
-        </button>
+        </Text>
       </MobileCell>
     </MobileCard>
   );
@@ -153,7 +157,7 @@ export const ReferralCodesTableUI: FC<ReferralCodesTableUIProps> = (props) => {
           </Text>
         ),
         dataIndex: "rate",
-
+        width: 180,
         className: "!oui-whitespace-normal",
         render: (_: unknown, record: ReferralCodesRow) => {
           const referrerRate = new Decimal(record.referrer_rebate_rate ?? 0)
@@ -225,8 +229,7 @@ export const ReferralCodesTableUI: FC<ReferralCodesTableUIProps> = (props) => {
         title: t("common.action"),
         dataIndex: "action",
         render: (_: unknown, record: ReferralCodesRow) => (
-          <button
-            type="button"
+          <Text
             className="oui-cursor-pointer oui-text-primary-light"
             onClick={(e) => {
               e.stopPropagation();
@@ -234,7 +237,7 @@ export const ReferralCodesTableUI: FC<ReferralCodesTableUIProps> = (props) => {
             }}
           >
             {t("common.copy")}
-          </button>
+          </Text>
         ),
       },
     ];
@@ -257,24 +260,15 @@ export const ReferralCodesTableUI: FC<ReferralCodesTableUIProps> = (props) => {
         </div>
       ) : (
         <div className="oui-affiliate-referralCodesTable oui-px-3">
-          <div
-            role="region"
-            aria-label="Referral data"
-            tabIndex={0}
-            className={surface.scrollRegion}
-          >
-            <AuthGuardDataTable
-              bordered
-              columns={columns}
-              dataSource={props.sortedCodes}
-              loading={props.isLoading}
-              onSort={props.onSort}
-              onRow={() => ({
-                className: "oui-referralCodesTable-row oui-h-12",
-              })}
-              className="oui-referralCodesTable-table oui-pb-3 [&_.oui-h-10.oui-w-full]:!oui-mx-0 [&_.oui-table-pagination]:!oui-justify-end [&_th]:!oui-tracking-normal [&_th]:!oui-px-3 [&_td]:!oui-px-3"
-            />
-          </div>
+          <AuthGuardDataTable
+            bordered
+            columns={columns}
+            dataSource={props.sortedCodes}
+            loading={props.isLoading}
+            onSort={props.onSort}
+            onRow={() => ({ className: "oui-referralCodesTable-row oui-h-12" })}
+            className="oui-referralCodesTable-table oui-pb-3 [&_.oui-h-10.oui-w-full]:!oui-mx-0 [&_.oui-table-pagination]:!oui-justify-end [&_th]:!oui-tracking-[0.03em] [&_th]:!oui-px-3 [&_td]:!oui-px-3"
+          />
         </div>
       )}
     </>

@@ -58,7 +58,7 @@ export function SendForm({
               <TokenIcon token={selectedToken} />
               <div className="flex-1 text-left min-w-0">
                 <p className="text-sm font-medium">{selectedToken.symbol}</p>
-                <p className="text-xs text-pax-muted truncate">{selectedToken.name}</p>
+                <p className="text-size-11 text-pax-muted truncate">{selectedToken.name}</p>
               </div>
               <div className="text-right mr-1">
                 <p className="text-xs text-pax-muted">{selectedToken.balance}</p>
@@ -73,15 +73,15 @@ export function SendForm({
 
       {/* Recipient */}
       <div>
-        <div className="flex items-center justify-between mb-1.5">
+        <div className="flex flex-wrap gap-2 items-center justify-between mb-1.5">
           <label htmlFor="send-recipient" className="text-xs text-pax-muted">
             Recipient Address
           </label>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={onOpenScanner}
-              className="min-h-[var(--touch-target)] flex items-center gap-1 text-xs text-pax-accent press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
+              className="min-h-[var(--touch-target)] flex items-center gap-1 text-size-11 text-pax-accent press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
             >
               <ScanLine className="w-3 h-3" />
               Scan QR
@@ -90,7 +90,7 @@ export function SendForm({
               <button
                 type="button"
                 onClick={onOpenContactPicker}
-                className="min-h-[var(--touch-target)] flex items-center gap-1 text-xs text-pax-accent press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
+                className="min-h-[var(--touch-target)] flex items-center gap-1 text-size-11 text-pax-accent press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
               >
                 <SvgIcon name="user" className="w-3 h-3" />
                 Contacts
@@ -110,7 +110,9 @@ export function SendForm({
           className="w-full px-4 py-3 rounded-xl bg-pax-control   text-sm outline-none  transition-colors placeholder:text-pax-muted"
         />
         {resolvedContact && (
-          <p className="text-xs text-pax-accent mt-1 px-1">Sending to: {resolvedContact.name}</p>
+          <p className="text-size-11 text-pax-accent mt-1 px-1">
+            Sending to: {resolvedContact.name}
+          </p>
         )}
       </div>
 
@@ -119,7 +121,7 @@ export function SendForm({
         <label htmlFor="send-amount" className="text-xs text-pax-muted mb-1.5 block">
           Amount
         </label>
-        <div className="relative">
+        <div className="pax-filled-field relative rounded-xl">
           <input
             id="send-amount"
             type="text"
@@ -136,13 +138,13 @@ export function SendForm({
             {selectedToken?.symbol || 'PAX'}
           </span>
         </div>
-        <div className="flex gap-2 mt-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
           {PERCENTAGES.map((pct) => (
             <button
               type="button"
               key={pct}
               onClick={() => onApplyPercentage(pct)}
-              className="min-h-[var(--touch-target)] flex-1 py-1.5 rounded-lg bg-pax-control text-xs font-medium text-pax-muted hover:bg-pax-overlay hover:text-pax-light transition-all press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
+              className="min-h-[var(--touch-target)] flex-1 py-1.5 rounded-lg bg-pax-control text-size-11 font-medium text-pax-muted hover:bg-pax-overlay hover:text-pax-light transition-all press-scale focus-visible:ring-2 focus-visible:ring-pax-accent"
             >
               {pct === 100 ? 'MAX' : `${pct}%`}
             </button>

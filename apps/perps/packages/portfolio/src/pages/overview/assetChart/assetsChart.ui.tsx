@@ -5,11 +5,7 @@ import { useTranslation } from "@paxeer-network/i18n";
 import { Card } from "@paxeer-network/ui";
 import { useAssetsChartScriptReturn } from "./assetsChart.script";
 
-const LazyPeriodTitle = React.lazy(() =>
-  import("../shared/periodHeader").then((mod) => {
-    return { default: mod.PeriodTitle };
-  }),
-);
+import { PeriodTitle } from "../shared/periodHeader";
 
 export type AssetsLineChartProps = {} & useAssetsChartScriptReturn;
 
@@ -20,7 +16,7 @@ export const AssetsChart: React.FC<AssetsLineChartProps> = (props) => {
     <Card
       title={
         <React.Suspense fallback={null}>
-          <LazyPeriodTitle
+          <PeriodTitle
             onPeriodChange={onPeriodChange}
             periodTypes={periodTypes}
             period={period}
@@ -29,7 +25,7 @@ export const AssetsChart: React.FC<AssetsLineChartProps> = (props) => {
         </React.Suspense>
       }
       id="portfolio-overview-assets-chart"
-      classNames={{ content: "oui-h-40 oui-pb-0" }}
+      classNames={{ content: "oui-h-[168px] oui-pb-0" }}
     >
       <React.Suspense fallback={null}>
         <AssetAreaChart data={data as any} invisible={props.invisible} />

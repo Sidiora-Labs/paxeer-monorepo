@@ -13,15 +13,7 @@ export const BrokerWallet: FC = () => {
     const { secondary } = appIcons || {};
 
     if (secondary?.img) {
-      return (
-        <img
-          src={secondary?.img}
-          className="oui-size-5"
-          width={24}
-          height={24}
-          alt=""
-        />
-      );
+      return <img src={secondary?.img} className="oui-size-5" />;
     }
 
     if (secondary?.component) {

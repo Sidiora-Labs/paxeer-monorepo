@@ -36,7 +36,7 @@ export const PriceInput = () => {
         }}
         suffix={
           <DropdownMenuTrigger asChild>
-            <button className="oui-h-full oui-px-1" type="button">
+            <button className="oui-h-full oui-px-1">
               <CaretDownIcon size={12} color="white" />
             </button>
           </DropdownMenuTrigger>

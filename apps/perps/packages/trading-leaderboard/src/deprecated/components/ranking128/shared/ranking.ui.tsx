@@ -1,4 +1,3 @@
-import surface from "../../../../surface.module.css";
 import { FC, useCallback } from "react";
 import { useConfig } from "@paxeer-network/hooks";
 import {
@@ -49,17 +48,20 @@ export const Ranking: FC<RankingProps> = (props) => {
 
       return {
         className: cn(
-          "oui-h-10 md:oui-h-12",
+          "oui-h-[40px] md:oui-h-[48px]",
           // use oui-relative to let the background image position based on row
           "oui-relative",
           isYou
             ? // add 4px extra height to make row has 2px space
-              "oui-h-10 md:oui-h-12"
+              "oui-h-[44px] md:oui-h-[52px]"
             : cn(
                 showBg && "oui-border-b-2 oui-border-b-transparent",
-                isFirst && "oui-bg-warning/10",
-                isSecond && "oui-bg-base-contrast/10",
-                isThird && "oui-bg-warning/10",
+                isFirst &&
+                  "oui-bg-[linear-gradient(270deg,rgba(241,215,121,0.0225)_-2.05%,rgba(255,203,70,0.45)_100%)]",
+                isSecond &&
+                  "oui-bg-[linear-gradient(270deg,rgba(255,255,255,0.0225)_-2.05%,rgba(199,199,199,0.45)_100%)]",
+                isThird &&
+                  "oui-bg-[linear-gradient(270deg,rgba(255,233,157,0.0225)_-1.3%,rgba(160,101,46,0.45)_100%)]",
               ),
         ),
       };
@@ -79,9 +81,9 @@ export const Ranking: FC<RankingProps> = (props) => {
       if (record.key === getCurrentAddressRowKey(props.address!)) {
         return {
           className: cn(
-            "after:oui-absolute after:oui-h-10 after:oui-w-full md:after:oui-h-12",
-            "after:oui-border-primary",
-            "after:oui-start-0 after:oui-top-0 after:oui-z-[-1]",
+            "after:oui-absolute after:oui-h-[40px] after:oui-w-full md:after:oui-h-[48px]",
+            "after:oui-border-[rgb(var(--oui-gradient-brand-start))]",
+            "after:oui-start-0 after:oui-top-[2px] after:oui-z-[-1]",
             "after:oui-border-y",
             isFirstColumn && "after:oui-rounded-s-lg after:oui-border-s",
             isLastColumn && "after:oui-rounded-e-lg after:oui-border-e",
@@ -108,44 +110,32 @@ export const Ranking: FC<RankingProps> = (props) => {
   if (isMobile) {
     return (
       <>
-        <div
-          role="region"
-          aria-label="Trading rankings"
-          tabIndex={0}
-          className={surface.scrollRegion}
-        >
-          <DataTable
-            classNames={{
-              root: "oui-trading-leaderboard-ranking-table",
-              body: "oui-text-2xs",
-              scroll: "oui-overflow-y-hidden oui-h-full",
-            }}
-            loading={props.isLoading}
-            columns={column}
-            bordered
-            initialSort={props.initialSort}
-            onSort={props.onSort}
-            dataSource={props.dataList}
-            generatedRowKey={(record: RankingData) =>
-              record.key || record.address
-            }
-            manualPagination
-            manualSorting
-            onRow={onRow}
-            onCell={onCell}
-          />
-        </div>
+        <DataTable
+          classNames={{
+            root: "oui-trading-leaderboard-ranking-table",
+            body: "oui-text-2xs",
+            scroll: "oui-overflow-y-hidden oui-h-full",
+          }}
+          loading={props.isLoading}
+          columns={column}
+          bordered
+          initialSort={props.initialSort}
+          onSort={props.onSort}
+          dataSource={props.dataList}
+          generatedRowKey={(record: RankingData) =>
+            record.key || record.address
+          }
+          manualPagination
+          manualSorting
+          onRow={onRow}
+          onCell={onCell}
+        />
         <div
           ref={props.sentinelRef}
-          className="oui-invisible oui-relative oui-top-[calc(var(--oui-space-24)*3*-1)] oui-h-px"
+          className="oui-invisible oui-relative oui-top-[-300px] oui-h-px"
         />
         {props.isLoading && props.dataList.length > 0 && (
-          <Flex
-            itemAlign="center"
-            justify="center"
-            width="100%"
-            height={"var(--oui-space-10)"}
-          >
+          <Flex itemAlign="center" justify="center" width="100%" height={40}>
             <Spinner size="sm" />
           </Flex>
         )}
@@ -154,31 +144,26 @@ export const Ranking: FC<RankingProps> = (props) => {
   }
 
   return (
-    <div
-      role="region"
-      aria-label="Trading rankings"
-      tabIndex={0}
-      className={surface.scrollRegion}
-    >
-      <DataTable
-        loading={props.isLoading}
-        columns={column}
-        initialSort={props.initialSort}
-        onSort={props.onSort}
-        bordered
-        dataSource={props.dataSource}
-        generatedRowKey={(record: RankingData) => record.key || record.address}
-        // manualPagination
-        manualSorting
-        // pagination={props.pagination}
-        classNames={{
-          root: cn("oui-trading-leaderboard-ranking-table", "!oui-h-auto"),
-          scroll:
-            "oui-min-h-[calc(var(--oui-space-24)*6)] oui-max-h-[calc(var(--oui-space-24)*13)]",
-        }}
-        onRow={onRow}
-        onCell={onCell}
-      />
-    </div>
+    <DataTable
+      loading={props.isLoading}
+      columns={column}
+      initialSort={props.initialSort}
+      onSort={props.onSort}
+      bordered
+      dataSource={props.dataSource}
+      generatedRowKey={(record: RankingData) => record.key || record.address}
+      // manualPagination
+      manualSorting
+      // pagination={props.pagination}
+      classNames={{
+        root: cn(
+          "oui-trading-leaderboard-ranking-table",
+          "!oui-h-[calc(100%_-_53px_-_8px)]",
+        ),
+        scroll: "oui-min-h-[600px] oui-max-h-[1250px]",
+      }}
+      onRow={onRow}
+      onCell={onCell}
+    />
   );
 };

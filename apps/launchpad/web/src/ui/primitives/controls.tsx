@@ -115,7 +115,7 @@ export function SegmentedControl<T extends string>({
             ? index === 0
               ? 'bg-accent text-on-accent'
               : 'bg-danger text-on-danger'
-            : 'bg-surface-active text-text';
+            : 'border-[var(--sl-control-edge)] bg-surface-active text-text';
         return (
           <button
             key={option.value}
@@ -132,7 +132,7 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(option.value)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
-              'inline-flex items-center justify-center gap-1.5 py-2 text-sm font-bold transition-colors duration-fast',
+              'inline-flex items-center justify-center gap-1.5 border border-transparent py-2 text-sm font-bold transition-colors duration-fast',
               compact ? 'px-1.5' : 'px-3',
               radius,
               size === 'sm' ? 'min-h-control-height-sm' : 'min-h-control-height-md',
@@ -269,7 +269,7 @@ export function TabStrip<T extends string>({
                 'relative inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 font-bold transition-colors duration-fast',
                 variant === 'underline'
                   ? 'min-h-11 py-2 text-base'
-                  : 'min-h-control-height-md py-2 rounded-sm text-sm',
+                  : 'min-h-control-height-md border border-control-edge py-2 rounded-sm text-sm',
                 selected
                   ? variant === 'underline'
                     ? 'text-text'
@@ -948,7 +948,7 @@ export function ResizeHandle({
       onKeyDown={onKeyDown}
       data-dragging={dragging ? '' : undefined}
       className={cn(
-        'group flex touch-none select-none items-center justify-center',
+        'group flex touch-none select-none items-center justify-center focus-visible:bg-surface-active focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus',
         vertical
           ? 'h-full min-w-touch-target-min cursor-col-resize'
           : 'min-h-touch-target-min w-full cursor-row-resize',
@@ -958,7 +958,7 @@ export function ResizeHandle({
       <span
         aria-hidden="true"
         className={cn(
-          'rounded-pill transition-colors duration-fast',
+          'rounded-pill transition-colors duration-fast group-focus-visible:bg-accent',
           vertical ? 'h-8 w-1' : 'h-1 w-8',
           dragging ? 'bg-accent' : 'bg-surface-3 group-hover:bg-surface-hover'
         )}

@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import React, { act } from 'react';
@@ -171,7 +172,7 @@ describe('TerminalLeftRail against a real HTTP origin', () => {
 
     expect(served.paths).toEqual(expect.arrayContaining(['POST /v2/pools/stats:batch', 'GET /v2/pools?sort=trending&limit=100']));
     expect(served.paths.some(path => path.startsWith('GET /stats/'))).toBe(false);
-    expect(container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(container.innerHTML)).not.toMatch(BORDER);
     unmount();
   });
 
@@ -204,7 +205,7 @@ describe('TerminalLeftRail against a real HTTP origin', () => {
     act(() => clear?.click());
     expect(recent.querySelectorAll('li[data-pool]').length).toBe(0);
     expect(recent.textContent).toContain('Coins you open show up here.');
-    expect(container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(container.innerHTML)).not.toMatch(BORDER);
     unmount();
   });
 

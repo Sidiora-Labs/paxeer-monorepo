@@ -22,15 +22,15 @@ export const CollapseMarkets: React.FC<CollapseMarketsProps> = (props) => {
             <Flex intensity={800} p={2} className="oui-gap-x-7" r="base">
               <Flex direction="column" itemAlign="start" gapY={1}>
                 <Flex gapX={1}>
-                  <TokenIcon symbol={item.symbol} className="oui-size-4" />
+                  <TokenIcon symbol={item.symbol} className="oui-size-[18px]" />
                   <SymbolDisplay formatString="base" size="2xs">
                     {item.symbol}
                   </SymbolDisplay>
                 </Flex>
-                <Text size="2xs" intensity={80}>
+                <Text size="2xs" intensity={36}>
                   {t("markets.column.last")}
                 </Text>
-                <Text size="2xs" intensity={80}>
+                <Text size="2xs" intensity={36}>
                   {t("markets.column.24hPercentage")}
                 </Text>
               </Flex>
@@ -69,39 +69,32 @@ export const CollapseMarkets: React.FC<CollapseMarketsProps> = (props) => {
               key={item.symbol}
             >
               <Flex
-                asChild
                 direction="column"
                 justify="center"
                 itemAlign="center"
                 gapY={1}
-                width="var(--oui-space-12)"
-                height="var(--oui-space-12)"
+                width={54}
+                height={54}
                 r="lg"
                 className={cn(
                   "oui-cursor-pointer",
                   "hover:oui-bg-base-7",
                   symbol === item.symbol && "oui-bg-base-6 hover:oui-bg-base-6",
                 )}
+                onClick={() => {
+                  onSymbolChange?.(item);
+                }}
               >
-                <button
-                  type="button"
-                  aria-label={item.symbol}
-                  onClick={() => {
-                    onSymbolChange?.(item);
-                  }}
-                  className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+                <TokenIcon symbol={item.symbol} className="oui-size-[18px]" />
+                <Text.numeral
+                  rule="percentages"
+                  coloring
+                  rm={Decimal.ROUND_DOWN}
+                  showIdentifier
+                  size="2xs"
                 >
-                  <TokenIcon symbol={item.symbol} className="oui-size-4" />
-                  <Text.numeral
-                    rule="percentages"
-                    coloring
-                    rm={Decimal.ROUND_DOWN}
-                    showIdentifier
-                    size="2xs"
-                  >
-                    {item.change}
-                  </Text.numeral>
-                </button>
+                  {item.change}
+                </Text.numeral>
               </Flex>
             </Tooltip>
           );

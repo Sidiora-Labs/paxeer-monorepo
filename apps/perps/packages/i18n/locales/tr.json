@@ -618,6 +618,7 @@
   "orderEntry.bbo.disabled.tips": "TP/SL, Post-Only, IOC veya FOK seçildiğinde BBO desteklenmez.",
   "orderEntry.estLiqPrice": "Tah. lik. fiyatı",
   "orderEntry.disableOrderConfirm": "Emir onayını devre dışı bırak",
+  "orderEntry.nativeFunding.twoTransactions": "İki işlem yapılacak: önce eksik teminat yatırılacak, ardından emir verilecek. Ayrıca token onayı gerekebilir.",
   "orderEntry.orderConfirm": "Emir onayı",
   "orderEntry.confirmScaledOrder": "Ölçekli emiri onayla",
   "orderEntry.hidden": "Gizli",

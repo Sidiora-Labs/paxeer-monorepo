@@ -1,6 +1,6 @@
 import { motionDurations, motionEase } from './motion';
 import { surfaceTokens } from './tokens';
-import { bestInk } from './contrast';
+import { bestInk, parseColor } from './contrast';
 import type {
   AccentId,
   AccentPalette,
@@ -77,7 +77,7 @@ const light: ThemePalette = {
       tertiary: '#57544e',
       disabled: '#9a968f',
     },
-    status: { success: '#1a7f4b', danger: '#b4232e', warning: '#9a5b00', info: '#2560c4' },
+    status: { success: '#136b3c', danger: '#b4232e', warning: '#854b00', info: '#1d50a5' },
     border: {
       subtle: 'rgba(0, 0, 0, 0.1)',
       strong: 'rgba(0, 0, 0, 0.14)',
@@ -175,12 +175,27 @@ function accent(
   mutedDark: string,
   mutedLight: string
 ): AccentPalette {
+  const control = (theme: ThemePalette) => {
+    const foreground = parseColor(primary);
+    const background = parseColor(theme.colors.text.strong);
+    const channels = (['r', 'g', 'b'] as const).map((channel) =>
+      Math.round(foreground[channel] * 0.6 + background[channel] * 0.4)
+    );
+    const fill = theme.scheme === 'dark' ? `rgb(${channels.join(' ')})` : primary;
+    return { fill, ink: bestInk(fill, ACCENT_INKS) };
+  };
   return {
     id,
     label,
     primary,
     muted: { dark: mutedDark, light: mutedLight },
     onPrimary: bestInk(primary, ACCENT_INKS),
+    control: {
+      dark: control(dark),
+      light: control(light),
+      'contrast-dark': control(contrastDark),
+      'contrast-light': control(contrastLight),
+    },
   };
 }
 
@@ -237,6 +252,7 @@ export const DEFAULT_SELECTION: ThemeSelection = {
 export const themeCatalogue: ThemeData = {
   themes: { dark, light, 'contrast-dark': contrastDark, 'contrast-light': contrastLight },
   accents,
+  accentInks: ACCENT_INKS,
   fonts,
   sizes,
   densities,

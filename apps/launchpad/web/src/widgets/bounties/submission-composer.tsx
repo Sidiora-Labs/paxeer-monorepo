@@ -85,7 +85,7 @@ export function SubmissionComposer({ bounty, className }: SubmissionComposerProp
   const pendingEvidence = evidence.items.some(item => item.status === 'uploading' || item.status === 'review');
 
   return (
-    <form noValidate onSubmit={submit} aria-labelledby={`${id}-heading`} className={cn('flex flex-col gap-4 rounded-lg bg-surface-1 p-4', className)}>
+    <form noValidate onSubmit={submit} aria-labelledby={`${id}-heading`} className={cn('flex min-h-[var(--sl-bounty-entry-min-height)] flex-col gap-4 rounded-lg bg-surface-1 p-4', className)}>
       <h2 id={`${id}-heading`} className="text-md font-bold text-text">Submit your entry</h2>
       <FormField
         id={`${id}-body`}

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
+  Box,
   cn,
   DropdownMenuContent,
   DropdownMenuPortal,
@@ -74,16 +75,14 @@ const LineType: React.FC<IProps> = (props) => {
   return (
     <DropdownMenuRoot open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={t("common.type")}
+        <Box
           className={cn(
-            "oui-flex oui-size-5 oui-items-center oui-justify-center oui-text-base-contrast-36 hover:oui-text-base-contrast-80",
+            "oui-w-[18px] oui-h-[18px] oui-cursor-pointer oui-text-base-contrast-36 hover:oui-text-base-contrast-80",
             open && "oui-text-base-contrast-80",
           )}
         >
           {currentLineTypeIcon}
-        </button>
+        </Box>
       </DropdownMenuTrigger>
       <DropdownMenuPortal>
         <DropdownMenuContent
@@ -103,19 +102,20 @@ const LineType: React.FC<IProps> = (props) => {
             itemAlign="start"
           >
             {lineTypeList.map((item) => (
-              <button
-                type="button"
-                aria-pressed={props.lineType === item.value}
+              <Flex
                 key={item.value}
+                justify={"start"}
+                itemAlign={"center"}
+                gap={2}
                 className={cn(
-                  "oui-flex oui-w-full oui-items-center oui-justify-start oui-gap-2 oui-text-base-contrast-36 hover:oui-text-base-contrast",
+                  "oui-text-base-contrast-36 oui-cursor-pointer oui-w-full hover:oui-text-base-contrast",
                   props.lineType === item.value && "oui-text-base-contrast",
                 )}
                 onClick={() => props.changeLineType(item.value)}
               >
                 {item.icon}
                 <Text className="oui-text-sm">{item.label}</Text>
-              </button>
+              </Flex>
             ))}
           </Flex>
         </DropdownMenuContent>

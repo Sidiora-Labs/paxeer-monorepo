@@ -1,33 +1,16 @@
-import styles from "../../presentation.module.css";
 import React, { FC } from "react";
 import { Grid, useScreen } from "@paxeer-network/ui";
 import { MobileOverview } from "./mobile";
 import { MobileOverviewProps } from "./mobile/mobile.widget";
 import { OverviewProvider } from "./provider/overviewProvider";
 
-const LazyAssetWidget = React.lazy(() =>
-  import("./assets").then((mod) => {
-    return { default: mod.AssetWidget };
-  }),
-);
+import { AssetWidget } from "./assets";
 
-const LazyAssetsChartWidget = React.lazy(() =>
-  import("./assetChart").then((mod) => {
-    return { default: mod.AssetsChartWidget };
-  }),
-);
+import { AssetsChartWidget } from "./assetChart";
 
-const LazyPerformanceWidget = React.lazy(() =>
-  import("./performance").then((mod) => {
-    return { default: mod.PerformanceWidget };
-  }),
-);
+import { PerformanceWidget } from "./performance";
 
-const LazyHistoryDataGroupWidget = React.lazy(() =>
-  import("./historyDataGroup").then((mod) => {
-    return { default: mod.HistoryDataGroupWidget };
-  }),
-);
+import { HistoryDataGroupWidget } from "./historyDataGroup";
 
 export type OverviewPageProps = MobileOverviewProps;
 
@@ -41,24 +24,24 @@ export const OverviewPage: FC<OverviewPageProps> = (props) => {
           hideTraderCard={props.hideTraderCard}
         />
       ) : (
-        <div className={styles.overview}>
+        <Grid cols={2} gap={4}>
           <React.Suspense fallback={null}>
-            <LazyAssetWidget />
+            <AssetWidget />
           </React.Suspense>
           <React.Suspense fallback={null}>
-            <LazyAssetsChartWidget />
+            <AssetsChartWidget />
           </React.Suspense>
-          <div className={styles.fullWidth}>
+          <Grid.span colSpan={2}>
             <React.Suspense fallback={null}>
-              <LazyPerformanceWidget />
+              <PerformanceWidget />
             </React.Suspense>
-          </div>
-          <div className={styles.fullWidth}>
+          </Grid.span>
+          <Grid.span colSpan={2}>
             <React.Suspense fallback={null}>
-              <LazyHistoryDataGroupWidget />
+              <HistoryDataGroupWidget />
             </React.Suspense>
-          </div>
-        </div>
+          </Grid.span>
+        </Grid>
       )}
     </OverviewProvider>
   );

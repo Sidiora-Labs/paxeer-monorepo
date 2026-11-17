@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import os
+import re
 import socket
 import shutil
 import subprocess
@@ -28,6 +30,63 @@ NETWORK_ID = "125"
 SOURCE_IDENTITY = "beta-driver-test-source-identity"
 DRIVER_TIMEOUT_SECONDS = 3600.0
 READY_TIMEOUT_SECONDS = 60.0
+
+
+def test_native_cases_of_the_driver_exist_in_their_packages() -> None:
+    driver = ast.parse(DRIVER.read_text(encoding="utf-8"))
+    crash_points = next(
+        ast.literal_eval(statement.value)
+        for statement in driver.body
+        if isinstance(statement, ast.AnnAssign)
+        and isinstance(statement.target, ast.Name)
+        and statement.target.id == "CRASH_POINTS"
+    )
+    assert crash_points
+    steps = []
+    for call in ast.walk(driver):
+        if not (
+            isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Name)
+            and call.func.id == "native_test"
+        ):
+            continue
+        label = ast.literal_eval(call.args[1])
+        if isinstance(call.args[2], ast.Constant):
+            package = ast.literal_eval(call.args[2])
+            tests = tuple(ast.literal_eval(argument) for argument in call.args[3:])
+            steps.append((label, package, tests))
+        else:
+            assert isinstance(call.args[2], ast.Name) and call.args[2].id == "package"
+            assert len(call.args) == 4 and isinstance(call.args[3], ast.Starred)
+            assert isinstance(call.args[3].value, ast.Name)
+            assert call.args[3].value.id == "tests"
+            steps.extend(
+                (label, package, tests) for package, tests, _agent in crash_points.values()
+            )
+
+    assert {
+        "native-commit-boundary",
+        "native-ledger-boundary-rejections",
+        "native-crash-recovery",
+    } <= {label for label, _package, _tests in steps}
+    declaration = re.compile(
+        r"^func\s+(Test[A-Za-z0-9_]+)\s*\(\s*\w+\s+\*testing\.T\s*\)\s*\{",
+        re.MULTILINE,
+    )
+    for label, package, tests in steps:
+        assert package.startswith("./node"), (label, package)
+        directory = (ROOT / package).resolve()
+        assert directory.is_relative_to(ROOT) and directory.is_dir(), (label, package)
+        files = list(directory.glob("*_test.go"))
+        assert files, (label, package)
+        declared = {
+            name
+            for path in files
+            for name in declaration.findall(path.read_text(encoding="utf-8"))
+        }
+        assert tests, (label, package)
+        for name in tests:
+            assert name in declared, (label, package, name)
 
 
 def test_relocated_adoption_inputs_resolve() -> None:

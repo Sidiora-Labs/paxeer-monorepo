@@ -70,6 +70,7 @@ export interface PortfolioStats {
   totalLeverage: number;
   maintenanceMarginUsd: AccountState["maintenanceMarginUsd"] | null;
   isLoading: boolean;
+  isAccountLoading: boolean;
   positions: any[];
 }
 
@@ -84,6 +85,7 @@ interface RawSnapshot {
   accountAddress: string | null;
   maintenanceMarginUsd: AccountState["maintenanceMarginUsd"] | null;
   isLoading: boolean;
+  isAccountLoading: boolean;
 }
 
 const EMPTY_RAW: RawSnapshot = {
@@ -92,6 +94,7 @@ const EMPTY_RAW: RawSnapshot = {
   accountAddress: null,
   maintenanceMarginUsd: null,
   isLoading: false,
+  isAccountLoading: false,
 };
 
 let _raw: RawSnapshot = EMPTY_RAW;
@@ -200,7 +203,14 @@ async function _fetchAccount(session: PortfolioSession) {
       maintenanceMarginUsd: account.maintenanceMarginUsd,
     });
   } catch {
-    if (_session === session) _setRaw({ maintenanceMarginUsd: null });
+    if (_session === session)
+      _setRaw({
+        account: EMPTY_ACCOUNT,
+        accountAddress: addr,
+        maintenanceMarginUsd: null,
+      });
+  } finally {
+    if (_session === session) _setRaw({ isAccountLoading: false });
   }
 }
 
@@ -292,7 +302,7 @@ function _startPolling(addr: string) {
     snapshotRequest: 0,
   };
   _session = session;
-  _raw = { ...EMPTY_RAW, isLoading: true };
+  _raw = { ...EMPTY_RAW, isLoading: true, isAccountLoading: true };
   _notify();
   Promise.all([_fetchAccount(session), _fetchPositionsOnce(session)]).finally(
     () => {
@@ -382,6 +392,11 @@ export function usePortfolioStats(): PortfolioStats {
         ? raw.maintenanceMarginUsd
         : null,
     isLoading: raw.isLoading,
+    isAccountLoading:
+      wantedAddress !== null &&
+      (raw.isAccountLoading || raw.accountAddress !== wantedAddress),
+    freeCollateral:
+      raw.accountAddress === wantedAddress ? totals.freeCollateral : 0,
     positions: visiblePositions,
   };
 }

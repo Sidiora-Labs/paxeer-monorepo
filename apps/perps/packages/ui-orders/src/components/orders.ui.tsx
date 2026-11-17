@@ -6,11 +6,7 @@ import type { DesktopOrderListWidgetProps } from "./orderList/orderList.widget";
 import { OrdersBuilderState } from "./orders.script";
 import { TabType } from "./orders.widget";
 
-const LazyDesktopOrderListWidget = React.lazy(() =>
-  import("./orderList").then((mod) => {
-    return { default: mod.DesktopOrderListWidget };
-  }),
-);
+import { DesktopOrderListWidget } from "./orderList";
 
 export const Orders: React.FC<OrdersBuilderState> = (props) => {
   const { t } = useTranslation();
@@ -20,7 +16,6 @@ export const Orders: React.FC<OrdersBuilderState> = (props) => {
   };
   return (
     <Tabs
-      aria-label={t("common.orders")}
       defaultValue={props.current || TabType.all}
       variant="contained"
       className="oui-h-full"
@@ -29,8 +24,8 @@ export const Orders: React.FC<OrdersBuilderState> = (props) => {
       }}
     >
       <TabPanel value={TabType.all} title={t("common.all")}>
-        <React.Suspense fallback={<OrdersLoadingState />}>
-          <LazyDesktopOrderListWidget
+        <React.Suspense fallback={null}>
+          <DesktopOrderListWidget
             ref={orderListRef}
             type={TabType.all}
             pnlNotionalDecimalPrecision={pnlNotionalDecimalPrecision}
@@ -40,8 +35,8 @@ export const Orders: React.FC<OrdersBuilderState> = (props) => {
         </React.Suspense>
       </TabPanel>
       <TabPanel value={TabType.pending} title={t("orders.status.pending")}>
-        <React.Suspense fallback={<OrdersLoadingState />}>
-          <LazyDesktopOrderListWidget
+        <React.Suspense fallback={null}>
+          <DesktopOrderListWidget
             ref={orderListRef}
             type={TabType.pending}
             ordersStatus={OrderStatus.INCOMPLETE}
@@ -50,8 +45,8 @@ export const Orders: React.FC<OrdersBuilderState> = (props) => {
         </React.Suspense>
       </TabPanel>
       <TabPanel value={TabType.tp_sl} title={t("common.tpsl")}>
-        <React.Suspense fallback={<OrdersLoadingState />}>
-          <LazyDesktopOrderListWidget
+        <React.Suspense fallback={null}>
+          <DesktopOrderListWidget
             ref={orderListRef}
             type={TabType.tp_sl}
             ordersStatus={OrderStatus.INCOMPLETE}
@@ -60,8 +55,8 @@ export const Orders: React.FC<OrdersBuilderState> = (props) => {
         </React.Suspense>
       </TabPanel>
       <TabPanel value={TabType.filled} title={t("orders.status.filled")}>
-        <React.Suspense fallback={<OrdersLoadingState />}>
-          <LazyDesktopOrderListWidget
+        <React.Suspense fallback={null}>
+          <DesktopOrderListWidget
             ref={orderListRef}
             type={TabType.filled}
             ordersStatus={OrderStatus.FILLED}
@@ -72,8 +67,8 @@ export const Orders: React.FC<OrdersBuilderState> = (props) => {
         </React.Suspense>
       </TabPanel>
       <TabPanel value={TabType.cancelled} title={t("orders.status.canceled")}>
-        <React.Suspense fallback={<OrdersLoadingState />}>
-          <LazyDesktopOrderListWidget
+        <React.Suspense fallback={null}>
+          <DesktopOrderListWidget
             ref={orderListRef}
             type={TabType.cancelled}
             ordersStatus={OrderStatus.CANCELLED}
@@ -82,8 +77,8 @@ export const Orders: React.FC<OrdersBuilderState> = (props) => {
         </React.Suspense>
       </TabPanel>
       <TabPanel value={TabType.rejected} title={t("orders.status.rejected")}>
-        <React.Suspense fallback={<OrdersLoadingState />}>
-          <LazyDesktopOrderListWidget
+        <React.Suspense fallback={null}>
+          <DesktopOrderListWidget
             ref={orderListRef}
             type={TabType.rejected}
             ordersStatus={OrderStatus.REJECTED}
@@ -93,7 +88,7 @@ export const Orders: React.FC<OrdersBuilderState> = (props) => {
       </TabPanel>
       {/* <TabPanel value={TabType.orderHistory} title={t("orders.orderHistory")}>
         <React.Suspense fallback={null}>
-          <LazyDesktopOrderListWidget
+          <DesktopOrderListWidget
             type={TabType.orderHistory}
             {...commonProps}
           />
@@ -102,16 +97,4 @@ export const Orders: React.FC<OrdersBuilderState> = (props) => {
     </Tabs>
   );
 };
-
-function OrdersLoadingState() {
-  return (
-    <div
-      className="oui-flex oui-min-h-20 oui-items-center oui-justify-center oui-text-sm oui-text-base-contrast-54"
-      role="status"
-      aria-label="Loading orders"
-    >
-      <span className="oui-animate-pulse">Loading orders</span>
-    </div>
-  );
-}
 // ----------------- Orders ui component end -----------------

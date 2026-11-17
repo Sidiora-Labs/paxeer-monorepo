@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
+import { flushSync } from "react-dom";
 
 /**
  * observe the element and call the callback when the element is changed
@@ -7,14 +8,14 @@ export function useObserverElement<T extends HTMLElement>(
   element: T | null,
   callback: (entry: ResizeObserverEntry) => void,
 ) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!element) {
       return;
     }
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        callback(entry);
+        flushSync(() => callback(entry));
       }
     });
 

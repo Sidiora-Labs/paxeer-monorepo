@@ -1,0 +1,61 @@
+[manifest]
+task = "22.44.66"
+surface = "Sidiora Launchpad"
+part = "explore"
+views = 16
+named_states = 3
+states = 19
+routes = ["/explore", "/search", "/watchlist"]
+
+[coverage]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+additional_mode_widths = [390, 1440]
+
+[render]
+count = 646
+content_screenshots = 646
+states_with_all_modes = 19
+did_not_render = 0
+showed_nothing = 0
+findings = 0
+result = "646 renders display visible content across all configured views, states, sizes and modes."
+
+[review]
+screenshots = 190
+widths = [360, 768, 1440, 2560, 844]
+schemes = ["light", "dark"]
+result = "Controls, numeric columns, card labels and table notices align at 360, 768, 1440 and 2560 pixels and in phone landscape in both schemes."
+
+[findings.first]
+load = 30
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 16
+motion = 0
+scale = 0
+geometry = 0
+shift = 11
+
+[findings.last]
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+motion = 0
+scale = 0
+geometry = 0
+shift = 0
+
+[presentation]
+corrections = ["Search market values align at the right with tabular figures and stay together when rows wrap.", "Coin card names truncate within their column and ages stay together.", "Empty and unavailable notices share the reserved table frame.", "Explore and search preserve their page frames from the first paint while query-driven content loads."]
+
+[guides]
+ids = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "responsive-table", "sortable-table"]

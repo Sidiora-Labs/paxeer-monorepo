@@ -23,16 +23,16 @@ const buttonVariants = cva(
         accent: "bg-accent text-accent-foreground hover:bg-accent-strong",
         /** Solid red pill for irreversible actions. */
         destructive:
-          "bg-destructive text-destructive-foreground hover:opacity-90",
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         /** Borderless. */
         ghost: "text-foreground hover:bg-surface-sunken",
         /** Text-only accent link. */
         link: "text-accent underline-offset-4 hover:underline h-auto px-0",
       },
       size: {
-        sm: "min-h-11 px-4 py-2 text-sm rounded-full [&_svg]:size-4",
-        md: "min-h-11 px-6 py-2.5 text-body-sm rounded-full [&_svg]:size-icon-sm",
-        lg: "min-h-button-lg px-7 py-3 text-base rounded-full [&_svg]:size-5",
+        sm: "min-h-9 px-4 text-sm rounded-full [&_svg]:size-4",
+        md: "min-h-11 px-6 text-body-sm rounded-full [&_svg]:size-icon-sm",
+        lg: "[--control-min-height:var(--space-button-lg)] min-h-button-lg px-7 text-base rounded-full [&_svg]:size-5",
         icon: "size-11 rounded-full [&_svg]:size-5",
       },
       fullWidth: {
@@ -45,7 +45,8 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
   loading?: boolean;
@@ -130,7 +131,7 @@ const iconButtonVariants = cva(
         primary: "bg-primary text-primary-foreground hover:bg-primary-hover",
       },
       size: {
-        sm: "size-11 [&_svg]:size-4",
+        sm: "size-9 [&_svg]:size-4",
         md: "size-11",
         lg: "size-14 [&_svg]:size-6",
       },
@@ -140,7 +141,8 @@ const iconButtonVariants = cva(
 );
 
 export interface IconButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof iconButtonVariants> {}
 
 const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(

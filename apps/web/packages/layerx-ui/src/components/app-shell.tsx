@@ -49,7 +49,7 @@ function BottomTab({
       onClick={() => onNavigate?.(item.id)}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "relative flex min-w-max flex-1 shrink-0 flex-col items-center gap-0.5 rounded-md px-3 py-1",
+        "relative flex min-w-16 flex-1 shrink-0 flex-col items-center gap-0.5 rounded-md py-1",
         active ? "bg-accent text-accent-foreground" : undefined,
       )}
     >
@@ -72,7 +72,7 @@ function BottomTab({
         {item.label}
       </span>
       {!!item.badge && (
-        <span className="absolute -top-1 right-1/2 translate-x-4 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-micro font-bold text-destructive-foreground">
+        <span className="absolute -top-1 right-1/2 translate-x-4 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-caption font-bold text-destructive-foreground">
           {item.badge}
         </span>
       )}
@@ -107,7 +107,7 @@ export function BottomTabBar({
     <nav
       aria-label="Primary"
       className={cn(
-        "relative z-30 flex items-end overflow-x-auto border-t border-border bg-surface px-2 pt-8 lx-safe-bottom-min",
+        "relative z-30 flex items-end overflow-x-auto border-t border-border bg-surface px-2 pt-8 lx-safe-tab-bottom",
         className,
       )}
     >
@@ -359,7 +359,7 @@ export function AppShell({
                 <Bell />
               </IconButton>
               {!!notificationCount && (
-                <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-micro font-bold text-destructive-foreground">
+                <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-caption font-bold text-destructive-foreground">
                   {notificationCount}
                 </span>
               )}
@@ -402,17 +402,17 @@ export function AppShell({
         }
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-4 py-3 border-b border-border bg-surface px-6">
+        <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-4 border-b border-border bg-surface px-6">
           <h1 className="text-lg font-bold text-foreground">{title}</h1>
           <div className="flex-1" />
           <button
             type="button"
             onClick={onSearch}
-            className="flex min-h-11 w-64 max-w-full items-center gap-2.5 rounded-full border border-accent bg-surface px-4 py-2 text-sm text-faint-foreground transition-colors hover:bg-surface-sunken/50"
+            className="flex min-h-10 w-64 max-w-full items-center gap-2.5 rounded-full border border-accent bg-surface px-4 text-sm text-faint-foreground transition-colors hover:bg-surface-sunken/50"
           >
             <Search className="size-4 shrink-0" aria-hidden />
             <span className="flex-1 text-left">Search</span>
-            <kbd className="rounded border border-border-strong bg-surface-sunken px-1.5 py-0.5 text-micro font-semibold text-muted-foreground">
+            <kbd className="rounded border border-border-strong bg-surface-sunken px-1.5 py-0.5 text-caption font-semibold text-muted-foreground">
               ⌘K
             </kbd>
           </button>
@@ -427,7 +427,7 @@ export function AppShell({
                 <Bell />
               </IconButton>
               {!!notificationCount && (
-                <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-micro font-bold text-destructive-foreground">
+                <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-caption font-bold text-destructive-foreground">
                   {notificationCount}
                 </span>
               )}

@@ -104,6 +104,66 @@
               "text": "API keys and current quota windows"
             }
           ]
+        },
+        {
+          "name": "navigation-keys",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".dashboard-shell nav[aria-label=\"Primary\"] button:has-text(\"Keys\")"
+            },
+            {
+              "action": "wait",
+              "text": "API keys and current quota windows"
+            }
+          ]
+        },
+        {
+          "name": "navigation-logs",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".dashboard-shell nav[aria-label=\"Primary\"] button:has-text(\"Logs\")"
+            },
+            {
+              "action": "wait",
+              "text": "Principal-isolated request log"
+            }
+          ]
+        },
+        {
+          "name": "navigation-webhooks",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".dashboard-shell nav[aria-label=\"Primary\"] button:has-text(\"Webhooks\")"
+            },
+            {
+              "action": "wait",
+              "text": "Delivery log"
+            }
+          ]
+        },
+        {
+          "name": "navigation-overview",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".dashboard-shell nav[aria-label=\"Primary\"] button:has-text(\"Keys\")"
+            },
+            {
+              "action": "wait",
+              "text": "API keys and current quota windows"
+            },
+            {
+              "action": "click",
+              "selector": ".dashboard-shell nav[aria-label=\"Primary\"] button:has-text(\"Overview\")"
+            },
+            {
+              "action": "wait",
+              "text": "Recent protocol activity"
+            }
+          ]
         }
       ],
       "parts": [
@@ -2174,38 +2234,9 @@
       }
     }
   ],
-  "typeScale": [
-    {
-      "min": 9,
-      "max": 10
-    },
-    {
-      "min": 11,
-      "max": 12
-    },
-    {
-      "min": 13,
-      "max": 14
-    },
-    {
-      "min": 15,
-      "max": 16
-    },
-    {
-      "min": 16,
-      "max": 18
-    },
-    {
-      "min": 17,
-      "max": 20
-    },
-    {
-      "min": 20,
-      "max": 24
-    },
-    {
-      "min": 28,
-      "max": 40
-    }
-  ]
+  "typeScale": [9, 10, 11, 13, 15, 16, 17, 20, 28],
+  "geometry": {
+    "file": "dashboard/geometry.json",
+    "widths": [390, 1280, 1440, 1920, 2560]
+  }
 }

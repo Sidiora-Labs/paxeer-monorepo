@@ -236,6 +236,10 @@ export type OrderbookOptions = {
 export const PAXEER_NETWORK_ORDERBOOK_DEPTH_KEY =
   "paxeerNetwork_orderbook_depth_key";
 
+const EMPTY_TICK_SIZES: Record<PropertyKey, string> = {};
+const EMPTY_SYMBOL_DEPTHS: Record<PropertyKey, number[]> = {};
+const EMPTY_DEPTH_PREFERENCES: Record<string, number> = {};
+
 const INIT_DATA: OrderbookData = {
   asks: [],
   bids: [],
@@ -261,8 +265,8 @@ export const useOrderbookStream = (
   symbolRef.current = symbol;
 
   const {
-    defaultOrderbookTickSizes: DEFAULT_TICK_SIZES = {},
-    defaultOrderbookSymbolDepths: DEFAULT_SYMBOL_DEPTHS = {},
+    defaultOrderbookTickSizes: DEFAULT_TICK_SIZES = EMPTY_TICK_SIZES,
+    defaultOrderbookSymbolDepths: DEFAULT_SYMBOL_DEPTHS = EMPTY_SYMBOL_DEPTHS,
   } = useContext(PaxeerNetworkContext);
 
   const [data, setData] = useState<OrderbookData>(initial);
@@ -273,7 +277,7 @@ export const useOrderbookStream = (
 
   const [depthObject, setDepthObject] = useLocalStorage(
     PAXEER_NETWORK_ORDERBOOK_DEPTH_KEY,
-    {},
+    EMPTY_DEPTH_PREFERENCES,
   );
 
   // markPrice, lastPrice
@@ -300,26 +304,11 @@ export const useOrderbookStream = (
       //
     }
     return [tick];
-  }, [symbol, tick]);
+  }, [symbol, tick, DEFAULT_SYMBOL_DEPTHS]);
 
-  useEffect(() => {
-    if (depthObject[symbol]) {
-      return;
-    }
-    if (DEFAULT_TICK_SIZES[symbol]) {
-      // @ts-ignore
-      setDepthObject((prev) => ({
-        ...prev,
-        [symbol]: Number(DEFAULT_TICK_SIZES[symbol]),
-      }));
-    } else {
-      // @ts-ignore
-      setDepthObject((prev) => ({
-        ...prev,
-        [symbol]: tick,
-      }));
-    }
-  }, [depthObject, tick, symbol, DEFAULT_TICK_SIZES]);
+  const depth =
+    depthObject[symbol] ||
+    (DEFAULT_TICK_SIZES[symbol] ? Number(DEFAULT_TICK_SIZES[symbol]) : tick);
 
   const onDepthChange = useCallback(
     (val: number) => {
@@ -426,10 +415,10 @@ export const useOrderbookStream = (
     eventEmitter.emit("orderbook:item:click", item);
   }, []);
 
-  const reducedData = reduceOrderbook(depthObject[symbol], level, padding, {
-    asks: data.asks,
-    bids: data.bids,
-  });
+  const reducedData = useMemo(
+    () => reduceOrderbook(depth, level, padding, data),
+    [depth, level, padding, data],
+  );
 
   useEffect(() => {
     eventEmitter.emit("orderbook:update", reducedData);
@@ -467,7 +456,7 @@ export const useOrderbookStream = (
     },
     {
       onDepthChange: onDepthChange,
-      depth: depthObject[symbol] as number,
+      depth: depth as number,
       allDepths: depths,
       isLoading,
       onItemClick,

@@ -1,45 +1,33 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useSubAccountQuery } from "@paxeer-network/hooks";
 import { API } from "@paxeer-network/types";
 import { Decimal } from "@paxeer-network/utils";
 
-export const useAccountValue = (mainAccountId?: string) => {
-  const [accountValue, setAccountValue] = useState<Record<string, number>>({});
-  const {
-    data: newPositions = [],
-    isLoading: isPositionLoading,
-    mutate: mutatePositions,
-  } = useSubAccountQuery<API.PositionExt[]>("/v1/client/aggregate/positions", {
-    // formatter: (data) => data,
-    errorRetryCount: 3,
-    accountId: mainAccountId,
-  });
+const EMPTY_ACCOUNT_VALUE: Record<string, number> = {};
 
-  useEffect(() => {
-    if (isPositionLoading) {
-      return;
-    }
-    if (!newPositions || newPositions.length === 0) {
-      setAccountValue({});
-      return;
-    }
-    const value = newPositions.reduce(
-      (acc, position) => {
-        const accountId = position.account_id!;
-        if (acc[accountId]) {
-          acc[accountId] = new Decimal(acc[accountId])
-            .plus(position.unsettled_pnl)
-            .toNumber();
-        } else {
-          acc[accountId] = new Decimal(position.unsettled_pnl).toNumber();
-        }
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-    setAccountValue(value);
-  }, [newPositions, isPositionLoading]);
-  return {
-    accountValue,
-  };
+export const useAccountValue = (mainAccountId?: string) => {
+  const { data: positions } = useSubAccountQuery<API.PositionExt[]>(
+    "/v1/client/aggregate/positions",
+    {
+      accountId: mainAccountId,
+      errorRetryCount: 0,
+      revalidateIfStale: false,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+    },
+  );
+
+  const accountValue = useMemo(() => {
+    if (!positions?.length) return EMPTY_ACCOUNT_VALUE;
+
+    return positions.reduce<Record<string, number>>((values, position) => {
+      const accountId = position.account_id!;
+      values[accountId] = new Decimal(values[accountId] ?? 0)
+        .plus(position.unsettled_pnl)
+        .toNumber();
+      return values;
+    }, {});
+  }, [positions]);
+
+  return { accountValue };
 };
