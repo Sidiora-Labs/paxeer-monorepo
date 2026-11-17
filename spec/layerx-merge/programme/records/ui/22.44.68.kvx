@@ -1,0 +1,85 @@
+[manifest]
+task = "22.44.68"
+surface = "Sidiora Launchpad live streams, public profit cards and profiles"
+views = 20
+states = 21
+named_states = 1
+
+[render]
+count = 714
+result = "pass"
+findings = 0
+did_not_render = 0
+showed_nothing = 0
+cancelled = 0
+retried = 0
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+wallets_open_modes = ["default", "reduced-motion", "double-text", "keyboard"]
+alternate_mode_widths = [390, 1440]
+
+[presentation]
+corrections = [
+  "Position values align at the right across narrow and wide columns.",
+  "Profile columns stay within their available inline space.",
+  "Public card dates use tabular figures.",
+  "Loading and ready content share stable frames across live directories and profile panels.",
+  "Profile notices occupy the portfolio chart frame.",
+  "Section spinners stay beside their headings at narrow widths.",
+  "Notice paragraphs balance their final lines beside retry controls.",
+  "Live notice controls show a contrasting keyboard focus mark in both schemes.",
+  "Live error controls retain keyboard focus during background refresh.",
+  "Missing public cards return a 404 response with the standard not-found view."
+]
+
+[review]
+screenshots = 210
+widths = [360, 768, 1440, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+
+[findings.load]
+first = 38
+last = 0
+
+[findings.shift]
+first = 41
+last = 0
+
+[findings.focus]
+first = 44
+last = 0
+
+[findings.cut]
+first = 18
+last = 0
+
+[findings.sideways]
+first = 4
+last = 0
+
+[findings.contrast]
+first = 0
+last = 0
+
+[findings.touch]
+first = 0
+last = 0
+
+[findings.motion]
+first = 0
+last = 0
+
+[findings.scale]
+first = 0
+last = 0
+
+[findings.geometry]
+first = 0
+last = 0
+
+[guides]
+ids = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "css-layout", "improve-text-layout-and-legibility"]

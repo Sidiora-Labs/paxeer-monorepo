@@ -679,6 +679,8 @@
           "name": "wallets-open",
           "modes": [
             "default",
+            "reduced-motion",
+            "double-text",
             "keyboard"
           ],
           "steps": [

@@ -48,6 +48,7 @@ function answerFor(url, state) {
   if (path === '/v3/portfolio/shares/7f3b2a10-5c4d-4e8f-9a1b-2c3d4e5f6a7b') return { name: 'public-share' };
   if (path === '/v3/portfolio/shares/11111111-1111-4111-8111-111111111111') return { name: 'unavailable', status: 410 };
   if (path === '/v3/portfolio/shares/22222222-2222-4222-8222-222222222222') return { name: 'not-found', status: 404 };
+  if (path === '/v3/portfolio/shares/33333333-3333-4333-8333-333333333333') return { name: 'unavailable', status: 503 };
   if (path.startsWith('/v2/control/'))
     return { name: 'unavailable', status: 503 };
   if (/^\/users\/0x[0-9a-f]{40}\/comments$/.test(path)) return { name: 'comments-empty' };
@@ -179,9 +180,10 @@ const server = createServer({ cert: await readFile(certificate), key: await read
     const pagePath = new URL(incoming.headers.referer ?? '/', origin).pathname;
     const homeLoading = state === 'loading' && pagePath === '/';
     const rewardsLoading = state === 'loading' && ['/holder-rewards', '/leaderboard'].includes(pagePath);
+    const liveLoading = state === 'loading' && (['/live', '/live/all'].includes(pagePath) || /^\/profile\/0x[0-9a-f]{40}$/i.test(pagePath));
     if (homeLoading && url.pathname === '/v2/discovery/feed') {
       await new Promise(resolve => setTimeout(resolve, 7500));
-    } else if (rewardsLoading && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
+    } else if ((rewardsLoading || liveLoading) && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
       await new Promise(resolve => setTimeout(resolve, 350));
     } else if (state === 'loading' && !homeLoading && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
       await new Promise(resolve => outgoing.once('close', resolve));
@@ -313,6 +315,10 @@ await warmPage('/terminal/rewards');
 await warmPage('/terminal/track');
 await warmPage('/terminal/trenches');
 await warmPage('/terminal/trending');
+const warmDirectory = new URL('./warm/', import.meta.url);
+for (const file of (await readdir(warmDirectory)).sort()) {
+  for (const path of JSON.parse(await readFile(new URL(file, warmDirectory), 'utf8'))) await warmPage(path);
+}
 server.listen(4173, '203.0.113.1');
 function close() {
   for (const socket of sockets.clients) socket.terminate();

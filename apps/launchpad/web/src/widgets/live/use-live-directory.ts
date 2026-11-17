@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Operations, V2ContractTypes } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
@@ -254,14 +254,22 @@ export function useLiveDirectory(options: UseLiveDirectoryOptions = {}): LiveDir
   const byViewers = useMemo(() => rankByViewers(entries), [entries]);
   const byMcap = useMemo(() => rankByMarketCap(entries), [entries]);
   const featured = useMemo(() => byViewers.slice(0, featuredCount), [byViewers]);
+  const state = loadable(query, 'IF_STREAM_LIST');
+  const previousFailure = useRef<Extract<Loadable<LiveDirectoryData>, { state: 'error' | 'unsupported' }> | null>(null);
+  useEffect(() => {
+    if (state.state === 'error' || state.state === 'unsupported') previousFailure.current = state;
+    else if (state.state === 'ready') previousFailure.current = null;
+  }, [state]);
+  // Keep the reported failure and its focused controls in place while refreshing.
+  const presentedState = state.state === 'loading' && previousFailure.current ? previousFailure.current : state;
   return {
-    state: loadable(query, 'IF_STREAM_LIST'),
+    state: presentedState,
     entries,
     byViewers,
     byMcap,
     featured,
     creatorLabel: wallet => shortId(wallet, identities[wallet.toLowerCase()]?.displayName),
-    isRefreshing: query.isFetching && query.status === 'success',
+    isRefreshing: query.isFetching && presentedState.state !== 'loading',
     updatedAt: query.dataUpdatedAt || null,
     refresh: () => { void query.refetch(); },
   };

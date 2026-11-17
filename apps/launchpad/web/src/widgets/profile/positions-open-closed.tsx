@@ -79,9 +79,9 @@ function PositionRow({ position, identity, poolAddress, mode, owner }: { positio
         <>
           <div className="min-w-0 text-right">
             <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Quantity</span>
-            <MaskedAmount className="block truncate text-xs text-text-faint tabular-nums">{decimals !== null ? formatTokenAmount(position.balanceRaw, decimals) : `${position.balanceRaw} raw`}</MaskedAmount>
+            <MaskedAmount className="block truncate text-xs text-text-faint tabular-nums [contain:inline-size]">{decimals !== null ? formatTokenAmount(position.balanceRaw, decimals) : `${position.balanceRaw} raw`}</MaskedAmount>
           </div>
-          <div className="min-w-0 sm:text-right">
+          <div className="min-w-0 text-right">
             <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Value</span>
             <Amount raw={valueRaw} className={cn(dust && 'text-text-faint')} />
             {valueRaw === null ? <span className="block text-2xs text-text-faint">no price yet</span> : null}
@@ -98,7 +98,7 @@ function PositionRow({ position, identity, poolAddress, mode, owner }: { positio
             <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Realized</span>
             <Amount raw={realized} signed />
           </div>
-          <div className="min-w-0 sm:text-right">
+          <div className="min-w-0 text-right">
             <span className="block text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint sm:hidden">Known realized</span>
             <Amount raw={knownRealized} signed />
           </div>
