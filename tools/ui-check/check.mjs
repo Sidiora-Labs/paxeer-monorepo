@@ -9,7 +9,7 @@ import { chromium } from "playwright";
 import { PNG } from "pngjs";
 import { addressPattern, DEVICES, FINDING_KINDS, GEOMETRY_WIDTHS, LIMITS, MODES, outputDirectory, renderMatrix, surfaceOutput, within } from "./config.mjs";
 import { startSurface } from "./server.mjs";
-import { doubleText, focusedElement, focusSnapshot, measureContrast, measurePage, observePage } from "./browser.mjs";
+import { beginIntentionalShifts, doubleText, endIntentionalShifts, focusedElement, focusSnapshot, measureContrast, measurePage, observePage } from "./browser.mjs";
 import { geometryFindings, measureParts, readGeometry, writeGeometry } from "./geometry.mjs";
 
 const require = createRequire(import.meta.url);
@@ -248,7 +248,7 @@ function screenshotHasContent(screenshot) {
   return false;
 }
 
-async function applySteps(page, steps) {
+export async function applySteps(page, steps) {
   for (const step of steps) {
     if (step.action === "click") await page.locator(step.selector).click();
     if (step.action === "fill") await page.locator(step.selector).fill(step.value);
@@ -257,11 +257,13 @@ async function applySteps(page, steps) {
   }
 }
 
-async function discardIntentionalShifts(page, start) {
-  await page.evaluate(async (shiftStart) => {
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    window.__uiCheck.shifts.splice(shiftStart);
-  }, start);
+export const SHIFT_QUIET_FRAMES = 3;
+export const SHIFT_SETTLE_MS = 500;
+
+export async function withIntentionalShifts(page, action) {
+  await page.evaluate(beginIntentionalShifts);
+  await action();
+  return page.evaluate(endIntentionalShifts, { quietFrames: SHIFT_QUIET_FRAMES, timeoutMs: SHIFT_SETTLE_MS });
 }
 
 export const FRAME_TAB_PRESSES = 32;
@@ -517,14 +519,10 @@ async function renderView(worker, surface, view, state, configuration, out, inde
       if (!response || (!response.ok() && !expectedResponses.has(response))) throw new Error(`View did not answer successfully: ${response?.status() ?? "no response"}`);
       if (new URL(page.url()).origin !== surface.address) throw new Error("View navigated outside the surface");
       if (state.steps.length) {
-        const shiftStart = await page.evaluate(() => window.__uiCheck.shifts.length);
-        await applySteps(page, state.steps);
-        await discardIntentionalShifts(page, shiftStart);
+        await withIntentionalShifts(page, () => applySteps(page, state.steps));
       }
       if (mode === "double-text") {
-        const shiftStart = await page.evaluate(() => window.__uiCheck.shifts.length);
-        await page.evaluate(doubleText);
-        await discardIntentionalShifts(page, shiftStart);
+        await withIntentionalShifts(page, () => page.evaluate(doubleText));
       }
       startStep("settle");
       await settlePage(page);

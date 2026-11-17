@@ -3,23 +3,25 @@ import { useMemo } from "react";
 import { usePriceFreshness, PRICE_FRESHNESS_MS } from "./usePriceFreshness";
 import { MARKET_DATA_URL } from "@paxeer-network/paxeer-backend/core/feeds";
 import { fetchJsonWithPolicy } from "@paxeer-network/paxeer-backend/core/net/fetch";
+import { useMarketsSnapshot, type MarketSnapshot } from "./useMarketsStream";
 import {
-  marketFundingHourly,
-  useMarketsSnapshot,
-  type MarketSnapshot,
-} from "./useMarketsStream";
+  normalizeFeedMarkets,
+  type FeedMarket,
+  type FeedTicker,
+} from "../../nativeFeedMarkets";
+
 export interface TickerEntry {
   symbol: string; // "PERP_BTC_USDC"
   paxeerSymbol: string; // "BTC"
   mark_price: number;
-  index_price: number;
+  index_price: number | null;
   open_interest: number;
   /** Last settled hourly funding rate at 18 decimals; null before the first settlement. */
   last_funding_rate_hourly: bigint | null;
-  "24h_open": number;
+  "24h_open": number | null;
   "24h_close": number;
-  "24h_high": number;
-  "24h_low": number;
+  "24h_high": number | null;
+  "24h_low": number | null;
   "24h_amount": number;
   "24h_volume": number;
 }
@@ -32,18 +34,20 @@ export interface RealtimePricesResult {
   tickers: TickerMap;
 }
 
-export function tickerFromSnapshot(row: MarketSnapshot): TickerEntry {
+export function tickerFromSnapshot(
+  row: MarketSnapshot | FeedMarket,
+): TickerEntry {
   if (row.price === null) throw new Error("Market price unavailable");
   return {
     symbol: `PERP_${row.symbol}_USDC`,
     paxeerSymbol: row.symbol,
     mark_price: row.price,
-    index_price: row.price,
+    index_price: row.index_price,
     open_interest: row.reported_open_interest,
     last_funding_rate_hourly: row.last_funding_rate_hourly,
-    "24h_open": row.price_24h,
+    "24h_open": row.price_24h > 0 ? row.price_24h : null,
     "24h_close": row.price,
-    "24h_high": Math.max(row.high_24h, row.price),
+    "24h_high": row.high_24h,
     "24h_low": row.low_24h,
     "24h_amount": row.amount_24h,
     "24h_volume": row.reported_volume_24h,
@@ -51,25 +55,21 @@ export function tickerFromSnapshot(row: MarketSnapshot): TickerEntry {
 }
 
 /** One `/tickers` row as sent: `last_funding_rate_hourly` is the exact decimal string. */
-export type TickerWire = Omit<TickerEntry, "last_funding_rate_hourly"> & {
-  last_funding_rate_hourly: string | null;
-};
+export type TickerWire = FeedTicker;
 
 export function tickerFromWire(row: TickerWire): TickerEntry {
-  return {
-    ...row,
-    last_funding_rate_hourly: marketFundingHourly(
-      row.paxeerSymbol,
-      "last_funding_rate_hourly",
-      row.last_funding_rate_hourly,
-    ),
-  };
+  const market = normalizeFeedMarkets([row])[0];
+  if (!market) throw new Error("Market price unavailable");
+  return tickerFromSnapshot(market);
 }
 
-/** The /tickers map; each row parses on its own, so one malformed row never rejects the map. */
+/** Fresh ticker entries keyed by their native market symbol. */
 export function tickersFromWire(rows: TickerWire[]): TickerMap {
   return Object.fromEntries(
-    rows.map((row) => [row.paxeerSymbol, tickerFromWire(row)]),
+    normalizeFeedMarkets(rows).map((row) => [
+      row.symbol,
+      tickerFromSnapshot(row),
+    ]),
   );
 }
 
@@ -85,6 +85,7 @@ export function useRealtimePrices({
       if (
         row.price === null ||
         row.price <= 0 ||
+        row.price_updated_at === null ||
         !Number.isFinite(row.price_updated_at) ||
         now - row.price_updated_at >= PRICE_FRESHNESS_MS
       )
