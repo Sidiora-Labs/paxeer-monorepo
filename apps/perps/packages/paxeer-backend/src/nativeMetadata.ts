@@ -28,7 +28,7 @@ export function nativeSymbols() {
     min_notional: 0.000001,
     base_imr: 1 / (market.maxLeverage ?? 20),
     base_mmr: undefined,
-    imr_factor: undefined,
+    imr_factor: 0,
     interest_rate: undefined,
     cap_funding: undefined,
     floor_funding: undefined,
