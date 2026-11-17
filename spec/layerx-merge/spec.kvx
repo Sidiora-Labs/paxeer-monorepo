@@ -15466,6 +15466,12 @@ value = "The three functions of apps/wallet/src/theme/resolve.ts whose source ap
 basis = "Gotcha 4645. Decision 3724."
 affects = []
 
+[decision.3726]
+title = "Each case of the node the driver of the qualification names is a test function of the package it is run in, and a case of the driver holds that"
+value = "A name of a case that tools/qualification/beta_driver.py gives to a step is the name of a test function in a test file of the package of that step. A case of tools/qualification/test_beta_driver.py that needs no native library reads every such name with its package from the driver and holds that the function stands in a test file of that package directory, so that a renamed case shows in the verification of the task that renames it and in the public check of the Python suites. Task 22.39.778 brings the two names of gotcha 4646 to the present ones and adds that case."
+basis = "Gotcha 4646. Decisions 3046 and 3715."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45126,6 +45132,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.778]
+title = "Name the present cases of the sequenced execution in the driver of the qualification"
+reqs = ["22998.1"]
+touches = ["tools/qualification/beta_driver.py", "tools/qualification/test_beta_driver.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/test_beta_driver.py -k test_native_cases_of_the_driver_exist_in_their_packages && python3 -m pytest -q --collect-only -m native tools/qualification && ! grep -q -e TestRepair_102 tools/qualification/beta_driver.py"
+do_1 = "do_1 Gotcha 4646 and decision 3726. Read in tools/qualification/beta_driver.py the function that runs cases of the node by name, every call of it and every other place that gives names of cases of the node with a package, and read node/sequenced_execution_recovery_test.go. List in the final message every name of a case the driver gives, the package it is run in and the test file that holds the function."
+symbols = []
 
 [capability.22.44.95]
 title = "Keep the function that resolves a theme of the wallet application to its arguments"
@@ -388644,6 +388659,37 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.778]
+title = "Name the present cases of the sequenced execution in the driver of the qualification"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.778"]
+interfaces = []
+do_1 = "do_1 Gotcha 4646 and decision 3726. Read in tools/qualification/beta_driver.py the function that runs cases of the node by name, every call of it and every other place that gives names of cases of the node with a package, and read node/sequenced_execution_recovery_test.go. List in the final message every name of a case the driver gives, the package it is run in and the test file that holds the function."
+do_2 = "do_2 The step of the commit boundary and the step of the rejections at the ledger boundary name TestSequencedExecutionStrictResultCommitment and TestSequencedExecutionTenantReplay. No other name, no label of a step and no behaviour of the driver changes."
+do_3 = "do_3 tools/qualification/test_beta_driver.py gains the case test_native_cases_of_the_driver_exist_in_their_packages without the native mark: it reads every name of a case of the node that the driver gives, with the package of its step, from the driver itself, and holds for each that a test file of that package directory under the repository root declares the function. It reads files alone and runs no compiler. It names at least the steps of the commit boundary and of the rejections at the ledger boundary among those it has read, so that an empty reading does not pass."
+do_4 = "do_4 Where a Go toolchain, a Rust toolchain and the native libraries are present, run by hand python3 -m pytest -q -m native tools/qualification/test_beta_driver.py and give in the final message the exit code and the last line of the summary; where they are not present say so and run the cases of tools/qualification/test_beta_driver.py without the native mark. The files tools/qualification/beta_driver.py and tools/qualification/test_beta_driver.py are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/beta_driver.py", "tools/qualification/test_beta_driver.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tools/qualification/test_beta_driver.py -k test_native_cases_of_the_driver_exist_in_their_packages && python3 -m pytest -q --collect-only -m native tools/qualification && ! grep -q -e TestRepair_102 tools/qualification/beta_driver.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.774]
 title = "Let two qualification test modules load the present module of the owner helpers"
