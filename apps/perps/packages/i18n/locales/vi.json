@@ -618,6 +618,7 @@
   "orderEntry.bbo.disabled.tips": "BBO không được hỗ trợ khi TP/SL, Chỉ đăng, IOC hoặc FOK được chọn.",
   "orderEntry.estLiqPrice": "Giá thanh lý ước tính",
   "orderEntry.disableOrderConfirm": "Tắt xác nhận lệnh",
+  "orderEntry.nativeFunding.twoTransactions": "Sẽ có hai giao dịch: nạp phần tài sản thế chấp còn thiếu, sau đó đặt lệnh. Cũng có thể cần phê duyệt token.",
   "orderEntry.orderConfirm": "Xác nhận lệnh",
   "orderEntry.confirmScaledOrder": "Xác nhận lệnh theo tỷ lệ",
   "orderEntry.hidden": "Ẩn",
