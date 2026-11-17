@@ -15526,6 +15526,12 @@ value = "The command applycheck takes an option stand-in-credit that may be give
 basis = "Gotcha 4655. Decisions 3650 and 3734."
 affects = []
 
+[decision.3736]
+title = "The capture of a full page has a time limit of its own that grows with the height of the page, and the quantity input of the deposit form keeps every key"
+value = "The render check gives the capture of the full page a limit of its own. It is at least the limit of a navigation and grows with the height of the document measured before the capture, by a rule the check names, up to an upper bound it names. A capture that runs out of this limit is a finding as today, with the height and the limit among its values, and a render whose measurements are complete keeps them in the result. No other limit, no score and no other kind of finding changes. These bounds are least values for the capture: a later task may raise them, none lowers the time a capture has today. Task 22.44.101 brings the check to this form. The quantity input of the deposit form holds what the user has typed: every change is formed from the present text of the input, whatever the interval between two keys, and a value the state gives back later does not replace a newer text. Task 22.39.790 brings the input to this form."
+basis = "Gotcha 4656. Decisions 3733 and 3734."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45186,6 +45192,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.790]
+title = "Keep every key in the quantity input of the deposit form, whatever the interval between two keys"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-quantity-keys.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-values.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-flow.test.ts"
+do_1 = "do_1 Gotcha 4656 and decision 3736. Read the deposit form under apps/perps/packages/ui-transfer with its script and its quantity input, the input component it uses and the way a change reaches the state of the form and comes back as the value of the input. Give in the final message the route of a change from the key to the value the input shows, and at which step a second change can be formed from the value before the first."
+symbols = []
+
+[capability.22.44.101]
+title = "Give the capture of a full page in the render check a time limit of its own that grows with the height of the page"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4656 and decision 3736. Read in tools/ui-check/check.mjs the capture of the viewport and of the full page, the limits, the place where a failed capture becomes a finding and what the render keeps then, the rows of the limits and of the kind of load in tools/ui-check/README.md and the cases of tools/ui-check/test/check.test.mjs. Give in the final message the limit a capture has today and what a render loses when the capture fails."
+symbols = []
 
 [capability.22.39.789]
 title = "Let the apply check credit an account with a token inside the copied home before it applies the transactions"
@@ -175692,6 +175716,68 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.790]
+title = "Keep every key in the quantity input of the deposit form, whatever the interval between two keys"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.790"]
+interfaces = []
+do_1 = "do_1 Gotcha 4656 and decision 3736. Read the deposit form under apps/perps/packages/ui-transfer with its script and its quantity input, the input component it uses and the way a change reaches the state of the form and comes back as the value of the input. Give in the final message the route of a change from the key to the value the input shows, and at which step a second change can be formed from the value before the first."
+do_2 = "do_2 Bring the input to a form that keeps every key. A change is formed from the present text of the input, and the text the user sees is the text typed; a value that the state of the form gives back later than a newer change does not replace the newer text. The formatting, the bound of the decimals, the button of the largest amount and the validation keep their meaning, and the form of task 22.39.788 that keeps the quantity across the end of a read stays."
+do_3 = "do_3 Add the case file apps/perps/tests/deposit-quantity-keys.test.ts, run with node --test like its neighbours, with the renderer for tests that the workspace installs. It sends two changes to the input before the state of the form has answered the first and expects the text of both; it sends a third after the answer and expects all three; it sets the largest amount and then one key and expects the amount followed by the key or the rule of the form for that case, which you name; and it lets a late answer of the state arrive after a newer change and expects the newer text. The case controls the moment of each answer itself, so it does not depend on the speed of the machine. A case under apps/perps/tests reads the sources of the workspace by relative path, as its neighbours do; a package name does not resolve there. The cases apps/perps/tests/deposit-values.test.ts and deposit-flow.test.ts keep passing without a change of their meaning."
+do_4 = "do_4 Run the typecheck of the workspace and the check of the source of the views. The check of the source of the views holds the presentation files of the workspace against a baseline: change none of the files it holds, and where the behaviour of an input must change, change it in the script or state module that feeds the view. No size, colour, distance or position of a view changes, and no file under apps/perps/apps changes. The application cannot be started from the build of this task, so no step of this task uses a browser. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/perps/packages and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages"]
+tests = []
+planned_paths = ["apps/perps/tests/deposit-quantity-keys.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-quantity-keys.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-values.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-flow.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.101]
+title = "Give the capture of a full page in the render check a time limit of its own that grows with the height of the page"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.100"]
+reqs = ["22998.1"]
+capabilities = ["22.44.101"]
+interfaces = []
+do_1 = "do_1 Gotcha 4656 and decision 3736. Read in tools/ui-check/check.mjs the capture of the viewport and of the full page, the limits, the place where a failed capture becomes a finding and what the render keeps then, the rows of the limits and of the kind of load in tools/ui-check/README.md and the cases of tools/ui-check/test/check.test.mjs. Give in the final message the limit a capture has today and what a render loses when the capture fails."
+do_2 = "do_2 Before the capture of the full page the check reads the height of the document. The capture gets a limit of its own: at least the limit of a navigation, growing with the height by a rule that you name, up to an upper bound that you name. The capture of the viewport keeps its limit. A capture that runs out of its limit is a finding of the kind of load with the source of the capture, and its values carry the height and the limit; the measurements the render has made by then stay in the result. No other limit and no score changes."
+do_3 = "do_3 Add cases to tools/ui-check/test with fixtures of their own. A page many screens high whose capture needs more than the limit of a navigation of the case and less than the limit for its height gives a render without a finding and with its image. A page of one screen has the limit of a navigation. A capture that needs more than the upper bound gives the finding with height and limit among its values and keeps the measurements. The cases set the limits and the delay of the capture by values of the fixture and of the case, so they do not depend on the speed of the machine."
+do_4 = "do_4 The rows of tools/ui-check/README.md say which limit the capture of a full page has and what a failed capture leaves in the result. Change no file under tools/ui-check/surfaces. Take the main line into your branch before you start; it holds the forms of tasks 22.44.99 and 22.44.100, which stay. The files tools/ui-check/check.mjs, tools/ui-check/README.md and the directory tools/ui-check/test are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
