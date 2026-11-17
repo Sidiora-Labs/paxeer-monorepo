@@ -176055,7 +176055,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.63]
 title = "Hold the signed-in form of each view of the wallet application in its surface file and close the render check on it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.61", "22.44.62"]
