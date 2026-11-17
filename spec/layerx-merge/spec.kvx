@@ -177441,7 +177441,7 @@ do_7 = "do_7 Decision 3727, gotcha 4647. The verification command installs the p
 
 [task.22.44.65]
 title = "Close the coin, token and creation views of the launchpad on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.40"]
@@ -252110,7 +252110,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.797]
 title = "Make the cases of the leader source, of the committed batches and of the storage gas of the node package independent of timing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
