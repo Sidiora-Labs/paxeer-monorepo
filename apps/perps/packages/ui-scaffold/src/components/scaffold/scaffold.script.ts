@@ -4,6 +4,8 @@ import { useAppContext } from "@paxeer-network/react-app";
 import { useObserverElement, useScreen } from "@paxeer-network/ui";
 import { type ScaffoldProps } from "./scaffold.widget";
 
+const EMPTY_DEPENDENCIES: React.DependencyList = [];
+
 export type ScaffoldScriptReturn = ReturnType<typeof useScaffoldScript>;
 
 type ScaffoldScriptOptions = ScaffoldProps;
@@ -54,7 +56,7 @@ export const useScaffoldScript = (options: ScaffoldScriptOptions) => {
 
 const useRefAndHeight = (
   defaultHeight: number,
-  deps: React.DependencyList = [],
+  deps: React.DependencyList = EMPTY_DEPENDENCIES,
 ) => {
   const ref = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(defaultHeight);

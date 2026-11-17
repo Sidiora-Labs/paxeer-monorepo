@@ -175703,7 +175703,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.784]
 title = "Repeat an attempt of the price feed route of the trading workspace that ended without an answer of the feed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
