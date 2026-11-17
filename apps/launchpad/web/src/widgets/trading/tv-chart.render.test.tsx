@@ -7,6 +7,7 @@
  *  - a chart initialisation failure carrying transport text ("Failed to fetch") renders through
  *    humanErrorText, so the raw text never reaches the screen.
  */
+import { applyBrowserSurface } from '@/core/app-foundation/browser-surface.test-support';
 import { createServer, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
@@ -29,6 +30,7 @@ browserGlobals.CustomEvent = dom.window.CustomEvent;
 browserGlobals.window = dom.window;
 browserGlobals.document = dom.window.document;
 browserGlobals.IS_REACT_ACT_ENVIRONMENT = true;
+const closeBrowserSurface = applyBrowserSurface();
 
 const pool = '0xce20da50f92d21d8bee497910c782e9aa25b6263';
 const outage = { code: 'DEPENDENCY_UNAVAILABLE', message: 'no backing service', requestId: '0f0e2a8e-5b3c-4d8a-9a1e-2c6d7b8f9a01', retryable: false, retryAfterMs: null, fieldErrors: [], details: null };
@@ -168,3 +170,5 @@ describe('TvChart degraded canvas', () => {
     expect(view.querySelector('#canonical-chart-table')).not.toBeNull();
   }, 30_000);
 });
+
+afterAll(closeBrowserSurface);

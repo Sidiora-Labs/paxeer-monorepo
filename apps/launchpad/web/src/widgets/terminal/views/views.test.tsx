@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import React, { act } from 'react';
@@ -104,6 +105,7 @@ const backend = await serve((method, url, headers, body) => {
   if (method === 'GET' && url.startsWith('/metadata/batch?addresses=')) return { status: 200, body: recordedMetadata };
   if (method === 'GET' && url === followingRoute(viewer)) return { status: 200, body: { ...followingEnvelope, data: { items: followingLegacy.following }, nextCursor: null } };
   if (method === 'GET' && url === followingRoute(followedB)) return { status: 200, body: followingEnvelope };
+  console.warn(`Unanswered request: ${method} ${url} ${body}`);
   return { status: 404 };
 });
 process.env.NEXT_PUBLIC_DATA_API_URL = backend.origin;
@@ -176,6 +178,17 @@ describe('trenches window change', () => {
 });
 
 describe('trenches bucketing', () => {
+  it('matches a recorded bodyless GET only to an empty request body', () => {
+    const read = v2Reads.responses.rankingsNew;
+    const url = new URL(read.path, 'http://replay.invalid');
+    expect(read).not.toHaveProperty('requestBody');
+    expect(sameRead(read, 'GET', url, '')).toBe(true);
+    expect(sameRead(read, 'GET', url, 'null')).toBe(false);
+    expect(sameRead(read, 'POST', url, '')).toBe(false);
+    url.searchParams.set('limit', '1');
+    expect(sameRead(read, 'GET', url, '')).toBe(false);
+  });
+
   it('places every new-ranking row in New pairs and leaves graduation buckets unavailable without a served field', async () => {
     const { buildExploreRow } = await import('@/widgets/explore/use-explore-rows');
     const rows = [poolA, poolB].map((pool, index) => buildExploreRow({ poolAddress: pool, rank: index + 1, stats: statsBatch.data.items[index], metadata: null, now }));
@@ -218,7 +231,7 @@ describe('trenches bucketing', () => {
       const five = Array.from(mounted.container.querySelectorAll('[role="radio"]')).find(radio => radio.textContent === '5M') as HTMLButtonElement;
       act(() => five.click());
       expect(items[0].querySelector('[aria-label^="Change not available yet. Not enough trades yet for a 5m change"]')).not.toBeNull();
-      expect(BORDER.test(mounted.container.innerHTML)).toBe(false);
+      expect(BORDER.test(assertControlEdges(mounted.container.innerHTML))).toBe(false);
       expect(backend.paths).toEqual(expect.arrayContaining(['GET /v2/rankings/new', 'POST /v2/pools/stats:batch', 'GET /v2/pools?sort=new&limit=100']));
       expect(backend.paths.some(path => path.startsWith('GET /stats/'))).toBe(false);
     } finally {
