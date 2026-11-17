@@ -141,7 +141,7 @@ export function TxTimeoutModal({
 
         {txHash && (
           <div className="w-full px-4 py-3 rounded-xl bg-pax-control text-center">
-            <p className="text-xs font-mono text-pax-muted break-all">{txHash}</p>
+            <p className="text-size-11 font-mono text-pax-muted break-all">{txHash}</p>
           </div>
         )}
 
@@ -229,7 +229,7 @@ export function RateLimitModal({
         {countdown > 0 ? (
           <div className="w-20 h-20 rounded-full   flex flex-col items-center justify-center">
             <span className="text-2xl font-mono font-bold text-pax-warning">{countdown}</span>
-            <span className="text-xs text-pax-muted">sec</span>
+            <span className="text-size-10 text-pax-muted">sec</span>
           </div>
         ) : (
           <div className="w-14 h-14 rounded-2xl bg-pax-success-muted flex items-center justify-center">

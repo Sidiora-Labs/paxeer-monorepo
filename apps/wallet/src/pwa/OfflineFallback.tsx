@@ -8,7 +8,7 @@ export function OfflineFallback() {
         alt=""
         width={72}
         height={72}
-        className="w-20 h-20 rounded-2xl"
+        className="w-[var(--size-offline-icon)] h-[var(--size-offline-icon)] rounded-2xl"
       />
       <h1 className="text-xl font-semibold text-pax-off-white">You are offline</h1>
       <p className="max-w-xs text-sm text-pax-subtle">

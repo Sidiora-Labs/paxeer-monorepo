@@ -70,7 +70,7 @@ export function StatusLadder({ steps }: { steps: readonly LadderStep[] }) {
           >
             <span className="block font-semibold">{RUNG_LABELS[rung]}</span>
             {source !== null && (
-              <span className="block text-xs text-pax-muted">{SOURCE_LABELS[source]}</span>
+              <span className="block text-size-10 text-pax-muted">{SOURCE_LABELS[source]}</span>
             )}
           </li>
         );

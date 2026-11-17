@@ -7,7 +7,9 @@ import { KernelNotice } from './KernelNotice';
 function Field({ label, value, name }: { label: string; value: string; name: string }) {
   return (
     <div className="space-y-1">
-      <dt className="text-xs font-semibold uppercase tracking-[0.06em] text-pax-muted">{label}</dt>
+      <dt className="text-size-11 font-semibold uppercase tracking-[0.06em] text-pax-muted">
+        {label}
+      </dt>
       <dd data-field={name} className="break-all font-mono text-xs text-pax-light">
         {value}
       </dd>
@@ -22,7 +24,7 @@ export function AccountView({ account }: { account: string }) {
   return (
     <section
       aria-label="Chain account"
-      className="min-h-[36rem] space-y-3 rounded-xl bg-pax-surface p-4"
+      className="min-h-[36rem] space-y-3 rounded-3xl bg-pax-surface p-4"
     >
       <h2 className="text-sm font-bold">Chain account</h2>
       {document.status === 'loading' && <Skeleton className="h-24 w-full" />}

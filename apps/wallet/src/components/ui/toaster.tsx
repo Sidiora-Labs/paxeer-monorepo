@@ -19,7 +19,7 @@ export function Toaster() {
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-3 top-3 z-[120] flex max-h-[calc(100dvh-var(--space-8)-var(--safe-area-top))] flex-col-reverse gap-2 overflow-y-auto overscroll-contain md:inset-x-auto md:right-4 md:top-4 md:w-80"
+      className="pointer-events-none fixed inset-x-3 top-3 z-[120] flex max-h-[calc(100dvh-var(--space-8)-var(--safe-area-top))] flex-col-reverse gap-2 overflow-y-auto overscroll-contain md:inset-x-auto md:right-4 md:top-4 md:w-toast"
       style={{ paddingTop: 'var(--safe-area-top)' }}
     >
       <AnimatePresence initial={false}>
