@@ -15484,6 +15484,12 @@ value = "The trading workspace reads and writes through its own client, which an
 basis = "Gotcha 4648. Decisions 3046 and 3705."
 affects = []
 
+[decision.3729]
+title = "A surface reaches its own address through a socket under the render check, and the mark of focus of an input that is clipped to nothing is read on its control"
+value = "A socket from a document of a surface to the address of that surface reaches the surface under the check, whether the address is a loopback address or not; a socket to any other address keeps its finding. For a focused element that is clipped to nothing, the baseline, the comparison of the appearance and the measure of outside are taken on its control, the nearest ancestor that is visible, and the comparison of pixels stays. A control that shows no change keeps its finding. No limit, no size and no other kind of finding changes. Task 22.44.97 brings the check to this form with cases for both."
+basis = "Gotcha 4649. Decisions 3705 and 3727."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45144,6 +45150,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.97]
+title = "Let a surface reach its own socket under the render check and read the focus mark of a clipped input on its control"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/browser.mjs", "tools/ui-check/test"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4649 and decision 3729. Read tools/ui-check/check.mjs, tools/ui-check/browser.mjs, tools/ui-check/server.mjs and the cases of tools/ui-check/test/check.test.mjs. Write a page of a fixture surface that opens a socket to its own address, see the refusal of the browser in a render, and give its message in the final message."
+symbols = []
 
 [capability.22.44.96]
 title = "Leave the theme of the trading workspace to its provider and take the row of legal links out of the flow of the application views"
@@ -175524,6 +175539,37 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.97]
+title = "Let a surface reach its own socket under the render check and read the focus mark of a clipped input on its control"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.74"]
+reqs = ["22998.1"]
+capabilities = ["22.44.97"]
+interfaces = []
+do_1 = "do_1 Gotcha 4649 and decision 3729. Read tools/ui-check/check.mjs, tools/ui-check/browser.mjs, tools/ui-check/server.mjs and the cases of tools/ui-check/test/check.test.mjs. Write a page of a fixture surface that opens a socket to its own address, see the refusal of the browser in a render, and give its message in the final message."
+do_2 = "do_2 A socket from a document of the surface to the address of the surface reaches the surface: the browser of a render is started so that its check of requests to the local network does not refuse that socket, by a start argument or a permission of the context, whichever the pinned version of the browser tool supports, and for the address of the surface alone as far as the tool allows. A socket to any other address keeps its present finding. Add a case with a fixture surface whose page opens a socket to its own address and writes the first message it gets into the page: the render has no finding and the text is there. Add a case that a socket to another address still gives one finding."
+do_3 = "do_3 For a focused element that is clipped to nothing the mark of focus is read on its control: the nearest ancestor that is visible, among them a label that holds the input. The baseline is taken for that ancestor before the traversal, the comparison of the appearance and the measure of outside use that ancestor, and the comparison of pixels stays as it is. Add three cases: a switch made of a clipped input and a sibling that takes an outline while the input has focus gives no finding; the same switch without the outline gives one finding; an input that is visible keeps the present result."
+do_4 = "do_4 No limit, no list of sizes, no other kind of finding and no option of the command changes, and the result file keeps its form. Run the whole suite of tools/ui-check. The files tools/ui-check/check.mjs and tools/ui-check/browser.mjs and the files under tools/ui-check/test are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/browser.mjs", "tools/ui-check/test"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
