@@ -19,7 +19,7 @@ export const Infos: FC<InfosProps> = ({
     <Flex
       direction="column"
       gap={1}
-      className="oui-w-full oui-rounded-md oui-bg-base-6 oui-p-3 oui-text-2xs oui-font-semibold"
+      className="oui-w-full oui-rounded-[6px] oui-bg-base-6 oui-p-3 oui-text-2xs oui-font-semibold"
     >
       <Statistic
         label={t("positions.adjustMargin.currentMargin")}

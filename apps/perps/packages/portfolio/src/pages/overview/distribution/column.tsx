@@ -11,7 +11,7 @@ export const useColumns = () => {
       {
         title: t("common.token"),
         dataIndex: "token",
-
+        width: 80,
         // rule: "symbol",
         render: (value, record) => {
           return (
@@ -25,13 +25,13 @@ export const useColumns = () => {
       {
         title: t("common.time"),
         dataIndex: "updated_time",
-
+        width: 120,
         rule: "date",
       },
       {
         title: t("common.status"),
         dataIndex: "status",
-
+        width: 120,
         formatter(value, record, index) {
           switch (value) {
             case "CREATED":
@@ -47,7 +47,7 @@ export const useColumns = () => {
       {
         title: t("common.type"),
         dataIndex: "type",
-
+        width: 80,
         formatter: (value: any) => {
           switch (value) {
             case "REFERRER_REBATE":
@@ -66,7 +66,7 @@ export const useColumns = () => {
       {
         title: t("common.amount"),
         dataIndex: "amount",
-
+        width: 80,
         // rule: "price",
       },
     ] as Column<API.FundingFeeRow & { annual_rate: number }>[];

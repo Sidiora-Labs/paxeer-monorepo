@@ -94,7 +94,7 @@ export default function ProfileTabs({ isOwner, panels, idPrefix = 'profile-tabs'
         aria-labelledby={inMore ? undefined : `${idPrefix}-tab-${active}`}
         aria-label={inMore ? profileTabLabel[active] : undefined}
         tabIndex={0}
-        className="px-4 py-3 md:px-5"
+        className="min-h-60 px-4 py-3 md:px-5"
       >
         {panels[active] ?? null}
       </div>

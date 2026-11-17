@@ -112,7 +112,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
   const accessibleIntervalRef = useRef<ChartInterval | null>(null);
   const presentationRef = useRef<ChartMarkPresentation>({ enabled: true });
 
-  const [darkScheme, setDarkScheme] = useState(false);
+  const [darkScheme, setDarkScheme] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return;
     const media = window.matchMedia('(prefers-color-scheme: dark)');
@@ -215,8 +215,6 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
 
   useEffect(() => {
     if (!containerRef.current) return;
-    if (widgetRef.current) { try { widgetRef.current.remove(); } catch {} widgetRef.current = null; }
-    chartReadyRef.current = false;
 
     let active = true;
     const startInterval = intervalRef.current;
@@ -245,14 +243,43 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
     accessibleIntervalRef.current = null;
     const now = Math.floor(Date.now() / 1000);
     const range = viewportRef.current?.pool === poolAddress ? viewportRef.current : { from: Math.max(0, now - resolutionToSeconds(startInterval) * 50), to: now + 60 };
-    datafeed.getBars({}, startInterval, { from: Math.floor(range.from), to: Math.ceil(range.to) }, () => { if (active) setAnswer('answered'); }, reason => { if (active) { setAnswer('answered'); setFreshness(value => ({ ...value, connectionStatus: 'degraded', lagReason: reason })); } });
+    const startAccessibleStream = () => {
+      if (!active || widgetRef.current || accessibleIntervalRef.current !== null) return;
+      const resolution = intervalRef.current;
+      datafeed.subscribeBars({}, resolution, () => {}, 'accessible-chart');
+      accessibleIntervalRef.current = resolution;
+    };
+    datafeed.getBars({}, startInterval, { from: Math.floor(range.from), to: Math.ceil(range.to) }, () => {
+      if (!active) return;
+      setAnswer('answered');
+      startAccessibleStream();
+    }, reason => {
+      if (!active) return;
+      setAnswer('answered');
+      setFreshness(value => ({ ...value, connectionStatus: 'degraded', lagReason: reason }));
+      startAccessibleStream();
+    });
     retryRef.current = datafeed.retry;
+    return () => {
+      active = false;
+      clearTimeout(stallTimer);
+      retryRef.current = null;
+      datafeedRef.current = null;
+      accessibleIntervalRef.current = null;
+      datafeed.dispose();
+    };
+  }, [poolAddress, mode, feedSupply, retryGeneration]);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const datafeed = datafeedRef.current;
     const constructor: { widget: ChartingLibraryWidgetConstructor } | undefined = window.TradingView;
-    if (!loaded || !constructor) {
-      datafeed.subscribeBars({}, startInterval, () => {}, 'accessible-chart');
-      accessibleIntervalRef.current = startInterval;
-      return () => { active = false; clearTimeout(stallTimer); retryRef.current = null; datafeedRef.current = null; datafeed.dispose(); };
-    }
+    if (!datafeed || !loaded || !constructor) return;
+    let active = true;
+    const startInterval = intervalRef.current;
+    datafeed.unsubscribeBars('accessible-chart');
+    accessibleIntervalRef.current = null;
+    chartReadyRef.current = false;
     setError(null);
 
     try {
@@ -287,6 +314,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
           'use_localstorage_for_settings',
         ],
         enabled_features: [
+          'iframe_loading_same_origin',
           'move_logo_to_main_pane',
           'hide_left_toolbar_by_default',
           'timeframes_toolbar',
@@ -333,12 +361,11 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
     }
 
     return () => {
-      active = false; clearTimeout(stallTimer); retryRef.current = null; datafeedRef.current = null;
+      active = false;
       if (widgetRef.current && chartReadyRef.current) {
         try { const current = widgetRef.current.activeChart().getVisibleRange(); if (Number.isFinite(current.from) && Number.isFinite(current.to) && current.to > current.from) viewportRef.current = { pool: poolAddress, from: current.from, to: current.to }; } catch {}
       }
       chartReadyRef.current = false;
-      datafeed.dispose();
       if (widgetRef.current) { try { widgetRef.current.remove(); } catch {} widgetRef.current = null; }
     };
   }, [loaded, poolAddress, symbol, mode, feedSupply, retryGeneration, update, darkScheme]);
@@ -403,7 +430,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
         onRetry={() => retryRef.current?.()}
       />
       <ChartSplit height={height} onHeightChange={setHeight} min={CHART_MIN_HEIGHT} max={CHART_MAX_HEIGHT} defaultHeight={CHART_DEFAULT_HEIGHT}>
-        <div ref={containerRef} inert={!loaded || !!error || stalled || noTrades || valuationBlocked} aria-hidden={!loaded || !!error || stalled || noTrades || valuationBlocked} className="absolute inset-0 h-full w-full" />
+        <div ref={containerRef} inert={!loaded || !!error || stalled || noTrades || valuationBlocked} aria-hidden={!loaded || !!error || stalled || noTrades || valuationBlocked} className="absolute inset-0 h-full w-full [&_iframe:focus]:outline-2 [&_iframe:focus]:-outline-offset-2 [&_iframe:focus]:outline-focus" />
         {!loaded && !error && !stalled ? (
           <div role="status" className="absolute inset-0 flex items-center justify-center bg-canvas text-sm text-text-faint">Loading chart...</div>
         ) : null}

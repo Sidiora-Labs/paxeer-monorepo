@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
@@ -185,7 +186,7 @@ describe('fill filters', () => {
     expect(rows[0].textContent).toContain('1.25 USDL');
     expect(rows[1].querySelector('a[href^="https://paxscan.paxeer.app/tx/0x"]')).not.toBeNull();
     await waitFor(() => seen.some(entry => entry.url.startsWith('/v3/profiles/')));
-    expect(classesOf(view.container).filter(name => BORDER.test(name))).toEqual([]);
+    expect(assertControlEdges(view.container.innerHTML)).not.toMatch(BORDER);
     unmount(view);
   });
 

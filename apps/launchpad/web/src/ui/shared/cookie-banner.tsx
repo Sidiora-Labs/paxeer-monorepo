@@ -83,7 +83,7 @@ export default function CookieBanner() {
           </svg>
           <p className="text-xs text-text-muted leading-[var(--sl-leading-base)]">
             We use cookies to improve your experience and see how the site is used. See our{' '}
-            <Link
+            <Link prefetch={false}
               href="/docs/privacy"
               className="text-accent underline hover:opacity-80 transition"
             >
@@ -96,7 +96,7 @@ export default function CookieBanner() {
           <button
             type="button"
             onClick={decline}
-            className="px-4 py-1.5 rounded-lg bg-surface-2 text-xs text-text-faint hover:bg-surface-hover hover:text-text transition"
+            className="border border-control-edge px-4 py-1.5 rounded-lg bg-surface-2 text-xs text-text-faint hover:bg-surface-hover hover:text-text transition"
           >
             Decline
           </button>

@@ -1,0 +1,178 @@
+{
+  "name": "Sidiora Launchpad \u2014 rewards",
+  "directory": "../../../../../",
+  "build": "node tools/ui-check/surfaces/launchpad/build.mjs",
+  "start": "node tools/ui-check/surfaces/launchpad/start.mjs",
+  "address": "https://sidiora.test:4173",
+  "readyPath": "/",
+  "views": [
+    {
+      "name": "holder-rewards",
+      "path": "/holder-rewards",
+      "states": [
+        {
+          "name": "grid",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) [aria-label=\"Grid view\"]"
+            }
+          ]
+        },
+        {
+          "name": "filters",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Filters\"]"
+            }
+          ]
+        },
+        {
+          "name": "sort",
+          "steps": [
+            {
+              "action": "press",
+              "selector": "html:has([data-shell-ready]) select[name=\"Sort by\"]",
+              "key": "End"
+            },
+            {
+              "action": "press",
+              "selector": "html:has([data-shell-ready]) select[name=\"Sort by\"]",
+              "key": "Enter"
+            },
+            {
+              "action": "press",
+              "selector": "html:has([data-shell-ready]) select[name=\"Sort by\"]",
+              "key": "Escape"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "holder-rewards-empty",
+      "path": "/holder-rewards?render=empty"
+    },
+    {
+      "name": "holder-rewards-error",
+      "path": "/holder-rewards?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "holder-rewards-loading",
+      "path": "/holder-rewards?render=loading"
+    },
+    {
+      "name": "leaderboard",
+      "path": "/leaderboard"
+    },
+    {
+      "name": "leaderboard-callouts",
+      "path": "/leaderboard?tab=callouts"
+    },
+    {
+      "name": "leaderboard-empty",
+      "path": "/leaderboard?render=empty"
+    },
+    {
+      "name": "leaderboard-error",
+      "path": "/leaderboard?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "leaderboard-loading",
+      "path": "/leaderboard?render=loading"
+    },
+    {
+      "name": "leaderboard-month",
+      "path": "/leaderboard?period=1m"
+    },
+    {
+      "name": "leaderboard-rewards",
+      "path": "/leaderboard?tab=rewards"
+    },
+    {
+      "name": "leaderboard-squads",
+      "path": "/leaderboard?tab=squads"
+    },
+    {
+      "name": "leaderboard-week",
+      "path": "/leaderboard?period=1w"
+    },
+    {
+      "name": "r-shortCode",
+      "path": "/r/science"
+    },
+    {
+      "name": "rewards",
+      "path": "/rewards"
+    }
+  ],
+  "answers": [
+    {
+      "method": "GET",
+      "pattern": "https://www.google-analytics.com/analytics.js",
+      "file": "answers/analytics.js",
+      "status": 204,
+      "headers": {
+        "content-type": "text/javascript"
+      }
+    }
+  ],
+  "typeScale": [
+    {
+      "min": 11,
+      "max": 12
+    },
+    {
+      "min": 12,
+      "max": 13
+    },
+    {
+      "min": 13,
+      "max": 14
+    },
+    {
+      "min": 14,
+      "max": 16
+    },
+    {
+      "min": 16,
+      "max": 18
+    },
+    {
+      "min": 20,
+      "max": 24
+    },
+    {
+      "min": 24,
+      "max": 28
+    },
+    {
+      "min": 32,
+      "max": 40
+    },
+    {
+      "min": 48,
+      "max": 64
+    },
+    {
+      "min": 16,
+      "max": 28
+    }
+  ],
+  "buildMs": 600000
+}

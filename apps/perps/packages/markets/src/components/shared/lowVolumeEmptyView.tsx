@@ -11,7 +11,7 @@ export const LowVolumeEmptyView = () => {
       <Text
         as="div"
         size="2xs"
-        intensity={80}
+        intensity={54}
         className="oui-w-full oui-px-3 oui-text-center"
       >
         {t("markets.showLowVolume.empty")}

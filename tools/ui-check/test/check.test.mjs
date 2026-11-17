@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -7,6 +8,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { after, before } from "node:test";
 import { PNG } from "pngjs";
+import { chromium } from "playwright";
 import { checkSurface } from "../check.mjs";
 import { DEVICES, LIMITS, MODES, REPOSITORY, readSurface, renderMatrix } from "../config.mjs";
 import { serveFiles, startSurface } from "../server.mjs";
@@ -25,13 +27,15 @@ let sequence = 0;
 const lateRequests = { response: 0, answer: 0 };
 const lateClosures = { response: 0, answer: 0 };
 const lateResponseMs = LIMITS.navigationMs - 1000;
+const surfaceSockets = new Set();
+let socketConnections = 0;
 
 before(async function serveTestPages() {
   root = await mkdtemp(join(tmpdir(), "ui-check-"));
   server = createServer((request, response) => {
     if (request.url === "/never") return;
     const url = new URL(request.url, "http://localhost");
-    if (["/late.html", "/base.css"].includes(url.pathname)) {
+    if (["/late.html", "/socket.html", "/base.css"].includes(url.pathname)) {
       readFile(join(fixtures, url.pathname.slice(1))).then((body) => {
         response.writeHead(200, { "content-type": url.pathname.endsWith(".css") ? "text/css" : "text/html" });
         response.end(body);
@@ -56,16 +60,29 @@ before(async function serveTestPages() {
     response.writeHead(200, { "content-type": "text/plain" });
     response.end("Ready");
   });
+  server.on("upgrade", (request, socket) => {
+    surfaceSockets.add(socket);
+    socket.once("close", () => surfaceSockets.delete(socket));
+    socket.on("error", () => socket.destroy());
+    socket.on("data", () => socket.end(Buffer.from([0x88, 0])));
+    const accept = createHash("sha1").update(`${request.headers["sec-websocket-key"]}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64");
+    socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
+    const message = Buffer.from("Socket ready");
+    socket.write(Buffer.concat([Buffer.from([0x81, message.length]), message]));
+    socketConnections++;
+  });
   await new Promise((resolve) => server.listen(0, "localhost", resolve));
   address = `http://localhost:${server.address().port}`;
   files = await serveFiles(fixtures, "http://localhost:0");
   external = createServer((request, response) => { externalRequests++; response.end("External service"); });
+  external.on("upgrade", (request, socket) => { externalRequests++; socket.destroy(); });
   await new Promise((resolve) => external.listen(0, "localhost", resolve));
   externalAddress = `http://localhost:${external.address().port}`;
 });
 
 after(async function closeTestPages() {
   await files?.close();
+  for (const socket of surfaceSockets) socket.destroy();
   for (const instance of [server, external]) {
     if (!instance) continue;
     await new Promise((resolve) => { instance.close(resolve); instance.closeAllConnections(); });
@@ -647,6 +664,73 @@ async function unansweredRequestsProduceOneFinding(context) {
 }
 test(unansweredRequestsProduceOneFinding);
 
+async function surfaceSocketRequiresOriginNetworkPermission(context) {
+  const browser = await chromium.launch();
+  try {
+    const isolated = await browser.newContext();
+    await isolated.route("**/*", async (route) => {
+      await route.fulfill({ response: await route.fetch() });
+    });
+    await isolated.routeWebSocket("**/*", (socket) => socket.connectToServer());
+    const page = await isolated.newPage();
+    const messages = [];
+    page.on("console", (message) => { if (message.type() === "error") messages.push(message.text()); });
+    const connections = socketConnections;
+    await page.goto(`${address}/socket.html`);
+    await page.waitForFunction(() => document.body.dataset.socket === "error");
+    assert.equal(socketConnections, connections);
+    assert.equal(await page.locator("#message").textContent(), "Connecting");
+    assert.equal(messages.length, 1, JSON.stringify(messages));
+    assert.match(messages[0], /WebSocket.*(?:local|loopback|permission)/i);
+    context.diagnostic(messages[0]);
+  } finally { await browser.close(); }
+}
+test(surfaceSocketRequiresOriginNetworkPermission);
+
+async function surfaceSocketWritesItsFirstMessageIntoTheRender() {
+  const connections = socketConnections;
+  const { result } = await execute("socket", {
+    address, readyPath: "/socket.html",
+    views: [{ name: "socket", path: "/socket.html", states: [{
+      name: "received", steps: [{ action: "wait", text: "Socket ready" }],
+    }] }],
+  });
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.deepEqual(result.findings, []);
+  assert.equal(result.renders.length, 68);
+  assert.equal(socketConnections - connections, 68);
+  for (const state of ["default", "received"]) {
+    const renders = result.renders.filter((render) => render.state === state);
+    assertMatrix({ renders });
+    assert.ok(renders.every((render) => render.hasContent && render.cancelled === 0));
+  }
+}
+test(surfaceSocketWritesItsFirstMessageIntoTheRender);
+
+async function socketToAnotherAddressKeepsOneLoadFinding() {
+  const outsideRequests = externalRequests;
+  const connections = socketConnections;
+  const target = `${externalAddress.replace("http:", "ws:")}/socket`;
+  const { result } = await execute("socket", {
+    address, readyPath: "/socket.html",
+    views: [{ name: "socket", path: `/socket.html?address=${encodeURIComponent(`${externalAddress}/socket`)}` }],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 34);
+  for (const render of result.renders) {
+    assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+    assert.equal(render.hasContent, true);
+    assert.equal(render.cancelled, 0);
+    const finding = render.findings[0];
+    assert.equal(finding.kind, "load");
+    assert.deepEqual(finding.values, { source: "unanswered-request", method: "GET", address: target, resource: "websocket" });
+  }
+  assert.equal(externalRequests, outsideRequests);
+  assert.equal(socketConnections, connections);
+}
+test(socketToAnotherAddressKeepsOneLoadFinding);
+
 async function unfetchableSurfaceRequestsProduceOneFinding(context) {
   const surface = await requestSurface('fetch("/network-failure").catch(() => {});');
   try {
@@ -986,6 +1070,64 @@ async function tallFocusKeepsItsStartingEdgeVisible() {
   }
 }
 test(tallFocusKeepsItsStartingEdgeVisible);
+
+async function clippedInputUsesItsVisibleControlFocusMark() {
+  const { result } = await execute("clipped-focus");
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.deepEqual(result.findings, []);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#switch"]);
+  }
+}
+test(clippedInputUsesItsVisibleControlFocusMark);
+
+async function clippedInputWithoutControlFocusMarkKeepsOneFinding() {
+  const { result } = await execute("clipped-focus", {
+    views: [{ name: "unmarked", path: "/clipped-focus.html?unmarked" }],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 4);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#switch"]);
+    assert.equal(render.findings.length, 1);
+    const finding = render.findings[0];
+    assert.equal(finding.kind, "focus");
+    assert.equal(finding.selector, "#switch");
+    assert.equal(finding.values.visibleChange, false);
+    assert.equal(finding.values.outside, false);
+    assert.equal(finding.values.left, 16);
+    assert.equal(finding.values.top, 16);
+    assert.equal(finding.values.bottom, 80);
+  }
+}
+test(clippedInputWithoutControlFocusMarkKeepsOneFinding);
+
+async function visibleInputKeepsItsOwnFocusMeasurement() {
+  for (const unmarked of [false, true]) {
+    const { result } = await execute("clipped-focus", {
+      views: [{ name: "visible", path: `/clipped-focus.html?visible${unmarked ? "&unmarked" : ""}` }],
+    });
+    assertMatrix(result);
+    assert.equal(result.passed, !unmarked, JSON.stringify(result.findings));
+    assert.equal(result.findings.length, unmarked ? 4 : 0);
+    for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+      assert.deepEqual(render.focused, ["#switch"]);
+      assert.equal(render.findings.length, unmarked ? 1 : 0);
+      for (const finding of render.findings) {
+        assert.equal(finding.kind, "focus");
+        assert.equal(finding.selector, "#switch");
+        assert.equal(finding.values.visibleChange, false);
+        assert.equal(finding.values.outside, false);
+        assert.equal(finding.values.left, 24);
+        assert.equal(finding.values.top, 24);
+        assert.equal(finding.values.bottom, 72);
+      }
+    }
+  }
+}
+test(visibleInputKeepsItsOwnFocusMeasurement);
 
 async function modalFocusIncludesTheInitiallyFocusedControl() {
   const { result } = await execute("modal-focus");

@@ -1,0 +1,209 @@
+{
+  "name": "Sidiora Launchpad \u2014 home",
+  "directory": "../../../../../",
+  "build": "node tools/ui-check/surfaces/launchpad/build.mjs",
+  "start": "node tools/ui-check/surfaces/launchpad/start.mjs",
+  "address": "https://sidiora.test:4173",
+  "readyPath": "/",
+  "views": [
+    {
+      "name": "home",
+      "path": "/",
+      "states": [
+        {
+          "name": "search-dialog",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "callouts yet"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label^=\"Search coins and users (\"]:visible"
+            },
+            {
+              "action": "wait",
+              "text": "Remember recent views on this device"
+            }
+          ]
+        },
+        {
+          "name": "sign-in-dialog",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "callouts yet"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) header button:has-text(\"Sign in\")"
+            },
+            {
+              "action": "wait",
+              "text": "Connect a wallet to sign in"
+            }
+          ]
+        },
+        {
+          "name": "paste-address-dialog",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "callouts yet"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Open a coin from a pasted address\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Paste the coin address here"
+            }
+          ]
+        },
+        {
+          "name": "search-filled",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "callouts yet"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label^=\"Search coins and users (\"]:visible"
+            },
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) input[aria-label=\"Search coins and users by name, symbol, wallet or address\"]",
+              "value": "science"
+            },
+            {
+              "action": "wait",
+              "text": "2 coins, 0 users"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "first-visit",
+      "path": "/?render=first-visit",
+      "states": [
+        {
+          "name": "cookie-consent",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"I understand and agree\")"
+            }
+          ]
+        },
+        {
+          "name": "cookie-accepted",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"I understand and agree\")"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"Accept\")"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "home-empty",
+      "path": "/?render=empty"
+    },
+    {
+      "name": "home-error",
+      "path": "/?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "home-loading",
+      "path": "/?render=loading"
+    },
+    {
+      "name": "auth-callback",
+      "path": "/auth/callback"
+    },
+    {
+      "name": "new",
+      "path": "/new"
+    },
+    {
+      "name": "not-found",
+      "path": "/page-not-found",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/page-not-found",
+          "status": 404
+        }
+      ]
+    }
+  ],
+  "answers": [
+    {
+      "method": "GET",
+      "pattern": "https://www.google-analytics.com/analytics.js",
+      "file": "answers/analytics.js",
+      "status": 204,
+      "headers": {
+        "content-type": "text/javascript"
+      }
+    }
+  ],
+  "typeScale": [
+    {
+      "min": 11,
+      "max": 12
+    },
+    {
+      "min": 12,
+      "max": 13
+    },
+    {
+      "min": 13,
+      "max": 14
+    },
+    {
+      "min": 14,
+      "max": 16
+    },
+    {
+      "min": 16,
+      "max": 18
+    },
+    {
+      "min": 20,
+      "max": 24
+    },
+    {
+      "min": 24,
+      "max": 28
+    },
+    {
+      "min": 32,
+      "max": 40
+    },
+    {
+      "min": 48,
+      "max": 64
+    },
+    {
+      "min": 16,
+      "max": 28
+    }
+  ],
+  "buildMs": 600000
+}

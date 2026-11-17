@@ -39,7 +39,7 @@ function ExplorePage() {
   const body = (
     <ExploreView
       rows={rankingFailed ? [] : data.rows}
-      loading={rankingFailed ? false : data.loading}
+      loading={rankingFailed ? false : data.loading || data.enrichmentPending}
       hasMore={rankingFailed ? false : data.hasMore}
       loadingMore={rankingFailed ? false : data.loadingMore}
       moreError={rankingFailed ? null : data.moreError}

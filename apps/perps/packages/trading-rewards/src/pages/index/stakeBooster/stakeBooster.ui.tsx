@@ -1,4 +1,3 @@
-import surface from "../../../surface.module.css";
 import { FC, ReactNode } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Flex, Text } from "@paxeer-network/ui";
@@ -20,25 +19,26 @@ export const StakeBooster: FC<StakeBoosterReturns> = (props) => {
       direction={"column"}
       gap={4}
       width={"100%"}
-      className={`${surface.surface}  oui-font-semibold oui-bg-base-9 `}
+      className=" oui-font-semibold oui-bg-base-9 "
     >
       <Flex direction={"row"} justify={"between"} width={"100%"}>
         <Text className="oui-text-lg">{t("tradingRewards.stakeBooster")}</Text>
-        <button
-          type="button"
+        <Flex
+          direction={"row"}
+          gap={1}
           onClick={props.stakeNow}
-          className="oui-inline-flex oui-items-center oui-gap-1 oui-text-primary-light oui-underline"
+          className="oui-cursor-pointer oui-text-primary-light"
         >
           <Text size="sm">{t("tradingRewards.stake")}</Text>
           <JumpIcon />
-        </button>
+        </Flex>
       </Flex>
       <Flex direction={"row"} gap={3} width={"100%"}>
         <Statics
           title={t("tradingRewards.avgStakedAmount")}
           value={props.curEpochEstimate?.est_avg_stake}
           icon={
-            <div className="oui-flex oui-w-8 oui-h-5 oui-relative">
+            <div className="oui-flex oui-w-[32px] oui-h-[20px] oui-relative">
               <div className="oui-absolute oui-end-0 oui-top-0">
                 <EsPaxeerNetworkIcon />
               </div>
@@ -68,7 +68,7 @@ const Statics: FC<{
   const calcValue = commify(props.value || "--", 2);
   return (
     <Flex
-      className="oui-flex-1 oui-bg-base-8 oui-py-3"
+      className="oui-flex-1 oui-bg-base-8 oui-py-[11px]"
       direction={"column"}
       gap={2}
       r="xl"

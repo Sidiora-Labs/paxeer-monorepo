@@ -1,18 +1,20 @@
-import {
-  SimpleDialog,
-  PopoverRoot,
-  PopoverContent,
-  PopoverTrigger,
-} from "../../../../ui-connector/src/platformOverlays";
-import { useMemo, useState, ReactNode } from "react";
+import { useCallback, useRef, useMemo, useState, ReactNode } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
+  SimpleDialog,
   useScreen,
   Text,
   Flex,
   ScrollArea,
   modal,
   cn,
+  DropdownMenuRoot,
+  DropdownMenuTrigger,
+  DropdownMenuPortal,
+  DropdownMenuContent,
+  PopoverRoot,
+  PopoverContent,
+  PopoverAnchor,
 } from "@paxeer-network/ui";
 import { AccountItem } from "./components/accountItem";
 import { CreateSubAccount } from "./components/createSubAccountModal";
@@ -25,17 +27,22 @@ export function SubAccountUI(
 ) {
   const { t } = useTranslation();
   const { isMobile } = useScreen();
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const onMouseEnter = useCallback(() => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+    // setOpen(true);
+  }, []);
   const header = <Text weight="semibold">{t("subAccount.modal.title")}</Text>;
   const trigger = useMemo(() => {
     if (props.customTrigger && isMobile) {
       return (
-        <button
-          type="button"
-          className="oui-w-full"
-          onClick={() => props.onOpenChange(true)}
-        >
+        <div onClick={() => props.onOpenChange(true)}>
           {props.customTrigger}
-        </button>
+        </div>
       );
     }
     if (isMobile) {
@@ -45,26 +52,14 @@ export function SubAccountUI(
           itemAlign="center"
           justify="center"
         >
-          <button
-            type="button"
-            className="oui-shell-icon-button"
-            aria-label="Sub-accounts"
+          <SubAccountIcon
+            className={cn("oui-cursor-pointer")}
             onClick={() => props.onOpenChange(true)}
-          >
-            <SubAccountIcon className={cn("oui-cursor-pointer")} />
-          </button>
+          />
         </Flex>
       );
     }
-    return (
-      <button
-        type="button"
-        className="oui-shell-icon-button"
-        aria-label={t("subAccount.modal.title")}
-      >
-        <SubAccountIcon aria-hidden="true" />
-      </button>
-    );
+    return <SubAccountIcon className={cn("oui-cursor-pointer")} />;
   }, [isMobile, props.customTrigger]);
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -83,9 +78,9 @@ export function SubAccountUI(
       justify="center"
       px={5}
       width="100%"
-      className="oui-h-32"
+      className="oui-h-[120px]"
     >
-      <Text className="oui-text-center oui-text-xs oui-font-semibold oui-text-base-contrast-80">
+      <Text className="oui-text-center oui-text-xs oui-font-semibold oui-text-base-contrast-36">
         {t("subAccount.modal.noAccount.description")}
       </Text>
     </Flex>
@@ -96,7 +91,7 @@ export function SubAccountUI(
       return noSubAccount;
     }
     return (
-      <ScrollArea className="oui-custom-scrollbar oui-max-h-52 oui-w-full oui-overflow-y-auto">
+      <ScrollArea className="oui-custom-scrollbar oui-max-h-[205px] oui-w-full oui-overflow-y-auto">
         <Flex direction="column" gap={2} itemAlign="start" width="100%">
           {props.subAccounts.map((subAccount) => (
             <AccountItem
@@ -129,7 +124,7 @@ export function SubAccountUI(
         {!isMobile && header}
         <Flex direction="column" gap={5} itemAlign="start" width="100%">
           <Flex direction="column" gap={2} itemAlign="start" width="100%">
-            <Text className="oui-text-xs oui-leading-normal oui-text-base-contrast-80">
+            <Text className="oui-text-xs oui-leading-3 oui-text-base-contrast-54">
               {t("subAccount.modal.mainAccount.title")}
             </Text>
             <AccountItem
@@ -146,15 +141,13 @@ export function SubAccountUI(
 
           <Flex direction="column" gap={2} itemAlign="start" width="100%">
             <Flex justify="between" itemAlign="center" width="100%" gap={2}>
-              <Text className="oui-text-xs oui-leading-normal oui-text-base-contrast-80">
+              <Text className="oui-text-xs oui-leading-3 oui-text-base-contrast-54">
                 {t("subAccount.modal.subAccounts.title")}
               </Text>
               <Flex justify="end" gap={2}>
                 {props.subAccounts.length > 0 && (
-                  <button
-                    type="button"
-                    className="oui-shell-icon-button"
-                    aria-label="Transfer"
+                  <SwapIcon
+                    className="oui-cursor-pointer oui-fill-base-contrast-54 hover:oui-fill-base-contrast"
                     onClick={() => {
                       // todo need show transfer modal
                       let dialogId = "TransferDialogId";
@@ -163,9 +156,7 @@ export function SubAccountUI(
                       }
                       modal.show(dialogId);
                     }}
-                  >
-                    <SwapIcon className="oui-cursor-pointer oui-fill-base-contrast-54 hover:oui-fill-base-contrast" />
-                  </button>
+                  />
                 )}
                 <CreateSubAccount create={props.createSubAccount} />
               </Flex>
@@ -192,7 +183,7 @@ export function SubAccountUI(
           onOpenChange={props.onOpenChange}
           size="xs"
           classNames={{
-            content: "oui-shell-overlay oui-w-80",
+            content: "oui-w-[300px]",
           }}
         >
           {content}
@@ -203,14 +194,32 @@ export function SubAccountUI(
 
   return (
     <PopoverRoot open={props.open} onOpenChange={props.onOpenChange}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverAnchor>
+        <div
+          onMouseEnter={() => {
+            props.onOpenChange(true);
+          }}
+          onMouseLeave={() => {
+            timer.current = setTimeout(() => {
+              props.onOpenChange(false);
+            }, 150);
+          }}
+        >
+          {trigger}
+        </div>
+      </PopoverAnchor>
       <PopoverContent
         align="start"
         side="bottom"
         sideOffset={16}
         collisionPadding={{ left: 16, right: 16 }}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={() => {
+          props.onOpenChange(false);
+          timer.current ? clearTimeout(timer.current) : void 0;
+        }}
         className={cn(
-          "oui-shell-overlay oui-w-80 oui-space-y-0.5 oui-border oui-border-line-6 oui-p-5",
+          "oui-w-[300px] oui-space-y-[2px] oui-border oui-border-line-6 oui-p-5",
         )}
       >
         {content}

@@ -88,7 +88,7 @@ export const FavoritesIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
     xmlns="http://www.w3.org/2000/svg"
     {...props}
     // The color of the favorite icon does not change with the theme.
-    className={cn("oui-text-warning", props.className)}
+    className={cn("oui-text-[rgba(255,154,46,1)]", props.className)}
   >
     <mask
       id="a"
@@ -99,7 +99,7 @@ export const FavoritesIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
       width="20"
       height="21"
     >
-      <path fill="rgb(var(--oui-color-base-foreground))" d="M0 .5h20v20H0z" />
+      <path fill="#D9D9D9" d="M0 .5h20v20H0z" />
     </mask>
     <g mask="url(#a)">
       <path d="m10 14.074-3.2 1.913a.6.6 0 0 1-.332.068.6.6 0 0 1-.277-.101.5.5 0 0 1-.186-.256.5.5 0 0 1-.005-.336l.84-3.556-2.82-2.394a.5.5 0 0 1-.174-.281.6.6 0 0 1 .013-.315.5.5 0 0 1 .173-.252.55.55 0 0 1 .305-.112l3.693-.33 1.467-3.393a.57.57 0 0 1 .211-.255A.54.54 0 0 1 10 4.39q.16 0 .292.083.131.082.211.255l1.467 3.414 3.693.309q.178.014.305.123.126.11.173.262t.002.304a.56.56 0 0 1-.183.27l-2.8 2.395.84 3.556a.5.5 0 0 1-.005.336.5.5 0 0 1-.186.256.6.6 0 0 1-.277.101.6.6 0 0 1-.332-.068z" />
@@ -117,7 +117,7 @@ export const UnFavoritesIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
     {...props}
     // The color of the favorite icon does not change with the theme.
     className={cn(
-      "oui-text-base-contrast-80 hover:oui-text-warning",
+      "oui-text-base-contrast-36 hover:oui-text-[rgba(255,154,46,1)]",
       props.className,
     )}
   >
@@ -130,7 +130,7 @@ export const UnFavoritesIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
       width="20"
       height="21"
     >
-      <path fill="rgb(var(--oui-color-base-foreground))" d="M0 .5h20v20H0z" />
+      <path fill="#D9D9D9" d="M0 .5h20v20H0z" />
     </mask>
     <g mask="url(#a)">
       <path d="M7.333 14.396 10 12.813l2.688 1.583-.709-3 2.313-1.98-3.063-.27L10 6.292 8.77 9.146l-3.062.27 2.334 1.98zM10 14.074l-3.2 1.913a.6.6 0 0 1-.332.068.6.6 0 0 1-.277-.101.5.5 0 0 1-.186-.256.5.5 0 0 1-.005-.336l.84-3.556-2.82-2.394a.5.5 0 0 1-.174-.281.6.6 0 0 1 .013-.315.5.5 0 0 1 .173-.252.55.55 0 0 1 .305-.112l3.693-.33 1.467-3.393a.57.57 0 0 1 .211-.255A.54.54 0 0 1 10 4.39q.16 0 .292.083.131.082.211.255l1.467 3.414 3.693.309q.178.014.305.123.126.11.173.262t.002.304a.56.56 0 0 1-.183.27l-2.8 2.395.84 3.556a.5.5 0 0 1-.005.336.5.5 0 0 1-.186.256.6.6 0 0 1-.277.101.6.6 0 0 1-.332-.068z" />
@@ -216,7 +216,7 @@ export const FavoritesIcon2: FC<SVGProps<SVGSVGElement>> = (props) => (
     xmlns="http://www.w3.org/2000/svg"
     {...props}
     // The color of the favorite icon does not change with the theme.
-    className={cn("oui-text-warning", props.className)}
+    className={cn("oui-text-[rgba(255,154,46,1)]", props.className)}
   >
     <path d="M6.012 1.72c-.286 0-.577.178-.75.532L4.2 4.438l-2.42.344c-.78.108-1.03.872-.47 1.42l1.75 1.703-.407 2.39c-.133.773.508 1.24 1.203.874.268-.142 1.648-.857 2.155-1.124l2.155 1.124c.695.367 1.339-.1 1.202-.874l-.421-2.39 1.749-1.702c.565-.547.326-1.31-.453-1.421l-2.436-.344L6.76 2.252c-.172-.354-.464-.531-.75-.531" />
   </svg>
@@ -232,7 +232,7 @@ export const UnFavoritesIcon2: FC<SVGProps<SVGSVGElement>> = (props) => (
     {...props}
     // The color of the favorite icon does not change with the theme.
     className={cn(
-      "oui-text-base-contrast-80 hover:oui-text-warning",
+      "oui-text-base-contrast-36 hover:oui-text-[rgba(255,154,46,1)]",
       props.className,
     )}
   >

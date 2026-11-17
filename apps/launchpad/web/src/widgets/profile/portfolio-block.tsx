@@ -74,7 +74,7 @@ export function PortfolioBlock({ wallet, isOwner, className }: PortfolioBlockPro
   return (
     <section aria-labelledby="portfolio-value-title" className={cn('flex flex-col gap-3 rounded-lg bg-surface-1 p-4', className)} data-profile-section="portfolio">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-h-[var(--sl-portfolio-value-min-height)] min-w-0 flex-1 basis-48">
           <h2 id="portfolio-value-title" className="text-xs font-normal text-text-faint">Portfolio value</h2>
           {portfolio.loadable.state === 'loading' ? (
             <Skeleton width={surfaceSpacing(45)} height={surfaceSpacing(10)} label="Loading portfolio value" />
@@ -139,25 +139,25 @@ export function PortfolioBlock({ wallet, isOwner, className }: PortfolioBlockPro
         />
       </div>
 
-      <div id={chartId} hidden={collapsed}>
+      <div id={chartId} hidden={collapsed} className={cn(!collapsed && 'min-h-50')}>
         {collapsed ? null : history.state === 'loading' ? (
           <Skeleton variant="block" height={surfaceSpacing(50)} label="Loading portfolio chart" className="w-full" />
         ) : history.state === 'ready' ? (
           points.length === 0 ? (
-            <p className="flex h-40 items-center justify-center rounded-md bg-surface-2 px-4 text-center text-sm text-text-faint">No history yet. The chart fills in once this wallet holds coins.</p>
+            <p className="flex min-h-50 items-center justify-center rounded-md bg-surface-2 px-4 text-center text-sm text-text-faint">No history yet. The chart fills in once this wallet holds coins.</p>
           ) : (
             <PortfolioChart points={points} tone={delta?.tone ?? 'flat'} height={launchpadGeometry.chart.portfolioCompactHeight} />
           )
         ) : historyIssue ? (
           <PortfolioIssueState issue={historyIssue} variant="inline" />
         ) : history.state === 'unsupported' ? (
-          <div className="flex h-40 items-center justify-center rounded-md bg-surface-1 px-4 text-center">
+          <div className="flex min-h-50 items-center justify-center rounded-md bg-surface-1 px-4 text-center">
             <UnavailableState variant="inline" title="Portfolio chart" operation={history.operation} status={history.status} message={history.message} />
           </div>
         ) : owner && isSignedOutError(history.error) ? (
           <SignedOutState variant="inline" title="Sign in to see your value history" />
         ) : historyCollected ? (
-          <div aria-hidden="true" data-chart-placeholder className="h-40 rounded-md bg-surface-1" />
+          <div aria-hidden="true" data-chart-placeholder className="min-h-50 rounded-md bg-surface-1" />
         ) : (
           <p role="alert" className="text-sm text-danger">Can't load the chart right now</p>
         )}

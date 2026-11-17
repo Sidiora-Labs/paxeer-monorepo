@@ -1,14 +1,20 @@
-import { Tooltip } from "../../../../ui-connector/src/platformOverlays";
-import {
-  PopoverContent,
-  PopoverRoot,
-  PopoverTrigger,
-  SimpleDialog,
-  SimpleSheet,
-} from "../../../../ui-connector/src/platformOverlays";
 import { FC, SVGProps, forwardRef } from "react";
 import { useTranslation, Language } from "@paxeer-network/i18n";
-import { cn, Flex, Text, Box, Spinner, useScreen } from "@paxeer-network/ui";
+import {
+  cn,
+  Flex,
+  DropdownMenuContent,
+  DropdownMenuPortal,
+  DropdownMenuRoot,
+  DropdownMenuTrigger,
+  Text,
+  Box,
+  Spinner,
+  SimpleDialog,
+  useScreen,
+  SimpleSheet,
+  Tooltip,
+} from "@paxeer-network/ui";
 import { LanguageSwitcherScriptReturn } from "./languageSwitcher.script";
 
 export type LanguageSwitcherProps = LanguageSwitcherScriptReturn;
@@ -23,20 +29,18 @@ export const LanguageSwitcher: FC<LanguageSwitcherProps> = (props) => {
   }
 
   const trigger = (
-    <button
-      type="button"
-      className="oui-shell-icon-button"
-      aria-label={t("languageSwitcher.tooltip")}
-      onClick={
-        popup?.mode === "dropdown" ? undefined : () => props.onOpenChange(true)
-      }
-    >
+    <Tooltip content={t("languageSwitcher.tooltip")}>
       <LanguageIcon
+        className={cn(
+          "oui-size-6 lg:oui-size-5",
+          "oui-cursor-pointer oui-text-base-contrast-80",
+          "oui-transition-colors hover:oui-fill-base-contrast",
+          isMobile && "oui-size-[18px]",
+        )}
         id="language-switcher-icon"
-        aria-hidden="true"
-        className="oui-size-5 oui-text-base-contrast-80"
+        onClick={() => props.onOpenChange(true)}
       />
-    </button>
+    </Tooltip>
   );
 
   const header = (
@@ -48,7 +52,8 @@ export const LanguageSwitcher: FC<LanguageSwitcherProps> = (props) => {
     return (
       <LanguageItem
         className={cn(
-          ["modal", "sheet"].includes(popup.mode ?? "") && "oui-w-full",
+          ["modal", "sheet"].includes(popup.mode ?? "") &&
+            "oui-w-[calc((100%_-_4px)/2)] lg:oui-w-[calc((100%_-_8px)/3)]",
         )}
         key={item.localCode}
         selected={selected}
@@ -59,15 +64,19 @@ export const LanguageSwitcher: FC<LanguageSwitcherProps> = (props) => {
     );
   });
 
-  const context = <div className="oui-shell-options">{languageList}</div>;
+  const context = (
+    <Flex gap={1} className="oui-flex-wrap">
+      {languageList}
+    </Flex>
+  );
 
   const footer = (
     <Box mt={4}>
       <Text
         size="2xs"
-        intensity={80}
+        intensity={54}
         weight="regular"
-        className="oui-text-base-contrast-80"
+        className="oui-text-warning-darken"
       >
         {t("languageSwitcher.tips")}
       </Text>
@@ -103,8 +112,8 @@ export const LanguageSwitcher: FC<LanguageSwitcherProps> = (props) => {
         mt={4}
         className={cn(
           //40 * 8 + 4 * 7 = 348px, more than 8 will show scrollbars
-          "oui-custom-scrollbar oui-max-h-96 oui-overflow-y-auto",
-          "oui-grid oui-gap-1 oui-pe-2",
+          "oui-custom-scrollbar oui-max-h-[348px] oui-overflow-y-auto",
+          "oui-grid oui-gap-1 oui-pe-[6px]",
         )}
       >
         {languageList}
@@ -112,28 +121,28 @@ export const LanguageSwitcher: FC<LanguageSwitcherProps> = (props) => {
     );
 
     return (
-      <PopoverRoot open={props.open} onOpenChange={props.onOpenChange}>
-        <Tooltip content={t("languageSwitcher.tooltip")}>
-          <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-        </Tooltip>
-        <PopoverContent
-          aria-label={t("languageSwitcher.language")}
-          onClick={(e) => e.stopPropagation()}
-          sideOffset={10}
-          align="start"
-          collisionPadding={{ left: 16, right: 16 }}
-          className={cn(
-            "oui-shell-overlay oui-w-80 lg:oui-w-96",
-            "oui-rounded-xl oui-bg-base-8 oui-p-5",
-            "oui-border oui-border-line-6",
-            "oui-font-semibold",
-          )}
-        >
-          {header}
-          {context}
-          {footer}
-        </PopoverContent>
-      </PopoverRoot>
+      <DropdownMenuRoot open={props.open} onOpenChange={props.onOpenChange}>
+        <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+        <DropdownMenuPortal>
+          <DropdownMenuContent
+            onCloseAutoFocus={(e) => e.preventDefault()}
+            onClick={(e) => e.stopPropagation()}
+            sideOffset={10}
+            align="start"
+            collisionPadding={{ left: 16, right: 16 }}
+            className={cn(
+              "oui-w-[320px] lg:oui-w-[360px]",
+              "oui-rounded-xl oui-bg-base-8 oui-p-5",
+              "oui-border oui-border-line-6",
+              "oui-font-semibold",
+            )}
+          >
+            {header}
+            {context}
+            {footer}
+          </DropdownMenuContent>
+        </DropdownMenuPortal>
+      </DropdownMenuRoot>
     );
   }
 
@@ -146,7 +155,7 @@ export const LanguageSwitcher: FC<LanguageSwitcherProps> = (props) => {
         onOpenChange={props.onOpenChange}
         size={isMobile ? "sm" : "xl"}
         classNames={{
-          content: cn("oui-shell-overlay", popup?.className),
+          content: popup?.className,
         }}
         contentProps={{
           style: popup?.style,
@@ -182,21 +191,19 @@ const LanguageItem: FC<LanguageItemProps> = (props) => {
 
   return (
     <button
-      type="button"
-      aria-pressed={props.selected}
       className={cn(
-        "oui-group oui-min-h-12 oui-rounded-md hover:oui-bg-base-5",
+        "oui-group oui-rounded-md hover:oui-bg-base-5",
         props.selected && "oui-bg-base-5",
         props.className,
       )}
       onClick={props.onClick}
     >
-      <Flex justify="between" className="oui-min-h-12 oui-py-2" px={3}>
-        <Flex itemAlign="center" width="100%" className="oui-gap-x-2">
+      <Flex justify="between" className="oui-h-10" px={3}>
+        <Flex itemAlign="center" width="100%" className="oui-gap-x-[6px]">
           <Text
             size="2xs"
             className={cn(
-              "oui-text-base-contrast-80 group-hover:oui-text-base-contrast-80",
+              "oui-text-base-contrast-36 group-hover:oui-text-base-contrast-80",
               props.selected && "oui-text-base-contrast-80",
             )}
           >

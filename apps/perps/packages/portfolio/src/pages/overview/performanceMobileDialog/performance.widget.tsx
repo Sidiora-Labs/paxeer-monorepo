@@ -40,6 +40,6 @@ registerSimpleSheet(PerformanceMobileSheetId, PerformanceMobileWidget, {
 registerSimpleDialog(PerformanceMobileDialogId, PerformanceMobileWidget, {
   title: () => i18n.t("portfolio.overview.performance"),
   classNames: {
-    content: "oui-w-full oui-max-w-2xl",
+    content: "oui-w-[420px]",
   },
 });

@@ -14,7 +14,6 @@ export const syncDocumentDirection = (lang?: string) => {
     return;
   }
 
-  document.documentElement.lang = (lang ?? i18n.language).replace(/_/g, "-");
   document.documentElement.setAttribute(
     "dir",
     isRTLDirectionLanguage(lang) ? "rtl" : "ltr",

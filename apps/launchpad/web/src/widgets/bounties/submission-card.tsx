@@ -79,7 +79,7 @@ export function SubmissionCard({ submission, asset, own = false, actions, classN
         <div className="flex min-w-0 items-center gap-2">
           <Avatar src={null} name={submission.authorWallet} size="sm" decorative />
           <h3 id={titleId} className="truncate text-sm font-bold text-text">
-            <Link href={`/profile/${submission.authorWallet.toLowerCase()}`} className="hover:underline focus-visible:outline-2 focus-visible:outline-focus">{author}</Link>
+            <Link prefetch={false} href={`/profile/${submission.authorWallet.toLowerCase()}`} className="hover:underline focus-visible:outline-2 focus-visible:outline-focus">{author}</Link>
             {own ? <span className="ml-1 font-normal text-text-faint">(you)</span> : null}
           </h3>
         </div>

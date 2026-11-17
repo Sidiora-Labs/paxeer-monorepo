@@ -216,7 +216,7 @@ export default function ChainWizard() {
     <div className="mx-auto flex w-full max-w-content-narrow-max-width flex-col gap-4 px-4 py-4 lg:px-6">
       <h1 className="text-md font-semibold text-text">Launch a chain and token</h1>
       <p className="text-sm text-text-muted">Name your chain and token, pick a size, and launch them together.</p>
-      <ol aria-label="Launch a chain steps" className="flex gap-4 text-sm text-text-muted">
+      <ol aria-label="Launch a chain steps" className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-text-muted">
         {['Name', 'Size', 'Review and launch'].map((label, index) => <li key={label} aria-current={step === index ? 'step' : undefined}>{index + 1}. {label}</li>)}
       </ol>
       {!address ? <Button type="button" onClick={() => openModal('Connect your wallet to launch a chain')}>Connect wallet</Button>
@@ -227,7 +227,7 @@ export default function ChainWizard() {
           <label htmlFor="chain-name" className="text-sm font-bold text-text">Chain name</label>
           <input id="chain-name" name="chainName" autoComplete="off" value={name} maxLength={32} disabled={locked} autoCapitalize="none" autoCorrect="off" spellCheck={false}
             aria-describedby="chain-name-rule chain-name-status" aria-invalid={!!name && (!!validateChainName(name) || availability?.state === 'taken') || undefined}
-            className="rounded-sm bg-surface-2 p-3 text-text" onChange={event => setName(event.target.value)} />
+            className="sl-field min-w-0 w-full rounded-sm bg-surface-2 p-3 text-text" onChange={event => setName(event.target.value)} />
           <p id="chain-name-rule" className="text-xs text-text-muted">{nameRule}</p>
           <p id="chain-name-status" role="status" className="text-sm text-text-muted">
             {name && validateChainName(name) ? 'Check the name rules above.' : availability?.name === name
@@ -237,20 +237,20 @@ export default function ChainWizard() {
           <h2 className="text-base font-semibold text-text">Name your token</h2>
           <label htmlFor="chain-token-name" className="text-sm font-bold text-text">Coin name</label>
           <input id="chain-token-name" name="tokenName" autoComplete="off" value={tokenName} maxLength={NAME_MAX_BYTES} disabled={locked}
-            className="rounded-sm bg-surface-2 p-3 text-text" onChange={event => setTokenName(event.target.value)} />
+            className="sl-field min-w-0 w-full rounded-sm bg-surface-2 p-3 text-text" onChange={event => setTokenName(event.target.value)} />
           <p className="text-xs text-text-muted">Name must be 1 to {NAME_MAX_BYTES} bytes.</p>
           <label htmlFor="chain-token-symbol" className="text-sm font-bold text-text">Ticker</label>
           <input id="chain-token-symbol" name="tokenSymbol" autoComplete="off" value={tokenSymbol} maxLength={SYMBOL_MAX_BYTES} disabled={locked}
             autoCapitalize="none" autoCorrect="off" spellCheck={false}
-            className="rounded-sm bg-surface-2 p-3 text-text" onChange={event => setTokenSymbol(event.target.value)} />
+            className="sl-field min-w-0 w-full rounded-sm bg-surface-2 p-3 text-text" onChange={event => setTokenSymbol(event.target.value)} />
           <p className="text-xs text-text-muted">Ticker must be 1 to {SYMBOL_MAX_BYTES} bytes.</p>
           <StrategyPicker value={feeStrategy} onChange={setFeeStrategy} disabled={locked} />
           <Button variant="primary" disabled={!nameAvailable || !launchFieldsValid || !connected || locked} onClick={() => setStep(1)}>Next</Button>
         </> : step === 1 ? <>
           <h2 className="text-base font-semibold text-text">Pick a size</h2>
           <div role="radiogroup" aria-label="Chain size" className="grid gap-3 sm:grid-cols-3">
-            {tiers.map(value => <label key={value} className="flex cursor-pointer flex-col gap-2 rounded-md bg-surface-2 p-3 text-sm text-text">
-              <span><input type="radio" name="chain-size" value={value} checked={tier === value} disabled={locked || !tierAvailable(value)} onChange={() => setTier(value)} /> {tierNames[value]}</span>
+            {tiers.map(value => <label key={value} className="flex min-w-0 cursor-pointer flex-col gap-2 rounded-md bg-surface-2 p-3 text-sm text-text">
+              <span className="flex min-h-touch-target-min items-center gap-2"><input className="size-touch-target-min shrink-0 accent-accent" type="radio" name="chain-size" value={value} checked={tier === value} disabled={locked || !tierAvailable(value)} onChange={() => setTier(value)} /> {tierNames[value]}</span>
               <span>Up to {SIZE_TIERS[value].gas.toLocaleString('en-US')} gas and {SIZE_TIERS[value].bytes.toLocaleString('en-US')} bytes per block.</span>
               {params && !tierAvailable(value) ? <span>Currently unavailable</span> : null}
             </label>)}

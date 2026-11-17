@@ -23055,3 +23055,18 @@ fix = "Decision 3725. Tasks 22.44.63 and 22.44.95."
 title = "The driver of the qualification names the cases of the node it runs, and a case that is renamed has to be renamed there as well"
 symptom = "The file tools/qualification/beta_driver.py runs cases of the node by name and holds a step to have run when every name it gave was executed. The cases of the sequenced execution stand in node/sequenced_execution_recovery_test.go under the names TestSequencedExecutionTenantReplay and TestSequencedExecutionStrictResultCommitment. The driver names them TestRepair_102_TenantReplay and TestRepair_102_StrictResultCommitment in the step of the commit boundary and in the step of the rejections at the ledger boundary. No case of tools/qualification that runs without the native libraries reads the names the driver gives against the test files of the packages."
 fix = "Decision 3726. Task 22.39.778."
+
+[gotcha.4647]
+title = "The setup of the launchpad surface for the render check calls a tool for certificates that the verification of its parts did not install"
+symptom = "The file tools/ui-check/surfaces/launchpad/prepare.mjs writes the store of certificates of the browser with the tool certutil, so that the surface is rendered on a secure origin. The package libnss3-tools holds that tool. The verification commands of tasks 22.44.64 to 22.44.69 install the browser with its packages and then run the script of the parts and the render check; they do not install libnss3-tools, and the setup files of the surface install no package."
+fix = "Decision 3727. Tasks 22.44.64 to 22.44.69."
+
+[gotcha.4648]
+title = "The request function of the net package of the trading workspace sends an address with a scheme to the network, and the query function forms every address with the api base"
+symptom = "The file apps/perps/packages/net/src/fetch/index.ts hands an address without a scheme to the client of the workspace, which answers by path inside the process, and sends an address that begins with http or https with the fetch function of the platform. The query function of the React functions of the workspace joins the api base and the path before it calls the request function, so every read it forms carries a scheme. The client under apps/perps/packages/paxeer-backend reads the path alone from any address and answers the public reads of markets, tokens, funding and system state and the reads of the account from the state of the chain. The case file apps/perps/packages/net/__test__/fetch.test.ts holds the headers of a request against a replaced fetch function and an address of another host."
+fix = "Decision 3728. Task 22.39.779."
+
+[gotcha.4649]
+title = "The render check refuses a socket of a surface to its own loopback address and counts a clipped input of a control as a focus finding"
+symptom = "The check in tools/ui-check/check.mjs answers the documents of a surface through its own interception, and the browser places a document answered that way outside the local network. A socket that such a document opens to the loopback address of the surface is handed on to the surface by the check, and the browser refuses it before it reaches the surface; the message of the refusal counts as a finding of loading. The traversal of the keyboard in tools/ui-check/browser.mjs holds a baseline of the appearance for the visible elements alone. An input that is clipped to nothing, as the native input inside a switch, a checkbox or a radio control is, has no baseline and counts as a finding of focus although its control shows the mark."
+fix = "Decision 3729. Task 22.44.97."

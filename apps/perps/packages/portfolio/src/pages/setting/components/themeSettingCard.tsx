@@ -34,22 +34,14 @@ export const ThemeSettingCard: FC<ThemeSettingCardProps> = (props) => {
         width={"100%"}
         itemAlign={"center"}
         className={cn(
-          "oui-flex-wrap oui-border-t-2 oui-border-line-6 oui-font-semibold",
+          "oui-border-t-2 oui-border-line-6 oui-font-semibold",
           classNames?.content,
         )}
       >
         {themes.length === 2 ? (
-          <Flex
-            direction="row"
-            itemAlign="center"
-            gap={2}
-            wrap="wrap"
-            role="group"
-            aria-label={t("portfolio.setting.theme")}
-          >
+          <Flex direction="row" itemAlign="center" gap={2}>
             {themes.map((theme) => (
               <Button
-                aria-pressed={theme.id === currentThemeId}
                 variant={theme.id === currentThemeId ? "contained" : "outlined"}
                 size="sm"
                 key={theme.id}
@@ -72,7 +64,7 @@ export const ThemeSettingCard: FC<ThemeSettingCardProps> = (props) => {
               }))}
               size="sm"
               testid="oui-testid-setting-theme-select"
-              classNames={{ trigger: "oui-min-w-24" }}
+              classNames={{ trigger: "oui-min-w-[100px]" }}
             />
           </Flex>
         )}

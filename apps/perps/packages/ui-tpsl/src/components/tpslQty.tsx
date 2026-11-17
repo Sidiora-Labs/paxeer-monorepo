@@ -152,7 +152,6 @@ export const TPSLQuantity = memo<TPSLQuantityProps>((props) => {
                 props.onQuantityChange?.(props.maxQty);
               }
             }}
-            type="button"
           >
             <Text color={"primary"} size={"2xs"}>
               {t("common.max")}

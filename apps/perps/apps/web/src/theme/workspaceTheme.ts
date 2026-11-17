@@ -1,0 +1,25 @@
+import { BLUE_DARK_THEME_CSS_VARS } from "./blueDarkTheme";
+
+export const WORKSPACE_THEME_CSS_VARS = {
+  ...BLUE_DARK_THEME_CSS_VARS,
+  "--oui-color-primary": "255 255 255",
+  "--oui-color-primary-light": "255 255 255",
+  "--oui-color-primary-darken": "255 255 255",
+  "--oui-color-primary-contrast": "0 0 0",
+  "--oui-color-link": "238 240 244",
+  "--oui-color-link-light": "255 255 255",
+  "--oui-gradient-brand-start": "255 255 255",
+  "--oui-gradient-brand-end": "214 218 224",
+  "--oui-color-base-6": "16 21 30",
+  "--oui-color-base-7": "14 18 26",
+  "--oui-color-base-8": "10 13 20",
+  "--oui-color-base-9": "8 11 17",
+  "--oui-color-base-10": "6 9 15",
+  "--oui-color-fill-active": "40 44 52",
+  "--oui-color-trading-profit": "0 192 135",
+  "--oui-color-trading-loss": "255 70 91",
+  "--oui-gradient-primary-start": "255 255 255",
+  "--oui-gradient-primary-end": "218 222 228",
+  "--oui-gradient-secondary-start": "98 104 114",
+  "--oui-gradient-secondary-end": "38 42 49",
+};

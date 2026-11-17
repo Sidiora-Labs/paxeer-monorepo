@@ -47,7 +47,6 @@ const CloseToLiqPriceIcon = ({
           });
         }}
         className="oui-px-1"
-        type="button"
       >
         {icon}
       </button>

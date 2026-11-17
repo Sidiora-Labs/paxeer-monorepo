@@ -1,5 +1,3 @@
-import surface from "../../../surface.module.css";
-import { PeriodSelect } from "../../../components/periodSelect";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Button, Flex, Select, Text } from "@paxeer-network/ui";
@@ -19,7 +17,7 @@ export const Summary: FC<SummaryReturns> = (props) => {
       height={"100%"}
       gap={4}
       direction={"column"}
-      className={`${surface.surface} oui-bg-base-9 xl:oui-flex-1`}
+      className="oui-bg-base-9 xl:oui-flex-1"
     >
       <Title {...props} />
       <Rebate className="md:oui-hidden" {...props} />
@@ -85,7 +83,7 @@ const SummaryFilter: FC<SummaryReturns> = (props) => {
     <Flex direction={"row"} width={"100%"} justify={"between"} gap={3}>
       <Text className="oui-text-sm">{t("affiliate.summary")}</Text>
       <div>
-        <PeriodSelect
+        <Select.options
           size={"xs"}
           value={props.period}
           onValueChange={props.onPeriodChange}
@@ -118,7 +116,7 @@ const CommissionData: FC<SummaryReturns> = (props) => {
         gap={3}
         className="oui-text-xl md:oui-text-2xl xl:oui-text-3xl"
       >
-        <USDCIcon className="md:oui-w-6 md:oui-h-6 lg:oui-w-6 lg:oui-h-6 " />
+        <USDCIcon className="md:oui-w-[24px] md:oui-h-[24px] lg:oui-w-[28px] lg:oui-h-[28px] " />
         <Text>{commifyOptional(props.rebates, { fix: 2, fallback: "0" })}</Text>
       </Flex>
     </Flex>

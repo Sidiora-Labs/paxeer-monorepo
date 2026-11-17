@@ -141,13 +141,15 @@ export function ResultGroup({
   label,
   children,
   trailing,
+  className,
 }: {
   label: string;
   children: ReactNode;
   trailing?: ReactNode;
+  className?: string;
 }) {
   return (
-    <section aria-label={label} className="py-1">
+    <section aria-label={label} className={cn('shrink-0 py-1', className)}>
       <div className="flex items-center justify-between px-3 py-1.5">
         <span className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
           {label}

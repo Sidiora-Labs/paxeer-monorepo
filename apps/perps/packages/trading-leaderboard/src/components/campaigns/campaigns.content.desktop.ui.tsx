@@ -88,7 +88,7 @@ export const CampaignsContentDesktopUI: FC<CampaignsContentDesktopUIProps> = ({
       <>
         <Text
           className={cn([
-            "oui-trading-leaderboard-title oui-text-center oui-text-6xl oui-font-bold oui-leading-normal oui-text-base-contrast",
+            "oui-trading-leaderboard-title oui-text-center oui-text-[48px] oui-font-bold oui-leading-[56px] oui-text-base-contrast",
             classNames?.title,
           ])}
         >
@@ -96,7 +96,7 @@ export const CampaignsContentDesktopUI: FC<CampaignsContentDesktopUIProps> = ({
         </Text>
         <div
           className={cn([
-            "oui-w-full oui-max-w-[calc(var(--oui-space-24)*4)] oui-text-center",
+            "oui-w-[342px] oui-text-center",
             classNames?.descriptionContainer,
           ])}
         >
@@ -118,20 +118,18 @@ export const CampaignsContentDesktopUI: FC<CampaignsContentDesktopUIProps> = ({
   return (
     <div
       className={cn([
-        "oui-flex oui-min-h-[calc(var(--oui-space-24)*5)] oui-py-6 oui-w-full oui-flex-col oui-items-center oui-justify-center oui-gap-10",
+        "oui-flex oui-h-[500px] oui-w-full oui-flex-col oui-items-center oui-justify-center oui-gap-10",
         `oui-bg-cover oui-bg-center oui-bg-no-repeat`,
-        campaign?.tiered_prize_pools?.length &&
-          !isMobile &&
-          "oui-min-h-[calc(var(--oui-space-24)*7)]",
+        campaign?.tiered_prize_pools?.length && !isMobile && "oui-h-[634px]",
         classNames?.container,
       ])}
       style={{
-        backgroundImage: `linear-gradient(180deg, rgb(var(--oui-color-base-10) / 1) 0%, rgb(var(--oui-color-base-10) / 0.8) 15%, rgb(var(--oui-color-base-10) / 0.4) 40%, rgb(var(--oui-color-base-10) / 0.4) 60%, rgb(var(--oui-color-base-10) / 0.8) 85%, rgb(var(--oui-color-base-10) / 1) 100%), url(${bgSrc})`,
+        backgroundImage: `linear-gradient(180deg, rgba(var(--oui-color-base-10) / 1) 0%, rgba(var(--oui-color-base-10) / 0.8) 15%, rgba(var(--oui-color-base-10) / 0.4) 40%, rgba(var(--oui-color-base-10) / 0.4) 60%, rgba(var(--oui-color-base-10) / 0.8) 85%, rgba(var(--oui-color-base-10) / 1) 100%), url(${bgSrc})`,
       }}
     >
       <div
         className={cn([
-          "oui-flex oui-flex-col oui-items-center oui-justify-center oui-gap-2",
+          "oui-flex oui-flex-col oui-items-center oui-justify-center oui-gap-[10px]",
           classNames?.topContainer,
         ])}
       >
