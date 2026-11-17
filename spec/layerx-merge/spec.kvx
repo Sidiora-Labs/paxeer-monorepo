@@ -175381,7 +175381,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.83]
 title = "Let the render check render a view again once when a render ends at its deadline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
