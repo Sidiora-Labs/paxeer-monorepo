@@ -404,7 +404,7 @@
             },
             {
               "action": "click",
-              "selector": "html:has([data-shell-ready]) button[aria-label=\"Grid\"]:visible, [role=\"radio\"]:has-text(\"Grid\"):visible"
+              "selector": "html:has([data-shell-ready]) [role=\"radiogroup\"][aria-label=\"Layout\"]:visible [role=\"radio\"]:has-text(\"Grid\")"
             },
             {
               "action": "click",
