@@ -1,4 +1,5 @@
 import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
+import { applyBrowserSurface } from '@/core/app-foundation/browser-surface.test-support';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
@@ -26,6 +27,7 @@ browserGlobals.CustomEvent = dom.window.CustomEvent;
 browserGlobals.window = dom.window;
 browserGlobals.document = dom.window.document;
 browserGlobals.IS_REACT_ACT_ENVIRONMENT = true;
+const closeBrowserSurface = applyBrowserSurface();
 
 // The real chain-125 pool, identified by core/api's recorded IF_POOL_DETAIL bytes (core-api-wire.json `v2Reads`).
 const pool = v2Reads.pools.real;
@@ -42,6 +44,7 @@ const server: Server = createServer((request, response) => {
       response.end(JSON.stringify(poolDetail.body));
       return;
     }
+    console.warn(`Unanswered request: ${request.method} ${url}`);
     response.statusCode = 404;
     response.end();
   });
@@ -154,3 +157,5 @@ describe('terminal coin view, rendered end to end with real providers', () => {
     unmount(view);
   });
 });
+
+afterAll(closeBrowserSurface);

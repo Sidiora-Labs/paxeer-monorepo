@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
@@ -171,7 +172,7 @@ describe('right rail against a real HTTP origin', () => {
     expect(view.container.textContent).toContain('28K');
     expect(view.container.textContent).not.toContain(current);
     expect(market.paths.some(path => path.startsWith('POST /v2/pools/stats:batch'))).toBe(true);
-    expect(BORDER.test(view.container.innerHTML)).toBe(false);
+    expect(BORDER.test(assertControlEdges(view.container.innerHTML))).toBe(false);
     unmount(view.root, view.container, view.queryClient);
   });
 
@@ -191,7 +192,7 @@ describe('right rail against a real HTTP origin', () => {
     expect(text).toContain('Buy and sell counts are still loading for this window.');
     expect(text).toContain('+25');
     expect(market.paths.filter(path => path.includes('/candles?')).length).toBeGreaterThanOrEqual(4);
-    expect(BORDER.test(view.container.innerHTML)).toBe(false);
+    expect(BORDER.test(assertControlEdges(view.container.innerHTML))).toBe(false);
     unmount(view.root, view.container, view.queryClient);
   });
 
