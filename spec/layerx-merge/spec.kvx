@@ -15502,6 +15502,12 @@ value = "The record of a market, the rows of the topics of all markets and of on
 basis = "Gotcha 4651. Decisions 3046 and 3728."
 affects = []
 
+[decision.3732]
+title = "A view of the trading workspace comes to rest and follows the route in every state of the wallet, and a deposit of the native binding never waits for a fee it cannot form"
+value = "A value that follows from a read is derived in the render and memoized on the read itself. An absent read gives one constant empty value of the module, never a new literal, and no effect sets state from a value that the render forms anew. With every read ended and no event from outside, a mounted view of the web application renders no more until a new event arrives. A change of the route shows the view of the new route in every state of the wallet: no account, an account connected through the wallet dialog, an account restored at load and an embedded account. On the native binding the deposit function has the address that receives the allowance of the collateral, so the allowance and the fee are read. The layer takes no fee for a deposit. The fee the form shows is the estimated gas of the calls the deposit will send, in the currency of the chain. A fee of zero or an estimate that cannot be formed does not disable the deposit and shows no message of missing fee data there; the wallet shows the fee when it asks for the signature. The deposit form sends no request to a host of the reference kit on the native binding. The account info of the native binding carries every field that the functions of the max quantity read as a number in the unit they read, so the max quantity of an account with free collateral is above zero. The price feed route repeats an attempt that ended without an answer of the feed or with a status of 502, 503 or 504: at least one further attempt, all attempts together within the present time limit of one request, and it never repeats a request the feed answered with another status. Task 22.39.782 brings the renders to this form, task 22.39.783 the deposit, task 22.39.784 the price feed route and task 22.39.785 the max quantity."
+basis = "Gotcha 4652. Decisions 3046, 3718 and 3731."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45162,6 +45168,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.785]
+title = "Carry in the account info of the native binding every field the max quantity of the order entry reads"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/native-max-quantity.test.ts && ! grep -q -e futures_taker_fee_rate:.undefined apps/perps/packages/paxeer-backend/src/nativeClient.ts"
+do_1 = "do_1 Gotcha 4652 and decision 3732. Read the account info in apps/perps/packages/paxeer-backend/src/nativeClient.ts, the function of the max quantity of the order entry in the package of the React functions of the trading workspace, the formulas it calls under apps/perps/packages/perp for a buy, for a sell, for the other initial margins and for isolated margin, and the place where the workspace reads the fee rates of the perps layer for its fee tier view. Give in the final message every field of the account info, of the symbol info and of the positions that these formulas read, the unit they read it in, and for each what the native binding gives today."
+symbols = []
+
+[capability.22.39.784]
+title = "Repeat an attempt of the price feed route of the trading workspace that ended without an answer of the feed"
+reqs = ["22998.1"]
+touches = ["apps/perps/apps/web/src"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/price-feed-retry.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/price-feed.test.ts"
+do_1 = "do_1 Gotcha 4652 and decision 3732. Read the route under apps/perps/apps/web/src/pages/api/price-feed, the client in apps/perps/apps/web/src/server/chainflow.ts and the case file apps/perps/tests/price-feed.test.ts. Give in the final message which error of the client the route answers with which status, for a read and for the mint of a socket token."
+symbols = []
+
+[capability.22.39.783]
+title = "Give the deposit of the native binding its allowance address and a fee formed from the gas of its calls"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-flow.test.ts"
+do_1 = "do_1 Gotcha 4652 and decision 3732. Read the deposit function with its allowance and fee functions in the package of the React functions of the trading workspace, the deposit form under apps/perps/packages/ui-transfer with its validation, fee, action and swap parts, apps/perps/packages/core/src/assets.ts, and under apps/perps/packages/paxeer-backend/src the list of the chains in nativeMetadata.ts, the vault and account modules and the deposit of nativeClient.ts. Give in the final message the path of a deposit from the button to the calls it sends on the native binding, and for each key of a read on that path the parts that are absent on the native binding."
+symbols = []
+
+[capability.22.39.782]
+title = "Bring the views of the trading workspace to rest with a connected account so that a change of the route shows its view"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/render-settle.test.ts && ! grep -q -e setAccountValue apps/perps/packages/ui-scaffold/src/components/subAccount/useAccountValue.tsx"
+do_1 = "do_1 Gotcha 4652 and decision 3732. Read apps/perps/packages/ui-scaffold/src/components/subAccount/useAccountValue.tsx, the sub account script beside it, the combined positions script under apps/perps/packages/ui-positions, the query functions these two call in the package of the React functions of the trading workspace, and the native page of the web application under apps/perps/apps/web/src/native. Give in the final message why the read of the aggregate positions ends without data on the native binding, and every place under apps/perps/packages where a component, or a function a component calls, gives a value the default of a new list or a new object and an effect, a memo or a callback depends on that value."
+symbols = []
 
 [capability.22.39.781]
 title = "Form the 24 hour change that the trading workspace shows from the price at the start of the window"
@@ -175578,6 +175620,133 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.785]
+title = "Carry in the account info of the native binding every field the max quantity of the order entry reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.785"]
+interfaces = []
+do_1 = "do_1 Gotcha 4652 and decision 3732. Read the account info in apps/perps/packages/paxeer-backend/src/nativeClient.ts, the function of the max quantity of the order entry in the package of the React functions of the trading workspace, the formulas it calls under apps/perps/packages/perp for a buy, for a sell, for the other initial margins and for isolated margin, and the place where the workspace reads the fee rates of the perps layer for its fee tier view. Give in the final message every field of the account info, of the symbol info and of the positions that these formulas read, the unit they read it in, and for each what the native binding gives today."
+do_2 = "do_2 The account info of the native binding carries each field of that list as a number in the unit the formulas read: the taker and maker fee rates of the layer from the source of the fee tier view, zero where the layer takes none, and the factor of the initial margin of each symbol the binding lists. No field that a formula forms a decimal from or divides by is undefined. Where the value of the layer cannot be read, say so in the final message and carry the value that keeps the quantity on the careful side, never one that lets the order entry offer more than the layer accepts. The orders, the positions and every other read of the native client keep their form."
+do_3 = "do_3 Add the case file apps/perps/tests/native-max-quantity.test.ts, run with node --test like its neighbours. With the account info the native binding gives, it calls the formulas without a try around them and holds: none of them throws; for an account with collateral and no position the max quantity of a buy and of a sell is above zero and not above collateral times leverage over the price; with an open long position and with pending orders the quantity is a finite number, above zero where free collateral remains; with no collateral it is zero; and reduce only gives the size of the position."
+do_4 = "do_4 Run the typecheck of the workspace and the check of the source of the views. No size, colour, distance or position of a view changes, and no file under apps/perps/apps changes. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/perps/packages and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages"]
+tests = []
+planned_paths = ["apps/perps/tests/native-max-quantity.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/native-max-quantity.test.ts && ! grep -q -e futures_taker_fee_rate:.undefined apps/perps/packages/paxeer-backend/src/nativeClient.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.784]
+title = "Repeat an attempt of the price feed route of the trading workspace that ended without an answer of the feed"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.784"]
+interfaces = []
+do_1 = "do_1 Gotcha 4652 and decision 3732. Read the route under apps/perps/apps/web/src/pages/api/price-feed, the client in apps/perps/apps/web/src/server/chainflow.ts and the case file apps/perps/tests/price-feed.test.ts. Give in the final message which error of the client the route answers with which status, for a read and for the mint of a socket token."
+do_2 = "do_2 An attempt that ended without an answer of the feed, by an error of the connection or by the time limit, or with a status of 502, 503 or 504, is repeated after a short pause: at least one further attempt and at most two. The time limit of an attempt is set so that all attempts and pauses together end within the present limit of twelve seconds. An answer of the feed with another status is not repeated. A request that still fails gets the answer the route gives today, and a request of a method, a path or a symbol the route refuses today is refused before any attempt as today. The redirect rule of the client stays. No key and no token of the feed appears in an answer or in a line of a log."
+do_3 = "do_3 Add the case file apps/perps/tests/price-feed-retry.test.ts, run with node --test like its neighbours, with a double of fetch and a clock the case controls. It holds: an error of the connection and then an answer gives status 200 with two attempts; a status of 503 and then an answer gives status 200; a status of 400 gives one attempt and the answer of today; failures on every attempt give the answer of today after at most three attempts; a refused path makes no attempt; and the pauses are taken from the clock of the case, so the case does not depend on the speed of the machine. The present cases of the price feed keep passing without a change of their meaning."
+do_4 = "do_4 Run the typecheck of the workspace and the check of the source of the views. The files under apps/perps/apps/web/src and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/apps/web/src"]
+tests = []
+planned_paths = ["apps/perps/tests/price-feed-retry.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/price-feed-retry.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/price-feed.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.783]
+title = "Give the deposit of the native binding its allowance address and a fee formed from the gas of its calls"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.783"]
+interfaces = []
+do_1 = "do_1 Gotcha 4652 and decision 3732. Read the deposit function with its allowance and fee functions in the package of the React functions of the trading workspace, the deposit form under apps/perps/packages/ui-transfer with its validation, fee, action and swap parts, apps/perps/packages/core/src/assets.ts, and under apps/perps/packages/paxeer-backend/src the list of the chains in nativeMetadata.ts, the vault and account modules and the deposit of nativeClient.ts. Give in the final message the path of a deposit from the button to the calls it sends on the native binding, and for each key of a read on that path the parts that are absent on the native binding."
+do_2 = "do_2 On the native binding the deposit function has the address that receives the allowance of the collateral: the address that the approve of the account module names as spender. Carry it where the function reads it, so that the key of the allowance and the key of the fee are formed and the allowance the form shows is the one the deposit uses. The action of the form runs the approve where the allowance is below the amount and the deposit after it, through the modules of the backend package as today. No address of another chain and no address of the reference kit is used."
+do_3 = "do_3 The fee of a deposit on the native binding is the estimated gas of the calls the deposit will send, in the currency of the chain: the approve where one is needed, and the deposit. Estimate the calls in the order the deposit sends them; a deposit that cannot be estimated before its approve is no error of the form, and the fee is then the one of the calls that can be estimated. The layer fee stays zero. On the native binding a fee of zero or an estimate that cannot be formed does not disable the deposit and shows no message of missing fee data. The other rules of the validation stay: an amount above zero, an amount within the balance and the limits of the token. For a chain that is not the Paxeer chain the validation keeps its present rule."
+do_4 = "do_4 The reads of the swap part under the deposit form, the supported chains, the tokens and the quote, are not started where the chain is the Paxeer chain, so the form sends no request to a host of the reference kit there, and the form offers the collateral of the native binding only. Read the labels the form shows on the native binding and give in the final message each one that carries a name or a value of the reference kit without meaning there; change none of them. No size, colour, distance or position of a view changes, and no file under apps/perps/apps changes. "
+do_5 = "do_5 Add the case file apps/perps/tests/deposit-flow.test.ts, run with node --test like its neighbours, with a double of the chain client that answers reads and records calls. It holds: the key of the allowance and the key of the fee are formed on the native binding; with an allowance below the amount the planned calls are the approve and then the deposit, with a sufficient one the deposit alone; the fee is the sum of the estimates of the planned calls; an estimate that throws gives a fee of zero and the form is not disabled for an amount within the balance; an amount above the balance stays disabled; and no request leaves for a host other than the chain, which the case holds by a double of fetch that fails on any other host."
+do_6 = "do_6 Build the web application and start it. With a browser at 1440 by 900 and at 390 by 844 open the trade view with a wallet object in the page that answers the account, chain and read calls, answers a balance of the collateral above zero, and refuses every signing and sending call, connect it, open the deposit dialog, enter an amount within the balance and give in the final message the text of the dialog, the state of its button and every request to a host other than the application and the chain. Where the application cannot be built or started in your environment, give the command and its first message and the same values from reading the source. Run the typecheck of the workspace and the check of the source of the views. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/perps/packages and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages"]
+tests = []
+planned_paths = ["apps/perps/tests/deposit-flow.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-flow.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.782]
+title = "Bring the views of the trading workspace to rest with a connected account so that a change of the route shows its view"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.782"]
+interfaces = []
+do_1 = "do_1 Gotcha 4652 and decision 3732. Read apps/perps/packages/ui-scaffold/src/components/subAccount/useAccountValue.tsx, the sub account script beside it, the combined positions script under apps/perps/packages/ui-positions, the query functions these two call in the package of the React functions of the trading workspace, and the native page of the web application under apps/perps/apps/web/src/native. Give in the final message why the read of the aggregate positions ends without data on the native binding, and every place under apps/perps/packages where a component, or a function a component calls, gives a value the default of a new list or a new object and an effect, a memo or a callback depends on that value."
+do_2 = "do_2 The function of the account value derives its value from the read with a memo and holds no state for it; an absent or empty read gives one constant empty object of the module, and no effect of the file sets state. Bring every place of the list of the first step whose effect sets state to the same form. Where a memo or a callback only computes again, give the default one constant of the module so that its result keeps its identity. A read that the native binding cannot answer ends once without data and is not started again by a render; what it feeds shows what it shows for no data today."
+do_3 = "do_3 Add the case file apps/perps/tests/render-settle.test.ts, run with node --test like its neighbours, with the renderer for tests that the workspace installs. It mounts the function of the account value with a read that has no data, with one that failed and with one that answers two positions of two accounts, and holds for each: after the read has ended a fixed number of further flushes adds no render, the value keeps its identity between two renders without a new read, and the two positions give the sum per account. The count of renders is taken per flush and must not depend on the speed of the machine."
+do_4 = "do_4 Build the web application and start it. With a browser at 1440 by 900 and at 390 by 844 open the trade view with a wallet object in the page that answers the account, chain and read calls, answers a balance of the collateral above zero, and refuses every signing and sending call, connect it through the wallet dialog, and count the commits of React over three seconds at rest on the trade view, on the markets view and on the portfolio view. Then change by the menu from the trade view to the portfolio view, to the markets view and back, and give for each change whether the content of the view changed; the address and the mark of the menu are no proof of it. Give the same counts and changes without a wallet and with the account present at load. The target is a view that commits only on the events of its streams and a change that shows its view within three seconds. Where a count stays high, find the state that changes with every commit and bring it to the form of the second step. Where the application cannot be built or started in your environment, give the command and its first message and the same values from reading the source."
+do_5 = "do_5 Run the typecheck of the workspace and the check of the source of the views. No size, colour, distance or position of a view changes, and no file under apps/perps/apps changes. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/perps/packages and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages"]
+tests = []
+planned_paths = ["apps/perps/tests/render-settle.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/render-settle.test.ts && ! grep -q -e setAccountValue apps/perps/packages/ui-scaffold/src/components/subAccount/useAccountValue.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
