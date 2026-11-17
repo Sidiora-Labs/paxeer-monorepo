@@ -77,68 +77,70 @@ export function ExploreTable({ rows, sort, onSort, columns, density, isStarred, 
 
   return (
     <div aria-label="Coin rankings" className="min-w-0 rounded-md bg-surface-1">
-      {/* relative clips the sr-only header text; inline-size containment keeps the table's width out of the page's intrinsic size, so it scrolls here instead of widening the page */}
-      <div role="region" aria-label="Coin rankings table" tabIndex={0} className="relative min-h-[calc(var(--sl-table-row-comfortable)*8+var(--sl-touch-target-min)+var(--sl-space-8))] overflow-x-auto scroll-px-3 [contain:inline-size] focus-visible:outline-2 focus-visible:outline-focus">
-        <table className="w-full table-auto" style={{ minWidth: minimumWidth }}>
-          <caption className="sr-only">{caption}</caption>
-          <thead>
-            <tr className="bg-surface-1">
-              {columnSpecs.map(spec => {
-                if (spec.id in columns && !columns[spec.id as OptionalColumn]) return null;
-                const label = spec.id === 'star'
-                  ? <span className="sr-only">{spec.label}</span>
-                  : spec.id === 'ath'
-                    ? (
-                      <span className="inline-flex items-center gap-1">
-                        <span>{spec.label}</span>
-                        <Tooltip content={athUnavailableReason}>
-                          <button type="button" aria-label="About all-time high" className="inline-flex size-4 items-center justify-center rounded-xs text-text-faint hover:text-text focus-visible:outline-2 focus-visible:outline-focus">
-                            <Info aria-hidden="true" className="size-3" />
-                          </button>
-                        </Tooltip>
-                      </span>
-                    )
-                    : (
-                      <>
-                        <span aria-hidden={spec.hint ? true : undefined}>{spec.label}</span>
-                        {spec.hint ? <span className="sr-only">{spec.hint}</span> : null}
-                      </>
-                    );
-                return (
-                  <SortHeader
-                    key={spec.id}
-                    label={label}
-                    align={spec.align}
-                    width={spec.width === 'auto' ? undefined : spec.width}
-                    sort={spec.sortKey && sort && sort.key === spec.sortKey ? sort.direction : null}
-                    onSort={spec.sortKey ? () => onSort(spec.sortKey as SortKey) : undefined}
-                    className={cn('whitespace-nowrap font-medium', spec.id === 'coin' && coinHeaderMinWidth, spec.responsive)}
+      <div className="relative">
+        {/* relative clips the sr-only header text; inline-size containment keeps the table's width out of the page's intrinsic size, so it scrolls here instead of widening the page */}
+        <div role="region" aria-label="Coin rankings table" tabIndex={0} className="relative min-h-[calc(var(--sl-table-row-comfortable)*8+var(--sl-touch-target-min)+var(--sl-space-8))] overflow-x-auto scroll-px-3 [contain:inline-size] focus-visible:outline-2 focus-visible:outline-focus">
+          <table className="w-full table-auto" style={{ minWidth: minimumWidth }}>
+            <caption className="sr-only">{caption}</caption>
+            <thead>
+              <tr className="bg-surface-1">
+                {columnSpecs.map(spec => {
+                  if (spec.id in columns && !columns[spec.id as OptionalColumn]) return null;
+                  const label = spec.id === 'star'
+                    ? <span className="sr-only">{spec.label}</span>
+                    : spec.id === 'ath'
+                      ? (
+                        <span className="inline-flex items-center gap-1">
+                          <span>{spec.label}</span>
+                          <Tooltip content={athUnavailableReason}>
+                            <button type="button" aria-label="About all-time high" className="inline-flex size-4 items-center justify-center rounded-xs text-text-faint hover:text-text focus-visible:outline-2 focus-visible:outline-focus">
+                              <Info aria-hidden="true" className="size-3" />
+                            </button>
+                          </Tooltip>
+                        </span>
+                      )
+                      : (
+                        <>
+                          <span aria-hidden={spec.hint ? true : undefined}>{spec.label}</span>
+                          {spec.hint ? <span className="sr-only">{spec.hint}</span> : null}
+                        </>
+                      );
+                  return (
+                    <SortHeader
+                      key={spec.id}
+                      label={label}
+                      align={spec.align}
+                      width={spec.width === 'auto' ? undefined : spec.width}
+                      sort={spec.sortKey && sort && sort.key === spec.sortKey ? sort.direction : null}
+                      onSort={spec.sortKey ? () => onSort(spec.sortKey as SortKey) : undefined}
+                      className={cn('whitespace-nowrap font-medium', spec.id === 'coin' && coinHeaderMinWidth, spec.responsive)}
+                    />
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <SkeletonRows count={8} columns={columns} density={density} />
+              ) : rows.length === 0 ? null : (
+                rows.map((row, index) => (
+                  <ExploreRow
+                    key={row.poolAddress}
+                    row={row}
+                    columns={columns}
+                    density={density}
+                    starred={isStarred(row.poolAddress)}
+                    onToggleStar={onToggleStar}
+                    tone={index % 2 === 0 ? 'a' : 'b'}
                   />
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <SkeletonRows count={8} columns={columns} density={density} />
-            ) : rows.length === 0 ? null : (
-              rows.map((row, index) => (
-                <ExploreRow
-                  key={row.poolAddress}
-                  row={row}
-                  columns={columns}
-                  density={density}
-                  starred={isStarred(row.poolAddress)}
-                  onToggleStar={onToggleStar}
-                  tone={index % 2 === 0 ? 'a' : 'b'}
-                />
-              ))
-            )}
-          </tbody>
-        </table>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        {/* The notice shares the reserved table frame and stays outside its horizontal scroller. */}
+        {!loading && rows.length === 0 ? <div data-explore-empty className="absolute inset-x-0 bottom-0 top-touch-target-min flex items-center justify-center">{empty}</div> : null}
       </div>
-      {/* Outside the horizontal scroller so the empty or unavailable notice stays centred in the visible card at every width. */}
-      {!loading && rows.length === 0 ? <div data-explore-empty>{empty}</div> : null}
       {footer}
     </div>
   );
