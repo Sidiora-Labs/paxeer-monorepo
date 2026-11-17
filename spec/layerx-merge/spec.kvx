@@ -177116,7 +177116,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.69]
 title = "Close the terminal, swap and order views of the launchpad on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.40"]
