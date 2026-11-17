@@ -15520,6 +15520,12 @@ value = "The free collateral of the order entry of the native binding is the fre
 basis = "Gotcha 4654. Decisions 3718, 3732 and 3733."
 affects = []
 
+[decision.3735]
+title = "The apply check can credit an account with a token inside the copied home before it applies the transactions"
+value = "The command applycheck takes an option stand-in-credit that may be given several times; each names a token by its address, an account and an amount in the units of the token. Before the block is built, every form credits the account in the same way through the preparer, so the forms start from one state. A token whose balance the ledger keeps is credited through the ledger; a token whose balance a contract keeps is credited in the storage of the contract, and the command reads the balance through the contract afterwards and refuses the run where it is not the balance before plus the amount. The credit exists in the opened copy alone: the command accepts the option only for a home that holds the marker file of a copy, as it does for every run, writes nothing into the home it was copied from, and the report names every credit with token, account, amount and the balance before and after. The comparison of the forms and every other option stay as they are. Task 22.39.789 adds the option."
+basis = "Gotcha 4655. Decisions 3650 and 3734."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45180,6 +45186,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.789]
+title = "Let the apply check credit an account with a token inside the copied home before it applies the transactions"
+reqs = ["22998.1"]
+touches = ["daemon/paxd/cmd", "node", "daemon/README.md"]
+tests = []
+verification_contract = "go test -count=1 -timeout 60m ./node/ -run ^TestApplyCheck && go test -count=1 -timeout 60m ./node/sequencer/ -run ^TestApplyCheck && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run ^TestApplyCheck"
+do_1 = "do_1 Gotcha 4655 and decision 3735. Read node/apply_check.go with its preparer, its options and its report, daemon/paxd/cmd/applycheck.go with its options, the cases of both, the part of daemon/README.md on the command, the deposit leg in precompiles/perps/account.go, and how the code keeps the balance of a token that has an address: which tokens the ledger keeps and which a contract keeps in its storage. Give in the final message how the collateral token of the perps parameters keeps its balances in a state of the cases, and where the preparer runs in each form."
+symbols = []
 
 [capability.22.44.100]
 title = "Repeat once a render of the render check whose navigation ran out of time or whose request was closed by the application"
@@ -175683,7 +175698,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.100]
 title = "Repeat once a render of the render check whose navigation ran out of time or whose request was closed by the application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.99"]
@@ -175714,7 +175729,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.788]
 title = "Show in the deposit form of the native binding the ratio and the contribution of the collateral and the value of the gas fee as the binding has them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177037,7 +177052,7 @@ do_7 = "do_7 Decision 3727, gotcha 4647. The verification command installs the p
 
 [task.22.44.67]
 title = "Close the leaderboard and reward views of the launchpad on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.40"]
@@ -251618,9 +251633,42 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.789]
+title = "Let the apply check credit an account with a token inside the copied home before it applies the transactions"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.787"]
+reqs = ["22998.1"]
+capabilities = ["22.39.789"]
+interfaces = []
+do_1 = "do_1 Gotcha 4655 and decision 3735. Read node/apply_check.go with its preparer, its options and its report, daemon/paxd/cmd/applycheck.go with its options, the cases of both, the part of daemon/README.md on the command, the deposit leg in precompiles/perps/account.go, and how the code keeps the balance of a token that has an address: which tokens the ledger keeps and which a contract keeps in its storage. Give in the final message how the collateral token of the perps parameters keeps its balances in a state of the cases, and where the preparer runs in each form."
+do_2 = "do_2 Add the option stand-in-credit to the command. It may be given several times, and each value names a token address, an account address and an amount in the units of the token; say the form of the value in the help text. A value that does not parse, an amount of zero and a repeated pair of token and account end the command with the code of a usage error before a home is opened. The options of the apply check in node/apply_check.go carry the credits, and every form applies them through the preparer before its block is built, in the order given."
+do_3 = "do_3 A credit is made in the way the token keeps its balances. For a token the ledger keeps, the ledger issues the amount to the account. For a token a contract keeps, the preparer finds the storage place of the balance of the account: it reads the balance through the contract, writes the balance plus the amount to a candidate place, reads the balance through the contract again, and restores the place where the read does not show the sum; it tries the usual layouts of a map of balances over a count of positions that you name. Where no place gives the sum, the run ends with an error that names the token, and no transaction is applied. The total of the token that the contract reports may stay as it is, and the report says so."
+do_4 = "do_4 The report names every credit with token, account, amount, the balance before and the balance after, the same in every form. Nothing is written into the home the copy was made from, and the refusal of a home without the marker file stays as it is and comes before any credit."
+do_5 = "do_5 Add cases to the existing case files under node and daemon/paxd/cmd. An account without the collateral token signs an approve for the perps precompile, a deposit and a plain market order: without the option the deposit is refused in every form; with a credit the deposit succeeds in every form, the results and the state hash of the forms agree, and the report names the credit. One case credits a token the ledger keeps and one a token a contract keeps. One case gives a token whose balance place is not found and expects the error and no applied transaction. The cases of the command cover the values that do not parse, the zero amount and the repeated pair."
+do_6 = "do_6 The part of daemon/README.md on the command describes the option, the form of its value, what the report holds for it, and that a credit exists in the copy alone. The files under node and daemon/paxd/cmd and the file daemon/README.md are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Take the main line into your branch before you start; it holds the case of task 22.39.787 and its form of the result of a refused transaction, which stay. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["daemon/paxd/cmd", "node", "daemon/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/... ./daemon/... ./precompiles/perps/..."
+verify_cmd = "go test -count=1 -timeout 60m ./node/ -run ^TestApplyCheck && go test -count=1 -timeout 60m ./node/sequencer/ -run ^TestApplyCheck && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run ^TestApplyCheck"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.787]
 title = "Apply every perps call of the trading workspace through both execution paths from one state and compare the results"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

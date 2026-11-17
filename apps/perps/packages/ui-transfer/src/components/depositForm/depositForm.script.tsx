@@ -7,6 +7,7 @@ import {
   useIndexPricesStream,
   usePaxeerNetworkContext,
 } from "@paxeer-network/hooks";
+import { paxeerChain } from "@paxeer-network/paxeer-backend/core/chain";
 import { useAppContext } from "@paxeer-network/react-app";
 import { ChainNamespace, NetworkId } from "@paxeer-network/types";
 import { useAuthGuard } from "@paxeer-network/ui-connector";
@@ -131,6 +132,7 @@ export const useDepositFormScript = (options: DepositFormScriptOptions) => {
     indexPrice,
     swapIndexPrice,
   } = useDepositFormQuantities({
+    chainId: currentChain?.id,
     sourceToken,
     targetToken,
     balance: balance || "0",
@@ -170,9 +172,10 @@ export const useDepositFormScript = (options: DepositFormScriptOptions) => {
     setQuantity("");
     setDepositError("");
     // when sourceToken or currentChain?.id changes, clean state
-  }, [sourceToken, currentChain?.id]);
+  }, [sourceToken?.address, sourceToken?.symbol, currentChain?.id]);
 
   const fee = useDepositFee({
+    chainId: currentChain?.id,
     nativeSymbol,
     depositFee,
     getIndexPrice,
@@ -222,6 +225,7 @@ export const useDepositFormScript = (options: DepositFormScriptOptions) => {
     currentLTV,
     nextLTV,
   } = useCollateralValue({
+    chainId: currentChain?.id,
     sourceToken,
     targetToken,
     quantity,
@@ -265,6 +269,8 @@ export const useDepositFormScript = (options: DepositFormScriptOptions) => {
     onSourceTokenChange,
     onTargetTokenChange,
 
+    collateralUnit:
+      currentChain?.id === paxeerChain.id ? targetToken : undefined,
     nativeSymbol,
     isNativeToken,
     quantity,

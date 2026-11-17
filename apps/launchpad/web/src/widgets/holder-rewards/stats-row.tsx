@@ -30,7 +30,7 @@ function DisplayTile({ label, state, tone = 'text', detail, onRetry, className }
     body = (
       <>
         <span className={tone === 'success' ? 'text-success' : 'text-text'}>{state.value}</span>
-        {state.unit ? <span className="ml-1.5 text-md font-semibold tracking-normal text-text-faint">{state.unit}</span> : null}
+        {state.unit ? <span className="ml-1.5 whitespace-nowrap text-md font-semibold tracking-normal text-text-faint">{state.unit}</span> : null}
       </>
     );
   }

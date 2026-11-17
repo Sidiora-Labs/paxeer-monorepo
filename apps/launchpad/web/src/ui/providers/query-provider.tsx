@@ -1,6 +1,6 @@
 'use client';
 
-import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { notifyManager, QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { httpClient as indexerHttp } from 'indexer-sdk';
 import { httpClient as metadataHttp } from 'metadata-sdk';
@@ -14,6 +14,8 @@ import { useWalletRuntime } from '@/core/wallet-sdk/runtime';
 import { useRuntimeAuthority } from '@/core/runtime-authority';
 import { isWalletPrivateQueryV2 } from '@/core/wallet-sdk/backend';
 import type { Address } from 'viem';
+
+if (typeof window !== 'undefined') notifyManager.setScheduler(queueMicrotask);
 
 let sdksConfigured = false;
 function configureSDKs() {
