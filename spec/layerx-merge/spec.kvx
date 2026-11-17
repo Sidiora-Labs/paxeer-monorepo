@@ -178626,7 +178626,7 @@ do_7 = "do_7 Decision 3681, gotcha 4599. The work of the earlier candidate stays
 
 [task.22.44.39]
 title = "Close the trading workspace on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.18", "22.44.37", "22.44.52", "22.44.58", "22.44.59", "22.44.73", "22.44.74"]
