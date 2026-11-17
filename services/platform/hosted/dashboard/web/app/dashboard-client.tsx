@@ -16,6 +16,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type FormEvent,
@@ -124,6 +125,68 @@ function DashboardShell({
     >
       {children}
     </AppShell>
+  );
+}
+
+function DashboardIdentifier({ value, id }: { value: string; id?: string }) {
+  const element = useRef<HTMLSpanElement>(null);
+  const [visible, setVisible] = useState(value);
+
+  useLayoutEffect(() => {
+    const target = element.current;
+    if (!target) return;
+    const compact = window.matchMedia("(max-width: 834px)");
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Text measurement is unavailable");
+    const characters = Array.from(value);
+    const fit = () => {
+      context.font = getComputedStyle(target).font;
+      const width = target.getBoundingClientRect().width;
+      if (!compact.matches || context.measureText(value).width <= width) {
+        setVisible(value);
+        return;
+      }
+      let low = 0;
+      let high = characters.length;
+      let fitted = "…";
+      while (low <= high) {
+        const length = Math.floor((low + high) / 2);
+        const start = Math.ceil(length / 2);
+        const end = Math.floor(length / 2);
+        const candidate = `${characters.slice(0, start).join("")}…${end ? characters.slice(-end).join("") : ""}`;
+        if (context.measureText(candidate).width <= width) {
+          fitted = candidate;
+          low = length + 1;
+        } else high = length - 1;
+      }
+      setVisible(fitted);
+    };
+    const observer = new ResizeObserver(fit);
+    observer.observe(target);
+    compact.addEventListener("change", fit);
+    let active = true;
+    void document.fonts.ready.then(() => {
+      if (active) fit();
+    });
+    fit();
+    return () => {
+      active = false;
+      observer.disconnect();
+      compact.removeEventListener("change", fit);
+    };
+  }, [value]);
+
+  return (
+    <span
+      ref={element}
+      id={id}
+      className="dashboard-identifier"
+      aria-label={value}
+    >
+      <span aria-hidden="true">{visible}</span>
+      <span className="sr-only">{value}</span>
+    </span>
   );
 }
 
@@ -558,8 +621,12 @@ export default function DashboardClient({
                 </h2>
                 <List>
                   <ListItem
-                    title={receipt.activity_id}
-                    subtitle={`${receipt.event} · ${receipt.receipt_digest}`}
+                    title={<DashboardIdentifier value={receipt.activity_id} />}
+                    subtitle={
+                      <DashboardIdentifier
+                        value={`${receipt.event} · ${receipt.receipt_digest}`}
+                      />
+                    }
                     trailing={verificationBadge(receipt.verification)}
                   />
                 </List>
@@ -819,7 +886,9 @@ function SignInView({
           {keyState.publicKey ? (
             <div className="dashboard-public-key">
               <span>Public key</span>
-              <code>{keyState.publicKey}</code>
+              <code>
+                <DashboardIdentifier value={keyState.publicKey} />
+              </code>
               <Button
                 type="button"
                 size="sm"
@@ -918,7 +987,9 @@ function OverviewPanel({
               <ListItem
                 key={`${request.at}-${request.operation_digest}`}
                 title={request.outcome}
-                subtitle={request.operation_digest}
+                subtitle={
+                  <DashboardIdentifier value={request.operation_digest} />
+                }
                 trailing={verificationBadge(request.verification)}
                 trailingCaption={new Date(request.at * 1000).toLocaleString()}
               />
@@ -1131,7 +1202,7 @@ function KeysPanel({
             {keys.map((key) => (
               <ListItem
                 key={key.key_id}
-                title={key.key_id}
+                title={<DashboardIdentifier value={key.key_id} />}
                 subtitle={`${key.used_in_window} of ${key.requests_per_window} requests used · ${key.window_seconds}s window`}
                 trailing={
                   key.disabled ? (
@@ -1205,7 +1276,7 @@ function KeysPanel({
         }
       >
         <div className="dashboard-secret">
-          <code>{secret}</code>
+          <code>{secret ? <DashboardIdentifier value={secret} /> : null}</code>
           <Button
             type="button"
             size="sm"
@@ -1276,7 +1347,9 @@ function RequestsPanel({ requests }: { requests: RequestRecord[] }) {
             <ListItem
               key={`${request.at}-${request.operation_digest}`}
               title={request.outcome}
-              subtitle={request.operation_digest}
+              subtitle={
+                <DashboardIdentifier value={request.operation_digest} />
+              }
               trailing={verificationBadge(request.verification)}
               trailingCaption={new Date(request.at * 1000).toLocaleString()}
             />
@@ -1304,7 +1377,7 @@ function WebhooksPanel({
             {endpoints.map((endpoint) => (
               <ListItem
                 key={endpoint.endpoint}
-                title={endpoint.url}
+                title={<DashboardIdentifier value={endpoint.url} />}
                 subtitle={`${endpoint.pending} pending · ${endpoint.in_flight} in flight · ${endpoint.retrying} retrying`}
                 trailing={
                   <Badge
@@ -1329,8 +1402,12 @@ function WebhooksPanel({
             {deliveries.map((delivery) => (
               <ListItem
                 key={delivery.delivery}
-                title={delivery.event}
-                subtitle={`${delivery.endpoint} · ${delivery.delivery}`}
+                title={<DashboardIdentifier value={delivery.event} />}
+                subtitle={
+                  <DashboardIdentifier
+                    value={`${delivery.endpoint} · ${delivery.delivery}`}
+                  />
+                }
                 trailing={verificationBadge(delivery.verification)}
                 trailingCaption={delivery.state.state}
               />
@@ -1363,11 +1440,31 @@ function PaymentsPanel({
           {payments.map((payment, index) => (
             <ListItem
               key={payment.event}
-              title={`${payment.amount ?? "—"} ${payment.asset ?? ""}`}
+              title={
+                <DashboardIdentifier
+                  value={`${payment.amount ?? "—"} ${payment.asset ?? ""}`}
+                />
+              }
               subtitle={
                 <>
-                  <span id={`payment-event-${index}`}>{payment.event}</span>
-                  {` · ${payment.facts.map((fact) => `${fact.name}=${fact.value} [${fact.verification}]`).join(" · ")} · receipt ${payment.receipt_digest ?? "not available"} · `}
+                  <span className="dashboard-payment-details">
+                    <DashboardIdentifier
+                      id={`payment-event-${index}`}
+                      value={payment.event}
+                    />
+                    {payment.facts.map((fact, factIndex) => (
+                      <span key={`${fact.name}-${factIndex}`}>
+                        {` · ${fact.name}=`}
+                        <DashboardIdentifier value={fact.value} />
+                        {` [${fact.verification}]`}
+                      </span>
+                    ))}
+                    {" · receipt "}
+                    <DashboardIdentifier
+                      value={payment.receipt_digest ?? "not available"}
+                    />
+                    {" · "}
+                  </span>
                   <span className="dashboard-fact-verification">
                     all facts {payment.verification}
                   </span>

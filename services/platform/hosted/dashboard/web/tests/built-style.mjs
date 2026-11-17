@@ -70,8 +70,8 @@ assert.deepEqual(
 
 assert.match(
   combined,
-  /repeat\(\s*auto-fit,\s*minmax\(\s*min\(\s*100%,\s*var\(--space-popover\)\s*\),\s*1fr\s*\)\s*\)/,
-  "dashboard rows fit their available space using the shared width scale",
+  /\.dashboard-card \[role=(?:"listitem"|listitem)\]\s*\{(?=[^}]*display:\s*flex)(?=[^}]*flex-wrap:\s*nowrap)(?=[^}]*align-items:\s*center)/,
+  "dashboard rows keep horizontal tracks aligned at the center",
 );
 assert.match(
   combined,
