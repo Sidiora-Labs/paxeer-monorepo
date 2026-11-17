@@ -178976,7 +178976,7 @@ do_9 = "do_9 Decision 3705, gotcha 4625. This task starts from the main line tha
 
 [task.22.44.38]
 title = "Close the explorer on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.11", "22.44.37", "22.44.52", "22.44.58", "22.44.59"]
@@ -205773,7 +205773,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.809]
 title = "Bring the suites of the launchpad discovery and notifications modules in line with the wallet range view they read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205928,7 +205928,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.804]
 title = "Bring the suite of the launchpad ranking module in line with its listener, its recorded statements and its publication rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
