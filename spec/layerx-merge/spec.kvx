@@ -206065,7 +206065,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.812]
 title = "Bring the cases of the terminal, coin and trading views of the launchpad web application in line with their views and producers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
