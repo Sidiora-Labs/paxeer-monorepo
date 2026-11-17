@@ -114,6 +114,9 @@ The directory may also be absolute. A typical surface file has this form:
     }
   ],
   "answers": [],
+  "embeddedMessages": [
+    { "script": "/vendor/chart/", "message": "Chart data is unavailable" }
+  ],
   "typeScale": [12, 14, 16, 20, 24, { "min": 32, "max": 48 }]
 }
 ```
@@ -236,6 +239,19 @@ pattern and status. Undeclared failed responses and application console errors
 remain findings. View expectations apply only to the initial state; named
 states declare their own expected refusals. Expectations do not supply answers.
 
+The optional surface-level `embeddedMessages` list declares exact console messages
+from scripts embedded unchanged from another party. Each entry contains only
+`script`, an origin-relative path with at least one directory (such as
+`"/vendor/chart/"` or `"/vendor/chart/bundle.js"`), and `message`, a nonempty string.
+Invalid lists and entries are rejected before rendering, with the entry index.
+A console message of type `error` matches only when its location has the surface's
+origin, its URL pathname begins with `script`, and its text equals `message`.
+Each render records matches in `embeddedMessages` as `{ "script", "message",
+"count" }`, and the view summary appends `N declared messages` when the count is
+nonzero. Unmatched declarations add no finding. The same text outside that path
+or origin, other text under that path, and uncaught errors or rejections remain
+load findings.
+
 Each browser context grants clipboard writing to the surface's origin so copy
 controls can complete their normal interaction. Clipboard reading is ungranted.
 
@@ -342,7 +358,7 @@ the regular device matrix, report and exit behavior.
 | `cut` | Text with hidden or clipped overflow exceeds its box by more than 1 pixel, without declared ellipsis. Scrollable text is allowed. |
 | `contrast` | Axe measures text below 4.5:1, or large text below 3:1 (24 pixels, or bold at approximately 18.67 pixels). A custom axe check measures visible control borders, identifying fills and SVG fills/strokes below 3:1. Disabled controls are excluded. |
 | `touch` | Enabled touch control below 44 CSS pixels in either direction at widths up to 834. An inline link within a line of text is exempt. |
-| `focus` | In keyboard mode, Tab focus produces no visible change (comparing computed appearance and viewport pixels) on the element, its descendants or ancestors, or fails to reach a sequentially focusable element. While a modal dialog is open, expected elements are limited to the topmost modal, including controls through shadow roots; nonmodal dialogs leave the expected elements unchanged. Appearances are compared with an unfocused baseline. In each direction, a box that fits must stay entirely in the viewport; a larger box must keep its starting edge in the viewport after focus. |
+| `focus` | In keyboard mode, Tab focus produces no visible change (comparing computed appearance and viewport pixels) on the element, its descendants or ancestors, or fails to reach a sequentially focusable element. While a modal dialog is open, expected elements are limited to the topmost modal, including controls through shadow roots; nonmodal dialogs leave the expected elements unchanged. A frame is recorded as one stop without judging its focus mark or controls inside its document. Tab continues to the following top-document control, using at most 32 additional presses and 2000 milliseconds per frame. If focus does not leave the frame within either bound, one focus finding names the frame and traversal ends there. Appearances are compared with an unfocused baseline. In each direction, a box that fits must stay entirely in the viewport; a larger box must keep its starting edge in the viewport after focus. |
 | `shift` | Sum of layout-shift entries without recent input, from initial painting through settling, exceeds 0.05. |
 | `motion` | Under reduced motion, a running animation or transition lasts over 100 milliseconds, including iterations. Start events preserve measurements of motion that finishes before settling. |
 | `scale` | Visible text's computed font size is outside every declared step or fluid range. |
