@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  Avatar,
+  AppShell,
   Badge,
   Button,
   Card,
@@ -69,30 +69,61 @@ type DashboardError = { title: string; description: string };
 
 function DashboardShell({
   principal,
+  active,
+  onNavigate,
+  deadLetters,
   notificationControl,
   children,
 }: {
   principal: string;
+  active: string;
+  onNavigate: (value: string) => void;
+  deadLetters?: number;
   notificationControl?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <div className="dashboard-shell">
-      <header className="dashboard-header">
-        <span className="dashboard-brand" role="img" aria-label="LayerX">
-          LX
-        </span>
-        <h1>Developer dashboard</h1>
-        <div className="dashboard-identity">
-          <div className="dashboard-account">
-            <Avatar alt={principal} initials="DX" size="sm" tone="primary" />
-            <span>{principal}</span>
-          </div>
-          <div className="dashboard-session-control">{notificationControl}</div>
-        </div>
-      </header>
-      <main>{children}</main>
-    </div>
+    <AppShell
+      className="dashboard-shell"
+      nav={[
+        { id: "home", label: "Overview" },
+        { id: "agents", label: "Keys" },
+        { id: "activity", label: "Logs", badge: deadLetters },
+        { id: "more", label: "Webhooks" },
+      ]}
+      activeNav={
+        active === "overview"
+          ? "home"
+          : active === "keys"
+            ? "agents"
+            : active === "requests"
+              ? "activity"
+              : "more"
+      }
+      onNavigate={(value) =>
+        onNavigate(
+          value === "home"
+            ? "overview"
+            : value === "agents"
+              ? "keys"
+              : value === "activity"
+                ? "requests"
+                : "webhooks",
+        )
+      }
+      title="Developer dashboard"
+      notificationControl={
+        <>
+          <h1 className="dashboard-mobile-heading">Developer dashboard</h1>
+          {notificationControl ?? (
+            <span className="dashboard-notification-space" aria-hidden="true" />
+          )}
+        </>
+      }
+      user={{ name: principal, initials: "DX" }}
+    >
+      {children}
+    </AppShell>
   );
 }
 
@@ -232,7 +263,9 @@ function DashboardCard({
 }) {
   return (
     <Card className={`dashboard-card ${className}`}>
-      <h2>{title}</h2>
+      <div className="dashboard-heading">
+        <h2>{title}</h2>
+      </div>
       {children}
     </Card>
   );
@@ -388,6 +421,8 @@ export default function DashboardClient({
     !needsSession && overview ? (
       <Button
         type="button"
+        size="sm"
+        className="dashboard-session-control"
         variant="secondary"
         loading={signingOut}
         onClick={() => void signOut()}
@@ -400,8 +435,11 @@ export default function DashboardClient({
     <DashboardShell
       notificationControl={signOutControl}
       principal={overview?.principal ?? "Developer"}
+      active={active}
+      onNavigate={setActive}
+      deadLetters={overview?.dead_letters.length}
     >
-      <div className="dashboard-content">
+      <div className="dashboard-content mx-auto flex w-full max-w-6xl flex-col gap-5 p-4 md:p-6">
         {!needsSession ? (
           <DashboardTabs active={active} onChange={setActive} />
         ) : null}
@@ -413,9 +451,17 @@ export default function DashboardClient({
           />
         ) : null}
         {error && !needsSession ? (
-          <DashboardCard title={error.title}>
-            <p role="alert">{error.description}</p>
-          </DashboardCard>
+          <Card className="dashboard-card">
+            <div className="flex flex-col items-center gap-2.5 rounded-lg bg-surface px-6 py-10 text-center">
+              <h2>{error.title}</h2>
+              <p
+                className="max-w-notification text-sm leading-relaxed"
+                role="alert"
+              >
+                {error.description}
+              </p>
+            </div>
+          </Card>
         ) : null}
         {!overview && !error && !needsSession ? <DashboardLoading /> : null}
         {overview ? (
@@ -668,9 +714,11 @@ function SignInView({
 
   return (
     <Card className="dashboard-card dashboard-sign-in">
-      <h2 ref={signInHeading} tabIndex={-1}>
-        Sign in to your developer dashboard
-      </h2>
+      <div className="dashboard-heading">
+        <h2 ref={signInHeading} tabIndex={-1}>
+          Sign in to your developer dashboard
+        </h2>
+      </div>
       <form
         className="dashboard-form"
         aria-label="Session token sign-in"
@@ -761,6 +809,8 @@ function SignInView({
               <code>{keyState.publicKey}</code>
               <Button
                 type="button"
+                size="sm"
+                className="dashboard-compact-control"
                 variant="secondary"
                 disabled={busy !== undefined}
                 onClick={async () => {
@@ -1083,6 +1133,8 @@ function KeysPanel({
                     <span className="dashboard-key-actions">
                       <Button
                         type="button"
+                        size="sm"
+                        className="dashboard-compact-control"
                         variant="secondary"
                         loading={busy === "rotate"}
                         disabled={busy !== undefined}
@@ -1097,6 +1149,8 @@ function KeysPanel({
                       </Button>
                       <Button
                         type="button"
+                        size="sm"
+                        className="dashboard-compact-control"
                         variant="destructive"
                         loading={
                           busy === "revoke" && revokeTarget === key.key_id
@@ -1141,6 +1195,8 @@ function KeysPanel({
           <code>{secret}</code>
           <Button
             type="button"
+            size="sm"
+            className="dashboard-compact-control"
             variant="secondary"
             onClick={async () => {
               try {
@@ -1319,7 +1375,8 @@ function PaymentsPanel({
                           <Button
                             key={fact.value}
                             type="button"
-                            variant="secondary"
+                            className="dashboard-receipt-control"
+                            variant="ghost"
                             aria-describedby={`payment-event-${index}`}
                             loading={receiptActivity === fact.value}
                             disabled={receiptActivity !== undefined}
