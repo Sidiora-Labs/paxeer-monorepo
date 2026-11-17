@@ -51,7 +51,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </div>
           <div className="space-y-1">
             <p className="text-base font-semibold text-pax-light">Something broke</p>
-            <p className="text-sm text-pax-muted max-w-xs leading-relaxed">
+            <p className="text-sm text-pax-muted max-w-size-260 leading-relaxed">
               The screen could not be displayed. Retry, or share reference{' '}
               {this.state.correlationId} with support.
             </p>

@@ -84,7 +84,7 @@ export function DiscoverCarousel({
         onScroll={handleScroll}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        className="flex overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth rounded-xl"
+        className="flex overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth rounded-3xl"
         style={{ scrollSnapType: 'x mandatory' }}
       >
         {slides.map((slide, i) => (

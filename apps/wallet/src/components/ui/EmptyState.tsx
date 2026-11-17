@@ -69,7 +69,7 @@ export function EmptyState({
 
       {subtitle && (
         <p
-          className={`text-pax-muted mt-1 max-w-xs leading-relaxed ${compact ? 'text-xs' : 'text-sm'}`}
+          className={`text-pax-muted mt-1 max-w-size-260 leading-relaxed ${compact ? 'text-xs' : 'text-sm'}`}
         >
           {subtitle}
         </p>
