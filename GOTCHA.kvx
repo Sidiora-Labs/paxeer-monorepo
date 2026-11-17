@@ -23060,3 +23060,8 @@ fix = "Decision 3726. Task 22.39.778."
 title = "The setup of the launchpad surface for the render check calls a tool for certificates that the verification of its parts did not install"
 symptom = "The file tools/ui-check/surfaces/launchpad/prepare.mjs writes the store of certificates of the browser with the tool certutil, so that the surface is rendered on a secure origin. The package libnss3-tools holds that tool. The verification commands of tasks 22.44.64 to 22.44.69 install the browser with its packages and then run the script of the parts and the render check; they do not install libnss3-tools, and the setup files of the surface install no package."
 fix = "Decision 3727. Tasks 22.44.64 to 22.44.69."
+
+[gotcha.4648]
+title = "The request function of the net package of the trading workspace sends an address with a scheme to the network, and the query function forms every address with the api base"
+symptom = "The file apps/perps/packages/net/src/fetch/index.ts hands an address without a scheme to the client of the workspace, which answers by path inside the process, and sends an address that begins with http or https with the fetch function of the platform. The query function of the React functions of the workspace joins the api base and the path before it calls the request function, so every read it forms carries a scheme. The client under apps/perps/packages/paxeer-backend reads the path alone from any address and answers the public reads of markets, tokens, funding and system state and the reads of the account from the state of the chain. The case file apps/perps/packages/net/__test__/fetch.test.ts holds the headers of a request against a replaced fetch function and an address of another host."
+fix = "Decision 3728. Task 22.39.779."

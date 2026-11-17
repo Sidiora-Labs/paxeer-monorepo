@@ -15478,6 +15478,12 @@ value = "The verification commands of tasks 22.44.64 to 22.44.69 install the pac
 basis = "Gotcha 4647. Decisions 3721 and 3722."
 affects = []
 
+[decision.3728]
+title = "The request function of the net package hands every address to the client of the trading workspace, and a case that expects another binding is changed, not the product"
+value = "The trading workspace reads and writes through its own client, which answers by the path of an address from the state of the chain and the market data of the workspace. The request function of apps/perps/packages/net hands every address, with or without a scheme, to that client with the method, the headers and the body it was given, and calls no fetch function itself. A case of a member that was written for another binding is brought to this one: it replaces the client of the workspace, not the fetch function, and holds what the client is given. A task that makes the suite of a member run changes no behaviour of the product to fit a case; where a case and the binding of the workspace differ, the case changes and the final message says so. Task 22.39.779 brings the request function and its cases to this form."
+basis = "Gotcha 4648. Decisions 3046 and 3705."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45138,6 +45144,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.96]
+title = "Leave the theme of the trading workspace to its provider and take the row of legal links out of the flow of the application views"
+reqs = ["22998.1"]
+touches = ["apps/perps/apps/web/src"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/app-shell.test.ts && ! grep -q -e BLUE_DARK_THEME_CSS_VARS apps/perps/apps/web/src/pages/_app.tsx && ! grep -q -e /privacy apps/perps/apps/web/src/pages/_app.tsx"
+do_1 = "do_1 Decision 3705. Read apps/perps/apps/web/src/pages/_app.tsx, apps/perps/apps/web/src/native/PaxeerNetwork.tsx, apps/perps/apps/web/src/theme/blueDarkTheme.ts, the files under apps/perps/apps/web/src/legal and the provider of the theme under apps/perps/packages/app/src/provider. The theme of the workspace is declared in apps/perps/apps/web/src/native/PaxeerNetwork.tsx: it takes the variables of apps/perps/apps/web/src/theme/blueDarkTheme.ts and sets the primary colour and its related variables to white with a black contrast, and the provider writes them to the root element. The element that wraps the application in apps/perps/apps/web/src/pages/_app.tsx sets the variables of apps/perps/apps/web/src/theme/blueDarkTheme.ts as an inline style, so below it the primary colour of that file holds and not the one of the theme. The same file puts a row of three legal links after the application in the flow of the document, so a view that fills the height of the window gains the height of the row."
+symbols = []
+
+[capability.22.39.779]
+title = "Hand every address of the request function of the net package to the client of the trading workspace"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages/net"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps/packages/net test && pnpm --dir apps/perps typecheck && ! grep -q -e response.json apps/perps/packages/net/src/fetch/index.ts"
+do_1 = "do_1 Gotcha 4648 and decision 3728. Read apps/perps/packages/net/src/fetch/index.ts, the case file apps/perps/packages/net/__test__/fetch.test.ts, the query function of the React functions of the workspace that forms an address from the api base and a path, and the function nativeRequest of the client under apps/perps/packages/paxeer-backend. List in the final message every kind of caller of the request function you found, among them the query function and the functions get, post, put, del and mutate, and for each whether the address it gives carries a scheme."
+symbols = []
 
 [capability.22.39.778]
 title = "Name the present cases of the sequenced execution in the driver of the qualification"
@@ -175500,6 +175524,69 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.96]
+title = "Leave the theme of the trading workspace to its provider and take the row of legal links out of the flow of the application views"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.73"]
+reqs = ["22998.1"]
+capabilities = ["22.44.96"]
+interfaces = []
+do_1 = "do_1 Decision 3705. Read apps/perps/apps/web/src/pages/_app.tsx, apps/perps/apps/web/src/native/PaxeerNetwork.tsx, apps/perps/apps/web/src/theme/blueDarkTheme.ts, the files under apps/perps/apps/web/src/legal and the provider of the theme under apps/perps/packages/app/src/provider. The theme of the workspace is declared in apps/perps/apps/web/src/native/PaxeerNetwork.tsx: it takes the variables of apps/perps/apps/web/src/theme/blueDarkTheme.ts and sets the primary colour and its related variables to white with a black contrast, and the provider writes them to the root element. The element that wraps the application in apps/perps/apps/web/src/pages/_app.tsx sets the variables of apps/perps/apps/web/src/theme/blueDarkTheme.ts as an inline style, so below it the primary colour of that file holds and not the one of the theme. The same file puts a row of three legal links after the application in the flow of the document, so a view that fills the height of the window gains the height of the row."
+do_2 = "do_2 apps/perps/apps/web/src/pages/_app.tsx sets no variable of a theme: the wrapping element carries no style and the import of the variables leaves the file. On the application views the theme comes from the provider alone. The three legal pages and the consent notice shown on them carry the variables of the theme of the workspace, with the same primary colour as the application: the variables stand once, in a module under apps/perps/apps/web/src/theme that apps/perps/apps/web/src/native/PaxeerNetwork.tsx reads as well, and the legal layout takes them from there. No value of a variable is written a second time."
+do_3 = "do_3 The row of legal links leaves the flow of the application views: apps/perps/apps/web/src/pages/_app.tsx renders no navigation after the application. The three links, Privacy Policy, Terms of Service and Cookie Settings, stand in the bar at the foot of the application that the scaffold of the workspace renders, through the property trailing of footerProps in apps/perps/apps/web/src/native/PaxeerNetwork.tsx, next to the present text and in the text style of that bar, and the height of the bar does not change. Where that property takes no element, say so in the final message and give the links to the menu of the main navigation that the web source configures. At widths where the scaffold shows no such bar the links are reached through the consent notice and the legal pages, which link to each other already; add no element there that takes height or covers a control. The legal pages keep their own row of links."
+do_4 = "do_4 Add the case file apps/perps/tests/app-shell.test.ts, run with node --test like its neighbours. It reads apps/perps/apps/web/src/pages/_app.tsx and holds that the file sets no style on an element, imports no variables of a theme and renders no navigation element; it reads apps/perps/apps/web/src/native/PaxeerNetwork.tsx and holds that the addresses /privacy, /terms and /cookies are given to the scaffold; and it reads the legal layout and holds that the variables it carries come from the module of the declaration."
+do_5 = "do_5 Build the web application and start it, open the trade view with a browser at 1440 by 900 and at 390 by 844, and give in the final message for each: the height of the document against the height of the window, the computed background colour of the primary button of the order entry, and the height of the bar at the foot before and after your change. At 1440 by 900 the document is as high as the window, and the primary button is white on the dark theme. Open one legal page as well and give the computed colour of its text and of a link. Where the application cannot be built or started in your environment, give the command and its first message and the same values from reading the source. No size of text, line height, distance, control or row changes, no part of a view moves, and no file under apps/perps/packages changes. The files of apps/perps/apps/web/src and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/apps/web/src"]
+tests = []
+planned_paths = ["apps/perps/tests/app-shell.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/app-shell.test.ts && ! grep -q -e BLUE_DARK_THEME_CSS_VARS apps/perps/apps/web/src/pages/_app.tsx && ! grep -q -e /privacy apps/perps/apps/web/src/pages/_app.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.779]
+title = "Hand every address of the request function of the net package to the client of the trading workspace"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.779"]
+interfaces = []
+do_1 = "do_1 Gotcha 4648 and decision 3728. Read apps/perps/packages/net/src/fetch/index.ts, the case file apps/perps/packages/net/__test__/fetch.test.ts, the query function of the React functions of the workspace that forms an address from the api base and a path, and the function nativeRequest of the client under apps/perps/packages/paxeer-backend. List in the final message every kind of caller of the request function you found, among them the query function and the functions get, post, put, del and mutate, and for each whether the address it gives carries a scheme."
+do_2 = "do_2 The request function hands every address to nativeRequest with the method, the headers and the body it was given, whether the address carries a scheme or not, and calls no fetch function. The defaults of the Content-Type header stay as they are: none for GET and HEAD, the form type for DELETE, the JSON type for the other methods, and a header the caller gave is kept. The functions get, post, put, del and mutate keep their signatures and their handling of the answer."
+do_3 = "do_3 apps/perps/packages/net/__test__/fetch.test.ts is brought to this binding: it replaces the module of the client of the workspace, not the fetch function, and holds for each of its present cases the headers that the client is given. It gains cases that hold: an address formed of an api base with a scheme and the path /v1/public/info reaches the client with that address and the fetch function of the platform is not called; an address without a scheme reaches the client the same way; an error the client throws reaches the caller of get unchanged."
+do_4 = "do_4 Read the other source files of apps/perps/packages/net for a second place that sends a read or a write of the workspace to the network instead of the client and bring each to the client the same way; the socket of the package is not part of this. Where there is none say so in the final message. No file outside apps/perps/packages/net changes. The files of apps/perps/packages/net are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Run the suite of the member alone. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages/net"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps/packages/net test && pnpm --dir apps/perps typecheck && ! grep -q -e response.json apps/perps/packages/net/src/fetch/index.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
