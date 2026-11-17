@@ -175500,7 +175500,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.95]
 title = "Keep the function that resolves a theme of the wallet application to its arguments"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.63"]
