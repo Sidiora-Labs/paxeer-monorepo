@@ -26,7 +26,7 @@ export default function ProfileLayout({ left, center, right, rightLabel = 'Top t
         ? '@market-three/profile:grid-cols-[minmax(var(--sl-stream-card-min-width),var(--sl-right-rail-width-wide))_minmax(0,var(--sl-form-max-width))]'
         : '@market-two/profile:grid-cols-[minmax(0,var(--sl-form-max-width))]';
   return (
-    <div className="@container/profile w-full">
+    <div className="@container/profile w-full min-w-0">
       <div data-profile-layout className={cn('grid w-full grid-cols-1 items-stretch lg:min-h-[calc(100dvh-var(--sl-shell-top-total))] @market-three/profile:justify-center', columns, className)}>
         {hasLeft ? (
           <aside aria-label="Leaderboard" className="hidden min-w-0 bg-surface-1 @market-three/profile:block">

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { PublicShareError, readPublicShare } from '@/widgets/pnl/share-transport';
 import {
   BackendOriginError,
   browserConnectOrigins,
@@ -58,7 +59,7 @@ function buildCsp(): { policy: string; walletOrigins: string[] } {
   return { policy: directives.join('; '), walletOrigins };
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   let destination: string | undefined;
   if (pathname === '/new') destination = '/explore?preset=new';
@@ -72,9 +73,18 @@ export function middleware(request: NextRequest) {
       destination = `/pnl/${encodeURIComponent(cards[0])}?ref=${encodeURIComponent(referral[1])}`;
     }
   }
+  const publicCard = /^\/pnl\/([^/]+)$/.exec(pathname);
+  let missingCard = false;
+  if (publicCard) {
+    try {
+      await readPublicShare(publicCard[1]);
+    } catch (error) {
+      missingCard = error instanceof PublicShareError && error.status === 404;
+    }
+  }
   const response = destination
     ? NextResponse.redirect(new URL(destination, request.url))
-    : NextResponse.next();
+    : NextResponse.next({ status: missingCard ? 404 : 200 });
 
   // Baseline security headers applied to EVERY route (incl. the charting
   // library branch below). HSTS forces TLS; nosniff blocks MIME-confusion

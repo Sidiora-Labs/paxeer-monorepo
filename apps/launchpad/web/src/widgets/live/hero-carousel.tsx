@@ -187,7 +187,7 @@ export function HeroCarouselSkeleton() {
     <div aria-hidden="true" className={heroStageClass}>
       <div className={cn(heroFrameClass, 'mx-auto max-w-250')}>
         <Skeleton variant="block" className="aspect-video h-auto w-full rounded-none" />
-        <div className="flex flex-col gap-4 p-4 lg:p-5">
+        <div className="hidden flex-col gap-4 p-4 lg:flex lg:p-5">
           <Skeleton variant="pill" />
           <Skeleton variant="text" width="80%" />
           <Skeleton variant="block" height={surfaceSpacing(12)} />
@@ -213,8 +213,11 @@ export function HeroFramePlaceholder({ children, className }: HeroFramePlacehold
   return (
     <section data-live-hero aria-label="Featured live streams" className={cn(heroStageClass, className)}>
       <div data-live-hero-frame className={cn(heroFrameClass, 'mx-auto max-w-250')}>
-        <div className="flex aspect-video min-h-min min-w-0 w-full items-center justify-center bg-surface-2 p-4">
-          {children}
+        <div className="grid min-w-0 w-full grid-cols-1 bg-surface-2">
+          <span aria-hidden="true" className="col-start-1 row-start-1 aspect-video" />
+          <div className="col-start-1 row-start-1 flex min-w-0 items-center justify-center p-4">
+            {children}
+          </div>
         </div>
         <div aria-hidden="true" className="hidden flex-col gap-4 p-5 lg:flex">
           <span className="flex gap-2">

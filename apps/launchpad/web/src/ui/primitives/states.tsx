@@ -450,13 +450,13 @@ export function StateNotice({
       )}
     >
       <Icon aria-hidden="true" className={cn('size-icon-sm shrink-0', meta.icon)} />
-      <span className={wrap ? 'min-w-0 flex-1 basis-32' : 'min-w-0 flex-1 basis-24'}>{body}</span>
+      <span className={wrap ? 'min-w-0 flex-1 basis-32 text-pretty' : 'min-w-0 flex-1 basis-24 text-pretty'}>{body}</span>
       {onRetry ? (
         <button
           type="button"
           onClick={onRetry}
           disabled={retrying}
-          className="shrink-0 rounded-xs font-semibold text-text transition-colors duration-fast hover:text-text-muted focus-visible:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus focus-visible:underline disabled:cursor-wait disabled:text-text-faint"
+          className="shrink-0 rounded-xs font-semibold text-text transition-colors duration-fast hover:text-text-muted focus-visible:bg-text focus-visible:text-surface-1 focus-visible:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus focus-visible:underline disabled:cursor-wait disabled:text-text-faint"
         >
           Try again
         </button>
@@ -868,15 +868,15 @@ export function SectionHeader({
       <div className="min-w-0 flex-1 basis-40">
         <Heading
           className={cn(
-            'flex flex-wrap items-center gap-2 font-bold text-text',
+            'flex items-center gap-2 font-bold text-text',
             level === 1 ? 'text-xl' : level === 2 ? 'text-md' : 'text-base'
           )}
         >
-          <span>{title}</span>
+          <span className="min-w-0">{title}</span>
           {loading ? (
             <LoaderCircle
               aria-hidden="true"
-              className="size-icon-sm animate-spin text-text-faint"
+              className="size-icon-sm shrink-0 animate-spin text-text-faint"
             />
           ) : count !== undefined ? (
             <CountPill count={count} />
