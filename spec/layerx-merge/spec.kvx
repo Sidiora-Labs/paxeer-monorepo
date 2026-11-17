@@ -177646,7 +177646,7 @@ do_7 = "do_7 Decision 3727, gotcha 4647. The verification command installs the p
 
 [task.22.44.64]
 title = "Close the bounty, chat and document views of the launchpad on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.40"]
@@ -205586,7 +205586,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.815]
 title = "Take the pin of a participant when the secure channel of its connection is established in the client of the wallet gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
