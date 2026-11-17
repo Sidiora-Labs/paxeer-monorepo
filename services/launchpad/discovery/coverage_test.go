@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -134,6 +135,25 @@ func coverageExec(t *testing.T, db *sql.DB, query string, args ...any) {
 	}
 }
 
+func coverageWalletRangeViews(t *testing.T, db *sql.DB) {
+	t.Helper()
+	migration, err := os.ReadFile("../../../migrations/160004.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	views := 0
+	for _, statement := range strings.Split(string(migration), ";") {
+		statement = strings.TrimSpace(statement)
+		if strings.HasPrefix(statement, `CREATE VIEW "pnl".`) {
+			coverageExec(t, db, statement)
+			views++
+		}
+	}
+	if views != 2 {
+		t.Fatalf("wallet range migration defines %d read views, want 2", views)
+	}
+}
+
 func TestDiscoveryFeedUsesPersistedAuthorityAndCursor(t *testing.T) {
 	s, a := coverageSetup(t)
 	ctx := context.Background()
@@ -217,8 +237,9 @@ func TestDiscoveryRankIntervalsFromPersistedBuckets(t *testing.T) {
 	start := time.Now().UTC().Truncate(time.Hour).Add(-2 * time.Hour)
 	end := start.Add(2 * time.Hour)
 	coverageExec(t, s.DB, `CREATE SCHEMA pnl`)
-	coverageExec(t, s.DB, `CREATE TABLE pnl.inventory_l16_wallet_ranges_v3(snapshot_id text,wallet text,input_digest text,watermark text,start_at timestamptz,end_at timestamptz,generation bigint)`)
-	coverageExec(t, s.DB, `CREATE TABLE pnl.inventory_l16_wallet_intervals_v3(snapshot_id text,interval text,bucket timestamptz,payload jsonb)`)
+	coverageExec(t, s.DB, `CREATE TABLE pnl.inventory_l16_wallet_ranges_v3(snapshot_id uuid PRIMARY KEY,wallet text NOT NULL,generation text NOT NULL,start_at timestamptz NOT NULL,end_at timestamptz NOT NULL,release_digest text NOT NULL,input_digest text NOT NULL,watermark jsonb NOT NULL)`)
+	coverageExec(t, s.DB, `CREATE TABLE pnl.inventory_l16_wallet_intervals_v3(snapshot_id uuid NOT NULL REFERENCES pnl.inventory_l16_wallet_ranges_v3(snapshot_id),interval text NOT NULL CHECK(interval IN ('1h','1d')),bucket timestamptz NOT NULL,payload jsonb NOT NULL,PRIMARY KEY(snapshot_id,interval,bucket))`)
+	coverageWalletRangeViews(t, s.DB)
 	accounts := make([]string, 0, 2)
 	snapshots := make([]string, 0, 2)
 	for i, wallet := range []string{pool, "0x2222222222222222222222222222222222222222"} {
@@ -226,7 +247,7 @@ func TestDiscoveryRankIntervalsFromPersistedBuckets(t *testing.T) {
 		accounts = append(accounts, account)
 		snapshots = append(snapshots, snapshot)
 		coverageExec(t, s.DB, `INSERT INTO coverage_attribution VALUES($1,$2,$3,true,true)`, wallet, account, profile)
-		coverageExec(t, s.DB, `INSERT INTO pnl.inventory_l16_wallet_ranges_v3 VALUES($1,$2,'valuation-v1','watermark-v1',$3,$4,1)`, snapshot, wallet, start, end)
+		coverageExec(t, s.DB, `INSERT INTO pnl.inventory_l16_wallet_ranges_v3(snapshot_id,wallet,generation,start_at,end_at,release_digest,input_digest,watermark) VALUES($1,$2,'1',$3,$4,'release-v1','valuation-v1','"watermark-v1"'::jsonb)`, snapshot, wallet, start, end)
 		net := "2500000"
 		if i == 1 {
 			net = "-1000000"
