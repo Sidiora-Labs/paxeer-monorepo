@@ -18,10 +18,11 @@ import (
 func commitLeaderSourceBlock(t *testing.T, a *app.App, write func(sdk.Context)) {
 	t.Helper()
 	commitProofNodeAbciSchedule(t, a, write)
+	app.WaitForTestQueryHeight(t, a, a.LastBlockHeight())
 }
 
 func TestAppLeaderScheduleReadsKeeperList(t *testing.T) {
-	w := app.NewTestWrapperWithSc(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false)
+	w := app.NewTestWrapperWithSc(t, time.Unix(1_800_000_000, 0).UTC(), secp256k1.GenPrivKey().PubKey(), false)
 	a := w.App
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	require.NoError(t, a.SequencerKeeper.SetReceiptKeys(w.Ctx, seqkeeper.ReceiptKeys{{
@@ -62,7 +63,7 @@ func TestAppLeaderScheduleReadsKeeperList(t *testing.T) {
 
 	for _, key := range [][]byte{seqtypes.LeaderListKey, seqtypes.ActivationHeightKey} {
 		t.Run(string(key), func(t *testing.T) {
-			w := app.NewTestWrapperWithSc(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false)
+			w := app.NewTestWrapperWithSc(t, time.Unix(1_800_000_000, 0).UTC(), secp256k1.GenPrivKey().PubKey(), false)
 			a := w.App
 			t.Cleanup(func() { require.NoError(t, a.Close()) })
 			require.NoError(t, a.SequencerKeeper.SetReceiptKeys(w.Ctx, seqkeeper.ReceiptKeys{{
@@ -87,7 +88,7 @@ func TestAppLeaderScheduleReadsKeeperList(t *testing.T) {
 }
 
 func TestAppLeaderScheduleEmptyBeforeActivation(t *testing.T) {
-	w := app.NewTestWrapperWithSc(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false)
+	w := app.NewTestWrapperWithSc(t, time.Unix(1_800_000_000, 0).UTC(), secp256k1.GenPrivKey().PubKey(), false)
 	a := w.App
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	commitLeaderSourceBlock(t, a, func(ctx sdk.Context) {

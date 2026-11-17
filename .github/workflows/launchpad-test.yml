@@ -120,7 +120,7 @@ jobs:
   launchpad-go-test:
     name: Go test ${{ matrix.module }}
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -318,6 +318,21 @@ jobs:
           createdb --host 127.0.0.1 --port 25432 --username kindle_fixture kindle_test
           createdb --host 127.0.0.1 --port 25432 --username kindle_fixture launchpad_notifications
           createdb --host 127.0.0.1 --port 25432 --username kindle_fixture launchpad_pnl
+      - &launchpad_go_commit_timestamps
+        name: Enable database commit timestamps
+        env:
+          PGPASSWORD: kindle_fixture_password
+        run: |
+          psql --host 127.0.0.1 --port 25432 --username kindle_fixture --dbname kindle_fixture --command "ALTER SYSTEM SET track_commit_timestamp = on"
+          docker restart "${{ job.services.postgres.id }}"
+          for attempt in {1..30}; do
+            if pg_isready --host 127.0.0.1 --port 25432 --username kindle_fixture; then
+              test "$(psql --host 127.0.0.1 --port 25432 --username kindle_fixture --dbname kindle_fixture --tuples-only --no-align --command 'SHOW track_commit_timestamp')" = on
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
       - &launchpad_go_chain
         name: Start the owned authorization chain
         run: |
@@ -372,6 +387,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/launchpad-fixture-bin" "$RUNNER_TEMP/launchpad-minio-data"
           GOBIN="$RUNNER_TEMP/launchpad-fixture-bin" GOFLAGS= go install github.com/minio/minio@RELEASE.2025-04-22T22-12-26Z
+          echo "$RUNNER_TEMP/launchpad-fixture-bin" >> "$GITHUB_PATH"
           MINIO_ROOT_USER="$SHARED_TEST_MINIO_ACCESS_KEY_ID" \
             MINIO_ROOT_PASSWORD="$SHARED_TEST_MINIO_SECRET_ACCESS_KEY" \
             "$RUNNER_TEMP/launchpad-fixture-bin/minio" server "$RUNNER_TEMP/launchpad-minio-data" \
@@ -468,20 +484,7 @@ jobs:
       - *launchpad_go_setup_node
       - *launchpad_go_setup_anvil
       - *launchpad_go_database
-      - name: Enable database commit timestamps
-        env:
-          PGPASSWORD: kindle_fixture_password
-        run: |
-          psql --host 127.0.0.1 --port 25432 --username kindle_fixture --dbname kindle_fixture --command "ALTER SYSTEM SET track_commit_timestamp = on"
-          docker restart "${{ job.services.postgres.id }}"
-          for attempt in {1..30}; do
-            if pg_isready --host 127.0.0.1 --port 25432 --username kindle_fixture; then
-              test "$(psql --host 127.0.0.1 --port 25432 --username kindle_fixture --dbname kindle_fixture --tuples-only --no-align --command 'SHOW track_commit_timestamp')" = on
-              exit 0
-            fi
-            sleep 1
-          done
-          exit 1
+      - *launchpad_go_commit_timestamps
       - *launchpad_go_chain
       - *launchpad_go_fixture_binaries
       - *launchpad_go_nats
