@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 /**
  * The signed-in owner's portfolio reads go to the production pnl-tracker
  * routes behind identity + enrollment (core/pnl-tracker/internal/app/app.go:
@@ -182,7 +183,7 @@ describe('owner portfolio on the production routes', () => {
     expect(labels).toEqual(['Value', 'Remaining', 'Realized', 'Total PNL']);
     const values = Array.from(view.container.querySelectorAll('dd')).map(node => node.textContent);
     expect(values).toEqual(['3.00', '2.50', '+0.40', '+0.90']);
-    expect(classesOf(view.container).filter(name => BORDER.test(name))).toEqual([]);
+    expect(assertControlEdges(view.container.innerHTML)).not.toMatch(BORDER);
     unmount(view);
   });
 

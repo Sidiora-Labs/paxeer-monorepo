@@ -62,6 +62,10 @@ function SkeletonRows({ count, columns, density }: { count: number; columns: Col
 }
 
 export function ExploreTable({ rows, sort, onSort, columns, density, isStarred, onToggleStar, loading, hasMore, loadingMore, moreError, onLoadMore, empty, disclosure, caption }: ExploreTableProps) {
+  const columnWidths = columnSpecs
+    .filter(spec => spec.id !== 'coin' && (!(spec.id in columns) || columns[spec.id as OptionalColumn]))
+    .map(spec => spec.width);
+  const minimumWidth = `calc(var(--sl-space) * 62 + ${columnWidths.join(' + ')})`;
   const footer = (
     <>
       {disclosure ? <p role="status" className="px-3 py-2 text-xs text-text-faint">{disclosure}</p> : null}
@@ -74,8 +78,8 @@ export function ExploreTable({ rows, sort, onSort, columns, density, isStarred, 
   return (
     <div aria-label="Coin rankings" className="min-w-0 rounded-md bg-surface-1">
       {/* relative clips the sr-only header text; inline-size containment keeps the table's width out of the page's intrinsic size, so it scrolls here instead of widening the page */}
-      <div role="region" aria-label="Coin rankings table" tabIndex={0} className="relative overflow-x-auto scroll-px-3 [contain:inline-size] focus-visible:outline-2 focus-visible:outline-focus">
-        <table className="w-full table-auto">
+      <div role="region" aria-label="Coin rankings table" tabIndex={0} className="relative min-h-[calc(var(--sl-table-row-comfortable)*8+var(--sl-touch-target-min)+var(--sl-space-8))] overflow-x-auto scroll-px-3 [contain:inline-size] focus-visible:outline-2 focus-visible:outline-focus">
+        <table className="w-full table-auto" style={{ minWidth: minimumWidth }}>
           <caption className="sr-only">{caption}</caption>
           <thead>
             <tr className="bg-surface-1">

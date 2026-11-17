@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 // @vitest-environment jsdom
 import React, { act } from 'react';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -41,7 +42,7 @@ describe('ChartToolbar', () => {
     expect(html).not.toMatch(/\bSOL\b/);
     expect(html).toContain('Live');
     expect(html).toContain('Block 4242');
-    expect(html).not.toMatch(BORDER);
+    expect(assertControlEdges(html)).not.toMatch(BORDER);
   });
 
   it('promotes a caret interval into the group while it is active', () => {
@@ -96,7 +97,7 @@ describe('ChartSplit', () => {
     expect(handle?.getAttribute('aria-valuemax')).toBe(String(CHART_MAX_HEIGHT));
     act(() => { handle?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
     expect(heights).toEqual([CHART_DEFAULT_HEIGHT]);
-    expect(container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(container.innerHTML)).not.toMatch(BORDER);
     unmount(root, container);
   });
 });

@@ -57,7 +57,7 @@ function Highlights({ cup, items, identities }: HighlightsProps) {
           const name = identity?.displayName?.trim() || shortAddress(wallet, 6, 4);
           return (
             <li key={wallet} className="w-45 shrink-0 snap-start">
-              <Link href={profileHref(wallet)} className="relative flex aspect-[3/4] flex-col justify-end overflow-hidden rounded-md bg-surface-2 transition-opacity duration-fast hover:opacity-95">
+              <Link prefetch={false} href={profileHref(wallet)} className="relative flex aspect-[3/4] flex-col justify-end overflow-hidden rounded-md bg-surface-2 transition-opacity duration-fast hover:opacity-95">
                 <RankBadge rank={row.rank} variant="media" className="absolute left-2 top-2" />
                 <div aria-hidden="true" className="absolute inset-x-0 top-0 flex h-2/3 items-center justify-center">
                   <Avatar src={identity?.avatarUrl ?? null} name={name} size="2xl" decorative />

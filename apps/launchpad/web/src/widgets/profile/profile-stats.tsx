@@ -21,7 +21,7 @@ export function formatJoinedDate(iso: string): string {
 
 function Stat({ value, label }: { value: ReactNode; label: string }) {
   return (
-    <div className="flex flex-col">
+    <div className="flex min-w-16 flex-col">
       <dd data-numeric className="order-1 text-sm font-semibold tabular-nums text-text">{value}</dd>
       <dt className="order-2 text-xs text-text-faint">{label}</dt>
     </div>
@@ -36,8 +36,8 @@ export default function ProfileStats({ wallet, createdAt, className }: ProfileSt
     <dl className={cn('flex min-h-10 flex-wrap items-start gap-x-8 gap-y-2', className)}>
       {stats.state === 'loading' ? (
         <>
-          <Skeleton width={surfaceSpacing(24)} height={surfaceSpacing(4)} />
-          <Skeleton width={surfaceSpacing(24)} height={surfaceSpacing(4)} />
+          <Stat value={<Skeleton width={surfaceSpacing(8)} height={surfaceSpacing(5)} />} label="Followers" />
+          <Stat value={<Skeleton width={surfaceSpacing(8)} height={surfaceSpacing(5)} />} label="Following" />
         </>
       ) : stats.state === 'ready' ? (
         <>

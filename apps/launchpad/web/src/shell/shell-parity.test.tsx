@@ -290,7 +290,7 @@ describe('ticker strip', () => {
 });
 
 describe('footer row', () => {
-  it('is one slim canvas row: no surface card, no skeleton bars, legal links and copyright inline', async () => {
+  it('keeps legal links and copyright inline and reserves a grid for activity figures', async () => {
     const container = await render(<ShellFooter />);
     const footer = container.querySelector('footer')!;
     expect(classes(footer)).toEqual(
@@ -304,15 +304,19 @@ describe('footer row', () => {
       )
     ).toEqual(['Terms', 'Privacy', 'Trademarks', 'DMCA', 'Do not sell my data']);
     expect(footer.textContent).toContain(`© ${new Date().getFullYear()} Sidiora`);
-    // Loading is announced to screen readers only; the row keeps its one-line height.
+    // The loading grid reserves the same six labelled cells as the served figures.
     const busy = footer.querySelector('[aria-busy="true"]');
-    if (busy) expect(busy.className).toContain('sr-only');
+    if (busy) {
+      expect(busy.className).toContain('grid');
+      expect(busy.querySelectorAll('dt')).toHaveLength(6);
+      expect(busy.querySelectorAll('dd .sr-only')).toHaveLength(6);
+    }
     else expect(footer.querySelector('[role="status"]')?.className).toContain('text-2xs');
   });
 });
 
 describe('footer placement', () => {
-  it('anchors the footer row to the viewport bottom on short pages: main is one viewport tall and the page grows into it', async () => {
+  it('keeps the footer after a viewport of content on short pages', async () => {
     const { default: AppShell } = await import('./app-shell');
     const html = renderToString(
       <WagmiProvider config={config}>
@@ -334,18 +338,17 @@ describe('footer placement', () => {
     const main = host.querySelector('main#main-content')!;
     expect(classes(main)).toEqual(
       expect.arrayContaining([
-        'min-h-dvh',
+        'min-h-[calc(100dvh-var(--shell-top))]',
         'flex',
         'flex-col',
-        'pt-[var(--shell-top)]',
         'pb-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom,0rem))]',
         'md:pb-0',
       ])
     );
     const content = main.querySelector('[data-shell-content]')!;
     expect(classes(content)).toContain('flex-1');
-    // No fixed viewport min-height on the content: that pushed the footer below the fold.
-    expect(content.getAttribute('style') ?? '').not.toMatch(/min-height/);
+    expect(classes(content)).toContain('min-h-[calc(100dvh-var(--shell-top))]');
+    expect(main.previousElementSibling?.classList.contains('sticky')).toBe(true);
     expect(main.lastElementChild?.tagName).toBe('FOOTER');
     expect(main.outerHTML).not.toMatch(NO_STROKES);
   });

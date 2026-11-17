@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 // @vitest-environment jsdom
 import React, { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -110,10 +111,11 @@ describe('create bounty call to action', () => {
     act(() => closeAuthModal());
   });
 
-  it('renders the phone Post bounty pill fixed above the bottom navigation and gates it the same way', () => {
+  it('renders the phone Post bounty pill after the list and gates it the same way', () => {
     const container = mount(<Harness availability={missing} fab />);
     const fab = container.querySelector('[data-testid="post-bounty-fab"]');
-    expect(fab?.className).toMatch(/\bfixed\b/);
+    expect(fab?.className).toMatch(/\bflex\b/);
+    expect(fab?.className).not.toMatch(/\b(?:fixed|sticky)\b/);
     expect(fab?.className).toMatch(/\bmd:hidden\b/);
     const pill = button(container, 'Post bounty') as HTMLButtonElement;
     expect(pill.className).toMatch(/rounded-pill/);
@@ -131,22 +133,22 @@ describe('create bounty call to action', () => {
     const row = h1?.closest('div')?.parentElement;
     expect(row?.textContent).toContain('chips');
     expect(row?.textContent).toContain('Create bounty');
-    expect(container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(container.innerHTML)).not.toMatch(BORDER);
   });
 });
 
 describe('bounty totals', () => {
-  it('renders four compact chips on one row with real values', () => {
+  it('renders four compact chips within the available width with real values', () => {
     const container = mount(<BountiesStats stats={statsReady} openCount={null} />);
     const dl = container.querySelector('dl');
-    expect(dl?.className).toMatch(/flex-nowrap/);
-    expect(dl?.className).not.toMatch(/grid|flex-wrap\b/);
+    expect(dl?.className).toMatch(/flex-wrap/);
+    expect(dl?.className).not.toMatch(/grid|flex-nowrap\b/);
     const chips = [...container.querySelectorAll('[data-stat]')];
     expect(chips.map(chip => chip.getAttribute('data-stat'))).toEqual(['live', 'pool', 'submissions', 'paid']);
     for (const chip of chips) expect(chip.className).toMatch(/py-1\.5/);
     expect(chips[0].textContent).toContain('74');
     expect(chips[2].textContent).toContain('893');
-    expect(container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(container.innerHTML)).not.toMatch(BORDER);
   });
 
   it('shows dashes instead of endless skeletons when the service is down, with no repeated error copy', () => {
@@ -162,7 +164,7 @@ describe('bounty totals', () => {
       const container = mount(<BountiesStats stats={notServed} openCount={null} variant={variant} />);
       expect(container.textContent).toMatch(/Bounty totals are not available yet/);
       expect(container.textContent).not.toMatch(/Bounty totals is not/);
-      expect(container.innerHTML).not.toMatch(BORDER);
+      expect(assertControlEdges(container.innerHTML)).not.toMatch(BORDER);
     }
   });
 
@@ -176,12 +178,12 @@ describe('bounty totals', () => {
     expect(totals.map(total => total.value)).toEqual(['3', null, null, null]);
   });
 
-  it('renders the inline variant as two lines of text for narrow headers', () => {
+  it('renders the inline variant with aligned values for narrow headers', () => {
     const container = mount(<BountiesStats stats={statsReady} openCount={null} variant="inline" />);
     const lines = container.querySelectorAll('dl > div');
-    expect(lines.length).toBe(2);
-    expect(lines[0].textContent).toMatch(/live74.*unclaimed rewards13K USDL/);
-    expect(lines[1].textContent).toMatch(/submissions across all893.*paid out1M USDL/);
+    expect(lines.length).toBe(4);
+    expect([...lines].map(line => line.querySelector('dt')?.textContent)).toEqual(['live', 'unclaimed rewards', 'submissions across all', 'paid out']);
+    expect([...lines].map(line => line.querySelector('dd')?.textContent)).toEqual(['74', '13K USDL', '893', '1M USDL']);
   });
 });
 

@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 // @vitest-environment jsdom
 import React from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -120,7 +121,7 @@ describe('social components render honest states without border utilities', () =
     expect(html).toContain('aria-label="Follow 0xabcd...ef01"');
     expect(html).toContain('More actions for callout by');
     expect(html).toContain(`href="/coin/${pool}#trade"`);
-    expect(html).not.toMatch(BORDER);
+    expect(assertControlEdges(html)).not.toMatch(BORDER);
   });
   it('shows the removal placeholder and the unavailable MC chip from the real stats error', () => {
     const removed = render(<CalloutCard callout={feedCardView({ ...feedCard, Source: { ...feedCard.Source, Tombstone: true } })} stats={{ state: 'loading' }} />);
@@ -130,21 +131,21 @@ describe('social components render honest states without border utilities', () =
     expect(unsupported).toContain('Market cap is not available yet');
     expect(unsupported).toContain('Not shared');
     expect(unsupported).not.toContain('IF_STATS_BATCH');
-    expect(unsupported).not.toMatch(BORDER);
+    expect(assertControlEdges(unsupported)).not.toMatch(BORDER);
   });
   it('renders the panel and rail headers with their selectors before data arrives', () => {
     const panel = render(<HotCalloutsPanel poolAddress={pool} />);
     expect(panel).toContain('Hot callouts');
     expect(panel).toContain('Loading callouts');
     expect(panel).toContain('aria-haspopup="menu"');
-    expect(panel).not.toMatch(BORDER);
+    expect(assertControlEdges(panel)).not.toMatch(BORDER);
     const rail = render(<CalloutsRail />);
     expect(rail).toContain('Best callouts');
     expect(rail).toContain('role="radiogroup"');
     expect(rail).toContain('>1D<');
     expect(rail).toContain('>1W<');
-    expect(rail).not.toMatch(BORDER);
-    expect(render(<CalloutCardSkeleton />)).not.toMatch(BORDER);
+    expect(assertControlEdges(rail)).not.toMatch(BORDER);
+    expect(assertControlEdges(render(<CalloutCardSkeleton />))).not.toMatch(BORDER);
   });
   it('renders an empty discovery feed as a plain empty state in the panel and the rail', () => {
     const emptyPage: FeedPage = { Algorithm: 'chronological-v1', Cursor: '', Entries: [], FallbackReason: '', Personalized: false, Snapshot: '' };
@@ -153,7 +154,7 @@ describe('social components render honest states without border utilities', () =
       expect(html).toContain('No callouts yet');
       expect(html).toContain('Callouts from traders show up here');
       expect(html).not.toMatch(/IF_CONNECTED_FEED|empty page|did not load|could not load|failed/i);
-      expect(html).not.toMatch(BORDER);
+      expect(assertControlEdges(html)).not.toMatch(BORDER);
     }
     expect(render(<CalloutsRail />, seed)).toContain('href="/explore"');
   });
@@ -165,6 +166,6 @@ describe('social components render honest states without border utilities', () =
     const icon = render(<FollowButton wallet={author} variant="icon" />);
     expect(icon).toContain('rounded-pill');
     expect(render(<ReportMenu subject={{ targetType: 'profile', targetId: author, label: 'hdegroot' }} />)).toContain('aria-label="More actions for hdegroot"');
-    expect(text + icon).not.toMatch(BORDER);
+    expect(assertControlEdges(text + icon)).not.toMatch(BORDER);
   });
 });

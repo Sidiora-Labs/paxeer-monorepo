@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -127,7 +128,7 @@ describe('TerminalTokenStrip', () => {
     expect(html).toContain('aria-label="Terminal settings"');
     expect(html).toContain('aria-label="Add to watchlist"');
     expect(html.match(/>-</g)?.length).toBeGreaterThanOrEqual(3);
-    expect(html).not.toMatch(BORDER);
+    expect(assertControlEdges(html)).not.toMatch(BORDER);
   });
 });
 

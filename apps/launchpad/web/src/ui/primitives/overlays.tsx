@@ -249,7 +249,7 @@ export function DropdownMenu({
                       </div>
                     ) : null}
                     {item.href && !item.disabled ? (
-                      <Link href={item.href} {...common} onClick={() => closeAndRestore()}>
+                      <Link prefetch={false} href={item.href} {...common} onClick={() => closeAndRestore()}>
                         {body}
                       </Link>
                     ) : (

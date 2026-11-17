@@ -22,7 +22,7 @@ const tabStripClass = '[&_[role=tablist]]:gap-5 [&_[role=tab]]:px-0 [&_[role=tab
  * Wide-desktop rail column. Its first row lines up with the page title: the
  * rail's own heading is lifted to the H1 scale and centred on the 56px title row.
  */
-const railColumnClass = 'min-w-0 self-start pt-3 @min-market-three/leaderboard:sticky @min-market-three/leaderboard:top-[calc(var(--shell-top)+var(--sl-space-4))] [&>aside>div:first-child_h2]:text-xl';
+const railColumnClass = 'hidden min-w-0 self-start xl:block pt-3 xl:sticky xl:top-[calc(var(--shell-top)+var(--sl-space-4))] [&>aside>div:first-child_h2]:text-xl';
 /** pump.fun keeps Best callouts as its own column only on wide desktops; below xl it is a fourth tab. */
 const railQuery = launchpadMedia.extraLarge;
 
@@ -43,7 +43,7 @@ function subscribeViewport(onChange: () => void) {
 
 /** True at >= xl where the callouts rail has its own column; below that it becomes a tab. */
 function useWideViewport(): boolean {
-  return useSyncExternalStore(subscribeViewport, () => window.matchMedia(railQuery).matches, () => true);
+  return useSyncExternalStore(subscribeViewport, () => window.matchMedia(railQuery).matches, () => false);
 }
 
 function readSearch(): URLSearchParams {
@@ -119,7 +119,7 @@ export function LeaderboardView({ rail, className }: LeaderboardViewProps) {
 
   return (
     <div className={cn('@container/leaderboard mx-auto w-full max-w-content-narrow-max-width px-4 pb-16 pt-4 sm:px-6', className)}>
-      <div className={cn('grid gap-6', rail && wide && '@min-market-three/leaderboard:grid-cols-[minmax(0,1fr)_var(--spacing-right-rail-width-wide)]')}>
+      <div className={cn('grid gap-6', rail && 'xl:grid-cols-[minmax(0,1fr)_var(--spacing-right-rail-width-wide)]')}>
         <div className="min-w-0">
           <h1 className="flex min-h-header-height items-center text-[length:var(--sl-text-page-title)] font-bold text-text">Leaderboard</h1>
           <UnderlineTabs tabs={tabs} active={tab} onChange={changeTab} label="Leaderboard sections" idPrefix={tabIdPrefix} manual className={tabStripClass} />

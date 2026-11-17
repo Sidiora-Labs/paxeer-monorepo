@@ -54,7 +54,7 @@ export default function WalletsExpander({ wallet, isOwner, className }: WalletsE
       >
         <ul className="flex flex-col gap-1">
           {wallets.map((address, index) => (
-            <li key={address} className="flex h-10 items-center justify-between gap-3 rounded-sm bg-surface-3 px-3">
+            <li key={address} className="flex min-h-12 flex-wrap items-center py-2 justify-between gap-3 rounded-sm bg-surface-3 px-3">
               <span className="text-xs font-bold text-text-muted">{index === 0 ? 'Main wallet' : 'Linked wallet'}</span>
               <ShortAddress address={address} head={6} tail={4} explorerHref={explorerAddress(address)} />
             </li>

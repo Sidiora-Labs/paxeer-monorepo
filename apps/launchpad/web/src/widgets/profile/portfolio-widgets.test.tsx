@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
@@ -173,7 +174,7 @@ describe('portfolio widgets against a real pnl-tracker origin (visitor)', () => 
     expect(text).not.toContain('Rank unavailable');
     expect(text).toContain('Portfolio chart is not available yet');
     expect(Array.from(view.container.querySelectorAll('button')).some(button => button.textContent?.includes('Deposit'))).toBe(false);
-    expect(classesOf(view.container).filter(name => BORDER.test(name))).toEqual([]);
+    expect(assertControlEdges(view.container.innerHTML)).not.toMatch(BORDER);
     expect(pnl.paths.some(path => path.includes('/portfolio/history'))).toBe(false);
     unmount(view);
   });
@@ -247,7 +248,7 @@ describe('portfolio widgets against a real pnl-tracker origin (visitor)', () => 
       expect(view.container.textContent).toContain('this wallet signs in once');
       expect(view.container.textContent).not.toMatch(/404|NOT_FOUND|unavailable right now/);
       expect(view.container.querySelector('[role="alert"]')).toBeNull();
-      expect(classesOf(view.container).filter(name => BORDER.test(name))).toEqual([]);
+      expect(assertControlEdges(view.container.innerHTML)).not.toMatch(BORDER);
       unmount(view);
     }
   });

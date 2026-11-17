@@ -26,9 +26,9 @@ export function HeroMetaPanel({ entry, creatorLabel, className }: HeroMetaPanelP
         <ViewerCountChip count={entry.viewerCount} quality={entry.viewerQuality} size="md" />
       </div>
       <h2 className="line-clamp-2 break-words text-xl font-bold text-text">
-        <Link href={href} className="rounded-xs hover:underline">{entry.stream.title}</Link>
+        <Link prefetch={false} href={href} className="rounded-xs hover:underline">{entry.stream.title}</Link>
       </h2>
-      <Link href={href} className="-mx-2 flex min-w-0 items-center gap-3 rounded-md p-2 transition-colors duration-fast hover:bg-surface-hover">
+      <Link prefetch={false} href={href} className="-mx-2 flex min-w-0 items-center gap-3 rounded-md p-2 transition-colors duration-fast hover:bg-surface-hover">
         <Avatar src={entry.imageUrl} name={entry.symbol ?? name} size="xl" decorative />
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-2">

@@ -25,9 +25,9 @@ export default function NotFound() {
         </p>
       </div>
 
-      <Link
+      <Link prefetch={false}
         href="/"
-        className="inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center inline-flex min-h-touch-target-min items-center px-6 py-2.5 rounded-xl bg-accent-soft text-accent font-bold text-sm hover:bg-accent-soft-strong transition-all active:scale-[0.97]"
+        className="inline-flex min-h-touch-target-min items-center px-6 py-2.5 rounded-xl bg-accent-soft text-accent font-bold text-sm hover:bg-accent-soft-strong transition-all active:scale-[0.97]"
       >
         Go home
       </Link>

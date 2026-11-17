@@ -35,7 +35,7 @@ export function HomeFeed({ className }: { className?: string }) {
   }
 
   return (
-    <div data-home-feed="" className={cn('mx-auto flex w-full max-w-120 flex-col gap-3 px-4 pb-6 pt-4', className)}>
+    <div data-home-feed="" className={cn('mx-auto flex h-[calc(100dvh-var(--shell-top))] w-full max-w-120 flex-col gap-3 px-4 pb-6 pt-4', className)}>
       <div className="flex flex-wrap items-center gap-4">
         <div role="tablist" aria-label="Callout feed" className="flex min-w-0 max-w-full flex-1 basis-60 flex-wrap items-baseline gap-5">
           {homeFeedTabs.map((tab, index) => {
@@ -71,7 +71,7 @@ export function HomeFeed({ className }: { className?: string }) {
           {state.pending} new {state.pending === 1 ? 'callout' : 'callouts'}
         </button>
       ) : null}
-      <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-tab-${feed}`} className="flex flex-col">
+      <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-tab-${feed}`} className="flex min-h-0 flex-1 flex-col">
         <CalloutsFeedBody feed={feed} filter="" state={state} />
       </div>
     </div>

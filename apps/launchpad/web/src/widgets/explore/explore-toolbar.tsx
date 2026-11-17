@@ -19,7 +19,7 @@ export interface ExploreToolbarProps {
   onToggleSettings: () => void;
 }
 
-const toolClass = 'relative inline-flex size-control-height-md shrink-0 items-center justify-center rounded-sm bg-surface-1 text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text focus-visible:outline-2 focus-visible:outline-focus [&_svg]:size-icon-md';
+const toolClass = 'relative inline-flex border border-control-edge size-control-height-md shrink-0 items-center justify-center rounded-sm bg-surface-1 text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text focus-visible:outline-2 focus-visible:outline-focus [&_svg]:size-icon-md';
 const toolPressed = 'bg-surface-3 text-text';
 
 /**

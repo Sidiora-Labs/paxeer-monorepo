@@ -59,10 +59,10 @@ function CoinCell({ row }: CoinCellProps) {
       </span>
       <Avatar src={row.image} name={row.name} size="md" shape="round" decorative badge={row.stage ? <StageBadge stage={row.stage} size={14} decorative surface={1} /> : undefined} />
       <div className="min-w-0">
-        <Link
+        <Link prefetch={false}
           href={row.href}
           title={row.name}
-          className="block truncate text-sm font-semibold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
+          className="block min-h-touch-target-min min-w-touch-target-min content-center truncate text-sm font-semibold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
         >
           {row.name}
           <span className="sr-only">{row.mcap === null ? ', no market cap yet' : `, market cap ${formatCompactUsd(row.mcap)}`}</span>
