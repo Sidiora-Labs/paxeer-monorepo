@@ -1,0 +1,3 @@
+event: error
+data: {"message": "The answer was interrupted. Please try again."}
+
