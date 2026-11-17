@@ -175737,7 +175737,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.791]
 title = "Render the content of a tab panel of the trading workspace in the same render as the element that holds the panel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
