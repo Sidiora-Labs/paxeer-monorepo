@@ -182,6 +182,36 @@ def test_launchpad_service_health_commands_use_container_option_quoting():
     }
 
 
+def test_launchpad_web_fixtures_use_the_go_jobs_version():
+    workflow = launchpad_workflow()
+    job = workflow["jobs"]["launchpad-test"]
+    steps = job["steps"]
+    (setup,) = [
+        step for step in steps
+        if step.get("uses", "").startswith("actions/setup-go@")
+    ]
+    assert setup["name"] == "Set up Go for launchpad services"
+    assert setup["if"] == "matrix.package == 'apps/launchpad/web'"
+    assert setup["with"] == {"go-version": "1.27.3", "cache": "false"}
+    assert job["env"]["GOTOOLCHAIN"] == "go" + setup["with"]["go-version"]
+    for name in ("launchpad-go-test", "launchpad-go-ci", "launchpad-go-wiring"):
+        go_job = workflow["jobs"][name]
+        (go_setup,) = [
+            step for step in go_job["steps"]
+            if step.get("uses", "").startswith("actions/setup-go@")
+        ]
+        assert setup["uses"] == go_setup["uses"]
+        assert setup["with"]["go-version"] == go_setup["with"]["go-version"]
+        assert job["env"]["GOTOOLCHAIN"] == go_job["env"]["GOTOOLCHAIN"]
+    for name in (
+        "Install the joined event broker", "Prepare chain fixtures and run web Vitest",
+    ):
+        (consumer,) = [step for step in steps if step.get("name") == name]
+        assert steps.index(setup) < steps.index(consumer)
+        assert consumer["if"] == setup["if"]
+        assert "GOTOOLCHAIN" not in consumer.get("env", {})
+
+
 def test_launchpad_workflow_triggers_on_launchpad_paths():
     triggers = launchpad_workflow()["on"]
     assert {"pull_request", "push"} <= triggers.keys()

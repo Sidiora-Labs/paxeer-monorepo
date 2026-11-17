@@ -21,11 +21,7 @@ import {
 import { Decimal } from "@paxeer-network/utils";
 import type { UsePerformanceScriptReturn } from "./performance.script";
 
-const LazyPeriodTitle = React.lazy(() =>
-  import("../shared/periodHeader").then((mod) => {
-    return { default: mod.PeriodTitle };
-  }),
-);
+import { PeriodTitle } from "../shared/periodHeader";
 
 export type PerformanceUIProps = {
   // periodTypes: string[];
@@ -56,7 +52,7 @@ export const PerformanceUI: React.FC<PerformanceUIProps> = (props) => {
     <Card
       title={
         <React.Suspense fallback={null}>
-          <LazyPeriodTitle
+          <PeriodTitle
             onPeriodChange={onPeriodChange}
             periodTypes={periodTypes}
             period={period}

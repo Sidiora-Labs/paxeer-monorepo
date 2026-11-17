@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useLocalStorage } from "@paxeer-network/hooks";
 import { useAppContext } from "@paxeer-network/react-app";
 import { useObserverElement, useScreen } from "@paxeer-network/ui";
@@ -65,7 +65,7 @@ const useRefAndHeight = (
     setHeight(entry.contentRect.height);
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!ref.current) {
       return;
     }

@@ -1,13 +1,6 @@
 import { FC, SVGProps } from "react";
 import { useTranslation, Trans } from "@paxeer-network/i18n";
-import {
-  Box,
-  cn,
-  Flex,
-  SimpleDialog,
-  Text,
-  Tooltip,
-} from "@paxeer-network/ui";
+import { Box, cn, Flex, SimpleDialog, Text, Tooltip } from "@paxeer-network/ui";
 import { MainLogo } from "../main/mainLogo";
 import { UseScanQRCodeScriptReturn } from "./scanQRCode.script";
 import { QRCodeScanner, QRCODE_WIDTH, QRCODE_HEIGHT } from "./scanner";
@@ -21,7 +14,8 @@ export const ScanQRCode: FC<ScanQRCodeProps> = (props) => {
       <Tooltip
         open={props.showScanTooltip}
         content={t("linkDevice.scanQRCode.tooltip")}
-        className="oui-bg-base-6 oui-text-2xs oui-font-semibold oui-text-warning-darken"
+        data-link-device-hint=""
+        className="oui-pointer-events-none oui-bg-base-6 oui-text-2xs oui-font-semibold oui-text-warning-darken"
         arrow={{ className: "!oui-fill-base-6" }}
       >
         <Flex

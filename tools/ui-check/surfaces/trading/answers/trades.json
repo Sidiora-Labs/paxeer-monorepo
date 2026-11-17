@@ -1,0 +1,14 @@
+{
+  "success": true,
+  "data": [
+    {
+      "id": "1",
+      "side": "BUY",
+      "price": 1800,
+      "contracts": 2,
+      "notional": 3600,
+      "liquidation": false,
+      "trade_time": 1767225600000
+    }
+  ]
+}

@@ -27,11 +27,7 @@ import type {
   AssetsWidgetProps,
 } from "./assets.widget";
 
-const LazyConvertHistoryWidget = React.lazy(() =>
-  import("../convertPage/convert.widget").then((mod) => {
-    return { default: mod.ConvertHistoryWidget };
-  }),
-);
+import { ConvertHistoryWidget } from "../convertPage/convert.widget";
 
 export type AssetsProps = useAssetsScriptReturn;
 
@@ -360,7 +356,7 @@ export const AssetsTable: React.FC<AssetsWidgetProps> = (props) => {
               className="oui-w-full"
             >
               <Divider className="oui-w-full oui-border-b oui-border-line-4 oui-pt-6" />
-              <LazyConvertHistoryWidget />
+              <ConvertHistoryWidget />
             </Flex>
           </React.Suspense>
         </TabPanel>

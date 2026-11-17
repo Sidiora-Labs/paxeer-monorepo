@@ -234,7 +234,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = (props) => {
         : "paxeerNetwork_trading_desktop_layout"));
 
   const defaultLayoutHostClassName = cn(
-    "oui-flex oui-flex-1 oui-overflow-hidden",
+    "oui-flex oui-flex-1 oui-overflow-auto",
     max2XL && "oui-size-full oui-min-w-[1018px] oui-px-3 oui-py-2",
   );
   const defaultLayoutHostStyle = max2XL
@@ -260,7 +260,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = (props) => {
 
   return (
     <Box
-      className={cn("oui-flex oui-flex-1 oui-overflow-hidden", props.className)}
+      className={cn("oui-flex oui-flex-1 oui-overflow-auto", props.className)}
       style={defaultLayoutHostStyle}
     >
       <LayoutHost
@@ -268,7 +268,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = (props) => {
         panels={panels}
         initialLayout={initialLayout}
         storageKey={layoutStorageKey}
-        className="oui-flex oui-flex-1 oui-overflow-hidden"
+        className="oui-flex oui-flex-1 oui-overflow-auto"
         style={LAYOUT_HOST_STYLE}
       />
     </Box>

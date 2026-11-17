@@ -1,0 +1,83 @@
+[surface]
+task = "22.44.39"
+name = "Trading workspace"
+router_page_files = 4
+router_page_views = 4
+route_paths = 16
+views = 20
+named_states = 4
+routes = ["/", "/auth/callback", "/trade", "/trade/grid", "/trade?symbol=PERP_BTC_USDC", "/markets", "/markets?renderState=empty", "/markets?renderState=loading", "/markets?renderState=error", "/portfolio", "/portfolio/positions", "/portfolio/orders", "/portfolio/assets", "/portfolio/history", "/portfolio/setting", "/portfolio/feeTier", "/portfolio/apiKey", "/privacy", "/terms", "/cookies"]
+states = ["wallet-dialog", "language-menu", "funding", "search-empty"]
+
+[coverage]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+mode_coverage = "Every view and named state uses every mode."
+
+[reference]
+geometry = "tools/ui-check/surfaces/trading/geometry.json"
+widths = [390, 1280, 1440, 1920, 2560]
+reported_kinds = ["contrast", "touch", "scale"]
+rewritten_entries = ["auth-callback / 390 / account-tabs", "auth-callback / 1280 / account-tabs", "auth-callback / 1280 / chart", "home / 390 / account-tabs", "home / 1280 / account-tabs", "home / 1280 / chart", "home / 1440 / account-tabs", "home / 1440 / chart", "portfolio / 390 / side-navigation", "portfolio / 1280 / panels", "portfolio / 1280 / side-navigation", "portfolio / 1440 / panels", "portfolio / 1440 / side-navigation", "portfolio / 1920 / panels", "portfolio / 1920 / side-navigation", "portfolio / 2560 / panels", "portfolio / 2560 / side-navigation", "portfolio-apiKey / 390 / side-navigation", "portfolio-apiKey / 1280 / side-navigation", "portfolio-apiKey / 1440 / side-navigation", "portfolio-apiKey / 1920 / side-navigation", "portfolio-apiKey / 2560 / side-navigation", "portfolio-assets / 390 / side-navigation", "portfolio-assets / 1280 / side-navigation", "portfolio-assets / 1440 / side-navigation", "portfolio-assets / 1920 / side-navigation", "portfolio-assets / 2560 / side-navigation", "portfolio-feeTier / 390 / side-navigation", "portfolio-feeTier / 1280 / side-navigation", "portfolio-feeTier / 1440 / side-navigation", "portfolio-feeTier / 1920 / side-navigation", "portfolio-feeTier / 2560 / side-navigation", "portfolio-history / 390 / side-navigation", "portfolio-history / 1280 / side-navigation", "portfolio-history / 1440 / side-navigation", "portfolio-history / 1920 / side-navigation", "portfolio-history / 2560 / side-navigation", "portfolio-orders / 390 / side-navigation", "portfolio-orders / 1280 / side-navigation", "portfolio-orders / 1440 / side-navigation", "portfolio-orders / 1920 / side-navigation", "portfolio-orders / 2560 / side-navigation", "portfolio-positions / 390 / side-navigation", "portfolio-positions / 1280 / side-navigation", "portfolio-positions / 1440 / side-navigation", "portfolio-positions / 1920 / side-navigation", "portfolio-positions / 2560 / side-navigation", "portfolio-setting / 390 / side-navigation", "portfolio-setting / 1280 / side-navigation", "portfolio-setting / 1440 / side-navigation", "portfolio-setting / 1920 / side-navigation", "portfolio-setting / 2560 / side-navigation", "trade / 390 / account-tabs", "trade / 1440 / account-tabs", "trade / 1440 / chart", "trade-bitcoin / 1280 / account-tabs", "trade-bitcoin / 1280 / chart", "trade-grid / 390 / account-tabs"]
+presentation = "The workspace uses the fixed presentation of its reference source."
+scrollable_parts = "Charts and account panels expose their content through scrolling; portfolio panels fit the available shell height. Side navigation measurements select the visible navigation element."
+
+[loading]
+native_workspace = "Native workspace code is included in the route's initial script while rendering remains client side."
+streams = "Stream connections can be disabled independently of HTTP market requests."
+locales = "The application provides the existing locale catalogues to its language selector."
+panels = "Initial panels load with the page code; each panel renders its content directly and registers its trigger metadata in an effect."
+
+[interaction]
+scrolling = "Tables, market panels, symbol details and position lists expose overflowing content through scrolling."
+keyboard = "Tab buttons retain keyboard navigation, the date filter scrolls fully into view on focus and focused controls scroll clear of the cookie banner."
+preferences = "Cookie preference actions wrap within the available width."
+modals = "Modal overlays appear above the cookie banner and their backgrounds remain inert until they close."
+language_popup = "Opening the language popup dismisses its trigger tooltip."
+link_hint = "The device-link hint and its positioning wrapper allow pointer access to underlying controls; the hint dismisses when the user starts a pointer or keyboard interaction."
+sheet_viewport = "Sheets fit the viewport and scroll their contents so their headings and close controls remain reachable in landscape."
+motion = "Reduced-motion preferences shorten animations and transitions."
+
+[market_data]
+filled = "The market catalogue receives prices from fixed ticker answers."
+empty = "The catalogue remains available when the ticker answer contains no entries."
+loading = "The catalogue keeps its row space while the initial ticker request is pending."
+error = "The catalogue remains available when the ticker answer is unsuccessful."
+
+[runtime_paths]
+client_boundary = "apps/perps/apps/web/src/pages/[[...route]].tsx renders the workspace after client mounting and resolves route parameters on the server."
+locale_provider = "apps/perps/apps/web/src/native/PaxeerNetwork.tsx supplies locale resources from apps/perps/apps/web/src/native/locales.ts."
+stream_paths = ["apps/perps/packages/paxeer-backend/src/core/net/venueStream.ts", "apps/perps/packages/paxeer-backend/src/hooks/perps/useMarketsStream.ts", "apps/perps/packages/paxeer-backend/src/hooks/perps/useSidPaxMarketStream.ts"]
+stream_behavior = "Socket startup honors the explicit streaming setting while HTTP data requests remain available."
+tab_row = "Tab lists reserve their existing trigger-row space while trigger metadata registers."
+tab_registration = "apps/perps/packages/ui/src/tabs/tabs.tsx renders each panel in its parent render and registers trigger metadata in an effect."
+native_catalogue = "apps/perps/packages/hooks/src/native/NativeRuntime.tsx supplies symbol metadata and market rows before paint."
+market_filter = "apps/perps/packages/hooks/src/paxeer-network/markets/useMarkets.ts derives filtered rows directly from market inputs."
+measurement = "apps/perps/packages/ui-scaffold/src/components/scaffold/scaffold.script.ts and apps/perps/packages/ui/src/hooks/useObserverElement.ts synchronize measured shell heights before paint."
+font_loading = "The workspace page preloads its existing DIN2014 font files and mounts its content after those fonts are available."
+modal_focus = "Dialogs and sheets focus their controls when opened; tab panels with interactive children lead directly to those controls."
+
+grid_measurement = "apps/perps/packages/layout-grid/src/GridRenderer.tsx measures the available width before rendering its panels and synchronizes subsequent resizes."
+book_measurement = "Order book containers measure their available space before paint."
+market_registration = "Market lists reserve their catalogue row space until the first quote read settles, then display the sorted rows."
+
+quote_startup = "The first HTTP quote read and the catalogue loading state settle together while the stream connection is established."
+asset_connections = "Local assets use independent upstream connections."
+
+[rendering]
+captures = 816
+visually_reviewed = 240
+measured_for_content = 816
+single_colour_captures = 0
+captures_without_recognised_text = 0
+minimum_distinct_colours = 464
+minimum_recognised_words = 11
+reported_findings = 26540
+reported_contrast = 13518
+reported_touch = 5622
+reported_scale = 7400
+failing_findings = 0
+result = "pass"
+visual_review = "Market rows retain their space while quotes load; menus, dialogs, panels and legal pages retain the reference presentation across the covered viewports."

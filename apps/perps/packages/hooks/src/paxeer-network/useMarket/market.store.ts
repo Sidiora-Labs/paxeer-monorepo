@@ -4,18 +4,20 @@ import { API } from "@paxeer-network/types";
 type MarketStore = {
   market: API.MarketInfoExt[];
   marketMap: Record<string, API.MarketInfoExt> | null;
+  quotesPending: boolean;
 };
 
 type MarketActions = {
-  updateMarket: (data: API.MarketInfoExt[]) => void;
+  updateMarket: (data: API.MarketInfoExt[], quotesPending?: boolean) => void;
 };
 
 export const useMarketStore = create<MarketStore & { actions: MarketActions }>(
   (set, get) => ({
     market: [],
     marketMap: null,
+    quotesPending: true,
     actions: {
-      updateMarket: (data) => {
+      updateMarket: (data, quotesPending = false) => {
         const marketMap: Record<string, API.MarketInfoExt> = {};
 
         data.forEach((item) => {
@@ -25,6 +27,7 @@ export const useMarketStore = create<MarketStore & { actions: MarketActions }>(
         set({
           market: data,
           marketMap: marketMap,
+          quotesPending,
         });
       },
     },

@@ -88,7 +88,7 @@ export const MainNav: FC<PropsWithChildren<MainNavScriptReturn>> = (props) => {
           className={cn(
             "oui-gap-3",
             // let the left and right views show spacing when overlapping
-            "oui-overflow-hidden",
+            "oui-overflow-auto",
           )}
         >
           {title}

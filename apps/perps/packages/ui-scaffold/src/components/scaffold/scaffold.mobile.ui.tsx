@@ -5,17 +5,9 @@ import { NotificationWidget } from "../notification/notification.widget";
 import type { ScaffoldScriptReturn } from "./scaffold.script";
 import type { ScaffoldProps } from "./scaffold.widget";
 
-const LazyRestrictedInfoWidget = React.lazy(() =>
-  import("../restrictedInfo").then((mod) => {
-    return { default: mod.RestrictedInfoWidget };
-  }),
-);
+import { RestrictedInfoWidget } from "../restrictedInfo";
 
-const LazyBottomNav = React.lazy(() =>
-  import("../bottomNav").then((mod) => {
-    return { default: mod.BottomNav };
-  }),
-);
+import { BottomNav } from "../bottomNav";
 
 export const MobileScaffold: React.FC<
   React.PropsWithChildren<ScaffoldScriptReturn & ScaffoldProps>
@@ -65,7 +57,7 @@ export const MobileScaffold: React.FC<
         )}
       >
         <React.Suspense fallback={null}>
-          <LazyRestrictedInfoWidget className="oui-mx-1 oui-mb-1 oui-bg-base-6" />
+          <RestrictedInfoWidget className="oui-mx-1 oui-mb-1 oui-bg-base-6" />
         </React.Suspense>
 
         <Box
@@ -89,7 +81,7 @@ export const MobileScaffold: React.FC<
       >
         {bottomNav ?? (
           <React.Suspense fallback={null}>
-            <LazyBottomNav
+            <BottomNav
               mainMenus={bottomNavProps?.mainMenus}
               current={bottomNavProps?.current || mainNavProps?.initialMenu}
               onRouteChange={routerAdapter?.onRouteChange}

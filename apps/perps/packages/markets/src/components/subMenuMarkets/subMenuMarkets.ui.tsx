@@ -38,9 +38,7 @@ const TABLE_CLASSNAMES = {
   header: "oui-hidden oui-h-0 oui-p-0",
 };
 
-const LazySearchInput = React.lazy(() =>
-  import("../searchInput").then((mod) => ({ default: mod.SearchInput })),
-);
+import { SearchInput } from "../searchInput";
 
 export type SubMenuMarketsProps = {
   activeTab: MarketsTabName;
@@ -230,7 +228,7 @@ export const SubMenuMarkets: React.FC<SubMenuMarketsProps> = (props) => {
     >
       <Box className="oui-flex oui-min-w-0 oui-items-center oui-gap-x-2 oui-p-1">
         <React.Suspense fallback={null}>
-          <LazySearchInput
+          <SearchInput
             classNames={{
               root: "oui-min-w-0 oui-flex-1",
             }}

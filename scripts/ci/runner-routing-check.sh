@@ -72,7 +72,7 @@ REASONS = {
     "layerx-testnet", "publish", "release-pipeline", "publishing-credential", "sanitizer",
 }
 
-# Commands that need a container runtime, which the routed runner image does not carry.
+# Commands that need a container runtime.
 CONTAINER_RUNTIME = re.compile(
     r"(?:^|[;&|(`])\s*(?:sudo\s+)?(?:docker|podman)\s"
     r"|scripts/explorer/lint-backend\.sh"
@@ -83,11 +83,15 @@ CONTAINER_RUNTIME = re.compile(
 )
 MATRIX_REFERENCE = re.compile(r"\$\{\{\s*matrix\.([A-Za-z0-9_-]+)\s*\}\}")
 # A routed job may provision its runtime explicitly before its first use.
-# Match the whole setup so a name, partial install or conditional cannot excuse it.
-CONTAINER_SETUP = """sudo apt-get update
-sudo apt-get install --yes docker.io acl
-sudo systemctl start docker
-sudo setfacl -m "u:$(id -u):rw" /var/run/docker.sock
+# Match the whole setup, including its runtime check and final version read.
+CONTAINER_SETUP = """if ! docker version >/dev/null 2>&1; then
+  sudo apt-get update
+  sudo apt-get install --yes docker.io acl
+  sudo systemctl start docker
+  if [ ! -r /var/run/docker.sock ] || [ ! -w /var/run/docker.sock ]; then
+    sudo setfacl -m "u:$(id -u):rw" /var/run/docker.sock
+  fi
+fi
 docker version --format '{{.Server.Version}}'"""
 SHELL_REFERENCE = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
 

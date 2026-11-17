@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
 import { formatUnits } from "viem";
 import { useAccount as useWagmiAccount } from "@paxeer-network/paxeer-backend/walletRuntime";
 import { Decimal } from "@paxeer-network/utils";
@@ -42,33 +42,42 @@ export function NativeRuntime() {
   const wallet = useWagmiAccount();
   const feedMarkets = useMarketsSnapshot();
   const [chainMarkets, setChainMarkets] = useState<any[]>([]);
+  const [quotesPending, setQuotesPending] = useState(true);
   const markets = feedMarkets.length ? feedMarkets : chainMarkets;
   const margin = useMarginMode(wallet.address);
   const feeTier = useFeeTier(wallet.address);
   const portfolio = usePortfolioStats();
   const daily = useDailyPnl(wallet.address);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (feedMarkets.length) return;
     let active = true;
     let stop = () => {};
     const timer = setTimeout(() => {
-      stop = activePoll(async () => {
-        try {
-          const { readAuthenticatedFeedMarkets } =
-            await import("@paxeer-network/paxeer-backend/nativeFeedMarkets");
-          const rows = await readAuthenticatedFeedMarkets();
-          if (rows.length) {
+      stop = activePoll(
+        async () => {
+          try {
+            try {
+              const { readAuthenticatedFeedMarkets } =
+                await import("@paxeer-network/paxeer-backend/nativeFeedMarkets");
+              const rows = await readAuthenticatedFeedMarkets();
+              if (rows.length) {
+                if (active) setChainMarkets(rows);
+                return;
+              }
+            } catch {
+              /* Native quotes remain an independent fallback. */
+            }
+            const { readNativeChainMarkets } =
+              await import("@paxeer-network/paxeer-backend/nativeChainMarkets");
+            const rows = await readNativeChainMarkets();
             if (active) setChainMarkets(rows);
-            return;
+          } finally {
+            if (active) setQuotesPending(false);
           }
-        } catch {
-          /* Native quotes remain an independent fallback. */
-        }
-        const { readNativeChainMarkets } =
-          await import("@paxeer-network/paxeer-backend/nativeChainMarkets");
-        const rows = await readNativeChainMarkets();
-        if (active) setChainMarkets(rows);
-      }, 10000);
+        },
+        10000,
+        "now",
+      );
     }, 500);
     return () => {
       active = false;
@@ -76,7 +85,7 @@ export function NativeRuntime() {
       stop();
     };
   }, [feedMarkets.length]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const symbols = nativeSymbols();
     useMainnetChainsStore.setState({
       data: nativeChains() as any,
@@ -104,7 +113,7 @@ export function NativeRuntime() {
     useAppStore.getState().actions.setTokensInfo(nativeTokens() as any);
     useAppStore.getState().actions.updateAppStatus("ready", true);
   }, []);
-  useEffect(() => {
+  useLayoutEffect(() => {
     updateNativeSnapshot({
       address: wallet.address ?? null,
       chainId: wallet.chainId ?? null,
@@ -127,7 +136,12 @@ export function NativeRuntime() {
       unrealizedPnl: portfolio.isLoading ? null : portfolio.unrealizedPnl,
       dailyPnl: daily.isLoading ? undefined : daily.dailyPnl,
     });
-    useMarketStore.getState().actions.updateMarket(nativeMarketRows() as any);
+    useMarketStore
+      .getState()
+      .actions.updateMarket(
+        nativeMarketRows() as any,
+        quotesPending && feedMarkets.length === 0,
+      );
     const state = getNativeSnapshot();
     const app = useAppStore.getState().actions;
     if (wallet.isConnected) {
@@ -176,6 +190,8 @@ export function NativeRuntime() {
     wallet.chainId,
     wallet.isConnected,
     markets,
+    quotesPending,
+    feedMarkets.length,
     portfolio.positions,
     portfolio.totalVaultUsd,
     portfolio.freeCollateral,
