@@ -1,0 +1,19 @@
+{
+  "items": [
+    {
+      "address": {
+        "hash": "0x0000000000000000000000000000000000000002",
+        "implementations": null,
+        "is_contract": false,
+        "is_verified": null,
+        "name": null,
+        "private_tags": [],
+        "public_tags": [],
+        "watchlist_names": [],
+        "ens_domain_name": null
+      },
+      "value": "1021378038331138520"
+    }
+  ],
+  "next_page_params": null
+}

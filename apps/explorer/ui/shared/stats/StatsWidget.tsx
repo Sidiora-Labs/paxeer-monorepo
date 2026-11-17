@@ -110,7 +110,11 @@ const StatsWidget = ({
           >
             { valuePrefix && <chakra.span whiteSpace="pre">{ valuePrefix }</chakra.span> }
             { typeof value === 'string' || typeof value === 'number' ? (
-              <chakra.span minW={ 0 } maxW="100%" overflowWrap="anywhere">{ value }</chakra.span>
+              <chakra.span minW={ 0 } maxW="100%" overflowWrap="anywhere">
+                { typeof value === 'string' ? value.split(/(?<=,)/).map((group, index) => (
+                  <React.Fragment key={ index }>{ index > 0 && <wbr/> }{ group }</React.Fragment>
+                )) : value }
+              </chakra.span>
             ) : (
               value ?? '—'
             ) }

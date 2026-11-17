@@ -1,0 +1,58 @@
+{
+  "items": [
+    {
+      "token": {
+        "address_hash": "0x0000000000000000000000000000000000000002",
+        "circulating_market_cap": null,
+        "decimals": "18",
+        "exchange_rate": "0.999997",
+        "holders_count": "16026",
+        "name": "Example Token",
+        "symbol": "STUB",
+        "total_supply": "60000000000000000000000",
+        "type": "ERC-721",
+        "icon_url": null,
+        "reputation": "ok"
+      },
+      "animation_url": null,
+      "external_app_url": "https://explorer.example.test/media/token.svg",
+      "id": "188882",
+      "image_url": "https://explorer.example.test/media/token.svg",
+      "is_unique": true,
+      "metadata": {
+        "attributes": [
+          {
+            "trait_type": "skin tone",
+            "value": "very light skin tone"
+          },
+          {
+            "trait_type": "skin tone",
+            "value": "very light skin tone"
+          },
+          {
+            "trait_type": "skin tone",
+            "value": "very light skin tone"
+          }
+        ],
+        "description": "**GENESIS #188882**, **8a77ca1bcaa4036f** :: *844th* generation of *#57806 and #57809* :: **eGenetic Hash Code (eDNA)** = *2822355e953a462d*",
+        "external_url": "https://explorer.example.test/media/token.svg",
+        "image": "https://explorer.example.test/media/token.svg",
+        "name": "GENESIS #188882, 8a77ca1bcaa4036f"
+      },
+      "owner": {
+        "hash": "0x0000000000000000000000000000000000000002",
+        "implementations": null,
+        "is_contract": false,
+        "is_verified": null,
+        "name": null,
+        "private_tags": [],
+        "public_tags": [],
+        "watchlist_names": [],
+        "ens_domain_name": null
+      },
+      "holder_address_hash": "0x0000000000000000000000000000000000000002",
+      "thumbnails": null
+    }
+  ],
+  "next_page_params": null
+}
