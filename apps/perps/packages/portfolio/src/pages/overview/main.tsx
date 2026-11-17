@@ -1,4 +1,3 @@
-import styles from "../../presentation.module.css";
 import React, { FC } from "react";
 import { Grid, useScreen } from "@paxeer-network/ui";
 import { MobileOverview } from "./mobile";
@@ -41,24 +40,24 @@ export const OverviewPage: FC<OverviewPageProps> = (props) => {
           hideTraderCard={props.hideTraderCard}
         />
       ) : (
-        <div className={styles.overview}>
+        <Grid cols={2} gap={4}>
           <React.Suspense fallback={null}>
             <LazyAssetWidget />
           </React.Suspense>
           <React.Suspense fallback={null}>
             <LazyAssetsChartWidget />
           </React.Suspense>
-          <div className={styles.fullWidth}>
+          <Grid.span colSpan={2}>
             <React.Suspense fallback={null}>
               <LazyPerformanceWidget />
             </React.Suspense>
-          </div>
-          <div className={styles.fullWidth}>
+          </Grid.span>
+          <Grid.span colSpan={2}>
             <React.Suspense fallback={null}>
               <LazyHistoryDataGroupWidget />
             </React.Suspense>
-          </div>
-        </div>
+          </Grid.span>
+        </Grid>
       )}
     </OverviewProvider>
   );

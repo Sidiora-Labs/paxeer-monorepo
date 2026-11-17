@@ -11,7 +11,10 @@ export default function AccountPlanPage() {
     return (
       <div className="space-y-3">
         <p className="text-sm text-pax-muted">Sign in to move value across the network.</p>
-        <Link href="/" className="rounded-xl bg-pax-control px-4 py-3 text-sm font-semibold">
+        <Link
+          href="/"
+          className="inline-flex items-center rounded-xl bg-pax-control px-4 py-3 text-sm font-semibold"
+        >
           Sign in to wallet
         </Link>
       </div>

@@ -1,7 +1,7 @@
 import { FC, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { AnnouncementType } from "@paxeer-network/types";
-import { Text, ChevronDownIcon, cn } from "@paxeer-network/ui";
+import { Flex, Text, ChevronDownIcon, cn } from "@paxeer-network/ui";
 import {
   AnnouncementIcon,
   ArrowRightShortIcon,
@@ -64,19 +64,24 @@ export const AnnouncementItem: FC<{
       typeof props.onItemClick === "function"
     ) {
       return (
-        <button
-          type="button"
-          className="oui-shell-action oui-flex oui-items-center oui-gap-1"
+        <Flex
+          gap={1}
+          itemAlign="center"
+          className="oui-cursor-pointer"
           onClick={(event) => {
             event.stopPropagation();
             props.onItemClick(props.url!);
           }}
         >
-          <Text size="xs" color="buy" className="oui-text-primary">
+          <Text
+            size="xs"
+            color="buy"
+            className="oui-bg-clip-text oui-text-transparent oui-gradient-brand"
+          >
             {t("notification.joinNow")}
           </Text>
           <ArrowRightShortIcon size={18} />
-        </button>
+        </Flex>
       );
     }
     return null;
@@ -85,7 +90,7 @@ export const AnnouncementItem: FC<{
   const updateTime = useMemo(() => {
     if (props.type === AnnouncementType.Maintenance) {
       return (
-        <Text size="2xs" intensity={80}>
+        <Text size="2xs" intensity={36}>
           {t("notification.recentlyUpdated")}
         </Text>
       );
@@ -93,7 +98,7 @@ export const AnnouncementItem: FC<{
     return (
       <Text.formatted
         size="2xs"
-        intensity={80}
+        intensity={36}
         rule="date"
         formatString="yyyy-MM-dd HH:mm:ss"
       >
@@ -103,39 +108,51 @@ export const AnnouncementItem: FC<{
   }, [props.updatedTime, props.type, t]);
 
   return (
-    <details
-      open={props.expanded}
-      onToggle={(event) => {
-        if (event.currentTarget.open !== props.expanded)
-          props.onExpandToggle?.();
-      }}
+    <Flex
+      gap={2}
+      itemAlign="start"
       className={cn(
-        "oui-announcement-item oui-rounded-md oui-p-2 oui-text-base-contrast-80",
-        !props.showDivider && "hover:oui-bg-base-6",
+        "oui-px-2 oui-py-[6px] oui-text-base-contrast-80",
+        !props.showDivider && "oui-rounded-md hover:oui-bg-base-6",
+        !props.showDivider && props.expanded && "oui-bg-base-6",
         props.className,
       )}
+      onClick={() => {
+        props.onExpandToggle?.();
+      }}
     >
-      <summary className="oui-flex oui-min-h-12 oui-cursor-pointer oui-items-center oui-gap-2">
-        <Icon color="white" className="oui-shrink-0" />
-        <span className="oui-min-w-0 oui-flex-1">
-          <Text as="div" size="xs" intensity={80} weight="bold">
-            {title}
-          </Text>
-          {updateTime}
-        </span>
-        <ChevronDownIcon
-          aria-hidden="true"
-          color="white"
-          size={20}
-          className={props.expanded ? "oui-rotate-180" : ""}
-        />
-      </summary>
-      <div className="oui-flex oui-flex-col oui-gap-2 oui-pt-2 oui-break-words">
-        <Text size="2xs" intensity={80} as="div">
-          {props.message}
+      <Icon color="white" className="oui-mt-3 oui-shrink-0" />
+
+      <Flex direction="column" itemAlign="start" grow>
+        <Text size="xs" intensity={80} weight="bold">
+          {title}
         </Text>
-        {action}
+        {updateTime}
+        {/* Expandable content with animation */}
+        <div
+          className="oui-grid oui-transition-all oui-duration-300 oui-ease-in-out"
+          style={{
+            gridTemplateRows: props.expanded ? "1fr" : "0fr",
+          }}
+        >
+          <div className="oui-flex oui-flex-col oui-gap-2 oui-overflow-hidden">
+            <Text size="2xs" intensity={80} as="div" className="oui-pt-2">
+              {props.message}
+            </Text>
+            {action}
+          </div>
+        </div>
+      </Flex>
+      <div className="oui-pt-3">
+        {/* Chevron icon with rotation animation */}
+        <ChevronDownIcon
+          color="white"
+          size={18}
+          className={`oui-transition-transform oui-duration-300 oui-ease-in-out ${
+            props.expanded ? "oui-rotate-180" : "oui-rotate-0"
+          }`}
+        />
       </div>
-    </details>
+    </Flex>
   );
 };

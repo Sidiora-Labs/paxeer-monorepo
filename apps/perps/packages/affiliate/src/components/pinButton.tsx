@@ -1,4 +1,3 @@
-import { useTranslation } from "@paxeer-network/i18n";
 import { FC } from "react";
 import { IconProps } from "../utils/types";
 
@@ -7,13 +6,8 @@ export const PinBtn: FC<{
   size?: number;
   onClick?: (pinned: boolean) => void;
 }> = (props) => {
-  const { t } = useTranslation();
   return (
     <button
-      type="button"
-      aria-label={t("affiliate.referralCode")}
-      aria-pressed={props.pinned}
-      className="oui-min-h-12 oui-min-w-12 oui-rounded-md hover:oui-bg-base-5"
       onClick={(e) => {
         props?.onClick?.(!props.pinned);
       }}

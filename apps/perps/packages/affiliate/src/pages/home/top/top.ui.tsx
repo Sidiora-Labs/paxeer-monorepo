@@ -1,4 +1,3 @@
-import surface from "../../../surface.module.css";
 import { FC } from "react";
 import { TopReturns } from "./top.script";
 import { TitleWidget } from "../title";
@@ -10,12 +9,7 @@ export const Top: FC<TopReturns> = (props) => {
     return props.overwriteTop?.(props.state);
   }
   return (
-    <Flex
-      id="oui-affiliate-home-top"
-      direction="column"
-      gap={6}
-      className={surface.surface}
-    >
+    <Flex id="oui-affiliate-home-top" direction="column" gap={6}>
       <TitleWidget />
       <SubtitleWidget />
     </Flex>

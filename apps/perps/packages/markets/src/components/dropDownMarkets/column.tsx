@@ -27,7 +27,7 @@ export const useDropDownMarketsColumns = () => {
           align: "right",
           onSort: true,
           className: "oui-relative",
-
+          width: 80,
           render: (value, record) => {
             const onDelSymbol: MouseEventHandler = (e) => {
               favorite.updateSymbolFavoriteState(
@@ -39,40 +39,29 @@ export const useDropDownMarketsColumns = () => {
             };
 
             const iconCls =
-              "oui-w-4 oui-h-4 oui-text-base-contrast-80 hover:oui-text-base-contrast";
+              "oui-w-4 oui-h-4 oui-text-base-contrast-54 hover:oui-text-base-contrast";
 
             const actions = (
-              <div className={cn("oui-absolute oui-end-1 oui-top-0.5")}>
+              <div className={cn("oui-absolute oui-end-1 oui-top-[3px]")}>
                 <Flex
                   className={cn(
-                    "oui-bg-primary-darken oui-py-1.5",
+                    "oui-bg-primary-darken oui-py-[6px]",
                     "oui-hidden group-hover:oui-inline-flex",
                   )}
                   r="base"
-                  width="var(--oui-space-12)"
+                  width={52}
                   justify="center"
                   itemAlign="end"
                   gapX={2}
                 >
-                  <button
-                    type="button"
+                  <TopIcon
+                    className={iconCls}
                     onClick={(e) => {
                       e.stopPropagation();
                       favorite.pinToTop(record);
                     }}
-                    aria-label="Pin market"
-                    className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
-                  >
-                    <TopIcon className={iconCls} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onDelSymbol}
-                    aria-label="Delete"
-                    className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
-                  >
-                    <DeleteIcon className={iconCls} />
-                  </button>
+                  />
+                  <DeleteIcon className={iconCls} onClick={onDelSymbol} />
                 </Flex>
               </div>
             );
@@ -96,7 +85,7 @@ export const useDropDownMarketsColumns = () => {
           dataIndex: "openInterest",
           align: "right",
           onSort: true,
-
+          width: 80,
           render: (value) => (
             <Text.numeral
               rule="human"

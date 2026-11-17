@@ -23,8 +23,8 @@ export function SwapErrorCard({ error, pretty }: SwapErrorCardProps) {
         <AlertTriangle className="w-3.5 h-3.5 text-pax-error shrink-0" />
         <span className="text-xs font-semibold text-pax-error">{title}</span>
       </div>
-      <p className="text-xs text-pax-error leading-relaxed">{reason}</p>
-      <p className="text-xs text-pax-muted leading-relaxed">Tip: {tip}</p>
+      <p className="text-size-11 text-pax-error leading-relaxed">{reason}</p>
+      <p className="text-size-11 text-pax-muted leading-relaxed">Tip: {tip}</p>
     </div>
   );
 }

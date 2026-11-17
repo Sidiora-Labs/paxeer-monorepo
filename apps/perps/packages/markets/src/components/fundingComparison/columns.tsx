@@ -28,7 +28,7 @@ export const useFundingColumns = () => {
       {
         title: t("markets.column.market"),
         dataIndex: "symbol",
-
+        width: 220,
         onSort: true,
         className: isMobile ? "oui-ps-0" : undefined,
         render: (value, record) => {
@@ -36,7 +36,7 @@ export const useFundingColumns = () => {
             return (
               <Flex direction="column" itemAlign="start" gapY={1}>
                 <Flex gapX={1} itemAlign="center">
-                  <TokenIcon symbol={value} className="oui-size-4" />
+                  <TokenIcon symbol={value} className="oui-size-[18px]" />
                   <SymbolDisplay formatString="base" size="2xs">
                     {value}
                   </SymbolDisplay>
@@ -67,14 +67,12 @@ export const useFundingColumns = () => {
       },
       {
         title: (
-          <button type="button">
-            <Flex gapX={1}>
-              <PaxeerNetworkIcon /> {t("markets.openInterest")}
-            </Flex>
-          </button>
+          <Flex gapX={1}>
+            <PaxeerNetworkIcon /> {t("markets.openInterest")}
+          </Flex>
         ),
         dataIndex: "openInterest",
-
+        width: 120,
         // align: "right",
         onSort: true,
         render: (value) => {
@@ -92,27 +90,22 @@ export const useFundingColumns = () => {
         const imgSrc = getImgSrc(item);
         return {
           title: (
-            <button type="button">
-              <Flex justify="start" itemAlign="center" gap={1}>
-                {!item.includes(" - ") && imgSrc && (
-                  <img
-                    src={imgSrc}
-                    className={cn(
-                      "oui-size-6 oui-rounded-full oui-object-cover",
-                      isMobile ? "oui-size-4" : "oui-size-6",
-                    )}
-                    width={24}
-                    height={24}
-                    alt=""
-                  />
-                )}
-                {item}
-              </Flex>
-            </button>
+            <Flex justify="start" itemAlign="center" gap={1}>
+              {!item.includes(" - ") && imgSrc && (
+                <img
+                  src={imgSrc}
+                  className={cn(
+                    "oui-size-6 oui-rounded-full oui-object-cover",
+                    isMobile ? "oui-size-[18px]" : "oui-size-6",
+                  )}
+                />
+              )}
+              {item}
+            </Flex>
           ),
           dataIndex: item,
           onSort: true,
-
+          width: item.includes(" - ") ? 160 : 130,
           render(value: number | null) {
             if (value === null) {
               return "-";

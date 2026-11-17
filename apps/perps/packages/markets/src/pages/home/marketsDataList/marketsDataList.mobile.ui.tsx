@@ -29,7 +29,7 @@ import { UseMarketsDataListScript } from "./marketsDataList.script";
 
 export type MobileMarketsDataListProps = UseMarketsDataListScript;
 
-const TWO_LINE_MARKET_ROW_CLASS = "!oui-h-13";
+const TWO_LINE_MARKET_ROW_CLASS = "!oui-h-[54px]";
 
 type BuiltInTabMeta = {
   title: React.ReactNode;

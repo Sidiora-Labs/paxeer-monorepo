@@ -1,15 +1,6 @@
-import styles from "../../presentation.module.css";
 import React from "react";
 import { useTranslation } from "@paxeer-network/i18n";
-import {
-  cn,
-  Flex,
-  PopoverRoot,
-  PopoverTrigger,
-  PopoverContent,
-  Text,
-  Box,
-} from "@paxeer-network/ui";
+import { cn, Flex, Tooltip, Text, Box } from "@paxeer-network/ui";
 import { TooltipIcon } from "../icons/tooltipIcon";
 import type { LtvScriptReturns } from "./ltv.script";
 
@@ -32,7 +23,7 @@ const TooltipContent: React.FC<{
   const { isLoading, ltv_threshold } = props;
   const { t } = useTranslation();
   return (
-    <Box className="oui-w-72 oui-max-w-full">
+    <Box className="oui-w-72 oui-max-w-72">
       <Text size="2xs" intensity={80}>
         {t("transfer.LTV.description", {
           threshold: isLoading ? "-" : ltv_threshold,
@@ -64,43 +55,25 @@ export const LtvUI: React.FC<
   const { t } = useTranslation();
   const { currentLtv, nextLTV, showDiff, ltv_threshold, isLoading } = props;
   return (
-    <Flex
-      className={styles.infoRow}
-      width="100%"
-      itemAlign="center"
-      justify="between"
-    >
+    <Flex width="100%" itemAlign="center" justify="between">
       <Flex justify="start" itemAlign="center">
-        <Text size="2xs" intensity={80} className="oui-whitespace-nowrap">
+        <Text size="2xs" intensity={36}>
           {t("transfer.LTV")}
         </Text>
-        <PopoverRoot>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              aria-label={t("transfer.LTV")}
-              className="oui-inline-flex oui-items-center oui-justify-center"
-            >
-              <TooltipIcon className="oui-text-base-contrast-80" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent
-            className={`${styles.surface} ${styles.popover} oui-bg-base-8 oui-p-3`}
-          >
+        <Tooltip
+          className="oui-p-2"
+          content={
             <TooltipContent
               isLoading={isLoading}
               ltv_threshold={ltv_threshold}
             />
-          </PopoverContent>
-        </PopoverRoot>
+          }
+        >
+          <TooltipIcon className="oui-ms-[2px] oui-cursor-pointer oui-text-base-contrast-36" />
+        </Tooltip>
       </Flex>
       {showDiff ? (
-        <Flex
-          className={styles.infoValues}
-          itemAlign="center"
-          justify="between"
-          gap={1}
-        >
+        <Flex itemAlign="center" justify="between" gap={1}>
           <Text
             size="2xs"
             className={cn("oui-font-semibold", calculateTextColor(currentLtv))}

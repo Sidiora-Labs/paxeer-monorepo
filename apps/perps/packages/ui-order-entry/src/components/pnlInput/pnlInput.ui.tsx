@@ -146,8 +146,6 @@ const PNLMenus = (props: {
       <button
         className={"oui-pnlInput-menuTrigger-btn oui-p-2"}
         data-testid={props.testId}
-        aria-label="Select PnL input type"
-        type="button"
       >
         <CaretDownIcon size={12} color={"white"} />
       </button>

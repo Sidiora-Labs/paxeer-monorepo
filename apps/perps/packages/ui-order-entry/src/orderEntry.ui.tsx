@@ -703,7 +703,7 @@ export const OrderEntry: React.FC<OrderEntryProps> = (props) => {
           overlay: cn("oui-tpslAdvanced-overlay", "!oui-bg-base-10/60"),
           content: cn(
             "oui-tpslAdvanced-sheet",
-            "oui-rounded-2xl oui-border-none !oui-p-0",
+            "oui-rounded-[16px] oui-border-none !oui-p-0",
             isMobile
               ? "oui-inset-y-0 oui-end-0 oui-w-[280px]"
               : "!oui-bottom-[40px] oui-end-3 oui-top-[44px] !oui-h-auto oui-w-[360px]",

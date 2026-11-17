@@ -35,6 +35,9 @@ export const Trading: FC<TradingState> = (props) => {
   }
 
   return (
-    <InjectableDesktopLayout className="oui-h-full oui-bg-base-10" {...props} />
+    <InjectableDesktopLayout
+      className="oui-h-[calc(100vh_-_48px_-_29px)] oui-bg-base-10"
+      {...props}
+    />
   );
 };

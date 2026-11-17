@@ -28,17 +28,17 @@ export const AffiliateCardMobile: FC<AffiliateCardMobileProps> = (props) => {
     <Flex
       className="
         oui-portfolio-affiliate-card
-        oui-via-21.6%
-        oui-via-83.23%
-        oui-relative
-        oui-min-h-28
-        oui-w-full
-        oui-flex-col
-        oui-items-start
-        oui-rounded-xl
-        oui-border
-        oui-border-solid
-        oui-border-[rgba(var(--oui-gradient-primary-start)/0.36)]
+        oui-via-21.6% 
+        oui-via-83.23% 
+        oui-relative 
+        oui-h-[112px] 
+        oui-w-full 
+        oui-flex-col 
+        oui-items-start 
+        oui-rounded-xl 
+        oui-border 
+        oui-border-solid 
+        oui-border-[rgba(var(--oui-gradient-primary-start)/0.36)] 
         oui-bg-gradient-to-r
         oui-from-[rgba(var(--oui-gradient-primary-end)/0.12)]
         oui-to-[rgba(var(--oui-gradient-primary-start)/0.12)]
@@ -50,7 +50,7 @@ export const AffiliateCardMobile: FC<AffiliateCardMobileProps> = (props) => {
           <Text className="oui-text-base-contrast oui-text-base oui-font-semibold">
             {t("affiliate.asAffiliate.affilates")}
           </Text>
-          <Text className="oui-text-2xs oui-font-normal oui-text-base-contrast-80">
+          <Text className="oui-text-2xs oui-font-normal oui-text-base-contrast-54">
             {t("affiliate.commission")}
           </Text>
         </Flex>
@@ -60,8 +60,6 @@ export const AffiliateCardMobile: FC<AffiliateCardMobileProps> = (props) => {
         <img
           src="/assets/static/symbol_logo/USDC.png"
           alt="USDC"
-          width={20}
-          height={20}
           className="oui-size-5"
         />
         <Text
@@ -69,27 +67,25 @@ export const AffiliateCardMobile: FC<AffiliateCardMobileProps> = (props) => {
             "oui-text-xs oui-font-semibold",
             isNumber(rebate) && rebate !== 0
               ? "oui-text-base-contrast"
-              : "oui-text-base-contrast-80",
+              : "oui-text-base-contrast-36",
           )}
         >
           {commifyOptional(rebate, { fix: 2, fallback: "--" })}
         </Text>
-        <Text className="oui-text-xs oui-font-semibold oui-text-base-contrast-80">
+        <Text className="oui-text-xs oui-font-semibold oui-text-base-contrast-36">
           (30D)
         </Text>
-        <button
-          type="button"
-          aria-label={t("affiliate.asAffiliate.affilates")}
-          className="oui-ms-auto oui-min-h-12 oui-min-w-12"
+        <ChevronRightIcon
+          size={18}
+          color="white"
+          className="oui-ms-auto"
           onClick={() => {
             routerAdapter?.onRouteChange({
               href: "/rewards/affiliate?tab=affiliate",
               name: t("tradingRewards.rewards"),
             });
           }}
-        >
-          <ChevronRightIcon size={18} color="inherit" className="oui-ms-auto" />
-        </button>
+        />
       </Flex>
     </Flex>
   );

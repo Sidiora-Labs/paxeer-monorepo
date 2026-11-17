@@ -86,7 +86,7 @@ function RailItem({
 }) {
   const Icon = item.icon;
   const link = (
-    <Link
+    <Link prefetch={false}
       href={item.href}
       aria-current={active ? 'page' : undefined}
       aria-label={expanded ? undefined : item.label}
@@ -177,7 +177,7 @@ export default function SidebarNav() {
   );
 
   const createLink = (
-    <Link
+    <Link prefetch={false}
       href={createItem.href}
       aria-label={expanded ? undefined : 'Create coin'}
       aria-current={activeHref === createItem.href ? 'page' : undefined}
@@ -221,7 +221,7 @@ export default function SidebarNav() {
       <aside
         aria-label="Navigation rail"
         className={cn(
-          'fixed inset-y-0 left-0 z-[var(--sl-z-rail)] hidden flex-col bg-surface-1 transition-[width] duration-base md:flex',
+          'fixed inset-y-0 left-0 z-[var(--sl-z-rail)] hidden flex-col bg-surface-1 md:flex',
           expanded ? 'w-rail-expanded-width' : 'w-rail-width'
         )}
       >
@@ -231,7 +231,7 @@ export default function SidebarNav() {
             expanded ? 'px-3' : 'justify-center'
           )}
         >
-          <Link
+          <Link prefetch={false}
             href="/"
             aria-label="Sidiora Launch home"
             className="flex items-center gap-2 min-h-touch-target-min min-w-touch-target-min justify-center rounded-sm p-0.5"

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useEventEmitter,
   useStorageChain,
@@ -23,24 +23,21 @@ function NoWallet() {
   return (
     <div className="oui-mt-5 oui-flex oui-w-full oui-flex-col oui-items-center oui-justify-center">
       <div className="oui-flex oui-w-full oui-flex-col oui-items-center oui-justify-center oui-gap-3">
-        <div className="oui-flex oui-w-full oui-flex-col oui-items-center oui-justify-center oui-gap-1 oui-rounded-lg oui-border  oui-border-line-12 oui-px-2 oui-py-3 ">
+        <div className="oui-flex oui-w-full oui-flex-col oui-items-center oui-justify-center oui-gap-1 oui-rounded-[8px] oui-border  oui-border-line-12 oui-px-2 oui-py-[13px] ">
           <img
-            width={24}
-            height={24}
-            alt=""
             src="/assets/static/sdk/privy/no-wallet.png"
-            className="oui-size-16"
+            className="oui-size-[64px]"
           />
-          <div className="oui-text-2xs oui-font-semibold oui-text-base-contrast-80">
+          <div className="oui-text-2xs oui-font-semibold oui-text-base-contrast-36">
             {t("connector.privy.noWallet")}
           </div>
         </div>
-        <div className="oui-flex oui-items-start oui-gap-1 oui-rounded oui-bg-[rgba(var(--oui-color-warning-darken)/0.15)] oui-px-2 oui-py-2 ">
+        <div className="oui-flex oui-items-start oui-gap-1 oui-rounded-[4px] oui-bg-[rgba(var(--oui-color-warning-darken)/0.15)] oui-px-2 oui-py-[6px] ">
           <ExclamationFillIcon
             size={10}
-            className="oui-mt-1 oui-size-2.5 oui-shrink-0 oui-text-base-contrast-80"
+            className="oui-mt-1 oui-size-[10px] oui-shrink-0 oui-text-warning-darken"
           />
-          <div className="oui-text-2xs oui-text-base-contrast-80">
+          <div className="oui-text-2xs oui-text-warning-darken">
             {t("connector.privy.noWallet.description")}
           </div>
         </div>
@@ -79,29 +76,25 @@ function CreateEVMWallet() {
       });
   };
   return (
-    <div className="oui-w-full oui-rounded-lg oui-bg-base-10 oui-px-2 oui-py-3">
+    <div className="oui-w-full oui-rounded-[8px] oui-bg-base-10 oui-px-2 oui-py-[11px]">
       <div className="oui-flex oui-items-center oui-justify-center oui-gap-1 ">
         <div className="oui-flex oui-items-center oui-justify-center oui-gap-1">
-          <div className="oui-relative oui-flex oui-w-14 oui-items-center oui-justify-start">
+          <div className="oui-relative oui-flex oui-w-[55px] oui-items-center oui-justify-start">
             <img
-              width={24}
-              height={24}
-              alt=""
               src="/assets/static/sdk/chains.png"
-              className="oui-relative oui-z-0 oui-h-5"
+              className="oui-relative oui-z-0 oui-h-[18px]"
             />
-            <div className="oui-absolute oui-end-0 oui-flex oui-size-5 oui-items-center oui-justify-center oui-rounded-full oui-bg-base-5">
+            <div className="oui-absolute oui-end-0 oui-flex oui-size-[18px] oui-items-center oui-justify-center oui-rounded-full oui-bg-base-5">
               <EVMChainPopover>
                 <MoreIcon
-                  className="oui-relative oui-z-10 oui-size-3 oui-text-base-contrast-80 hover:oui-text-base-contrast"
+                  className="oui-relative oui-z-10 oui-size-3 oui-text-base-contrast-54 hover:oui-text-base-contrast"
                   style={{ zIndex: 1 }}
                 />
               </EVMChainPopover>
             </div>
           </div>
         </div>
-        <button
-          type="button"
+        <div
           className={cn(
             "oui-cursor-pointer oui-text-2xs oui-font-semibold oui-text-base-contrast-80",
             loading && "oui-opacity-50",
@@ -109,7 +102,7 @@ function CreateEVMWallet() {
           onClick={doCreate}
         >
           {t("connector.privy.createEvmWallet")}
-        </button>
+        </div>
       </div>
     </div>
   );
@@ -134,17 +127,13 @@ function CreateSOLWallet() {
       });
   };
   return (
-    <div className="oui-w-full oui-rounded-lg oui-bg-base-10 oui-px-2 oui-py-3">
+    <div className="oui-w-full oui-rounded-[8px] oui-bg-base-10 oui-px-2 oui-py-[11px]">
       <div className="oui-flex oui-items-center oui-justify-center oui-gap-1 ">
         <img
-          width={24}
-          height={24}
-          alt=""
           src="/assets/static/sdk/solana-logo.png"
-          className="oui-size-4"
+          className="oui-size-[15px]"
         />
-        <button
-          type="button"
+        <div
           className={cn(
             "oui-cursor-pointer oui-text-2xs oui-font-semibold oui-text-base-contrast-80",
             loading && "oui-opacity-50",
@@ -152,7 +141,7 @@ function CreateSOLWallet() {
           onClick={doCreate}
         >
           {t("connector.privy.createSolanaWallet")}
-        </button>
+        </div>
       </div>
     </div>
   );
@@ -222,15 +211,15 @@ export function RenderPrivyWallet() {
         <div
           className={cn(
             "oui-flex oui-items-start oui-justify-center oui-gap-1",
-            "oui-w-full  oui-rounded-lg oui-px-2 oui-py-3",
+            "oui-w-full  oui-rounded-[8px] oui-px-2 oui-py-[13px]",
             "oui-bg-warning-darken/10",
           )}
         >
           <ExclamationFillIcon
             size={14}
-            className="oui-mt-0.5 oui-size-4 oui-shrink-0 oui-text-base-contrast-80"
+            className="oui-mt-[2px] oui-size-[14px] oui-shrink-0 oui-text-warning-darken"
           />
-          <div className="oui-text-2xs oui-leading-normal oui-text-base-contrast-80">
+          <div className="oui-text-2xs oui-leading-[18px] oui-text-warning-darken">
             Abstract Chain access requires Abstract Global Wallet. Privy
             connection is currently unsupported.
           </div>
@@ -370,15 +359,14 @@ export function RenderPrivyWallet() {
             <div className="oui-text-xs">{linkedAccount.address}</div>
           </div>
         )}
-        <button
-          type="button"
+        <div
           className="oui-cursor-pointer oui-text-2xs oui-font-semibold oui-text-primary"
           onClick={() =>
             disconnect({ walletType: WalletConnectType.PRIVY } as any)
           }
         >
           {t("connector.privy.logout")}
-        </button>
+        </div>
       </div>
       {renderWarning()}
       {renderWallet()}

@@ -5,6 +5,7 @@ import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { defineChain, formatEther, type Address, type PublicClient } from 'viem';
 import { CHAIN_LAUNCH_ABI, LAUNCHPAD_ADDRESS } from '@/core/network/contracts';
 import { getPaxeerRpcUrl } from '@/core/rpc';
+import { userFacingMessage } from '@/core/user-facing-error';
 import { VIRTUAL_CHAIN_ID_BASE } from '../create-chain/chain-domain';
 import { homeChainClient } from '../trade/home-chain';
 
@@ -77,7 +78,7 @@ export default function ChainRevenue({ poolAddress }: { poolAddress: string }) {
     readChainRevenue(root, poolAddress as Address, address).then(value => {
       if (active) { setData(value); setError(''); }
     }).catch(cause => {
-      if (active) setError(cause instanceof Error ? cause.message : 'Revenue epochs could not be loaded.');
+      if (active) setError(userFacingMessage(cause, 'Revenue epochs could not be loaded.'));
     });
     return () => { active = false; };
   }, [root, poolAddress, validPool, address, revision]);
@@ -107,7 +108,7 @@ export default function ChainRevenue({ poolAddress }: { poolAddress: string }) {
       }
       setRevision(value => value + 1);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Revenue transaction failed.');
+      setError(userFacingMessage(cause, 'Revenue transaction failed.'));
     } finally {
       setPending(false);
     }

@@ -211,7 +211,7 @@ export function SwapSuccess({
             <div
               className={`glass-card p-3 transition-all duration-normal ${phase === 'completed' ? 'rounded-b-none ' : ''}`}
             >
-              <span className="flex items-center gap-1 text-xs text-pax-muted mb-1">
+              <span className="flex items-center gap-1 text-size-10 text-pax-muted mb-1">
                 <SvgIcon name="arrow-up" className="w-3 h-3" />{' '}
                 {verified ? 'You paid' : 'Quoted input'}
               </span>
@@ -244,7 +244,7 @@ export function SwapSuccess({
             <div
               className={`glass-card p-3 transition-all duration-normal ${phase === 'completed' ? 'rounded-t-none ' : ''}`}
             >
-              <span className="flex items-center gap-1 text-xs text-pax-muted mb-1">
+              <span className="flex items-center gap-1 text-size-10 text-pax-muted mb-1">
                 <SvgIcon name="arrow-down" className="w-3 h-3" />{' '}
                 {verified ? 'You received' : 'Estimated output'}
               </span>

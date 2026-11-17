@@ -79,7 +79,7 @@ export function TokenSelectorSheet({
                   <TokenIcon token={t} />
                   <div className="flex-1 text-left min-w-0">
                     <p className="text-sm font-medium">{t.symbol}</p>
-                    <p className="text-xs text-pax-muted truncate">{t.name}</p>
+                    <p className="text-size-11 text-pax-muted truncate">{t.name}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-xs font-medium">{t.balance}</p>

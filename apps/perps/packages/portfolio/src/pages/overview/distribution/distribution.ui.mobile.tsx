@@ -1,4 +1,3 @@
-import styles from "../../../presentation.module.css";
 import { FC, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { DataFilter, Flex, Text, TokenIcon } from "@paxeer-network/ui";
@@ -62,10 +61,10 @@ export const DistributionHistoryMobile: FC<FundingHistoryProps> = (props) => {
         gapY={2}
         className="oui-rounded-xl oui-bg-base-9 oui-font-semibold"
       >
-        <Flex direction="row" justify="between" width="100%" height="auto">
+        <Flex direction="row" justify="between" width="100%" height="20px">
           <Text.formatted
             rule="date"
-            className="oui-text-2xs oui-text-base-contrast-80"
+            className="oui-text-2xs oui-text-base-contrast-36"
           >
             {item.created_time}
           </Text.formatted>
@@ -74,14 +73,9 @@ export const DistributionHistoryMobile: FC<FundingHistoryProps> = (props) => {
           </Text>
         </Flex>
         <div className="oui-h-px oui-w-full oui-bg-base-6" />
-        <Flex
-          className={styles.listMetrics}
-          direction="row"
-          justify="between"
-          width="100%"
-        >
+        <Flex direction="row" justify="between" width="100%">
           <Flex direction="column">
-            <Text className="oui-text-2xs oui-text-base-contrast-80">
+            <Text className="oui-text-2xs oui-text-base-contrast-36">
               {t("common.token")}
             </Text>
             <Flex gapX={2}>
@@ -92,7 +86,7 @@ export const DistributionHistoryMobile: FC<FundingHistoryProps> = (props) => {
             </Flex>
           </Flex>
           <Flex direction="column">
-            <Text className="oui-text-2xs oui-text-base-contrast-80">
+            <Text className="oui-text-2xs oui-text-base-contrast-36">
               {t("common.type")}
             </Text>
             <Text className="oui-text-xs oui-text-base-contrast-80">
@@ -100,7 +94,7 @@ export const DistributionHistoryMobile: FC<FundingHistoryProps> = (props) => {
             </Text>
           </Flex>
           <Flex direction="column">
-            <Text className="oui-text-2xs oui-text-base-contrast-80">
+            <Text className="oui-text-2xs oui-text-base-contrast-36">
               {t("common.amount")}
             </Text>
             <Text className="oui-text-xs oui-text-base-contrast-80">
@@ -124,7 +118,7 @@ export const DistributionHistoryMobile: FC<FundingHistoryProps> = (props) => {
       <DataFilter
         items={[
           {
-            type: "select",
+            type: "picker",
             name: "type",
             options: TYPES,
             value: type,
@@ -142,7 +136,7 @@ export const DistributionHistoryMobile: FC<FundingHistoryProps> = (props) => {
         onFilter={(value) => {
           onFilter(value);
         }}
-        className="oui-px-3 oui-py-2 oui-sticky oui-top-12 oui-z-10 oui-bg-base-10"
+        className="oui-px-3 oui-py-2 oui-sticky oui-top-[44px] oui-z-10 oui-bg-base-10"
       />
       <ListView
         dataSource={dataSource}

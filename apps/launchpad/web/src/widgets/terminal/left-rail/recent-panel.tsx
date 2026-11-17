@@ -22,7 +22,7 @@ function RecentPairRow({ row, active }: { row: RecentRow; active: boolean }) {
     <li data-pool={row.poolAddress} className={cn('relative grid min-h-control-height-sm grid-cols-[var(--sl-recent-columns)] items-center gap-1 px-2 transition-colors duration-fast', active ? 'bg-surface-3' : 'bg-surface-1 hover:bg-surface-hover')}>
       <div className="col-span-2 flex min-w-0 items-center gap-1.5">
         <Avatar src={row.image} name={row.name} size="xs" decorative />
-        <Link
+        <Link prefetch={false}
           href={row.href}
           aria-current={active ? 'page' : undefined}
           title={row.name}

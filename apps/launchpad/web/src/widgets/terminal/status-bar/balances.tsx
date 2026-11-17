@@ -61,7 +61,7 @@ export function CommunityLinks() {
       {supportUrl ? (
         <a href={supportUrl} target="_blank" rel="noopener noreferrer" aria-label="Telegram support" title="Telegram support" className={linkClass}><Send aria-hidden="true" /></a>
       ) : null}
-      <Link href="/docs" aria-label="Documentation" title="Documentation" className={linkClass}><BookOpen aria-hidden="true" /></Link>
+      <Link prefetch={false} href="/docs" aria-label="Documentation" title="Documentation" className={linkClass}><BookOpen aria-hidden="true" /></Link>
     </>
   );
 }

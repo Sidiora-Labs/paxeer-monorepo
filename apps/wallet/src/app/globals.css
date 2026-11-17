@@ -110,21 +110,7 @@ body {
   line-height: var(--line-height-body);
   font-family: var(--font-sans);
   font-synthesis: none;
-  font-size-adjust: from-font;
   overflow-wrap: anywhere;
-}
-
-h1,
-h2,
-h3,
-h4 {
-  text-wrap: balance;
-}
-
-p,
-li,
-dd {
-  text-wrap: pretty;
 }
 
 button,
@@ -432,10 +418,16 @@ select,
 textarea {
   min-height: var(--touch-target);
 }
-button,
-[role='button'],
-summary {
-  min-width: var(--touch-target);
+@media (max-width: 834px) {
+  button,
+  [role='button'],
+  summary {
+    min-width: var(--touch-target);
+  }
+  a {
+    display: inline-flex;
+    align-items: center;
+  }
 }
 
 /* Dynamic viewport height for virtual keyboard */
@@ -448,11 +440,6 @@ summary {
   }
 }
 
-input:not([type='checkbox']):not([type='radio']),
-select,
-textarea {
-  font-size: max(var(--font-size-md), 1em);
-}
 .pax-modal-panel[open] {
   border-style: none;
   position: fixed;
@@ -561,11 +548,6 @@ textarea {
 }
 :where(.overflow-x-auto) > * {
   flex-shrink: 0;
-}
-
-a {
-  display: inline-flex;
-  align-items: center;
 }
 
 .pax-signin {

@@ -13,7 +13,7 @@ export default function DocsIndexPage() {
       <ul className="flex flex-col gap-2">
         {DOC_LINKS.map(({ label, href, summary }) => (
           <li key={href}>
-            <Link href={href} className="block rounded-md bg-surface-1 px-4 py-3 transition-colors hover:bg-surface-2">
+            <Link prefetch={false} href={href} className="block rounded-md bg-surface-1 px-4 py-3 transition-colors hover:bg-surface-2">
               <span className="block text-sm font-bold text-text">{label}</span>
               <span className="mt-0.5 block text-xs text-text-muted">{summary}</span>
             </Link>

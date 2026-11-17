@@ -1,0 +1,191 @@
+{
+  "name": "Sidiora Launchpad \u2014 explore",
+  "directory": "../../../../../",
+  "build": "node tools/ui-check/surfaces/launchpad/build.mjs",
+  "start": "node tools/ui-check/surfaces/launchpad/start.mjs",
+  "address": "https://sidiora.test:4173",
+  "readyPath": "/",
+  "views": [
+    {
+      "name": "explore",
+      "path": "/explore",
+      "states": [
+        {
+          "name": "filter-panel",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Filter\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Filters apply to"
+            }
+          ]
+        },
+        {
+          "name": "column-menu",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Column settings\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Saved on this device"
+            }
+          ]
+        },
+        {
+          "name": "grid",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Column settings\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Saved on this device"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Grid\"]:visible, [role=\"radio\"]:has-text(\"Grid\"):visible"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"Done\")"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "explore-breakout",
+      "path": "/explore?preset=breakout"
+    },
+    {
+      "name": "explore-empty",
+      "path": "/explore?render=empty"
+    },
+    {
+      "name": "explore-error",
+      "path": "/explore?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "explore-loading",
+      "path": "/explore?render=loading"
+    },
+    {
+      "name": "explore-mcap",
+      "path": "/explore?preset=mcap"
+    },
+    {
+      "name": "explore-new",
+      "path": "/explore?preset=new"
+    },
+    {
+      "name": "explore-trending",
+      "path": "/explore?preset=trending"
+    },
+    {
+      "name": "explore-unusual",
+      "path": "/explore?preset=unusual"
+    },
+    {
+      "name": "explore-volume",
+      "path": "/explore?preset=volume"
+    },
+    {
+      "name": "search",
+      "path": "/search"
+    },
+    {
+      "name": "search-q-science-empty",
+      "path": "/search?q=science&render=empty"
+    },
+    {
+      "name": "search-q-science-error",
+      "path": "/search?q=science&render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "search-q-science-loading",
+      "path": "/search?q=science&render=loading"
+    },
+    {
+      "name": "watchlist",
+      "path": "/watchlist"
+    },
+    {
+      "name": "search-q-science",
+      "path": "/search?q=science"
+    }
+  ],
+  "answers": [
+    {
+      "method": "GET",
+      "pattern": "https://www.google-analytics.com/analytics.js",
+      "file": "answers/analytics.js",
+      "status": 204,
+      "headers": {
+        "content-type": "text/javascript"
+      }
+    }
+  ],
+  "typeScale": [
+    {
+      "min": 11,
+      "max": 12
+    },
+    {
+      "min": 12,
+      "max": 13
+    },
+    {
+      "min": 13,
+      "max": 14
+    },
+    {
+      "min": 14,
+      "max": 16
+    },
+    {
+      "min": 16,
+      "max": 18
+    },
+    {
+      "min": 20,
+      "max": 24
+    },
+    {
+      "min": 24,
+      "max": 28
+    },
+    {
+      "min": 32,
+      "max": 40
+    },
+    {
+      "min": 48,
+      "max": 64
+    },
+    {
+      "min": 16,
+      "max": 28
+    }
+  ],
+  "buildMs": 600000
+}

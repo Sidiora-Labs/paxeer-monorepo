@@ -1,45 +1,76 @@
-import { Dispatch, FC, SetStateAction, useId } from "react";
-import { useTranslation } from "@paxeer-network/i18n";
+import { FC, useMemo } from "react";
 import { ShareOptions } from "../../types/types";
+import { Flex, Text, cn } from "@paxeer-network/ui";
+import { Checkbox } from "./checkbox";
+import { useTranslation } from "@paxeer-network/i18n";
 
 export const ShareOption: FC<{
   type: ShareOptions;
   curType: Set<ShareOptions>;
-  setShareOption: Dispatch<SetStateAction<Set<ShareOptions>>>;
-}> = ({ type, curType, setShareOption }) => {
+  setShareOption: any;
+}> = (props) => {
+  const { type, curType, setShareOption } = props;
   const { t } = useTranslation();
-  const id = useId();
-  const text = t(
-    type === "markPrice"
-      ? "common.markPrice"
-      : type === "quantity"
-        ? "common.quantity"
-        : type === "leverage"
-          ? "common.leverage"
-          : `share.pnl.optionalInfo.${type}`,
-  );
+
+  const text = useMemo(() => {
+    switch (type) {
+      case "openPrice":
+        return t("share.pnl.optionalInfo.openPrice");
+      case "closePrice":
+        return t("share.pnl.optionalInfo.closePrice");
+      case "openTime":
+        return t("share.pnl.optionalInfo.openTime");
+      case "closeTime":
+        return t("share.pnl.optionalInfo.closeTime");
+      case "markPrice":
+        return t("common.markPrice");
+      case "quantity":
+        return t("common.quantity");
+      case "leverage":
+        return t("common.leverage");
+    }
+  }, [type, t]);
+
+  const isSelected = curType.has(type);
+
   return (
-    <label
-      htmlFor={id}
-      className="oui-flex oui-min-h-12 oui-items-center oui-gap-2 oui-text-sm oui-text-base-contrast oui-cursor-pointer"
+    <Flex
+      itemAlign={"center"}
+      gap={1}
+      className={cn("hover:oui-cursor-pointer")}
+      onClick={() => {
+        // setPnlFormat(type);
+        setShareOption((value: Set<ShareOptions>) => {
+          const updateSet = new Set(value);
+          if (isSelected) {
+            updateSet.delete(type);
+          } else {
+            updateSet.add(type);
+          }
+          return updateSet;
+        });
+      }}
     >
-      <input
-        id={id}
-        type="checkbox"
-        name={type}
-        checked={curType.has(type)}
-        onChange={(event) => {
-          const checked = event.target.checked;
-          setShareOption((value) => {
-            const next = new Set(value);
-            if (checked) next.add(type);
-            else next.delete(type);
-            return next;
+      <Checkbox
+        size={16}
+        checked={isSelected}
+        className="oui-pt-[2px]"
+        onCheckedChange={(checked: boolean) => {
+          setShareOption((value: Set<ShareOptions>) => {
+            const updateSet = new Set(value);
+            if (isSelected) {
+              updateSet.delete(type);
+            } else {
+              updateSet.add(type);
+            }
+            return updateSet;
           });
         }}
-        className="oui-size-5 oui-shrink-0 oui-accent-primary"
       />
-      {text}
-    </label>
+
+      <Text size="xs" intensity={54}>
+        {text}
+      </Text>
+    </Flex>
   );
 };

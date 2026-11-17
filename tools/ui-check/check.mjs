@@ -157,7 +157,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
       });
       if (!active) { await context.close(); return; }
       context.on("close", () => { active = false; });
-      await context.grantPermissions(["clipboard-write"], { origin: surface.address });
+      await context.grantPermissions(["clipboard-write", "local-network-access"], { origin: surface.address });
       await context.addInitScript(observePage);
       await context.route("**/*", async (route) => {
         const request = route.request();

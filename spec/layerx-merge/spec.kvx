@@ -15466,6 +15466,48 @@ value = "The three functions of apps/wallet/src/theme/resolve.ts whose source ap
 basis = "Gotcha 4645. Decision 3724."
 affects = []
 
+[decision.3726]
+title = "Each case of the node the driver of the qualification names is a test function of the package it is run in, and a case of the driver holds that"
+value = "A name of a case that tools/qualification/beta_driver.py gives to a step is the name of a test function in a test file of the package of that step. A case of tools/qualification/test_beta_driver.py that needs no native library reads every such name with its package from the driver and holds that the function stands in a test file of that package directory, so that a renamed case shows in the verification of the task that renames it and in the public check of the Python suites. Task 22.39.778 brings the two names of gotcha 4646 to the present ones and adds that case."
+basis = "Gotcha 4646. Decisions 3046 and 3715."
+affects = []
+
+[decision.3727]
+title = "A verification command installs every tool its steps call, and the setup files of a surface install no package"
+value = "The verification commands of tasks 22.44.64 to 22.44.69 install the package libnss3-tools where the tool certutil is absent, before the script of the parts runs. The setup files under tools/ui-check/surfaces/launchpad, prepare.mjs, start.mjs, build.mjs, environment.mjs and parts.mjs, install no package and keep one form for all parts: a task that closes a part changes them only where a finding of its part has its cause there, and where the main line holds another form of such a file the task takes that of the main line. Each of the six tasks gets a step that says so and tells the participant to run the whole verification command once by hand before the counted run."
+basis = "Gotcha 4647. Decisions 3721 and 3722."
+affects = []
+
+[decision.3728]
+title = "The request function of the net package hands every address to the client of the trading workspace, and a case that expects another binding is changed, not the product"
+value = "The trading workspace reads and writes through its own client, which answers by the path of an address from the state of the chain and the market data of the workspace. The request function of apps/perps/packages/net hands every address, with or without a scheme, to that client with the method, the headers and the body it was given, and calls no fetch function itself. A case of a member that was written for another binding is brought to this one: it replaces the client of the workspace, not the fetch function, and holds what the client is given. A task that makes the suite of a member run changes no behaviour of the product to fit a case; where a case and the binding of the workspace differ, the case changes and the final message says so. Task 22.39.779 brings the request function and its cases to this form."
+basis = "Gotcha 4648. Decisions 3046 and 3705."
+affects = []
+
+[decision.3729]
+title = "A surface reaches its own address through a socket under the render check, and the mark of focus of an input that is clipped to nothing is read on its control"
+value = "A socket from a document of a surface to the address of that surface reaches the surface under the check, whether the address is a loopback address or not; a socket to any other address keeps its finding. For a focused element that is clipped to nothing, the baseline, the comparison of the appearance and the measure of outside are taken on its control, the nearest ancestor that is visible, and the comparison of pixels stays. A control that shows no change keeps its finding. No limit, no size and no other kind of finding changes. Task 22.44.97 brings the check to this form with cases for both."
+basis = "Gotcha 4649. Decisions 3705 and 3727."
+affects = []
+
+[decision.3730]
+title = "The keyboard traversal of the render check passes a frame as one stop, and a surface file declares the console messages of a script it embeds unchanged"
+value = "A frame is one stop of the keyboard traversal. The check judges no element inside the document of a frame and raises no finding of focus on the frame element; the elements of the top document that follow the frame in the order of Tab are reached and judged as before. A frame that does not give the focus back inside a fixed count of presses leaves one finding of focus that says so, and the time a frame adds to a render has a fixed upper bound. A surface file may carry the list embeddedMessages. Each entry names script, a path of the surface that begins with a slash and holds at least one directory, and message, the exact text of a console message. A console message of the type error whose location lies at the address of the surface under that path and whose text equals the message is no finding; the result lists it per view under its own heading with its count, so it stays visible. The same text from another location, and another text from the same path, keep their findings. The list is for a script that the surface embeds unchanged from another party and for nothing the surface can correct in its own source. No limit, no size and no other kind of finding changes. Task 22.44.98 brings the check to this form with cases for both."
+basis = "Gotcha 4650. Decisions 3705 and 3729."
+affects = []
+
+[decision.3731]
+title = "The reads of the perps data service carry the price of a market at the start of the window of 24 hours, and the trading workspace forms the 24 hour change it shows from that price"
+value = "The record of a market, the rows of the topics of all markets and of one market, the ticker and the entries of the tickers carry price_24h: the price of the market at the start of the window of 24 hours, taken from the same price rows as the price beside it, the newest of them at or before the start of the window, and null where the market has no such row. The entries of the tickers and the ticker carry updated_at as well, the time of the block of the row that gives their mark price, in milliseconds, null where there is none. The service reaches the earlier row by seeks through the present indexes on the time of a block and on market and block; no statement reads the rows of the window between, and there is no new table, no new write and no migration. change_24h and the 24 hour prices of fills keep their meaning. The trading workspace shows as the 24 hour change of a market the change of its price against price_24h, in percent, and shows no change where either is absent; it does not show change_24h of a read as the change of the price. The names are the ones of the service, and a case of the workspace holds them as the service writes them. Task 22.39.780 brings the service to this form and task 22.39.781 the workspace."
+basis = "Gotcha 4651. Decisions 3046 and 3728."
+affects = []
+
+[decision.3732]
+title = "A view of the trading workspace comes to rest and follows the route in every state of the wallet, and a deposit of the native binding never waits for a fee it cannot form"
+value = "A value that follows from a read is derived in the render and memoized on the read itself. An absent read gives one constant empty value of the module, never a new literal, and no effect sets state from a value that the render forms anew. With every read ended and no event from outside, a mounted view of the web application renders no more until a new event arrives. A change of the route shows the view of the new route in every state of the wallet: no account, an account connected through the wallet dialog, an account restored at load and an embedded account. On the native binding the deposit function has the address that receives the allowance of the collateral, so the allowance and the fee are read. The layer takes no fee for a deposit. The fee the form shows is the estimated gas of the calls the deposit will send, in the currency of the chain. A fee of zero or an estimate that cannot be formed does not disable the deposit and shows no message of missing fee data there; the wallet shows the fee when it asks for the signature. The deposit form sends no request to a host of the reference kit on the native binding. The account info of the native binding carries every field that the functions of the max quantity read as a number in the unit they read, so the max quantity of an account with free collateral is above zero. The price feed route repeats an attempt that ended without an answer of the feed or with a status of 502, 503 or 504: at least one further attempt, all attempts together within the present time limit of one request, and it never repeats a request the feed answered with another status. Task 22.39.782 brings the renders to this form, task 22.39.783 the deposit, task 22.39.784 the price feed route and task 22.39.785 the max quantity."
+basis = "Gotcha 4652. Decisions 3046, 3718 and 3731."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45126,6 +45168,105 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.785]
+title = "Carry in the account info of the native binding every field the max quantity of the order entry reads"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/native-max-quantity.test.ts && ! grep -q -e futures_taker_fee_rate:.undefined apps/perps/packages/paxeer-backend/src/nativeClient.ts"
+do_1 = "do_1 Gotcha 4652 and decision 3732. Read the account info in apps/perps/packages/paxeer-backend/src/nativeClient.ts, the function of the max quantity of the order entry in the package of the React functions of the trading workspace, the formulas it calls under apps/perps/packages/perp for a buy, for a sell, for the other initial margins and for isolated margin, and the place where the workspace reads the fee rates of the perps layer for its fee tier view. Give in the final message every field of the account info, of the symbol info and of the positions that these formulas read, the unit they read it in, and for each what the native binding gives today."
+symbols = []
+
+[capability.22.39.784]
+title = "Repeat an attempt of the price feed route of the trading workspace that ended without an answer of the feed"
+reqs = ["22998.1"]
+touches = ["apps/perps/apps/web/src"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/price-feed-retry.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/price-feed.test.ts"
+do_1 = "do_1 Gotcha 4652 and decision 3732. Read the route under apps/perps/apps/web/src/pages/api/price-feed, the client in apps/perps/apps/web/src/server/chainflow.ts and the case file apps/perps/tests/price-feed.test.ts. Give in the final message which error of the client the route answers with which status, for a read and for the mint of a socket token."
+symbols = []
+
+[capability.22.39.783]
+title = "Give the deposit of the native binding its allowance address and a fee formed from the gas of its calls"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-flow.test.ts"
+do_1 = "do_1 Gotcha 4652 and decision 3732. Read the deposit function with its allowance and fee functions in the package of the React functions of the trading workspace, the deposit form under apps/perps/packages/ui-transfer with its validation, fee, action and swap parts, apps/perps/packages/core/src/assets.ts, and under apps/perps/packages/paxeer-backend/src the list of the chains in nativeMetadata.ts, the vault and account modules and the deposit of nativeClient.ts. Give in the final message the path of a deposit from the button to the calls it sends on the native binding, and for each key of a read on that path the parts that are absent on the native binding."
+symbols = []
+
+[capability.22.39.782]
+title = "Bring the views of the trading workspace to rest with a connected account so that a change of the route shows its view"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/render-settle.test.ts && ! grep -q -e setAccountValue apps/perps/packages/ui-scaffold/src/components/subAccount/useAccountValue.tsx"
+do_1 = "do_1 Gotcha 4652 and decision 3732. Read apps/perps/packages/ui-scaffold/src/components/subAccount/useAccountValue.tsx, the sub account script beside it, the combined positions script under apps/perps/packages/ui-positions, the query functions these two call in the package of the React functions of the trading workspace, and the native page of the web application under apps/perps/apps/web/src/native. Give in the final message why the read of the aggregate positions ends without data on the native binding, and every place under apps/perps/packages where a component, or a function a component calls, gives a value the default of a new list or a new object and an effect, a memo or a callback depends on that value."
+symbols = []
+
+[capability.22.39.781]
+title = "Form the 24 hour change that the trading workspace shows from the price at the start of the window"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/markets-price-window.test.ts && grep -q -e price_24h apps/perps/packages/paxeer-backend/src/nativeFeedMarkets.ts"
+do_1 = "do_1 Gotcha 4651 and decision 3731. This task starts from the main line that holds task 22.39.780. Read apps/perps/packages/paxeer-backend/src/nativeFeedMarkets.ts, the module of the markets stream in the backend package under apps/perps/packages/paxeer-backend, the runtime of the workspace under apps/perps/packages that chooses between the rows of the stream, the tickers and the chain, and the sources of the reads under services/platform/perps-data/internal/records, services/platform/perps-data/internal/rest and services/platform/perps-data/internal/feeds. List in the final message every place under apps/perps/packages that forms or converts the 24 hour change, the price 24 hours earlier, the time of a price, the volume and the open interest of a market, and for each the name it reads and the name and unit the service writes."
+symbols = []
+
+[capability.22.39.780]
+title = "Carry the price of a market at the start of the window of 24 hours in the reads of the perps data service"
+reqs = ["22998.1"]
+touches = ["services/platform/perps-data", "spec/release-v6-12-0/contracts/data-services.md"]
+tests = []
+verification_contract = "git grep -q TestPriceWindow -- services/platform/perps-data/internal && go test -count=1 -timeout 30m -run TestPriceWindow ./services/platform/perps-data/internal/records/ ./services/platform/perps-data/internal/rest/ ./services/platform/perps-data/internal/feeds/ && grep -q -e price_24h spec/release-v6-12-0/contracts/data-services.md && grep -q -e price_24h services/platform/perps-data/internal/rest/venue.go"
+do_1 = "do_1 Gotcha 4651 and decision 3731. Read services/platform/perps-data/internal/records/records.go, services/platform/perps-data/internal/rest/markets.go, services/platform/perps-data/internal/rest/venue.go, services/platform/perps-data/internal/feeds/topics.go, the migrations 0001 and 0018 under services/platform/perps-data/migrations and sections 11 and 24 of spec/release-v6-12-0/contracts/data-services.md. Give in the final message for the record of a market, for the rows of the topics of all markets and of one market, for the ticker and for an entry of the tickers which price rows give the price it carries, and which indexes of perps.mark_prices and perps.index_prices a read of the newest row at or before a given time can use."
+symbols = []
+
+[capability.22.44.98]
+title = "Pass a frame as one stop of the keyboard traversal of the render check and let a surface file declare the console messages of a script it embeds unchanged"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/browser.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4650 and decision 3730. Read tools/ui-check/check.mjs, tools/ui-check/browser.mjs, tools/ui-check/server.mjs, the section Surface files of tools/ui-check/README.md and the cases of tools/ui-check/test/check.test.mjs. Give in the final message how the traversal reads the focused element today, where it ends when the focus enters a frame, and where a console message becomes a finding of loading."
+symbols = []
+
+[capability.22.44.97]
+title = "Let a surface reach its own socket under the render check and read the focus mark of a clipped input on its control"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/browser.mjs", "tools/ui-check/test"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4649 and decision 3729. Read tools/ui-check/check.mjs, tools/ui-check/browser.mjs, tools/ui-check/server.mjs and the cases of tools/ui-check/test/check.test.mjs. Write a page of a fixture surface that opens a socket to its own address, see the refusal of the browser in a render, and give its message in the final message."
+symbols = []
+
+[capability.22.44.96]
+title = "Leave the theme of the trading workspace to its provider and take the row of legal links out of the flow of the application views"
+reqs = ["22998.1"]
+touches = ["apps/perps/apps/web/src"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/app-shell.test.ts && ! grep -q -e BLUE_DARK_THEME_CSS_VARS apps/perps/apps/web/src/pages/_app.tsx && ! grep -q -e /privacy apps/perps/apps/web/src/pages/_app.tsx"
+do_1 = "do_1 Decision 3705. Read apps/perps/apps/web/src/pages/_app.tsx, apps/perps/apps/web/src/native/PaxeerNetwork.tsx, apps/perps/apps/web/src/theme/blueDarkTheme.ts, the files under apps/perps/apps/web/src/legal and the provider of the theme under apps/perps/packages/app/src/provider. The theme of the workspace is declared in apps/perps/apps/web/src/native/PaxeerNetwork.tsx: it takes the variables of apps/perps/apps/web/src/theme/blueDarkTheme.ts and sets the primary colour and its related variables to white with a black contrast, and the provider writes them to the root element. The element that wraps the application in apps/perps/apps/web/src/pages/_app.tsx sets the variables of apps/perps/apps/web/src/theme/blueDarkTheme.ts as an inline style, so below it the primary colour of that file holds and not the one of the theme. The same file puts a row of three legal links after the application in the flow of the document, so a view that fills the height of the window gains the height of the row."
+symbols = []
+
+[capability.22.39.779]
+title = "Hand every address of the request function of the net package to the client of the trading workspace"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages/net"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps/packages/net test && pnpm --dir apps/perps typecheck && ! grep -q -e response.json apps/perps/packages/net/src/fetch/index.ts"
+do_1 = "do_1 Gotcha 4648 and decision 3728. Read apps/perps/packages/net/src/fetch/index.ts, the case file apps/perps/packages/net/__test__/fetch.test.ts, the query function of the React functions of the workspace that forms an address from the api base and a path, and the function nativeRequest of the client under apps/perps/packages/paxeer-backend. List in the final message every kind of caller of the request function you found, among them the query function and the functions get, post, put, del and mutate, and for each whether the address it gives carries a scheme."
+symbols = []
+
+[capability.22.39.778]
+title = "Name the present cases of the sequenced execution in the driver of the qualification"
+reqs = ["22998.1"]
+touches = ["tools/qualification/beta_driver.py", "tools/qualification/test_beta_driver.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/test_beta_driver.py -k test_native_cases_of_the_driver_exist_in_their_packages && python3 -m pytest -q --collect-only -m native tools/qualification && ! grep -q -e TestRepair_102 tools/qualification/beta_driver.py"
+do_1 = "do_1 Gotcha 4646 and decision 3726. Read in tools/qualification/beta_driver.py the function that runs cases of the node by name, every call of it and every other place that gives names of cases of the node with a package, and read node/sequenced_execution_recovery_test.go. List in the final message every name of a case the driver gives, the package it is run in and the test file that holds the function."
+symbols = []
 
 [capability.22.44.95]
 title = "Keep the function that resolves a theme of the wallet application to its arguments"
@@ -175483,9 +175624,294 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.785]
+title = "Carry in the account info of the native binding every field the max quantity of the order entry reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.785"]
+interfaces = []
+do_1 = "do_1 Gotcha 4652 and decision 3732. Read the account info in apps/perps/packages/paxeer-backend/src/nativeClient.ts, the function of the max quantity of the order entry in the package of the React functions of the trading workspace, the formulas it calls under apps/perps/packages/perp for a buy, for a sell, for the other initial margins and for isolated margin, and the place where the workspace reads the fee rates of the perps layer for its fee tier view. Give in the final message every field of the account info, of the symbol info and of the positions that these formulas read, the unit they read it in, and for each what the native binding gives today."
+do_2 = "do_2 The account info of the native binding carries each field of that list as a number in the unit the formulas read: the taker and maker fee rates of the layer from the source of the fee tier view, zero where the layer takes none, and the factor of the initial margin of each symbol the binding lists. No field that a formula forms a decimal from or divides by is undefined. Where the value of the layer cannot be read, say so in the final message and carry the value that keeps the quantity on the careful side, never one that lets the order entry offer more than the layer accepts. The orders, the positions and every other read of the native client keep their form."
+do_3 = "do_3 Add the case file apps/perps/tests/native-max-quantity.test.ts, run with node --test like its neighbours. With the account info the native binding gives, it calls the formulas without a try around them and holds: none of them throws; for an account with collateral and no position the max quantity of a buy and of a sell is above zero and not above collateral times leverage over the price; with an open long position and with pending orders the quantity is a finite number, above zero where free collateral remains; with no collateral it is zero; and reduce only gives the size of the position."
+do_4 = "do_4 Run the typecheck of the workspace and the check of the source of the views. No size, colour, distance or position of a view changes, and no file under apps/perps/apps changes. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/perps/packages and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages"]
+tests = []
+planned_paths = ["apps/perps/tests/native-max-quantity.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/native-max-quantity.test.ts && ! grep -q -e futures_taker_fee_rate:.undefined apps/perps/packages/paxeer-backend/src/nativeClient.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.784]
+title = "Repeat an attempt of the price feed route of the trading workspace that ended without an answer of the feed"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.784"]
+interfaces = []
+do_1 = "do_1 Gotcha 4652 and decision 3732. Read the route under apps/perps/apps/web/src/pages/api/price-feed, the client in apps/perps/apps/web/src/server/chainflow.ts and the case file apps/perps/tests/price-feed.test.ts. Give in the final message which error of the client the route answers with which status, for a read and for the mint of a socket token."
+do_2 = "do_2 An attempt that ended without an answer of the feed, by an error of the connection or by the time limit, or with a status of 502, 503 or 504, is repeated after a short pause: at least one further attempt and at most two. The time limit of an attempt is set so that all attempts and pauses together end within the present limit of twelve seconds. An answer of the feed with another status is not repeated. A request that still fails gets the answer the route gives today, and a request of a method, a path or a symbol the route refuses today is refused before any attempt as today. The redirect rule of the client stays. No key and no token of the feed appears in an answer or in a line of a log."
+do_3 = "do_3 Add the case file apps/perps/tests/price-feed-retry.test.ts, run with node --test like its neighbours, with a double of fetch and a clock the case controls. It holds: an error of the connection and then an answer gives status 200 with two attempts; a status of 503 and then an answer gives status 200; a status of 400 gives one attempt and the answer of today; failures on every attempt give the answer of today after at most three attempts; a refused path makes no attempt; and the pauses are taken from the clock of the case, so the case does not depend on the speed of the machine. The present cases of the price feed keep passing without a change of their meaning."
+do_4 = "do_4 Run the typecheck of the workspace and the check of the source of the views. The files under apps/perps/apps/web/src and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/apps/web/src"]
+tests = []
+planned_paths = ["apps/perps/tests/price-feed-retry.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/price-feed-retry.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/price-feed.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.783]
+title = "Give the deposit of the native binding its allowance address and a fee formed from the gas of its calls"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.783"]
+interfaces = []
+do_1 = "do_1 Gotcha 4652 and decision 3732. Read the deposit function with its allowance and fee functions in the package of the React functions of the trading workspace, the deposit form under apps/perps/packages/ui-transfer with its validation, fee, action and swap parts, apps/perps/packages/core/src/assets.ts, and under apps/perps/packages/paxeer-backend/src the list of the chains in nativeMetadata.ts, the vault and account modules and the deposit of nativeClient.ts. Give in the final message the path of a deposit from the button to the calls it sends on the native binding, and for each key of a read on that path the parts that are absent on the native binding."
+do_2 = "do_2 On the native binding the deposit function has the address that receives the allowance of the collateral: the address that the approve of the account module names as spender. Carry it where the function reads it, so that the key of the allowance and the key of the fee are formed and the allowance the form shows is the one the deposit uses. The action of the form runs the approve where the allowance is below the amount and the deposit after it, through the modules of the backend package as today. No address of another chain and no address of the reference kit is used."
+do_3 = "do_3 The fee of a deposit on the native binding is the estimated gas of the calls the deposit will send, in the currency of the chain: the approve where one is needed, and the deposit. Estimate the calls in the order the deposit sends them; a deposit that cannot be estimated before its approve is no error of the form, and the fee is then the one of the calls that can be estimated. The layer fee stays zero. On the native binding a fee of zero or an estimate that cannot be formed does not disable the deposit and shows no message of missing fee data. The other rules of the validation stay: an amount above zero, an amount within the balance and the limits of the token. For a chain that is not the Paxeer chain the validation keeps its present rule."
+do_4 = "do_4 The reads of the swap part under the deposit form, the supported chains, the tokens and the quote, are not started where the chain is the Paxeer chain, so the form sends no request to a host of the reference kit there, and the form offers the collateral of the native binding only. Read the labels the form shows on the native binding and give in the final message each one that carries a name or a value of the reference kit without meaning there; change none of them. No size, colour, distance or position of a view changes, and no file under apps/perps/apps changes. "
+do_5 = "do_5 Add the case file apps/perps/tests/deposit-flow.test.ts, run with node --test like its neighbours, with a double of the chain client that answers reads and records calls. It holds: the key of the allowance and the key of the fee are formed on the native binding; with an allowance below the amount the planned calls are the approve and then the deposit, with a sufficient one the deposit alone; the fee is the sum of the estimates of the planned calls; an estimate that throws gives a fee of zero and the form is not disabled for an amount within the balance; an amount above the balance stays disabled; and no request leaves for a host other than the chain, which the case holds by a double of fetch that fails on any other host."
+do_6 = "do_6 Build the web application and start it. With a browser at 1440 by 900 and at 390 by 844 open the trade view with a wallet object in the page that answers the account, chain and read calls, answers a balance of the collateral above zero, and refuses every signing and sending call, connect it, open the deposit dialog, enter an amount within the balance and give in the final message the text of the dialog, the state of its button and every request to a host other than the application and the chain. Where the application cannot be built or started in your environment, give the command and its first message and the same values from reading the source. Run the typecheck of the workspace and the check of the source of the views. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/perps/packages and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages"]
+tests = []
+planned_paths = ["apps/perps/tests/deposit-flow.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-flow.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.782]
+title = "Bring the views of the trading workspace to rest with a connected account so that a change of the route shows its view"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.782"]
+interfaces = []
+do_1 = "do_1 Gotcha 4652 and decision 3732. Read apps/perps/packages/ui-scaffold/src/components/subAccount/useAccountValue.tsx, the sub account script beside it, the combined positions script under apps/perps/packages/ui-positions, the query functions these two call in the package of the React functions of the trading workspace, and the native page of the web application under apps/perps/apps/web/src/native. Give in the final message why the read of the aggregate positions ends without data on the native binding, and every place under apps/perps/packages where a component, or a function a component calls, gives a value the default of a new list or a new object and an effect, a memo or a callback depends on that value."
+do_2 = "do_2 The function of the account value derives its value from the read with a memo and holds no state for it; an absent or empty read gives one constant empty object of the module, and no effect of the file sets state. Bring every place of the list of the first step whose effect sets state to the same form. Where a memo or a callback only computes again, give the default one constant of the module so that its result keeps its identity. A read that the native binding cannot answer ends once without data and is not started again by a render; what it feeds shows what it shows for no data today."
+do_3 = "do_3 Add the case file apps/perps/tests/render-settle.test.ts, run with node --test like its neighbours, with the renderer for tests that the workspace installs. It mounts the function of the account value with a read that has no data, with one that failed and with one that answers two positions of two accounts, and holds for each: after the read has ended a fixed number of further flushes adds no render, the value keeps its identity between two renders without a new read, and the two positions give the sum per account. The count of renders is taken per flush and must not depend on the speed of the machine."
+do_4 = "do_4 Build the web application and start it. With a browser at 1440 by 900 and at 390 by 844 open the trade view with a wallet object in the page that answers the account, chain and read calls, answers a balance of the collateral above zero, and refuses every signing and sending call, connect it through the wallet dialog, and count the commits of React over three seconds at rest on the trade view, on the markets view and on the portfolio view. Then change by the menu from the trade view to the portfolio view, to the markets view and back, and give for each change whether the content of the view changed; the address and the mark of the menu are no proof of it. Give the same counts and changes without a wallet and with the account present at load. The target is a view that commits only on the events of its streams and a change that shows its view within three seconds. Where a count stays high, find the state that changes with every commit and bring it to the form of the second step. Where the application cannot be built or started in your environment, give the command and its first message and the same values from reading the source."
+do_5 = "do_5 Run the typecheck of the workspace and the check of the source of the views. No size, colour, distance or position of a view changes, and no file under apps/perps/apps changes. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/perps/packages and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages"]
+tests = []
+planned_paths = ["apps/perps/tests/render-settle.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/render-settle.test.ts && ! grep -q -e setAccountValue apps/perps/packages/ui-scaffold/src/components/subAccount/useAccountValue.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.781]
+title = "Form the 24 hour change that the trading workspace shows from the price at the start of the window"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.780"]
+reqs = ["22998.1"]
+capabilities = ["22.39.781"]
+interfaces = []
+do_1 = "do_1 Gotcha 4651 and decision 3731. This task starts from the main line that holds task 22.39.780. Read apps/perps/packages/paxeer-backend/src/nativeFeedMarkets.ts, the module of the markets stream in the backend package under apps/perps/packages/paxeer-backend, the runtime of the workspace under apps/perps/packages that chooses between the rows of the stream, the tickers and the chain, and the sources of the reads under services/platform/perps-data/internal/records, services/platform/perps-data/internal/rest and services/platform/perps-data/internal/feeds. List in the final message every place under apps/perps/packages that forms or converts the 24 hour change, the price 24 hours earlier, the time of a price, the volume and the open interest of a market, and for each the name it reads and the name and unit the service writes."
+do_2 = "do_2 A row of the markets stream takes price_24h as the service writes it and forms change_24h, in percent, as the price of the row over price_24h less one, times one hundred; where the price or price_24h is absent or not above zero the change is null and price_24h stays at the value the module uses for an absent metric today. change_24h of the read is not taken as the change of the price. An entry of the tickers is treated the same way with its mark price and its price_24h, and its 24 hour open of fills is not the source of the change. The time of the price of an entry is updated_at as the service writes it, and the rule of thirty seconds stays."
+do_3 = "do_3 Bring every other place of the list of the first step to the names and units of the service; a name the service does not write is not read, and a value the service writes as null is not turned into a number that looks like a measurement, except the open interest of a market that has none, which is zero. Where a view shows a missing value it shows what it shows for a missing value today. No size, colour, distance or position of a view changes, and no file under apps/perps/apps changes."
+do_4 = "do_4 Add the case file apps/perps/tests/markets-price-window.test.ts, run with node --test like its neighbours. With rows in the form the service writes, taken from the field lists of the sources named in the first step, it holds: a stream row with price 110 and price_24h 100 gives a change of 10 percent whatever change_24h of the row says; a row without price_24h gives a null change; an entry of the tickers with a fresh updated_at is kept and gives its change from price_24h; an entry with an old or absent updated_at is dropped; and the names price_24h and updated_at stand in the source of the service under services/platform/perps-data/internal/rest and services/platform/perps-data/internal/records where the case can read the repository."
+do_5 = "do_5 Run the typecheck of the workspace and the check of the source of the views. The files under apps/perps/packages and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages"]
+tests = []
+planned_paths = ["apps/perps/tests/markets-price-window.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/markets-price-window.test.ts && grep -q -e price_24h apps/perps/packages/paxeer-backend/src/nativeFeedMarkets.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.98]
+title = "Pass a frame as one stop of the keyboard traversal of the render check and let a surface file declare the console messages of a script it embeds unchanged"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.97"]
+reqs = ["22998.1"]
+capabilities = ["22.44.98"]
+interfaces = []
+do_1 = "do_1 Gotcha 4650 and decision 3730. Read tools/ui-check/check.mjs, tools/ui-check/browser.mjs, tools/ui-check/server.mjs, the section Surface files of tools/ui-check/README.md and the cases of tools/ui-check/test/check.test.mjs. Give in the final message how the traversal reads the focused element today, where it ends when the focus enters a frame, and where a console message becomes a finding of loading."
+do_2 = "do_2 The traversal passes a frame as one stop. When the focused element of the top document is a frame element, the check adds no finding of focus for it, judges no element inside its document, and goes on until the focus stands on an element of the top document again; the elements that follow the frame in the order of Tab are reached and judged as before, and none of them counts as not reached because of the frame. Hold a fixed count of presses for one frame as a named constant; a frame that keeps the focus beyond it leaves one finding of focus on the frame with a message that the traversal did not leave the frame, and the traversal ends there as it does today. The time one frame adds to a render stays under a bound you name in the final message. A page without a frame is traversed exactly as before, press for press."
+do_3 = "do_3 A surface file may carry the list embeddedMessages. Each entry holds script, a path that begins with a slash and names at least one directory, and message, a text that is not empty; a list or an entry of another form is refused when the surface file is read, with a message that names the entry. A console message of the type error is no finding where its location lies at the address of the surface, the path of the location begins with script, and its text equals message. Such a message is written to the result of its render under a field of its own with script, message and count, and the summary line of a view names the count of declared messages where it is not zero. The same text from a location outside the path keeps its finding, another text from a location under the path keeps its finding, and an uncaught error is never covered. An entry that no render matches is no finding. Change no file under tools/ui-check/surfaces."
+do_4 = "do_4 Add cases to tools/ui-check/test with fixtures of their own. One page holds a button, a frame whose document holds three controls, and a second button behind the frame: the traversal reaches the second button, leaves no finding for the frame or its controls, and still leaves the finding of a button that shows no mark of focus when the fixture gives it none. One page holds a frame whose document keeps the focus: the run ends with the one finding of the frame inside the bound. One page loads a script from a directory that the surface file declares and that script writes the declared console message: the render holds no finding and the result lists the message with its count; the same message written by a script outside the directory is a finding, another message from the declared directory is a finding, and a surface file with an entry without a directory is refused. The cases do not depend on the speed of the machine."
+do_5 = "do_5 tools/ui-check/README.md gains the list embeddedMessages in its section of surface files, with the form of an entry, what a match is and what stays a finding, and the row of the kind focus says how a frame is passed. The files tools/ui-check/check.mjs, tools/ui-check/browser.mjs, tools/ui-check/README.md and the directory tools/ui-check/test are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Take the main line into your branch before you start; it holds the form of task 22.44.97, which stays. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/browser.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.97]
+title = "Let a surface reach its own socket under the render check and read the focus mark of a clipped input on its control"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.74"]
+reqs = ["22998.1"]
+capabilities = ["22.44.97"]
+interfaces = []
+do_1 = "do_1 Gotcha 4649 and decision 3729. Read tools/ui-check/check.mjs, tools/ui-check/browser.mjs, tools/ui-check/server.mjs and the cases of tools/ui-check/test/check.test.mjs. Write a page of a fixture surface that opens a socket to its own address, see the refusal of the browser in a render, and give its message in the final message."
+do_2 = "do_2 A socket from a document of the surface to the address of the surface reaches the surface: the browser of a render is started so that its check of requests to the local network does not refuse that socket, by a start argument or a permission of the context, whichever the pinned version of the browser tool supports, and for the address of the surface alone as far as the tool allows. A socket to any other address keeps its present finding. Add a case with a fixture surface whose page opens a socket to its own address and writes the first message it gets into the page: the render has no finding and the text is there. Add a case that a socket to another address still gives one finding."
+do_3 = "do_3 For a focused element that is clipped to nothing the mark of focus is read on its control: the nearest ancestor that is visible, among them a label that holds the input. The baseline is taken for that ancestor before the traversal, the comparison of the appearance and the measure of outside use that ancestor, and the comparison of pixels stays as it is. Add three cases: a switch made of a clipped input and a sibling that takes an outline while the input has focus gives no finding; the same switch without the outline gives one finding; an input that is visible keeps the present result."
+do_4 = "do_4 No limit, no list of sizes, no other kind of finding and no option of the command changes, and the result file keeps its form. Run the whole suite of tools/ui-check. The files tools/ui-check/check.mjs and tools/ui-check/browser.mjs and the files under tools/ui-check/test are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/browser.mjs", "tools/ui-check/test"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.96]
+title = "Leave the theme of the trading workspace to its provider and take the row of legal links out of the flow of the application views"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.73"]
+reqs = ["22998.1"]
+capabilities = ["22.44.96"]
+interfaces = []
+do_1 = "do_1 Decision 3705. Read apps/perps/apps/web/src/pages/_app.tsx, apps/perps/apps/web/src/native/PaxeerNetwork.tsx, apps/perps/apps/web/src/theme/blueDarkTheme.ts, the files under apps/perps/apps/web/src/legal and the provider of the theme under apps/perps/packages/app/src/provider. The theme of the workspace is declared in apps/perps/apps/web/src/native/PaxeerNetwork.tsx: it takes the variables of apps/perps/apps/web/src/theme/blueDarkTheme.ts and sets the primary colour and its related variables to white with a black contrast, and the provider writes them to the root element. The element that wraps the application in apps/perps/apps/web/src/pages/_app.tsx sets the variables of apps/perps/apps/web/src/theme/blueDarkTheme.ts as an inline style, so below it the primary colour of that file holds and not the one of the theme. The same file puts a row of three legal links after the application in the flow of the document, so a view that fills the height of the window gains the height of the row."
+do_2 = "do_2 apps/perps/apps/web/src/pages/_app.tsx sets no variable of a theme: the wrapping element carries no style and the import of the variables leaves the file. On the application views the theme comes from the provider alone. The three legal pages and the consent notice shown on them carry the variables of the theme of the workspace, with the same primary colour as the application: the variables stand once, in a module under apps/perps/apps/web/src/theme that apps/perps/apps/web/src/native/PaxeerNetwork.tsx reads as well, and the legal layout takes them from there. No value of a variable is written a second time."
+do_3 = "do_3 The row of legal links leaves the flow of the application views: apps/perps/apps/web/src/pages/_app.tsx renders no navigation after the application. The three links, Privacy Policy, Terms of Service and Cookie Settings, stand in the bar at the foot of the application that the scaffold of the workspace renders, through the property trailing of footerProps in apps/perps/apps/web/src/native/PaxeerNetwork.tsx, next to the present text and in the text style of that bar, and the height of the bar does not change. Where that property takes no element, say so in the final message and give the links to the menu of the main navigation that the web source configures. At widths where the scaffold shows no such bar the links are reached through the consent notice and the legal pages, which link to each other already; add no element there that takes height or covers a control. The legal pages keep their own row of links."
+do_4 = "do_4 Add the case file apps/perps/tests/app-shell.test.ts, run with node --test like its neighbours. It reads apps/perps/apps/web/src/pages/_app.tsx and holds that the file sets no style on an element, imports no variables of a theme and renders no navigation element; it reads apps/perps/apps/web/src/native/PaxeerNetwork.tsx and holds that the addresses /privacy, /terms and /cookies are given to the scaffold; and it reads the legal layout and holds that the variables it carries come from the module of the declaration."
+do_5 = "do_5 Build the web application and start it, open the trade view with a browser at 1440 by 900 and at 390 by 844, and give in the final message for each: the height of the document against the height of the window, the computed background colour of the primary button of the order entry, and the height of the bar at the foot before and after your change. At 1440 by 900 the document is as high as the window, and the primary button is white on the dark theme. Open one legal page as well and give the computed colour of its text and of a link. Where the application cannot be built or started in your environment, give the command and its first message and the same values from reading the source. No size of text, line height, distance, control or row changes, no part of a view moves, and no file under apps/perps/packages changes. The files of apps/perps/apps/web/src and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/apps/web/src"]
+tests = []
+planned_paths = ["apps/perps/tests/app-shell.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/app-shell.test.ts && ! grep -q -e BLUE_DARK_THEME_CSS_VARS apps/perps/apps/web/src/pages/_app.tsx && ! grep -q -e /privacy apps/perps/apps/web/src/pages/_app.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.779]
+title = "Hand every address of the request function of the net package to the client of the trading workspace"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.779"]
+interfaces = []
+do_1 = "do_1 Gotcha 4648 and decision 3728. Read apps/perps/packages/net/src/fetch/index.ts, the case file apps/perps/packages/net/__test__/fetch.test.ts, the query function of the React functions of the workspace that forms an address from the api base and a path, and the function nativeRequest of the client under apps/perps/packages/paxeer-backend. List in the final message every kind of caller of the request function you found, among them the query function and the functions get, post, put, del and mutate, and for each whether the address it gives carries a scheme."
+do_2 = "do_2 The request function hands every address to nativeRequest with the method, the headers and the body it was given, whether the address carries a scheme or not, and calls no fetch function. The defaults of the Content-Type header stay as they are: none for GET and HEAD, the form type for DELETE, the JSON type for the other methods, and a header the caller gave is kept. The functions get, post, put, del and mutate keep their signatures and their handling of the answer."
+do_3 = "do_3 apps/perps/packages/net/__test__/fetch.test.ts is brought to this binding: it replaces the module of the client of the workspace, not the fetch function, and holds for each of its present cases the headers that the client is given. It gains cases that hold: an address formed of an api base with a scheme and the path /v1/public/info reaches the client with that address and the fetch function of the platform is not called; an address without a scheme reaches the client the same way; an error the client throws reaches the caller of get unchanged."
+do_4 = "do_4 Read the other source files of apps/perps/packages/net for a second place that sends a read or a write of the workspace to the network instead of the client and bring each to the client the same way; the socket of the package is not part of this. Where there is none say so in the final message. No file outside apps/perps/packages/net changes. The files of apps/perps/packages/net are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Run the suite of the member alone. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages/net"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps/packages/net test && pnpm --dir apps/perps typecheck && ! grep -q -e response.json apps/perps/packages/net/src/fetch/index.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.95]
 title = "Keep the function that resolves a theme of the wallet application to its arguments"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.63"]
@@ -176233,7 +176659,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.73]
 title = "Take the trading workspace back to the presentation of its reference source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.18"]
@@ -176377,7 +176803,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.69.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.69.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.69.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -176390,6 +176816,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "do_6 Decision 3722, gotcha 4642. Decision 3708 holds for every correction of this task: no size of text, no line height, no distance, no height of a control or a row and no track grows or shrinks for a finding; a control that takes touch measures at least 44 pixels at the widths up to 834 and keeps its size above; a colour changes only where the contrast rule asks for it. A finding of the kind scale is settled with a size the tokens of the surface hold: where the surface draws text at a size its tokens hold, the type scale of the part file and of the whole file names that step, and the script of the parts keeps passing. Give in the record, for each kind of finding, the count of the first run of the part and of the last. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+do_7 = "do_7 Decision 3727, gotcha 4647. The verification command installs the package libnss3-tools where the tool certutil is absent. The setup files under tools/ui-check/surfaces/launchpad, prepare.mjs, start.mjs, build.mjs, environment.mjs and parts.mjs, install no package: a change of this task that installs one there is taken back, and where the main line holds another form of one of these files than this task, the task takes the form of the main line and keeps its own corrections of findings. Work with runs of the check by hand until the part is without a finding; before the counted verification run the whole verification command once by hand and read that it ends with exit code 0."
 
 [task.22.44.68]
 title = "Close the live, profit card and profile views of the launchpad on the device list with the render check"
@@ -176410,7 +176837,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.68.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.68.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json --out /tmp/ui-check/launchpad-live && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.68.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json --out /tmp/ui-check/launchpad-live && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -176423,6 +176850,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "do_6 Decision 3722, gotcha 4642. Decision 3708 holds for every correction of this task: no size of text, no line height, no distance, no height of a control or a row and no track grows or shrinks for a finding; a control that takes touch measures at least 44 pixels at the widths up to 834 and keeps its size above; a colour changes only where the contrast rule asks for it. A finding of the kind scale is settled with a size the tokens of the surface hold: where the surface draws text at a size its tokens hold, the type scale of the part file and of the whole file names that step, and the script of the parts keeps passing. Give in the record, for each kind of finding, the count of the first run of the part and of the last. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+do_7 = "do_7 Decision 3727, gotcha 4647. The verification command installs the package libnss3-tools where the tool certutil is absent. The setup files under tools/ui-check/surfaces/launchpad, prepare.mjs, start.mjs, build.mjs, environment.mjs and parts.mjs, install no package: a change of this task that installs one there is taken back, and where the main line holds another form of one of these files than this task, the task takes the form of the main line and keeps its own corrections of findings. Work with runs of the check by hand until the part is without a finding; before the counted verification run the whole verification command once by hand and read that it ends with exit code 0."
 
 [task.22.44.67]
 title = "Close the leaderboard and reward views of the launchpad on the device list with the render check"
@@ -176443,7 +176871,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.67.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.67.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.67.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -176456,6 +176884,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "do_6 Decision 3722, gotcha 4642. Decision 3708 holds for every correction of this task: no size of text, no line height, no distance, no height of a control or a row and no track grows or shrinks for a finding; a control that takes touch measures at least 44 pixels at the widths up to 834 and keeps its size above; a colour changes only where the contrast rule asks for it. A finding of the kind scale is settled with a size the tokens of the surface hold: where the surface draws text at a size its tokens hold, the type scale of the part file and of the whole file names that step, and the script of the parts keeps passing. Give in the record, for each kind of finding, the count of the first run of the part and of the last. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+do_7 = "do_7 Decision 3727, gotcha 4647. The verification command installs the package libnss3-tools where the tool certutil is absent. The setup files under tools/ui-check/surfaces/launchpad, prepare.mjs, start.mjs, build.mjs, environment.mjs and parts.mjs, install no package: a change of this task that installs one there is taken back, and where the main line holds another form of one of these files than this task, the task takes the form of the main line and keeps its own corrections of findings. Work with runs of the check by hand until the part is without a finding; before the counted verification run the whole verification command once by hand and read that it ends with exit code 0."
 
 [task.22.44.66]
 title = "Close the explore, search and watchlist views of the launchpad on the device list with the render check"
@@ -176476,7 +176905,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.66.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.66.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json --out /tmp/ui-check/launchpad-explore && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.66.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json --out /tmp/ui-check/launchpad-explore && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -176489,6 +176918,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "do_6 Decision 3722, gotcha 4642. Decision 3708 holds for every correction of this task: no size of text, no line height, no distance, no height of a control or a row and no track grows or shrinks for a finding; a control that takes touch measures at least 44 pixels at the widths up to 834 and keeps its size above; a colour changes only where the contrast rule asks for it. A finding of the kind scale is settled with a size the tokens of the surface hold: where the surface draws text at a size its tokens hold, the type scale of the part file and of the whole file names that step, and the script of the parts keeps passing. Give in the record, for each kind of finding, the count of the first run of the part and of the last. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+do_7 = "do_7 Decision 3727, gotcha 4647. The verification command installs the package libnss3-tools where the tool certutil is absent. The setup files under tools/ui-check/surfaces/launchpad, prepare.mjs, start.mjs, build.mjs, environment.mjs and parts.mjs, install no package: a change of this task that installs one there is taken back, and where the main line holds another form of one of these files than this task, the task takes the form of the main line and keeps its own corrections of findings. Work with runs of the check by hand until the part is without a finding; before the counted verification run the whole verification command once by hand and read that it ends with exit code 0."
 
 [task.22.44.65]
 title = "Close the coin, token and creation views of the launchpad on the device list with the render check"
@@ -176509,7 +176939,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.65.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.65.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.65.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -176522,6 +176952,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "do_6 Decision 3722, gotcha 4642. Decision 3708 holds for every correction of this task: no size of text, no line height, no distance, no height of a control or a row and no track grows or shrinks for a finding; a control that takes touch measures at least 44 pixels at the widths up to 834 and keeps its size above; a colour changes only where the contrast rule asks for it. A finding of the kind scale is settled with a size the tokens of the surface hold: where the surface draws text at a size its tokens hold, the type scale of the part file and of the whole file names that step, and the script of the parts keeps passing. Give in the record, for each kind of finding, the count of the first run of the part and of the last. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+do_7 = "do_7 Decision 3727, gotcha 4647. The verification command installs the package libnss3-tools where the tool certutil is absent. The setup files under tools/ui-check/surfaces/launchpad, prepare.mjs, start.mjs, build.mjs, environment.mjs and parts.mjs, install no package: a change of this task that installs one there is taken back, and where the main line holds another form of one of these files than this task, the task takes the form of the main line and keeps its own corrections of findings. Work with runs of the check by hand until the part is without a finding; before the counted verification run the whole verification command once by hand and read that it ends with exit code 0."
 
 [task.22.44.64]
 title = "Close the bounty, chat and document views of the launchpad on the device list with the render check"
@@ -176542,7 +176973,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.64.kvx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.64.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/community.json --out /tmp/ui-check/launchpad-community && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.64.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/community.json --out /tmp/ui-check/launchpad-community && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -176555,6 +176986,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "do_6 Decision 3722, gotcha 4642. Decision 3708 holds for every correction of this task: no size of text, no line height, no distance, no height of a control or a row and no track grows or shrinks for a finding; a control that takes touch measures at least 44 pixels at the widths up to 834 and keeps its size above; a colour changes only where the contrast rule asks for it. A finding of the kind scale is settled with a size the tokens of the surface hold: where the surface draws text at a size its tokens hold, the type scale of the part file and of the whole file names that step, and the script of the parts keeps passing. Give in the record, for each kind of finding, the count of the first run of the part and of the last. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
+do_7 = "do_7 Decision 3727, gotcha 4647. The verification command installs the package libnss3-tools where the tool certutil is absent. The setup files under tools/ui-check/surfaces/launchpad, prepare.mjs, start.mjs, build.mjs, environment.mjs and parts.mjs, install no package: a change of this task that installs one there is taken back, and where the main line holds another form of one of these files than this task, the task takes the form of the main line and keeps its own corrections of findings. Work with runs of the check by hand until the part is without a finding; before the counted verification run the whole verification command once by hand and read that it ends with exit code 0."
 
 [task.22.44.63]
 title = "Hold the signed-in form of each view of the wallet application in its surface file and close the render check on it"
@@ -177784,7 +178216,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.40]
 title = "Close the launchpad on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.22", "22.44.37", "22.44.50", "22.44.52"]
@@ -251002,6 +251434,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.780]
+title = "Carry the price of a market at the start of the window of 24 hours in the reads of the perps data service"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.780"]
+interfaces = []
+do_1 = "do_1 Gotcha 4651 and decision 3731. Read services/platform/perps-data/internal/records/records.go, services/platform/perps-data/internal/rest/markets.go, services/platform/perps-data/internal/rest/venue.go, services/platform/perps-data/internal/feeds/topics.go, the migrations 0001 and 0018 under services/platform/perps-data/migrations and sections 11 and 24 of spec/release-v6-12-0/contracts/data-services.md. Give in the final message for the record of a market, for the rows of the topics of all markets and of one market, for the ticker and for an entry of the tickers which price rows give the price it carries, and which indexes of perps.mark_prices and perps.index_prices a read of the newest row at or before a given time can use."
+do_2 = "do_2 Add to services/platform/perps-data/internal/records one function that answers, for every market in one statement, the price at the start of the window of 24 hours: the price of the newest row at or before now less 24 hours, from the same selection of rows that gives price in the record of a market, and beside it the mark price of the newest row of perps.mark_prices at or before that time. A market without such a row answers null for that value. The statement first finds the bound of the window by a seek through an index on the time of a block and then reaches the row of each market by a seek through an index on market and block. It reads no row of the window between, and it adds no table, no index, no write and no migration."
+do_3 = "do_3 The record of a market gains the field price_24h after change_24h, the rows of the topics of all markets and of one market carry it, and both are formed by the function of the second step, so the four reads agree. The ticker and each entry of the tickers gain price_24h, formed from the mark price rows because their price is the mark price, and updated_at, the time of the block of the row that gives their mark price, in milliseconds, null where there is none. change_24h, the 24 hour prices of fills, the volumes and every other field keep their source and their form. Read the other reads under services/platform/perps-data that carry a record of a market, among them the graph and the pages of the portal, and bring each that lists the fields of the record to the new field; where one needs no change say so in the final message."
+do_4 = "do_4 Add cases named TestPriceWindow. The cases use the real PostgreSQL database that the qualification environment names in PERPS_DATA_TEST_DATABASE_URL, as the present cases of the package do. They hold: with a row before the start of the window and rows inside it, price_24h is the price of the newest row at or before the start; a market whose only rows lie inside the window answers null; a market without a fill in the window carries price_24h and no change_24h; the record, the two topics, the ticker and the entry of the tickers agree for one market; updated_at of an entry is the time of the block of its mark row; and with two hundred thousand rows in perps.mark_prices and in perps.index_prices the plan of the statement holds no sequential read of either table. No present case is removed or weakened; a case that holds the count or the list of the fields of a record is brought to the new field."
+do_5 = "do_5 spec/release-v6-12-0/contracts/data-services.md names the new fields where it lists the fields of the record of a market, of the ticker and of an entry of the tickers, with their source and their null rule, and says that change_24h stays the change between fills. Run by hand the cases of the records, rest, feeds and graphql packages and read each summary. The files of services/platform/perps-data and spec/release-v6-12-0/contracts/data-services.md are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/perps-data", "spec/release-v6-12-0/contracts/data-services.md"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./services/platform/perps-data/... && go vet ./services/platform/perps-data/internal/records/ ./services/platform/perps-data/internal/rest/ ./services/platform/perps-data/internal/feeds/"
+verify_cmd = "git grep -q TestPriceWindow -- services/platform/perps-data/internal && go test -count=1 -timeout 30m -run TestPriceWindow ./services/platform/perps-data/internal/records/ ./services/platform/perps-data/internal/rest/ ./services/platform/perps-data/internal/feeds/ && grep -q -e price_24h spec/release-v6-12-0/contracts/data-services.md && grep -q -e price_24h services/platform/perps-data/internal/rest/venue.go"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.777]
 title = "Give the brokers of the perps deployment a file store that holds the whole age of the stream"
@@ -388644,6 +389108,37 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.778]
+title = "Name the present cases of the sequenced execution in the driver of the qualification"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.778"]
+interfaces = []
+do_1 = "do_1 Gotcha 4646 and decision 3726. Read in tools/qualification/beta_driver.py the function that runs cases of the node by name, every call of it and every other place that gives names of cases of the node with a package, and read node/sequenced_execution_recovery_test.go. List in the final message every name of a case the driver gives, the package it is run in and the test file that holds the function."
+do_2 = "do_2 The step of the commit boundary and the step of the rejections at the ledger boundary name TestSequencedExecutionStrictResultCommitment and TestSequencedExecutionTenantReplay. No other name, no label of a step and no behaviour of the driver changes."
+do_3 = "do_3 tools/qualification/test_beta_driver.py gains the case test_native_cases_of_the_driver_exist_in_their_packages without the native mark: it reads every name of a case of the node that the driver gives, with the package of its step, from the driver itself, and holds for each that a test file of that package directory under the repository root declares the function. It reads files alone and runs no compiler. It names at least the steps of the commit boundary and of the rejections at the ledger boundary among those it has read, so that an empty reading does not pass."
+do_4 = "do_4 Where a Go toolchain, a Rust toolchain and the native libraries are present, run by hand python3 -m pytest -q -m native tools/qualification/test_beta_driver.py and give in the final message the exit code and the last line of the summary; where they are not present say so and run the cases of tools/qualification/test_beta_driver.py without the native mark. The files tools/qualification/beta_driver.py and tools/qualification/test_beta_driver.py are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/beta_driver.py", "tools/qualification/test_beta_driver.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tools/qualification/test_beta_driver.py -k test_native_cases_of_the_driver_exist_in_their_packages && python3 -m pytest -q --collect-only -m native tools/qualification && ! grep -q -e TestRepair_102 tools/qualification/beta_driver.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.774]
 title = "Let two qualification test modules load the present module of the owner helpers"

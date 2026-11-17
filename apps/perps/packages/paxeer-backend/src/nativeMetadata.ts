@@ -48,14 +48,11 @@ export function nativeMarketRows() {
   return nativeSymbols().map((info) => {
     const row = snapshots.get(toNativeSymbol(info.symbol));
     const price = row?.price ?? undefined;
-    const open =
-      row && Number.isFinite(row.change_24h)
-        ? price / (1 + row.change_24h / 100)
-        : undefined;
+    const open = row?.price_24h > 0 ? row.price_24h : undefined;
     return {
       ...info,
       mark_price: price,
-      index_price: row?.index_price ?? price,
+      index_price: row?.index_price ?? undefined,
       last_price: price,
       "24h_open": open,
       "24h_close": price,
@@ -65,13 +62,13 @@ export function nativeMarketRows() {
       "24h_volume": row?.amount_24h ?? undefined,
       "24h_amount": row?.volume_24h ?? undefined,
       open_interest:
-        row?.open_interest !== undefined && price
-          ? row.open_interest / price
+        row?.open_interest != null && row?.index_price > 0
+          ? row.open_interest / row.index_price
           : undefined,
       est_funding_rate: row?.est_funding_rate ?? undefined,
       last_funding_rate: row?.funding_8h ?? undefined,
       next_funding_time: row?.next_funding_time,
-      timestamp: row?.timestamp,
+      timestamp: row?.price_updated_at ?? undefined,
     };
   });
 }

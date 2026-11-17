@@ -1,5 +1,4 @@
-import styles from "../../presentation.module.css";
-import { FC, useState, useEffect, useId } from "react";
+import { FC, useState, useEffect } from "react";
 import { useDebouncedCallback } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
 import { ChainNamespace } from "@paxeer-network/types";
@@ -32,9 +31,6 @@ export const AddWalletDialog: FC<AddWalletDialogProps> = ({
   chain,
 }) => {
   const { t } = useTranslation();
-  const inputId = useId();
-  const [interacted, setInteracted] = useState(false);
-  const [editing, setEditing] = useState(false);
   const [address, setAddress] = useState("");
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<{
@@ -72,11 +68,7 @@ export const AddWalletDialog: FC<AddWalletDialogProps> = ({
   };
 
   useEffect(() => {
-    if (!open) {
-      onClear();
-      setInteracted(false);
-      setEditing(false);
-    }
+    if (!open) onClear();
   }, [open]);
 
   const requiredNetwork: "EVM" | "SOL" | undefined =
@@ -102,16 +94,10 @@ export const AddWalletDialog: FC<AddWalletDialogProps> = ({
     validationResult!.network !== requiredNetwork;
 
   const showBorderDanger =
-    interacted &&
-    !editing &&
-    !isValidating &&
-    hasValidation &&
-    (isInvalidFormat || isNetworkMismatch);
+    !isValidating && hasValidation && (isInvalidFormat || isNetworkMismatch);
   const showProtocolLabel = !isValidating && isValid;
-  const showInlineInvalid =
-    interacted && !editing && !isValidating && isInvalidFormat;
-  const showErrorHint =
-    interacted && !editing && !isValidating && isNetworkMismatch;
+  const showInlineInvalid = !isValidating && isInvalidFormat;
+  const showErrorHint = !isValidating && isNetworkMismatch;
 
   const handleConfirm = () => {
     if (!address || isValidating || !isValid || isNetworkMismatch) return;
@@ -126,11 +112,10 @@ export const AddWalletDialog: FC<AddWalletDialogProps> = ({
       onOpenChange={onOpenChange}
       title={t("transfer.withdraw.addExternalWallet")}
       size="sm"
-      classNames={{ content: styles.surface }}
     >
-      <Box className="oui-flex oui-flex-col oui-gap-6 oui-font-semibold oui-tracking-wide">
+      <Box className="oui-flex oui-flex-col oui-gap-6 oui-font-semibold oui-tracking-[0.03em]">
         <Flex justify="between">
-          <Text size="sm" intensity={80}>
+          <Text size="sm" intensity={54}>
             {t("common.network")}
           </Text>
           <Flex gapX={1}>
@@ -139,11 +124,11 @@ export const AddWalletDialog: FC<AddWalletDialogProps> = ({
           </Flex>
         </Flex>
         <Flex direction="column" itemAlign="start" gapY={2}>
-          <Text size="sm" intensity={80}>
+          <Text size="sm" intensity={54}>
             {t("transfer.withdraw.addExternalWallet.addressDescription")}
           </Text>
           {requiredNetworkLabel && (
-            <Text size="sm" intensity={80}>
+            <Text size="sm" intensity={54}>
               {t("transfer.withdraw.addExternalWallet.addressWarning", {
                 networkLabel: requiredNetworkLabel,
               })}
@@ -152,14 +137,11 @@ export const AddWalletDialog: FC<AddWalletDialogProps> = ({
         </Flex>
         <Box className="oui-flex oui-flex-col oui-gap-1">
           <Flex justify="between">
-            <label
-              htmlFor={inputId}
-              className="oui-text-2xs oui-text-base-contrast-80"
-            >
+            <Text size="2xs" intensity={54}>
               {t("transfer.withdraw.addExternalWallet.label")}
-            </label>
+            </Text>
             {isValidating && (
-              <Spinner className="oui-w-3.5 oui-h-3.5 oui-text-base-contrast-80" />
+              <Spinner className="oui-w-3.5 oui-h-3.5 oui-text-base-contrast-36" />
             )}
             {showProtocolLabel && (
               <Text
@@ -174,31 +156,12 @@ export const AddWalletDialog: FC<AddWalletDialogProps> = ({
               </Text>
             )}
             {showInlineInvalid && (
-              <Text
-                id={`${inputId}-hint`}
-                size="2xs"
-                className="oui-text-danger"
-              >
+              <Text size="2xs" className="oui-text-danger">
                 {t("common.invalid")}
               </Text>
             )}
           </Flex>
           <Input
-            id={inputId}
-            name="wallet-address"
-            autoComplete="off"
-            autoCapitalize="none"
-            spellCheck={false}
-            aria-invalid={showBorderDanger}
-            aria-describedby={
-              showErrorHint || showInlineInvalid ? `${inputId}-hint` : undefined
-            }
-            aria-busy={isValidating}
-            onBlur={() => {
-              setInteracted(true);
-              setEditing(false);
-            }}
-            onFocus={() => setEditing(true)}
             value={address}
             onValueChange={onAddressChange}
             autoFocus
@@ -208,33 +171,21 @@ export const AddWalletDialog: FC<AddWalletDialogProps> = ({
             suffix={
               address && (
                 <Box className="oui-ms-2.5 oui-me-2 oui-cursor-pointer">
-                  <button
-                    type="button"
+                  <CloseRoundFillIcon
+                    size={16}
                     onClick={onClear}
-                    aria-label={t("common.clear")}
-                    className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
-                  >
-                    <CloseRoundFillIcon
-                      size={16}
-                      className="oui-text-base-contrast-80 hover:oui-text-base-contrast-80"
-                    />
-                  </button>
+                    className="oui-text-base-contrast-20 hover:oui-text-base-contrast-54"
+                  />
                 </Box>
               )
             }
           />
           {showErrorHint && (
-            <Flex
-              id={`${inputId}-hint`}
-              gapX={1}
-              px={1}
-              justify="between"
-              itemAlign="center"
-            >
+            <Flex gapX={1} px={1} justify="between" itemAlign="center">
               <Flex gapX={1} itemAlign="center">
                 <Box
-                  width="var(--oui-space-1)"
-                  height="var(--oui-space-1)"
+                  width={4}
+                  height={4}
                   r="full"
                   className="oui-bg-danger-light"
                 />
