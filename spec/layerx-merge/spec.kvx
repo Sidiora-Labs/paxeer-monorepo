@@ -175722,7 +175722,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.790]
 title = "Keep every key in the quantity input of the deposit form, whatever the interval between two keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
