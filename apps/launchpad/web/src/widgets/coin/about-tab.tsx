@@ -1,14 +1,12 @@
 'use client';
 import { surfaceSpacing } from '@/app/presentation-tokens';
 import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
 import PremiumErrorBoundary from '@/ui/common/error-boundary';
 import { AgeChip, KeyValueRow, ShortAddress, Skeleton } from '@/ui/primitives';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import { safeExternalDestination } from '@/core/app-foundation/navigation';
 import TokenDescription from '@/widgets/trading/token-description';
-
-const PoolChat = dynamic(() => import('@/widgets/trading/pool-chat'), { ssr: false });
+import PoolChat from '@/widgets/trading/pool-chat';
 
 function explorerAddress(address: string): string | null {
   return safeExternalDestination(`https://paxscan.paxeer.app/address/${address}`);

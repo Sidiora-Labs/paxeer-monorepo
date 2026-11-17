@@ -133,8 +133,9 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
       chain.push(page);
       key = page.nextCursor;
     }
+    if (chain.length === 0 && firstPage) chain.push(firstPage);
     return chain;
-  }, [pages]);
+  }, [pages, firstPage]);
   const token = snapshot.data?.token ?? null;
   // The live quote first; else PoolStats.spotPriceWad (null before the first trade: positions stay unavailable).
   const spot = statsSpotPrice(snapshot.data?.stats ?? null).value;
