@@ -226,20 +226,19 @@ describe('LeaderboardPanel against a real HTTP origin', () => {
     await waitFor(() => profiles.paths.some(path => path.startsWith('/v2/profiles:batch?') && path.includes(walletA) && path.includes(walletB)));
     expect(profiles.paths.some(path => path.startsWith('/v3/profiles/') || path.startsWith('/v1/profiles/'))).toBe(false);
 
-    const windowTrigger = container.querySelector<HTMLButtonElement>('button[aria-label="Window"]');
-    expect(windowTrigger?.textContent).toContain('7d');
-    act(() => windowTrigger?.click());
-    const option24h = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find(option => option.textContent?.trim() === '24h');
+    const windowSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Window"]')!;
+    expect(windowSelect.value).toBe('7d');
+    const option24h = Array.from(windowSelect.options).find(option => option.textContent?.trim() === '24h');
     expect(option24h).toBeDefined();
-    act(() => option24h?.click());
+    act(() => { windowSelect.value = option24h!.value; windowSelect.dispatchEvent(new window.Event('change', { bubbles: true })); });
     await waitFor(() => served.paths.includes('/v2/leaderboards/trader?window=24h&limit=25'));
     await waitFor(() => container.querySelectorAll('ol li').length === 3);
-    expect(container.querySelector<HTMLButtonElement>('button[aria-label="Window"]')?.textContent).toContain('24h');
+    expect(container.querySelector<HTMLSelectElement>('select[aria-label="Window"]')?.value).toBe('24h');
 
-    const metricTrigger = container.querySelector<HTMLButtonElement>('button[aria-label="Metric"]');
-    act(() => metricTrigger?.click());
-    const volume = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find(option => option.textContent?.trim() === 'Volume');
-    act(() => volume?.click());
+    const metricSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Metric"]')!;
+    const volume = Array.from(metricSelect.options).find(option => option.textContent?.trim() === 'Volume');
+    expect(volume).toBeDefined();
+    act(() => { metricSelect.value = volume!.value; metricSelect.dispatchEvent(new window.Event('change', { bubbles: true })); });
     await waitFor(() => served.paths.includes('/v2/leaderboards/volume?window=24h&limit=25'));
     await waitFor(() => container.querySelectorAll('ol li').length === 3);
     expect(container.querySelector('ol li a')?.textContent).toContain('189,384.12 USDL');

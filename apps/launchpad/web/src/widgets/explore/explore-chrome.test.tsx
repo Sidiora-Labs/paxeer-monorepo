@@ -1,3 +1,5 @@
+import { applySurfaceTestStyle } from '@/core/app-foundation/surface-test-style';
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import React, { act } from 'react';
 import { createRequire } from 'node:module';
 import type { Root } from 'react-dom/client';
@@ -18,6 +20,7 @@ for (const key of Object.getOwnPropertyNames(dom.window)) {
 browserGlobals.window = dom.window;
 browserGlobals.document = dom.window.document;
 browserGlobals.IS_REACT_ACT_ENVIRONMENT = true;
+applySurfaceTestStyle();
 
 // jsdom has no layout engine, so the viewport width behind matchMedia is set per test.
 let viewportWidth = 1440;
@@ -167,12 +170,13 @@ describe('ExploreToolbar', () => {
     );
   }
 
-  it('is a single non-wrapping row: presets, Filter icon, Grid/Table with text labels, settings', async () => {
+  it('wraps presets and keeps Filter, Grid/Table with text labels and settings together', async () => {
     let toggled = 0;
     let picked: string | null = null;
     const node = await mount(toolbar(0, () => { toggled++; }, view => { picked = view; }));
     const row = node.firstElementChild!;
-    expect(row.className).not.toContain('flex-wrap');
+    expect(row.className).toContain('flex-wrap');
+    expect(row.lastElementChild!.className).toContain('shrink-0');
     expect(row.firstElementChild!.querySelector('[data-testid="leading"]')).not.toBeNull();
     const filter = node.querySelector<HTMLButtonElement>('button[aria-label="Filter"]')!;
     expect(filter.textContent).toBe('');
@@ -300,9 +304,10 @@ describe('Explore frame when the ranking fails', () => {
     expect(node.querySelectorAll('thead th').length).toBe(columnSpecs.length);
   });
 
-  it('uses no border, ring, divide or shadow utilities in the frame', async () => {
+  it('uses control edges without decorative borders, rings, dividers or shadows in the frame', async () => {
     const node = await mount(view(<StateNotice kind="error" error={failure} />));
-    const classes = [...node.querySelectorAll('[class]')].map(el => el.getAttribute('class') ?? '').join(' ');
+    const doc = new dom.window.DOMParser().parseFromString(assertControlEdges(node.innerHTML), 'text/html');
+    const classes = [...doc.querySelectorAll('[class]')].map(el => el.getAttribute('class') ?? '').join(' ');
     expect(classes).not.toMatch(/(^|\s)(border|ring|divide|shadow)(-|\s|$)/);
   });
 });
