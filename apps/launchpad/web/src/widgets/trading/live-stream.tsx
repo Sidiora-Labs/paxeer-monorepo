@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useAccountSession } from '@/widgets/profile/use-account-session';
-import { LivestreamApiError, getPrivatePlayback, getPoolStreams, type StreamPublic } from '@/core/clients/livestream-api';
+import { LivestreamApiError, getPrivatePlayback, getPoolStreams, type InitialPoolStreams, type StreamPublic } from '@/core/clients/livestream-api';
 import { StreamPlayer } from '@/widgets/live/stream-player';
 import { LiveBadge } from '@/widgets/live/live-badge';
 import { ViewerCountChip } from '@/widgets/live/viewer-count-chip';
@@ -10,20 +10,30 @@ type DirectoryState = 'loading' | 'unavailable' | 'empty' | 'ready';
 const poolPollMs = 3000;
 
 /** Coin-page livestream: resolves the pool's current stream and hands it to the shared StreamPlayer. */
-export default function LiveStream({ poolAddress }: { poolAddress: string }) {
+export default function LiveStream({ poolAddress, initial }: { poolAddress: string; initial?: InitialPoolStreams }) {
   const identity = useAccountSession();
   const accessToken = identity.session?.accessToken;
   const sessionWallet = identity.session?.session.wallet;
-  const [state, setState] = useState<DirectoryState>('loading');
-  const [stream, setStream] = useState<StreamPublic | null>(null);
-  const revision = useRef<{ id: string; revision: bigint } | null>(null);
+  const initialRows = initial?.poolAddress === poolAddress ? initial.streams : undefined;
+  const initialStream = initialRows?.find(row => row.isLive) ?? initialRows?.[0] ?? null;
+  const initialShown = initialStream && (initialStream.isLive || ['suspended', 'ending', 'ended'].includes(initialStream.status ?? ''));
+  const initialState: DirectoryState = initialRows === undefined ? 'loading' : initialRows === null ? 'unavailable' : initialShown ? 'ready' : 'empty';
+  const [state, setState] = useState<DirectoryState>(initialState);
+  const [stream, setStream] = useState<StreamPublic | null>(initialStream);
+  const revision = useRef<{ id: string; revision: bigint } | null>(initialStream ? { id: initialStream.id, revision: BigInt(initialStream.revision ?? '0') } : null);
+  const initialOwner = useRef(initialRows === undefined ? null : `${poolAddress}::`);
 
   useEffect(() => {
     let disposed = false;
     let pending = false;
-    revision.current = null;
-    setStream(null);
-    setState('loading');
+    const owner = `${poolAddress}:${accessToken ?? ''}:${sessionWallet ?? ''}`;
+    if (initialOwner.current !== owner) {
+      const publicInitial = !accessToken && !sessionWallet && initialRows !== undefined;
+      revision.current = publicInitial && initialStream ? { id: initialStream.id, revision: BigInt(initialStream.revision ?? '0') } : null;
+      setStream(publicInitial ? initialStream : null);
+      setState(publicInitial ? initialState : 'loading');
+    }
+    initialOwner.current = owner;
     const refresh = async () => {
       if (pending) return;
       pending = true;
@@ -52,7 +62,7 @@ export default function LiveStream({ poolAddress }: { poolAddress: string }) {
     void refresh();
     const timer = setInterval(() => void refresh(), poolPollMs);
     return () => { disposed = true; clearInterval(timer); };
-  }, [poolAddress, accessToken, sessionWallet]);
+  }, [poolAddress, accessToken, sessionWallet, initialRows, initialState, initialStream]);
 
   if (state === 'empty') return null;
   return (

@@ -1574,7 +1574,7 @@ export default function CreateWizard() {
           </section>
         </div>
 
-        <aside className="shrink-0 @market-two/create:sticky @market-two/create:top-4 @market-two/create:w-56">
+        <aside className="min-w-0 shrink-0 @market-two/create:sticky @market-two/create:top-4 @market-two/create:w-56">
           <CoinPreviewCard
             name={draft?.name ?? ''}
             symbol={draft?.symbol ?? ''}

@@ -15556,6 +15556,24 @@ value = "The limit of the job of the render check is 60 minutes. This is a least
 basis = "Gotcha 4661."
 affects = []
 
+[decision.3741]
+title = "Both Go jobs of the launchpad test workflow prepare one environment, and the job of the single modules has a limit of at least 60 minutes"
+value = "A step that prepares a tool, a fixture or a database setting that a case of a launchpad module reads stands under an anchor that both Go jobs use, so the two jobs cannot differ in it. A fixture binary that cases start by its name is on the search path of every later step of the job. The limit of the job of the single modules is 60 minutes. This is a least value: where a module suite grows further, the limit grows with it. No case is removed and no limit inside a case changes for it. Task 22.39.800 brings the workflow and its cases to this form."
+basis = "Gotcha 4663."
+affects = []
+
+[decision.3742]
+title = "For a case of a launchpad module the producer prevails, and a case that needs a property of the machine reads that property first"
+value = "Where a case of a launchpad Go module and the source that produces what the case reads differ, the producer prevails: the migrations under migrations, the composer under deploy/launchpad/documents, the source of the module that owns a relation, a route or a document. The case is brought in line by preparing its side from the producer. A recorded list of statements or a recorded transcript is renewed by the tool that writes it and never by hand. A source of the module itself changes only for a defect of behaviour that the case shows and that the producer or the interface of the module confirms. No entry is added to the baseline of the runner of the module suites. A case that needs a property of the machine that a workflow cannot provide, such as delegated controllers of the control group, reads that property first: where the machine lacks it, the case reports that it was left out and gives the reason, and where the machine has it, the case runs unchanged. A tool, a fixture or a setting that the workflow can provide is no such property."
+basis = "Gotcha 4664."
+affects = []
+
+[decision.3743]
+title = "For a case of the launchpad web application the view prevails for how it is built, the earlier presentation for sizes and the producer for data"
+value = "Where a case asserts how a view is built, the view as the modernization tasks left it prevails and the case follows. Where a case asserts a size, the presentation the surface had before the modernization tasks prevails, as decision 3705 holds it for the trading workspace: a line of a case that is older than the first change of those tasks to its view records that presentation, and the view is brought to it. No text size, line height, spacing, control height or layout track grows. Where a case asserts an answer of a service or a package, the producer prevails, and the case and its recorded answers follow. A view changes beyond that only for a defect of behaviour that a case shows. No file of the render check changes for a case."
+basis = "Gotcha 4665. Decision 3705."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45216,6 +45234,159 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.815]
+title = "Take the pin of a participant when the secure channel of its connection is established in the client of the wallet gateway"
+reqs = ["22998.1"]
+touches = ["services/wallet/gateway"]
+tests = []
+verification_contract = "pnpm --dir services/wallet/gateway exec vitest run test/attestor-peer-pin.test.ts && pnpm --dir services/wallet/gateway exec vitest run test/e2e/gateway.e2e.test.ts && pnpm --dir services/wallet/gateway exec vitest run test/e2e/gateway.e2e.test.ts && pnpm --dir services/wallet/gateway exec vitest run test/e2e/gateway.e2e.test.ts"
+do_1 = "do_1 Gotcha 4666. Read in services/wallet/gateway/src/attestor/client.ts the function http with its agent, the map peerPins with every reader, the function that loads the inventory, and the case file services/wallet/gateway/test/e2e/gateway.e2e.test.ts with the fixture that starts five participants. Find and give in the final message under which conditions the socket gives no certificate when the answer is handled: a session that was resumed, a socket the peer has closed, or an answer handled after the end of the connection."
+symbols = []
+
+[capability.22.39.814]
+title = "Bring the cases of the joined fixtures of the launchpad web application in line and run its test script whole to its summary"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4665 and decision 3743. Read the test script of apps/launchpad/web, scripts/prepare-test-environment.py with every process it starts, vitest.config.ts, the step of .github/workflows/launchpad-test.yml that runs the script, and the case files src/widgets/trading/chart-datafeed-recovery.test.ts, src/features/metadata-media/route-wiring.test.tsx, src/core/runtime-authority-attestation.test.ts with the fixtures they join. Run the whole test script once and give in the final message every case that does not pass, with what it asserts and which side prevails."
+symbols = []
+
+[capability.22.39.813]
+title = "Bring the cases of the live, social and create views of the launchpad web application in line with their views and producers"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/page-modules/live/livestream.test.ts src/widgets/live/live-primitives.test.tsx src/widgets/live/creator-console.test.tsx src/widgets/social/callout-pagination-follow-recovery.test.ts src/widgets/social/social.test.tsx src/widgets/create/create-pristine.test.tsx"
+do_1 = "do_1 Gotcha 4665 and decision 3743. Read the case files named in do_2 with the views, the functions and the recorded answers they assert. Run the files once through the test script of apps/launchpad/web and give in the final message, for every case that does not pass, what it asserts, which of the three kinds of decision 3743 that is and which side prevails."
+symbols = []
+
+[capability.22.39.812]
+title = "Bring the cases of the terminal, coin and trading views of the launchpad web application in line with their views and producers"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/terminal/status-bar/status-bar.test.tsx src/widgets/terminal/views/views.test.tsx src/widgets/terminal/left-rail/left-rail.render.test.tsx src/widgets/terminal/right-rail/right-rail.integration.test.tsx src/widgets/terminal/coin-view.render.test.tsx src/widgets/coin/coin-units.render.test.tsx src/widgets/trading/coin-failure-frames.test.tsx src/widgets/trading/tv-chart.render.test.tsx"
+do_1 = "do_1 Gotcha 4665 and decision 3743. Read the case files named in do_2 with the views, the functions and the recorded answers they assert. Run the files once through the test script of apps/launchpad/web and give in the final message, for every case that does not pass, what it asserts, which of the three kinds of decision 3743 that is and which side prevails."
+symbols = []
+
+[capability.22.39.811]
+title = "Bring the cases of the home, explore, leaderboard, profile and reward views of the launchpad web application in line with their views and producers"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/home/home-panel-state.test.tsx src/widgets/home/home.test.tsx src/widgets/explore/explore-chrome.test.tsx src/widgets/leaderboard/leaderboard.test.tsx src/widgets/leaderboard/leaderboard-view.test.tsx src/widgets/profile/portfolio-widgets.test.tsx src/widgets/profile/leaderboard-panel.test.tsx src/widgets/holder-rewards/rewards-sort-pagination.test.ts src/widgets/holder-rewards/holder-rewards-components.test.tsx"
+do_1 = "do_1 Gotcha 4665 and decision 3743. Read the case files named in do_2 with the views, the functions and the recorded answers they assert. Run the files once through the test script of apps/launchpad/web and give in the final message, for every case that does not pass, what it asserts, which of the three kinds of decision 3743 that is and which side prevails."
+symbols = []
+
+[capability.22.39.810]
+title = "Bring the cases of the primitives, the shell and the read marks of the launchpad web application in line with their views and producers"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/ui/primitives/primitives.test.tsx src/ui/primitives/interaction-and-popover-position.test.ts src/shell/shell-parity.test.tsx src/shell/mobile-bottom-nav.test.tsx conversation-read-markers.test.ts"
+do_1 = "do_1 Gotcha 4665 and decision 3743. Read the case files named in do_2 with the views, the functions and the recorded answers they assert. Run the files once through the test script of apps/launchpad/web and give in the final message, for every case that does not pass, what it asserts, which of the three kinds of decision 3743 that is and which side prevails."
+symbols = []
+
+[capability.22.39.809]
+title = "Bring the suites of the launchpad discovery and notifications modules in line with the wallet range view they read"
+reqs = ["22998.1"]
+touches = ["services/launchpad/discovery", "services/launchpad/notifications"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/discovery && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .) && (cd services/launchpad/notifications && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under services/launchpad/discovery and services/launchpad/notifications the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+symbols = []
+
+[capability.22.39.808]
+title = "Bring the suite of the launchpad social module in line with the statements of its sources"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/social && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under services/launchpad/social the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+symbols = []
+
+[capability.22.39.807]
+title = "Bring the suite of the launchpad metadata module in line with the scanner it reads, and let its case of the process limits read the machine first"
+reqs = ["22998.1"]
+touches = ["services/launchpad/metadata"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/metadata && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under services/launchpad/metadata the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+symbols = []
+
+[capability.22.39.806]
+title = "Bring the suite of the launchpad gateway module in line with the gateway schema, the livestream configuration and the playback it reads"
+reqs = ["22998.1"]
+touches = ["services/launchpad/gateway"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/gateway && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under services/launchpad/gateway the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+symbols = []
+
+[capability.22.39.805]
+title = "Bring the suite of the launchpad stats module in line with the holdings rows and the recorded transcripts it reads"
+reqs = ["22998.1"]
+touches = ["services/launchpad"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under the directory of the stats service under services/launchpad, whose binary is statsd the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+symbols = []
+
+[capability.22.39.804]
+title = "Bring the suite of the launchpad ranking module in line with its listener, its recorded statements and its publication rules"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/ranking-algo && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under services/launchpad/ranking-algo the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+symbols = []
+
+[capability.22.39.803]
+title = "Bring the suite of the launchpad pnl module in line with the migrations, the registry and the journal it reads"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker/internal/app/testdata/reward_schema && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/launchpad/pnl-tracker && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under services/launchpad/pnl-tracker the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+symbols = []
+
+[capability.22.39.802]
+title = "Bring the suite of the launchpad api module in line with the indexer relations and the document bindings it reads"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd contracts/launchpad && pnpm install --ignore-workspace --frozen-lockfile && pnpm compile) && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under services/launchpad/api the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+symbols = []
+
+[capability.22.39.801]
+title = "Bring the suite of the shared launchpad module in line with the composer, the schema command and the scanner it reads"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd sdk/launchpad/shared && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under sdk/launchpad/shared the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+symbols = []
+
+[capability.22.39.800]
+title = "Give both Go jobs of the launchpad test workflow one environment and the job of the single modules a limit of 60 minutes"
+reqs = ["22998.1"]
+touches = [".github/workflows/launchpad-test.yml", "tests/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/test_workflow_runs_on_routed.py"
+do_1 = "do_1 Gotcha 4663 and decision 3741. Read in .github/workflows/launchpad-test.yml both Go jobs with their anchors, the step that starts the object storage fixture, the step that enables the commit timestamps of the database, and the limits of the jobs. Read the runner tests/ci/data/launchpad_go_tests.py and the cases tests/ci/test_launchpad_go_tests_wired.py and tests/ci/test_launchpad_test_workflow.py. Give in the final message every preparing step that only one of the two Go jobs holds."
+symbols = []
+
+[capability.22.39.799]
+title = "Read the leader schedule of the node from the committed state of the application"
+reqs = ["22998.1"]
+touches = ["node"]
+tests = []
+verification_contract = "go test -count=10 -cpu 1,4 -timeout 60m ./node/ -run ^TestAppLeaderSchedule"
+do_1 = "do_1 Gotcha 4662. Read node/leader_source.go, node/leader_source_test.go with the function that commits a block for its cases, the caller refreshLeaderPin in consensus/internal/consensus/state.go, the function CreateQueryContext of the base application, and the functions of the application that give a context on the committed state the way the execution of a block and the check of a transaction read it. Give in the final message the function chosen and why its state is the one of the last commit that has returned."
+symbols = []
 
 [capability.22.44.103]
 title = "Give the job of the render check a limit of 60 minutes"
@@ -175836,7 +176007,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.103]
 title = "Give the job of the render check a limit of 60 minutes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175864,7 +176035,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.798]
 title = "Make the cases of the swap executor and of the pending sends of the wallet independent of machine speed and of the state of other cases"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177441,7 +177612,7 @@ do_7 = "do_7 Decision 3727, gotcha 4647. The verification command installs the p
 
 [task.22.44.65]
 title = "Close the coin, token and creation views of the launchpad on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.40"]
@@ -205413,9 +205584,508 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.815]
+title = "Take the pin of a participant when the secure channel of its connection is established in the client of the wallet gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.815"]
+interfaces = []
+do_1 = "do_1 Gotcha 4666. Read in services/wallet/gateway/src/attestor/client.ts the function http with its agent, the map peerPins with every reader, the function that loads the inventory, and the case file services/wallet/gateway/test/e2e/gateway.e2e.test.ts with the fixture that starts five participants. Find and give in the final message under which conditions the socket gives no certificate when the answer is handled: a session that was resumed, a socket the peer has closed, or an answer handled after the end of the connection."
+do_2 = "do_2 Bring the client to the target form of gotcha 4666: the pin of a connection is taken and compared with the approved inventory when its secure channel is established, it is held with the connection, and every answer is judged against the pin of the connection that carried it, also on a kept connection and on a resumed session. The check loses nothing: an answer of a participant whose key is outside the approved inventory is refused as today, a channel without a certificate at its establishment is refused, and peerPins keeps its meaning for its readers."
+do_3 = "do_3 Add the case file test/attestor-peer-pin.test.ts under services/wallet/gateway with a local server of its own: many requests one after another over kept connections and resumed sessions each succeed and record the pin; a server that closes the connection after every answer is served again on a new connection; a server whose key is outside the inventory is refused. The cases do not depend on the speed of the machine."
+do_4 = "do_4 The verification runs the new case file and runs services/wallet/gateway/test/e2e/gateway.e2e.test.ts three times. No file outside services/wallet/gateway changes. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/wallet/gateway are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/gateway"]
+tests = []
+planned_paths = []
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir services/wallet/gateway exec tsc --noEmit"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/attestor-peer-pin.test.ts && pnpm --dir services/wallet/gateway exec vitest run test/e2e/gateway.e2e.test.ts && pnpm --dir services/wallet/gateway exec vitest run test/e2e/gateway.e2e.test.ts && pnpm --dir services/wallet/gateway exec vitest run test/e2e/gateway.e2e.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.814]
+title = "Bring the cases of the joined fixtures of the launchpad web application in line and run its test script whole to its summary"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.810", "22.39.811", "22.39.812", "22.39.813"]
+reqs = ["22998.1"]
+capabilities = ["22.39.814"]
+interfaces = []
+do_1 = "do_1 Gotcha 4665 and decision 3743. Read the test script of apps/launchpad/web, scripts/prepare-test-environment.py with every process it starts, vitest.config.ts, the step of .github/workflows/launchpad-test.yml that runs the script, and the case files src/widgets/trading/chart-datafeed-recovery.test.ts, src/features/metadata-media/route-wiring.test.tsx, src/core/runtime-authority-attestation.test.ts with the fixtures they join. Run the whole test script once and give in the final message every case that does not pass, with what it asserts and which side prevails."
+do_2 = "do_2 Bring the three case files in line by decision 3743: the chart service, the metadata route and the attestation of the runtime authority are producers, and the cases and their recorded answers follow them."
+do_3 = "do_3 A run of the whole test script ends with the summary of the suite, in the form the step of the workflow runs it. Where a run ends before its summary, find the cause, for example the memory of a process, an error outside a case, or a fixture process that ends early, and repair it inside the paths. No case file leaves the run, no case gets a longer limit for it, and the number of case files of the run does not shrink."
+do_4 = "do_4 Every further case of the application that does not pass in the whole run is inside this task and follows decision 3743 with the rules of size: no text size, line height, spacing, control height or layout track grows, and a view changes only for a defect of behaviour that a case shows."
+do_5 = "do_5 The verification runs the whole test script twice. No file under tools/ui-check, no service and no package changes. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/launchpad/web are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.813]
+title = "Bring the cases of the live, social and create views of the launchpad web application in line with their views and producers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.813"]
+interfaces = []
+do_1 = "do_1 Gotcha 4665 and decision 3743. Read the case files named in do_2 with the views, the functions and the recorded answers they assert. Run the files once through the test script of apps/launchpad/web and give in the final message, for every case that does not pass, what it asserts, which of the three kinds of decision 3743 that is and which side prevails."
+do_2 = "do_2 The files of this task, under apps/launchpad/web, are: src/page-modules/live/livestream.test.ts, src/widgets/live/live-primitives.test.tsx, src/widgets/live/creator-console.test.tsx, src/widgets/social/callout-pagination-follow-recovery.test.ts, src/widgets/social/social.test.tsx, src/widgets/create/create-pristine.test.tsx."
+do_3 = "do_3 Decision 3743 holds for every case of these files. Where a case asserts how a view is built, the view prevails and the case follows. Where a case asserts a size, read the history of the case and of the view: a line of the case that is older than the first change of the modernization tasks to the view records the earlier presentation, and the view is brought to it; where the history does not settle it, the case follows the view and the final message names the case. No text size, line height, spacing, control height or layout track grows. Where a case asserts an answer of a service or a package, the producer prevails, and the case and its recorded answers follow. A view changes beyond that only for a defect of behaviour that a case shows; give each such change in the final message."
+do_4 = "do_4 No file outside apps/launchpad/web/src changes: no file under tools/ui-check, no service and no package. Run single files by hand; run the whole test script by hand at most twice. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/launchpad/web/src are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/page-modules/live/livestream.test.ts src/widgets/live/live-primitives.test.tsx src/widgets/live/creator-console.test.tsx src/widgets/social/callout-pagination-follow-recovery.test.ts src/widgets/social/social.test.tsx src/widgets/create/create-pristine.test.tsx"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.812]
+title = "Bring the cases of the terminal, coin and trading views of the launchpad web application in line with their views and producers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.812"]
+interfaces = []
+do_1 = "do_1 Gotcha 4665 and decision 3743. Read the case files named in do_2 with the views, the functions and the recorded answers they assert. Run the files once through the test script of apps/launchpad/web and give in the final message, for every case that does not pass, what it asserts, which of the three kinds of decision 3743 that is and which side prevails."
+do_2 = "do_2 The files of this task, under apps/launchpad/web, are: src/widgets/terminal/status-bar/status-bar.test.tsx, src/widgets/terminal/views/views.test.tsx, src/widgets/terminal/left-rail/left-rail.render.test.tsx, src/widgets/terminal/right-rail/right-rail.integration.test.tsx, src/widgets/terminal/coin-view.render.test.tsx, src/widgets/coin/coin-units.render.test.tsx, src/widgets/trading/coin-failure-frames.test.tsx, src/widgets/trading/tv-chart.render.test.tsx."
+do_3 = "do_3 Decision 3743 holds for every case of these files. Where a case asserts how a view is built, the view prevails and the case follows. Where a case asserts a size, read the history of the case and of the view: a line of the case that is older than the first change of the modernization tasks to the view records the earlier presentation, and the view is brought to it; where the history does not settle it, the case follows the view and the final message names the case. No text size, line height, spacing, control height or layout track grows. Where a case asserts an answer of a service or a package, the producer prevails, and the case and its recorded answers follow. A view changes beyond that only for a defect of behaviour that a case shows; give each such change in the final message."
+do_4 = "do_4 No file outside apps/launchpad/web/src changes: no file under tools/ui-check, no service and no package. Run single files by hand; run the whole test script by hand at most twice. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/launchpad/web/src are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/terminal/status-bar/status-bar.test.tsx src/widgets/terminal/views/views.test.tsx src/widgets/terminal/left-rail/left-rail.render.test.tsx src/widgets/terminal/right-rail/right-rail.integration.test.tsx src/widgets/terminal/coin-view.render.test.tsx src/widgets/coin/coin-units.render.test.tsx src/widgets/trading/coin-failure-frames.test.tsx src/widgets/trading/tv-chart.render.test.tsx"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.811]
+title = "Bring the cases of the home, explore, leaderboard, profile and reward views of the launchpad web application in line with their views and producers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.811"]
+interfaces = []
+do_1 = "do_1 Gotcha 4665 and decision 3743. Read the case files named in do_2 with the views, the functions and the recorded answers they assert. Run the files once through the test script of apps/launchpad/web and give in the final message, for every case that does not pass, what it asserts, which of the three kinds of decision 3743 that is and which side prevails."
+do_2 = "do_2 The files of this task, under apps/launchpad/web, are: src/widgets/home/home-panel-state.test.tsx, src/widgets/home/home.test.tsx, src/widgets/explore/explore-chrome.test.tsx, src/widgets/leaderboard/leaderboard.test.tsx, src/widgets/leaderboard/leaderboard-view.test.tsx, src/widgets/profile/portfolio-widgets.test.tsx, src/widgets/profile/leaderboard-panel.test.tsx, src/widgets/holder-rewards/rewards-sort-pagination.test.ts, src/widgets/holder-rewards/holder-rewards-components.test.tsx."
+do_3 = "do_3 Decision 3743 holds for every case of these files. Where a case asserts how a view is built, the view prevails and the case follows. Where a case asserts a size, read the history of the case and of the view: a line of the case that is older than the first change of the modernization tasks to the view records the earlier presentation, and the view is brought to it; where the history does not settle it, the case follows the view and the final message names the case. No text size, line height, spacing, control height or layout track grows. Where a case asserts an answer of a service or a package, the producer prevails, and the case and its recorded answers follow. A view changes beyond that only for a defect of behaviour that a case shows; give each such change in the final message."
+do_4 = "do_4 No file outside apps/launchpad/web/src changes: no file under tools/ui-check, no service and no package. Run single files by hand; run the whole test script by hand at most twice. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/launchpad/web/src are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/home/home-panel-state.test.tsx src/widgets/home/home.test.tsx src/widgets/explore/explore-chrome.test.tsx src/widgets/leaderboard/leaderboard.test.tsx src/widgets/leaderboard/leaderboard-view.test.tsx src/widgets/profile/portfolio-widgets.test.tsx src/widgets/profile/leaderboard-panel.test.tsx src/widgets/holder-rewards/rewards-sort-pagination.test.ts src/widgets/holder-rewards/holder-rewards-components.test.tsx"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.810]
+title = "Bring the cases of the primitives, the shell and the read marks of the launchpad web application in line with their views and producers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.810"]
+interfaces = []
+do_1 = "do_1 Gotcha 4665 and decision 3743. Read the case files named in do_2 with the views, the functions and the recorded answers they assert. Run the files once through the test script of apps/launchpad/web and give in the final message, for every case that does not pass, what it asserts, which of the three kinds of decision 3743 that is and which side prevails."
+do_2 = "do_2 The files of this task, under apps/launchpad/web, are: src/ui/primitives/primitives.test.tsx, src/ui/primitives/interaction-and-popover-position.test.ts, src/shell/shell-parity.test.tsx, src/shell/mobile-bottom-nav.test.tsx and the case file of the read marks of a conversation, which the verification names by its file name conversation-read-markers.test.ts."
+do_3 = "do_3 Decision 3743 holds for every case of these files. Where a case asserts how a view is built, the view prevails and the case follows. Where a case asserts a size, read the history of the case and of the view: a line of the case that is older than the first change of the modernization tasks to the view records the earlier presentation, and the view is brought to it; where the history does not settle it, the case follows the view and the final message names the case. No text size, line height, spacing, control height or layout track grows. Where a case asserts an answer of a service or a package, the producer prevails, and the case and its recorded answers follow. A view changes beyond that only for a defect of behaviour that a case shows; give each such change in the final message."
+do_4 = "do_4 No file outside apps/launchpad/web/src changes: no file under tools/ui-check, no service and no package. Run single files by hand; run the whole test script by hand at most twice. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/launchpad/web/src are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/ui/primitives/primitives.test.tsx src/ui/primitives/interaction-and-popover-position.test.ts src/shell/shell-parity.test.tsx src/shell/mobile-bottom-nav.test.tsx conversation-read-markers.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.809]
+title = "Bring the suites of the launchpad discovery and notifications modules in line with the wallet range view they read"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.809"]
+interfaces = []
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under services/launchpad/discovery and services/launchpad/notifications the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+do_2 = "do_2 The cases to bring in line are at least these. TestDiscoveryRankIntervalsFromPersistedBuckets in coverage_test.go of the discovery module, and TestNotificationDeliveryRuntimePositivePath and TestNotificationIdentityRuntimeAuthorities of the notifications module, run readers that select from the view pnl.inventory_l16_wallet_ranges_read_v3. The view is created by migrations/160004.sql over the table pnl.inventory_l16_wallet_ranges_v3, which the cases fill directly. The cases prepare the view from the migration, so its columns and its barrier are the ones of the producer."
+do_3 = "do_3 Decision 3742 holds for every case of the suite: the producer prevails, and the case prepares its side from the producer. A recorded list of statements or a recorded transcript is renewed by the tool that writes it and never by hand. A source of the module changes only for a defect of behaviour that a case shows and that the producer or the interface of the module confirms; give each such change in the final message. No file under migrations, no file under deploy and no file of another module changes, and no entry is added to the baseline of the runner. The readers in leaderboard.go and authorities.go keep the view they read."
+do_4 = "do_4 The verification runs the suite whole through the runner, the way the job of the single modules runs it. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/launchpad/discovery and services/launchpad/notifications are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/discovery", "services/launchpad/notifications"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/discovery && go vet ./...) && (cd services/launchpad/notifications && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/discovery && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .) && (cd services/launchpad/notifications && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.808]
+title = "Bring the suite of the launchpad social module in line with the statements of its sources"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.808"]
+interfaces = []
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under services/launchpad/social the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+do_2 = "do_2 The cases to bring in line are at least these. TestRuntimeRoleStatements in internal/rolecheck compares the recorded list in statements.json with the SQL calls of the sources, among them the function authorityHTTP of the connected runtime in app/app.go. TestRecordingObjectRequiresConsentAndExpiresFromStorage in internal/voice starts the object storage by its name, which decision 3741 puts on the search path; the case keeps doing so."
+do_3 = "do_3 Decision 3742 holds for every case of the suite: the producer prevails, and the case prepares its side from the producer. A recorded list of statements or a recorded transcript is renewed by the tool that writes it and never by hand. A source of the module changes only for a defect of behaviour that a case shows and that the producer or the interface of the module confirms; give each such change in the final message. No file under migrations, no file under deploy and no file of another module changes, and no entry is added to the baseline of the runner. "
+do_4 = "do_4 The verification runs the suite whole through the runner, the way the job of the single modules runs it. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/launchpad/social are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/social && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/social && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.807]
+title = "Bring the suite of the launchpad metadata module in line with the scanner it reads, and let its case of the process limits read the machine first"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.807"]
+interfaces = []
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under services/launchpad/metadata the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+do_2 = "do_2 The cases to bring in line are at least these. The readiness case of the process limits in the image package under internal needs delegated controllers for memory, cpu and pids of the control group. It follows the last part of decision 3742: it reads first whether the machine delegates these controllers, reports that it was left out with the reason where it does not, and runs unchanged where it does. No other case of the module gets such a condition. The part scanner_unavailable of TestConnectedCanonicalPatchAndSearch in internal/metadata expects the answer for a scanner that cannot be reached; the case itself makes the scanner of its upload unreachable, whatever scanner the environment runs."
+do_3 = "do_3 Decision 3742 holds for every case of the suite: the producer prevails, and the case prepares its side from the producer. A recorded list of statements or a recorded transcript is renewed by the tool that writes it and never by hand. A source of the module changes only for a defect of behaviour that a case shows and that the producer or the interface of the module confirms; give each such change in the final message. No file under migrations, no file under deploy and no file of another module changes, and no entry is added to the baseline of the runner. Add a case that holds the reading of the controllers with both answers through a file tree of the test."
+do_4 = "do_4 The verification runs the suite whole through the runner, the way the job of the single modules runs it. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/launchpad/metadata are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/metadata"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/metadata && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/metadata && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.806]
+title = "Bring the suite of the launchpad gateway module in line with the gateway schema, the livestream configuration and the playback it reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.806"]
+interfaces = []
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under services/launchpad/gateway the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+do_2 = "do_2 The cases to bring in line are at least these. TestPlatformPeersThroughGatewayIdentityListener in internal/app starts the livestream service, whose configuration requires a document source for the budget of its database. In internal/proxy the cases TestExportCapability, TestDeletionReceipt, TestV2Recovery, TestIngestResponse, TestTicketOnlySocket and TestProofLaunchpadGateway prepare the schema of the gateway through its migrations, and the cases of the connected authority start the object storage by its name, which decision 3741 puts on the search path. In internal/storage the cases TestEnvelopePlaybackDecodesBoundMedia and TestEnvelopeConcurrentUploadAndReadWorkload decode the playback of bound media through the fixture of the delivery network."
+do_3 = "do_3 Decision 3742 holds for every case of the suite: the producer prevails, and the case prepares its side from the producer. A recorded list of statements or a recorded transcript is renewed by the tool that writes it and never by hand. A source of the module changes only for a defect of behaviour that a case shows and that the producer or the interface of the module confirms; give each such change in the final message. No file under migrations, no file under deploy and no file of another module changes, and no entry is added to the baseline of the runner. The cases keep starting the object storage by its name."
+do_4 = "do_4 The verification runs the suite whole through the runner, the way the job of the single modules runs it. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/launchpad/gateway are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/gateway"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/gateway && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/gateway && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.805]
+title = "Bring the suite of the launchpad stats module in line with the holdings rows and the recorded transcripts it reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.805"]
+interfaces = []
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under the directory of the stats service under services/launchpad, whose binary is statsd the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+do_2 = "do_2 The cases to bring in line are at least these. TestLegacyHoldingsQuarantine in internal/consumer writes a value that is no number into a row of holdings and expects the quarantine of that row. TestPhase4ObservationEnforcesPendingAndProjectedFreshness in internal/holdings reads the commit timestamps of the database, which decision 3741 gives to both Go jobs; the case keeps reading them. In internal/httpapi the cases TestHistoryPaginationLegacyReactionSignature, TestHistoryPaginationLegacyReactionState, TestHistoryPaginationReactionTestWrongIntent, TestReactionVotePublishesReactionsUpdate and TestReactionsRoutes compare the statements the handler sends with a recorded transcript of the database."
+do_3 = "do_3 Decision 3742 holds for every case of the suite: the producer prevails, and the case prepares its side from the producer. A recorded list of statements or a recorded transcript is renewed by the tool that writes it and never by hand. A source of the module changes only for a defect of behaviour that a case shows and that the producer or the interface of the module confirms; give each such change in the final message. No file under migrations, no file under deploy and no file of another module changes, and no entry is added to the baseline of the runner. Only files of that one directory change; the path of the task is its parent because of the form of the path."
+do_4 = "do_4 The verification runs the suite whole through the runner, the way the job of the single modules runs it. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the directory of the stats service under services/launchpad, whose binary is statsd are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/stats-*ers && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.804]
+title = "Bring the suite of the launchpad ranking module in line with its listener, its recorded statements and its publication rules"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.804"]
+interfaces = []
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under services/launchpad/ranking-algo the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+do_2 = "do_2 The cases to bring in line are at least these. TestNewServesAndRanks in internal/app calls the listener of the service and must speak the scheme the listener serves. TestEmptyUniverseVisibilityContract in internal/app and in internal/store expects the unavailable answer for an observation in the future and for a stale one. TestRuntimeRoleStatements in internal/rolecheck compares the recorded statements with the SQL calls of internal/store/publication.go and internal/store/frozen_inputs.go. TestCanonicalPublicationAcknowledgementsAndExhaustion in internal/store expects that an exhausted intent is not tried again."
+do_3 = "do_3 Decision 3742 holds for every case of the suite: the producer prevails, and the case prepares its side from the producer. A recorded list of statements or a recorded transcript is renewed by the tool that writes it and never by hand. A source of the module changes only for a defect of behaviour that a case shows and that the producer or the interface of the module confirms; give each such change in the final message. No file under migrations, no file under deploy and no file of another module changes, and no entry is added to the baseline of the runner. For the cases of visibility and of exhaustion read the interface of the module first: where the source departs from it, the source is repaired."
+do_4 = "do_4 The verification runs the suite whole through the runner, the way the job of the single modules runs it. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/launchpad/ranking-algo are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/ranking-algo && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/ranking-algo && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.803]
+title = "Bring the suite of the launchpad pnl module in line with the migrations, the registry and the journal it reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.803"]
+interfaces = []
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under services/launchpad/pnl-tracker the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+do_2 = "do_2 The cases to bring in line stand in the packages internal/app, internal/card, internal/devreads, internal/httpapi, internal/production/l16, internal/production/l18, internal/reconcile and internal/store. The helper of the reward database in internal/production/l18/rewards_database_test.go compares the registry of the schema with a recorded transcript of the catalog, and the cases that use it follow from it. The cases of the trade journal scan a row into the fields of the store and read it inside the schema of the peer. Cases read the relation stats.pool_market_context_v1 that migrations/150009.sql creates and the relation indexer.swap_progress_v1 that migrations/60003.sql creates. The cases of the migration contract compare the reward migration with the approval bound to its source and the grants of the production with the declarations of the registered schema plan, among them the table pnl.referrals. By name the cases are at least: TestMigrationFreshInstallMigrationContract, TestMigrationExistingSchemaUpgradeMigrationContract, TestRewardRequestSchemaRecovery, TestJourneyCompositionBindsActualRuntimeComponents, TestArchiveLegacyMintRetired, TestSnapshotLatePoolMetadataChangesSnapshotIdentity, TestSnapshotConcurrentFoldStaysWithinHistoryWatermark, TestReadRoutesReportDatabaseCancellation, TestReadRoutesExposeEmptyCollectionsAndClampNegativeLag, TestPortfolioRoute, TestStatusReportsLagAndCursor, TestCoordinatorRuntimeCompleteDependencyMigrations, TestRewardPreparationRejectsUnavailableGasAndChangedBinding, TestCommunityAuthorityTracksOwnerAndApprovedWallet, TestRewardHTTPRejectsInvalidQueriesAndOversizedClaims, TestRewardJourneyDatabaseCancellation, TestClaimPreparationValidatesRequestAndReplayBinding, TestMixedStrategyRewards, TestCommunityPolicyRestart, TestOutboxRuntimeRights, TestOutboxCrashRecovery, TestSchemaSequenceGrants, TestJourneyIndexerGrants, TestRewardHistoryAgeOutage, TestIndexedPagingIntegrity, TestCommittedCreatorRejectsUnattestedRuntime, TestCursorPoisonPrefixRecovery, TestCursorFailureReplayDeduplicates, TestCursorRecoveryRestartRefreshObligation, TestPoisonCursorFailureRecovery, TestPortfolioEnrichesAndSumsNetWorth, TestPortfolioEmptyUser and TestCursorAndUnreconciledSwaps."
+do_3 = "do_3 Decision 3742 holds for every case of the suite: the producer prevails, and the case prepares its side from the producer. A recorded list of statements or a recorded transcript is renewed by the tool that writes it and never by hand. A source of the module changes only for a defect of behaviour that a case shows and that the producer or the interface of the module confirms; give each such change in the final message. No file under migrations, no file under deploy and no file of another module changes, and no entry is added to the baseline of the runner. The verification installs the tools of the reward schema first, the way the job does."
+do_4 = "do_4 The verification runs the suite whole through the runner, the way the job of the single modules runs it. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/launchpad/pnl-tracker are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker/internal/app/testdata/reward_schema && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/launchpad/pnl-tracker && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker/internal/app/testdata/reward_schema && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/launchpad/pnl-tracker && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.802]
+title = "Bring the suite of the launchpad api module in line with the indexer relations and the document bindings it reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.802"]
+interfaces = []
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under services/launchpad/api the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+do_2 = "do_2 The cases to bring in line are at least these. In internal/app the cases TestNetworkAuthorityInlineDocumentGate, TestDiscoveryRuntimeInlineDocumentGate and TestStreamRelayInlineDocumentGate load inline documents whose binding the configuration in internal/config checks. In internal/rest the cases TestChainsListPagesNewestFirst, TestChainsDetailAndNotFound, TestChainsRevenueWithAndWithoutHolder, TestChainsFieldNamesMatchTheAbi, TestPoolDetailCarriesHomeChain, TestDevelopmentMarketReadsZeroPools, TestDevelopmentMarketReadsPools, TestProductionReadsWithPrivateDatabase and TestPoolReadsRejectInvalidSourceAndContinuation, and in internal/store the cases TestChainRegistryAndRevenuePages and TestDevelopmentRanksAndHolderRewardsUseIndexedEvents, read the relations indexer.launched_chains_v1, indexer.swap_progress_v1 and indexer.fee_distributions_v1 that migrations/60003.sql creates."
+do_3 = "do_3 Decision 3742 holds for every case of the suite: the producer prevails, and the case prepares its side from the producer. A recorded list of statements or a recorded transcript is renewed by the tool that writes it and never by hand. A source of the module changes only for a defect of behaviour that a case shows and that the producer or the interface of the module confirms; give each such change in the final message. No file under migrations, no file under deploy and no file of another module changes, and no entry is added to the baseline of the runner. The verification compiles the contracts first, the way the job does."
+do_4 = "do_4 The verification runs the suite whole through the runner, the way the job of the single modules runs it. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/launchpad/api are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd contracts/launchpad && pnpm install --ignore-workspace --frozen-lockfile && pnpm compile) && (cd services/launchpad/api && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd contracts/launchpad && pnpm install --ignore-workspace --frozen-lockfile && pnpm compile) && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.801]
+title = "Bring the suite of the shared launchpad module in line with the composer, the schema command and the scanner it reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.801"]
+interfaces = []
+do_1 = "do_1 Gotcha 4664 and decision 3742. Read in .github/workflows/launchpad-test.yml the job of the single modules with every variable it declares and every step that prepares its environment, the runner tests/ci/data/launchpad_go_tests.py with its baseline, and under sdk/launchpad/shared the cases and helpers named in do_2 with the sources they call. Prepare the environment of that job in the sense of decisions 2893 and 2917: every variable the job declares is set, the databases are fresh, and the brokers, the object storage, the scanner, the chain and the fixture binaries of the job are present. A case that reports that it was left out because a variable or a tool is absent has not run. Run the suite once through the runner and give in the final message, for every case that does not pass, the two sides it compares and which side is the producer."
+do_2 = "do_2 The cases to bring in line are at least these. TestPlatformDocuments in db/production runs the composer under deploy/launchpad/documents, which requires for the api and for the indexer that network_authority_rendered_file names a rendered JSON object. TestRepositoryRegistryRequiresApprovalOnlineIndex in db/production/cmd/launchpad-schema reads the registry of the repository through the schema command, which refuses the import of a legacy baseline. TestScannerVersionBindsCleanScan in http binds a clean scan to the version the scanner reports, and the scanner of the job answers with its own engine and signature revision."
+do_3 = "do_3 Decision 3742 holds for every case of the suite: the producer prevails, and the case prepares its side from the producer. A recorded list of statements or a recorded transcript is renewed by the tool that writes it and never by hand. A source of the module changes only for a defect of behaviour that a case shows and that the producer or the interface of the module confirms; give each such change in the final message. No file under migrations, no file under deploy and no file of another module changes, and no entry is added to the baseline of the runner. The composer is a producer here: the case gives it the inputs it requires."
+do_4 = "do_4 The verification runs the suite whole through the runner, the way the job of the single modules runs it. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under sdk/launchpad/shared are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.800]
+title = "Give both Go jobs of the launchpad test workflow one environment and the job of the single modules a limit of 60 minutes"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.800"]
+interfaces = []
+do_1 = "do_1 Gotcha 4663 and decision 3741. Read in .github/workflows/launchpad-test.yml both Go jobs with their anchors, the step that starts the object storage fixture, the step that enables the commit timestamps of the database, and the limits of the jobs. Read the runner tests/ci/data/launchpad_go_tests.py and the cases tests/ci/test_launchpad_go_tests_wired.py and tests/ci/test_launchpad_test_workflow.py. Give in the final message every preparing step that only one of the two Go jobs holds."
+do_2 = "do_2 In the step under the anchor of the object storage fixture, put the fixture directory of the binary on the search path of every later step of the job, the way a workflow adds a directory to the search path of its later steps, so both jobs that use the anchor follow. The version of the binary stays."
+do_3 = "do_3 Put the step that enables the commit timestamps under an anchor and use it in both Go jobs at the same place, after the step that creates the databases. Where a further preparing step stands in only one of the two jobs and a case of a module reads what it prepares, it goes under an anchor of both jobs the same way."
+do_4 = "do_4 Set the limit of the job of the single modules to 60 minutes. The limits of the other jobs stay."
+do_5 = "do_5 Add cases to tests/ci/test_launchpad_test_workflow.py that read the workflow and assert: every preparing step of the job of the make target is a step of the job of the single modules with the same content, the step of the object storage fixture adds its directory to the search path, the step of the commit timestamps stands in both Go jobs, and the limit of the job of the single modules is at least 60 minutes. Bring the cases of tests/ci/test_launchpad_go_tests_wired.py that read these steps in line."
+do_6 = "do_6 No job leaves the workflow, no step gets a setting that lets it go on after an error, and no path filter of the workflow changes. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The file .github/workflows/launchpad-test.yml and the files under tests/ci are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".github/workflows/launchpad-test.yml", "tests/ci"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/data/launchpad_go_tests.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/test_workflow_runs_on_routed.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.796]
 title = "Renew the transcript of the handler journey of the candles package of the launchpad from the present handler"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205446,7 +206116,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.795]
 title = "Write the sources of the metadata package of the launchpad in syntax that type stripping takes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205476,7 +206146,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.794]
 title = "Bring the client of the ranking package of the launchpad and its round trip case in line with the pagination of the ranking service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205506,7 +206176,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.793]
 title = "Bring the cases of the launchpad sdk package and the sources they compare into agreement"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205537,7 +206207,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.792]
 title = "Set up the container runtime of the launchpad test workflow only where the runner carries none, and give its web job the Go version of the Go jobs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252108,9 +252778,40 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.799]
+title = "Read the leader schedule of the node from the committed state of the application"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.799"]
+interfaces = []
+do_1 = "do_1 Gotcha 4662. Read node/leader_source.go, node/leader_source_test.go with the function that commits a block for its cases, the caller refreshLeaderPin in consensus/internal/consensus/state.go, the function CreateQueryContext of the base application, and the functions of the application that give a context on the committed state the way the execution of a block and the check of a transaction read it. Give in the final message the function chosen and why its state is the one of the last commit that has returned."
+do_2 = "do_2 Write LeaderSchedule so that it reads the list of the sequencing keeper from the committed state of the application as of the last commit that has returned. The read changes no state, holds no lock across the execution of a block and is safe while a block executes, because consensus calls it from its own routine. The height and the list it returns keep their meaning, and an application without a committed block answers as it does today."
+do_3 = "do_3 Add cases to node/leader_source_test.go whose names begin with TestAppLeaderSchedule. One commits a block that changes the leader list and reads the schedule at once after the commit returns, without a wait and without a second try, and finds the new list with its height. One reads the schedule from a second routine while blocks commit and finds for every read a list and a height that one of the commits produced. The cases do not depend on the speed of the machine."
+do_4 = "do_4 The existing cases keep their meaning. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. No file under consensus, sdk or daemon changes. The files under node are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/... ./daemon/..."
+verify_cmd = "go test -count=10 -cpu 1,4 -timeout 60m ./node/ -run ^TestAppLeaderSchedule"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.797]
 title = "Make the cases of the leader source, of the committed batches and of the storage gas of the node package independent of timing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

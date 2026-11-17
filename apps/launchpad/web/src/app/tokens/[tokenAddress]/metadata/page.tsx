@@ -61,12 +61,13 @@ export default function TokenMetadataPage() {
   const error = !validToken ? 'This is not a valid coin address' : query.isError ? "Can't load coin details right now" : !query.isPending && !metadata ? 'No details found for this coin' : '';
   const identity = `${token}:${address}:${metadata?.revision}:${session?.epoch}`;
   return (
-    <div className="mx-auto min-w-0 max-w-2xl px-4 py-8 text-text">
-      <h1 className="text-2xl font-semibold">Coin details</h1>
+    <div className="mx-auto min-w-0 max-w-2xl break-words px-4 py-8 text-text">
+      <h1 className="text-balance text-2xl font-semibold">Coin details</h1>
       {validToken && query.isPending && <p role="status">Loading...</p>}
       {error && <div role="alert"><p>{error}</p><button type="button" onClick={() => void query.refetch()}>Try again</button></div>}
+      {metadata && <p>{metadata.token.name} ({metadata.token.symbol})</p>}
+      {validToken && <p className="break-all">{metadata ? metadata.token.address : token}</p>}
       {metadata && <>
-        <p>{metadata.token.name} ({metadata.token.symbol})</p><p className="break-all">{metadata.token.address}</p>
         {!isConnected || !address ? <><p>Connect the creator wallet to edit coin details</p><WalletButton /></> : chainId !== 125 ? <><p role="alert">Switch your wallet to Paxeer to edit coin details</p><WalletButton /></> : <>
           <MetadataV2Editor key={identity} tokenAddress={token} wallet={address} audience={audience} metadata={metadata} signMessage={message => signMessageAsync({ message, account: address })} onCommitted={committed} />
           {authority ? <CreatorMetadataMedia key={imageIdentity.current.key} authority={authority} /> : <><p>Sign in with the creator wallet to upload a coin image</p><WalletButton /></>}

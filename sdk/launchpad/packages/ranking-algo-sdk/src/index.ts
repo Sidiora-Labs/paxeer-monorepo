@@ -180,7 +180,7 @@ export class RankingHttpClient {
   async getRankings(requested: RankingCategory, query: RankingQuery = {}): Promise<RankingsResponse> {
     if (!this.config) throw new Error('Ranking HTTP client is not configured');
     if (!category(requested)) throw new TypeError('Invalid ranking category');
-    if ('offset' in query) throw new TypeError('Ranking snapshots require cursor pagination');
+    if ('offset' in query) throw new RangeError('offset is not supported; ranking snapshots require cursor pagination');
     const url = new URL(`${this.config.baseUrl}/rankings/${requested}`);
     if (query.limit !== undefined) {
       if (!nonnegativeInteger(query.limit) || query.limit < 1 || query.limit > 100) throw new RangeError('limit must be an integer from 1 to 100');

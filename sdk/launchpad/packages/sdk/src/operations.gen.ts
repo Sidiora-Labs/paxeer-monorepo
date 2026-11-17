@@ -1,5 +1,4 @@
-import type { ContractTypes as V2ContractTypes } from '@kindle/sdk-v2/types';
-/** Stable operation identifiers for consumers of the generated definitions. */
+import type { ContractTypes as V2ContractTypes } from './types-v2.gen.js';
 export const IF_ALERT_CREATE = "IF_ALERT_CREATE" as const;
 export const IF_ALERT_DELETE = "IF_ALERT_DELETE" as const;
 export const IF_CUP_CURRENT = "IF_CUP_CURRENT" as const;
@@ -8,207 +7,210 @@ export const IF_CUP_RESULTS = "IF_CUP_RESULTS" as const;
 export const IF_CUP_STANDINGS = "IF_CUP_STANDINGS" as const;
 export const IF_ORDER_CANCEL = "IF_ORDER_CANCEL" as const;
 export interface OperationTypes {
-"IF_CONNECTED_DEVICES":{input:{};response:V2ContractTypes["ConnectedDevicesResponse"]};
-"IF_CONNECTED_ACCOUNT_ASSET_GET":{input:{path:{"wallet":string;"assetId":string}};response:V2ContractTypes["ConnectedAccountAsset"]};
-"IF_CONNECTED_ACCOUNT_ASSET_PUT":{input:{path:{"wallet":string;"assetId":string};body:Blob};response:V2ContractTypes["ConnectedAccountAsset"]};
-"IF_MODERATE":{input:{body:V2ContractTypes["ModerateBody"]};response:V2ContractTypes["ModerateResponse"]};
-"IF_REPORT_LIST":{input:{query:{"state":"open"|"reviewing"|"resolved"|"dismissed";"cursor"?:string;"limit"?:number}};response:V2ContractTypes["ReportListResponse"]};
-"IF_UPLOAD_CREATE":{input:{body:V2ContractTypes["UploadCreateBody"]};response:V2ContractTypes["UploadCreateResponse"]};
+"IF_ACCOUNT_DELETE":{input:{body:V2ContractTypes["AccountDeleteBody"]};response:V2ContractTypes["AccountDeleteResponse"]};
+"IF_ACCOUNT_DELETE_STATUS":{input:{path:{"jobId":string}};response:V2ContractTypes["AccountDeleteStatusResponse"]};
+"IF_ACCOUNT_EXPORT":{input:{body:V2ContractTypes["AccountExportBody"]};response:V2ContractTypes["AccountExportResponse"]};
+"IF_ACCOUNT_EXPORT_STATUS":{input:{path:{"jobId":string}};response:V2ContractTypes["AccountExportStatusResponse"]};
+"IF_ALERT_CREATE":{input:{body:V2ContractTypes["AlertCreateBody"]};response:V2ContractTypes["AlertCreateResponse"]};
+"IF_ALERT_DELETE":{input:{path:{"alertId":string}};response:undefined};
 "IF_ASSET_GET":{input:{path:{"assetId":string}};response:V2ContractTypes["AssetGetResponse"]};
-"IF_UPLOAD_COMPLETE":{input:{path:{"assetId":string};body:V2ContractTypes["UploadCompleteBody"]};response:V2ContractTypes["UploadCompleteResponse"]};
-"IF_CHALLENGE":{input:{body:V2ContractTypes["ChallengeBody"]};response:V2ContractTypes["ChallengeResponse"]};
-"IF_SESSIONS":{input:{query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["SessionsResponse"]};
-"IF_LOGIN":{input:{body:V2ContractTypes["LoginBody"]};response:V2ContractTypes["LoginResponse"]};
-"IF_LOGOUT":{input:{path:{"sessionId":string}};response:undefined};
-"IF_REFRESH":{input:{};response:V2ContractTypes["RefreshResponse"]};
+"IF_AUTOMATION_ACTION":{input:{path:{"campaignId":string};body:V2ContractTypes["AutomationActionBody"]};response:V2ContractTypes["AutomationActionResponse"]};
+"IF_AUTOMATION_CREATE":{input:{body:V2ContractTypes["AutomationCreateBody"]};response:V2ContractTypes["AutomationCreateResponse"]};
 "IF_AUTOMATION_PUBLIC_DISCLOSURE":{input:{path:{"campaignId":string}};response:V2ContractTypes["AutomationPublicDisclosureResponse"]};
-"IF_BOUNTY_LIST":{input:{query?:{"state"?:"open"|"reviewing"|"paid";"poolAddress"?:string;"cursor"?:string;"limit"?:number}};response:V2ContractTypes["BountyListResponse"]};
-"IF_BOUNTY_CREATE":{input:{body:V2ContractTypes["BountyCreateBody"]};response:V2ContractTypes["BountyCreateResponse"]};
+"IF_AUTOMATION_STATUS":{input:{path:{"campaignId":string}};response:V2ContractTypes["AutomationStatusResponse"]};
 "IF_BOUNTIES_STATS":{input:{};response:V2ContractTypes["BountiesStatsResponse"]};
+"IF_BOUNTY_ACCEPT":{input:{path:{"bountyId":string;"submissionId":string};body:V2ContractTypes["BountyAcceptBody"]};response:V2ContractTypes["BountyAcceptResponse"]};
+"IF_BOUNTY_CREATE":{input:{body:V2ContractTypes["BountyCreateBody"]};response:V2ContractTypes["BountyCreateResponse"]};
 "IF_BOUNTY_GET":{input:{path:{"bountyId":string}};response:V2ContractTypes["BountyGetResponse"]};
+"IF_BOUNTY_LIST":{input:{query?:{"state"?:"open"|"reviewing"|"paid";"poolAddress"?:string;"cursor"?:string;"limit"?:number}};response:V2ContractTypes["BountyListResponse"]};
 "IF_BOUNTY_SUBMISSIONS":{input:{path:{"bountyId":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["BountySubmissionsResponse"]};
 "IF_BOUNTY_SUBMIT":{input:{path:{"bountyId":string};body:V2ContractTypes["BountySubmitBody"]};response:V2ContractTypes["BountySubmitResponse"]};
-"IF_BOUNTY_ACCEPT":{input:{path:{"bountyId":string;"submissionId":string};body:V2ContractTypes["BountyAcceptBody"]};response:V2ContractTypes["BountyAcceptResponse"]};
 "IF_CALLOUT_CREATE":{input:{body:V2ContractTypes["CalloutCreateBody"]};response:V2ContractTypes["CalloutCreateResponse"]};
+"IF_CALLOUT_LIST":{input:{path:{"poolAddress":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["CalloutListResponse"]};
+"IF_CANDLES":{input:{path:{"poolAddress":string};query:{"interval":"1m"|"5m"|"15m"|"1h"|"4h"|"1d"|"1w";"from":string;"to":string;"cursor"?:string|null;"limit"?:number}};response:V2ContractTypes["CandlesResponse"]};
+"IF_CHAINS":{input:{query?:{"limit"?:number;"cursor"?:string}};response:V2ContractTypes["ChainsResponse"]};
+"IF_CHAIN_DETAIL":{input:{path:{"chain":string}};response:V2ContractTypes["ChainDetailResponse"]};
+"IF_CHAIN_REVENUE":{input:{path:{"chain":string};query?:{"limit"?:number;"cursor"?:string;"holder"?:string}};response:V2ContractTypes["ChainRevenueResponse"]};
+"IF_CHALLENGE":{input:{body:V2ContractTypes["ChallengeBody"]};response:V2ContractTypes["ChallengeResponse"]};
+"IF_COMMENTS_LIST":{input:{path:{"poolAddress":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["CommentsListResponse"]};
+"IF_COMMENT_CREATE":{input:{path:{"poolAddress":string};body:V2ContractTypes["CommentCreateBody"]};response:V2ContractTypes["CommentCreateResponse"]};
+"IF_COMMENT_DELETE":{input:{path:{"commentId":string}};response:undefined};
+"IF_COMMENT_EDIT":{input:{path:{"commentId":string};body:V2ContractTypes["CommentEditBody"]};response:V2ContractTypes["CommentEditResponse"]};
+"IF_COMMENT_LIKE":{input:{path:{"commentId":string}};response:V2ContractTypes["CommentLikeResponse"]};
+"IF_COMMENT_UNLIKE":{input:{path:{"commentId":string}};response:undefined};
+"IF_CONNECTED_ACCOUNT_ASSET_GET":{input:{path:{"wallet":string;"assetId":string}};response:V2ContractTypes["ConnectedAccountAsset"]};
+"IF_CONNECTED_ACCOUNT_ASSET_PUT":{input:{path:{"wallet":string;"assetId":string};body:Blob};response:V2ContractTypes["ConnectedAccountAsset"]};
 "IF_CONNECTED_CHAT_CONVERSATIONS":{input:{};response:V2ContractTypes["ConnectedChatConversationsResponse"]};
 "IF_CONNECTED_CHAT_HISTORY":{input:{query:{"conversation_id":string;"cursor"?:string;"limit"?:number}};response:V2ContractTypes["ConnectedFanoutHistoryPage"]};
 "IF_CONNECTED_CHAT_READ":{input:{body:V2ContractTypes["ConnectedChatReadBody"]};response:V2ContractTypes["ConnectedSuccessResponse"]};
 "IF_CONNECTED_CHAT_REVISE":{input:{body:V2ContractTypes["ConnectedChatReviseBody"]};response:V2ContractTypes["ConnectedFanoutDurableMessage"]};
-"IF_COMMENT_DELETE":{input:{path:{"commentId":string}};response:undefined};
-"IF_COMMENT_EDIT":{input:{path:{"commentId":string};body:V2ContractTypes["CommentEditBody"]};response:V2ContractTypes["CommentEditResponse"]};
-"IF_COMMENT_UNLIKE":{input:{path:{"commentId":string}};response:undefined};
-"IF_COMMENT_LIKE":{input:{path:{"commentId":string}};response:V2ContractTypes["CommentLikeResponse"]};
-"IF_CUP_CURRENT":{input:{};response:V2ContractTypes["CupCurrentResponse"]};
-"IF_CUP_GET":{input:{path:{"cupId":string}};response:V2ContractTypes["CupGetResponse"]};
-"IF_CUP_RESULTS":{input:{path:{"cupId":string}};response:V2ContractTypes["CupResultsResponse"]};
-"IF_CUP_STANDINGS":{input:{path:{"cupId":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["CupStandingsResponse"]};
+"IF_CONNECTED_DEVICES":{input:{};response:V2ContractTypes["ConnectedDevicesResponse"]};
 "IF_CONNECTED_DISCOVERY_ALERT":{input:{path:{"id":string};body:V2ContractTypes["ConnectedAlertPutBody"]};response:V2ContractTypes["ConnectedDiscoveryAlertRule"]};
 "IF_CONNECTED_DISCOVERY_CALLOUT_CREATE":{input:{body:V2ContractTypes["ConnectedCalloutCreateBody"]};response:V2ContractTypes["ConnectedDiscoveryCallout"]};
 "IF_CONNECTED_DISCOVERY_CALLOUT_EDIT":{input:{path:{"id":string};body:V2ContractTypes["ConnectedCalloutEditBody"]};response:V2ContractTypes["ConnectedDiscoveryCallout"]};
-"IF_CONNECTED_FEED":{input:{query?:{"order"?:"chronological"|"relevance";"cursor"?:string;"limit"?:number}};response:V2ContractTypes["ConnectedDiscoveryFeedPage"]};
-"IF_CONNECTED_FEED_DETAIL":{input:{path:{"id":string}};response:V2ContractTypes["ConnectedDiscoveryFeedCard"]};
 "IF_CONNECTED_DISCOVERY_LEADERBOARDS":{input:{query:{"start":string;"end":string}};response:V2ContractTypes["ConnectedDiscoveryLeaderboardV2"]};
-"IF_CONNECTED_NOTIFICATION_LIST":{input:{};response:V2ContractTypes["ConnectedNotificationListResponse"]};
-"IF_CONNECTED_NOTIFICATION_DELETE":{input:{path:{"id":string}};response:V2ContractTypes["ConnectedDeletedResponse"]};
-"IF_CONNECTED_NOTIFICATION_READ":{input:{path:{"id":string};body:V2ContractTypes["ConnectedBooleanReadBody"]};response:V2ContractTypes["ConnectedReadResponse"]};
-"IF_CONNECTED_DISCOVERY_SQUAD_CREATE":{input:{body:V2ContractTypes["ConnectedSquadCreateBody"]};response:V2ContractTypes["ConnectedDiscoverySquad"]};
-"IF_CONNECTED_DISCOVERY_SQUAD_PATCH":{input:{path:{"id":string};body:V2ContractTypes["ConnectedSquadPatchBody"]};response:V2ContractTypes["ConnectedDiscoverySquad"]};
 "IF_CONNECTED_DISCOVERY_SQUAD_ACCEPT":{input:{path:{"id":string};body:V2ContractTypes["ConnectedSquadAcceptBody"]};response:V2ContractTypes["ConnectedDiscoveryMembership"]};
+"IF_CONNECTED_DISCOVERY_SQUAD_CREATE":{input:{body:V2ContractTypes["ConnectedSquadCreateBody"]};response:V2ContractTypes["ConnectedDiscoverySquad"]};
 "IF_CONNECTED_DISCOVERY_SQUAD_INVITE":{input:{path:{"id":string};body:V2ContractTypes["ConnectedSquadInviteBody"]};response:V2ContractTypes["ConnectedInvitedResponse"]};
 "IF_CONNECTED_DISCOVERY_SQUAD_MEMBER":{input:{path:{"id":string;"account":string};body:V2ContractTypes["ConnectedSquadMemberBody"]};response:V2ContractTypes["ConnectedUpdatedResponse"]};
+"IF_CONNECTED_DISCOVERY_SQUAD_PATCH":{input:{path:{"id":string};body:V2ContractTypes["ConnectedSquadPatchBody"]};response:V2ContractTypes["ConnectedDiscoverySquad"]};
 "IF_CONNECTED_DISCOVERY_SQUAD_TRANSFER":{input:{path:{"id":string};body:V2ContractTypes["ConnectedSquadTransferBody"]};response:V2ContractTypes["ConnectedAcceptedResponse"]};
-"IF_EVENTS_SSE":{input:{query:{"topics":Array<string>}};response:Response};
-"IF_FUNDING_RAILS":{input:{query:{"chainId":string;"assetAddress"?:string}};response:V2ContractTypes["FundingRailsResponse"]};
-"IF_HOLDER_REWARDS_POOLS":{input:{query?:{"sort"?:"rewards"|"mcap"|"holders"|"age";"cursor"?:string;"limit"?:number}};response:V2ContractTypes["HolderRewardsPoolsResponse"]};
-"IF_HOLDER_REWARDS_STATS":{input:{};response:V2ContractTypes["HolderRewardsStatsResponse"]};
-"IF_LEADERBOARDS":{input:{path:{"category":"creator"|"trader"|"volume"};query:{"window":"24h"|"7d"|"30d";"cursor"?:string;"limit"?:number}};response:V2ContractTypes["LeaderboardsResponse"]};
-"IF_ALERT_CREATE":{input:{body:V2ContractTypes["AlertCreateBody"]};response:V2ContractTypes["AlertCreateResponse"]};
-"IF_ALERT_DELETE":{input:{path:{"alertId":string}};response:undefined};
-"IF_AUTOMATION_CREATE":{input:{body:V2ContractTypes["AutomationCreateBody"]};response:V2ContractTypes["AutomationCreateResponse"]};
-"IF_AUTOMATION_STATUS":{input:{path:{"campaignId":string}};response:V2ContractTypes["AutomationStatusResponse"]};
-"IF_AUTOMATION_ACTION":{input:{path:{"campaignId":string};body:V2ContractTypes["AutomationActionBody"]};response:V2ContractTypes["AutomationActionResponse"]};
-"IF_DM_LIST":{input:{query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["DmListResponse"]};
-"IF_DM_CREATE":{input:{body:V2ContractTypes["DmCreateBody"]};response:V2ContractTypes["DmCreateResponse"]};
-"IF_ACCOUNT_DELETE":{input:{body:V2ContractTypes["AccountDeleteBody"]};response:V2ContractTypes["AccountDeleteResponse"]};
-"IF_ACCOUNT_DELETE_STATUS":{input:{path:{"jobId":string}};response:V2ContractTypes["AccountDeleteStatusResponse"]};
-"IF_DEVICE_REVOKE":{input:{path:{"deviceId":string}};response:undefined};
-"IF_DEVICE_REGISTER":{input:{path:{"deviceId":string};body:V2ContractTypes["DeviceRegisterBody"]};response:V2ContractTypes["DeviceRegisterResponse"]};
-"IF_ACCOUNT_EXPORT":{input:{body:V2ContractTypes["AccountExportBody"]};response:V2ContractTypes["AccountExportResponse"]};
-"IF_ACCOUNT_EXPORT_STATUS":{input:{path:{"jobId":string}};response:V2ContractTypes["AccountExportStatusResponse"]};
-"IF_UNFOLLOW":{input:{path:{"wallet":string}};response:undefined};
-"IF_FOLLOW":{input:{path:{"wallet":string}};response:V2ContractTypes["FollowResponse"]};
-"IF_DEPOSIT_INTENT":{input:{body:V2ContractTypes["DepositIntentBody"]};response:V2ContractTypes["DepositIntentResponse"]};
-"IF_WITHDRAW_STATUS":{input:{path:{"preparationId":string};query?:{"transactionHash"?:string}};response:V2ContractTypes["WithdrawStatusResponse"]};
-"IF_WITHDRAW_PREPARE":{input:{body:V2ContractTypes["WithdrawPrepareBody"]};response:V2ContractTypes["WithdrawPrepareResponse"]};
-"IF_FUNDING_STATUS":{input:{path:{"fundingId":string}};response:V2ContractTypes["FundingStatusResponse"]};
-"IF_NOTIFICATIONS":{input:{query?:{"unreadOnly"?:boolean;"cursor"?:string;"limit"?:number}};response:V2ContractTypes["NotificationsResponse"]};
-"IF_NOTIFICATION_READ":{input:{path:{"notificationId":string}};response:V2ContractTypes["NotificationReadResponse"]};
-"IF_ORDER_LIST":{input:{query?:{"status"?:"active"|"filled"|"cancelled"|"failed"|"expired";"cursor"?:string;"limit"?:number}};response:V2ContractTypes["OrderListResponse"]};
-"IF_ORDER_CREATE":{input:{body:V2ContractTypes["OrderCreateBody"]};response:V2ContractTypes["OrderCreateResponse"]};
-"IF_ORDER_CANCEL":{input:{path:{"orderId":string}};response:V2ContractTypes["OrderCancelResponse"]};
-"IF_PORTFOLIO":{input:{query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["PortfolioResponse"]};
+"IF_CONNECTED_EXPANDED_SEARCH":{input:{query:{"q":string;"type":"pool"|"token"|"profile";"limit"?:number;"sort"?:"address";"filter"?:string;"cursor"?:string}};response:V2ContractTypes["ConnectedExpandedSearchResponse"]};
+"IF_CONNECTED_EXTENDED_PREFERENCES_GET":{input:{};response:V2ContractTypes["ConnectedExtendedPreferencesResponse"]};
+"IF_CONNECTED_EXTENDED_PREFERENCES_PATCH":{input:{body:V2ContractTypes["ConnectedExtendedPreferencesBody"]};response:V2ContractTypes["ConnectedExtendedPreferencesResponse"]};
+"IF_CONNECTED_EXTENDED_PROFILE_GET":{input:{path:{"wallet":string}};response:V2ContractTypes["ConnectedExtendedProfileResponse"]};
+"IF_CONNECTED_EXTENDED_PROFILE_PATCH":{input:{path:{"wallet":string};body:V2ContractTypes["ConnectedExtendedProfileBody"]};response:V2ContractTypes["ConnectedExtendedProfileResponse"]};
+"IF_CONNECTED_FEED":{input:{query?:{"order"?:"chronological"|"relevance";"cursor"?:string;"limit"?:number}};response:V2ContractTypes["ConnectedDiscoveryFeedPage"]};
+"IF_CONNECTED_FEED_DETAIL":{input:{path:{"id":string}};response:V2ContractTypes["ConnectedDiscoveryFeedCard"]};
+"IF_CONNECTED_NETWORK_AUTHORITY":{input:{};response:V2ContractTypes["ConnectedNetworkAuthorityResponse"]};
+"IF_CONNECTED_NOTIFICATION_DELETE":{input:{path:{"id":string}};response:V2ContractTypes["ConnectedDeletedResponse"]};
+"IF_CONNECTED_NOTIFICATION_LIST":{input:{};response:V2ContractTypes["ConnectedNotificationListResponse"]};
+"IF_CONNECTED_NOTIFICATION_READ":{input:{path:{"id":string};body:V2ContractTypes["ConnectedBooleanReadBody"]};response:V2ContractTypes["ConnectedReadResponse"]};
+"IF_CONNECTED_PNL_INTERVAL_V3":{input:{query:{"from":string;"to":string;"interval"?:"1h"|"1d";"limit"?:number}};response:V2ContractTypes["ConnectedL16IntervalSeries"]};
 "IF_CONNECTED_PORTFOLIO_CARD_CREATE":{input:{body:V2ContractTypes["ConnectedPortfolioCardBody"]};response:V2ContractTypes["ConnectedL17StoredCard"]};
+"IF_CONNECTED_PORTFOLIO_CARD_IMAGE":{input:{path:{"cardId":string}};response:Response};
 "IF_CONNECTED_PORTFOLIO_CARD_REVOKE":{input:{path:{"cardId":string}};response:V2ContractTypes["ConnectedStateResponse"]};
 "IF_CONNECTED_PORTFOLIO_CARD_STATUS":{input:{path:{"cardId":string}};response:V2ContractTypes["ConnectedL17StoredCard"]};
-"IF_CONNECTED_PORTFOLIO_EXPORT_CREATE":{input:{body:V2ContractTypes["ConnectedPortfolioExportBody"]};response:V2ContractTypes["ConnectedL17ExportJob"]};
-"IF_CONNECTED_PORTFOLIO_EXPORT_CANCEL":{input:{path:{"jobId":string}};response:V2ContractTypes["ConnectedStateResponse"]};
-"IF_CONNECTED_PORTFOLIO_EXPORT_STATUS":{input:{path:{"jobId":string}};response:V2ContractTypes["ConnectedL17ExportJob"]};
 "IF_CONNECTED_PORTFOLIO_DOWNLOAD":{input:{path:{"jobId":string}};response:Response};
-"IF_PNL_HISTORY":{input:{query:{"from":string;"to":string;"interval":"1h"|"1d";"limit"?:number}};response:V2ContractTypes["PnlHistoryResponse"]};
-"IF_PREFERENCES_READ":{input:{};response:V2ContractTypes["PreferencesReadResponse"]};
-"IF_PREFERENCES_UPDATE":{input:{body:V2ContractTypes["PreferencesUpdateBody"]};response:V2ContractTypes["PreferencesUpdateResponse"]};
-"IF_CONNECTED_REFERRAL_DASHBOARD":{input:{query?:{"campaign"?:string;"policyVersion"?:string}};response:V2ContractTypes["ConnectedL18ReferralDashboard"]};
-"IF_CONNECTED_REFERRAL_BIND":{input:{query?:{"campaign"?:string;"policyVersion"?:string};body:V2ContractTypes["ConnectedReferralBindBody"]};response:V2ContractTypes["ConnectedL18Binding"]};
-"IF_CONNECTED_REFERRAL_CLICK":{input:{query?:{"campaign"?:string;"policyVersion"?:string};body:V2ContractTypes["ConnectedReferralClickBody"]};response:V2ContractTypes["ConnectedL18ReferralClick"]};
-"IF_CONNECTED_REFERRAL_CONSENT":{input:{query?:{"campaign"?:string;"policyVersion"?:string};body:V2ContractTypes["ConnectedReferralConsentBody"]};response:V2ContractTypes["ConnectedL18ReferralConsent"]};
-"IF_CONNECTED_REFERRAL_CODE":{input:{query?:{"campaign"?:string;"policyVersion"?:string};body:V2ContractTypes["ConnectedReferralCodeBody"]};response:V2ContractTypes["ConnectedL18ReferralCode"]};
-"IF_REWARDS":{input:{query?:{"programId"?:string;"cursor"?:string;"limit"?:number}};response:V2ContractTypes["RewardsResponse"]};
-"IF_REWARD_CLAIM":{input:{body:V2ContractTypes["RewardClaimBody"]};response:V2ContractTypes["RewardClaimResponse"]};
-"IF_WALLET_LINK_CHALLENGE":{input:{body:V2ContractTypes["WalletLinkChallengeBody"]};response:V2ContractTypes["WalletLinkChallengeResponse"]};
-"IF_WALLET_LINK_REMOVE":{input:{path:{"linkId":string};body:V2ContractTypes["WalletLinkRemoveBody"]};response:undefined};
-"IF_WALLET_LINK_VERIFY":{input:{path:{"linkId":string};body:V2ContractTypes["WalletLinkVerifyBody"]};response:V2ContractTypes["WalletLinkVerifyResponse"]};
-"IF_WATCHLIST_GET":{input:{query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["WatchlistGetResponse"]};
-"IF_WATCHLIST_DELETE":{input:{path:{"poolAddress":string}};response:undefined};
-"IF_WATCHLIST_PUT":{input:{path:{"poolAddress":string};body:V2ContractTypes["WatchlistPutBody"]};response:V2ContractTypes["WatchlistPutResponse"]};
-"IF_NARRATIVES":{input:{query:{"cursor"?:string;"limit"?:number;"status":string}};response:V2ContractTypes["NarrativesResponse"]};
-"IF_NARRATIVE_FEED":{input:{path:{"narrativeId":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["NarrativeFeedResponse"]};
-"IF_CONNECTED_NETWORK_AUTHORITY":{input:{};response:V2ContractTypes["ConnectedNetworkAuthorityResponse"]};
-"IF_DEPLOYMENT":{input:{};response:V2ContractTypes["DeploymentResponse"]};
-"IF_OPERATOR_DLQ":{input:{query:{"stream":string;"consumer":string;"cursor"?:string;"limit"?:number}};response:V2ContractTypes["OperatorDlqResponse"]};
-"IF_OPERATOR_REDRIVE":{input:{body:V2ContractTypes["OperatorRedriveBody"]};response:V2ContractTypes["OperatorRedriveResponse"]};
-"IF_OPERATOR_HEALTH":{input:{query:{"services":Array<string>}};response:V2ContractTypes["OperatorHealthResponse"]};
-"IF_OPERATOR_JOB_STATUS":{input:{path:{"jobId":string}};response:V2ContractTypes["OperatorJobStatusResponse"]};
-"IF_OPERATOR_METRICS":{input:{query:{"metric":string;"service":string;"from":string;"to":string;"stepSeconds":number}};response:V2ContractTypes["OperatorMetricsResponse"]};
-"IF_OPERATOR_REPLAY":{input:{body:V2ContractTypes["OperatorReplayBody"]};response:V2ContractTypes["OperatorReplayResponse"]};
-"IF_PLATFORM":{input:{query:{"window":"24h"|"7d"|"30d"}};response:V2ContractTypes["PlatformResponse"]};
-"IF_POOL_LIST":{input:{query:{"sort":"new"|"volume"|"trending";"cursor"?:string;"limit"?:number}};response:V2ContractTypes["PoolListResponse"]};
-"IF_STATS_BATCH":{input:{body:V2ContractTypes["StatsBatchBody"]};response:V2ContractTypes["StatsBatchResponse"]};
-"IF_POOL_DETAIL":{input:{path:{"poolAddress":string}};response:V2ContractTypes["PoolDetailResponse"]};
-"IF_CALLOUT_LIST":{input:{path:{"poolAddress":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["CalloutListResponse"]};
-"IF_CANDLES":{input:{path:{"poolAddress":string};query:{"interval":"1m"|"5m"|"15m"|"1h"|"4h"|"1d"|"1w";"from":string;"to":string;"cursor"?:string|null;"limit"?:number}};response:V2ContractTypes["CandlesResponse"]};
-"IF_COMMENTS_LIST":{input:{path:{"poolAddress":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["CommentsListResponse"]};
-"IF_COMMENT_CREATE":{input:{path:{"poolAddress":string};body:V2ContractTypes["CommentCreateBody"]};response:V2ContractTypes["CommentCreateResponse"]};
-"IF_HOLDERS":{input:{path:{"poolAddress":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["HoldersResponse"]};
-"IF_STATS":{input:{path:{"poolAddress":string}};response:V2ContractTypes["StatsResponse"]};
-"IF_TRADES":{input:{path:{"poolAddress":string};query?:{"side"?:"buy"|"sell";"cursor"?:string;"limit"?:number}};response:V2ContractTypes["TradesResponse"]};
-"IF_CONNECTED_PORTFOLIO_CARD_IMAGE":{input:{path:{"cardId":string}};response:Response};
+"IF_CONNECTED_PORTFOLIO_EXPORT_CANCEL":{input:{path:{"jobId":string}};response:V2ContractTypes["ConnectedStateResponse"]};
+"IF_CONNECTED_PORTFOLIO_EXPORT_CREATE":{input:{body:V2ContractTypes["ConnectedPortfolioExportBody"]};response:V2ContractTypes["ConnectedL17ExportJob"]};
+"IF_CONNECTED_PORTFOLIO_EXPORT_STATUS":{input:{path:{"jobId":string}};response:V2ContractTypes["ConnectedL17ExportJob"]};
+"IF_CONNECTED_PORTFOLIO_INTERVAL_V3":{input:{query:{"from":string;"to":string;"interval"?:"1h"|"1d";"limit"?:number}};response:V2ContractTypes["ConnectedL16IntervalSeries"]};
+"IF_CONNECTED_PORTFOLIO_V3":{input:{query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["ConnectedPortfolioV3Response"]};
 "IF_CONNECTED_PREFLIGHT_CLAIM":{input:{body:V2ContractTypes["ConnectedPreflightClaimBody"]};response:V2ContractTypes["ConnectedCapabilitiesPreflight"]};
 "IF_CONNECTED_PREFLIGHT_CREATE":{input:{body:V2ContractTypes["ConnectedPreflightCreateBody"]};response:V2ContractTypes["ConnectedCapabilitiesPreflight"]};
 "IF_CONNECTED_PREFLIGHT_QUOTE":{input:{body:V2ContractTypes["ConnectedPreflightQuoteBody"]};response:V2ContractTypes["ConnectedCapabilitiesPreflight"]};
 "IF_CONNECTED_PREFLIGHT_TRADE":{input:{body:V2ContractTypes["ConnectedPreflightTradeBody"]};response:V2ContractTypes["ConnectedCapabilitiesPreflight"]};
-"IF_PROFILE_GET":{input:{path:{"wallet":string}};response:V2ContractTypes["ProfileGetResponse"]};
-"IF_PROFILE_PATCH":{input:{path:{"wallet":string};body:V2ContractTypes["ProfilePatchBody"]};response:V2ContractTypes["ProfilePatchResponse"]};
-"IF_FOLLOW_STATS":{input:{path:{"wallet":string}};response:V2ContractTypes["FollowStatsResponse"]};
-"IF_FOLLOWERS":{input:{path:{"wallet":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["FollowersResponse"]};
-"IF_PROFILES_BATCH":{input:{query:{"wallets":Array<string>}};response:V2ContractTypes["ProfilesBatchResponse"]};
-"IF_LIVE_WEBHOOK":{input:{body:V2ContractTypes["LiveWebhookBody"]};response:V2ContractTypes["LiveWebhookResponse"]};
-"IF_QUOTE":{input:{body:V2ContractTypes["QuoteBody"]};response:V2ContractTypes["QuoteResponse"]};
-"IF_RANKINGS":{input:{path:{"category":"trending"|"breakout"|"volume"|"gainers"|"losers"|"movers"|"unusual"|"new"};query?:{"cursor"?:string|null;"limit"?:number}};response:V2ContractTypes["RankingsResponse"]};
-"IF_REPORT_CREATE":{input:{body:V2ContractTypes["ReportCreateBody"]};response:V2ContractTypes["ReportCreateResponse"]};
-"IF_MESSAGES_LIST":{input:{path:{"roomId":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["MessagesListResponse"]};
-"IF_MESSAGE_SEND":{input:{path:{"roomId":string};body:V2ContractTypes["MessageSendBody"]};response:V2ContractTypes["MessageSendResponse"]};
+"IF_CONNECTED_PUBLIC_PORTFOLIO_V3":{input:{path:{"wallet":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["ConnectedPortfolioV3Response"]};
+"IF_CONNECTED_REFERRAL_BIND":{input:{query?:{"campaign"?:string;"policyVersion"?:string};body:V2ContractTypes["ConnectedReferralBindBody"]};response:V2ContractTypes["ConnectedL18Binding"]};
+"IF_CONNECTED_REFERRAL_CLICK":{input:{query?:{"campaign"?:string;"policyVersion"?:string};body:V2ContractTypes["ConnectedReferralClickBody"]};response:V2ContractTypes["ConnectedL18ReferralClick"]};
+"IF_CONNECTED_REFERRAL_CODE":{input:{query?:{"campaign"?:string;"policyVersion"?:string};body:V2ContractTypes["ConnectedReferralCodeBody"]};response:V2ContractTypes["ConnectedL18ReferralCode"]};
+"IF_CONNECTED_REFERRAL_CONSENT":{input:{query?:{"campaign"?:string;"policyVersion"?:string};body:V2ContractTypes["ConnectedReferralConsentBody"]};response:V2ContractTypes["ConnectedL18ReferralConsent"]};
+"IF_CONNECTED_REFERRAL_DASHBOARD":{input:{query?:{"campaign"?:string;"policyVersion"?:string}};response:V2ContractTypes["ConnectedL18ReferralDashboard"]};
 "IF_CONNECTED_SAFETY_APPEAL":{input:{body:V2ContractTypes["ConnectedSafetyAppealBody"]};response:V2ContractTypes["ConnectedSafetyAppealOutcome"]};
 "IF_CONNECTED_SAFETY_APPEAL_DETAIL":{input:{path:{"appealId":string}};response:V2ContractTypes["ConnectedSafetyAppealOutcome"]};
-"IF_CONNECTED_SAFETY_REVERSE_BAN":{input:{path:{"appealId":string};body:V2ContractTypes["ConnectedSafetyReversalCommand"]};response:V2ContractTypes["ConnectedOkResponse"]};
-"IF_CONNECTED_SAFETY_CASES":{input:{query?:{"state"?:string;"after"?:string;"limit"?:number}};response:V2ContractTypes["ConnectedSafetyCasesResponse"]};
-"IF_CONNECTED_SAFETY_TRANSITION":{input:{path:{"caseId":string};body:V2ContractTypes["ConnectedSafetyTransitionBody"]};response:V2ContractTypes["ConnectedRevisionResponse"]};
 "IF_CONNECTED_SAFETY_BAN":{input:{path:{"caseId":string};body:V2ContractTypes["ConnectedSafetyBanBody"]};response:V2ContractTypes["ConnectedSafetyBanResponse"]};
-"IF_CONNECTED_SAFETY_RESTORE":{input:{path:{"caseId":string};body:V2ContractTypes["ConnectedSafetyRestoreCommand"]};response:V2ContractTypes["ConnectedSafetyVisibility"]};
+"IF_CONNECTED_SAFETY_CASES":{input:{query?:{"state"?:string;"after"?:string;"limit"?:number}};response:V2ContractTypes["ConnectedSafetyCasesResponse"]};
 "IF_CONNECTED_SAFETY_REPORT":{input:{body:V2ContractTypes["ConnectedSafetyReportBody"]};response:V2ContractTypes["ConnectedSafetyCase"]};
-"IF_SEARCH":{input:{query:{"q":string;"type":"pool"|"token"|"profile";"limit"?:number}};response:V2ContractTypes["SearchResponse"]};
-"IF_CONNECTED_EXPANDED_SEARCH":{input:{query:{"q":string;"type":"pool"|"token"|"profile";"limit"?:number;"sort"?:"address";"filter"?:string;"cursor"?:string}};response:V2ContractTypes["ConnectedExpandedSearchResponse"]};
-"IF_TOPIC_SNAPSHOT_READ":{input:{query:{"topics":Array<string>;"normalizedFilters"?:V2ContractTypes["InputTopicFilters"];"cursor"?:V2ContractTypes["OpaqueResumeCursor"]|null}};response:V2ContractTypes["TopicSnapshotReadResponse"]};
-"IF_SQUAD_CREATE":{input:{body:V2ContractTypes["SquadCreateBody"]};response:V2ContractTypes["SquadCreateResponse"]};
-"IF_SQUAD_READ":{input:{path:{"squadId":string}};response:V2ContractTypes["SquadReadResponse"]};
-"IF_SQUAD_MEMBERSHIP":{input:{path:{"squadId":string;"accountId":string};body:V2ContractTypes["SquadMembershipBody"]};response:V2ContractTypes["SquadMembershipResponse"]};
-"IF_STREAM_TICKET_ISSUE":{input:{body:V2ContractTypes["StreamTicketIssueBody"]};response:V2ContractTypes["StreamTicketIssueResponse"]};
-"IF_STREAM_LIST":{input:{query?:{"status"?:string;"poolAddress"?:string;"cursor"?:string;"limit"?:number}};response:V2ContractTypes["StreamListResponse"]};
-"IF_STREAM_CREATE":{input:{body:V2ContractTypes["StreamCreateBody"]};response:V2ContractTypes["StreamCreateResponse"]};
-"IF_STREAM_OPERATION_GET":{input:{path:{"operationId":string}};response:V2ContractTypes["StreamOperationGetResponse"]};
-"IF_STREAM_INGEST_CREDENTIAL":{input:{path:{"streamId":string}};response:V2ContractTypes["StreamIngestCredentialResponse"]};
-"IF_STREAM_HEARTBEAT":{input:{path:{"streamId":string};body:V2ContractTypes["StreamHeartbeatBody"]};response:V2ContractTypes["StreamHeartbeatResponse"]};
-"IF_STREAM_END":{input:{path:{"streamId":string};body:V2ContractTypes["StreamStartBody"]};response:V2ContractTypes["StreamEndResponse"]};
-"IF_STREAM_START":{input:{path:{"streamId":string};body:V2ContractTypes["StreamStartBody"]};response:V2ContractTypes["StreamStartResponse"]};
+"IF_CONNECTED_SAFETY_RESTORE":{input:{path:{"caseId":string};body:V2ContractTypes["ConnectedSafetyRestoreCommand"]};response:V2ContractTypes["ConnectedSafetyVisibility"]};
+"IF_CONNECTED_SAFETY_REVERSE_BAN":{input:{path:{"appealId":string};body:V2ContractTypes["ConnectedSafetyReversalCommand"]};response:V2ContractTypes["ConnectedOkResponse"]};
+"IF_CONNECTED_SAFETY_TRANSITION":{input:{path:{"caseId":string};body:V2ContractTypes["ConnectedSafetyTransitionBody"]};response:V2ContractTypes["ConnectedRevisionResponse"]};
+"IF_CONNECTED_SHARE_V3_IMAGE":{input:{path:{"shareId":string}};response:Response};
+"IF_CONNECTED_SHARE_V3_PREVIEW":{input:{body:V2ContractTypes["ConnectedL17ShareSelectionV3"]};response:V2ContractTypes["ConnectedL17SharePreviewV3"]};
+"IF_CONNECTED_SHARE_V3_PUBLIC":{input:{path:{"shareId":string}};response:V2ContractTypes["ConnectedL17PublicShareV3"]};
+"IF_CONNECTED_SHARE_V3_PUBLISH":{input:{body:V2ContractTypes["ConnectedL17SharePublishV3"]};response:V2ContractTypes["ConnectedL17OwnerShareV3"]};
+"IF_CONNECTED_SHARE_V3_REVOKE":{input:{path:{"shareId":string}};response:V2ContractTypes["ConnectedL17OwnerShareV3"]};
+"IF_CONNECTED_SHARE_V3_STATUS":{input:{path:{"shareId":string}};response:V2ContractTypes["ConnectedL17OwnerShareV3"]};
 "IF_CONNECTED_TOKEN_ASSET_GET":{input:{path:{"tokenAddress":string;"assetId":string}};response:V2ContractTypes["ConnectedAssetResponse"]};
 "IF_CONNECTED_TOKEN_ASSET_PUT":{input:{path:{"tokenAddress":string;"assetId":string};body:Blob};response:V2ContractTypes["ConnectedAssetResponse"]};
 "IF_CONNECTED_TOKEN_MEDIA":{input:{path:{"tokenAddress":string}};response:V2ContractTypes["ConnectedTokenMediaResponse"]};
-"IF_METADATA_GET":{input:{path:{"tokenAddress":string}};response:V2ContractTypes["MetadataGetResponse"]};
-"IF_METADATA_PATCH":{input:{path:{"tokenAddress":string};body:V2ContractTypes["MetadataPatchBody"]};response:V2ContractTypes["MetadataPatchResponse"]};
-"IF_TX_STATUS":{input:{path:{"transactionHash":string}};response:V2ContractTypes["TxStatusResponse"]};
-"IF_VOICE_CREATE":{input:{body:V2ContractTypes["VoiceCreateBody"]};response:V2ContractTypes["VoiceCreateResponse"]};
-"IF_VOICE_READ":{input:{path:{"roomId":string}};response:V2ContractTypes["VoiceReadResponse"]};
 "IF_CONNECTED_VOICE_END":{input:{path:{"roomId":string};body:V2ContractTypes["ConnectedVoiceExpectedBody"]};response:V2ContractTypes["ConnectedVoiceRoomResponse"]};
 "IF_CONNECTED_VOICE_LEAVE":{input:{path:{"roomId":string}};response:V2ContractTypes["ConnectedOkResponse"]};
-"IF_VOICE_MODERATE":{input:{path:{"roomId":string};body:V2ContractTypes["VoiceModerateBody"]};response:V2ContractTypes["VoiceModerateResponse"]};
 "IF_CONNECTED_VOICE_PROMPT":{input:{path:{"roomId":string}};response:V2ContractTypes["ConnectedVoicePromptResponse"]};
+"IF_CONNECTED_VOICE_RECORDING_CONSENT":{input:{path:{"roomId":string};body:V2ContractTypes["ConnectedVoiceRecordingConsentBody"]};response:V2ContractTypes["ConnectedOkResponse"]};
 "IF_CONNECTED_VOICE_RECORDING_GET":{input:{path:{"roomId":string}};response:V2ContractTypes["ConnectedVoiceRecording"]};
 "IF_CONNECTED_VOICE_RECORDING_POST":{input:{path:{"roomId":string}};response:V2ContractTypes["ConnectedVoiceRecording"]};
-"IF_CONNECTED_VOICE_RECORDING_CONSENT":{input:{path:{"roomId":string};body:V2ContractTypes["ConnectedVoiceRecordingConsentBody"]};response:V2ContractTypes["ConnectedOkResponse"]};
 "IF_CONNECTED_VOICE_RECORDING_START":{input:{path:{"roomId":string};body:V2ContractTypes["ConnectedVoiceExpectedBody"]};response:V2ContractTypes["ConnectedVoiceRecording"]};
 "IF_CONNECTED_VOICE_RECORDING_STOP":{input:{path:{"roomId":string};body:V2ContractTypes["ConnectedVoiceExpectedBody"]};response:V2ContractTypes["ConnectedVoiceRecording"]};
-"IF_CONNECTED_VOICE_SPEAKER_REQUESTS":{input:{path:{"roomId":string};body:V2ContractTypes["ConnectedVoiceExpectedBody"]};response:V2ContractTypes["ConnectedOkResponse"]};
 "IF_CONNECTED_VOICE_SPEAKERS":{input:{path:{"roomId":string};body:V2ContractTypes["ConnectedVoiceSpeakerBody"]};response:V2ContractTypes["ConnectedOkResponse"]};
+"IF_CONNECTED_VOICE_SPEAKER_REQUESTS":{input:{path:{"roomId":string};body:V2ContractTypes["ConnectedVoiceExpectedBody"]};response:V2ContractTypes["ConnectedOkResponse"]};
 "IF_CONNECTED_VOICE_START":{input:{path:{"roomId":string};body:V2ContractTypes["ConnectedVoiceExpectedBody"]};response:V2ContractTypes["ConnectedVoiceRoomResponse"]};
-"IF_VOICE_JOIN_TICKET":{input:{path:{"roomId":string};body:V2ContractTypes["VoiceJoinTicketBody"]};response:V2ContractTypes["VoiceJoinTicketResponse"]};
-"IF_VOICE_END":{input:{path:{"roomId":string};body:V2ContractTypes["VoiceEndBody"]};response:V2ContractTypes["VoiceEndResponse"]};
-"IF_VOICE_LEAVE":{input:{path:{"roomId":string};body:V2ContractTypes["VoiceLeaveBody"]};response:V2ContractTypes["VoiceLeaveResponse"]};
-"IF_CONNECTED_PNL_INTERVAL_V3":{input:{query:{"from":string;"to":string;"interval"?:"1h"|"1d";"limit"?:number}};response:V2ContractTypes["ConnectedL16IntervalSeries"]};
-"IF_CONNECTED_PORTFOLIO_V3":{input:{query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["ConnectedPortfolioV3Response"]};
-"IF_CONNECTED_PORTFOLIO_INTERVAL_V3":{input:{query:{"from":string;"to":string;"interval"?:"1h"|"1d";"limit"?:number}};response:V2ContractTypes["ConnectedL16IntervalSeries"]};
-"IF_CONNECTED_SHARE_V3_PUBLISH":{input:{body:V2ContractTypes["ConnectedL17SharePublishV3"]};response:V2ContractTypes["ConnectedL17OwnerShareV3"]};
-"IF_CONNECTED_SHARE_V3_PREVIEW":{input:{body:V2ContractTypes["ConnectedL17ShareSelectionV3"]};response:V2ContractTypes["ConnectedL17SharePreviewV3"]};
-"IF_CONNECTED_SHARE_V3_REVOKE":{input:{path:{"shareId":string}};response:V2ContractTypes["ConnectedL17OwnerShareV3"]};
-"IF_CONNECTED_SHARE_V3_STATUS":{input:{path:{"shareId":string}};response:V2ContractTypes["ConnectedL17OwnerShareV3"]};
-"IF_CONNECTED_EXTENDED_PREFERENCES_GET":{input:{};response:V2ContractTypes["ConnectedExtendedPreferencesResponse"]};
-"IF_CONNECTED_EXTENDED_PREFERENCES_PATCH":{input:{body:V2ContractTypes["ConnectedExtendedPreferencesBody"]};response:V2ContractTypes["ConnectedExtendedPreferencesResponse"]};
-"IF_CONNECTED_SHARE_V3_PUBLIC":{input:{path:{"shareId":string}};response:V2ContractTypes["ConnectedL17PublicShareV3"]};
-"IF_CONNECTED_SHARE_V3_IMAGE":{input:{path:{"shareId":string}};response:Response};
-"IF_CONNECTED_EXTENDED_PROFILE_GET":{input:{path:{"wallet":string}};response:V2ContractTypes["ConnectedExtendedProfileResponse"]};
-"IF_CONNECTED_EXTENDED_PROFILE_PATCH":{input:{path:{"wallet":string};body:V2ContractTypes["ConnectedExtendedProfileBody"]};response:V2ContractTypes["ConnectedExtendedProfileResponse"]};
 "IF_CONNECTED_VOICE_V3_CREATE":{input:{body:V2ContractTypes["ConnectedVoiceCreateBody"]};response:V2ContractTypes["ConnectedVoiceRoomResponse"]};
 "IF_CONNECTED_VOICE_V3_MODERATE":{input:{path:{"roomId":string};body:V2ContractTypes["ConnectedVoiceModerationBody"]};response:V2ContractTypes["ConnectedOkResponse"]};
 "IF_CONNECTED_VOICE_V3_TICKET":{input:{path:{"roomId":string};body:V2ContractTypes["ConnectedVoiceTicketBody"]};response:V2ContractTypes["ConnectedVoiceTicketResponse"]};
-"IF_CONNECTED_PUBLIC_PORTFOLIO_V3":{input:{path:{"wallet":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["ConnectedPortfolioV3Response"]}
+"IF_CUP_CURRENT":{input:{};response:V2ContractTypes["CupCurrentResponse"]};
+"IF_CUP_GET":{input:{path:{"cupId":string}};response:V2ContractTypes["CupGetResponse"]};
+"IF_CUP_RESULTS":{input:{path:{"cupId":string}};response:V2ContractTypes["CupResultsResponse"]};
+"IF_CUP_STANDINGS":{input:{path:{"cupId":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["CupStandingsResponse"]};
+"IF_DEPLOYMENT":{input:{};response:V2ContractTypes["DeploymentResponse"]};
+"IF_DEPOSIT_INTENT":{input:{body:V2ContractTypes["DepositIntentBody"]};response:V2ContractTypes["DepositIntentResponse"]};
+"IF_DEVICE_REGISTER":{input:{path:{"deviceId":string};body:V2ContractTypes["DeviceRegisterBody"]};response:V2ContractTypes["DeviceRegisterResponse"]};
+"IF_DEVICE_REVOKE":{input:{path:{"deviceId":string}};response:undefined};
+"IF_DM_CREATE":{input:{body:V2ContractTypes["DmCreateBody"]};response:V2ContractTypes["DmCreateResponse"]};
+"IF_DM_LIST":{input:{query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["DmListResponse"]};
+"IF_EVENTS_SSE":{input:{query:{"topics":Array<string>}};response:Response};
+"IF_FOLLOW":{input:{path:{"wallet":string}};response:V2ContractTypes["FollowResponse"]};
+"IF_FOLLOWERS":{input:{path:{"wallet":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["FollowersResponse"]};
+"IF_FOLLOW_STATS":{input:{path:{"wallet":string}};response:V2ContractTypes["FollowStatsResponse"]};
+"IF_FUNDING_RAILS":{input:{query:{"chainId":string;"assetAddress"?:string}};response:V2ContractTypes["FundingRailsResponse"]};
+"IF_FUNDING_STATUS":{input:{path:{"fundingId":string}};response:V2ContractTypes["FundingStatusResponse"]};
+"IF_HOLDERS":{input:{path:{"poolAddress":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["HoldersResponse"]};
+"IF_HOLDER_REWARDS_POOLS":{input:{query?:{"sort"?:"rewards"|"mcap"|"holders"|"age";"cursor"?:string;"limit"?:number}};response:V2ContractTypes["HolderRewardsPoolsResponse"]};
+"IF_HOLDER_REWARDS_STATS":{input:{};response:V2ContractTypes["HolderRewardsStatsResponse"]};
+"IF_LEADERBOARDS":{input:{path:{"category":"creator"|"trader"|"volume"};query:{"window":"24h"|"7d"|"30d";"cursor"?:string;"limit"?:number}};response:V2ContractTypes["LeaderboardsResponse"]};
+"IF_LIVE_WEBHOOK":{input:{body:V2ContractTypes["LiveWebhookBody"]};response:V2ContractTypes["LiveWebhookResponse"]};
+"IF_LOGIN":{input:{body:V2ContractTypes["LoginBody"]};response:V2ContractTypes["LoginResponse"]};
+"IF_LOGOUT":{input:{path:{"sessionId":string}};response:undefined};
+"IF_MESSAGES_LIST":{input:{path:{"roomId":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["MessagesListResponse"]};
+"IF_MESSAGE_SEND":{input:{path:{"roomId":string};body:V2ContractTypes["MessageSendBody"]};response:V2ContractTypes["MessageSendResponse"]};
+"IF_METADATA_GET":{input:{path:{"tokenAddress":string}};response:V2ContractTypes["MetadataGetResponse"]};
+"IF_METADATA_PATCH":{input:{path:{"tokenAddress":string};body:V2ContractTypes["MetadataPatchBody"]};response:V2ContractTypes["MetadataPatchResponse"]};
+"IF_MODERATE":{input:{body:V2ContractTypes["ModerateBody"]};response:V2ContractTypes["ModerateResponse"]};
+"IF_NARRATIVES":{input:{query:{"cursor"?:string;"limit"?:number;"status":string}};response:V2ContractTypes["NarrativesResponse"]};
+"IF_NARRATIVE_FEED":{input:{path:{"narrativeId":string};query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["NarrativeFeedResponse"]};
+"IF_NOTIFICATIONS":{input:{query?:{"unreadOnly"?:boolean;"cursor"?:string;"limit"?:number}};response:V2ContractTypes["NotificationsResponse"]};
+"IF_NOTIFICATION_READ":{input:{path:{"notificationId":string}};response:V2ContractTypes["NotificationReadResponse"]};
+"IF_OPERATOR_DLQ":{input:{query:{"stream":string;"consumer":string;"cursor"?:string;"limit"?:number}};response:V2ContractTypes["OperatorDlqResponse"]};
+"IF_OPERATOR_HEALTH":{input:{query:{"services":Array<string>}};response:V2ContractTypes["OperatorHealthResponse"]};
+"IF_OPERATOR_JOB_STATUS":{input:{path:{"jobId":string}};response:V2ContractTypes["OperatorJobStatusResponse"]};
+"IF_OPERATOR_METRICS":{input:{query:{"metric":string;"service":string;"from":string;"to":string;"stepSeconds":number}};response:V2ContractTypes["OperatorMetricsResponse"]};
+"IF_OPERATOR_REDRIVE":{input:{body:V2ContractTypes["OperatorRedriveBody"]};response:V2ContractTypes["OperatorRedriveResponse"]};
+"IF_OPERATOR_REPLAY":{input:{body:V2ContractTypes["OperatorReplayBody"]};response:V2ContractTypes["OperatorReplayResponse"]};
+"IF_ORDER_CANCEL":{input:{path:{"orderId":string}};response:V2ContractTypes["OrderCancelResponse"]};
+"IF_ORDER_CREATE":{input:{body:V2ContractTypes["OrderCreateBody"]};response:V2ContractTypes["OrderCreateResponse"]};
+"IF_ORDER_LIST":{input:{query?:{"status"?:"active"|"filled"|"cancelled"|"failed"|"expired";"cursor"?:string;"limit"?:number}};response:V2ContractTypes["OrderListResponse"]};
+"IF_PLATFORM":{input:{query:{"window":"24h"|"7d"|"30d"}};response:V2ContractTypes["PlatformResponse"]};
+"IF_PNL_HISTORY":{input:{query:{"from":string;"to":string;"interval":"1h"|"1d";"limit"?:number}};response:V2ContractTypes["PnlHistoryResponse"]};
+"IF_POOL_DETAIL":{input:{path:{"poolAddress":string}};response:V2ContractTypes["PoolDetailResponse"]};
+"IF_POOL_LIST":{input:{query:{"sort":"new"|"volume"|"trending";"cursor"?:string;"limit"?:number}};response:V2ContractTypes["PoolListResponse"]};
+"IF_PORTFOLIO":{input:{query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["PortfolioResponse"]};
+"IF_PREFERENCES_READ":{input:{};response:V2ContractTypes["PreferencesReadResponse"]};
+"IF_PREFERENCES_UPDATE":{input:{body:V2ContractTypes["PreferencesUpdateBody"]};response:V2ContractTypes["PreferencesUpdateResponse"]};
+"IF_PROFILES_BATCH":{input:{query:{"wallets":Array<string>}};response:V2ContractTypes["ProfilesBatchResponse"]};
+"IF_PROFILE_GET":{input:{path:{"wallet":string}};response:V2ContractTypes["ProfileGetResponse"]};
+"IF_PROFILE_PATCH":{input:{path:{"wallet":string};body:V2ContractTypes["ProfilePatchBody"]};response:V2ContractTypes["ProfilePatchResponse"]};
+"IF_QUOTE":{input:{body:V2ContractTypes["QuoteBody"]};response:V2ContractTypes["QuoteResponse"]};
+"IF_RANKINGS":{input:{path:{"category":"trending"|"breakout"|"volume"|"gainers"|"losers"|"movers"|"unusual"|"new"};query?:{"cursor"?:string|null;"limit"?:number}};response:V2ContractTypes["RankingsResponse"]};
+"IF_REFRESH":{input:{};response:V2ContractTypes["RefreshResponse"]};
+"IF_REPORT_CREATE":{input:{body:V2ContractTypes["ReportCreateBody"]};response:V2ContractTypes["ReportCreateResponse"]};
+"IF_REPORT_LIST":{input:{query:{"state":"open"|"reviewing"|"resolved"|"dismissed";"cursor"?:string;"limit"?:number}};response:V2ContractTypes["ReportListResponse"]};
+"IF_REWARDS":{input:{query?:{"programId"?:string;"cursor"?:string;"limit"?:number}};response:V2ContractTypes["RewardsResponse"]};
+"IF_REWARD_CLAIM":{input:{body:V2ContractTypes["RewardClaimBody"]};response:V2ContractTypes["RewardClaimResponse"]};
+"IF_SEARCH":{input:{query:{"q":string;"type":"pool"|"token"|"profile";"limit"?:number}};response:V2ContractTypes["SearchResponse"]};
+"IF_SESSIONS":{input:{query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["SessionsResponse"]};
+"IF_SQUAD_CREATE":{input:{body:V2ContractTypes["SquadCreateBody"]};response:V2ContractTypes["SquadCreateResponse"]};
+"IF_SQUAD_MEMBERSHIP":{input:{path:{"squadId":string;"accountId":string};body:V2ContractTypes["SquadMembershipBody"]};response:V2ContractTypes["SquadMembershipResponse"]};
+"IF_SQUAD_READ":{input:{path:{"squadId":string}};response:V2ContractTypes["SquadReadResponse"]};
+"IF_STATS":{input:{path:{"poolAddress":string}};response:V2ContractTypes["StatsResponse"]};
+"IF_STATS_BATCH":{input:{body:V2ContractTypes["StatsBatchBody"]};response:V2ContractTypes["StatsBatchResponse"]};
+"IF_STREAM_CREATE":{input:{body:V2ContractTypes["StreamCreateBody"]};response:V2ContractTypes["StreamCreateResponse"]};
+"IF_STREAM_END":{input:{path:{"streamId":string};body:V2ContractTypes["StreamStartBody"]};response:V2ContractTypes["StreamEndResponse"]};
+"IF_STREAM_HEARTBEAT":{input:{path:{"streamId":string};body:V2ContractTypes["StreamHeartbeatBody"]};response:V2ContractTypes["StreamHeartbeatResponse"]};
+"IF_STREAM_INGEST_CREDENTIAL":{input:{path:{"streamId":string}};response:V2ContractTypes["StreamIngestCredentialResponse"]};
+"IF_STREAM_LIST":{input:{query?:{"status"?:string;"poolAddress"?:string;"cursor"?:string;"limit"?:number}};response:V2ContractTypes["StreamListResponse"]};
+"IF_STREAM_OPERATION_GET":{input:{path:{"operationId":string}};response:V2ContractTypes["StreamOperationGetResponse"]};
+"IF_STREAM_START":{input:{path:{"streamId":string};body:V2ContractTypes["StreamStartBody"]};response:V2ContractTypes["StreamStartResponse"]};
+"IF_STREAM_TICKET_ISSUE":{input:{body:V2ContractTypes["StreamTicketIssueBody"]};response:V2ContractTypes["StreamTicketIssueResponse"]};
+"IF_TOPIC_SNAPSHOT_READ":{input:{query:{"topics":Array<string>;"normalizedFilters"?:V2ContractTypes["InputTopicFilters"];"cursor"?:V2ContractTypes["OpaqueResumeCursor"]|null}};response:V2ContractTypes["TopicSnapshotReadResponse"]};
+"IF_TRADES":{input:{path:{"poolAddress":string};query?:{"side"?:"buy"|"sell";"cursor"?:string;"limit"?:number}};response:V2ContractTypes["TradesResponse"]};
+"IF_TX_STATUS":{input:{path:{"transactionHash":string}};response:V2ContractTypes["TxStatusResponse"]};
+"IF_UNFOLLOW":{input:{path:{"wallet":string}};response:undefined};
+"IF_UPLOAD_COMPLETE":{input:{path:{"assetId":string};body:V2ContractTypes["UploadCompleteBody"]};response:V2ContractTypes["UploadCompleteResponse"]};
+"IF_UPLOAD_CREATE":{input:{body:V2ContractTypes["UploadCreateBody"]};response:V2ContractTypes["UploadCreateResponse"]};
+"IF_VOICE_CREATE":{input:{body:V2ContractTypes["VoiceCreateBody"]};response:V2ContractTypes["VoiceCreateResponse"]};
+"IF_VOICE_END":{input:{path:{"roomId":string};body:V2ContractTypes["VoiceEndBody"]};response:V2ContractTypes["VoiceEndResponse"]};
+"IF_VOICE_JOIN_TICKET":{input:{path:{"roomId":string};body:V2ContractTypes["VoiceJoinTicketBody"]};response:V2ContractTypes["VoiceJoinTicketResponse"]};
+"IF_VOICE_LEAVE":{input:{path:{"roomId":string};body:V2ContractTypes["VoiceLeaveBody"]};response:V2ContractTypes["VoiceLeaveResponse"]};
+"IF_VOICE_MODERATE":{input:{path:{"roomId":string};body:V2ContractTypes["VoiceModerateBody"]};response:V2ContractTypes["VoiceModerateResponse"]};
+"IF_VOICE_READ":{input:{path:{"roomId":string}};response:V2ContractTypes["VoiceReadResponse"]};
+"IF_WALLET_LINK_CHALLENGE":{input:{body:V2ContractTypes["WalletLinkChallengeBody"]};response:V2ContractTypes["WalletLinkChallengeResponse"]};
+"IF_WALLET_LINK_REMOVE":{input:{path:{"linkId":string};body:V2ContractTypes["WalletLinkRemoveBody"]};response:undefined};
+"IF_WALLET_LINK_VERIFY":{input:{path:{"linkId":string};body:V2ContractTypes["WalletLinkVerifyBody"]};response:V2ContractTypes["WalletLinkVerifyResponse"]};
+"IF_WATCHLIST_DELETE":{input:{path:{"poolAddress":string}};response:undefined};
+"IF_WATCHLIST_GET":{input:{query?:{"cursor"?:string;"limit"?:number}};response:V2ContractTypes["WatchlistGetResponse"]};
+"IF_WATCHLIST_PUT":{input:{path:{"poolAddress":string};body:V2ContractTypes["WatchlistPutBody"]};response:V2ContractTypes["WatchlistPutResponse"]};
+"IF_WITHDRAW_PREPARE":{input:{body:V2ContractTypes["WithdrawPrepareBody"]};response:V2ContractTypes["WithdrawPrepareResponse"]};
+"IF_WITHDRAW_STATUS":{input:{path:{"preparationId":string};query?:{"transactionHash"?:string}};response:V2ContractTypes["WithdrawStatusResponse"]}
 }
 export const operationDefinitions = {
   "IF_ACCOUNT_DELETE": {
@@ -884,6 +886,126 @@ export const operationDefinitions = {
     "path": "/v2/pools/{poolAddress}/candles",
     "public": true,
     "response": "CandlesResponse",
+    "service": "api",
+    "timeoutMs": 1000,
+    "wireMajor": 2
+  },
+  "IF_CHAINS": {
+    "authenticated": false,
+    "binaryBody": false,
+    "binaryResponse": false,
+    "body": null,
+    "cookieSession": false,
+    "emptyResponse": false,
+    "idempotencyKey": false,
+    "idempotentRead": true,
+    "method": "GET",
+    "parameters": [
+      {
+        "in": "query",
+        "name": "limit",
+        "required": false,
+        "schema": {
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      {
+        "in": "query",
+        "name": "cursor",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "path": "/v2/chains",
+    "public": true,
+    "response": "ChainsResponse",
+    "service": "api",
+    "timeoutMs": 1000,
+    "wireMajor": 2
+  },
+  "IF_CHAIN_DETAIL": {
+    "authenticated": false,
+    "binaryBody": false,
+    "binaryResponse": false,
+    "body": null,
+    "cookieSession": false,
+    "emptyResponse": false,
+    "idempotencyKey": false,
+    "idempotentRead": true,
+    "method": "GET",
+    "parameters": [
+      {
+        "in": "path",
+        "name": "chain",
+        "required": true,
+        "schema": {
+          "pattern": "^[1-9][0-9]*$",
+          "type": "string"
+        }
+      }
+    ],
+    "path": "/v2/chains/{chain}",
+    "public": true,
+    "response": "ChainDetailResponse",
+    "service": "api",
+    "timeoutMs": 1000,
+    "wireMajor": 2
+  },
+  "IF_CHAIN_REVENUE": {
+    "authenticated": false,
+    "binaryBody": false,
+    "binaryResponse": false,
+    "body": null,
+    "cookieSession": false,
+    "emptyResponse": false,
+    "idempotencyKey": false,
+    "idempotentRead": true,
+    "method": "GET",
+    "parameters": [
+      {
+        "in": "path",
+        "name": "chain",
+        "required": true,
+        "schema": {
+          "pattern": "^[1-9][0-9]*$",
+          "type": "string"
+        }
+      },
+      {
+        "in": "query",
+        "name": "limit",
+        "required": false,
+        "schema": {
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      {
+        "in": "query",
+        "name": "cursor",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "in": "query",
+        "name": "holder",
+        "required": false,
+        "schema": {
+          "pattern": "^0x[0-9a-fA-F]{40}$",
+          "type": "string"
+        }
+      }
+    ],
+    "path": "/v2/chains/{chain}/revenue",
+    "public": true,
+    "response": "ChainRevenueResponse",
     "service": "api",
     "timeoutMs": 1000,
     "wireMajor": 2

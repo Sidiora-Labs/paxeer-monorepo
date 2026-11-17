@@ -1,14 +1,16 @@
 # Kindle SDK
 
-`@kindle/sdk` is the private TypeScript client for launchpad HTTP operations and snapshot/replay streams. Its entry point is [src/index.ts](src/index.ts); v1 DTOs are exported there, and versioned v2 DTOs come from `@kindle/sdk-v2/types`.
+`@kindle/sdk` is the private TypeScript client for launchpad HTTP operations and snapshot/replay streams. Its entry point is [src/index.ts](src/index.ts); v1 DTOs are exported there, and current v2 DTOs come from [src/types-v2.gen.ts](src/types-v2.gen.ts).
 
 Paxeer mainnet-beta uses EVM chain ID **125** (`0x7d`). The LayerX kernel inside `paxd` executes and orders each transaction and builds each block; validators check and commit it. A transaction receipt is final when its block commits. Sub-chains are tenant domains in the database. The SDK's API, identity, media and stream origins identify launchpad application services. For chain JSON-RPC, use the root path of a public node, described in the [public RPC reference](../../../../docs/readme/PUBLIC-RPC.md). Do not use a node JSON-RPC origin as the launchpad API origin.
 
 ## Contracts and generation
 
-Keep generated DTOs, schemas and operation definitions under generator control. [scripts/generate.py](scripts/generate.py) consumes authoritative v1 and v2 contract bundles. Each bundle must contain `codegen-manifest.json`, `schema-definitions.json`, `openapi.json` and `asyncapi.json`. The generator accepts `--contracts <directory>` within its repository contract-bundle allowlist and defaults to the selected major's bundle. The checked-in schemas and [release-manifest.json](release-manifest.json) describe the generated package.
+Keep generated DTOs, schemas, operation definitions and examples under generator control. `pnpm generate` runs [scripts/generate.py](scripts/generate.py) with `--current-release`. It combines the released v2 definitions with the API producer's recorded OpenAPI schemas and routes, and the admitted operations in [scripts/operation-catalog.json](scripts/operation-catalog.json). The generated validators and TypeScript types include the required pool `homeChain` and the launched-chain routes.
 
-The pinned emitter and validator template live at [tools/launchpad/production/interfaces](../../../../tools/launchpad/production/interfaces/). Generation checks their digests, schema inputs, output inventory and output digests. Frozen v1 reproduction uses `python3 scripts/generate.py --reproduce-v1`; plain `generate` does not select that mode. `generate:operations` selects major 2 and derives the operation catalog from OpenAPI 3.1, checking shared definitions against JSON Schema and AsyncAPI 3.0. `generate:examples` selects the v2 OpenAPI document. Both require the v2 bundle. Explicit v2 DTO generation uses `python3 scripts/generate.py --major 2` and writes to the sibling `sdk-v2` package.
+[releases/0.1.1.json](releases/0.1.1.json) pins the current inputs and outputs. The generator refuses to overwrite a release entry with different inputs; select a new package version and matching release path when publishing new inputs. [release-manifest.json](release-manifest.json) retains the original v1 pins. The original v2 types are reproduced under [releases/0.1.0/types-v2.gen.ts](releases/0.1.0/types-v2.gen.ts) against the v2 dependency's original release pins. `generate:operations` and `generate:examples` regenerate the same current release artifacts.
+
+The pinned emitter and validator template live at [tools/launchpad/production/interfaces](../../../../tools/launchpad/production/interfaces/). Explicit bundle generation remains available through `python3 scripts/generate.py --major <major>` with a complete immutable bundle containing `codegen-manifest.json`, `schema-definitions.json`, `openapi.json` and `asyncapi.json`. Frozen v1 reproduction uses `--reproduce-v1`; explicit v2 bundle generation writes to the sibling `sdk-v2` package.
 
 [scripts/compatibility.py](scripts/compatibility.py) compares schemas. Breaking changes require a new major and an explicit window with matching `fromMajor`/`toMajor`, ordered timezone-aware `startsAt`/`endsAt`, and `retainedVersions` equal to `[fromMajor, toMajor]` in that order. A major increase alone does not establish compatibility.
 
@@ -77,10 +79,12 @@ pnpm --filter @kindle/sdk build
 `build` compiles standalone validators from the checked-in v1/v2 schemas and
 operation definitions, then runs TypeScript. Contract generation is a separate
 command. The `test` script builds the package and runs `node --test test/*.test.mjs`.
-Connected-service tests require `SDK_CONNECTED_CONFIG` to name the deployment's
-service configuration; see [connected-services.test.mjs](test/connected-services.test.mjs)
-for its required fields. Generation tests require the contract bundles described
-above.
+Connected-service tests run when `SDK_CONNECTED_CONFIG` names the joined services
+fixture; see [connected-services.test.mjs](test/connected-services.test.mjs) for its
+required fields. When the variable is absent, those cases report a skip with the
+fixture requirement. An invalid configured fixture fails the run. Generation
+tests reproduce the original releases and the current release from their pinned
+inputs.
 
 The examples consume compiled `dist` output. From this SDK directory, with
 `SDK_CONNECTED_CONFIG` configured:
