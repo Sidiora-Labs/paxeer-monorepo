@@ -404,14 +404,14 @@ func TestApplicationVisibilityRequiresMutualTLSAndPinnedIdentity(t *testing.T) {
 	transport := f.app.native.client.Transport.(*http.Transport)
 	noCertificate := transport.Clone()
 	noCertificate.TLSClientConfig.Certificates = nil
-	c := &rankingVisibilityClient{endpoint: f.app.native.visibility.endpoint, client: &http.Client{Transport: noCertificate, Timeout: time.Second}}
+	c := &rankingVisibilityClient{endpoint: f.app.native.visibility.endpoint, client: &http.Client{Transport: noCertificate, Timeout: time.Second}, now: time.Now}
 	defer c.client.CloseIdleConnections()
 	if _, err := c.ReadRankingVisibility(ctx); err == nil {
 		t.Fatal("visibility accepted without a client certificate")
 	}
 	wrongPin := transport.Clone()
 	wrongPin.TLSClientConfig.ServerName = "other.railway.internal"
-	c = &rankingVisibilityClient{endpoint: f.app.native.visibility.endpoint, client: &http.Client{Transport: wrongPin, Timeout: time.Second}}
+	c = &rankingVisibilityClient{endpoint: f.app.native.visibility.endpoint, client: &http.Client{Transport: wrongPin, Timeout: time.Second}, now: time.Now}
 	defer c.client.CloseIdleConnections()
 	if _, err := c.ReadRankingVisibility(ctx); err == nil {
 		t.Fatal("visibility accepted a different server identity")
