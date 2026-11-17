@@ -1001,6 +1001,23 @@ func Fingerprint(t *testing.T, db *sql.DB) map[string]string {
 	return out
 }
 
+func TableCounts(t *testing.T, db *sql.DB) map[string]int64 {
+	t.Helper()
+	counts := make(map[string]int64)
+	for name, fingerprint := range Fingerprint(t, db) {
+		if name == "sequences" {
+			continue
+		}
+		count, _, _ := strings.Cut(fingerprint, ":")
+		n, err := strconv.ParseInt(count, 10, 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		counts[name] = n
+	}
+	return counts
+}
+
 func DirEntries(t *testing.T, dir string) []string {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
