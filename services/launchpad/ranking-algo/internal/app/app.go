@@ -381,6 +381,10 @@ func (c *rankingVisibilityClient) ReadRankingVisibility(ctx context.Context) (st
 	if json.Unmarshal(raw, &out) != nil || !out.Complete || len(out.Revision) != 64 || out.Pools == nil || len(out.Pools) > 1000000 || out.ObservedAt.IsZero() {
 		return out, ranker.ErrUnavailable
 	}
+	now := time.Now()
+	if out.ObservedAt.After(now) || now.Sub(out.ObservedAt) > 60*time.Second {
+		return out, ranker.ErrUnavailable
+	}
 	return out, nil
 }
 func (c *rankingVisibilityClient) CurrentRankingRevision(ctx context.Context) (string, time.Time, error) {
