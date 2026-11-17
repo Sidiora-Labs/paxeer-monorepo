@@ -151,7 +151,7 @@ export function CoinCard({
             href={href}
             className="block text-md font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']"
           >
-            <span className="truncate" title={name}>
+            <span className="block truncate" title={name}>
               {name}
             </span>
             {hiddenSummary}
@@ -160,7 +160,7 @@ export function CoinCard({
             <span className="truncate font-bold uppercase" title={symbol}>
               ${symbol}
             </span>
-            <AgeChip iso={createdAt} />
+            <AgeChip iso={createdAt} className="shrink-0 whitespace-nowrap" />
           </div>
           {footerStats && footerStats.length > 0 ? (
             <dl className="mt-1 flex flex-wrap gap-x-3 text-2xs text-text-faint">
@@ -217,14 +217,14 @@ export function CoinCard({
             className="block text-md font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']"
             title={name}
           >
-            {name}
+            <span className="block truncate">{name}</span>
             {hiddenSummary}
           </Link>
           <div className="flex items-center gap-2 text-xs text-text-faint">
             <span className="truncate font-bold uppercase" title={symbol}>
               ${symbol}
             </span>
-            <AgeChip iso={createdAt} />
+            <AgeChip iso={createdAt} className="shrink-0 whitespace-nowrap" />
           </div>
         </div>
         {rank !== undefined ? <RankBadge rank={rank} /> : null}

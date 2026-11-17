@@ -79,7 +79,7 @@ export const MobilePositions: React.FC<
   } = props;
   return (
     <ListView
-      className="oui-hide-scrollbar oui-w-full oui-space-y-0 oui-overflow-y-hidden"
+      className="oui-hide-scrollbar oui-w-full oui-space-y-0 oui-overflow-y-auto"
       contentClassName="!oui-space-y-1"
       dataSource={dataSource}
       keyExtractor={(item) =>

@@ -14,6 +14,8 @@ import { getEffectiveConvertStatus } from "@paxeer-network/ui-transfer";
 import { Decimal } from "@paxeer-network/utils";
 import type { ConvertRecord, ConvertTransaction } from "../type";
 
+const EMPTY_CONVERT_DETAILS: ConvertTransaction[] = [];
+
 export interface ConvertColumnsOptions {
   onDetailsClick?: (convertId: number) => void;
 }
@@ -63,7 +65,7 @@ export const ConvertStatusBadge = ({ status }: { status?: string }) => {
 
 export const ConvertedAssetColumn = ({
   convertedAssets,
-  details = [],
+  details = EMPTY_CONVERT_DETAILS,
 }: {
   convertedAssets?: Record<string, number> | null;
   details?: ConvertTransaction[];

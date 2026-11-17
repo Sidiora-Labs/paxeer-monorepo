@@ -1,4 +1,4 @@
-import { useContext, useEffect, useId, useState } from "react";
+import { useContext, useEffect, useId, useMemo, useState } from "react";
 import { API, WSMessage } from "@paxeer-network/types";
 import { Decimal } from "@paxeer-network/utils";
 import { PaxeerNetworkContext } from "../../paxeerNetworkContext";
@@ -304,22 +304,19 @@ export const useMarkets = (
   const symbolsInfo = useSymbolsInfo();
   const rwaSymbolsInfo = useRwaSymbolsInfo();
 
-  const [markets, setMarkets] = useState<MarketsItem[]>([]);
-
   const store = useMarketsStore();
 
   const { favorites, recent, newListing } = store;
 
-  useEffect(() => {
+  const markets = useMemo(() => {
     const markets = addFieldToMarkets(futures, symbolsInfo, rwaSymbolsInfo);
-    const filterList = filterMarkets({
+    return filterMarkets({
       markets,
       favorites,
       recent,
       newListing,
       type,
     });
-    setMarkets(filterList);
   }, [
     futures,
     symbolsInfo,

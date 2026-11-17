@@ -2,6 +2,9 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Settings2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { usePopoverPosition } from '@/ui/primitives/use-popover';
+import { surfaceToken } from '@/core/app-foundation/surface-token';
 import { Button, IconButton, SegmentedControl } from '@/ui/primitives';
 import { safeFixed, shortAddress } from '@/utils/format';
 import { parseAmount } from '@/widgets/trading/transaction-controls/domain';
@@ -33,8 +36,11 @@ export function TradeSettingsPopover({ slippageBps, onSlippageChange, deadlineSe
   const [custom, setCustom] = useState('');
   const [customError, setCustomError] = useState<string | null>(null);
   const root = useRef<HTMLDivElement>(null);
-  const panel = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLElement | null>(null);
+  const [offset, setOffset] = useState<number>();
+  const position = usePopoverPosition(root, panel, open, 'end', offset);
+  const positioned = position !== null;
   const titleId = useId();
   const customId = useId();
   const customErrorId = useId();
@@ -42,19 +48,22 @@ export function TradeSettingsPopover({ slippageBps, onSlippageChange, deadlineSe
   const preset: PresetValue = SLIPPAGE_PRESETS.includes(slippageBps as (typeof SLIPPAGE_PRESETS)[number]) ? (String(slippageBps) as PresetValue) : 'custom';
   const highSlippage = slippageBps > HIGH_SLIPPAGE_BPS;
 
+  useEffect(() => { setOffset(surfaceToken('--sl-space-2')); }, []);
+
   useEffect(() => {
-    if (!open) return;
-    opener.current = document.activeElement as HTMLElement | null;
-    panel.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+    if (!open || !positioned) return;
+    panel.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus({ preventScroll: true });
     const onPointer = (event: PointerEvent) => {
-      if (root.current && !root.current.contains(event.target as Node)) setOpen(false);
+      const bounds = panel.current?.getBoundingClientRect();
+      const outside = bounds && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom);
+      if (outside || (root.current && !root.current.contains(event.target as Node) && !panel.current?.contains(event.target as Node))) setOpen(false);
     };
     document.addEventListener('pointerdown', onPointer);
     return () => {
       document.removeEventListener('pointerdown', onPointer);
-      opener.current?.focus();
+      if (document.activeElement === document.body || panel.current?.contains(document.activeElement)) opener.current?.focus();
     };
-  }, [open]);
+  }, [open, positioned]);
 
   useEffect(() => {
     if (!open) { setCustom(''); setCustomError(null); }
@@ -71,14 +80,8 @@ export function TradeSettingsPopover({ slippageBps, onSlippageChange, deadlineSe
     setCustom('');
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+  const onKeyDown = (event: KeyboardEvent<HTMLDialogElement>) => {
     if (event.key === 'Escape') { event.preventDefault(); setOpen(false); return; }
-    if (event.key !== 'Tab') return;
-    const controls = Array.from(panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled)') ?? []);
-    const first = controls[0];
-    const last = controls[controls.length - 1];
-    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
   };
 
   return (
@@ -91,15 +94,18 @@ export function TradeSettingsPopover({ slippageBps, onSlippageChange, deadlineSe
         pressed={open}
         aria-expanded={open}
         aria-haspopup="dialog"
-        onClick={() => setOpen(value => !value)}
+        onClick={event => { opener.current = event.currentTarget; setOpen(value => !value); }}
       />
-      {open ? (
-        <div
+      {open ? createPortal(
+        <dialog
           ref={panel}
+          onCancel={event => { event.preventDefault(); setOpen(false); }}
           role="dialog"
+          aria-modal="true"
           aria-labelledby={titleId}
           onKeyDown={onKeyDown}
-          className="absolute right-0 top-full z-[var(--sl-z-dropdown)] mt-2 w-full max-w-sm rounded-md bg-surface-3 p-3 shadow-pop"
+          style={{ top: position?.top ?? 0, left: position?.left ?? 0, visibility: position ? 'visible' : 'hidden' }}
+          className="sl-popover fixed m-0 w-max border-0 text-text z-[var(--sl-z-dropdown)] max-w-[min(var(--sl-modal-width-sm),calc(100dvw-var(--sl-space-6)))] rounded-md bg-surface-3 p-3 shadow-pop"
         >
           <div className="flex items-center justify-between">
             <h3 id={titleId} className="text-sm font-bold text-text">Settings</h3>
@@ -113,6 +119,7 @@ export function TradeSettingsPopover({ slippageBps, onSlippageChange, deadlineSe
               size="sm"
               shape="sm"
               fullWidth
+              className="[&_button]:min-w-min [&_button]:whitespace-nowrap"
               value={preset}
               onChange={value => { if (value !== 'custom') onSlippageChange(Number(value)); }}
               options={[
@@ -139,7 +146,7 @@ export function TradeSettingsPopover({ slippageBps, onSlippageChange, deadlineSe
                   if (event.key === 'Enter') { event.preventDefault(); applyCustom(); }
                 }}
                 placeholder="Custom %"
-                className={cn('h-control-height-sm min-w-0 flex-1 rounded-sm px-2 text-sm text-text tabular-nums placeholder:text-text-faint outline-none focus-visible:outline-2 focus-visible:outline-focus', customError ? 'bg-danger-soft' : 'bg-surface-2')}
+                className={cn('h-control-height-sm min-w-0 flex-1 rounded-sm border border-control-edge px-2 text-sm text-text tabular-nums placeholder:text-text-faint outline-none focus-visible:outline-2 focus-visible:outline-focus', customError ? 'bg-danger-soft' : 'bg-surface-2')}
               />
               <Button size="sm" variant="secondary" onClick={applyCustom} disabled={custom.trim() === ''}>Apply</Button>
             </div>
@@ -166,7 +173,8 @@ export function TradeSettingsPopover({ slippageBps, onSlippageChange, deadlineSe
             ) : null}
           </dl>
           <p className="mt-2 text-2xs text-text-faint">Saved on this device.</p>
-        </div>
+        </dialog>,
+        document.body
       ) : null}
     </div>
   );

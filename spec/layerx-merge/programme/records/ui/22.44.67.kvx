@@ -1,0 +1,58 @@
+[manifest]
+task = "22.44.67"
+surface = "Sidiora Launchpad leaderboard and rewards"
+views = 15
+named_states = 3
+states = 18
+routes = ["/holder-rewards", "/leaderboard", "/rewards", "/r/science"]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+configurations = 612
+
+[rendering]
+renders = 612
+rendered = 612
+nonblank = 612
+missing = 0
+blank = 0
+findings = 0
+result = "pass"
+
+[findings]
+load = 0
+focus = 0
+shift = 0
+sideways = 0
+cut = 0
+scale = 0
+touch = 0
+motion = 0
+contrast = 0
+geometry = 0
+
+[finding_counts]
+order = ["first", "last"]
+load = [0, 0]
+focus = [0, 0]
+shift = [2, 0]
+sideways = [0, 0]
+cut = [0, 0]
+scale = [0, 0]
+touch = [0, 0]
+motion = [0, 0]
+contrast = [0, 0]
+geometry = [0, 0]
+
+[presentation]
+corrections = ["Coin names share the card header with the copy control and truncate within their column.", "Reward amounts use tabular figures and keep the USDL unit intact.", "The toolbar wraps its control groups within the available width.", "The filter menu follows its trigger through scrolling and text enlargement and closes when focus leaves it.", "Loading and availability states retain the content footprint and expose only their available controls.", "Leaderboard tabs and periods reflect the URL from the first render, and the callouts rail occupies its desktop column.", "The competition frame contains its content while retaining the existing aspect ratios and spacing tokens.", "The narrow prize placeholder balances its lines.", "Grid, filter and sort interactions use the loaded coin list.", "Referral destinations show their responsive layout from the first paint.", "Availability notices update as their reads finish."]
+
+[inspection]
+screenshots = 190
+widths = [360, 768, 1440, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+
+[guides]
+ids = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "css-layout", "responsive-table", "single-line-overflow", "card"]

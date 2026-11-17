@@ -35,7 +35,7 @@ export const PortfolioLayout: FC<PropsWithChildren<PortfolioLayoutProps>> = (
       routerAdapter={props.routerAdapter}
       classNames={{
         ...classNames,
-        content: cn("oui-my-6 oui-px-3", classNames?.content),
+        content: cn("oui-my-6 oui-px-3 oui-overflow-auto", classNames?.content),
         topNavbar: cn("oui-bg-base-9", classNames?.topNavbar),
         leftSidebar: cn(
           "oui-rounded-xl oui-bg-base-9",

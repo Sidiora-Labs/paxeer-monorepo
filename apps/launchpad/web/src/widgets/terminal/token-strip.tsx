@@ -1,6 +1,9 @@
 'use client';
 import { surfaceSpacing } from '@/app/presentation-tokens';
 import type { ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import type { V2ContractTypes } from '@kindle/sdk';
+import { queryKeys } from '@/core/query-keys';
 import { AtSign, Bell, Globe, Link as LinkIcon, MessageCircle, Send, Settings, Share2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { AgeChip, Avatar, DropdownMenu, IconButton, Skeleton, StageBadge, StatTile, Tooltip, UnavailableState } from '@/ui/primitives';
@@ -122,6 +125,7 @@ export default function TerminalTokenStrip({ poolAddress }: { poolAddress: strin
   const snapshot = usePoolSnapshot(poolAddress);
   const data = snapshot.data ?? null;
   const live = useTerminalLive(poolAddress);
+  const initialPrice = useQueryClient().getQueryData<V2ContractTypes['Price'] | null>(queryKeys.poolPriceSnapshot(poolAddress));
   const watchlist = useWatchlist();
   const image = useTokenMetadata(data?.pool.tokenAddress ?? null);
 
@@ -149,7 +153,7 @@ export default function TerminalTokenStrip({ poolAddress }: { poolAddress: strin
   const createdMs = data.createdAt ? Date.parse(data.createdAt) : NaN;
   const stage = stageFor(Number.isFinite(createdMs) ? live.now - createdMs : null);
   const socials = (data.metadata?.socialLinks ?? []).map(link => ({ ...link, href: socialHref(link.url) })).filter(link => link.href !== null);
-  const stats = tokenStripStats({ stats: live.state.stats ?? data.stats, token: data.token, livePrice: priceNumber(live.state.price) });
+  const stats = tokenStripStats({ stats: live.state.stats ?? data.stats, token: data.token, livePrice: priceNumber(live.state.price ?? initialPrice ?? null) });
 
   return (
     <header aria-label={`${symbol} summary`} className="flex min-h-13 shrink-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-surface-1 px-3 py-1">

@@ -404,7 +404,7 @@
             },
             {
               "action": "click",
-              "selector": "html:has([data-shell-ready]) button[aria-label=\"Grid\"]:visible, [role=\"radio\"]:has-text(\"Grid\"):visible"
+              "selector": "html:has([data-shell-ready]) [role=\"radiogroup\"][aria-label=\"Layout\"]:visible [role=\"radio\"]:has-text(\"Grid\")"
             },
             {
               "action": "click",
@@ -465,6 +465,10 @@
           "name": "grid",
           "steps": [
             {
+              "action": "wait",
+              "text": "Showing 1 of 1 loaded coins."
+            },
+            {
               "action": "click",
               "selector": "html:has([data-shell-ready]) [aria-label=\"Grid view\"]"
             }
@@ -474,6 +478,10 @@
           "name": "filters",
           "steps": [
             {
+              "action": "wait",
+              "text": "Showing 1 of 1 loaded coins."
+            },
+            {
               "action": "click",
               "selector": "html:has([data-shell-ready]) button[aria-label=\"Filters\"]"
             }
@@ -482,6 +490,10 @@
         {
           "name": "sort",
           "steps": [
+            {
+              "action": "wait",
+              "text": "Showing 1 of 1 loaded coins."
+            },
             {
               "action": "press",
               "selector": "html:has([data-shell-ready]) select[name=\"Sort by\"]",
@@ -667,6 +679,8 @@
           "name": "wallets-open",
           "modes": [
             "default",
+            "reduced-motion",
+            "double-text",
             "keyboard"
           ],
           "steps": [
@@ -754,6 +768,10 @@
             {
               "action": "click",
               "selector": "html:has([data-shell-ready]) button[aria-label^=\"Trade settings, slippage\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Max slippage"
             }
           ]
         },
@@ -767,6 +785,10 @@
             {
               "action": "click",
               "selector": "html:has([data-shell-ready]) button:has-text(\"Select coin\") >> nth=0"
+            },
+            {
+              "action": "wait",
+              "text": "Select a coin"
             }
           ]
         }
@@ -786,6 +808,10 @@
             {
               "action": "click",
               "selector": "html:has([data-shell-ready]) button[aria-label=\"Terminal layout\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Reset column layout"
             }
           ]
         },
@@ -799,6 +825,10 @@
             {
               "action": "click",
               "selector": "html:has([data-shell-ready]) button[aria-label=\"Terminal settings\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Reset column layout"
             }
           ]
         }

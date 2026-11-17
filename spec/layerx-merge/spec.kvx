@@ -15508,6 +15508,54 @@ value = "A value that follows from a read is derived in the render and memoized 
 basis = "Gotcha 4652. Decisions 3046, 3718 and 3731."
 affects = []
 
+[decision.3733]
+title = "A layout shift the render check causes itself is left out by its time, whenever it is delivered"
+value = "Before an action of its own that moves the page, the steps of a state or the enlargement of the text, the check reads the time of the page. After the action it waits until the page is at rest, which is a count of consecutive animation frames without a new shift and without a change of the layout that the check names, under an upper bound of time; then it reads the time again and takes the entries the observer still holds. Every shift whose start lies between the two times is left out of the findings, whether it was delivered before or after the wait, and it is left out again when the list is read for the result. A shift that starts before the first time or after the second stays a finding as today, and so does a movement that goes on after the bound. No limit, no score and no other kind of finding changes, and a view that does not move by itself gives the same result in a run alone and in a full run. Task 22.44.99 brings the check to this form."
+basis = "Gotcha 4653. Decisions 3729 and 3730."
+affects = []
+
+[decision.3734]
+title = "An order of the native binding is funded from the deposited margin first, every perps call of the workspace is applied through both execution paths by a case, and the render check repeats a render that failed on the connection"
+value = "The free collateral of the order entry of the native binding is the free margin of the account plus the balance of the collateral token in the wallet, and the max quantity follows from that sum, the leverage, the taker rate of the account and the price, never more than the layer accepts. An order whose initial margin and fee the free margin of the account covers is sent as a plain order margined against the deposited collateral and takes nothing from the wallet. An order the free margin does not cover and the wallet alone covers is sent as today, with its collateral from the wallet in the same call. An order that only both together cover deposits the missing part first and is then sent as a plain order, and the entry says before the first signature that two transactions follow. An order that both together do not cover is refused in the form with the message of an insufficient balance. Closing and reducing take nothing from the wallet as today. This is a least rule; a later form may fund in one call. Every call the trading workspace can send to the perps precompile, and the approve of the collateral token before it, is applied by a case under node through the ordinary execution path and through the fast execution path from one state, and the case compares the status, the gas, the logs, the returned data and the state after each block. A new call of the workspace is added to that case in the task that adds it. In the deposit form of the native binding the collateral has a ratio of one, its contribution is the amount in the unit of the collateral, and the value of the gas fee is formed with the price the binding has for the currency of the chain. The render check repeats once a render whose navigation ran out of time before the application answered or whose request was closed by the application before the answer, as it does for a deadline; a render that fails again keeps its finding, the result counts the repeats, and no limit and no other kind of finding changes. Task 22.39.786 brings the order entry to this form, task 22.39.787 adds the case, task 22.39.788 corrects the deposit form and task 22.44.100 the render check."
+basis = "Gotcha 4654. Decisions 3718, 3732 and 3733."
+affects = []
+
+[decision.3735]
+title = "The apply check can credit an account with a token inside the copied home before it applies the transactions"
+value = "The command applycheck takes an option stand-in-credit that may be given several times; each names a token by its address, an account and an amount in the units of the token. Before the block is built, every form credits the account in the same way through the preparer, so the forms start from one state. A token whose balance the ledger keeps is credited through the ledger; a token whose balance a contract keeps is credited in the storage of the contract, and the command reads the balance through the contract afterwards and refuses the run where it is not the balance before plus the amount. The credit exists in the opened copy alone: the command accepts the option only for a home that holds the marker file of a copy, as it does for every run, writes nothing into the home it was copied from, and the report names every credit with token, account, amount and the balance before and after. The comparison of the forms and every other option stay as they are. Task 22.39.789 adds the option."
+basis = "Gotcha 4655. Decisions 3650 and 3734."
+affects = []
+
+[decision.3736]
+title = "The capture of a full page has a time limit of its own that grows with the height of the page, and the quantity input of the deposit form keeps every key"
+value = "The render check gives the capture of the full page a limit of its own. It is at least the limit of a navigation and grows with the height of the document measured before the capture, by a rule the check names, up to an upper bound it names. A capture that runs out of this limit is a finding as today, with the height and the limit among its values, and a render whose measurements are complete keeps them in the result. No other limit, no score and no other kind of finding changes. These bounds are least values for the capture: a later task may raise them, none lowers the time a capture has today. Task 22.44.101 brings the check to this form. The quantity input of the deposit form holds what the user has typed: every change is formed from the present text of the input, whatever the interval between two keys, and a value the state gives back later does not replace a newer text. Task 22.39.790 brings the input to this form."
+basis = "Gotcha 4656. Decisions 3733 and 3734."
+affects = []
+
+[decision.3737]
+title = "The content of a tab panel is rendered in the same render as the element that holds the panel"
+value = "The tabs of the ui package of the trading workspace render the content of a panel in the render in which the element that holds the panel is rendered: a change of a property inside a panel reaches the document in the commit of that change, and no further render follows for it. Titles, order, selection, the elements, attributes and class names the tabs give to the document, and the rule which panels have their content in the document, stay as they are. The check of the source of the views holds the file of the tabs by a digest of its transpiled form: a change of behaviour of this kind renews the runtime digest of that one entry and leaves every other entry and every reference digest as it is. No size, colour, distance or position changes. Task 22.39.791 brings the tabs to this form. The form of task 22.39.790 stays."
+basis = "Gotcha 4657. Decisions 3705, 3718 and 3736."
+affects = []
+
+[decision.3738]
+title = "A navigation of the render check that ran out of time is repeated once, whether or not the document was answered before the limit"
+value = "The render check repeats once a render whose navigation ran out of its limit, also where the answer of the document had arrived and the load event had not. The values of the repeated render name the cause, so that a navigation without an answer and a navigation without its load event are told apart. A render that fails after its navigation has ended, a document that answers with a status of failure and a second failure of the same render stay findings as today. No limit, no score and no other kind of finding changes, and the forms of tasks 22.44.99 to 22.44.101 stay. Task 22.44.102 brings the check to this form."
+basis = "Gotcha 4658. Decisions 3734 and 3736."
+affects = []
+
+[decision.3739]
+title = "A workflow step that sets up a container runtime installs it only where the runner carries none"
+value = "A step of a workflow that sets up the container runtime first asks the runtime for its server version. Only where no answer comes does it update the package index, install the distribution packages and start the service, and it sets the access rule on the socket only where the socket is not readable and writable for the user of the job. In every case it ends with the read of the server version, so a runner without a working runtime still stops at this step. The check of the routing of the jobs accepts this one form as a whole and no shorter one: a name alone, a partial install, a setup without the closing read and the lines without the condition do not count. The job of the web application of the launchpad takes the Go version that the Go jobs of the same workflow name. Task 22.39.792 brings the launchpad test workflow, the check and their cases to this form."
+basis = "Gotcha 4659."
+affects = []
+
+[decision.3740]
+title = "The job of the render check has a limit of at least 60 minutes"
+value = "The limit of the job of the render check is 60 minutes. This is a least value: where the suite grows further, the limit grows with it or the cases are spread over files that run side by side. No case is removed and no limit inside the check changes for it. Task 22.44.103 brings the workflow and its case to this form."
+basis = "Gotcha 4661."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45168,6 +45216,168 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.103]
+title = "Give the job of the render check a limit of 60 minutes"
+reqs = ["22998.1"]
+touches = [".github/workflows/ui-check-test.yml", "tests/ci/test_ui_check_workflow.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_ui_check_workflow.py"
+do_1 = "do_1 Gotcha 4661 and decision 3740. Set the limit of the job of the render check in .github/workflows/ui-check-test.yml to 60 minutes and bring the case of tests/ci/test_ui_check_workflow.py that reads the limit in line. Nothing else in the workflow changes: the steps, the path filters and the routing of the job stay as they are, and no file under tools/ui-check changes. Where a second file of the tree reads the limit of this job, name it in the final message. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The two files are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+
+[capability.22.39.798]
+title = "Make the cases of the swap executor and of the pending sends of the wallet independent of machine speed and of the state of other cases"
+reqs = ["22998.1"]
+touches = ["apps/wallet/src"]
+tests = []
+verification_contract = "pnpm --dir apps/wallet exec vitest run src/lib/swap/executor.test.ts src/widgets/portfolio/portfolio-balances-and-pending-sends.test.ts"
+do_1 = "do_1 Read apps/wallet/src/lib/swap/executor.test.ts with the case execute_swap_refuses_a_reverted_swap and the executor it runs, and apps/wallet/src/widgets/portfolio/portfolio-balances-and-pending-sends.test.ts with the case pending_reconcile_survives_loading_account_change_and_reopen and the store of pending sends it reads. List for each file every wait, timer and interval of the product that a case passes through, the time limit of the case, and every state that outlives a case: variables of a module, the storage of the test document, timers that were not cleared, requests that are still open. Give the lists in the final message."
+symbols = []
+
+[capability.22.39.797]
+title = "Make the cases of the leader source, of the committed batches and of the storage gas of the node package independent of timing"
+reqs = ["22998.1"]
+touches = ["node"]
+tests = []
+verification_contract = "go test -count=10 -cpu 1,4 -timeout 60m ./node/ -run ^TestAppLeaderSchedule && go test -count=10 -cpu 1,4 -timeout 60m ./node/ -run ^TestBlockExecutionLeader && go test -count=10 -cpu 1,4 -timeout 60m ./node/ -run ^TestGigaStorageGas"
+do_1 = "do_1 Read node/leader_source_test.go with the function that commits a block for its cases, the cases of node/block_execution_lifecycle_test.go whose names begin with TestBlockExecutionLeader, and node/giga_storage_gas_test.go with the function that runs a block on both execution paths. For each read that follows a commit, a block or a start of the application, find what it reads from: the working state, the committed state of the commit store, or the store that serves a query at a height. Find whether that source is written before the commit returns or later by a routine of its own, and whether a case shares state with another case: variables of a package, switches such as the one for optimistic execution, directories, ports, the clock. Give the route of every such read and every shared state in the final message."
+symbols = []
+
+[capability.22.39.796]
+title = "Renew the transcript of the handler journey of the candles package of the launchpad from the present handler"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/candles-sdk"]
+tests = []
+verification_contract = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/candles-sdk --fail-if-no-match run test)"
+do_1 = "do_1 Gotcha 4660, fourth part. Read under sdk/launchpad/packages/candles-sdk the case of the handler journey in test/go-handler-journey.test.mjs and test/go-handler-journey.mjs, the transcript under test/fixtures with the revision and the digests it names, and the history of the four Go sources it names since that revision. Give in the final message what changed in the handler since and whether a request or an answer that the client reads changed with it."
+symbols = []
+
+[capability.22.39.795]
+title = "Write the sources of the metadata package of the launchpad in syntax that type stripping takes"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/metadata-sdk"]
+tests = []
+verification_contract = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/metadata-sdk --fail-if-no-match run test)"
+do_1 = "do_1 Gotcha 4660, third part. Read under sdk/launchpad/packages/metadata-sdk the test script, the sources under src and the case files under test. List in the final message every place whose syntax cannot be erased: parameter properties of a constructor, enums, namespaces that hold values, imports of the assignment form."
+symbols = []
+
+[capability.22.39.794]
+title = "Bring the client of the ranking package of the launchpad and its round trip case in line with the pagination of the ranking service"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/ranking-algo-sdk"]
+tests = []
+verification_contract = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/ranking-algo-sdk --fail-if-no-match run test)"
+do_1 = "do_1 Gotcha 4660, second part. Read under sdk/launchpad/packages/ranking-algo-sdk the function getRankings with its pagination rule in src/index.ts and the round trip case of test/client.test.mjs with the server it starts, and under services/launchpad/ranking-algo the handler that answers the request, with the parameters it takes for a snapshot and the fields of its answer. Give in the final message the parameters and the answer of the service beside those of the client and of the case."
+symbols = []
+
+[capability.22.39.793]
+title = "Bring the cases of the launchpad sdk package and the sources they compare into agreement"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/sdk"]
+tests = []
+verification_contract = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/sdk --fail-if-no-match run test)"
+do_1 = "do_1 Gotcha 4660, first part. Read under sdk/launchpad/packages/sdk the test script, the case files connected-services.test.mjs, release-generation.test.mjs and proof_launchpad_sdk_sdk.test.mjs, the generator under scripts with the pins of a release and the files it writes, the catalog of admitted operations, the examples, and the client under src that the cases call. Run the test script once and give in the final message, for every case that does not pass, the two sides it compares and which side is the current one."
+symbols = []
+
+[capability.22.39.792]
+title = "Set up the container runtime of the launchpad test workflow only where the runner carries none, and give its web job the Go version of the Go jobs"
+reqs = ["22998.1"]
+touches = [".github/workflows/launchpad-test.yml", "scripts/ci/runner-routing-check.sh", "tests/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/test_workflow_runs_on_routed.py"
+do_1 = "do_1 Gotcha 4659 and decision 3739. Read in .github/workflows/launchpad-test.yml the step that sets up the container runtime with its anchor and both places that use the anchor, the steps that set up Go in the job of the web application and in the Go jobs, the check scripts/ci/runner-routing-check.sh with the setup text it accepts and the function that reads it, the cases tests/ci/test_runner_routing_container_runtime.py, tests/ci/test_launchpad_go_tests_wired.py and tests/ci/test_launchpad_test_workflow.py, the inventory tests/ci/data/launchpad_go_tests.py, and the step of .github/workflows/explorer-images.yml that holds the setup inside a condition. Give in the final message every place that holds the setup text and every place that names a Go version for this workflow."
+symbols = []
+
+[capability.22.44.102]
+title = "Repeat once a render of the render check whose navigation ran out of time after the document was answered"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4658 and decision 3738. Read in tools/ui-check/check.mjs the navigation of a render, the two states that say whether a navigation is pending and whether it is answered, the place where a failed render gets its cause, the repeat and what it writes into the render, the rows of tools/ui-check/README.md on the repeat and the cases of tools/ui-check/test/check.test.mjs on it. Give in the final message which failures of a navigation are repeated today and which are not."
+symbols = []
+
+[capability.22.39.791]
+title = "Render the content of a tab panel of the trading workspace in the same render as the element that holds the panel"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages", "apps/perps/docs/ui-source-baseline.json"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/tabs-panel-content.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-quantity-keys.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-values.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-flow.test.ts"
+do_1 = "do_1 Gotcha 4657 and decision 3737. Read apps/perps/packages/ui/src/tabs/tabs.tsx with its panel, the state of the tabs and the effect that fills it, the file tabsBase.tsx beside it, and two users of a panel with an input inside: the view of the deposit form under apps/perps/packages/ui-transfer and one further user that you name. Give in the final message the route of a changed property of an element inside a panel to the document, and the number of renders of the content of a panel for one change of its parent."
+symbols = []
+
+[capability.22.39.790]
+title = "Keep every key in the quantity input of the deposit form, whatever the interval between two keys"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-quantity-keys.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-values.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-flow.test.ts"
+do_1 = "do_1 Gotcha 4656 and decision 3736. Read the deposit form under apps/perps/packages/ui-transfer with its script and its quantity input, the input component it uses and the way a change reaches the state of the form and comes back as the value of the input. Give in the final message the route of a change from the key to the value the input shows, and at which step a second change can be formed from the value before the first."
+symbols = []
+
+[capability.22.44.101]
+title = "Give the capture of a full page in the render check a time limit of its own that grows with the height of the page"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4656 and decision 3736. Read in tools/ui-check/check.mjs the capture of the viewport and of the full page, the limits, the place where a failed capture becomes a finding and what the render keeps then, the rows of the limits and of the kind of load in tools/ui-check/README.md and the cases of tools/ui-check/test/check.test.mjs. Give in the final message the limit a capture has today and what a render loses when the capture fails."
+symbols = []
+
+[capability.22.39.789]
+title = "Let the apply check credit an account with a token inside the copied home before it applies the transactions"
+reqs = ["22998.1"]
+touches = ["daemon/paxd/cmd", "node", "daemon/README.md"]
+tests = []
+verification_contract = "go test -count=1 -timeout 60m ./node/ -run ^TestApplyCheck && go test -count=1 -timeout 60m ./node/sequencer/ -run ^TestApplyCheck && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run ^TestApplyCheck"
+do_1 = "do_1 Gotcha 4655 and decision 3735. Read node/apply_check.go with its preparer, its options and its report, daemon/paxd/cmd/applycheck.go with its options, the cases of both, the part of daemon/README.md on the command, the deposit leg in precompiles/perps/account.go, and how the code keeps the balance of a token that has an address: which tokens the ledger keeps and which a contract keeps in its storage. Give in the final message how the collateral token of the perps parameters keeps its balances in a state of the cases, and where the preparer runs in each form."
+symbols = []
+
+[capability.22.44.100]
+title = "Repeat once a render of the render check whose navigation ran out of time or whose request was closed by the application"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4654 and decision 3734. Read in tools/ui-check/check.mjs the place where a render with a finding of a deadline is repeated, the places where a finding of the kind of load is formed, the row of that kind in tools/ui-check/README.md and the cases of tools/ui-check/test/check.test.mjs. Give in the final message every cause from which a finding of the kind of load is formed and the values it carries."
+symbols = []
+
+[capability.22.39.788]
+title = "Show in the deposit form of the native binding the ratio and the contribution of the collateral and the value of the gas fee as the binding has them"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-values.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-flow.test.ts"
+do_1 = "do_1 Gotcha 4654 and decision 3734. Read the deposit form under apps/perps/packages/ui-transfer with its script, its validation and its fee part, the functions it calls for the collateral ratio, the contribution and the value of the fee, the list of the tokens in apps/perps/packages/paxeer-backend/src/nativeMetadata.ts and the market rows of the binding. Give in the final message, for each value the form shows on the native binding, the source it is formed from today and what that source gives there, and each label that names a unit or a rule of the reference kit without meaning on the native binding."
+symbols = []
+
+[capability.22.39.787]
+title = "Apply every perps call of the trading workspace through both execution paths from one state and compare the results"
+reqs = ["22998.1"]
+touches = ["node"]
+tests = []
+verification_contract = "go test -count=1 -timeout 60m ./node/ -run ^TestGigaPerpsParity"
+do_1 = "do_1 Gotcha 4654 and decision 3734. Read the handlers of the precompile under precompiles/perps for the account, the orders and the positions, under apps/perps/packages/paxeer-backend/src the calls in core/perps/calls.ts, the account and vault modules, nativeTrading.ts and the deposit and withdraw of nativeClient.ts, and under node the case files giga_params_parity_test.go, giga_storage_gas_test.go and giga_precompiles_test.go for the way a block is applied through the ordinary path and through the fast path from one state. Give in the final message the list of the calls the workspace can send: the function of the precompile, its arguments in the form the workspace sends them, and the call of the collateral token that precedes it."
+symbols = []
+
+[capability.22.39.786]
+title = "Count the deposited margin of an account in the order entry of the native binding and fund an order from it first"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/native-order-funding.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/native-order.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/native-max-quantity.test.ts"
+do_1 = "do_1 Gotcha 4654 and decision 3734. Read the order entry function of the native binding and the runtime beside it in the package of the React functions of the trading workspace, under apps/perps/packages/paxeer-backend/src the order function in nativeTrading.ts, the plan in nativeOrderPlan.ts, the plans of plain orders in core/perps/positionWrites.ts with the calls in core/perps/calls.ts, the portfolio in core/perps/portfolio.ts, the deposit of nativeClient.ts, and the case files apps/perps/tests/native-order.test.ts and apps/perps/tests/native-max-quantity.test.ts. Give in the final message, for a market, a limit and a stop limit order, the call the order function sends today, where its collateral comes from, and which function of the backend package sends the same order margined against the deposited collateral."
+symbols = []
+
+[capability.22.44.99]
+title = "Leave out the layout shifts the render check causes itself by their time, however late they are delivered"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/browser.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4653 and decision 3733. Read tools/ui-check/check.mjs, tools/ui-check/browser.mjs, the row of the kind of layout shift in tools/ui-check/README.md and the cases of tools/ui-check/test/check.test.mjs. Give in the final message where the list of shifts is filled, where it is cut, where it is read for the findings, and by which route an entry of the enlargement can reach the findings today."
+symbols = []
 
 [capability.22.39.785]
 title = "Carry in the account info of the native binding every field the max quantity of the order entry reads"
@@ -175624,9 +175834,318 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.103]
+title = "Give the job of the render check a limit of 60 minutes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.103"]
+interfaces = []
+do_1 = "do_1 Gotcha 4661 and decision 3740. Set the limit of the job of the render check in .github/workflows/ui-check-test.yml to 60 minutes and bring the case of tests/ci/test_ui_check_workflow.py that reads the limit in line. Nothing else in the workflow changes: the steps, the path filters and the routing of the job stay as they are, and no file under tools/ui-check changes. Where a second file of the tree reads the limit of this job, name it in the final message. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The two files are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".github/workflows/ui-check-test.yml", "tests/ci/test_ui_check_workflow.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_ui_check_workflow.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_ui_check_workflow.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.798]
+title = "Make the cases of the swap executor and of the pending sends of the wallet independent of machine speed and of the state of other cases"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.798"]
+interfaces = []
+do_1 = "do_1 Read apps/wallet/src/lib/swap/executor.test.ts with the case execute_swap_refuses_a_reverted_swap and the executor it runs, and apps/wallet/src/widgets/portfolio/portfolio-balances-and-pending-sends.test.ts with the case pending_reconcile_survives_loading_account_change_and_reopen and the store of pending sends it reads. List for each file every wait, timer and interval of the product that a case passes through, the time limit of the case, and every state that outlives a case: variables of a module, the storage of the test document, timers that were not cleared, requests that are still open. Give the lists in the final message."
+do_2 = "do_2 Bring both files to a form in which no case waits in real time for a timer of the product: the case controls the clock of the test tool and moves it, or it waits on the result itself. State that outlives a case is reset before each case, and a list that a case counts holds only what that case put there. A time limit of a case is not raised in place of removing the wait. No assertion is weakened or removed, and no case is removed or left out. "
+do_3 = "do_3 Where the cause lies in the product, for example a reconcile that can add one entry twice or a wait that never ends after a refusal, repair it in the source under apps/wallet/src and add a case that shows it. No size, colour, distance or position of a view changes."
+do_4 = "do_4 Run both files twenty times in a row by hand, and once with the order of the cases shuffled, and give the counts in the final message. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/wallet/src are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/wallet/src"]
+tests = []
+planned_paths = []
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir apps/wallet install --frozen-lockfile && pnpm --dir apps/wallet run typecheck"
+verify_cmd = "pnpm --dir apps/wallet exec vitest run src/lib/swap/executor.test.ts src/widgets/portfolio/portfolio-balances-and-pending-sends.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.102]
+title = "Repeat once a render of the render check whose navigation ran out of time after the document was answered"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.101"]
+reqs = ["22998.1"]
+capabilities = ["22.44.102"]
+interfaces = []
+do_1 = "do_1 Gotcha 4658 and decision 3738. Read in tools/ui-check/check.mjs the navigation of a render, the two states that say whether a navigation is pending and whether it is answered, the place where a failed render gets its cause, the repeat and what it writes into the render, the rows of tools/ui-check/README.md on the repeat and the cases of tools/ui-check/test/check.test.mjs on it. Give in the final message which failures of a navigation are repeated today and which are not."
+do_2 = "do_2 A navigation that runs out of its limit gets a cause for the repeat also where the answer of the document has arrived before the limit. The cause that the repeated render carries names which of the two it was, with names that you give in the final message. Everything else stays: a failure after the navigation has ended, a document that answers with a status of failure and a second failure of the same render are findings as today, a render is repeated once at most, and the count of repeated renders in the line of the total holds these renders too. No limit and no score changes."
+do_3 = "do_3 Add cases to tools/ui-check/test with fixtures of their own. A document that answers at once and names a resource that the fixture holds open on the first navigation, so that the load event does not arrive within the limit of the case, and that the fixture answers in full on the second navigation: the render is repeated once, has no finding and carries the cause of the missing load event. The same document with the resource held on both navigations: the render is repeated once, is not rendered and has one finding of the kind of load. A document that answers and loads in time is not repeated. A step of a state that fails after the navigation has ended is not repeated. The fixture decides by the count of the navigations it has seen, not by a clock, and the cases set the limit of a navigation by a value of their own, so they do not depend on the speed of the machine."
+do_4 = "do_4 The rows of tools/ui-check/README.md on the repeat name both causes. Change no file under tools/ui-check/surfaces. Take the main line into your branch before you start; it holds the forms of tasks 22.44.99 to 22.44.101, which stay. The files tools/ui-check/check.mjs, tools/ui-check/README.md and the directory tools/ui-check/test are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.791]
+title = "Render the content of a tab panel of the trading workspace in the same render as the element that holds the panel"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.791"]
+interfaces = []
+do_1 = "do_1 Gotcha 4657 and decision 3737. Read apps/perps/packages/ui/src/tabs/tabs.tsx with its panel, the state of the tabs and the effect that fills it, the file tabsBase.tsx beside it, and two users of a panel with an input inside: the view of the deposit form under apps/perps/packages/ui-transfer and one further user that you name. Give in the final message the route of a changed property of an element inside a panel to the document, and the number of renders of the content of a panel for one change of its parent."
+do_2 = "do_2 Bring the tabs to a form in which the content of a panel is rendered in the render of the element that holds the panel. A change of a property of an element inside a panel reaches the document in the commit of that change; no further render is started for it, and a component inside a panel renders once for one change of its parent. A panel that is not a direct child of the tabs, because a component of its own returns it, keeps working, as do a panel that appears or goes later, the order of the panels, the selection from outside and from inside, the leading and the trailing part and the option that leaves the content out. The elements, attributes and class names the tabs give to the document stay the same, and the content of a panel that is not selected is in the document exactly where it is today. State inside a panel survives a change of its parent: an input that has the focus keeps the focus, its text and its selection."
+do_3 = "do_3 Add the case file apps/perps/tests/tabs-panel-content.test.ts, run with node --test like its neighbours, with the document for tests and the renderer that deposit-quantity-keys.test.ts uses. A parent holds a text as state and gives it as the value to an input inside a panel. The case changes the state in a synchronous flush and reads the document before any further task runs: the input shows the new text. It sends two changes, each formed from the text the input shows at that moment and each in a synchronous flush with no task in between, and expects both characters. A component inside the panel counts its renders: one change of the parent gives one render more, not two. Further cases cover a panel that a component of its own returns, a panel that is added and removed later, a switch of the selection, the option that leaves the content out, and an input that keeps its identity and the focus across ten changes. The cases read counts and the document only and no clock, so they do not depend on the speed of the machine. A case under apps/perps/tests reads the sources of the workspace by relative path, as its neighbours do; a package name does not resolve there. The cases apps/perps/tests/deposit-quantity-keys.test.ts, apps/perps/tests/deposit-values.test.ts and deposit-flow.test.ts keep passing without a change of their meaning."
+do_4 = "do_4 The check of the source of the views holds apps/perps/packages/ui/src/tabs/tabs.tsx by a digest of its transpiled form in apps/perps/docs/ui-source-baseline.json. Renew the runtime digest of the entry of this file with the function of apps/perps/scripts/ui-presentation.mjs, and that of tabsBase.tsx only where that file had to change. Leave the reference digest of the entry and every other entry as they are, and change no other file that the check holds. Run the typecheck of the workspace and the check of the source of the views. No size, colour, distance or position of a view changes, and no file under apps/perps/apps changes. The application cannot be started from the build of this task, so no step of this task uses a browser. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/perps/packages, the file apps/perps/docs/ui-source-baseline.json and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages", "apps/perps/docs/ui-source-baseline.json"]
+tests = []
+planned_paths = ["apps/perps/tests/tabs-panel-content.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/tabs-panel-content.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-quantity-keys.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-values.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-flow.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.790]
+title = "Keep every key in the quantity input of the deposit form, whatever the interval between two keys"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.790"]
+interfaces = []
+do_1 = "do_1 Gotcha 4656 and decision 3736. Read the deposit form under apps/perps/packages/ui-transfer with its script and its quantity input, the input component it uses and the way a change reaches the state of the form and comes back as the value of the input. Give in the final message the route of a change from the key to the value the input shows, and at which step a second change can be formed from the value before the first."
+do_2 = "do_2 Bring the input to a form that keeps every key. A change is formed from the present text of the input, and the text the user sees is the text typed; a value that the state of the form gives back later than a newer change does not replace the newer text. The formatting, the bound of the decimals, the button of the largest amount and the validation keep their meaning, and the form of task 22.39.788 that keeps the quantity across the end of a read stays."
+do_3 = "do_3 Add the case file apps/perps/tests/deposit-quantity-keys.test.ts, run with node --test like its neighbours, with the renderer for tests that the workspace installs. It sends two changes to the input before the state of the form has answered the first and expects the text of both; it sends a third after the answer and expects all three; it sets the largest amount and then one key and expects the amount followed by the key or the rule of the form for that case, which you name; and it lets a late answer of the state arrive after a newer change and expects the newer text. The case controls the moment of each answer itself, so it does not depend on the speed of the machine. A case under apps/perps/tests reads the sources of the workspace by relative path, as its neighbours do; a package name does not resolve there. The cases apps/perps/tests/deposit-values.test.ts and deposit-flow.test.ts keep passing without a change of their meaning."
+do_4 = "do_4 Run the typecheck of the workspace and the check of the source of the views. The check of the source of the views holds the presentation files of the workspace against a baseline: change none of the files it holds, and where the behaviour of an input must change, change it in the script or state module that feeds the view. No size, colour, distance or position of a view changes, and no file under apps/perps/apps changes. The application cannot be started from the build of this task, so no step of this task uses a browser. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/perps/packages and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages"]
+tests = []
+planned_paths = ["apps/perps/tests/deposit-quantity-keys.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-quantity-keys.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-values.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-flow.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.101]
+title = "Give the capture of a full page in the render check a time limit of its own that grows with the height of the page"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.100"]
+reqs = ["22998.1"]
+capabilities = ["22.44.101"]
+interfaces = []
+do_1 = "do_1 Gotcha 4656 and decision 3736. Read in tools/ui-check/check.mjs the capture of the viewport and of the full page, the limits, the place where a failed capture becomes a finding and what the render keeps then, the rows of the limits and of the kind of load in tools/ui-check/README.md and the cases of tools/ui-check/test/check.test.mjs. Give in the final message the limit a capture has today and what a render loses when the capture fails."
+do_2 = "do_2 Before the capture of the full page the check reads the height of the document. The capture gets a limit of its own: at least the limit of a navigation, growing with the height by a rule that you name, up to an upper bound that you name. The capture of the viewport keeps its limit. A capture that runs out of its limit is a finding of the kind of load with the source of the capture, and its values carry the height and the limit; the measurements the render has made by then stay in the result. No other limit and no score changes."
+do_3 = "do_3 Add cases to tools/ui-check/test with fixtures of their own. A page many screens high whose capture needs more than the limit of a navigation of the case and less than the limit for its height gives a render without a finding and with its image. A page of one screen has the limit of a navigation. A capture that needs more than the upper bound gives the finding with height and limit among its values and keeps the measurements. The cases set the limits and the delay of the capture by values of the fixture and of the case, so they do not depend on the speed of the machine."
+do_4 = "do_4 The rows of tools/ui-check/README.md say which limit the capture of a full page has and what a failed capture leaves in the result. Change no file under tools/ui-check/surfaces. Take the main line into your branch before you start; it holds the forms of tasks 22.44.99 and 22.44.100, which stay. The files tools/ui-check/check.mjs, tools/ui-check/README.md and the directory tools/ui-check/test are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.100]
+title = "Repeat once a render of the render check whose navigation ran out of time or whose request was closed by the application"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.99"]
+reqs = ["22998.1"]
+capabilities = ["22.44.100"]
+interfaces = []
+do_1 = "do_1 Gotcha 4654 and decision 3734. Read in tools/ui-check/check.mjs the place where a render with a finding of a deadline is repeated, the places where a finding of the kind of load is formed, the row of that kind in tools/ui-check/README.md and the cases of tools/ui-check/test/check.test.mjs. Give in the final message every cause from which a finding of the kind of load is formed and the values it carries."
+do_2 = "do_2 A render is repeated once, in a fresh browser as for a deadline, where every finding it holds is of the kind of load and each of them has one of two causes: the navigation to the view ran out of time before the application answered, or a request to the application ended because the connection was closed or reset before the answer. The repeated render replaces the first, is marked as repeated, and carries the cause of the first. A render that fails again keeps its findings. A render that holds a finding of another kind, a status of the application that names an error, or a request that was refused, is not repeated. The result and the Total line count the repeats as they do today, and no limit changes."
+do_3 = "do_3 Add cases to tools/ui-check/test with fixtures of their own. An application that closes the connection of the first request for one file and answers the second gives a render without a finding that is marked as repeated. One that closes it every time gives the finding. One whose page answers the first navigation only after the limit of the case and the second at once gives a render without a finding that is marked as repeated. A status of 500 gives a finding and no repeat. A render with a finding of load and one of another kind is not repeated. The cases take their times from values of the fixture and of the case, so they do not depend on the speed of the machine."
+do_4 = "do_4 The row of the kind of load in tools/ui-check/README.md says which renders are repeated and what stays a finding. Change no file under tools/ui-check/surfaces. Take the main line into your branch before you start; it holds the form of task 22.44.99, which stays. The files tools/ui-check/check.mjs, tools/ui-check/README.md and the directory tools/ui-check/test are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.788]
+title = "Show in the deposit form of the native binding the ratio and the contribution of the collateral and the value of the gas fee as the binding has them"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.788"]
+interfaces = []
+do_1 = "do_1 Gotcha 4654 and decision 3734. Read the deposit form under apps/perps/packages/ui-transfer with its script, its validation and its fee part, the functions it calls for the collateral ratio, the contribution and the value of the fee, the list of the tokens in apps/perps/packages/paxeer-backend/src/nativeMetadata.ts and the market rows of the binding. Give in the final message, for each value the form shows on the native binding, the source it is formed from today and what that source gives there, and each label that names a unit or a rule of the reference kit without meaning on the native binding."
+do_2 = "do_2 On the native binding the collateral of the form has a ratio of one, and its contribution is the amount entered, in the unit of the collateral the form offers. The value of the gas fee in the currency of account is the fee times the price the binding has for the currency of the chain; where the binding has no price the form shows the fee in the currency of the chain alone and no value of zero. The loan to value row shows what the layer gives for an account with one collateral at a ratio of one. For a chain that is not the Paxeer chain every value keeps its present source."
+do_3 = "do_3 A quantity typed into the form while its reads settle is kept: the input holds its value across the end of a read of the balance, the allowance or the fee, and no read sets it back. Find what remounts or resets the input when a read ends and bring it to a form that keeps the state of the input."
+do_4 = "do_4 Add the case file apps/perps/tests/deposit-values.test.ts, run with node --test like its neighbours, with the renderer for tests that the workspace installs and a double of the chain client. It holds on the native binding: for an amount of ten the contribution is ten in the unit of the collateral and the ratio is one; with a price of the currency of the chain the value of the fee is fee times price, and without one no value of zero is shown; and a quantity set before the reads of the balance, the allowance and the fee end is still the value of the input after each of them has ended. A case under apps/perps/tests reads the sources of the workspace by relative path, as its neighbours do; a package name does not resolve there. The present cases of the deposit keep passing without a change of their meaning."
+do_5 = "do_5 Run the typecheck of the workspace and the check of the source of the views. The check of the source of the views holds the presentation files of the workspace against a baseline: change none of the files it holds, and where a value a view shows must change, change it in the script or data module that feeds the view. No size, colour, distance or position of a view changes, and no file under apps/perps/apps changes. The application cannot be started from the build of this task, so no step of this task uses a browser. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/perps/packages and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages"]
+tests = []
+planned_paths = ["apps/perps/tests/deposit-values.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-values.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/deposit-flow.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.786]
+title = "Count the deposited margin of an account in the order entry of the native binding and fund an order from it first"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.786"]
+interfaces = []
+do_1 = "do_1 Gotcha 4654 and decision 3734. Read the order entry function of the native binding and the runtime beside it in the package of the React functions of the trading workspace, under apps/perps/packages/paxeer-backend/src the order function in nativeTrading.ts, the plan in nativeOrderPlan.ts, the plans of plain orders in core/perps/positionWrites.ts with the calls in core/perps/calls.ts, the portfolio in core/perps/portfolio.ts, the deposit of nativeClient.ts, and the case files apps/perps/tests/native-order.test.ts and apps/perps/tests/native-max-quantity.test.ts. Give in the final message, for a market, a limit and a stop limit order, the call the order function sends today, where its collateral comes from, and which function of the backend package sends the same order margined against the deposited collateral."
+do_2 = "do_2 The free collateral of the order entry is the free margin of the account, as the portfolio of the binding reads it, plus the balance of the collateral token in the wallet. The max quantity is that sum times the leverage over the price, lowered by the taker rate of the account in the way the layer sizes an order, and never above what the layer accepts. While one of the two reads has not ended the entry shows what it shows today for a balance that is not read; a read that failed counts as zero and does not hide the other."
+do_3 = "do_3 The order function chooses the funding by the rule of decision 3734. Free margin that covers the initial margin and the fee: the plain order of the backend package, with no approve and no deposit. Free margin that does not cover it and a wallet balance that alone covers it: the call of today. Both together cover it: the deposit of the missing part through the deposit of the binding, then the plain order, and the form says before the first signature that two transactions follow, with a text in the language files of the workspace. Both together do not cover it: refused in the form with the message of an insufficient balance, before any signature. Reduce only orders, closing and cancelling stay as they are. The choice is one pure function of the plan, the free margin, the wallet balance, the leverage and the taker rate, so a case can call it."
+do_4 = "do_4 Add the case file apps/perps/tests/native-order-funding.test.ts, run with node --test like its neighbours, with a double of the chain client that answers reads and records calls. It holds for a market, a limit and a stop limit order: with margin that covers the order the recorded calls are the plain order alone, with no approve and no deposit; with no margin and a wallet that covers it the calls of today; with margin and wallet that only together cover it the deposit of the missing part and then the plain order; with too little in both no call and the message of an insufficient balance. It holds that the max quantity of an account with deposited margin and an empty wallet is above zero and not above margin times leverage over the price, and that it is zero with both at zero. The present cases of the native order and of the max quantity keep passing without a change of their meaning. A case under apps/perps/tests reads the sources of the workspace by relative path, as its neighbours do; a package name does not resolve there. "
+do_5 = "do_5 Run the typecheck of the workspace and the check of the source of the views. The check of the source of the views holds the presentation files of the workspace against a baseline: change none of the files it holds, and where a value a view shows must change, change it in the script or data module that feeds the view. No size, colour, distance or position of a view changes, and no file under apps/perps/apps changes. The application cannot be started from the build of this task, so no step of this task uses a browser. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/perps/packages and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages"]
+tests = []
+planned_paths = ["apps/perps/tests/native-order-funding.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/native-order-funding.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/native-order.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/native-max-quantity.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.99]
+title = "Leave out the layout shifts the render check causes itself by their time, however late they are delivered"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.98"]
+reqs = ["22998.1"]
+capabilities = ["22.44.99"]
+interfaces = []
+do_1 = "do_1 Gotcha 4653 and decision 3733. Read tools/ui-check/check.mjs, tools/ui-check/browser.mjs, the row of the kind of layout shift in tools/ui-check/README.md and the cases of tools/ui-check/test/check.test.mjs. Give in the final message where the list of shifts is filled, where it is cut, where it is read for the findings, and by which route an entry of the enlargement can reach the findings today."
+do_2 = "do_2 The check leaves out its own movement by time. Before the steps of a state and before the enlargement of the text it reads the time of the page on the clock the entries of the observer carry. After the action it waits until the page is at rest, a count of consecutive animation frames without a new shift that you name, under an upper bound of time that you name; it then takes the entries the observer still holds and reads the time again. The page keeps the windows of time, and a shift whose start lies inside one of them is no finding wherever the list is read, also when the entry is delivered after the wait has ended. A shift that starts outside every window is a finding as today. The wait adds no more than its bound to a render, and a page that is at rest at once passes it in the count of frames alone."
+do_3 = "do_3 Add cases to tools/ui-check/test with fixtures of their own. One page moves its content when the text is enlarged, and the case delays the delivery of the entries by a means it controls until after the wait of the check: the render in the mode of doubled text holds no finding of a layout shift. One page moves by itself a fixed time after the enlargement has come to rest: that shift is a finding. One page moves by itself before the steps of a state begin: that shift is a finding. One state with steps that open a panel and move the page gives no finding for that movement. A page that does not move gives the result it gives today. The cases take their times from values of the fixture and of the case, so they do not depend on the speed of the machine."
+do_4 = "do_4 The row of the kind of layout shift in tools/ui-check/README.md says how the movement of the check itself is left out and what stays a finding. Change no file under tools/ui-check/surfaces. The files tools/ui-check/check.mjs, tools/ui-check/browser.mjs, tools/ui-check/README.md and the directory tools/ui-check/test are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Take the main line into your branch before you start; it holds the form of task 22.44.98, which stays. Do not ask a question and wait for its answer. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/browser.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.785]
 title = "Carry in the account info of the native binding every field the max quantity of the order entry reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175657,7 +176176,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.784]
 title = "Repeat an attempt of the price feed route of the trading workspace that ended without an answer of the feed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175688,7 +176207,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.783]
 title = "Give the deposit of the native binding its allowance address and a fee formed from the gas of its calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175721,7 +176240,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.782]
 title = "Bring the views of the trading workspace to rest with a connected account so that a change of the route shows its view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175785,7 +176304,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.98]
 title = "Pass a frame as one stop of the keyboard traversal of the render check and let a surface file declare the console messages of a script it embeds unchanged"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.97"]
@@ -175942,7 +176461,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.94]
 title = "Bring the wallet application back to the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.75"]
@@ -176786,7 +177305,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.69]
 title = "Close the terminal, swap and order views of the launchpad on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.40"]
@@ -176820,7 +177339,7 @@ do_7 = "do_7 Decision 3727, gotcha 4647. The verification command installs the p
 
 [task.22.44.68]
 title = "Close the live, profit card and profile views of the launchpad on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.40"]
@@ -176854,7 +177373,7 @@ do_7 = "do_7 Decision 3727, gotcha 4647. The verification command installs the p
 
 [task.22.44.67]
 title = "Close the leaderboard and reward views of the launchpad on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.40"]
@@ -176888,7 +177407,7 @@ do_7 = "do_7 Decision 3727, gotcha 4647. The verification command installs the p
 
 [task.22.44.66]
 title = "Close the explore, search and watchlist views of the launchpad on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.40"]
@@ -178250,7 +178769,7 @@ do_7 = "do_7 Decision 3681, gotcha 4599. The work of the earlier candidate stays
 
 [task.22.44.39]
 title = "Close the trading workspace on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.18", "22.44.37", "22.44.52", "22.44.58", "22.44.59", "22.44.73", "22.44.74"]
@@ -204890,6 +205409,160 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.796]
+title = "Renew the transcript of the handler journey of the candles package of the launchpad from the present handler"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.796"]
+interfaces = []
+do_1 = "do_1 Gotcha 4660, fourth part. Read under sdk/launchpad/packages/candles-sdk the case of the handler journey in test/go-handler-journey.test.mjs and test/go-handler-journey.mjs, the transcript under test/fixtures with the revision and the digests it names, and the history of the four Go sources it names since that revision. Give in the final message what changed in the handler since and whether a request or an answer that the client reads changed with it."
+do_2 = "do_2 Where a request or an answer changed, the handler prevails: bring the client under src and its cases in line with it."
+do_3 = "do_3 Renew the transcript: take the exchanges again from the handler at the present revision, the way the transcript was made, and name that way in the final message; the transcript then names the present revision and the present digests. New digests beside exchanges of the earlier handler are not enough where an answer changed."
+do_4 = "do_4 The verification runs the test script of the package the way the launchpad test workflow runs it: from the application workspace under apps/launchpad, after the install and the build of the packages, through the filter of the package manager. Every case passes; give the counts in the final message. No assertion is weakened or removed, and no case is removed or left out. No file under services and no file outside the package changes. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under sdk/launchpad/packages/candles-sdk are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/candles-sdk"]
+tests = []
+planned_paths = []
+build_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+verify_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/candles-sdk --fail-if-no-match run test)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.795]
+title = "Write the sources of the metadata package of the launchpad in syntax that type stripping takes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.795"]
+interfaces = []
+do_1 = "do_1 Gotcha 4660, third part. Read under sdk/launchpad/packages/metadata-sdk the test script, the sources under src and the case files under test. List in the final message every place whose syntax cannot be erased: parameter properties of a constructor, enums, namespaces that hold values, imports of the assignment form."
+do_2 = "do_2 Write each such place in syntax that can be erased: a class declares its fields and its constructor assigns them. The public names, the types and the behaviour of the package stay as they are, and the build of the package gives declarations of the same meaning. The test script keeps running the sources with type stripping."
+do_3 = "do_3 The verification runs the test script of the package the way the launchpad test workflow runs it: from the application workspace under apps/launchpad, after the install and the build of the packages, through the filter of the package manager. Every case passes; give the counts in the final message. No assertion is weakened or removed, and no case is removed or left out. No file under services and no file outside the package changes. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under sdk/launchpad/packages/metadata-sdk are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/metadata-sdk"]
+tests = []
+planned_paths = []
+build_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+verify_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/metadata-sdk --fail-if-no-match run test)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.794]
+title = "Bring the client of the ranking package of the launchpad and its round trip case in line with the pagination of the ranking service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.794"]
+interfaces = []
+do_1 = "do_1 Gotcha 4660, second part. Read under sdk/launchpad/packages/ranking-algo-sdk the function getRankings with its pagination rule in src/index.ts and the round trip case of test/client.test.mjs with the server it starts, and under services/launchpad/ranking-algo the handler that answers the request, with the parameters it takes for a snapshot and the fields of its answer. Give in the final message the parameters and the answer of the service beside those of the client and of the case."
+do_2 = "do_2 The service prevails. Bring the client and its cases in line with it: where the service pages a snapshot by cursor, the round trip case asks with a cursor, reads the next cursor and follows it once, and it keeps its assertions on decimal strings, headers and errors; where the service also answers a request without a cursor, the client allows that request. A request the service refuses is refused by the client with a message that names the parameter."
+do_3 = "do_3 The verification runs the test script of the package the way the launchpad test workflow runs it: from the application workspace under apps/launchpad, after the install and the build of the packages, through the filter of the package manager. Every case passes; give the counts in the final message. No assertion is weakened or removed, and no case is removed or left out. No file under services and no file outside the package changes. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under sdk/launchpad/packages/ranking-algo-sdk are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/ranking-algo-sdk"]
+tests = []
+planned_paths = []
+build_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+verify_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/ranking-algo-sdk --fail-if-no-match run test)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.793]
+title = "Bring the cases of the launchpad sdk package and the sources they compare into agreement"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.793"]
+interfaces = []
+do_1 = "do_1 Gotcha 4660, first part. Read under sdk/launchpad/packages/sdk the test script, the case files connected-services.test.mjs, release-generation.test.mjs and proof_launchpad_sdk_sdk.test.mjs, the generator under scripts with the pins of a release and the files it writes, the catalog of admitted operations, the examples, and the client under src that the cases call. Run the test script once and give in the final message, for every case that does not pass, the two sides it compares and which side is the current one."
+do_2 = "do_2 The file connected-services.test.mjs keeps its meaning where the configuration SDK_CONNECTED_CONFIG names the fixture of the joined services. Where the configuration is not set, the file loads and its cases report that they were left out, with the reason in the message, so the test script ends with the result of the other case files. A configuration that is set and does not name the fixture still ends the run with an error."
+do_3 = "do_3 For the cases of release-generation.test.mjs, the case on the examples and the case of proof_launchpad_sdk_sdk.test.mjs the producer prevails: the interface files of the launchpad that the generator reads and the services do not change. Bring the generated files, the pins, the catalog, the examples, the client and the cases of this package in line with them. A generated file is renewed by running the generator of the package and never by hand, and a pin of a release that is already published is not rewritten: where the inputs moved on, the present inputs get their own entry the way the package records a new version. A case that expects a refusal keeps expecting it wherever the client has to refuse; where the client no longer refuses although it has to, repair the client."
+do_4 = "do_4 The verification runs the test script of the package the way the launchpad test workflow runs it: from the application workspace under apps/launchpad, after the install and the build of the packages, through the filter of the package manager. Every case passes or reports that it was left out for the reason of do_2; give the counts in the final message. No file under services and no file outside the package changes. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under sdk/launchpad/packages/sdk are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/sdk"]
+tests = []
+planned_paths = []
+build_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+verify_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/sdk --fail-if-no-match run test)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.792]
+title = "Set up the container runtime of the launchpad test workflow only where the runner carries none, and give its web job the Go version of the Go jobs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.792"]
+interfaces = []
+do_1 = "do_1 Gotcha 4659 and decision 3739. Read in .github/workflows/launchpad-test.yml the step that sets up the container runtime with its anchor and both places that use the anchor, the steps that set up Go in the job of the web application and in the Go jobs, the check scripts/ci/runner-routing-check.sh with the setup text it accepts and the function that reads it, the cases tests/ci/test_runner_routing_container_runtime.py, tests/ci/test_launchpad_go_tests_wired.py and tests/ci/test_launchpad_test_workflow.py, the inventory tests/ci/data/launchpad_go_tests.py, and the step of .github/workflows/explorer-images.yml that holds the setup inside a condition. Give in the final message every place that holds the setup text and every place that names a Go version for this workflow."
+do_2 = "do_2 Write the step of .github/workflows/launchpad-test.yml in the form of decision 3739, with the lines of the step of .github/workflows/explorer-images.yml, under the anchor it has today, so both jobs that use the anchor follow. Bring scripts/ci/runner-routing-check.sh to accept this form as the one setup of a routed job, matched as a whole, and bring the cases of tests/ci/test_runner_routing_container_runtime.py to assert it: the form of decision 3739 passes; a name alone, a partial install, a setup without the closing read of the version and the five lines without the condition each do not pass. Every other workflow that the check reads keeps passing without a change of that workflow."
+do_3 = "do_3 Set up Go in the job of the web application with the version that the Go jobs of the workflow name, written the way those jobs write it, so the fixture preparation can build every service of the launchpad it joins, and keep the toolchain setting of that job in agreement with it. Bring the cases of tests/ci/test_launchpad_test_workflow.py and tests/ci/test_launchpad_go_tests_wired.py that read this step in line."
+do_4 = "do_4 Bring the inventory in tests/ci/data/launchpad_go_tests.py in line with the packages of the module sources under services/launchpad and sdk/launchpad, so the case of tests/ci/test_launchpad_go_tests_wired.py that compares the two holds for every module: add what the sources hold and the inventory lacks, remove what the sources no longer hold, and change no source of a module for it. Where the workflow or a second file under tests/ci lists the same packages, keep the lists equal."
+do_5 = "do_5 No job leaves the workflow, no step gets a setting that lets it go on after an error, and no path filter of the workflow changes. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files .github/workflows/launchpad-test.yml and scripts/ci/runner-routing-check.sh and the files under tests/ci are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".github/workflows/launchpad-test.yml", "scripts/ci/runner-routing-check.sh", "tests/ci"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/data/launchpad_go_tests.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/test_workflow_runs_on_routed.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -251434,6 +252107,101 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.797]
+title = "Make the cases of the leader source, of the committed batches and of the storage gas of the node package independent of timing"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.797"]
+interfaces = []
+do_1 = "do_1 Read node/leader_source_test.go with the function that commits a block for its cases, the cases of node/block_execution_lifecycle_test.go whose names begin with TestBlockExecutionLeader, and node/giga_storage_gas_test.go with the function that runs a block on both execution paths. For each read that follows a commit, a block or a start of the application, find what it reads from: the working state, the committed state of the commit store, or the store that serves a query at a height. Find whether that source is written before the commit returns or later by a routine of its own, and whether a case shares state with another case: variables of a package, switches such as the one for optimistic execution, directories, ports, the clock. Give the route of every such read and every shared state in the final message."
+do_2 = "do_2 Bring the cases to a form in which every read has what it needs before it runs. A read that needs the committed block waits until the store it reads has reached that version, asked through a function of the product that reports it and with a bound, and not through a pause of fixed length. A case that changes a switch of a package restores it and does not run beside a case that reads it. Where the product has no function that reports the version of the store that serves queries, add a small one to the test support of the node package. No assertion is weakened or removed, and no case is removed or left out. "
+do_3 = "do_3 Where the route of do_1 shows that a caller inside the product, and not only a case, can get the state of before the latest commit from a query at the latest height, give file, function and callers in the final message and change nothing outside node."
+do_4 = "do_4 The verification runs the three groups of cases ten times each with one and with four processors. Run them once more with the race detector by hand and give the counts in the final message. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under node are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/... ./daemon/..."
+verify_cmd = "go test -count=10 -cpu 1,4 -timeout 60m ./node/ -run ^TestAppLeaderSchedule && go test -count=10 -cpu 1,4 -timeout 60m ./node/ -run ^TestBlockExecutionLeader && go test -count=10 -cpu 1,4 -timeout 60m ./node/ -run ^TestGigaStorageGas"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.789]
+title = "Let the apply check credit an account with a token inside the copied home before it applies the transactions"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.787"]
+reqs = ["22998.1"]
+capabilities = ["22.39.789"]
+interfaces = []
+do_1 = "do_1 Gotcha 4655 and decision 3735. Read node/apply_check.go with its preparer, its options and its report, daemon/paxd/cmd/applycheck.go with its options, the cases of both, the part of daemon/README.md on the command, the deposit leg in precompiles/perps/account.go, and how the code keeps the balance of a token that has an address: which tokens the ledger keeps and which a contract keeps in its storage. Give in the final message how the collateral token of the perps parameters keeps its balances in a state of the cases, and where the preparer runs in each form."
+do_2 = "do_2 Add the option stand-in-credit to the command. It may be given several times, and each value names a token address, an account address and an amount in the units of the token; say the form of the value in the help text. A value that does not parse, an amount of zero and a repeated pair of token and account end the command with the code of a usage error before a home is opened. The options of the apply check in node/apply_check.go carry the credits, and every form applies them through the preparer before its block is built, in the order given."
+do_3 = "do_3 A credit is made in the way the token keeps its balances. For a token the ledger keeps, the ledger issues the amount to the account. For a token a contract keeps, the preparer finds the storage place of the balance of the account: it reads the balance through the contract, writes the balance plus the amount to a candidate place, reads the balance through the contract again, and restores the place where the read does not show the sum; it tries the usual layouts of a map of balances over a count of positions that you name. Where no place gives the sum, the run ends with an error that names the token, and no transaction is applied. The total of the token that the contract reports may stay as it is, and the report says so."
+do_4 = "do_4 The report names every credit with token, account, amount, the balance before and the balance after, the same in every form. Nothing is written into the home the copy was made from, and the refusal of a home without the marker file stays as it is and comes before any credit."
+do_5 = "do_5 Add cases to the existing case files under node and daemon/paxd/cmd. An account without the collateral token signs an approve for the perps precompile, a deposit and a plain market order: without the option the deposit is refused in every form; with a credit the deposit succeeds in every form, the results and the state hash of the forms agree, and the report names the credit. One case credits a token the ledger keeps and one a token a contract keeps. One case gives a token whose balance place is not found and expects the error and no applied transaction. The cases of the command cover the values that do not parse, the zero amount and the repeated pair."
+do_6 = "do_6 The part of daemon/README.md on the command describes the option, the form of its value, what the report holds for it, and that a credit exists in the copy alone. The files under node and daemon/paxd/cmd and the file daemon/README.md are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Take the main line into your branch before you start; it holds the case of task 22.39.787 and its form of the result of a refused transaction, which stay. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["daemon/paxd/cmd", "node", "daemon/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/... ./daemon/... ./precompiles/perps/..."
+verify_cmd = "go test -count=1 -timeout 60m ./node/ -run ^TestApplyCheck && go test -count=1 -timeout 60m ./node/sequencer/ -run ^TestApplyCheck && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run ^TestApplyCheck"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.787]
+title = "Apply every perps call of the trading workspace through both execution paths from one state and compare the results"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.787"]
+interfaces = []
+do_1 = "do_1 Gotcha 4654 and decision 3734. Read the handlers of the precompile under precompiles/perps for the account, the orders and the positions, under apps/perps/packages/paxeer-backend/src the calls in core/perps/calls.ts, the account and vault modules, nativeTrading.ts and the deposit and withdraw of nativeClient.ts, and under node the case files giga_params_parity_test.go, giga_storage_gas_test.go and giga_precompiles_test.go for the way a block is applied through the ordinary path and through the fast path from one state. Give in the final message the list of the calls the workspace can send: the function of the precompile, its arguments in the form the workspace sends them, and the call of the collateral token that precedes it."
+do_2 = "do_2 Add the case file node/giga_perps_parity_test.go with the test TestGigaPerpsParity. It builds one state with a listed market, a price of that market, the collateral token, and accounts with the currency of the chain and a balance of the collateral, and applies the same blocks through the ordinary path and through the fast path. The blocks hold, each as a transaction of its own and in the order a user meets them: the approve of the collateral for the precompile, the deposit, the open of a position that carries its collateral, a plain market order margined against the deposited collateral, a limit order and a stop limit order with a collateral amount, the cancel of an order, the take profit and stop loss of a position, the adding and the removing of collateral, a partial close, a full close and the withdrawal, and every further call of the list of the first step. One account sends the deposit as the first transaction it ever sends. For each kind one transaction that the layer refuses is applied as well, an order above the margin among them."
+do_3 = "do_3 After each block the case compares between the two paths the status of every transaction, the gas used, the logs, the returned data and the hash of the state, and it names kind and field in its message where they differ. Run the sequence once over a state where the parameters of the perps module and of the virtual machine are stored, and once over a state where every key that has a default holds no value, in the way the case of task 22.39.679 forms such a state. The case takes its times and heights from values it sets, so it does not depend on the speed of the machine."
+do_4 = "do_4 Where a kind gives different results on the two paths, do not change a file outside node: keep the sub test of that kind in the file, skip it with the kind and the first differing field as its reason, and give in the final message kind, field, both values and the file and function where the paths part. Where every kind agrees, say so with the count of kinds and of transactions. The files under node are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node"]
+tests = []
+planned_paths = ["node/giga_perps_parity_test.go"]
+build_cmd = "go build ./node/... ./precompiles/perps/..."
+verify_cmd = "go test -count=1 -timeout 60m ./node/ -run ^TestGigaPerpsParity"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.780]
 title = "Carry the price of a market at the start of the window of 24 hours in the reads of the perps data service"

@@ -78,3 +78,68 @@ body {
   font-weight: 700;
   font-display: swap;
 }
+
+:focus-visible {
+  outline: 2px solid currentColor !important;
+  outline-offset: -2px;
+}
+
+.oui-transition-all {
+  transition-property:
+    color, background-color, border-color, box-shadow, opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.oui-tabs-list {
+  min-width: 0;
+  max-width: 100%;
+  overflow: auto;
+}
+
+[data-radix-popper-content-wrapper]:has([data-link-device-hint]) {
+  pointer-events: none;
+}
+
+.oui-scaffold-container,
+.oui-trading-dataList-container,
+.oui-layout-grid-item {
+  overflow: auto;
+}
+
+.oui-scaffold-topNavbar > div > div > div:last-child {
+  min-width: 0;
+  overflow: auto;
+}
+
+.oui-portfolio-trader-card,
+.oui-portfolio-trader-card > div {
+  overflow: auto;
+}
+
+code {
+  overflow-wrap: anywhere;
+}
+
+.oui-datepicker-trigger > span,
+.oui-orderBook button > span {
+  overflow: auto;
+}
+
+.oui-datepicker-trigger > span {
+  overflow: auto !important;
+}
+
+.oui-sheet-content {
+  max-height: 100dvh;
+  overflow-y: auto;
+}

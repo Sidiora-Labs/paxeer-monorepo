@@ -618,6 +618,7 @@
   "orderEntry.bbo.disabled.tips": "BBO wordt niet ondersteund wanneer TP/SL, Alleen-plaatsen, IOC of FOK is geselecteerd.",
   "orderEntry.estLiqPrice": "Geschatte liq. prijs",
   "orderEntry.disableOrderConfirm": "Orderbevestiging uitschakelen",
+  "orderEntry.nativeFunding.twoTransactions": "Er volgen twee transacties: het ontbrekende onderpand storten en daarna de order plaatsen. Een tokengoedkeuring kan ook nodig zijn.",
   "orderEntry.orderConfirm": "Orderbevestiging",
   "orderEntry.confirmScaledOrder": "Bevestig geschaalde order",
   "orderEntry.hidden": "Verborgen",

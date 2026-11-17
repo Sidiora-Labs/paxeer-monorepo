@@ -48,7 +48,6 @@ const SimpleDialog: FC<PropsWithChildren<SimpleDialogProps>> = (props) => {
       <DialogContent
         size={props.size}
         closable={props.closable}
-        onOpenAutoFocus={(event) => event.preventDefault()}
         onCloseAutoFocus={(event) => event.preventDefault()}
         /** prevent close dialog when click the mask  */
         // onPointerDownOutside={(event) => event.preventDefault()}

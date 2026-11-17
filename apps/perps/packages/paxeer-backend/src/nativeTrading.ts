@@ -1,5 +1,8 @@
-import { parseUnits } from "viem";
-import { TimeInForce } from "./core/network/abi/PerpsPrecompile";
+import { formatUnits, parseUnits, numberToHex } from "viem";
+import {
+  PerpsPrecompileABI,
+  TimeInForce,
+} from "./core/network/abi/PerpsPrecompile";
 import Decimal from "decimal.js";
 import { PERPS_MARKETS, COLLATERAL_TOKENS } from "./core/perps/config";
 import { PRECOMPILES } from "./core/network/precompiles";
@@ -12,9 +15,21 @@ import { useQuoter } from "./hooks/perps/useQuoter";
 import { refreshPositions } from "./hooks/perps/usePortfolioStats";
 import { getNativeSnapshot, updateNativeSnapshot } from "./runtime";
 import { toNativeSymbol } from "./nativeMetadata";
-import { planNativeOrder, type NativeOrder } from "./nativeOrderPlan";
+import {
+  planNativeOrder,
+  nativeOrderFunding,
+  NativeInsufficientBalanceError,
+  type NativeOrder,
+} from "./nativeOrderPlan";
+import type { PerpsCall } from "./core/perps/calls";
+import { highestPerpsFeeTier } from "./core/perps/feeTier";
+import { writeContract, waitForTx } from "./hooks/perps/useContract";
+import { nativeDeposit } from "./nativeClient";
 export { planNativeOrder, type NativeOrder } from "./nativeOrderPlan";
-export async function executeNativeOrder(order: NativeOrder) {
+export async function executeNativeOrder(
+  order: NativeOrder,
+  options?: { beforeDeposit?: () => Promise<void> },
+) {
   const state = getNativeSnapshot();
   const address = getConnectedAddress();
   if (
@@ -80,62 +95,141 @@ export async function executeNativeOrder(order: NativeOrder) {
     };
   }
   const planned = planNativeOrder(order, live?.price ?? Number.NaN, leverage);
-  if (!order.reduce_only && planned.type !== "MARKET")
+  const fundingForAccount = () => {
+    const current = getNativeSnapshot();
+    if (
+      getConnectedAddress()?.toLowerCase() !== address.toLowerCase() ||
+      current.address?.toLowerCase() !== address.toLowerCase() ||
+      current.chainId !== paxeerChain.id
+    )
+      throw new Error("Wallet or network changed while preparing the order.");
+    const funding = nativeOrderFunding(
+      planned,
+      current.freeCollateral,
+      current.walletBalances.USDC,
+      leverage,
+      current.feeTier?.takerBps ?? highestPerpsFeeTier.takerBps,
+    );
+    if (funding.source === "insufficient")
+      throw new NativeInsufficientBalanceError();
+    return funding;
+  };
+  let funding = fundingForAccount();
+  const bound =
+    planned.type === "MARKET" ? takeNativeQuote(order, leverage) : null;
+  const reviewedDeposit = funding.source === "split";
+  if (reviewedDeposit) {
+    await options?.beforeDeposit?.();
+    funding = fundingForAccount();
+  }
+  if (funding.source === "split") {
+    await nativeDeposit({
+      token: "USDC",
+      amount: formatUnits(
+        funding.depositAmount,
+        COLLATERAL_TOKENS.usdc.decimals,
+      ),
+      decimals: COLLATERAL_TOKENS.usdc.decimals,
+    });
+    const current = getNativeSnapshot();
+    if (
+      getConnectedAddress()?.toLowerCase() !== address.toLowerCase() ||
+      current.address?.toLowerCase() !== address.toLowerCase() ||
+      current.chainId !== paxeerChain.id
+    )
+      throw new Error("Wallet or network changed after the deposit.");
+  }
+  let receipt;
+  if (funding.source === "wallet") {
     await ensureAllowance({
       token: planned.collateralToken,
       owner: address,
       spender: PRECOMPILES.perps,
-      amount: planned.collateralAmount,
+      amount: funding.requiredAmount,
     });
-  let receipt;
-  if (planned.type === "MARKET") {
-    const bound = takeNativeQuote(order, leverage);
-    const {
-      marketId,
-      collateralAmount,
-      leverage: quotedLeverage,
-      isLong,
-    } = bound.plan;
+    const tail = [
+      planned.sizeUsd,
+      planned.leverage,
+      planned.collateralToken,
+      funding.requiredAmount,
+    ] as const;
+    const call =
+      planned.type === "MARKET"
+        ? {
+            functionName: "openPosition" as const,
+            args: [
+              planned.marketId,
+              planned.collateralToken,
+              funding.requiredAmount,
+              planned.leverage,
+              planned.isLong,
+            ] as const,
+          }
+        : planned.type === "LIMIT"
+          ? {
+              functionName: "placeLimitOrder" as const,
+              args: [
+                planned.marketId,
+                planned.isLong,
+                planned.limitPrice,
+                ...tail,
+              ] as const,
+            }
+          : {
+              functionName: "placeStopLimitOrder" as const,
+              args: [
+                planned.marketId,
+                planned.isLong,
+                planned.triggerPrice,
+                planned.limitPrice,
+                ...tail,
+              ] as const,
+            };
+    const contractCall = {
+      address: PRECOMPILES.perps,
+      abi: PerpsPrecompileABI,
+      ...call,
+    } satisfies
+      | PerpsCall<"openPosition">
+      | PerpsCall<"placeLimitOrder">
+      | PerpsCall<"placeStopLimitOrder">;
+    receipt = await waitForTx(await writeContract(contractCall));
+  } else if (bound) {
+    const quote = reviewedDeposit
+      ? await useQuoter().quoteOpenPosition({
+          ...planned,
+          collateralAmount: funding.requiredAmount,
+        })
+      : bound.quote;
     receipt = await usePosition().openPosition({
-      marketId,
-      collateralAmount,
-      leverage: quotedLeverage,
-      isLong,
-      quote: bound.quote,
-    });
-  } else if (planned.type === "LIMIT") {
-    receipt = await usePerpsOrders().placeLimitOrder({
       marketId: planned.marketId,
-      isLong: planned.isLong,
-      limitPrice: planned.limitPrice,
-      sizeUsd: planned.sizeUsd,
-      leverage: planned.leverage,
       collateralAmount: planned.collateralAmount,
-      timeInForce: TimeInForce.GTC,
-      reduceOnly: Boolean(order.reduce_only),
-      cloid: "0x00000000000000000000000000000000",
-    });
-  } else if (
-    ["STOP_LIMIT", "STOP_LOSS_LIMIT", "TAKE_PROFIT_LIMIT"].includes(
-      planned.type,
-    )
-  ) {
-    receipt = await usePerpsOrders().placeStopLimitOrder({
-      marketId: planned.marketId,
-      isLong: planned.isLong,
-      limitPrice: planned.limitPrice,
-      triggerPrice: planned.triggerPrice,
-      sizeUsd: planned.sizeUsd,
       leverage: planned.leverage,
-      collateralAmount: planned.collateralAmount,
-      timeInForce: TimeInForce.GTC,
-      reduceOnly: Boolean(order.reduce_only),
-      cloid: "0x00000000000000000000000000000000",
+      isLong: planned.isLong,
+      quote: { entryPrice: quote.entryPrice, sizeUsd: planned.sizeUsd },
     });
   } else {
-    throw new Error(
-      `The Paxeer contracts do not support ${planned.type} through this order path.`,
-    );
+    const input = {
+      marketId: planned.marketId,
+      isLong: planned.isLong,
+      limitPrice: planned.limitPrice,
+      sizeUsd: planned.sizeUsd,
+      leverage: planned.leverage,
+      collateralAmount: planned.collateralAmount,
+      timeInForce: TimeInForce.GTC,
+      reduceOnly: false,
+      cloid: numberToHex(
+        (BigInt(Date.now()) << 32n) | BigInt(++orderSequence),
+        { size: 16 },
+      ),
+    };
+    receipt =
+      planned.type === "LIMIT"
+        ? await usePerpsOrders().placeLimitOrder(input)
+        : await usePerpsOrders().placeStopLimitOrder({
+            ...input,
+            triggerPrice: planned.triggerPrice,
+          });
   }
   refreshPositions();
   if (typeof window !== "undefined")
@@ -158,6 +252,8 @@ export async function cancelNativeOrder(orderId: string) {
     timestamp: Date.now(),
   };
 }
+
+let orderSequence = 0;
 
 export const NATIVE_QUOTE_MAX_AGE_MS = 15_000;
 type BoundNativeQuote = {
@@ -192,7 +288,18 @@ export async function prepareNativeQuote(
 ) {
   const key = nativeOrderKey(order, leverage);
   const plan = planNativeOrder(order, markPrice, leverage);
-  const quote = await useQuoter().quoteOpenPosition(plan);
+  const state = getNativeSnapshot();
+  const funding = nativeOrderFunding(
+    plan,
+    state.freeCollateral,
+    state.walletBalances.USDC,
+    leverage,
+    state.feeTier?.takerBps ?? highestPerpsFeeTier.takerBps,
+  );
+  const quote = await useQuoter().quoteOpenPosition({
+    ...plan,
+    collateralAmount: funding.requiredAmount,
+  });
   if (nativeOrderKey(order, leverage) !== key)
     throw new Error("Wallet or network changed while requesting the quote.");
   const result = {

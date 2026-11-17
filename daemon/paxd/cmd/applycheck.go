@@ -25,7 +25,7 @@ func ApplyCheckCmd(defaultHome string) *cobra.Command {
 func newApplyCheckCmd(defaultHome string, exit func(int)) *cobra.Command {
 	var home, input, blockTime, output string
 	var standInReceiptKey bool
-	var transactions []string
+	var transactions, standInCredits []string
 	finish := func(cmd *cobra.Command, code int, err error) {
 		if err != nil {
 			fmt.Fprintln(cmd.ErrOrStderr(), err)
@@ -45,7 +45,7 @@ func newApplyCheckCmd(defaultHome string, exit func(int)) *cobra.Command {
 				finish(cmd, 2, errors.New("applycheck accepts flags only"))
 				return
 			}
-			code, err := executeApplyCheck(cmd, home, input, transactions, blockTime, output, standInReceiptKey)
+			code, err := executeApplyCheck(cmd, home, input, transactions, blockTime, output, standInReceiptKey, standInCredits)
 			finish(cmd, code, err)
 		},
 	}
@@ -56,10 +56,15 @@ func newApplyCheckCmd(defaultHome string, exit func(int)) *cobra.Command {
 	command.Flags().StringVar(&blockTime, "block-time", "", "Block time in RFC3339 format (default: last block time plus one second)")
 	command.Flags().StringVar(&output, "output", "", "Write the JSON report outside the copied home (default: stdout)")
 	command.Flags().BoolVar(&standInReceiptKey, "stand-in-receipt-key", false, "Use an in-memory receipt key instead of the configured receipt and consensus key files")
+	command.Flags().StringArrayVar(&standInCredits, "stand-in-credit", nil, "Credit TOKEN:ACCOUNT:AMOUNT in the temporary copy (repeatable; addresses and positive decimal token base units)")
 	return command
 }
 
-func executeApplyCheck(cmd *cobra.Command, home, input string, direct []string, blockTime, output string, standInReceiptKey bool) (int, error) {
+func executeApplyCheck(cmd *cobra.Command, home, input string, direct []string, blockTime, output string, standInReceiptKey bool, creditValues []string) (int, error) {
+	credits, err := app.ParseApplyCheckCredits(creditValues)
+	if err != nil {
+		return 2, err
+	}
 	var txs [][]byte
 	appendTransaction := func(line string) error {
 		if strings.TrimSpace(line) == "" {
@@ -111,7 +116,7 @@ func executeApplyCheck(cmd *cobra.Command, home, input string, direct []string, 
 		}
 	}
 	applyCheck := sequencer.ApplyCheck{}
-	applyOptions := app.ApplyCheckOptions{}
+	applyOptions := app.ApplyCheckOptions{StandInCredits: credits}
 	if standInReceiptKey {
 		key, err := sequencer.NewApplyCheckReceiptKey()
 		if err != nil {

@@ -9,6 +9,8 @@ export interface FeeTierView {
   volume14dUsd: bigint;
 }
 
+export const highestPerpsFeeTier = feeTierView([0, 450n, 150n, 0n]);
+
 export function feeTierView(
   result: ContractFunctionReturnType<
     typeof PerpsPrecompileABI,

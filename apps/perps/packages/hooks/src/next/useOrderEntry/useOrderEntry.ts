@@ -20,7 +20,12 @@ import {
   nativeSymbols,
   toNativeSymbol,
 } from "@paxeer-network/paxeer-backend/nativeMetadata";
-type Options = { initialOrder?: Record<string, any>; [key: string]: any };
+import { NativeInsufficientBalanceError } from "@paxeer-network/paxeer-backend/nativeOrderPlan";
+type Options = {
+  initialOrder?: Record<string, any>;
+  beforeNativeDeposit?: () => Promise<void>;
+  [key: string]: any;
+};
 export type SubmitOrderOptions = {
   resetOnSuccess?: boolean;
   /**
@@ -72,8 +77,12 @@ export type OrderEntryReturn = {
      * Function to validate the order.
      * @returns {Promise<OrderValidationResult | null>} The validation result.
      */
-    validate: (otherErrors?: OrderValidationResult) => Promise<PaxeerNetworkOrder>;
-    getProjectedUSDCBorrow: (order: Partial<PaxeerNetworkOrder>) => number | null;
+    validate: (
+      otherErrors?: OrderValidationResult,
+    ) => Promise<PaxeerNetworkOrder>;
+    getProjectedUSDCBorrow: (
+      order: Partial<PaxeerNetworkOrder>,
+    ) => number | null;
   };
   freeCollateral: number;
   /**
@@ -229,6 +238,7 @@ const useOrderEntry = (
     formattedOrder,
     native.leverage[symbol],
     reset,
+    options.beforeNativeDeposit,
   );
   const merge = (
     values: Partial<FullOrderState> | Record<string, any>,
@@ -265,7 +275,18 @@ const useOrderEntry = (
     }));
   };
   const validate = async () => {
-    await nativeEntry.helper.validate();
+    try {
+      await nativeEntry.helper.validate();
+    } catch (error) {
+      if (error instanceof NativeInsufficientBalanceError) {
+        const errors: OrderValidationResult = {
+          order_quantity: { type: "max", value: 0, message: error.message },
+        };
+        setMeta((state) => ({ ...state, validated: true, errors }));
+        throw errors;
+      }
+      throw error;
+    }
     setMeta((state) => ({ ...state, validated: true, errors: null }));
     return formattedOrder as PaxeerNetworkOrder;
   };

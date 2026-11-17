@@ -9,23 +9,13 @@ import {
   InjectableTradingviewDesktop,
 } from "./tradingview.injectable";
 
-const LazyLineType = React.lazy(() => import("./lineType"));
+import LineType from "./lineType";
 
-const LazyTimeInterval = React.lazy(() =>
-  import("./timeInterval").then((mod) => ({ default: mod.TimeInterval })),
-);
+import { TimeInterval } from "./timeInterval";
 
-const LazyMobileDisplayControl = React.lazy(() =>
-  import("./displayControl").then((mod) => ({
-    default: mod.MobileDisplayControl,
-  })),
-);
+import { MobileDisplayControl } from "./displayControl";
 
-const LazyDesktopDisplayControl = React.lazy(() =>
-  import("./displayControl").then((mod) => ({
-    default: mod.DesktopDisplayControl,
-  })),
-);
+import { DesktopDisplayControl } from "./displayControl";
 
 type MobileTopBarProps = Pick<
   TradingviewUIPropsInterface,
@@ -51,7 +41,7 @@ const MobileTopBar: React.FC<MobileTopBarProps> = ({
       className="oui-hide-scrollbar oui-overflow-x-scroll"
     >
       <React.Suspense fallback={null}>
-        <LazyTimeInterval
+        <TimeInterval
           interval={interval ?? "15"}
           changeInterval={changeInterval}
         />
@@ -60,7 +50,7 @@ const MobileTopBar: React.FC<MobileTopBarProps> = ({
         <IndicatorsIcon />
       </OperateButton>
       <React.Suspense fallback={null}>
-        <LazyMobileDisplayControl
+        <MobileDisplayControl
           displayControlState={displayControlState}
           changeDisplayControlState={changeDisplaySetting}
         />
@@ -99,7 +89,7 @@ const DesktopTopBar: React.FC<DesktopTopBarProps> = ({
     <Flex justify={"between"} itemAlign={"center"} width={"100%"}>
       <Flex>
         <React.Suspense fallback={null}>
-          <LazyTimeInterval
+          <TimeInterval
             interval={interval ?? "1"}
             changeInterval={changeInterval}
           />
@@ -112,7 +102,7 @@ const DesktopTopBar: React.FC<DesktopTopBarProps> = ({
         />
         <Flex justify="start" itemAlign="center" gap={2}>
           <React.Suspense fallback={null}>
-            <LazyDesktopDisplayControl
+            <DesktopDisplayControl
               displayControlState={displayControlState}
               changeDisplayControlState={changeDisplaySetting}
             />
@@ -121,7 +111,7 @@ const DesktopTopBar: React.FC<DesktopTopBarProps> = ({
             <IndicatorsIcon />
           </OperateButton>
           <React.Suspense fallback={null}>
-            <LazyLineType lineType={lineType} changeLineType={changeLineType} />
+            <LineType lineType={lineType} changeLineType={changeLineType} />
           </React.Suspense>
           <OperateButton onClick={openChartSetting}>
             <SettingIcon />

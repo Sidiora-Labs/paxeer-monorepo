@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { after, before } from "node:test";
-import { checkSurface } from "../check.mjs";
-import { GEOMETRY_WIDTHS, readSurface } from "../config.mjs";
+import { checkSurface, readSurface } from "../check.mjs";
+import { GEOMETRY_WIDTHS } from "../config.mjs";
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
 const cli = resolve(dirname(fileURLToPath(import.meta.url)), "../check.mjs");

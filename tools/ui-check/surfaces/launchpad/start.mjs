@@ -26,6 +26,18 @@ const answerNames = [
 const answers = new Map(await Promise.all(answerNames.map(async name =>
   [name, await readFile(new URL(`${name}.json`, directory))])));
 const returning = await readFile(new URL('returning.js', directory));
+const loading = await readFile(new URL('loading.js', directory));
+const surface = JSON.parse(await readFile(new URL('./parts/explore.json', import.meta.url), 'utf8'));
+const loadingPaths = new Set(surface.views.filter(view => {
+  const url = new URL(view.path, origin);
+  return url.searchParams.get('render') === 'loading';
+}).map(view => view.path));
+
+function documentScripts(path) {
+  return '<head><script src="/__surface/returning.js"></script>'
+    + (loadingPaths.has(path) ? '<script src="/__surface/loading.js"></script>' : '');
+}
+const scriptDecoder = await readFile(new URL('./assets/fflate.min.js', import.meta.url), 'utf8');
 const standaloneDirectory = resolve('apps/launchpad/web/.next/standalone/web');
 await cp('apps/launchpad/web/public', resolve(standaloneDirectory, 'public'), { recursive: true });
 const app = spawn(process.execPath, [resolve(standaloneDirectory, 'server.js')], {
@@ -47,6 +59,7 @@ function answerFor(url, state) {
   if (path === '/v3/portfolio/shares/7f3b2a10-5c4d-4e8f-9a1b-2c3d4e5f6a7b') return { name: 'public-share' };
   if (path === '/v3/portfolio/shares/11111111-1111-4111-8111-111111111111') return { name: 'unavailable', status: 410 };
   if (path === '/v3/portfolio/shares/22222222-2222-4222-8222-222222222222') return { name: 'not-found', status: 404 };
+  if (path === '/v3/portfolio/shares/33333333-3333-4333-8333-333333333333') return { name: 'unavailable', status: 503 };
   if (path.startsWith('/v2/control/'))
     return { name: 'unavailable', status: 503 };
   if (/^\/users\/0x[0-9a-f]{40}\/comments$/.test(path)) return { name: 'comments-empty' };
@@ -100,7 +113,25 @@ const assetTypes = { '.js': 'text/javascript', '.css': 'text/css', '.svg': 'imag
 
 function cacheAsset(file) {
   if (!compressedAssets.has(file)) {
-    compressedAssets.set(file, readFile(file).then(body => ({ body, gzip: gzipSync(body, { level: 1 }) })));
+    compressedAssets.set(file, readFile(file).then(original => {
+      let body = original;
+      if (file.startsWith(`${nextAssets}/`) && extname(file) === '.js' && original.length > 1024 * 1024) {
+        const packed = gzipSync(original, { level: 9 }).toString('base64');
+        body = Buffer.from(`(() => {
+          const nonce = document.currentScript.nonce;
+          var module = { exports: {} }, exports = module.exports;
+          ${scriptDecoder};
+          const packed = atob('${packed}');
+          const bytes = Uint8Array.from(packed, character => character.charCodeAt(0));
+          const script = document.createElement('script');
+          script.nonce = nonce;
+          script.textContent = new TextDecoder('utf-8', { fatal: true }).decode(module.exports.gunzipSync(bytes));
+          document.head.append(script);
+          script.remove();
+        })();`);
+      }
+      return { body, gzip: gzipSync(body, { level: 1 }) };
+    }));
   }
   return compressedAssets.get(file);
 }
@@ -155,11 +186,21 @@ const server = createServer({ cert: await readFile(certificate), key: await read
     outgoing.end(returning);
     return;
   }
+  if (url.pathname === '/__surface/loading.js') {
+    outgoing.writeHead(200, { 'content-type': 'text/javascript', 'cache-control': 'no-store' });
+    outgoing.end(loading);
+    return;
+  }
   if (/^\/(v[123]\/|users\/|stats\/|metadata\/|explorer\/api\/)/.test(url.pathname)) {
     const state = scenario(incoming);
-    const homeLoading = state === 'loading' && new URL(incoming.headers.referer ?? '/', origin).pathname === '/';
+    const pagePath = new URL(incoming.headers.referer ?? '/', origin).pathname;
+    const homeLoading = state === 'loading' && pagePath === '/';
+    const rewardsLoading = state === 'loading' && ['/holder-rewards', '/leaderboard'].includes(pagePath);
+    const liveLoading = state === 'loading' && (['/live', '/live/all'].includes(pagePath) || /^\/profile\/0x[0-9a-f]{40}$/i.test(pagePath));
     if (homeLoading && url.pathname === '/v2/discovery/feed') {
       await new Promise(resolve => setTimeout(resolve, 7500));
+    } else if ((rewardsLoading || liveLoading) && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
+      await new Promise(resolve => setTimeout(resolve, 350));
     } else if (state === 'loading' && !homeLoading && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
       await new Promise(resolve => outgoing.once('close', resolve));
       return;
@@ -223,7 +264,7 @@ const server = createServer({ cert: await readFile(certificate), key: await read
     const chunks = [];
     response.on('data', chunk => chunks.push(chunk));
     response.on('end', () => {
-      const body = Buffer.concat(chunks).toString().replace('<head>', '<head><script src="/__surface/returning.js"></script>');
+      const body = Buffer.concat(chunks).toString().replace('<head>', documentScripts(incoming.url));
       delete headers['content-length'];
       delete headers['transfer-encoding'];
       outgoing.writeHead(response.statusCode, headers);
@@ -251,6 +292,51 @@ server.on('upgrade', (incoming, socket, head) => {
     });
   });
 });
+async function warmPage(path) {
+  const deadline = Date.now() + 15000;
+  while (true) {
+    try {
+      await new Promise((resolve, reject) => {
+        const warming = request({ hostname: '127.0.0.1', port: 4174, path, headers: {
+          host: new URL(origin).host,
+          'x-forwarded-host': new URL(origin).host,
+          'x-forwarded-port': new URL(origin).port,
+          'x-forwarded-proto': 'https',
+        } }, response => {
+          response.resume();
+          response.on('end', () => response.statusCode === 200 ? resolve() : reject(new Error(`Page returned ${response.statusCode}`)));
+          response.on('error', reject);
+        });
+        warming.setTimeout(15000, () => warming.destroy(new Error('Page did not answer')));
+        warming.on('error', reject);
+        warming.end();
+      });
+      return;
+    } catch (error) {
+      if (Date.now() >= deadline) throw error;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+}
+
+server.keepAliveTimeoutBuffer = 5000;
+
+await warmPage('/holder-rewards');
+await warmPage('/leaderboard');
+await warmPage('/meta-ag/orders');
+await warmPage('/meta-ag/swap');
+await warmPage('/swap');
+await warmPage('/terminal');
+await warmPage('/terminal/0x1111111111111111111111111111111111111111');
+await warmPage('/terminal/portfolio');
+await warmPage('/terminal/rewards');
+await warmPage('/terminal/track');
+await warmPage('/terminal/trenches');
+await warmPage('/terminal/trending');
+const warmDirectory = new URL('./warm/', import.meta.url);
+for (const file of (await readdir(warmDirectory)).sort()) {
+  for (const path of JSON.parse(await readFile(new URL(file, warmDirectory), 'utf8'))) await warmPage(path);
+}
 server.listen(4173, '203.0.113.1');
 function close() {
   for (const socket of sockets.clients) socket.terminate();

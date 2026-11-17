@@ -85,33 +85,37 @@ export function profileIssueCopy(issues: ProfileIssue[]): { title: string; body:
 }
 
 /** The single page-level notice for every failed read on the profile. Renders nothing while all reads are healthy. */
-export function ProfileIssuesNotice({ className }: { className?: string }) {
+export function ProfileIssuesNotice({ className, reserve = false }: { className?: string; reserve?: boolean }) {
   const issues = useContext(ProfileIssuesListContext);
   const list = Object.values(issues);
   const copy = profileIssueCopy(list);
-  if (!copy) return null;
+  if (!copy && !reserve) return null;
   const retries = list.map(issue => issue.retry).filter((retry): retry is () => void => Boolean(retry));
   const labels = [...new Set(list.map(issue => issue.label))];
+  const notice = (sizing: boolean) => (
+    <NoticeBar
+      tone="neutral"
+      variant="bar"
+      wrap
+      announce={!sizing}
+      icon={Unplug}
+      title={sizing ? "Some of this profile didn't load" : copy?.title}
+      className="rounded-none px-4 py-3 md:px-5"
+      action={sizing || retries.length > 0 ? (
+        <Button variant="secondary" size="sm" icon={<RotateCw />} onClick={sizing ? undefined : () => retries.forEach(retry => retry())}>Try again</Button>
+      ) : undefined}
+    >
+      <p>{sizing ? "Some of this profile didn't load, try again in a moment" : copy?.body}</p>
+      <details className="mt-1 text-xs text-text-faint">
+        <summary className="cursor-pointer select-none hover:text-text-muted">Details</summary>
+        <p className="mt-1">Missing right now: {joinLabels(labels)}. Each shows a dash until it loads.</p>
+      </details>
+    </NoticeBar>
+  );
   return (
-    <div data-profile-notice className={className}>
-      <NoticeBar
-        tone="neutral"
-        variant="bar"
-        wrap
-        announce
-        icon={Unplug}
-        title={copy.title}
-        className="rounded-none px-4 py-3 md:px-5"
-        action={retries.length > 0 ? (
-          <Button variant="secondary" size="sm" icon={<RotateCw />} onClick={() => retries.forEach(retry => retry())}>Try again</Button>
-        ) : undefined}
-      >
-        <p>{copy.body}</p>
-        <details className="mt-1 text-xs text-text-faint">
-          <summary className="cursor-pointer select-none hover:text-text-muted">Details</summary>
-          <p className="mt-1">Missing right now: {joinLabels(labels)}. Each shows a dash until it loads.</p>
-        </details>
-      </NoticeBar>
+    <div data-profile-notice={copy ? '' : undefined} className={cn(reserve && 'grid min-w-0 grid-cols-[minmax(0,1fr)]', className)}>
+      {reserve ? <div aria-hidden="true" inert className="invisible col-start-1 row-start-1 pointer-events-none">{notice(true)}</div> : null}
+      {copy ? <div className={reserve ? 'col-start-1 row-start-1 min-w-0' : undefined}>{notice(false)}</div> : null}
     </div>
   );
 }

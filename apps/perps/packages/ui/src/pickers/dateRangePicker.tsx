@@ -169,6 +169,12 @@ const DateRangePicker: FC<DateRangePickerProps> = (props) => {
       }
     >
       <button
+        onFocus={(event) =>
+          event.currentTarget.scrollIntoView({
+            block: "nearest",
+            inline: "nearest",
+          })
+        }
         className={trigger({
           className: "oui-datepicker-trigger oui-group",
         })}

@@ -618,6 +618,7 @@
   "orderEntry.bbo.disabled.tips": "TP/SL, 포스트 온리, IOC 또는 FOK가 선택된 경우 BBO가 지원되지 않습니다.",
   "orderEntry.estLiqPrice": "예상 청산 가격",
   "orderEntry.disableOrderConfirm": "주문 확인 비활성화",
+  "orderEntry.nativeFunding.twoTransactions": "부족한 담보를 입금한 후 주문을 제출하는 두 번의 거래가 진행됩니다. 토큰 승인이 추가로 필요할 수 있습니다.",
   "orderEntry.orderConfirm": "주문 확인",
   "orderEntry.confirmScaledOrder": "스케일 주문 확인",
   "orderEntry.hidden": "숨김",

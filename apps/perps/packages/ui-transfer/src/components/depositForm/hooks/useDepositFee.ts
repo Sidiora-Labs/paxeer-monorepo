@@ -1,11 +1,17 @@
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { useAccount, useTokenInfo } from "@paxeer-network/hooks";
 import { ChainNamespace, NetworkId } from "@paxeer-network/types";
+import { paxeerChain } from "@paxeer-network/paxeer-backend/core/chain";
+import {
+  getNativeSnapshot,
+  subscribeNativeSnapshot,
+} from "@paxeer-network/paxeer-backend/runtime";
 import { Decimal } from "@paxeer-network/utils";
 
 export type UseDepositFeeReturn = ReturnType<typeof useDepositFee>;
 
 export function useDepositFee(options: {
+  chainId?: number;
   nativeSymbol?: string;
   depositFee?: bigint;
   getIndexPrice: (token: string) => number;
@@ -13,6 +19,17 @@ export function useDepositFee(options: {
 }) {
   const { nativeSymbol, depositFee = 0, getIndexPrice, networkId } = options;
   const { account } = useAccount();
+
+  const snapshot = useSyncExternalStore(
+    subscribeNativeSnapshot,
+    getNativeSnapshot,
+    getNativeSnapshot,
+  );
+  const isPaxeer = options.chainId === paxeerChain.id;
+  const nativePrice = snapshot.markets.find(
+    (row) => row.symbol.toUpperCase() === nativeSymbol?.toUpperCase(),
+  )?.index_price;
+  const indexPrice = isPaxeer ? nativePrice : getIndexPrice(nativeSymbol!);
 
   const tokenInfo = useTokenInfo(nativeSymbol!, networkId);
 
@@ -25,20 +42,26 @@ export function useDepositFee(options: {
       .div(new Decimal(10).pow(decimals))
       .toString();
 
-    // If the USD fee is 0 while dstGasFee is non-zero, check the public WS
-    // `indexprices` topic for `SPOT_${nativeSymbol}_USDC`. useWSObserver
-    // normalizes that symbol to `PERP_${nativeSymbol}_USDC` for this lookup.
-    const indexPrice = getIndexPrice(nativeSymbol!);
-
-    const feeAmount = new Decimal(dstGasFee).mul(indexPrice || 0).toString();
+    const feeAmount = isPaxeer
+      ? Number.isFinite(indexPrice) && indexPrice > 0
+        ? new Decimal(dstGasFee).mul(indexPrice).toString()
+        : undefined
+      : new Decimal(dstGasFee).mul(indexPrice || 0).toString();
 
     return {
       dstGasFee,
       feeQty: dstGasFee,
       feeAmount,
       dp: tokenInfo?.decimals || 8,
+      showFeeQty: isPaxeer || undefined,
     };
-  }, [depositFee, tokenInfo]);
+  }, [
+    depositFee,
+    tokenInfo,
+    indexPrice,
+    isPaxeer,
+    account.walletAdapter?.chainNamespace,
+  ]);
 
   return feeProps;
 }

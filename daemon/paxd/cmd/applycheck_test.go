@@ -6,10 +6,12 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,11 +24,15 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking"
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
+	chainutils "github.com/Sidiora-Labs/Paxeer-X-Network/utils"
+	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 )
 
-func applyCheckCommandHome(t *testing.T) (string, string, string) {
+func applyCheckCommandHome(t *testing.T, prepare ...func(*app.TestWrapper, utils.TestAcct)) (string, string, string) {
 	t.Helper()
 	previous := app.EnableOCC
 	app.EnableOCC = false
@@ -51,6 +57,9 @@ func applyCheckCommandHome(t *testing.T) (string, string, string) {
 	params := w.App.GetConsensusParams(w.Ctx)
 	params.Block.MaxGasWanted = params.Block.MaxGas
 	w.App.StoreConsensusParams(w.Ctx, params)
+	for _, setup := range prepare {
+		setup(w, payer)
+	}
 	_, err = w.App.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{Header: &tmproto.Header{ChainID: "pax-test", Height: 1, Time: at, ProposerAddress: validator.Address()}})
 	require.NoError(t, err)
 	_, err = w.App.Commit(context.Background())
@@ -110,6 +119,31 @@ func TestApplyCheck(t *testing.T) {
 		entries, err := os.ReadDir(missing)
 		require.NoError(t, err)
 		require.Empty(t, entries)
+	})
+	t.Run("stand_in_credit_usage", func(t *testing.T) {
+		token := "0x85FcD13735F4309833A503EE804ea32395851479"
+		account := "0x0000000000000000000000000000000000001234"
+		validCredit := token + ":" + account + ":1"
+		for _, values := range [][]string{
+			{"invalid"}, {token + ":" + account}, {"bad:" + account + ":1"}, {token + ":bad:1"},
+			{token + ":" + account + ":"}, {token + ":" + account + ":-1"}, {token + ":" + account + ":1.5"},
+			{token + ":" + account + ":1e6"}, {token + ":" + account + ":0"}, {token + ":" + account + ":0x10"},
+			{token + ":" + account + ":" + new(big.Int).Lsh(big.NewInt(1), 256).String()},
+			{validCredit, validCredit}, {validCredit, strings.ToLower(validCredit)},
+		} {
+			args := []string{"--home", filepath.Join(t.TempDir(), "unopened"), "--tx", valid}
+			for _, value := range values {
+				args = append(args, "--stand-in-credit", value)
+			}
+			require.Contains(t, string(run(args, 2)), "stand-in-credit")
+		}
+		missing := t.TempDir()
+		require.Contains(t, string(run([]string{"--home", missing, "--tx", valid, "--stand-in-credit", validCredit}, 2)), "applycheck-copy")
+		entries, err := os.ReadDir(missing)
+		require.NoError(t, err)
+		require.Empty(t, entries)
+		help := run([]string{"--help"}, 0)
+		require.Contains(t, string(help), "TOKEN:ACCOUNT:AMOUNT")
 	})
 	t.Run("empty", func(t *testing.T) {
 		require.Contains(t, string(run([]string{"--home", home}, 2)), "at least one transaction")
@@ -176,4 +210,47 @@ func TestApplyCheck(t *testing.T) {
 		require.NoError(t, json.Unmarshal(stdout.Bytes(), &report))
 		require.True(t, report.Comparison.Equal)
 	})
+}
+
+func TestApplyCheckStandInCreditCommand(t *testing.T) {
+	var native, trader common.Address
+	contract := common.HexToAddress("0x85FcD13735F4309833A503EE804ea32395851479")
+	home, valid, _ := applyCheckCommandHome(t, func(w *app.TestWrapper, payer utils.TestAcct) {
+		trader = payer.EvmAddress
+		require.NoError(t, w.App.EvmKeeper.RunWithOneOffEVMInstance(w.Ctx, func(evm *vm.EVM) error {
+			var err error
+			native, err = w.App.EvmKeeper.UpsertERCNativePointer(w.Ctx, evm, "ucheck", chainutils.ERCMetadata{Name: "Check token", Symbol: "CHECK", Decimals: 6})
+			return err
+		}, func(_, _ string) {}))
+		raw, err := os.ReadFile("../../../precompiles/perps/testdata/usdl_runtime.hex")
+		require.NoError(t, err)
+		w.App.EvmKeeper.SetCode(w.Ctx, contract, common.FromHex(strings.TrimSpace(string(raw))))
+		slot := crypto.Keccak256Hash(common.LeftPadBytes(trader.Bytes(), 32), make([]byte, 32))
+		w.App.EvmKeeper.SetState(w.Ctx, contract, slot, common.BigToHash(big.NewInt(17)))
+	})
+	var stdout, stderr bytes.Buffer
+	code := 0
+	command := newApplyCheckCmd(home, func(exit int) { code = exit })
+	command.SetOut(&stdout)
+	command.SetErr(&stderr)
+	command.SetArgs([]string{"--tx", valid, "--stand-in-receipt-key",
+		"--stand-in-credit", fmt.Sprintf("%s:%s:9", contract, trader),
+		"--stand-in-credit", fmt.Sprintf("%s:%s:23", native, trader),
+		"--stand-in-credit", fmt.Sprintf("%s:%s:5", contract, native)})
+	require.NoError(t, command.Execute())
+	require.Zero(t, code, "%s", stderr.String())
+	var report app.ApplyCheckReport
+	require.NoError(t, json.Unmarshal(stdout.Bytes(), &report))
+	require.True(t, report.Comparison.Equal, "%s", stdout.String())
+	require.Len(t, report.Forms, 3)
+	for _, form := range report.Forms {
+		require.Equal(t, report.Forms[0].StandInCredits, form.StandInCredits)
+		require.Len(t, form.StandInCredits, 3)
+		require.Equal(t, []app.ApplyCheckCreditReport{
+			{Token: contract, Account: trader, Amount: "9", BalanceBefore: "17", BalanceAfter: "26", BalanceSource: "contract_storage", TotalSupplyMayBeUnchanged: true},
+			{Token: native, Account: trader, Amount: "23", BalanceBefore: "0", BalanceAfter: "23", BalanceSource: "ledger"},
+			{Token: contract, Account: native, Amount: "5", BalanceBefore: "0", BalanceAfter: "5", BalanceSource: "contract_storage", TotalSupplyMayBeUnchanged: true},
+		}, form.StandInCredits)
+		require.Equal(t, uint32(1), *form.Results[0].Status)
+	}
 }

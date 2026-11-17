@@ -9,8 +9,9 @@ import { fileURLToPath } from "node:url";
 import test, { after, before } from "node:test";
 import { PNG } from "pngjs";
 import { chromium } from "playwright";
-import { checkSurface } from "../check.mjs";
-import { DEVICES, LIMITS, MODES, REPOSITORY, readSurface, renderMatrix } from "../config.mjs";
+import { checkSurface, FRAME_TAB_PRESSES, FRAME_TRAVERSAL_MS, keyboardFindings, readSurface } from "../check.mjs";
+import { DEVICES, LIMITS, MODES, REPOSITORY, renderMatrix } from "../config.mjs";
+import { observePage } from "../browser.mjs";
 import { serveFiles, startSurface } from "../server.mjs";
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
@@ -151,6 +152,23 @@ async function cleanPagePassesWholeDeviceList() {
   }
 }
 test(cleanPagePassesWholeDeviceList);
+
+async function fullPageCaptureKeepsTheDeviceMatrixAndContentMeasurements() {
+  const { result, out } = await execute("capture", { views: [{ name: "capture", path: "/capture.html?screens=2", modes: ["default"] }] });
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 22);
+  assert.deepEqual(result.findings, []);
+  assert.equal(result.retriedCount, 0);
+  for (const render of result.renders) {
+    assert.equal(render.rendered, true);
+    assert.equal(render.hasContent, true);
+    assert.equal(render.cancelled, 0);
+    const image = PNG.sync.read(await readFile(join(out, render.screenshot)));
+    assert.equal(image.width, render.size.width);
+    assert.equal(image.height, render.size.height * 2);
+  }
+}
+test(fullPageCaptureKeepsTheDeviceMatrixAndContentMeasurements);
 
 async function emptyBodyReportsLoadAtEverySize() {
   const { result, lines } = await execute("blank");
@@ -758,7 +776,9 @@ async function refusedConnectionsRemainRequestFailures(context) {
     const { result } = await execute("requests", surface.options);
     assert.equal(result.passed, false);
     assert.equal(result.renders.length, 22);
+    assert.equal(result.retriedCount, 0);
     for (const render of result.renders) {
+      assert.equal(render.retried, false);
       assert.equal(render.rendered, false);
       assert.equal(render.cancelled, 0);
       const failures = render.findings.filter((finding) => finding.values.source === "requestfailed");
@@ -1373,6 +1393,306 @@ async function clipboardWritesSucceedWithoutReadPermission() {
 }
 test(clipboardWritesSucceedWithoutReadPermission);
 
+async function loadRetrySurface({ closes = 0, navigationDelayMs = 0, status = 200, documentStatus = 200, wide = false } = {}) {
+  const body = await readFile(join(fixtures, "load-retry.html"));
+  const requests = { document: 0, resource: 0, delayed: 0, interrupted: 0 };
+  const timers = new Set();
+  const instance = createServer((request, response) => {
+    const path = new URL(request.url, "http://localhost").pathname;
+    if (path === "/ready") { response.end("Ready"); return; }
+    if (path === "/retry-resource.js") {
+      if (++requests.resource <= closes) { response.destroy(); return; }
+      response.writeHead(status, { "content-type": "text/javascript" });
+      response.end();
+      return;
+    }
+    if (path !== "/index.html") { response.writeHead(404); response.end(); return; }
+    const visit = ++requests.document;
+    const answer = () => {
+      response.writeHead(documentStatus, { "content-type": "text/html" });
+      response.end(body);
+    };
+    if (visit === 1 && navigationDelayMs) {
+      requests.delayed++;
+      const timer = setTimeout(() => { timers.delete(timer); answer(); }, navigationDelayMs);
+      timers.add(timer);
+      response.once("close", () => {
+        if (!response.writableEnded) requests.interrupted++;
+        clearTimeout(timer);
+        timers.delete(timer);
+      });
+    } else answer();
+  });
+  await new Promise((resolve) => instance.listen(0, "localhost", resolve));
+  return {
+    requests,
+    options: {
+      address: `http://localhost:${instance.address().port}`, readyPath: "/ready",
+      views: [{ name: "load-retry", path: `/index.html${wide ? "?wide" : ""}`, modes: ["default"] }],
+    },
+    async close() {
+      for (const timer of timers) clearTimeout(timer);
+      await new Promise((resolve) => { instance.close(resolve); instance.closeAllConnections(); });
+    },
+  };
+}
+
+async function closedApplicationRequestUsesTheSecondRender() {
+  const surface = await loadRetrySurface({ closes: 1 });
+  try {
+    const { result, out, lines } = await execute("load-retry", surface.options, { jobs: 1 });
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.equal(result.renders.length, 22);
+    assert.deepEqual(result.findings, []);
+    assert.equal(result.retriedCount, 1);
+    assert.equal(surface.requests.document, 23);
+    assert.equal(surface.requests.resource, 23);
+    const [render, ...following] = result.renders;
+    assert.equal(render.retried, true);
+    assert.equal(render.firstDeadlineStep, null);
+    assert.equal(render.firstLoadFailure.cause, "connection-closed");
+    assert.equal(render.firstLoadFailure.source, "requestfailed");
+    assert.equal(render.firstLoadFailure.method, "GET");
+    assert.equal(render.firstLoadFailure.address, `${surface.options.address}/retry-resource.js`);
+    assert.equal(render.firstLoadFailure.resource, "script");
+    assert.match(render.firstLoadFailure.message, /socket hang up|ECONNRESET/);
+    assert.ok(result.renders.every((entry) => entry.rendered && entry.hasContent && entry.cancelled === 0));
+    assert.ok(following.every((entry) => !entry.retried && entry.firstLoadFailure === null));
+    assert.equal(render.screenshot, "00001.png");
+    assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 22);
+    assert.match(lines[0], /, 0 findings, 1 retried$/);
+    assert.match(lines.at(-1), /, pass, 1 views and states with fewer than all modes, 1 retried$/);
+  } finally { await surface.close(); }
+}
+test(closedApplicationRequestUsesTheSecondRender);
+
+async function persistentlyClosedApplicationRequestKeepsItsFinding() {
+  const surface = await loadRetrySurface({ closes: Infinity });
+  try {
+    const { result, lines } = await execute("load-retry", surface.options, { jobs: 2 });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    assert.equal(result.retriedCount, 22);
+    assert.equal(surface.requests.document, 44);
+    assert.equal(surface.requests.resource, 44);
+    for (const render of result.renders) {
+      assert.equal(render.rendered, true);
+      assert.equal(render.retried, true);
+      assert.equal(render.firstDeadlineStep, null);
+      assert.equal(render.firstLoadFailure.cause, "connection-closed");
+      assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+      assert.equal(render.findings[0].kind, "load");
+      assert.equal(render.findings[0].values.source, "requestfailed");
+      assert.equal(render.findings[0].values.address, `${surface.options.address}/retry-resource.js`);
+      assert.match(render.findings[0].values.message, /socket hang up|ECONNRESET/);
+    }
+    assert.equal(result.findings.length, 22);
+    assert.match(lines.at(-1), /, fail, 1 views and states with fewer than all modes, 22 retried$/);
+  } finally { await surface.close(); }
+}
+test(persistentlyClosedApplicationRequestKeepsItsFinding);
+
+async function navigationTimeoutUsesTheSecondRender() {
+  const surface = await loadRetrySurface({ navigationDelayMs: LIMITS.navigationMs * 2 });
+  try {
+    const { result, lines } = await execute("load-retry", surface.options, { jobs: 1, renderMs: LIMITS.navigationMs * 4 });
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.equal(result.renders.length, 22);
+    assert.deepEqual(result.findings, []);
+    assert.equal(result.retriedCount, 1);
+    assert.equal(surface.requests.document, 23);
+    assert.equal(surface.requests.resource, 22);
+    assert.equal(surface.requests.delayed, 1);
+    assert.equal(surface.requests.interrupted, 1);
+    const [render, ...following] = result.renders;
+    assert.equal(render.retried, true);
+    assert.equal(render.firstDeadlineStep, null);
+    assert.equal(render.firstLoadFailure.cause, "navigation-timeout");
+    assert.ok(["render", "requestfailed"].includes(render.firstLoadFailure.source));
+    assert.match(render.firstLoadFailure.message, /Timeout .* exceeded/i);
+    assert.ok(result.renders.every((entry) => entry.rendered && entry.hasContent));
+    assert.ok(following.every((entry) => !entry.retried && entry.firstLoadFailure === null));
+    assert.match(lines.at(-1), /, pass, 1 views and states with fewer than all modes, 1 retried$/);
+  } finally { await surface.close(); }
+}
+test(navigationTimeoutUsesTheSecondRender);
+
+async function loadEventSurface({ holds = 1, blockedStep = 0 } = {}) {
+  const body = await readFile(join(fixtures, "load-event.html"), "utf8");
+  const requests = { document: 0, resource: 0, held: 0 };
+  const instance = createServer((request, response) => {
+    const url = new URL(request.url, "http://localhost");
+    if (url.pathname === "/ready") { response.end("Ready"); return; }
+    if (url.pathname === "/load-resource.js") {
+      requests.resource++;
+      response.writeHead(200, { "content-type": "text/javascript" });
+      if (Number(url.searchParams.get("visit")) <= holds) {
+        requests.held++;
+        response.flushHeaders();
+      } else response.end();
+      return;
+    }
+    if (url.pathname !== "/index.html") { response.writeHead(404); response.end(); return; }
+    const visit = ++requests.document;
+    let document = body.replace("__VISIT__", String(visit));
+    if (visit === blockedStep) document = document.replace("data-step-control", "data-step-control disabled");
+    response.writeHead(200, { "content-type": "text/html" });
+    response.end(document);
+  });
+  await new Promise((resolve) => instance.listen(0, "localhost", resolve));
+  return {
+    requests,
+    options: {
+      address: `http://localhost:${instance.address().port}`, readyPath: "/ready",
+      views: [{ name: "load-event", path: "/index.html", modes: ["default"] }],
+    },
+    async close() {
+      await new Promise((resolve) => { instance.close(resolve); instance.closeAllConnections(); });
+    },
+  };
+}
+
+async function answeredNavigationUsesTheSecondRenderWhenLoadIsPending() {
+  const navigationMs = 2000;
+  const surface = await loadEventSurface();
+  try {
+    const { result, out, lines } = await execute("load-event", surface.options, { jobs: 1, navigationMs });
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.equal(result.renders.length, 22);
+    assert.deepEqual(result.findings, []);
+    assert.equal(result.retriedCount, 1);
+    assert.deepEqual(surface.requests, { document: 23, resource: 23, held: 1 });
+    const [render, ...following] = result.renders;
+    assert.equal(render.retried, true);
+    assert.equal(render.firstDeadlineStep, null);
+    assert.equal(render.firstLoadFailure.cause, "navigation-load-timeout");
+    assert.equal(render.firstLoadFailure.source, "render");
+    assert.match(render.firstLoadFailure.message, new RegExp(`page.goto: Timeout ${navigationMs}ms exceeded`));
+    assert.ok(result.renders.every((entry) => entry.rendered && entry.hasContent && entry.cancelled === 0));
+    assert.ok(following.every((entry) => !entry.retried && entry.firstLoadFailure === null));
+    assert.equal(render.screenshot, "00001.png");
+    assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 22);
+    assert.match(lines[0], /, 0 findings, 1 retried$/);
+    assert.match(lines.at(-1), /, pass, 1 views and states with fewer than all modes, 1 retried$/);
+    assert.equal(result.limits.navigationMs, LIMITS.navigationMs);
+  } finally { await surface.close(); }
+}
+test(answeredNavigationUsesTheSecondRenderWhenLoadIsPending);
+
+async function answeredNavigationKeepsTheSecondLoadTimeoutFinding() {
+  const navigationMs = 2000;
+  const surface = await loadEventSurface({ holds: 2 });
+  try {
+    const { result, lines } = await execute("load-event", surface.options, { jobs: 1, navigationMs });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    assert.equal(result.retriedCount, 1);
+    assert.deepEqual(surface.requests, { document: 23, resource: 23, held: 2 });
+    const [render, ...following] = result.renders;
+    assert.equal(render.rendered, false);
+    assert.equal(render.retried, true);
+    assert.equal(render.firstDeadlineStep, null);
+    assert.equal(render.firstLoadFailure.cause, "navigation-load-timeout");
+    assert.equal(render.firstLoadFailure.source, "render");
+    assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+    assert.equal(render.findings[0].kind, "load");
+    assert.equal(render.findings[0].values.source, "render");
+    assert.match(render.findings[0].values.message, new RegExp(`page.goto: Timeout ${navigationMs}ms exceeded`));
+    assert.deepEqual(result.findings, render.findings);
+    assert.ok(following.every((entry) => entry.rendered && !entry.retried && entry.firstLoadFailure === null));
+    assert.match(lines[0], /22 renders, 1 did not render, 1 showed nothing, 1 findings, 1 retried$/);
+    assert.match(lines.at(-1), /, fail, 1 views and states with fewer than all modes, 1 retried$/);
+  } finally { await surface.close(); }
+}
+test(answeredNavigationKeepsTheSecondLoadTimeoutFinding);
+
+async function answeredNavigationThatLoadsInTimeDoesNotRetry() {
+  const surface = await loadEventSurface({ holds: 0 });
+  try {
+    const { result, lines } = await execute("load-event", surface.options, { jobs: 1, navigationMs: 2000 });
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.equal(result.renders.length, 22);
+    assert.deepEqual(result.findings, []);
+    assert.equal(result.retriedCount, 0);
+    assert.deepEqual(surface.requests, { document: 22, resource: 22, held: 0 });
+    for (const render of result.renders) {
+      assert.equal(render.rendered, true);
+      assert.equal(render.retried, false);
+      assert.equal(render.firstDeadlineStep, null);
+      assert.equal(render.firstLoadFailure, null);
+    }
+    assert.match(lines.at(-1), /, 0 retried$/);
+  } finally { await surface.close(); }
+}
+test(answeredNavigationThatLoadsInTimeDoesNotRetry);
+
+async function stateStepTimeoutAfterNavigationDoesNotRetry() {
+  const surface = await loadEventSurface({ holds: 0, blockedStep: 23 });
+  try {
+    const views = [{ ...surface.options.views[0], states: [{ name: "continue", steps: [{ action: "click", selector: "[data-step-control]" }] }] }];
+    const { result, lines } = await execute("load-event", { ...surface.options, views }, { jobs: 1, navigationMs: 2000 });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 44);
+    assert.equal(result.retriedCount, 0);
+    assert.deepEqual(surface.requests, { document: 44, resource: 44, held: 0 });
+    const render = result.renders[22];
+    assert.equal(render.state, "continue");
+    assert.equal(render.rendered, false);
+    assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+    assert.equal(render.findings[0].kind, "load");
+    assert.equal(render.findings[0].values.source, "render");
+    assert.match(render.findings[0].values.message, new RegExp(`(?:locator|page).click: Timeout ${LIMITS.navigationMs}ms exceeded`));
+    assert.deepEqual(result.findings, render.findings);
+    for (const entry of result.renders) {
+      assert.equal(entry.retried, false);
+      assert.equal(entry.firstDeadlineStep, null);
+      assert.equal(entry.firstLoadFailure, null);
+    }
+    assert.ok(result.renders.filter((entry) => entry !== render).every((entry) => entry.rendered));
+    assert.match(lines.at(-1), /, 0 retried$/);
+  } finally { await surface.close(); }
+}
+test(stateStepTimeoutAfterNavigationDoesNotRetry);
+
+async function applicationErrorStatusDoesNotRetry() {
+  for (const options of [{ status: 500 }, { documentStatus: 500 }]) {
+    const surface = await loadRetrySurface(options);
+    try {
+      const { result } = await execute("load-retry", surface.options, { jobs: 2 });
+      assert.equal(result.passed, false);
+      assert.equal(result.renders.length, 22);
+      assert.equal(result.retriedCount, 0);
+      assert.equal(surface.requests.document, 22);
+      for (const render of result.renders) {
+        assert.equal(render.retried, false);
+        assert.equal(render.firstLoadFailure, null);
+        assert.ok(render.findings.some((finding) => finding.kind === "load" && finding.values.source === "response" && finding.values.status === 500), JSON.stringify(render.findings));
+      }
+    } finally { await surface.close(); }
+  }
+}
+test(applicationErrorStatusDoesNotRetry);
+
+async function loadAndLayoutFindingsDoNotRetry() {
+  const surface = await loadRetrySurface({ closes: Infinity, wide: true });
+  try {
+    const { result } = await execute("load-retry", surface.options, { jobs: 2 });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    assert.equal(result.retriedCount, 0);
+    assert.equal(surface.requests.document, 22);
+    assert.equal(surface.requests.resource, 22);
+    for (const render of result.renders) {
+      assert.equal(render.rendered, true);
+      assert.equal(render.retried, false);
+      assert.equal(render.firstLoadFailure, null);
+      assert.ok(render.findings.some((finding) => finding.kind === "load" && finding.values.source === "requestfailed"), JSON.stringify(render.findings));
+      assert.ok(render.findings.some((finding) => finding.kind === "sideways"), JSON.stringify(render.findings));
+    }
+  } finally { await surface.close(); }
+}
+test(loadAndLayoutFindingsDoNotRetry);
+
 async function retrySurface({ stalls = 1, finding = false } = {}) {
   const directory = await mkdtemp(join(root, "retry-surface-"));
   const css = await readFile(join(fixtures, "base.css"), "utf8");
@@ -1660,3 +1980,162 @@ async function commandValidatesJobsAndKeepsTheDeadlineInternal() {
   }
 }
 test(commandValidatesJobsAndKeepsTheDeadlineInternal);
+
+async function framesPassAsOneStopAndFollowingControlsKeepTheirFocusChecks() {
+  for (const unmarked of [false, true]) {
+    const { result } = await execute("frame-traversal", {
+      views: [{ name: "frame", path: `/frame-traversal.html${unmarked ? "?unmarked" : ""}` }],
+    });
+    assertMatrix(result);
+    assert.equal(result.passed, !unmarked, JSON.stringify(result.findings));
+    assert.equal(result.findings.length, unmarked ? 4 : 0);
+    for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+      assert.deepEqual(render.focused, ["#before", "#frame", "#after"]);
+      assert.equal(render.findings.length, unmarked ? 1 : 0);
+      for (const finding of render.findings) {
+        assert.equal(finding.kind, "focus");
+        assert.equal(finding.selector, "#after");
+        assert.equal(finding.values.visibleChange, false);
+        assert.equal(finding.values.outside, false);
+      }
+    }
+  }
+}
+test(framesPassAsOneStopAndFollowingControlsKeepTheirFocusChecks);
+
+async function trappedFrameEndsTraversalWithOneBoundedFinding() {
+  const { result } = await execute("frame-trap");
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 4);
+  assert.equal(result.retriedCount, 0);
+  assert.equal(FRAME_TAB_PRESSES, 32);
+  assert.equal(FRAME_TRAVERSAL_MS, 2000);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#before", "#frame"]);
+    assert.equal(render.findings.length, 1);
+    const finding = render.findings[0];
+    assert.equal(finding.kind, "focus");
+    assert.equal(finding.selector, "#frame");
+    assert.equal(finding.values.message, "Keyboard traversal did not leave the frame");
+    assert.ok(finding.values.presses > 0 && finding.values.presses <= FRAME_TAB_PRESSES);
+    assert.equal(finding.values.maximumPresses, FRAME_TAB_PRESSES);
+    assert.equal(finding.values.maximumMilliseconds, FRAME_TRAVERSAL_MS);
+  }
+}
+test(trappedFrameEndsTraversalWithOneBoundedFinding);
+
+async function frameFreeTraversalKeepsEveryTabPress() {
+  const browser = await chromium.launch();
+  try {
+    const context = await browser.newContext();
+    await context.addInitScript(observePage);
+    const page = await context.newPage();
+    await page.goto(`${files.address}/frame-traversal.html?without-frame`);
+    const keyboard = await keyboardFindings(page);
+    assert.deepEqual(keyboard, { findings: [], visited: ["#before", "#after"] });
+    assert.equal(await page.evaluate(() => Number(document.body.dataset.tabs)), 4);
+  } finally { await browser.close(); }
+}
+test(frameFreeTraversalKeepsEveryTabPress);
+
+const embeddedMessage = { script: "/embedded/", message: "Embedded script notice" };
+
+async function declaredEmbeddedMessagesStayVisibleWithTheirCounts() {
+  const { result, lines } = await execute("embedded-messages", {
+    embeddedMessages: [embeddedMessage, { script: "/unused/", message: "Unused notice" }],
+    views: [{ name: "embedded", path: "/embedded-messages.html", modes: ["default"] }],
+  });
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 22);
+  assert.deepEqual(result.findings, []);
+  for (const render of result.renders) {
+    assert.equal(render.rendered, true);
+    assert.deepEqual(render.embeddedMessages, [{ ...embeddedMessage, count: 2 }]);
+  }
+  assert.equal(lines[0], "embedded: 22 renders, 0 did not render, 0 showed nothing, 0 findings, 0 retried, 44 declared messages");
+}
+test(declaredEmbeddedMessagesStayVisibleWithTheirCounts);
+
+async function undeclaredLocationsTextsAndUncaughtErrorsKeepLoadFindings() {
+  for (const [variant, source, message, path] of [
+    ["outside", "console", embeddedMessage.message, "/outside/messages.js"],
+    ["different", "console", "Another embedded notice", "/embedded/messages.js"],
+    ["uncaught", "pageerror", embeddedMessage.message, null],
+    ["rejection", "unhandledrejection", embeddedMessage.message, null],
+  ]) {
+    const { result } = await execute("embedded-messages", {
+      embeddedMessages: [embeddedMessage],
+      views: [{ name: variant, path: `/embedded-messages.html?${variant}`, modes: ["default"] }],
+    });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    for (const render of result.renders) {
+      assert.equal(render.rendered, true);
+      const sources = variant === "rejection" ? ["pageerror", "unhandledrejection"] : [source];
+      assert.equal(render.findings.length, sources.length, JSON.stringify(render.findings));
+      assert.deepEqual(render.findings.map((finding) => finding.values.source), sources);
+      for (const finding of render.findings) {
+        assert.equal(finding.kind, "load");
+        assert.ok(finding.values.message.includes(message));
+        if (path) assert.equal(new URL(finding.values.location.url).pathname, path);
+      }
+      assert.deepEqual(render.embeddedMessages, [{ ...embeddedMessage, count: 2 }]);
+    }
+  }
+}
+test(undeclaredLocationsTextsAndUncaughtErrorsKeepLoadFindings);
+
+async function matchingTextAndPathAtAnotherOriginKeepTheirFinding() {
+  await writeFile(join(root, "external-message.js"), `console.error(${JSON.stringify(embeddedMessage.message)});`);
+  const target = `${externalAddress}/embedded/messages.js`;
+  const outsideRequests = externalRequests;
+  const { result } = await execute("embedded-messages", {
+    embeddedMessages: [embeddedMessage],
+    answers: [{ method: "GET", pattern: target, file: "external-message.js", headers: { "content-type": "text/javascript" } }],
+    views: [{ name: "external", path: `/embedded-messages.html?external=${encodeURIComponent(target)}`, modes: ["default"] }],
+  });
+  assert.equal(result.passed, false);
+  assert.equal(result.renders.length, 22);
+  assert.equal(externalRequests, outsideRequests);
+  for (const render of result.renders) {
+    assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+    assert.equal(render.findings[0].kind, "load");
+    assert.equal(render.findings[0].values.source, "console");
+    assert.equal(render.findings[0].values.message, embeddedMessage.message);
+    assert.equal(render.findings[0].values.location.url, target);
+    assert.deepEqual(render.embeddedMessages, [{ ...embeddedMessage, count: 2 }]);
+  }
+}
+test(matchingTextAndPathAtAnotherOriginKeepTheirFinding);
+
+async function unmatchedEmbeddedMessagesAreOptional() {
+  const { result, lines } = await execute("clean", {
+    embeddedMessages: [embeddedMessage], views: [{ name: "clean", path: "/clean.html", modes: ["default"] }],
+  });
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 22);
+  assert.ok(result.renders.every((render) => render.embeddedMessages.length === 0));
+  assert.equal(lines[0], "clean: 22 renders, 0 did not render, 0 showed nothing, 0 findings, 0 retried");
+}
+test(unmatchedEmbeddedMessagesAreOptional);
+
+async function embeddedMessageEntriesRequireDirectoryPathsAndExactText() {
+  for (const value of [null, false, {}, "messages"]) {
+    await assert.rejects(readSurface(await surfaceFor("clean", { embeddedMessages: value })), /surface\.embeddedMessages must be an array/);
+  }
+  for (const entry of [
+    null, false, [], "message", {}, { message: embeddedMessage.message }, { script: "/embedded/" },
+    ...["/messages.js", "/embedded", "/", "embedded/messages.js", "//embedded/messages.js", "/embedded/../messages.js", "/embedded/?query", "/embedded/#hash", "/embedded/\\messages.js"].map((script) => ({ ...embeddedMessage, script })),
+    ...[null, false, 1, {}, [], "", "  "].map((message) => ({ ...embeddedMessage, message })),
+    { ...embeddedMessage, unknown: true },
+  ]) {
+    await assert.rejects(readSurface(await surfaceFor("clean", { embeddedMessages: [embeddedMessage, entry] })), /surface\.embeddedMessages\[1\]/);
+  }
+  for (const script of ["/embedded/", "/embedded/messages.js", "/vendor/charts/bundle"]) {
+    const entries = [{ ...embeddedMessage, script }];
+    assert.deepEqual((await readSurface(await surfaceFor("clean", { embeddedMessages: entries }))).embeddedMessages, entries);
+  }
+  assert.deepEqual((await readSurface(await surfaceFor("clean", { embeddedMessages: [] }))).embeddedMessages, []);
+}
+test(embeddedMessageEntriesRequireDirectoryPathsAndExactText);
