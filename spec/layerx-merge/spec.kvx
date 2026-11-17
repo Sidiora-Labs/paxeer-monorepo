@@ -15586,6 +15586,24 @@ value = "Where the outcome of a case depends on a setting of its environment tha
 basis = "Gotchas 4669, 4670 and 4671. Decision 3742."
 affects = []
 
+[decision.3746]
+title = "A case that starts a process on a port picked beforehand repeats the start on a fresh port where the address is in use"
+value = "A case of the wallet gateway that starts a process or a server on a port picked beforehand takes the port through the one helper of the case support and holds the reservation until right before the start. Where the started process reports that the address is in use, the case stops it, takes a fresh port and starts it again. The repeats are bounded: at least 3 starts are tried, the count is one named value, and after the last one the case reports the error of the process as it is. Every other error of a start is reported at once and is not repeated. Where a server of the case itself can listen on port zero and read its port afterwards, it does that and needs no reservation."
+basis = "Gotcha 4673. Decision 3745."
+affects = []
+
+[decision.3747]
+title = "The launchpad and the explorer are measured through a measuring surface file of their own"
+value = "The measure of decision 3707 for the launchpad and for the explorer runs through a measuring surface file measure.json in the surface directory. It repeats the address, the build, the start and the fixed answers of the whole surface file with paths relative to itself, lists at least one view of every template of the surface with named parts, and names the geometry file earlier-geometry.json beside it with at least the widths 390, 1280, 1440, 1920 and 2560. The whole surface file and the part files do not change, so the proofs of the surface run as before. The geometry file is written from the earlier state, and a run of the measuring file on the present state gives every part that moved. The record holds measures and no judgement; a move is confirmed or taken back by a later task."
+basis = "Gotcha 4674. Decision 3707."
+affects = []
+
+[decision.3748]
+title = "A package directory added to a launchpad Go module enters the package inventory with the change that adds it"
+value = "The sets in tests/ci/data/launchpad_go_tests.py are the reviewed list of the packages of the launchpad Go modules. A task that adds a directory with Go sources to one of these modules, or removes one, changes the set of that module in the same change and holds tests/ci/data/launchpad_go_tests.py among its paths. Directories named testdata and directories of a nested module stay outside the sets, as the comparing case reads them. The comparing case in tests/ci/test_launchpad_go_tests_wired.py stays as it is: the set follows the sources of the module, and the case is not changed to fit a set."
+basis = "Gotcha 4675."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45246,6 +45264,51 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.823]
+title = "Name the command package of the role statements of the ranking module in the package inventory of the launchpad Go test runner"
+reqs = ["22998.1"]
+touches = ["tests/ci/data/launchpad_go_tests.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py"
+do_1 = "do_1 Gotcha 4675 and decision 3748. Read tests/ci/data/launchpad_go_tests.py with the sets under SERVICE_PACKAGES and PNL_PACKAGES and the place that checks the baseline against them, the case test_launchpad_remaining_package_inventory_matches_module_sources in tests/ci/test_launchpad_go_tests_wired.py and the directory services/launchpad/ranking-algo/internal/rolecheck/generate. Run the file tests/ci/test_launchpad_go_tests_wired.py once and read which sets differ from the sources of their modules."
+symbols = []
+
+[capability.22.44.105]
+title = "Measure the explorer against its state before the tasks of series 22.44"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/surfaces/explorer"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.105.kvx && test -s tools/ui-check/surfaces/explorer/earlier-geometry.json && (cd tools/ui-check && npm ci) && node tools/ui-check/check.mjs --list --surface tools/ui-check/surfaces/explorer/measure.json && node tools/ui-check/surfaces/explorer/parts.mjs"
+do_1 = "do_1 Gotcha 4674, decisions 3707 and 3747. Read tools/ui-check/README.md with its part on the stored geometry, tools/ui-check/surfaces/explorer.json, the files under tools/ui-check/surfaces/explorer and the records of the proof tasks of this surface under spec/layerx-merge/programme/records/ui. Find on the main line the first change whose subject names a task of series 22.44 and that changes a file under apps/explorer: the revision before it is the earlier state. Name that revision and the present one in the record."
+symbols = []
+
+[capability.22.44.104]
+title = "Measure the launchpad web application against its state before the tasks of series 22.44"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/surfaces/launchpad"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.104.kvx && test -s tools/ui-check/surfaces/launchpad/earlier-geometry.json && (cd tools/ui-check && npm ci) && node tools/ui-check/check.mjs --list --surface tools/ui-check/surfaces/launchpad/measure.json && node tools/ui-check/surfaces/launchpad/parts.mjs"
+do_1 = "do_1 Gotcha 4674, decisions 3707 and 3747. Read tools/ui-check/README.md with its part on the stored geometry, tools/ui-check/surfaces/launchpad.json, the files under tools/ui-check/surfaces/launchpad and the records of the proof tasks of this surface under spec/layerx-merge/programme/records/ui. Find on the main line the first change whose subject names a task of series 22.44 and that changes a file under apps/launchpad/web: the revision before it is the earlier state. Name that revision and the present one in the record."
+symbols = []
+
+[capability.22.39.822]
+title = "Let the case files of the wallet gateway take their ports through one helper and repeat a start on a fresh port"
+reqs = ["22998.1"]
+touches = ["services/wallet/gateway/test"]
+tests = []
+verification_contract = "pnpm --dir services/wallet/gateway exec vitest run test/evm-approvals.test.ts test/evm-sign.test.ts test/lx-approvals.test.ts test/proof_s27_embedded_wallet_gateway.test.ts test/served-by.test.ts && pnpm --dir services/wallet/gateway exec vitest run test/served-by.test.ts && pnpm --dir services/wallet/gateway exec vitest run test/served-by.test.ts"
+do_1 = "do_1 Gotcha 4673 and decision 3746. Read services/wallet/gateway/test/support/ports.ts, the case file services/wallet/gateway/test/served-by.test.ts with the function that starts its processes and the place that picks its twelve ports, the case files test/evm-approvals.test.ts, test/evm-sign.test.ts, test/lx-approvals.test.ts, test/proof_s27_embedded_wallet_gateway.test.ts and the helpers custody.ts and postgres.ts under test/support with the way each picks ports and starts processes. Give in the final message every place that picks a port before a start, and on which addresses the started process listens."
+symbols = []
+
+[capability.22.39.821]
+title = "Let the move case of the wallet ceremony take the count of the gateway migrations from their directory"
+reqs = ["22998.1"]
+touches = ["services/wallet/ceremony"]
+tests = []
+verification_contract = "(cd services/wallet/ceremony && go test -count=1 -timeout 30m ./internal/move/)"
+do_1 = "do_1 Gotcha 4672. Read the case TestMoveCopiesEveryTableWithMatchingCountsAndDigests in services/wallet/ceremony/internal/move/move_test.go whole, the helper GatewayMigrationFiles in services/wallet/ceremony/internal/testsupport/postgres.go, the directory services/wallet/gateway/migrations and the job of the ceremony in .github/workflows/wallet-go-test.yml with every step that prepares its environment. Prepare that environment and run the package of the case once. Search the cases of services/wallet/ceremony for further fixed counts of migration files, tables or ledger rows that the gateway migrations set, and give them in the final message."
+symbols = []
 
 [capability.22.39.820]
 title = "Let the store clients of the expiry case of the launchpad security module follow the limit of the case"
@@ -176062,6 +176125,70 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.105]
+title = "Measure the explorer against its state before the tasks of series 22.44"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.85", "22.44.86", "22.44.87", "22.44.88", "22.44.89", "22.44.90", "22.44.91", "22.44.92"]
+reqs = ["22998.1"]
+capabilities = ["22.44.105"]
+interfaces = []
+do_1 = "do_1 Gotcha 4674, decisions 3707 and 3747. Read tools/ui-check/README.md with its part on the stored geometry, tools/ui-check/surfaces/explorer.json, the files under tools/ui-check/surfaces/explorer and the records of the proof tasks of this surface under spec/layerx-merge/programme/records/ui. Find on the main line the first change whose subject names a task of series 22.44 and that changes a file under apps/explorer: the revision before it is the earlier state. Name that revision and the present one in the record."
+do_2 = "do_2 Add the measuring surface file tools/ui-check/surfaces/explorer/measure.json in the form of decision 3747. Its views are at least the home view, the block list, one block, the transaction list, one transaction, the address list, one address, the token list, one token, the statistics view and the search result. Give each view its parts: the header, the navigation, the main region, the first heading, the primary control, the first row of each table or list, one card of each kind and the footer, each with a selector that holds in the earlier and in the present state. Where no selector holds in both, choose the part by landmark or role; a part that only one state has is named in the record. The file tools/ui-check/surfaces/explorer.json and the part files do not change, and the script parts.mjs of the surface keeps passing."
+do_3 = "do_3 Add a second working tree of the version control at the earlier state outside the checkout and build the surface there the way the surface file builds it; a change that build needs in the earlier state is made in the second working tree only and named in the record. Run the check with a copy of the measuring file outside the checkout whose build and start run in the second working tree, with the fixed answers of the surface, and write the geometry with the option --write-geometry. Store the result as tools/ui-check/surfaces/explorer/earlier-geometry.json. The runs by hand install what the verification commands of the proof tasks of this surface install. A view that the earlier state cannot render with the fixed answers is named in the record with the reason and leaves the measuring file."
+do_4 = "do_4 Run the check by hand on the present state with the measuring file and read every finding of the kind geometry. Write the record spec/layerx-merge/programme/records/ui/22.44.105.kvx in present tense: the two revisions; a table of every size token of the surface, text sizes, line heights, distances, heights of controls and radii, with its value in the earlier state and in the present state at the widths 390, 1440 and 1920; for each view and width every part that differs by more than one pixel with the stored and the measured values; and the count of such parts per view. The record states measures and no judgement."
+do_5 = "do_5 This task corrects nothing in the surface: no file under apps/explorer changes, and no case and no fixed answer is changed. Work with at most two full runs by hand on each state. Do not ask a question and wait for its answer. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/surfaces/explorer"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.105.kvx"]
+build_cmd = "node --version && npm --version"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.105.kvx && test -s tools/ui-check/surfaces/explorer/earlier-geometry.json && (cd tools/ui-check && npm ci) && node tools/ui-check/check.mjs --list --surface tools/ui-check/surfaces/explorer/measure.json && node tools/ui-check/surfaces/explorer/parts.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.104]
+title = "Measure the launchpad web application against its state before the tasks of series 22.44"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.104"]
+interfaces = []
+do_1 = "do_1 Gotcha 4674, decisions 3707 and 3747. Read tools/ui-check/README.md with its part on the stored geometry, tools/ui-check/surfaces/launchpad.json, the files under tools/ui-check/surfaces/launchpad and the records of the proof tasks of this surface under spec/layerx-merge/programme/records/ui. Find on the main line the first change whose subject names a task of series 22.44 and that changes a file under apps/launchpad/web: the revision before it is the earlier state. Name that revision and the present one in the record."
+do_2 = "do_2 Add the measuring surface file tools/ui-check/surfaces/launchpad/measure.json in the form of decision 3747. Its views are at least the home view, one coin view, the create view, the explore view, one bounty view, the chat view, one document view, the leaderboard, the reward view, one live view and the terminal. Give each view its parts: the header, the navigation, the main region, the first heading, the primary control, the first row of each table or list, one card of each kind and the footer, each with a selector that holds in the earlier and in the present state. Where no selector holds in both, choose the part by landmark or role; a part that only one state has is named in the record. The file tools/ui-check/surfaces/launchpad.json and the part files do not change, and the script parts.mjs of the surface keeps passing."
+do_3 = "do_3 Add a second working tree of the version control at the earlier state outside the checkout and build the surface there the way the surface file builds it; a change that build needs in the earlier state is made in the second working tree only and named in the record. Run the check with a copy of the measuring file outside the checkout whose build and start run in the second working tree, with the fixed answers of the surface, and write the geometry with the option --write-geometry. Store the result as tools/ui-check/surfaces/launchpad/earlier-geometry.json. The runs by hand install what the verification commands of the proof tasks of this surface install. A view that the earlier state cannot render with the fixed answers is named in the record with the reason and leaves the measuring file."
+do_4 = "do_4 Run the check by hand on the present state with the measuring file and read every finding of the kind geometry. Write the record spec/layerx-merge/programme/records/ui/22.44.104.kvx in present tense: the two revisions; a table of every size token of the surface, text sizes, line heights, distances, heights of controls and radii, with its value in the earlier state and in the present state at the widths 390, 1440 and 1920; for each view and width every part that differs by more than one pixel with the stored and the measured values; and the count of such parts per view. The record states measures and no judgement."
+do_5 = "do_5 This task corrects nothing in the surface: no file under apps/launchpad/web changes, and no case and no fixed answer is changed. Work with at most two full runs by hand on each state. Do not ask a question and wait for its answer. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/surfaces/launchpad"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.104.kvx"]
+build_cmd = "node --version && npm --version"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.104.kvx && test -s tools/ui-check/surfaces/launchpad/earlier-geometry.json && (cd tools/ui-check && npm ci) && node tools/ui-check/check.mjs --list --surface tools/ui-check/surfaces/launchpad/measure.json && node tools/ui-check/surfaces/launchpad/parts.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.103]
 title = "Give the job of the render check a limit of 60 minutes"
 status = "done"
@@ -205641,9 +205768,102 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.823]
+title = "Name the command package of the role statements of the ranking module in the package inventory of the launchpad Go test runner"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.823"]
+interfaces = []
+do_1 = "do_1 Gotcha 4675 and decision 3748. Read tests/ci/data/launchpad_go_tests.py with the sets under SERVICE_PACKAGES and PNL_PACKAGES and the place that checks the baseline against them, the case test_launchpad_remaining_package_inventory_matches_module_sources in tests/ci/test_launchpad_go_tests_wired.py and the directory services/launchpad/ranking-algo/internal/rolecheck/generate. Run the file tests/ci/test_launchpad_go_tests_wired.py once and read which sets differ from the sources of their modules."
+do_2 = "do_2 Add the import path of the package in services/launchpad/ranking-algo/internal/rolecheck/generate to the set of the ranking module, in the order the set keeps. Bring every further set that the case reports in line the same way: the sources of the module are the producer and the set follows them. Give each added or removed entry in the final message."
+do_3 = "do_3 Search tests/ci/test_launchpad_go_tests_wired.py and the other files under tests/ci for a second list of the packages of a launchpad module; where one exists and differs from the sources, give it in the final message and change nothing outside the paths. No source of a module changes, no entry is added to the baseline of the runner, and the comparing case does not change."
+do_4 = "do_4 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The file tests/ci/data/launchpad_go_tests.py is inside the paths of this task. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tests/ci/data/launchpad_go_tests.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/data/launchpad_go_tests.py tests/ci/test_launchpad_go_tests_wired.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.822]
+title = "Let the case files of the wallet gateway take their ports through one helper and repeat a start on a fresh port"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.822"]
+interfaces = []
+do_1 = "do_1 Gotcha 4673 and decision 3746. Read services/wallet/gateway/test/support/ports.ts, the case file services/wallet/gateway/test/served-by.test.ts with the function that starts its processes and the place that picks its twelve ports, the case files test/evm-approvals.test.ts, test/evm-sign.test.ts, test/lx-approvals.test.ts, test/proof_s27_embedded_wallet_gateway.test.ts and the helpers custody.ts and postgres.ts under test/support with the way each picks ports and starts processes. Give in the final message every place that picks a port before a start, and on which addresses the started process listens."
+do_2 = "do_2 Bring every such place to the form of decision 3746 through the helper in services/wallet/gateway/test/support/ports.ts: the reservation is held until right before the start, and where the started process reports that the address is in use the case stops it, takes a fresh port and starts it again, at most the named count of times. Where settings of other processes of the case hold the port, they are written again with the fresh port before the start is repeated. A server of the case itself listens on port zero and reads its port afterwards where it can."
+do_3 = "do_3 Add cases for the helper under test/support: a start that meets an address in use is repeated on a fresh port and succeeds, a start that keeps meeting it ends after the named count with the error of the process, and another error of a start is reported at once. The cases hold the port themselves to make the address in use and do not depend on the speed of the machine."
+do_4 = "do_4 No source under services/wallet/gateway/src changes, and the ports and addresses the gateway uses outside its cases stay as they are. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/wallet/gateway/test are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/gateway/test"]
+tests = []
+planned_paths = []
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir services/wallet/gateway exec tsc --noEmit"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/evm-approvals.test.ts test/evm-sign.test.ts test/lx-approvals.test.ts test/proof_s27_embedded_wallet_gateway.test.ts test/served-by.test.ts && pnpm --dir services/wallet/gateway exec vitest run test/served-by.test.ts && pnpm --dir services/wallet/gateway exec vitest run test/served-by.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.821]
+title = "Let the move case of the wallet ceremony take the count of the gateway migrations from their directory"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.821"]
+interfaces = []
+do_1 = "do_1 Gotcha 4672. Read the case TestMoveCopiesEveryTableWithMatchingCountsAndDigests in services/wallet/ceremony/internal/move/move_test.go whole, the helper GatewayMigrationFiles in services/wallet/ceremony/internal/testsupport/postgres.go, the directory services/wallet/gateway/migrations and the job of the ceremony in .github/workflows/wallet-go-test.yml with every step that prepares its environment. Prepare that environment and run the package of the case once. Search the cases of services/wallet/ceremony for further fixed counts of migration files, tables or ledger rows that the gateway migrations set, and give them in the final message."
+do_2 = "do_2 The case asserts that the ledger of the target holds one row for each file the helper gives and that the helper gives at least one file. The count of its own goes. Bring every further fixed count found in do_1 in line the same way: the migrations of the gateway are the producer, and the case takes its side from them."
+do_3 = "do_3 Where a later step of the case differs from what the newer migrations create, the migrations prevail and the case prepares its side from them. A source of the ceremony changes only for a defect of behaviour that the case shows and that the migrations confirm; give each such change in the final message with its reason. No file under services/wallet/gateway changes."
+do_4 = "do_4 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/wallet/ceremony are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/ceremony"]
+tests = []
+planned_paths = []
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && (cd services/wallet/ceremony && go vet ./...)"
+verify_cmd = "(cd services/wallet/ceremony && go test -count=1 -timeout 30m ./internal/move/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.820]
 title = "Let the store clients of the expiry case of the launchpad security module follow the limit of the case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205673,7 +205893,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.819]
 title = "Bring four cases of the launchpad indexer module in line with the sources they read and give their waits limits of their own"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205705,7 +205925,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.818]
 title = "Let the case of the charts measurement command read the commit timestamp setting of its database first"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205735,7 +205955,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.817]
 title = "Let the consumer of the stream contract cases prepare every file the sdk compile script reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205766,7 +205986,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.816]
 title = "Give the later side of the visibility bound of the launchpad ranking module an allowance between two clocks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205860,7 +206080,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.813]
 title = "Bring the cases of the live, social and create views of the launchpad web application in line with their views and producers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205891,7 +206111,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.812]
 title = "Bring the cases of the terminal, coin and trading views of the launchpad web application in line with their views and producers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -206201,7 +206421,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.802]
 title = "Bring the suite of the launchpad api module in line with the indexer relations and the document bindings it reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

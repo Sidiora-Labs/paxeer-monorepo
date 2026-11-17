@@ -1,8 +1,8 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { createServer } from 'node:net';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { startOnReservedPorts } from './ports.js';
 
 export interface EphemeralPostgres {
   url: string;
@@ -13,28 +13,9 @@ export interface RestartablePostgres extends EphemeralPostgres {
   restart(): Promise<void>;
 }
 
-function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const srv = createServer();
-    srv.once('error', reject);
-    srv.listen(0, '127.0.0.1', () => {
-      const addr = srv.address();
-      if (addr === null || typeof addr === 'string') {
-        srv.close();
-        reject(new Error('could not determine a free port'));
-        return;
-      }
-      const port = addr.port;
-      srv.close(() => resolve(port));
-    });
-  });
-}
-
 function runAsOwner(bin: string, args: string[]): void {
   const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
-  const [cmd, argv] = isRoot
-    ? ['runuser', ['-u', 'postgres', '--', bin, ...args]]
-    : [bin, args];
+  const [cmd, argv] = isRoot ? ['runuser', ['-u', 'postgres', '--', bin, ...args]] : [bin, args];
   const res = spawnSync(cmd, argv, { encoding: 'utf8' });
   if (res.status !== 0) {
     throw new Error(
@@ -58,44 +39,56 @@ export async function startPostgresEngine(): Promise<RestartablePostgres> {
     chmodSync(dir, 0o777);
     execFileSync('chown', ['postgres', dir]);
   }
-  const port = await freePort();
-  const listenOptions = `-p ${port} -c listen_addresses=127.0.0.1 -c unix_socket_directories='' -c fsync=off -c max_connections=200`;
-  runAsOwner(initdb, [
-    '-D',
-    dataDir,
-    '-U',
-    'postgres',
-    '-A',
-    'trust',
-    '--no-sync',
-    '-E',
-    'UTF8'
-  ]);
-  try {
-    runAsOwner(pgCtl, ['-D', dataDir, '-l', logFile, '-w', '-o', listenOptions, 'start']);
-  } catch (err) {
-    let serverLog: string;
-    try {
-      serverLog = readFileSync(logFile, 'utf8');
-    } catch (readErr) {
-      serverLog = `(server log unreadable: ${(readErr as Error).message})`;
+  runAsOwner(initdb, ['-D', dataDir, '-U', 'postgres', '-A', 'trust', '--no-sync', '-E', 'UTF8']);
+  let url: string;
+  const stopEngine = async (): Promise<void> => {
+    if (existsSync(join(dataDir, 'postmaster.pid'))) {
+      runAsOwner(pgCtl, ['-D', dataDir, '-m', 'immediate', '-w', 'stop']);
     }
-    throw new Error(`${(err as Error).message}\nserver log kept at ${logFile}:\n${serverLog}`);
+  };
+  const startEngine = async (): Promise<void> => {
+    await startOnReservedPorts(
+      1,
+      async ([reservation]) => {
+        const listenOptions = `-p ${reservation!.port} -c listen_addresses=127.0.0.1 -c unix_socket_directories='' -c fsync=off -c max_connections=200`;
+        if (existsSync(logFile)) writeFileSync(logFile, '');
+        await reservation!.release();
+        try {
+          runAsOwner(pgCtl, ['-D', dataDir, '-l', logFile, '-w', '-o', listenOptions, 'start']);
+        } catch (error) {
+          const serverLog = existsSync(logFile) ? readFileSync(logFile, 'utf8') : '';
+          throw new Error(`${(error as Error).message}\n${serverLog}`);
+        }
+        url = `postgres://postgres@127.0.0.1:${reservation!.port}/postgres`;
+      },
+      stopEngine
+    );
+  };
+  try {
+    await startEngine();
+  } catch (error) {
+    rmSync(dir, { recursive: true, force: true });
+    throw error;
   }
-  const url = `postgres://postgres@127.0.0.1:${port}/postgres`;
 
   const stop = async (): Promise<void> => {
     try {
-      runAsOwner(pgCtl, ['-D', dataDir, '-m', 'immediate', '-w', 'stop']);
+      await stopEngine();
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   };
   const restart = async (): Promise<void> => {
-    runAsOwner(pgCtl, ['-D', dataDir, '-m', 'immediate', '-w', 'stop']);
-    runAsOwner(pgCtl, ['-D', dataDir, '-l', logFile, '-w', '-o', listenOptions, 'start']);
+    await stopEngine();
+    await startEngine();
   };
-  return { url, stop, restart };
+  return {
+    get url() {
+      return url;
+    },
+    stop,
+    restart,
+  };
 }
 
 export async function startPostgres(): Promise<EphemeralPostgres> {

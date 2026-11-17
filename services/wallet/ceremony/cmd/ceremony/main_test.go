@@ -249,16 +249,30 @@ func TestMoveDeltaAndRehearseThroughTheCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	expectedAppliedAfter := len(migrations.Files) - len(sourceLedger)
+	sourceCounts := testsupport.TableCounts(t, pg.DB)
+	var copiedRows int64
+	for _, rows := range sourceCounts {
+		copiedRows += rows
+	}
+	gateway := pg.Database(t, "gateway_schema")
+	testsupport.ApplyGatewayMigrations(t, gateway.DB)
+	gatewayTables := testsupport.TableCounts(t, gateway.DB)
+	var droppedTables int
+	for name := range sourceCounts {
+		if _, present := gatewayTables[name]; !present {
+			droppedTables++
+		}
+	}
 
 	code, out, errOut := invoke(env, "move")
 	if code != 0 {
 		t.Fatalf("move exit %d: %s", code, errOut)
 	}
 	lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
-	if len(lines) != 14 || lines[13] != fmt.Sprintf("tables=13 rows=18 ledger_before=%d applied_after=%d", len(sourceLedger), expectedAppliedAfter) {
+	if len(lines) != len(sourceCounts)+1 || lines[len(sourceCounts)] != fmt.Sprintf("tables=%d rows=%d ledger_before=%d applied_after=%d", len(sourceCounts), copiedRows, len(sourceLedger), expectedAppliedAfter) {
 		t.Fatalf("move printed %q", out)
 	}
-	for _, l := range lines[:13] {
+	for _, l := range lines[:len(sourceCounts)] {
 		f := strings.Fields(l)
 		if len(f) != 5 || strings.TrimPrefix(f[1], "source_") != strings.TrimPrefix(f[2], "target_") || strings.TrimPrefix(f[3], "source_") != strings.TrimPrefix(f[4], "target_") {
 			t.Fatalf("move line %q", l)
@@ -275,7 +289,7 @@ func TestMoveDeltaAndRehearseThroughTheCommand(t *testing.T) {
 		t.Fatalf("second move exit %d: %s", code, errOut)
 	}
 	code, out, errOut = invoke(env, "move", "--delta")
-	if code != 0 || !strings.HasSuffix(out, "tables=10 dropped=3 moved=0\n") {
+	if code != 0 || !strings.HasSuffix(out, fmt.Sprintf("tables=%d dropped=%d moved=0\n", len(sourceCounts)-droppedTables, droppedTables)) {
 		t.Fatalf("delta exit %d out %q: %s", code, out, errOut)
 	}
 	code, out, errOut = invoke(env, "plan")
