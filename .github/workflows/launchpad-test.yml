@@ -59,6 +59,8 @@ jobs:
     defaults:
       run:
         working-directory: apps/launchpad
+    env:
+      GOTOOLCHAIN: go1.27.3
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -87,7 +89,7 @@ jobs:
         if: matrix.package == 'apps/launchpad/web'
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
-          go-version-file: sdk/launchpad/shared/go.mod
+          go-version: "1.27.3"
           cache: false
       - name: Install the joined event broker
         if: matrix.package == 'apps/launchpad/web'
@@ -278,10 +280,14 @@ jobs:
       - &launchpad_go_container_runtime
         name: Install and verify the container runtime
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes docker.io acl
-          sudo systemctl start docker
-          sudo setfacl -m "u:$(id -u):rw" /var/run/docker.sock
+          if ! docker version >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install --yes docker.io acl
+            sudo systemctl start docker
+            if [ ! -r /var/run/docker.sock ] || [ ! -w /var/run/docker.sock ]; then
+              sudo setfacl -m "u:$(id -u):rw" /var/run/docker.sock
+            fi
+          fi
           docker version --format '{{.Server.Version}}'
       - &launchpad_go_setup_go
         name: Set up Go
