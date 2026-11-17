@@ -205959,7 +205959,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.803]
 title = "Bring the suite of the launchpad pnl module in line with the migrations, the registry and the journal it reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
