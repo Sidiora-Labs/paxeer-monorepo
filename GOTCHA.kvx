@@ -23055,3 +23055,8 @@ fix = "Decision 3725. Tasks 22.44.63 and 22.44.95."
 title = "The driver of the qualification names the cases of the node it runs, and a case that is renamed has to be renamed there as well"
 symptom = "The file tools/qualification/beta_driver.py runs cases of the node by name and holds a step to have run when every name it gave was executed. The cases of the sequenced execution stand in node/sequenced_execution_recovery_test.go under the names TestSequencedExecutionTenantReplay and TestSequencedExecutionStrictResultCommitment. The driver names them TestRepair_102_TenantReplay and TestRepair_102_StrictResultCommitment in the step of the commit boundary and in the step of the rejections at the ledger boundary. No case of tools/qualification that runs without the native libraries reads the names the driver gives against the test files of the packages."
 fix = "Decision 3726. Task 22.39.778."
+
+[gotcha.4647]
+title = "The setup of the launchpad surface for the render check calls a tool for certificates that the verification of its parts did not install"
+symptom = "The file tools/ui-check/surfaces/launchpad/prepare.mjs writes the store of certificates of the browser with the tool certutil, so that the surface is rendered on a secure origin. The package libnss3-tools holds that tool. The verification commands of tasks 22.44.64 to 22.44.69 install the browser with its packages and then run the script of the parts and the render check; they do not install libnss3-tools, and the setup files of the surface install no package."
+fix = "Decision 3727. Tasks 22.44.64 to 22.44.69."
