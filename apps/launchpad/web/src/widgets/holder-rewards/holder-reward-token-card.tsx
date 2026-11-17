@@ -62,7 +62,7 @@ export function TokenLinkIcons({ links, tokenAddress, className }: { links: Soci
             rel="noreferrer noopener"
             onClick={stop}
             aria-label={`${meta.label}, opens in new tab`}
-            className="inline-flex size-5 items-center justify-center rounded-xs text-text-faint transition-colors hover:bg-surface-hover hover:text-text"
+            className="inline-flex size-touch-target-min items-center justify-center rounded-xs text-text-faint transition-colors hover:bg-surface-hover hover:text-text"
           >
             <meta.Icon aria-hidden="true" className="size-icon-sm" />
           </a>
@@ -75,7 +75,7 @@ export function TokenLinkIcons({ links, tokenAddress, className }: { links: Soci
           rel="noreferrer noopener"
           onClick={stop}
           aria-label="View on explorer, opens in new tab"
-          className="inline-flex size-5 items-center justify-center rounded-xs text-text-faint transition-colors hover:bg-surface-hover hover:text-text"
+          className="inline-flex size-touch-target-min items-center justify-center rounded-xs text-text-faint transition-colors hover:bg-surface-hover hover:text-text"
         >
           <ExternalLink aria-hidden="true" className="size-icon-sm" />
         </a>
@@ -146,12 +146,12 @@ export default function HolderRewardTokenCard({
 
   return (
     <article className={cn('group relative flex h-full min-h-47 min-w-0 flex-col gap-3 rounded-md p-4 transition-colors duration-fast', cardBg, href && 'hover:bg-surface-hover', top3 && 'bg-rank-1-soft', className)}>
-      <div className="flex items-start gap-3">
+      <div className="flex flex-wrap items-start gap-3">
         <Avatar src={image} name={name} size="lg" shape="square" decorative />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-24">
           <div className="flex items-center gap-1">
             {href ? (
-              <Link href={href} className="flex min-w-0 items-center text-base font-semibold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">
+              <Link prefetch={false} href={href} className="flex min-h-touch-target-min min-w-touch-target-min items-center text-base font-semibold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">
                 {title}
               </Link>
             ) : (
@@ -166,7 +166,7 @@ export default function HolderRewardTokenCard({
             {!strategyActive ? <StatusBadge status="neutral">Strategy changed</StatusBadge> : null}
           </div>
         </div>
-        {rank !== undefined ? <RankBadge rank={rank} className="shrink-0" /> : null}
+        {rank !== undefined ? <RankBadge rank={rank} className="-order-1 shrink-0" /> : null}
       </div>
       <dl className="flex flex-col gap-1">
         <div className="flex min-w-0 flex-col gap-1">
@@ -182,7 +182,7 @@ export default function HolderRewardTokenCard({
           </dd>
         </div>
       </dl>
-      <div className="mt-auto flex items-center justify-between gap-2">
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-2">
         <dl className="flex min-w-0 items-baseline gap-1.5 whitespace-nowrap text-xs">
           <dt className="text-text-faint">Holders paid</dt>
           <dd data-numeric className={cn('truncate font-bold tabular-nums', holdersPaid === null ? 'text-text-faint' : 'text-text')}>

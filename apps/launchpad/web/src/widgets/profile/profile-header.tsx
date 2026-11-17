@@ -80,18 +80,20 @@ export default function ProfileHeader({ wallet, displayName, bio, avatarUrl, ban
       </div>
       <div className="flex flex-col gap-3 px-4 pt-2 md:px-5">
         {loading ? (
-          <div className="flex flex-col gap-2">
-            <Skeleton width={surfaceSpacing(45)} height={surfaceSpacing(6)} />
-            <Skeleton width={surfaceSpacing(30)} height={surfaceSpacing(3.5)} />
+          <div className="flex min-w-0 flex-col gap-0.5 [&>*]:max-w-full">
+            <Skeleton width={surfaceSpacing(45)} className="h-[1lh] text-lg" />
+            <Skeleton width={surfaceSpacing(30)} height={surfaceSpacing(11)} />
           </div>
         ) : (
-          <div className="flex min-w-0 flex-col gap-0.5">
+          <div className="flex min-w-0 flex-col gap-0.5 [&>*]:max-w-full">
             <h1 className="truncate text-lg font-bold text-text" title={named ? name : wallet}>{name}</h1>
             <ShortAddress address={wallet} head={4} tail={4} explorerHref={`https://paxscan.paxeer.app/address/${wallet}`} className="self-start text-xs text-text-faint" />
           </div>
         )}
         {stats}
-        {!loading && bio ? <p className="max-w-prose whitespace-pre-line text-sm text-text">{bio}</p> : null}
+        <div className="min-h-6">
+          {loading ? <Skeleton className="max-w-prose h-[1lh] text-sm" /> : bio ? <p className="max-w-prose whitespace-pre-line text-sm text-text">{bio}</p> : null}
+        </div>
         {!loading && linkEntries.length > 0 ? (
           <ul className="flex flex-wrap gap-2" aria-label="Links">
             {linkEntries.map(key => (

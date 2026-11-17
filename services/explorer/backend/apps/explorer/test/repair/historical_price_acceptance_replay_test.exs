@@ -31,7 +31,7 @@ defmodule Explorer.Repair.HistoricalPriceAcceptanceReplayTest do
   @fixtures Path.expand("../support/fixture/paxeer_x/price_feed", __DIR__)
 
   setup do
-    Explorer.TestHelper.start_migration_owner!()
+    Explorer.MigrationCase.start_owner!()
     assert Ecto.Migrator.down(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false) in [:ok, :already_down]
 
     body = fixture("block_txs.json")

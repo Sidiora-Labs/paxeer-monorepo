@@ -105,7 +105,7 @@ export default function ConversationList() {
       {(scope === sessionEpoch ? conversations : []).map(convo => {
         const meta = peerMeta[convo.peer.toLowerCase()];
         return (
-          <Link
+          <Link prefetch={false}
             key={convo.id}
             href={`/chat/${encodeURIComponent(convo.id)}`}
             className="flex min-h-touch-target-min items-center gap-3 rounded-lg px-4 py-3 transition-colors duration-fast hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-focus"

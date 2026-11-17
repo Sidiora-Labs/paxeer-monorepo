@@ -1,0 +1,28 @@
+{
+  "requestId": "0f0e2a8e-5b3c-4d8a-9a1e-2c6d7b8f9a01",
+  "generatedAt": "2026-10-12T15:00:01.000Z",
+  "nextCursor": null,
+  "quality": "complete",
+  "revision": "7",
+  "watermark": {
+    "chainId": "125",
+    "height": "4200",
+    "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+    "projectionRevision": "7",
+    "integrity": "healthy",
+    "observedAt": "2026-10-12T15:00:00.000Z"
+  },
+  "data": {
+    "cumulativeDistributedRaw": "18627546000000",
+    "walletsRewarded": 445691,
+    "generatedAt": "2026-10-12T15:00:01.000Z",
+    "watermark": {
+      "chainId": "125",
+      "height": "4200",
+      "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+      "projectionRevision": "7",
+      "integrity": "healthy",
+      "observedAt": "2026-10-12T15:00:00.000Z"
+    }
+  }
+}

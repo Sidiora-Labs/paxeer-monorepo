@@ -107,6 +107,7 @@ export function PrincipalCacheBarrier({ children }: { children: ReactNode }) {
   const observed = JSON.stringify([principalKey, authority?.revision.revisionSha256 ?? null]);
   const desired = useRef(observed); desired.current = observed;
   const previousDeployment = useRef<string | undefined>(undefined);
+  const previousPrincipal = useRef<string | undefined>(undefined);
   const previousWallet = useRef<Address | undefined>(undefined);
   const [published, setPublished] = useState<CachePrincipal>();
   const [failure, setFailure] = useState<string>();
@@ -118,12 +119,16 @@ export function PrincipalCacheBarrier({ children }: { children: ReactNode }) {
       if (previousDeployment.current && previousDeployment.current !== deployment) await invalidateFoundationDeployment(client, previousDeployment.current);
       const filters = { predicate: (query: { queryKey: readonly unknown[]; meta?: Record<string, unknown> }) => isWalletPrivateQueryV2(query, previousWallet.current) || isWalletPrivateQueryV2(query, runtime.session?.account) };
       const canceled = client.cancelQueries(filters); client.removeQueries(filters); await canceled;
-      await changeFoundationPrincipal(client, () => {
+      const publish = () => {
         if (!active || desired.current !== observed) return;
         previousDeployment.current = deployment;
+        previousPrincipal.current = principalKey;
         previousWallet.current = runtime.session?.account;
         setFailure(undefined); setPublished({ key: principalKey, anonymous });
-      });
+      };
+      const initialPublication = previousPrincipal.current === undefined || previousPrincipal.current === principalKey && previousDeployment.current === undefined;
+      if (initialPublication && !inheritedPrivateCache) publish();
+      else await changeFoundationPrincipal(client, publish);
     };
     void transition().catch(() => { if (active) setFailure('Something went wrong, reload the page'); });
     return () => { active = false; };

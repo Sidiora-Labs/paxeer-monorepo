@@ -10,6 +10,19 @@ defmodule Explorer.Chain.SmartContract.ProxyTest do
   setup :verify_on_exit!
   setup :set_mox_global
 
+  setup do
+    setting = Application.fetch_env(:explorer, :proxy)
+
+    on_exit(fn ->
+      case setting do
+        {:ok, value} -> Application.put_env(:explorer, :proxy, value)
+        :error -> Application.delete_env(:explorer, :proxy)
+      end
+    end)
+
+    :ok
+  end
+
   describe "proxy contracts features" do
     @proxy_abi [
       %{

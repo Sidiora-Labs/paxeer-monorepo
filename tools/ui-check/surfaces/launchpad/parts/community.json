@@ -1,0 +1,127 @@
+{
+  "name": "Sidiora Launchpad \u2014 community",
+  "directory": "../../../../../",
+  "build": "node tools/ui-check/surfaces/launchpad/build.mjs",
+  "start": "node tools/ui-check/surfaces/launchpad/start.mjs",
+  "address": "https://sidiora.test:4173",
+  "readyPath": "/",
+  "views": [
+    {
+      "name": "bounties",
+      "path": "/bounties"
+    },
+    {
+      "name": "bounties-empty",
+      "path": "/bounties?render=empty"
+    },
+    {
+      "name": "bounties-error",
+      "path": "/bounties?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "bounties-loading",
+      "path": "/bounties?render=loading"
+    },
+    {
+      "name": "bounties-bountyId",
+      "path": "/bounties/8e894db0-87e7-4d2a-9f1c-3a192a239ba0"
+    },
+    {
+      "name": "bounties-new",
+      "path": "/bounties/new"
+    },
+    {
+      "name": "chat",
+      "path": "/chat"
+    },
+    {
+      "name": "chat-conversationId",
+      "path": "/chat/7f3b2a10-5c4d-4e8f-9a1b-2c3d4e5f6a7b"
+    },
+    {
+      "name": "docs",
+      "path": "/docs"
+    },
+    {
+      "name": "docs-dmca",
+      "path": "/docs/dmca"
+    },
+    {
+      "name": "docs-do-not-sell",
+      "path": "/docs/do-not-sell"
+    },
+    {
+      "name": "docs-privacy",
+      "path": "/docs/privacy"
+    },
+    {
+      "name": "docs-terms",
+      "path": "/docs/terms"
+    },
+    {
+      "name": "docs-trademark-guidelines",
+      "path": "/docs/trademark-guidelines"
+    }
+  ],
+  "answers": [
+    {
+      "method": "GET",
+      "pattern": "https://www.google-analytics.com/analytics.js",
+      "file": "answers/analytics.js",
+      "status": 204,
+      "headers": {
+        "content-type": "text/javascript"
+      }
+    }
+  ],
+  "typeScale": [
+    {
+      "min": 11,
+      "max": 12
+    },
+    {
+      "min": 12,
+      "max": 13
+    },
+    {
+      "min": 13,
+      "max": 14
+    },
+    {
+      "min": 14,
+      "max": 16
+    },
+    {
+      "min": 16,
+      "max": 18
+    },
+    {
+      "min": 20,
+      "max": 24
+    },
+    {
+      "min": 24,
+      "max": 28
+    },
+    {
+      "min": 32,
+      "max": 40
+    },
+    {
+      "min": 48,
+      "max": 64
+    },
+    {
+      "min": 16,
+      "max": 28
+    }
+  ],
+  "buildMs": 600000
+}

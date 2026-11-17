@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ClipboardPaste } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, IconButton } from '@/ui/primitives';
-import { useDismiss, usePopoverPosition } from '@/ui/primitives/use-popover';
+import { ModalDialog } from '@/core/app-foundation/modal-dialog';
 
 const ADDRESS = /(?<![0-9a-fA-F])0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/;
 
@@ -29,14 +29,11 @@ export default function PasteAddress() {
   const [error, setError] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
   const anchorRef = useRef<HTMLDivElement | null>(null);
-  const formRef = useRef<HTMLFormElement | null>(null);
   const inputId = useId();
-  const position = usePopoverPosition(anchorRef, formRef, fallbackOpen, 'end', undefined, 'auto');
   const close = useCallback(() => {
     setFallbackOpen(false);
     anchorRef.current?.querySelector('button')?.focus();
   }, []);
-  useDismiss(fallbackOpen, close, [anchorRef, formRef]);
 
   const go = (address: string) => {
     router.push(coinPath(address));
@@ -71,30 +68,26 @@ export default function PasteAddress() {
   };
 
   return (
-    <div ref={anchorRef} className="relative shrink-0">
+    <div ref={anchorRef} className="relative flex shrink-0">
       <IconButton
         label="Open a coin from a pasted address"
         icon={<ClipboardPaste />}
         variant="ghost"
         size="md"
         loading={reading}
+        aria-haspopup="dialog"
         aria-expanded={fallbackOpen}
         onClick={() => {
           void paste();
         }}
       />
-      {fallbackOpen ? (
-        <form
-          ref={formRef}
-          style={position ? { top: position.top, left: position.left } : undefined}
-          onBlur={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget)) setFallbackOpen(false);
-          }}
-          onSubmit={submit}
-          role="dialog"
-          aria-label="Open a coin by address"
-          className="sl-popover fixed z-[var(--sl-z-dropdown)] flex w-72 max-w-[calc(100dvw-var(--sl-space-6))] flex-col gap-2 rounded-md bg-surface-2 p-3 shadow-pop"
-        >
+      <ModalDialog
+        open={fallbackOpen}
+        onClose={close}
+        aria-label="Open a coin by address"
+        className="w-72 max-w-[calc(100dvw-var(--sl-space-6))] rounded-md bg-surface-2 p-3 shadow-pop"
+      >
+        <form onSubmit={submit} className="flex w-full min-w-0 flex-col gap-2">
           <label htmlFor={inputId} className="text-xs font-bold text-text-muted">
             Paste the coin address here
           </label>
@@ -106,6 +99,7 @@ export default function PasteAddress() {
               setError(null);
             }}
             autoFocus
+            data-autofocus
             autoComplete="off"
             spellCheck={false}
             inputMode="text"
@@ -128,7 +122,7 @@ export default function PasteAddress() {
             </Button>
           </div>
         </form>
-      ) : null}
+      </ModalDialog>
     </div>
   );
 }

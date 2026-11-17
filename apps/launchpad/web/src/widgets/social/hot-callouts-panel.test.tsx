@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 // @vitest-environment jsdom
 /**
  * HotCalloutsPanel degraded states: the settled feed failure renders the compact chip inside the
@@ -45,7 +46,7 @@ describe('HotCalloutsPanel degraded states', () => {
     expect(section.textContent).not.toMatch(/unavailable right now|Failed to fetch/i);
     // Header and feed selector stay.
     expect(section.querySelector('[aria-haspopup="menu"]')).not.toBeNull();
-    for (const node of Array.from(section.querySelectorAll('*'))) expect(node.getAttribute('class') ?? '').not.toMatch(BORDER);
+    for (const node of Array.from(section.querySelectorAll('*'))) expect(assertControlEdges(node.getAttribute('class') ?? '')).not.toMatch(BORDER);
   });
 
   it('renders an unserved feed as the compact unavailable chip inside the panel frame', () => {

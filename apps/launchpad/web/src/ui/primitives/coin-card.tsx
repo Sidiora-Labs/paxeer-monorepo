@@ -147,7 +147,7 @@ export function CoinCard({
         {rank !== undefined ? <RankBadge rank={rank} /> : null}
         {avatar}
         <div className="min-w-0 flex-1">
-          <Link
+          <Link prefetch={false}
             href={href}
             className="block text-md font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']"
           >
@@ -212,7 +212,7 @@ export function CoinCard({
       <div className="flex items-start gap-3">
         {avatar}
         <div className="min-w-0 flex-1">
-          <Link
+          <Link prefetch={false}
             href={href}
             className="block text-md font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']"
             title={name}

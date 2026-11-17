@@ -1,6 +1,12 @@
 // Package delivery supplies the transactional outbox, inbox and relay of the
 // perps data services. It originates in Launch-x shared/delivery and drives
 // Postgres through database/sql and lib/pq instead of pgx.
+//
+// Acknowledged published rows are retained for one hour. Once removed, their
+// event IDs no longer deduplicate producer writes: rewriting an old range of
+// heights enqueues those events again with new Perps-Seq values. The replay
+// command also republishes such events; consumer inboxes still deduplicate
+// event IDs within their retained projection generation.
 package delivery
 
 import (

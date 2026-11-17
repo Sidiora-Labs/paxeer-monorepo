@@ -130,7 +130,7 @@ export function TransferSteps({ item }: { item: TransferStatusItem }) {
               { isFail && <XIcon className="size-2.5" strokeWidth={ 3 }/> }
               { current && !isFail && <span className={ cn('size-1.5 rounded-full bg-primary', !reduce && 'animate-pulse') }/> }
             </span>
-            <span className={ cn('text-caption leading-tight', done || current ? 'text-foreground' : 'text-muted-foreground', isFail && 'text-destructive') }>
+            <span className={ cn('text-micro leading-tight', done || current ? 'text-foreground' : 'text-muted-foreground', isFail && 'text-destructive') }>
               { isFail ? 'Failed' : label }
             </span>
           </li>
@@ -162,7 +162,7 @@ export function DepositStatus({ items, open, defaultOpen = false, onOpenChange, 
               aria-expanded={ isOpen }
               aria-controls={ listId }
               onClick={ () => setOpen(!isOpen) }
-              className="focus-ring flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg pl-3 text-left text-foreground/80 hover:text-foreground"
+              className="focus-ring flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg pl-3 text-left text-foreground/80 hover:text-foreground"
             >
               <span className={ cn('size-2 shrink-0 rounded-full', GROUP_DOT[group], group === 'pending' && !reduce && 'animate-pulse') }/>
               <span className="break-words">{ GROUP_TEXT[group][single ? 0 : 1] }</span>
@@ -170,7 +170,7 @@ export function DepositStatus({ items, open, defaultOpen = false, onOpenChange, 
                 { group === 'pending' && single && list[0].eta ? (
                   <span className="text-caption text-primary">{ list[0].eta }</span>
                 ) : (
-                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-container-higher px-1 text-caption font-medium tabular-nums">{ list.length }</span>
+                  <span className="grid h-4.5 min-w-4.5 place-items-center rounded-full bg-container-higher px-1 text-micro font-medium tabular-nums">{ list.length }</span>
                 ) }
                 <ChevronDownIcon className={ cn('size-3.5 text-muted-foreground transition-transform duration-(--duration-normal)', isOpen && 'rotate-180') }/>
               </span>
@@ -180,7 +180,7 @@ export function DepositStatus({ items, open, defaultOpen = false, onOpenChange, 
                 type="button"
                 aria-label={ `Dismiss ${ group } transactions` }
                 onClick={ () => onDismiss(group) }
-                className="focus-ring grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-container-high hover:text-foreground"
+                className="focus-ring grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-container-high hover:text-foreground"
               >
                 <XIcon className="size-3.5"/>
               </button>
@@ -224,7 +224,7 @@ export function DepositStatus({ items, open, defaultOpen = false, onOpenChange, 
                             href={ href }
                             target="_blank"
                             rel="noreferrer"
-                            className="focus-ring flex min-h-11 items-center gap-1 rounded font-mono text-caption text-muted-foreground hover:text-foreground"
+                            className="focus-ring flex items-center gap-1 rounded font-mono text-caption text-muted-foreground hover:text-foreground"
                           >
                             { shortenAddress(item.txHash, 6, 4) }
                             <ExternalLinkIcon className="size-3"/>

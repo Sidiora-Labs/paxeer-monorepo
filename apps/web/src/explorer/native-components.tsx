@@ -39,11 +39,11 @@ export function NativeAccountPage({
     <article
       aria-label={copyEntry("explorer.copy.native_account").message}
       data-state="ready"
-      className="flex min-w-0 flex-col gap-4"
+      className="min-w-0"
     >
-      <h1 className="break-all text-lg font-bold">{account.identities.evm}</h1>
+      <h1 className="human-identifier-line">{account.identities.evm}</h1>
       <dl
-        className="grid gap-x-6 gap-y-2 sm:grid-cols-[auto_minmax(0,1fr)] [&_dt]:font-semibold [&_dd]:break-all"
+        className="human-native-identities"
         aria-label={copyEntry("explorer.copy.account_identities").message}
       >
         <dt>{copyEntry("explorer.copy.evm_address").message}</dt>
@@ -53,18 +53,15 @@ export function NativeAccountPage({
         <dt>{copyEntry("explorer.copy.did").message}</dt>
         <dd>{account.identities.did ?? "Unavailable"}</dd>
       </dl>
-      <div
-        className="human-table-scroll rounded-md border border-border"
-        tabIndex={-1}
-      >
-        <table className="human-data-table border-collapse text-left text-sm [&_th]:px-3 [&_th]:py-3 [&_td]:px-3 [&_td]:py-3 [&_thead]:bg-surface-sunken [&_tbody_tr]:border-t [&_tbody_tr]:border-border">
-          <caption className="px-3 py-3 text-left font-semibold">
+      <div className="human-native-scroll" tabIndex={-1}>
+        <table className="human-native-table">
+          <caption className="text-center">
             {copyEntry("explorer.copy.account_totals_in_base_units").message}
           </caption>
           <thead>
             <tr>
               <th scope="col">{copyEntry("explorer.copy.asset").message}</th>
-              <th scope="col" className="text-right">
+              <th scope="col" className="text-left">
                 {copyEntry("explorer.copy.total").message}
               </th>
             </tr>
@@ -73,18 +70,15 @@ export function NativeAccountPage({
             {account.balances.map((balance) => (
               <tr key={balance.asset.id}>
                 <th scope="row">{balance.asset.denom}</th>
-                <td className="text-right tabular-nums">{balance.total}</td>
+                <td className="tabular-nums">{balance.total}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <div
-        className="human-table-scroll rounded-md border border-border"
-        tabIndex={-1}
-      >
-        <table className="human-data-table border-collapse text-left text-sm [&_th]:px-3 [&_th]:py-3 [&_td]:px-3 [&_td]:py-3 [&_thead]:bg-surface-sunken [&_tbody_tr]:border-t [&_tbody_tr]:border-border">
-          <caption className="px-3 py-3 text-left font-semibold">
+      <div className="human-native-scroll" tabIndex={-1}>
+        <table className="human-native-table">
+          <caption className="text-center">
             {copyEntry("explorer.copy.committed_transactions").message}
           </caption>
           <thead>
@@ -92,15 +86,15 @@ export function NativeAccountPage({
               <th scope="col">
                 {copyEntry("explorer.copy.transaction").message}
               </th>
-              <th scope="col" className="text-right">
+              <th scope="col" className="text-left">
                 {copyEntry("explorer.copy.block").message}
               </th>
-              <th scope="col" className="text-right">
+              <th scope="col" className="text-left">
                 {copyEntry("explorer.copy.ordinal").message}
               </th>
               <th scope="col">{copyEntry("explorer.copy.status").message}</th>
               <th scope="col">{copyEntry("explorer.copy.result").message}</th>
-              <th scope="col" className="text-right">
+              <th scope="col" className="text-left">
                 {copyEntry("explorer.copy.amount_in_base_units").message}
               </th>
               <th scope="col">
@@ -113,11 +107,11 @@ export function NativeAccountPage({
             {account.activity.map((item) => (
               <tr key={item.hash}>
                 <th scope="row">{item.hash}</th>
-                <td className="text-right tabular-nums">{item.block_number}</td>
-                <td className="text-right tabular-nums">{item.ordinal}</td>
+                <td className="tabular-nums">{item.block_number}</td>
+                <td className="tabular-nums">{item.ordinal}</td>
                 <td>{item.status}</td>
                 <td>{item.result ?? "Unavailable"}</td>
-                <td className="text-right tabular-nums">
+                <td className="tabular-nums">
                   {item.amount} {item.asset.denom}
                 </td>
                 <td>{item.counterparty ?? "Unavailable"}</td>
@@ -138,7 +132,7 @@ export function NativeAccountPage({
             })}
       </p>
       <nav
-        className="flex flex-wrap gap-3 [&_a]:inline-flex [&_a]:min-h-11 [&_a]:items-center [&_a]:font-semibold [&_a]:text-accent"
+        className="human-native-pages"
         aria-label={copyEntry("explorer.copy.account_activity_pages").message}
       >
         <a href={model.refreshHref}>

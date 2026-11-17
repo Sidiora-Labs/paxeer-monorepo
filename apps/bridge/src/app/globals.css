@@ -19,7 +19,6 @@ body {
   font-size: var(--text-body);
   line-height: var(--text-body--line-height);
   text-rendering: optimizeLegibility;
-  font-size-adjust: from-font;
   font-variant-numeric: tabular-nums;
 }
 

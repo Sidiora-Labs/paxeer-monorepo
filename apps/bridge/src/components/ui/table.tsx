@@ -4,7 +4,7 @@ import * as React from 'react';
 function Table({ className, ...props }: React.ComponentProps<'table'>) {
   return (
     <div data-slot="table-container" role="region" aria-label={ props['aria-label'] ?? 'Table' } tabIndex={ 0 } className="focus-ring relative w-full overflow-x-auto">
-      <table data-slot="table" className={ cn('w-full min-w-(--table-width) caption-bottom text-body', className) } { ...props }/>
+      <table data-slot="table" className={ cn('w-full caption-bottom text-sm', className) } { ...props }/>
     </div>
   );
 }

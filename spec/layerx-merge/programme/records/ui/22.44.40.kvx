@@ -1,0 +1,68 @@
+[manifest]
+task = "22.44.40"
+surface = "Sidiora Launchpad"
+routes = 37
+views = 92
+states = 119
+parts = 7
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[parts.home]
+routes = 4
+views = 8
+states = 14
+closed_by = "22.44.40"
+
+[parts.community]
+views = 14
+closed_by = "22.44.64"
+
+[parts.coin]
+views = 9
+closed_by = "22.44.65"
+
+[parts.explore]
+views = 16
+closed_by = "22.44.66"
+
+[parts.rewards]
+views = 15
+closed_by = "22.44.67"
+
+[parts.live]
+views = 20
+closed_by = "22.44.68"
+
+[parts.terminal]
+views = 10
+closed_by = "22.44.69"
+
+[render]
+count = 476
+sizes = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+result = "pass"
+
+[review]
+screenshots = 142
+corrections = [
+  "Reserved stable geometry for loading metric cells and table content.",
+  "Kept explore results in their loading state until enrichment completes.",
+  "Aligned the shell header and content offset across scale and viewport modes.",
+  "Kept shell control geometry independent of text scale while allowing labels to grow.",
+  "Centered header controls within their touch targets without extra vertical padding or baseline space.",
+  "Balanced empty feed paragraphs across narrow columns and enlarged text.",
+  "Applied token-backed spacing, control edges, tabular figures and independent dark styling.",
+  "Kept search result groups in one scroll area and sized the address form to its dialog.",
+  "Placed policy links inline within the rules paragraph.",
+  "Reserved the ranking table frame and column geometry as coin data arrives.",
+  "Added a visible focus fill to the callout pause control.",
+  "Loaded local font files alongside static application assets."
+]
+
+[guides]
+ids = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "css-layout", "dialog", "responsive-table", "visually-stable-font-fallbacks", "improve-text-layout-and-legibility"]

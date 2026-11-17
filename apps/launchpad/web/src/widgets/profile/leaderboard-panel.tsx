@@ -72,7 +72,7 @@ function LeaderboardRow({ entry, identity, metric, self }: LeaderboardRowProps) 
   const value = leaderboardValue(entry, metric);
   return (
     <li>
-      <Link
+      <Link prefetch={false}
         href={`/profile/${wallet}`}
         aria-current={self ? 'true' : undefined}
         className={cn(

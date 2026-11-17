@@ -6,7 +6,7 @@ import * as React from 'react';
 const menuPopup =
   'popup-motion max-h-(--available-height) min-w-48 overflow-y-auto rounded-lg border border-outline-variant bg-popover p-1.5 text-popover-foreground shadow-float outline-none';
 const menuItem =
-  'relative flex min-h-11 cursor-default items-center gap-2.5 rounded-sm px-2.5 text-body outline-none select-none data-highlighted:bg-container-high data-disabled:pointer-events-none data-disabled:opacity-40 data-[variant=destructive]:text-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=\'size-\'])]:size-4 [&_svg:not([class*=\'text-\'])]:text-muted-foreground';
+  'relative flex min-h-9 cursor-default items-center gap-2.5 rounded-sm px-2.5 text-sm outline-none select-none data-highlighted:bg-container-high data-disabled:pointer-events-none data-disabled:opacity-40 data-[variant=destructive]:text-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4 [&_svg:not([class*=\'text-\'])]:text-muted-foreground';
 
 function DropdownMenu(props: MenuPrimitive.Root.Props) {
   return <MenuPrimitive.Root data-slot="dropdown-menu" { ...props }/>;

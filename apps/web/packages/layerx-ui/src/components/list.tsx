@@ -53,8 +53,10 @@ export function IconTile({
 
 /* -------------------------------------------------------------- ListItem */
 
-export interface ListItemProps
-  extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
+export interface ListItemProps extends Omit<
+  React.HTMLAttributes<HTMLDivElement>,
+  "title"
+> {
   /** Avatar, IconTile, flag, or any leading node. */
   leading?: React.ReactNode;
   title: React.ReactNode;
@@ -95,26 +97,26 @@ export function ListItem({
           : undefined
       }
       className={cn(
-        "flex w-full flex-wrap items-center gap-3 py-3.5 text-left",
+        "flex w-full items-center gap-3 py-3.5 text-left",
         interactive &&
           "cursor-pointer transition-colors hover:bg-surface-sunken/40 -mx-2 px-2 rounded-md outline-none focus:ring-2 focus:ring-accent-strong focus:ring-offset-2",
         className,
       )}
       {...props}
     >
-      <span className="flex min-w-0 flex-[1_1_var(--space-sidebar)] items-center gap-3">
-        {leading}
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-body-sm font-semibold text-foreground">
-            {title}
-          </span>
-          {subtitle && (
-            <span className="text-label text-muted-foreground">{subtitle}</span>
-          )}
+      {leading}
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="truncate text-body-sm font-semibold text-foreground">
+          {title}
         </span>
+        {subtitle && (
+          <span className="truncate text-label text-muted-foreground">
+            {subtitle}
+          </span>
+        )}
       </span>
       {(trailing || navigates) && (
-        <span className="flex min-w-0 max-w-full flex-[1_1_auto] flex-col items-end gap-0.5">
+        <span className="flex min-w-0 max-w-full shrink-0 flex-col items-end gap-0.5">
           <span className="flex max-w-full flex-wrap items-center justify-end gap-1.5 text-right tabular-nums">
             {trailing}
             {navigates && (
@@ -165,7 +167,7 @@ export function ViewAllChip({
     <button
       type="button"
       className={cn(
-        "inline-flex min-h-11 items-center rounded-full bg-surface border border-border-strong px-3.5 py-1 text-label font-semibold text-foreground-secondary transition-colors hover:bg-surface-sunken/60",
+        "inline-flex min-h-8 items-center rounded-full bg-surface border border-border-strong px-3.5 text-label font-semibold text-foreground-secondary transition-colors hover:bg-surface-sunken/60",
         className,
       )}
       {...props}

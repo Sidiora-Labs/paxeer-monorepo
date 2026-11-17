@@ -22,7 +22,7 @@ function Figure({ raw, unit, reason }: { raw: string | null; unit: string; reaso
 function Row({ row, liqReason }: { row: SimilarRow; liqReason: string }) {
   return (
     <li>
-      <Link href={row.href} className="flex items-center gap-2 rounded-sm bg-surface-2 p-2 transition-colors duration-fast hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+      <Link prefetch={false} href={row.href} className="flex items-center gap-2 rounded-sm bg-surface-2 p-2 transition-colors duration-fast hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
         <Avatar src={row.image} name={row.symbol} size="lg" shape="square" decorative />
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="flex min-w-0 items-baseline gap-1">

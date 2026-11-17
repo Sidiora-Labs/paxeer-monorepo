@@ -106,6 +106,7 @@ export class CanonicalDataStream {
   private readonly stream: SnapshotStreamV2;
   private readonly reconnect: ReconnectingStream;
   private union: string[] = [];
+  private syncQueued = false;
   private authorization = '';
   private readonly snapshots = new Map<string, V2TopicSnapshot['topics'][number]>();
   private lastSnapshot: V2TopicSnapshot | undefined;
@@ -172,7 +173,13 @@ export class CanonicalDataStream {
     if (topics.length === 0) { this.generation++; this.union = []; this.scheduler.cancel(); this.replaceable.clear(); this.reconnect.stop(); this.snapshots.clear(); this.lastSnapshot = undefined; return; }
     if (JSON.stringify(topics) === JSON.stringify(this.union)) return;
     this.generation++; this.scheduler.cancel(); this.replaceable.clear();
-    this.union = topics; void this.reconnect.start(topics);
+    this.union = topics;
+    if (this.syncQueued) return;
+    this.syncQueued = true;
+    queueMicrotask(() => {
+      this.syncQueued = false;
+      if (!this.disposed && this.union.length > 0) void this.reconnect.start(this.union);
+    });
   }
   private clearMembers(): void { for (const detach of this.detachMembers.values()) detach(); this.detachMembers.clear(); this.members.clear(); }
   setAuthorizationScope(scope: string): void { if (scope !== this.authorization) { this.generation++; this.authorization = scope; this.scheduler.cancel(); this.replaceable.clear(); this.unready.clear(); this.clearMembers(); this.reconnect.logout(); this.union = []; this.snapshots.clear(); this.lastSnapshot = undefined; } }

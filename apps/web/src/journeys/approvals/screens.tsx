@@ -134,8 +134,8 @@ export function ApprovalInboxList({
                   }
             }
             title={
-              <span className="flex flex-wrap items-baseline gap-2">
-                <span>{item.counterparty}</span>
+              <span className="flex items-center gap-2">
+                <span className="truncate">{item.counterparty}</span>
                 <PrivateFigure className="tabular-nums">
                   {item.amountLabel}
                 </PrivateFigure>
@@ -218,7 +218,7 @@ export function DesktopApprovalSplit({
   return (
     <div
       data-application="approvals"
-      className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-2"
+      className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"
     >
       <ScreenCard
         landmark="section"
