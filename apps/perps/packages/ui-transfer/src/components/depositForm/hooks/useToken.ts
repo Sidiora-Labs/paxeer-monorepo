@@ -16,8 +16,22 @@ export const useToken = (paxeerNetworkTokens: API.TokenInfo[]) => {
     if (!usdcToken) {
       return;
     }
-    setSourceToken(usdcToken);
-    setTargetToken(usdcToken);
+    setSourceToken(
+      (previous) =>
+        paxeerNetworkTokens.find(
+          (token) =>
+            token.address === previous?.address &&
+            token.symbol === previous?.symbol,
+        ) ?? usdcToken,
+    );
+    setTargetToken(
+      (previous) =>
+        paxeerNetworkTokens.find(
+          (token) =>
+            token.address === previous?.address &&
+            token.symbol === previous?.symbol,
+        ) ?? usdcToken,
+    );
 
     setSourceTokens(paxeerNetworkTokens);
     setTargetTokens([usdcToken]);
