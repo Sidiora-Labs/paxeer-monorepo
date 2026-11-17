@@ -175576,7 +175576,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.96]
 title = "Leave the theme of the trading workspace to its provider and take the row of legal links out of the flow of the application views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.73"]
@@ -175608,7 +175608,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.779]
 title = "Hand every address of the request function of the net package to the client of the trading workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
