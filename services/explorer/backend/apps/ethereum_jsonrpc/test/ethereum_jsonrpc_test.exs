@@ -1011,8 +1011,19 @@ defmodule EthereumJSONRPCSyncTest do
 
   describe "fetch_balances/1" do
     setup do
-      initial_env = Application.get_all_env(:indexer)
-      on_exit(fn -> Application.put_all_env([{:indexer, initial_env}]) end)
+      settings =
+        for key <- [:disable_archive_balances?, :archive_balances_window] do
+          {key, Application.fetch_env(:ethereum_jsonrpc, key)}
+        end
+
+      on_exit(fn ->
+        for {key, setting} <- settings do
+          case setting do
+            {:ok, value} -> Application.put_env(:ethereum_jsonrpc, key, value)
+            :error -> Application.delete_env(:ethereum_jsonrpc, key)
+          end
+        end
+      end)
     end
 
     test "ignores all request with block_quantity != latest or lower than window when env ETHEREUM_JSONRPC_DISABLE_ARCHIVE_BALANCES is true",

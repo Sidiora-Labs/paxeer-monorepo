@@ -229,6 +229,7 @@ defmodule Indexer.MassiveBlockRangeHandoffTest do
       end
 
       eventually(fn -> assert :sys.get_state(pid).low_priority_blocks == [@first] end)
+      :ok = :sys.suspend(pid)
       assert Repo.get!(MassiveBlock, @first)
       refute Repo.get_by(Block, number: @first)
       assert MissingBlockRange.get_latest_batch(2) == []

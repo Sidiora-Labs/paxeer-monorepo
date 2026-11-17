@@ -49,7 +49,7 @@ function approval_verification_label_for_rungs() {
 
 function approval_verification_label_for_retired_level() {
   for (const level of ["paxeer-finalised", "settlement-anchored"]) {
-    assert.equal(verificationLabel(level), copyEntry("verification.unverified").message);
+    assert.equal(verificationLabel(level), copyEntry("verification.checkpoint_finalised").message);
   }
 }
 
