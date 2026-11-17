@@ -50,6 +50,8 @@ const (
 	resnapshotWorkers = 8
 )
 
+var errConsumerReattach = errors.New("ws: hub consumer reattach")
+
 // The relay publishes a control message on perps.<chain>.control, with
 // headerControl controlSkipped and the Perps-Seq of the outbox row, whenever
 // it quarantines a row for good: the row never reaches the stream, so the
@@ -331,7 +333,9 @@ func (h *Hub) Run(ctx context.Context, nc *nats.Conn) error {
 		if ctx.Err() != nil {
 			break
 		}
-		h.logger.Error("ws: hub consumer", slog.Any("err", err))
+		if !errors.Is(err, errConsumerReattach) {
+			h.logger.Error("ws: hub consumer", slog.Any("err", err))
+		}
 		o.unheard(h)
 		select {
 		case <-ctx.Done():
@@ -405,6 +409,7 @@ func (h *Hub) consume(ctx context.Context, nc *nats.Conn, o *outage) error {
 	var preparing sync.WaitGroup
 	go func() {
 		defer close(queue)
+		defer c.Close()
 		families := map[string]chan struct{}{}
 		for {
 			messages, err := c.Fetch(ctx)
@@ -412,8 +417,12 @@ func (h *Hub) consume(ctx context.Context, nc *nats.Conn, o *outage) error {
 			case len(messages) > 0:
 				o.answered()
 			case err == nil && time.Since(o.heard) >= probeAfter:
-				if h.reachable(ctx, js) {
+				if reattach, probeErr := h.probe(ctx, js); probeErr == nil {
 					o.answered()
+					if reattach {
+						fetchErr <- errConsumerReattach
+						return
+					}
 				} else {
 					o.unheard(h)
 				}
@@ -441,13 +450,27 @@ func (h *Hub) consume(ctx context.Context, nc *nats.Conn, o *outage) error {
 	return <-fetchErr
 }
 
-// reachable reports whether the broker answers for the stream within
-// probeTimeout.
-func (h *Hub) reachable(ctx context.Context, js jetstream.JetStream) bool {
+// probe reads the stream head within probeTimeout and reports whether the
+// silent consumer needs a later attach.
+func (h *Hub) probe(ctx context.Context, js jetstream.JetStream) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
-	_, err := js.Stream(ctx, stream.Name)
-	return err == nil
+	s, err := js.Stream(ctx, stream.Name)
+	if err != nil {
+		return false, err
+	}
+	info := s.CachedInfo()
+	h.mu.Lock()
+	applied, created := h.applied, h.created
+	h.mu.Unlock()
+	if !info.Created.Equal(created) || info.State.LastSeq < applied {
+		return true, nil
+	}
+	if info.State.LastSeq > applied {
+		h.logger.Warn("ws: hub consumer silent behind stream", slog.Uint64("applied", applied), slog.Uint64("last", info.State.LastSeq))
+		return true, nil
+	}
+	return false, nil
 }
 
 // preparedQueue bounds the messages fetched ahead of the apply loop.
