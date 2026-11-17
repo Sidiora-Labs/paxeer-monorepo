@@ -44,7 +44,7 @@ export default function GlobalError({
         <button
           type="button"
           onClick={() => { window.location.href = '/'; }}
-          className="min-h-control-height-md rounded-sm bg-surface-2 px-4 text-base font-bold text-text transition-colors hover:bg-surface-hover active:bg-surface-active"
+          className="min-h-control-height-md rounded-sm bg-surface-2 px-4 text-base font-bold text-text shadow-[inset_0_0_0_var(--sl-edge-width)_var(--sl-control-edge)] transition-colors hover:bg-surface-hover active:bg-surface-active"
         >
           Go home
         </button>

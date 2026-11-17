@@ -32,6 +32,35 @@ function fail(message) {
 
 const whole = readJson(wholePath);
 const parts = partNames.map((name) => ({ name, file: path.join(partsDirectory, `${name}.json`), surface: readJson(path.join(partsDirectory, `${name}.json`)) }));
+function checkCoinRoutes(surface) {
+  const appDirectory = path.join(repositoryRoot, 'apps/launchpad/web/src/app');
+  for (const root of ['coin', 'token', 'tokens', 'create']) {
+    const directory = path.join(appDirectory, root);
+    const pages = fs.readdirSync(directory, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name === 'page.tsx');
+    for (const page of pages) {
+      const route = path.relative(appDirectory, page.parentPath).split(path.sep);
+      const covered = surface.views.some((view) => {
+        const segments = new URL(view.path, surface.address).pathname.split('/').filter(Boolean);
+        return route.length === segments.length && route.every((segment, index) =>
+          /^\[[^\]]+\]$/.test(segment) ? segments[index].length > 0 : segment === segments[index]);
+      });
+      if (!covered) fail(`coin part is missing route /${route.join('/')}`);
+    }
+  }
+  const modes = ['default', 'reduced-motion', 'double-text', 'keyboard'];
+  for (const view of surface.views) {
+    for (const state of [view, ...(view.states ?? [])]) {
+      const selected = state.modes ?? view.modes ?? modes;
+      if (modes.some((mode) => !selected.includes(mode))) {
+        fail(`coin view ${view.name}, state ${state === view ? 'default' : state.name} is missing a render mode`);
+      }
+    }
+  }
+}
+
+checkCoinRoutes(parts.find((part) => part.name === 'coin').surface);
+
 const seen = new Map();
 const sharedKeys = ['build', 'buildMs', 'start', 'address', 'readyPath', 'typeScale'];
 

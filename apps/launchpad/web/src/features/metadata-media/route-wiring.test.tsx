@@ -267,7 +267,7 @@ async function metadata_routes_connect_editor_and_viewer() {
     expect(region(metadataBrowserLabels.editor)).toBeNull();
 
     dom.reconfigure({ url: `${origin}/coin/${poolAddress}` });
-    const coin = await CoinPage({ params: Promise.resolve({ address: poolAddress }) });
+    const coin = await CoinPage({ params: Promise.resolve({ address: poolAddress }), searchParams: Promise.resolve({}) });
     await render(coin);
     await waitFor(() => !!region(metadataBrowserLabels.viewer)?.querySelector(`img[alt="${metadataBrowserLabels.image}"]`), 'coin route consumes committed image');
     expect(document.querySelectorAll(`section[aria-label="${metadataBrowserLabels.viewer}"]`)).toHaveLength(1);
