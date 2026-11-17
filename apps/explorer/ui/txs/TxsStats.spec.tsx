@@ -46,10 +46,6 @@ const declarationsOf = (element: Element, property: string) => ruleTexts()
   .map((text) => ({ text, value: new RegExp(`(?:^|[;{\\s])${ property }\\s*:\\s*([^;}]+)`).exec(text)?.[1]?.trim() }))
   .filter((rule): rule is { text: string; value: string } => rule.value !== undefined);
 
-// Each rule is inserted on its own, so a declaration belongs to the wide layout when the rule that
-// carries it is a breakpoint rule and not the base rule, which declares its own minimum width.
-const isWide = (text: string) => /^\s*@media[^{]*\(min-width/.test(text);
-
 describe('TxsStats', () => {
   beforeEach(() => {
     fetchMock.resetMocks();
@@ -135,7 +131,7 @@ describe('TxsStats', () => {
     const tracks = declarationsOf(row, 'grid-template-columns');
 
     expect(tracks.length).toBeGreaterThan(0);
-    expect(tracks.every((rule) => /minmax\(\s*0/.test(rule.value))).toBe(true);
-    expect(tracks.some((rule) => isWide(rule.text) && rule.value.includes('repeat('))).toBe(true);
+    expect(tracks.every((rule) => rule.value.includes('repeat(auto-fit,'))).toBe(true);
+    expect(tracks.every((rule) => /minmax\(min\(100%,\s*var\(--chakra-spacing-62\\\.5\)\),\s*1fr\)/.test(rule.value))).toBe(true);
   });
 });

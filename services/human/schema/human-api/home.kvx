@@ -37,4 +37,4 @@ response = "HomeSummary"
 
 [type.Rung]
 variants = ["submitted","receipted","committed"]
-verification = "Rungs retain the VerificationLevel mapping: submitted is unverified, receipted is receipt-verified and committed is checkpoint-finalised. A rung states the achieved evidence level and never raises verification."
+verification = "Rungs retain the VerificationLevel mapping: submitted is unverified, receipted is receipt-verified and committed is committed. A rung states the achieved evidence level and never raises verification."

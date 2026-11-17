@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
@@ -227,7 +228,7 @@ describe('TerminalStatusBar', () => {
     expect(mounted.container.querySelector('a[href="https://t.me/Sidiorafunsupport"]')).not.toBeNull();
     expect(text).toContain('No wallet connected');
     expect(dialogs(mounted.container)).toHaveLength(0);
-    expect(mounted.container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(mounted.container.innerHTML)).not.toMatch(BORDER);
     unmount(mounted);
   });
 

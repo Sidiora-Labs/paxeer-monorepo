@@ -119,7 +119,7 @@ type Config struct {
 	Owner                                     string
 	Batch, MaxAttempts                        int
 	LeaseDuration, PublishTimeout, RetryDelay time.Duration
-	// IdleInterval separates two relay passes that both succeeded.
+	// IdleInterval follows a successful pass that claimed fewer than Batch rows.
 	IdleInterval time.Duration
 	// MaxHeadAge is the largest age of the oldest open outbox row of a ready
 	// Publisher.
@@ -252,14 +252,19 @@ func (p *Publisher) Run(ctx context.Context) error {
 		return errors.New("publish: publisher and context required")
 	}
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		wait := p.idle
-		err := p.relay.Pass(ctx)
+		claimed, err := p.relay.PassCount(ctx)
 		if err != nil && ctx.Err() != nil {
 			return ctx.Err()
 		}
 		p.observe(err, time.Now())
 		if err != nil {
 			wait = p.relay.RetryDelay
+		} else if claimed == p.relay.Batch {
+			continue
 		}
 		timer := time.NewTimer(wait)
 		select {

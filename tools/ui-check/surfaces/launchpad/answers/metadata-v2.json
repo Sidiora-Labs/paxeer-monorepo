@@ -1,0 +1,42 @@
+{
+  "data": {
+    "token": {
+      "address": "0x3333333333333333333333333333333333333333",
+      "decimals": 18,
+      "decimalsQuality": "verified",
+      "logoAssetId": null,
+      "metadataRevision": "0",
+      "name": "Science Inu",
+      "sourcePosition": {
+        "blockHash": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "chainId": "125",
+        "height": "11",
+        "logIndex": "11",
+        "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+        "transactionIndex": "3"
+      },
+      "supplyQuality": "verified",
+      "symbol": "SCINU",
+      "totalSupplyRaw": "1000000000000000000000000000"
+    },
+    "description": "A community coin.",
+    "tags": [],
+    "revision": "1",
+    "displayName": null,
+    "displaySymbol": null,
+    "socialLinks": []
+  },
+  "generatedAt": "2026-10-12T15:00:01.000Z",
+  "nextCursor": null,
+  "quality": "complete",
+  "revision": "7",
+  "watermark": {
+    "chainId": "125",
+    "height": "4200",
+    "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+    "projectionRevision": "7",
+    "integrity": "healthy",
+    "observedAt": "2026-10-12T15:00:00.000Z"
+  },
+  "requestId": "0f0e2a8e-5b3c-4d8a-9a1e-2c6d7b8f9a01"
+}

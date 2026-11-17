@@ -48,6 +48,7 @@ func TestPrivateRuntimeSecretRefresh(t *testing.T) {
 	ctx := context.Background()
 	cfg := edgeConfig()
 	cfg.Ingress = config.IngressMTLS
+	cfg.TLSKeyFile = "/run/tls/metadata.key"
 	cfg.SecretsProvider = "env"
 	cfg.SecretsRefreshSeconds = 1
 	for _, key := range []string{"DATABASE_URL", "REDIS_URL", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "RPC_URL", "METADATA_PUBLICATION_AUDIT_KEY", "METADATA_ASSERTION_PRIVATE_KEY_HEX"} {

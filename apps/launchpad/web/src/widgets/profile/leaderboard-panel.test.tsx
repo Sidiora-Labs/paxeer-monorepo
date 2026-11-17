@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import React, { act } from 'react';
@@ -179,7 +180,7 @@ describe('LeaderboardPanel against a real HTTP origin', () => {
     expect(container.querySelector('[data-operation]')).toBeNull();
     expect(container.textContent).not.toMatch(/DEPENDENCY_UNAVAILABLE|IF_LEADERBOARDS/);
     expect(container.querySelector('ol')).toBeNull();
-    expect(container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(container.innerHTML)).not.toMatch(BORDER);
     unmount(root, container, queryClient);
   });
 
@@ -214,7 +215,7 @@ describe('LeaderboardPanel against a real HTTP origin', () => {
     expect(links[2].textContent).not.toContain('USDL');
     expect(container.textContent).toContain('Rank 1');
     expect(container.textContent).toContain('Updated');
-    expect(container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(container.innerHTML)).not.toMatch(BORDER);
     expect(served.paths.filter(path => path.startsWith('/v2/leaderboards'))).toEqual(['/v2/leaderboards/trader?window=7d&limit=25']);
 
     // Wallets without a published profile fall back to their short address once media/user answers 404.

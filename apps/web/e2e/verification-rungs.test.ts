@@ -38,7 +38,7 @@ function verification_rung_keeps_three_rungs() {
   for (const [level, copyKey] of [
     ["unverified", "verification.unverified"],
     ["receipt-verified", "verification.receipt_verified"],
-    ["checkpoint-finalised", "verification.checkpoint_finalised"],
+    ["committed", "verification.checkpoint_finalised"],
   ] as const) {
     assert.equal(verificationRung(level), level);
     assert.equal(VERIFICATION_PRESENTATIONS[level].copyKey, copyKey);
@@ -48,10 +48,10 @@ function verification_rung_keeps_three_rungs() {
 
 function verification_rung_fails_retired_levels_closed() {
   assert.deepEqual(Object.keys(VERIFICATION_PRESENTATIONS), [
-    "unverified", "receipt-verified", "checkpoint-finalised",
+    "unverified", "receipt-verified", "committed",
   ]);
   for (const level of [
-    "paxeer-finalised", "settlement-anchored", "unknown-level", "",
+    "unknown-level", "",
     "__proto__", "constructor", "toString", "RECEIPT-VERIFIED",
   ]) {
     assert.equal(verificationRung(level), "unverified");
@@ -61,3 +61,15 @@ function verification_rung_fails_retired_levels_closed() {
 
 test(verification_rung_keeps_three_rungs);
 test(verification_rung_fails_retired_levels_closed);
+
+function verification_retired_names_keep_the_committed_presentation() {
+  for (const level of ["checkpoint-finalised", "paxeer-finalised", "settlement-anchored"]) {
+    assert.equal(verificationWord(level), verificationWord("committed"));
+  }
+  assert.equal(verificationRung("checkpoint-finalised"), "committed");
+  for (const level of ["paxeer-finalised", "settlement-anchored"]) {
+    assert.equal(verificationRung(level), "unverified");
+  }
+}
+
+test(verification_retired_names_keep_the_committed_presentation);

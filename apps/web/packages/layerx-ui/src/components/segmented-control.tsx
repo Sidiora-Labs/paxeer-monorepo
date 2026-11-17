@@ -49,10 +49,12 @@ export function SegmentedControl({
             type="button"
             onClick={() => onValueChange(opt.value)}
             className={cn(
-              "flex h-full flex-1 items-center justify-center rounded-full font-semibold whitespace-nowrap transition-all outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
-              size === "sm" ? "px-3 py-1 text-label" : "px-4 py-2 text-sm",
+              "flex min-w-0 flex-1 self-stretch items-center justify-center rounded-full border border-transparent font-semibold whitespace-normal transition-colors outline-none focus:bg-accent-soft focus:text-accent-strong focus:ring-2 focus:ring-accent-strong focus-visible:bg-accent-soft focus-visible:text-accent-strong focus-visible:ring-2 focus-visible:ring-accent-strong",
+              size === "sm"
+                ? "min-h-7 px-3 text-label"
+                : "min-h-9 px-4 text-sm",
               active
-                ? "bg-surface text-foreground shadow-sm"
+                ? "border-border-strong bg-surface text-foreground shadow-sm"
                 : "text-faint-foreground hover:text-muted-foreground",
             )}
           >

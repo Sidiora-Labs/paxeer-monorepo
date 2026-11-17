@@ -2,6 +2,7 @@ import { TOKEN_INFO_APPLICATION } from 'mocks/account/verifiedAddresses';
 import * as addressMock from 'mocks/address/address';
 import { forContract } from 'mocks/address/counters';
 import { base as tabCounters } from 'mocks/address/tabCounters';
+import { erc20List } from 'mocks/address/tokens';
 import { unifiedAccount } from 'mocks/paxeerX/unifiedAccount';
 import { base as stats } from 'mocks/stats';
 import { tokenCounters, tokenInfo } from 'mocks/tokens/tokenInfo';
@@ -12,6 +13,7 @@ export const addressDetailFixtures = new Map<string, unknown>([
   [ `/api/v2/addresses/${ addressMock.hash }/counters`, forContract ],
   [ `/api/v2/addresses/${ addressMock.hash }/tabs-counters`, tabCounters ],
   [ `/api/v2/addresses/${ addressMock.hash }/unified`, unifiedAccount ],
+  [ `/api/v2/addresses/${ addressMock.hash }/tokens`, erc20List ],
   [ `/api/v2/addresses/${ addressMock.hash }/transactions`, { items: [], next_page_params: null } ],
   [ '/v1/trpc/names.getNamesByOwnerAddress', { result: { data: [] } } ],
   [ `/api/v1/chains/1/token-infos/${ addressMock.hash }`, TOKEN_INFO_APPLICATION.APPROVED ],

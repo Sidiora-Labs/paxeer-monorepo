@@ -54,13 +54,16 @@ function CommandBar({
           <Dialog.Title className="sr-only">Search</Dialog.Title>
           <Command label="Global search" className="flex flex-col">
             <div className="flex items-center gap-3 border-b border-border px-4">
-              <Search className="size-icon-sm shrink-0 text-muted-foreground" aria-hidden />
+              <Search
+                className="size-icon-sm shrink-0 text-muted-foreground"
+                aria-hidden
+              />
               <Command.Input
                 autoFocus
                 placeholder={placeholder}
                 className="min-h-14 w-full bg-transparent py-3 text-body-sm text-foreground outline-none placeholder:text-faint-foreground"
               />
-              <kbd className="shrink-0 rounded border border-border bg-surface-sunken px-1.5 py-0.5 text-micro font-semibold text-muted-foreground">
+              <kbd className="shrink-0 rounded border border-border-strong bg-surface-sunken px-1.5 py-0.5 text-caption font-semibold text-muted-foreground">
                 ESC
               </kbd>
             </div>
@@ -150,11 +153,19 @@ function SearchScreen({
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background animate-fade-in">
       <header className="flex items-center gap-3 border-b border-border bg-surface px-4 py-3">
-        <IconButton variant="outline" size="sm" onClick={() => onOpenChange(false)} aria-label="Back">
+        <IconButton
+          variant="outline"
+          size="sm"
+          onClick={() => onOpenChange(false)}
+          aria-label="Back"
+        >
           <ArrowLeft />
         </IconButton>
-        <div className="flex min-h-10 flex-1 items-center gap-2.5 rounded-full border border-border bg-surface px-4 py-2 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20">
-          <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <div className="flex min-h-10 flex-1 items-center gap-2.5 rounded-full border border-border-strong bg-surface px-4 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20">
+          <Search
+            className="size-4 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
           <input
             autoFocus
             value={query}
@@ -235,7 +246,9 @@ function SearchScreen({
         ))}
 
         {q && shownGroups.length === 0 && (
-          <p className="py-10 text-center text-sm text-muted-foreground">No results for “{query}”.</p>
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            No results for “{query}”.
+          </p>
         )}
       </div>
     </div>

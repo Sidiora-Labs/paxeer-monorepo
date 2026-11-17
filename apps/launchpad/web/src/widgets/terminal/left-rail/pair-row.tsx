@@ -26,7 +26,7 @@ export function PairRow({ row, active, now }: PairRowProps) {
       <Avatar src={row.image} name={row.name} size="md" decorative badge={row.stage ? <StageBadge stage={row.stage} size={14} decorative surface={active ? 3 : 1} /> : undefined} />
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <Link
+          <Link prefetch={false}
             href={row.href}
             aria-current={active ? 'page' : undefined}
             title={row.name}

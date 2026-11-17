@@ -87,6 +87,7 @@ type Deps struct {
 	Quarantine                  *QuarantinePolicy
 	HistoricalReplay            *ReplayRunner
 	HistoricalRequest           *store.ReplayRequest
+	HistoricalRequests          []store.ReplayRequest
 	QualifiedBatchSource        QualifiedBatchSource
 	CanonicalStreamID           string
 	CanonicalOwner              string
@@ -119,7 +120,10 @@ type Deps struct {
 	BatchSize    int
 	Concurrency  int
 	PollInterval time.Duration
-	Logger       *slog.Logger
+	// CanonicalReadTimeout bounds one qualified source read. Zero uses the
+	// process default; the lease is renewed while the read is active.
+	CanonicalReadTimeout time.Duration
+	Logger               *slog.Logger
 }
 
 // Processor indexes launchpad events into Postgres + webhooks.
@@ -143,6 +147,9 @@ func New(d Deps) *Processor {
 	}
 	if d.PollInterval <= 0 {
 		d.PollInterval = 100 * time.Millisecond
+	}
+	if d.CanonicalReadTimeout <= 0 {
+		d.CanonicalReadTimeout = 120 * time.Second
 	}
 	return &Processor{
 		readyFence: new(atomic.Int64),
@@ -190,16 +197,47 @@ func (p *Processor) Run(ctx context.Context) (result error) {
 
 	size := p.deps.BatchSize
 	for {
-		if p.deps.QualifiedBatchSource != nil && p.canonicalFence != 0 && time.Since(p.canonicalRenewed) >= 10*time.Second {
-			if err := p.deps.Store.RenewLease(ctx, p.deps.ChainID, p.deps.CanonicalStreamID, p.deps.CanonicalOwner, p.canonicalFence, 30*time.Second); err != nil {
-				p.canonicalFence = 0
-				p.readyFence.Store(0)
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if p.deps.QualifiedBatchSource != nil && p.canonicalFence == 0 {
+			fence, err := p.deps.Store.AcquireLease(ctx, p.deps.ChainID, p.deps.CanonicalStreamID, p.deps.CanonicalOwner, canonicalLeaseTTL)
+			if err != nil {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				if !errors.Is(err, store.ErrFenced) {
+					p.deps.Logger.Error("canonical lease acquisition failed, retrying", slog.String("err", err.Error()))
+				}
+				if !sleep(ctx, canonicalLeaseRetryInterval) {
+					return ctx.Err()
+				}
+				continue
+			}
+			p.canonicalFence = fence
+			p.readyFence.Store(fence)
+			p.canonicalRenewed = time.Now()
+			checkpoint, err := p.deps.Store.GetCanonicalWatermark(ctx, p.deps.ChainID, p.deps.CanonicalStreamID)
+			if err != nil {
+				p.clearCanonicalLease()
+				return fmt.Errorf("processor: canonical watermark: %w", err)
+			}
+			last = checkpoint
+			size = p.deps.BatchSize
+		}
+		if p.deps.QualifiedBatchSource != nil && p.canonicalFence != 0 && time.Since(p.canonicalRenewed) >= canonicalLeaseRenewInterval {
+			if err := p.deps.Store.RenewLease(ctx, p.deps.ChainID, p.deps.CanonicalStreamID, p.deps.CanonicalOwner, p.canonicalFence, canonicalLeaseTTL); err != nil {
+				p.clearCanonicalLease()
+				if errors.Is(err, store.ErrFenced) {
+					p.deps.Logger.Warn("canonical lease lost, entering standby")
+					if !sleep(ctx, canonicalLeaseRetryInterval) {
+						return ctx.Err()
+					}
+					continue
+				}
 				return err
 			}
 			p.canonicalRenewed = time.Now()
-		}
-		if err := ctx.Err(); err != nil {
-			return err
 		}
 		// Resolve the original immutable batch before observing a head that can
 		// advance the live source's durable-height fence or choosing a new range.
@@ -247,13 +285,20 @@ func (p *Processor) Run(ctx context.Context) (result error) {
 		}
 		if err := p.ProcessBatch(ctx, from, to); err != nil {
 			p.deps.Logger.Error("block processing error, retrying", slog.Int64("from", from), slog.Int64("to", to), slog.String("err", err.Error()))
+			if errors.Is(err, store.ErrFenced) {
+				p.clearCanonicalLease()
+			}
 			// A range whose qualification cannot finish inside the bounded
 			// read window (dense protocol activity) is retried smaller, so one
 			// heavy range never stalls ingestion; it regrows after success.
 			if p.pendingCanonical == nil {
 				size = max(1, size/2)
 			}
-			if !sleep(ctx, 5*time.Second) {
+			delay := 5 * time.Second
+			if errors.Is(err, store.ErrFenced) {
+				delay = canonicalLeaseRetryInterval
+			}
+			if !sleep(ctx, delay) {
 				return ctx.Err()
 			}
 			continue
@@ -294,9 +339,9 @@ func (p *Processor) ProcessBatch(ctx context.Context, from, to int64) error {
 			}
 			p.canonicalFence = fence
 			p.readyFence.Store(fence)
+			p.canonicalRenewed = time.Now()
 		} else if err := p.deps.Store.RenewLease(ctx, p.deps.ChainID, p.deps.CanonicalStreamID, p.deps.CanonicalOwner, p.canonicalFence, 30*time.Second); err != nil {
-			p.canonicalFence = 0
-			p.readyFence.Store(0)
+			p.clearCanonicalLease()
 			return err
 		}
 		checkpoint, err := p.deps.Store.GetCanonicalWatermark(ctx, p.deps.ChainID, p.deps.CanonicalStreamID)
@@ -314,9 +359,7 @@ func (p *Processor) ProcessBatch(ctx context.Context, from, to int64) error {
 		if conversionErr != nil {
 			return conversionErr
 		}
-		readCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
-		batch, receipts, err := p.deps.QualifiedBatchSource.FetchQualifiedBatch(readCtx, fromUint64, toUint64)
-		cancel()
+		batch, receipts, err := p.fetchQualifiedWithLease(ctx, fromUint64, toUint64)
 		if err != nil {
 			if p.deps.Quarantine != nil && p.deps.Source != nil {
 				original, fetchErr := p.deps.Source.FetchLogs(ctx, source.FetchOptions{MonitoredAddresses: p.monitored, FromBlock: from, ToBlock: to, Concurrency: p.deps.Concurrency})
@@ -333,8 +376,7 @@ func (p *Processor) ProcessBatch(ctx context.Context, from, to int64) error {
 			return fmt.Errorf("qualified source range mismatch")
 		}
 		if err = p.deps.Store.RenewLease(ctx, p.deps.ChainID, p.deps.CanonicalStreamID, p.deps.CanonicalOwner, p.canonicalFence, 30*time.Second); err != nil {
-			p.canonicalFence = 0
-			p.readyFence.Store(0)
+			p.clearCanonicalLease()
 			return err
 		}
 		p.canonicalRenewed = time.Now()
@@ -376,6 +418,50 @@ func (p *Processor) ProcessBatch(ctx context.Context, from, to int64) error {
 		p.deps.Publisher.PublishBatch(ctx, events)
 	}
 	return nil
+}
+
+const (
+	canonicalLeaseTTL           = 30 * time.Second
+	canonicalLeaseRenewInterval = 10 * time.Second
+	canonicalLeaseRetryInterval = time.Second
+)
+
+// fetchQualifiedWithLease keeps the canonical lease alive for the complete
+// qualified read. A rejected heartbeat cancels the read before any durable
+// write is attempted and returns the fence error to the caller.
+func (p *Processor) fetchQualifiedWithLease(ctx context.Context, from, to uint64) (store.CanonicalBatch, []*receipt.QualifiedReceipt, error) {
+	readCtx, cancel := context.WithTimeout(ctx, p.deps.CanonicalReadTimeout)
+	defer cancel()
+	type result struct {
+		batch    store.CanonicalBatch
+		receipts []*receipt.QualifiedReceipt
+		err      error
+	}
+	readDone := make(chan result, 1)
+	go func() {
+		batch, receipts, err := p.deps.QualifiedBatchSource.FetchQualifiedBatch(readCtx, from, to)
+		readDone <- result{batch: batch, receipts: receipts, err: err}
+	}()
+	ticker := time.NewTicker(canonicalLeaseRenewInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case done := <-readDone:
+			return done.batch, done.receipts, done.err
+		case <-ticker.C:
+			if err := p.deps.Store.RenewLease(ctx, p.deps.ChainID, p.deps.CanonicalStreamID, p.deps.CanonicalOwner, p.canonicalFence, canonicalLeaseTTL); err != nil {
+				cancel()
+				<-readDone
+				p.clearCanonicalLease()
+				return store.CanonicalBatch{}, nil, err
+			}
+			p.canonicalRenewed = time.Now()
+		case <-ctx.Done():
+			cancel()
+			<-readDone
+			return store.CanonicalBatch{}, nil, ctx.Err()
+		}
+	}
 }
 
 // reconcilePendingCanonical retains the candidate on an unavailable database;
@@ -950,9 +1036,31 @@ func sleep(ctx context.Context, d time.Duration) bool {
 	}
 }
 
+func (p *Processor) clearCanonicalLease() {
+	p.canonicalFence = 0
+	p.readyFence.Store(0)
+	p.canonicalRenewed = time.Time{}
+}
+
+// LeaseState reports the ingestion role exposed by the readiness endpoint.
+// A canonical processor without its fencing token is a standby and performs
+// no projection writes until it acquires the lease.
+func (p *Processor) LeaseState() string {
+	if p == nil || p.deps.QualifiedBatchSource == nil || p.readyFence == nil {
+		return "held"
+	}
+	if p.readyFence.Load() == 0 {
+		return "standby"
+	}
+	return "held"
+}
+
 func (p *Processor) Ready(ctx context.Context) error {
 	if p == nil || p.readyFence == nil || p.deps.Store == nil || p.deps.QualifiedBatchSource == nil {
 		return errors.New("qualified ingestion unavailable")
+	}
+	if p.readyFence.Load() == 0 {
+		return nil
 	}
 	return p.deps.Store.IngestReady(ctx, p.deps.ChainID, p.deps.CanonicalStreamID, p.deps.CanonicalOwner, p.readyFence.Load())
 }

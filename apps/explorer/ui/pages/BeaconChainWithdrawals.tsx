@@ -70,7 +70,7 @@ const BeaconChainWithdrawals = () => {
     return (
       <Skeleton loading={ countersQuery.isPlaceholderData || isPlaceholderData } display="flex" flexWrap="wrap">
         { countersQuery.data && (
-          <Text lineHeight={{ base: '24px', lg: '32px' }}>
+          <Text lineHeight={{ base: 'h2', lg: 'h1' }}>
             { BigNumber(countersQuery.data.withdrawals_count).toFormat() } withdrawals processed
             and { calculateUsdValue({ amount: countersQuery.data.withdrawals_sum }).valueStr } { currencyUnits.ether } withdrawn
           </Text>

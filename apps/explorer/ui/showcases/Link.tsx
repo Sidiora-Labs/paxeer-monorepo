@@ -96,7 +96,7 @@ const LinkShowcase = () => {
             <AddressEntity address={ addressMock.withoutName }/>
             <AddressEntity address={ addressMock.withoutName } link={{ external: true }}/>
             <AddressEntity address={{ ...addressMock.filecoin, name: null }}/>
-            <Box maxW="200px">
+            <Box maxW="calc(var(--chakra-spacing-1) * 50)">
               <AddressEntity address={ addressMock.withoutName }/>
             </Box>
             <AddressEntity address={ addressMock.withoutName } isLoading/>
@@ -109,7 +109,7 @@ const LinkShowcase = () => {
             <AddressEntity address={ addressMock.withName }/>
             <AddressEntity address={ addressMock.withNameTag }/>
             <AddressEntity address={ addressMock.withEns }/>
-            <Box maxW="150px">
+            <Box maxW="calc(var(--chakra-spacing-1) * 37.5)">
               <AddressEntity address={ addressMock.withEns }/>
             </Box>
           </Sample>
@@ -125,10 +125,10 @@ const LinkShowcase = () => {
         <SamplesStack>
           <Sample label="With info" vertical w="100%">
             <TokenEntity token={ TOKEN }/>
-            <Box maxW="200px">
+            <Box maxW="calc(var(--chakra-spacing-1) * 50)">
               <TokenEntity token={{ ...TOKEN, name: 'Token with very very very long name' }} noSymbol/>
             </Box>
-            <Box maxW="300px">
+            <Box maxW="var(--chakra-spacing-75)">
               <TokenEntity token={{ ...TOKEN, symbol: 'Token with very very very long symbol' }}/>
             </Box>
             <TokenEntity token={ TOKEN } jointSymbol/>
@@ -150,7 +150,7 @@ const LinkShowcase = () => {
           <Sample label="Default" vertical w="100%">
             <TxEntity hash={ txMock.base.hash }/>
             <TxEntity hash={ txMock.base.hash } link={{ external: true }}/>
-            <Box maxW="200px">
+            <Box maxW="calc(var(--chakra-spacing-1) * 50)">
               <TxEntity hash={ txMock.base.hash }/>
             </Box>
             <TxEntity hash={ txMock.base.hash } isLoading/>
@@ -162,7 +162,7 @@ const LinkShowcase = () => {
           <Sample label="Default" vertical w="100%">
             <BlockEntity number={ blockMock.base.height }/>
             <BlockEntity number={ blockMock.base.height } link={{ external: true }} icon={{ name: 'txn_batches' }}/>
-            <Box maxW="150px">
+            <Box maxW="calc(var(--chakra-spacing-1) * 37.5)">
               <BlockEntity number={ 1234567890123456 }/>
             </Box>
             <BlockEntity number={ blockMock.base.height } isLoading/>
@@ -173,7 +173,7 @@ const LinkShowcase = () => {
         <SamplesStack>
           <Sample label="Default" vertical w="100%">
             <NftEntity id="42" hash={ TOKEN.address_hash }/>
-            <Box maxW="250px">
+            <Box maxW="calc(var(--chakra-spacing-1) * 62.5)">
               <NftEntity id="32925298983216553915666621415831103694597106215670571463977478984525997408266" hash={ TOKEN.address_hash }/>
             </Box>
             <NftEntity id="4200000" hash={ TOKEN.address_hash } isLoading/>
@@ -184,7 +184,7 @@ const LinkShowcase = () => {
         <SamplesStack>
           <Sample label="Default" vertical w="100%">
             <EnsEntity domain={ ensMock.ensDomainA.name } protocol={ ensMock.ensDomainA.protocol }/>
-            <Box maxW="150px">
+            <Box maxW="calc(var(--chakra-spacing-1) * 37.5)">
               <EnsEntity domain={ ensMock.ensDomainB.name } protocol={ ensMock.ensDomainB.protocol }/>
             </Box>
             <EnsEntity domain={ ensMock.ensDomainA.name } protocol={ ensMock.ensDomainA.protocol } isLoading/>
@@ -199,7 +199,7 @@ const LinkShowcase = () => {
         <SamplesStack>
           <Sample label="Default" vertical w="100%">
             <BlobEntity hash={ blobsMock.base1.hash }/>
-            <Box maxW="200px">
+            <Box maxW="calc(var(--chakra-spacing-1) * 50)">
               <BlobEntity hash={ blobsMock.base1.hash } link={{ external: true }}/>
             </Box>
             <BlobEntity hash={ blobsMock.base1.hash } isLoading/>
@@ -214,7 +214,7 @@ const LinkShowcase = () => {
               base_token_icon_url: 'https://coin-images.coingecko.com/coins/images/39926/large/usds.webp?1726666683',
               quote_token_icon_url: 'https://coin-images.coingecko.com/coins/images/39925/large/sky.jpg?1724827980',
             }}/>
-            <Box maxW="150px">
+            <Box maxW="calc(var(--chakra-spacing-1) * 37.5)">
               <PoolEntity pool={ poolMock.noIcons } link={{ external: true }}/>
             </Box>
             <PoolEntity pool={ poolMock.noIcons } isLoading/>
@@ -224,13 +224,13 @@ const LinkShowcase = () => {
         <SectionSubHeader>Link overlay</SectionSubHeader>
         <SamplesStack>
           <Sample label="Internal link">
-            <LinkBox p={ 2 } display="flex" flexDirection="column" columnGap={ 2 } borderWidth="1px" borderColor="border.divider" borderRadius="base">
+            <LinkBox p={ 2 } display="flex" flexDirection="column" columnGap={ 2 } borderWidth="1" borderColor="border.divider" borderRadius="base">
               <LinkOverlay href="/blocks">Main link</LinkOverlay>
               <Link href="/txs">Inner link</Link>
             </LinkBox>
           </Sample>
           <Sample label="External link">
-            <LinkBox p={ 2 } display="flex" flexDirection="column" columnGap={ 2 } borderWidth="1px" borderColor="border.divider" borderRadius="base">
+            <LinkBox p={ 2 } display="flex" flexDirection="column" columnGap={ 2 } borderWidth="1" borderColor="border.divider" borderRadius="base">
               <LinkOverlay href="https://blockscout.com" external>Main link</LinkOverlay>
               <Link href="https://blockscout.com/txs" external>Inner link</Link>
             </LinkBox>

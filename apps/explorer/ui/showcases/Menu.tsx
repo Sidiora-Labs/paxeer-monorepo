@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { IconButton } from 'toolkit/chakra/icon-button';
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from 'toolkit/chakra/menu';
+import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from 'ui/marketplace/NativeMenu';
 import IconSvg from 'ui/shared/IconSvg';
 
 import { Section, Container, SectionHeader, SamplesStack, Sample } from './parts';
@@ -16,7 +16,7 @@ const MenuShowcase = () => {
           <Sample label="variant: subtle">
             <MenuRoot>
               <MenuTrigger asChild>
-                <IconButton variant="icon_background" size="md">
+                <IconButton aria-label="Open actions" variant="icon_background" size="md">
                   <IconSvg name="dots"/>
                 </IconButton>
               </MenuTrigger>
@@ -30,7 +30,7 @@ const MenuShowcase = () => {
 
             <MenuRoot>
               <MenuTrigger asChild>
-                <IconButton variant="icon_background" size="md" loadingSkeleton>
+                <IconButton aria-label="Open actions" variant="icon_background" size="md" loadingSkeleton>
                   <IconSvg name="dots"/>
                 </IconButton>
               </MenuTrigger>

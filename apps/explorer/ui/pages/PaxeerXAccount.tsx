@@ -54,7 +54,7 @@ const DetailsCard = ({ title, children }: CardProps) => (
   <Box
     data-account-card={ title }
     bg="bg.surface"
-    borderWidth="1px"
+    borderWidth="1"
     borderStyle="solid"
     borderColor="border.divider"
     borderRadius="md"
@@ -63,7 +63,7 @@ const DetailsCard = ({ title, children }: CardProps) => (
     py={ 4 }
     minW={ 0 }
   >
-    <chakra.h2 textStyle="sm" fontWeight="600" color="text.primary" mb={ 3 } data-card-title>{ title }</chakra.h2>
+    <chakra.h2 textStyle="sm" fontWeight="semibold" color="text.primary" mb={ 3 } data-card-title>{ title }</chakra.h2>
     <DetailedInfo.Container
       templateColumns="minmax(0, 1fr)"
       columnGap={ 0 }
@@ -174,7 +174,7 @@ const PaxeerXAccountPageContent = () => {
   const summary = data ? (
     <Grid
       data-account-details
-      templateColumns={{ base: 'minmax(0, 1fr)', lg: 'repeat(3, minmax(0, 1fr))' }}
+      templateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-75)), 1fr))"
       gap={ 4 }
       mb={ 6 }
       alignItems="start"

@@ -17,14 +17,14 @@ export interface TopPayingRailProps {
 export default function TopPayingRail({ rows, loading = false }: TopPayingRailProps) {
   const top = rows.slice(0, topPayingCount);
   return (
-    <section aria-labelledby="top-paying-title" className="flex flex-col gap-3">
+    <section aria-labelledby="top-paying-title" className="@container/reward-rail flex min-h-80 flex-col gap-3">
       <div className="flex flex-col gap-0.5 px-2">
         <h2 id="top-paying-title" className="text-lg font-medium text-text">Top paying coins</h2>
         <p className="text-sm text-text-muted">The coins that have paid their holders the most USDL</p>
       </div>
       {loading && top.length === 0 ? (
-        <ul aria-busy="true" aria-label="Loading top paying coins" className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {Array.from({ length: topPayingCount }).map((_, index) => (
+        <ul aria-busy="true" aria-label="Loading top paying coins" className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(min(100%,var(--sl-token-card-min-width)),1fr))] @max-[18em]/reward-rail:min-h-[var(--sl-rewards-expanded-card-min-height)]">
+          {Array.from({ length: 1 }).map((_, index) => (
             <li key={index}><HolderRewardTokenCard loading name="" symbol="" image={null} tokenAddress={null} href={null} createdAt={null} distributedRaw={null} mcapRaw={null} holdersPaid={null} /></li>
           ))}
         </ul>
@@ -37,7 +37,7 @@ export default function TopPayingRail({ rows, loading = false }: TopPayingRailPr
           className="rounded-lg bg-surface-1"
         />
       ) : (
-        <ol className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <ol className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(min(100%,var(--sl-token-card-min-width)),1fr))] @max-[18em]/reward-rail:min-h-[var(--sl-rewards-expanded-card-min-height)]">
           {top.map((row, index) => (
             <li key={row.poolAddress} className="min-w-0">
               <HolderRewardTokenCard

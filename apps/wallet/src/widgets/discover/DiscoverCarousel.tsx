@@ -21,6 +21,7 @@ export function DiscoverCarousel({
   onSlidePress,
 }: DiscoverCarouselProps) {
   const [active, setActive] = useState(0);
+  const [focused, setFocused] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const isDragging = useRef(false);
@@ -40,9 +41,10 @@ export function DiscoverCarousel({
 
   // Auto-play
   useEffect(() => {
+    if (focused) return;
     timerRef.current = setTimeout(() => goTo(active + 1), autoPlayMs);
     return () => clearTimeout(timerRef.current);
-  }, [active, autoPlayMs, goTo]);
+  }, [active, autoPlayMs, goTo, focused]);
 
   // Sync dots when user scrolls
   const handleScroll = useCallback(() => {
@@ -66,7 +68,16 @@ export function DiscoverCarousel({
   };
 
   return (
-    <div className="col-span-2 flex flex-col gap-2">
+    <div
+      className="col-span-2 flex flex-col gap-2"
+      onFocusCapture={() => {
+        clearTimeout(timerRef.current);
+        setFocused(true);
+      }}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
+      }}
+    >
       {/* Track */}
       <div
         ref={trackRef}
@@ -80,10 +91,22 @@ export function DiscoverCarousel({
           <button
             type="button"
             key={i}
+            onFocus={(event) => {
+              setActive(i);
+              trackRef.current?.scrollTo({
+                left: i * trackRef.current.offsetWidth,
+                behavior: 'instant',
+              });
+              event.currentTarget.scrollIntoView({
+                block: 'nearest',
+                inline: 'nearest',
+                behavior: 'instant',
+              });
+            }}
             onClick={() => {
               if (!isDragging.current) onSlidePress?.(slide);
             }}
-            className="shrink-0 w-full snap-start rounded-xl overflow-hidden focus:outline-none relative aspect-[16/9]"
+            className="pax-discover-slide shrink-0 w-full snap-start rounded-xl overflow-hidden relative aspect-[16/9] scroll-my-4"
             style={{ scrollSnapAlign: 'start' }}
           >
             <Image
@@ -105,6 +128,7 @@ export function DiscoverCarousel({
             <button
               type="button"
               key={i}
+              aria-label={`Show slide ${i + 1}`}
               onClick={() => goTo(i)}
               className={`press-scale h-1.5 rounded-full transition-all duration-normal ${
                 i === active ? 'w-[var(--space-4)] bg-pax-accent' : 'w-1.5 bg-pax-control'

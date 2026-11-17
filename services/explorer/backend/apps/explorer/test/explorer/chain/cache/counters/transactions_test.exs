@@ -5,7 +5,12 @@ defmodule Explorer.Chain.Cache.Counters.TransactionsTest do
   setup do
     Supervisor.terminate_child(Explorer.Supervisor, TransactionsCount.child_id())
     Supervisor.restart_child(Explorer.Supervisor, TransactionsCount.child_id())
-    on_exit(fn -> Supervisor.terminate_child(Explorer.Supervisor, TransactionsCount.child_id()) end)
+
+    on_exit(fn ->
+      Supervisor.terminate_child(Explorer.Supervisor, TransactionsCount.child_id())
+      Supervisor.restart_child(Explorer.Supervisor, TransactionsCount.child_id())
+    end)
+
     :ok
   end
 

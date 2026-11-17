@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { notifyManager, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import BigNumber from 'bignumber.js';
 import { RouterContext } from 'next/dist/shared/lib/router-context.shared-runtime';
 import React from 'react';
@@ -129,21 +129,34 @@ function holdTokenResponse(chain: ClusterChainConfig, token: TokenInfo) {
   return { release, path };
 }
 
+async function settleTokenPageQueries() {
+  do {
+    await act(async() => {
+      const queries = client.getQueryCache().findAll({ fetchStatus: 'fetching' });
+      await Promise.all(queries.map(query => query.promise));
+      await new Promise<void>(resolve => notifyManager.schedule(resolve));
+    });
+  } while (client.isFetching() > 0);
+}
+
 async function tokenChainCacheKeyLiveUpdatesIsolateTwoChainsWithTheSameHash(payload: typeof tokenSupplyTranscript[number]) {
   const { container } = view;
   await act(async() => {
     sockets[0].send(topic, 'total_supply', tokenSupplyTranscript[0]);
-    await waitFor(() => expect(client.getQueryData<TokenInfo>(tokenKey(chainA))?.total_supply)
-      .toBe(tokenSupplyTranscript[0].total_supply));
   });
-  await waitFor(() => expectSupply(container, chainA, tokenSupplyTranscript[0].total_supply));
+  await waitFor(() => {
+    expect(client.getQueryData<TokenInfo>(tokenKey(chainA))?.total_supply).toBe(tokenSupplyTranscript[0].total_supply);
+    expectSupply(container, chainA, tokenSupplyTranscript[0].total_supply);
+  });
   expect(client.getQueryData(tokenKey(chainB))).toEqual(tokenB);
   expect(client.getQueryData(rootKey)).toEqual(tokenInfo);
   await act(async() => {
     sockets[1].send(topic, 'total_supply', payload);
-    await waitFor(() => expect(client.getQueryData<TokenInfo>(tokenKey(chainB))?.total_supply).toBe(payload.total_supply));
   });
-  await waitFor(() => expectSupply(container, chainB, payload.total_supply));
+  await waitFor(() => {
+    expect(client.getQueryData<TokenInfo>(tokenKey(chainB))?.total_supply).toBe(payload.total_supply);
+    expectSupply(container, chainB, payload.total_supply);
+  });
   expect(client.getQueryData(tokenKey(chainA))).toEqual({ ...tokenA, total_supply: tokenSupplyTranscript[0].total_supply });
   expect(client.getQueryData(rootKey)).toEqual(tokenInfo);
   expect(peer.requests).toContain(`/${ chainA.slug }${ tokenPath }`);
@@ -221,6 +234,9 @@ describe('Token chain cache isolation', () => {
     }
     view = render(queryTree(...pages));
     await Promise.all(sockets.map(socket => socket.join(topic)));
+    if (liveCase) {
+      await settleTokenPageQueries();
+    }
     await waitFor(() => {
       if (liveCase) {
         expectSupply(view.container, chainA, tokenA.total_supply!);

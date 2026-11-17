@@ -34,7 +34,7 @@ const ActionBar = ({ children, className, showShadow }: Props) => {
       flexWrap="wrap"
       columnGap={ 3 }
       rowGap={ 2 }
-      width={{ base: '100vw', lg: 'unset' }}
+      width={{ base: 'calc(100% + var(--chakra-spacing-6))', lg: 'unset' }}
       position="sticky"
       top={ 0 }
       transitionProperty="top,box-shadow,background-color,color"

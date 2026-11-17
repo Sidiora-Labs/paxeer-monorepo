@@ -1,12 +1,8 @@
 import { Box, Flex, chakra } from '@chakra-ui/react';
-import { debounce } from 'es-toolkit';
 import React from 'react';
 
-import useIsMobile from 'lib/hooks/useIsMobile';
 import { Heading } from 'toolkit/chakra/heading';
 import { Skeleton } from 'toolkit/chakra/skeleton';
-import { Tooltip } from 'toolkit/chakra/tooltip';
-import { useDisclosure } from 'toolkit/hooks/useDisclosure';
 import AddressQrCode from 'ui/address/details/AddressQrCode';
 import TextAd from 'ui/shared/ad/TextAd';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
@@ -26,58 +22,12 @@ type Props = {
   withTextAd?: boolean;
 };
 
-const TEXT_MAX_LINES = 1;
-
 const PageTitle = ({
   title, kind, identifier, identifierContent, tags, contentAfter, withTextAd, className,
   isLoading = false, afterTitle, beforeTitle, secondRow,
 }: Props) => {
-  const tooltip = useDisclosure();
-  const isMobile = useIsMobile();
-  const [ isTextTruncated, setIsTextTruncated ] = React.useState(false);
-
-  const headingRef = React.useRef<HTMLHeadingElement>(null);
-  const textRef = React.useRef<HTMLSpanElement>(null);
-
-  const updatedTruncateState = React.useCallback(() => {
-    if (!headingRef.current || !textRef.current) {
-      return;
-    }
-
-    const headingRect = headingRef.current.getBoundingClientRect();
-    const textRect = textRef.current.getBoundingClientRect();
-    if ((TEXT_MAX_LINES + 1) * headingRect.height <= textRect.height) {
-      setIsTextTruncated(true);
-    } else {
-      setIsTextTruncated(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    if (!isLoading) {
-      updatedTruncateState();
-    }
-  }, [ isLoading, updatedTruncateState ]);
-
-  React.useEffect(() => {
-    const handleResize = debounce(updatedTruncateState, 1000);
-    window.addEventListener('resize', handleResize);
-
-    return function cleanup() {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [ updatedTruncateState ]);
-
-  const handleTooltipOpenChange = React.useCallback((details: { open: boolean }) => {
-    if (details.open) {
-      tooltip.onOpen();
-    } else {
-      tooltip.onClose();
-    }
-  }, [ tooltip ]);
-
   return (
-    <Flex className={ className } flexDir="column" rowGap={ 3 } mb={ 6 } data-entity-header={ kind ? true : undefined }>
+    <Flex className={ className } flexDir="column" rowGap={ 3 } mb={ 6 } minW={ 0 } maxW="100%" data-entity-header={ kind ? true : undefined }>
       { kind && <Box textStyle="label" color="text.muted" data-entity-kind-label>{ kind.toUpperCase() }</Box> }
       <Flex
         flexDir="row"
@@ -99,38 +49,17 @@ const PageTitle = ({
           { beforeTitle }
           <Skeleton
             loading={ isLoading }
-            overflow="hidden"
+            minW={ 0 }
+            maxW="100%"
           >
-            <Tooltip
-              content={ title }
-              open={ tooltip.open }
-              onOpenChange={ handleTooltipOpenChange }
-              contentProps={{ maxW: { base: 'calc(100vw - 32px)', lg: '500px' } }}
-              closeOnScroll={ isMobile ? true : false }
-              disabled={ !isTextTruncated }
+            <Heading
+              level="1"
+              textStyle="h1"
+              whiteSpace="normal"
+              overflowWrap="anywhere"
             >
-              <Heading
-                ref={ headingRef }
-                level="1"
-                textStyle="h1"
-                whiteSpace="normal"
-                wordBreak="break-all"
-                style={{
-                  WebkitLineClamp: TEXT_MAX_LINES,
-                  WebkitBoxOrient: 'vertical',
-                  display: '-webkit-box',
-                }}
-                overflow="hidden"
-                textOverflow="ellipsis"
-                onMouseEnter={ tooltip.onOpen }
-                onMouseLeave={ tooltip.onClose }
-                onClick={ isMobile ? tooltip.onToggle : undefined }
-              >
-                <span ref={ textRef }>
-                  { title }
-                </span>
-              </Heading>
-            </Tooltip>
+              { title }
+            </Heading>
           </Skeleton>
           { afterTitle && (
             <Box minW={ 0 } maxW="100%" flexBasis={{ base: '100%', lg: 'auto' }} data-title-after>
@@ -142,7 +71,7 @@ const PageTitle = ({
         { withTextAd && <TextAd order={{ base: -1, lg: 100 }} mb={{ base: 6, lg: 0 }} ml="auto" w={{ base: '100%', lg: 'auto' }}/> }
       </Flex>
       { identifier && (
-        <Flex alignItems="center" gap={ 2 } minW={ 0 } fontFamily="mono" fontVariantNumeric="tabular-nums" data-entity-identifier>
+        <Flex alignItems="center" flexWrap="wrap" gap={ 2 } minW={ 0 } maxW="100%" fontFamily="mono" fontVariantNumeric="tabular-nums" data-entity-identifier>
           { identifierContent ?? (
             <>
               <Box overflowWrap="anywhere" minW={ 0 }>{ identifier }</Box>
@@ -153,7 +82,7 @@ const PageTitle = ({
         </Flex>
       ) }
       { tags && (
-        <Flex gap={ 2 } flexWrap="wrap" alignItems="center" data-entity-tags css={{ '& [data-scope="tag"]': { borderRadius: '999px' } }}>
+        <Flex gap={ 2 } flexWrap="wrap" alignItems="center" data-entity-tags css={{ '& [data-scope="tag"]': { borderRadius: 'full' } }}>
           { tags }
         </Flex>
       ) }

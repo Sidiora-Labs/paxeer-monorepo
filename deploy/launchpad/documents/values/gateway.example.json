@@ -35,7 +35,7 @@
     "uri": "https://app.kindlelaunch.example/auth"
   },
   "runtime": {
-    "approvedBucket": "media-approved",
+    "approvedBucket": "token",
     "assertionKeyCredential": "assertionKey",
     "audit": {
       "deliverySchema": "gateway_audit_source",
@@ -83,7 +83,7 @@
     "purgeMode": "http",
     "recoveryEpoch": 1,
     "recoveryRegion": "mainnet-beta-eu",
-    "recoverySchema": "users",
+    "recoverySchema": "recovery",
     "safetySchema": "safety",
     "serverCertFile": "/run/kindle/gateway/server-cert.pem",
     "serverCertSha256": "0000000000000000000000000000000000000000000000000000000000000000",
@@ -94,10 +94,10 @@
     "uploadConcurrent": 8,
     "uploadNamespace": "gateway-upload",
     "upstreams": [
-      {"name": "user", "routes": [{"method": "GET", "template": "/v2/me/profile"}], "url": "https://user.kindlelaunch.example"},
-      {"name": "metadata", "routes": [{"method": "GET", "template": "/v2/tokens/{tokenAddress}/metadata"}], "url": "https://metadata.kindlelaunch.example"},
-      {"name": "social", "routes": [{"method": "GET", "template": "/v2/profiles/{wallet}/followers"}], "url": "https://social.kindlelaunch.example"},
-      {"name": "livestream", "routes": [{"method": "GET", "template": "/v2/streams"}], "url": "https://livestream.kindlelaunch.example"}
+      {"name": "user", "routes": [{"method": "GET", "template": "/v2/me/watchlist", "authenticate": true, "optional": false, "upload": false}], "url": "https://user.kindlelaunch.example:8443"},
+      {"name": "metadata", "routes": [{"method": "GET", "template": "/v2/tokens/{tokenAddress}/metadata", "authenticate": false, "optional": false, "upload": false}, {"method": "PUT", "template": "/v2/tokens/{tokenAddress}/assets/{assetId}", "authenticate": true, "optional": false, "upload": true}], "url": "https://metadata.kindlelaunch.example:8443"},
+      {"name": "social", "routes": [{"method": "GET", "template": "/v2/profiles/{wallet}/followers", "authenticate": false, "optional": true, "upload": false}], "url": "https://social.kindlelaunch.example:8443"},
+      {"name": "livestream", "routes": [{"method": "GET", "template": "/v2/streams", "authenticate": false, "optional": false, "upload": false}], "url": "https://livestream.kindlelaunch.example"}
     ]
   }
 }

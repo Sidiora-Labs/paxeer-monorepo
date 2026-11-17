@@ -91,7 +91,7 @@ const AddressFromTo = ({
             tokenHash={ tokenHash }
             tokenSymbol={ tokenSymbol }
             truncation="constant"
-            maxW="calc(100% - 28px)"
+            maxW="calc(100% - var(--chakra-spacing-7))"
             w="min-content"
             chainId={ fromChainId }
           />
@@ -106,9 +106,9 @@ const AddressFromTo = ({
             tokenHash={ tokenHash }
             tokenSymbol={ tokenSymbol }
             truncation="constant"
-            maxW="calc(100% - 28px)"
+            maxW="calc(100% - var(--chakra-spacing-7))"
             w="min-content"
-            ml="28px"
+            ml={ 7 }
             chainId={ toChainId }
           />
         ) }

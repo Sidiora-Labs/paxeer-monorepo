@@ -17,8 +17,8 @@ export default function ResourcesTab() {
         description={ `Collect limited and legendary badges by completing different Blockscout related tasks.
           Go to the badges website to see what${ apos }s available and start your collection today.` }
         imageSrc="/explorer/static/merits/badges.svg"
-        imageWidth="180px"
-        imageHeight="86px"
+        imageWidth="calc(var(--chakra-spacing-1) * 45)"
+        imageHeight="calc(var(--chakra-spacing-1) * 21.5)"
         linkText="View badges"
         linkHref={ `https://merits.blockscout.com/?tab=badges&utm_source=${ config.chain.id }&utm_medium=badges` }
       />
@@ -26,8 +26,8 @@ export default function ResourcesTab() {
         title="Blockscout campaigns"
         description="Join Blockscout activities to earn bonus Merits and exclusive rewards from our partners!"
         imageSrc="/explorer/static/merits/campaigns.svg"
-        imageWidth="180px"
-        imageHeight="76px"
+        imageWidth="calc(var(--chakra-spacing-1) * 45)"
+        imageHeight="calc(var(--chakra-spacing-1) * 19)"
         linkText="Check campaigns"
         linkHref={ `https://merits.blockscout.com/?tab=campaigns&utm_source=${ config.chain.id }&utm_medium=campaigns` }
       />
@@ -35,8 +35,8 @@ export default function ResourcesTab() {
         title="Use your Merits"
         description="Spend your Merits to get exclusive discounts and offers across several web3 products!"
         imageSrc="/explorer/static/merits/offers.svg"
-        imageWidth="180px"
-        imageHeight="86px"
+        imageWidth="calc(var(--chakra-spacing-1) * 45)"
+        imageHeight="calc(var(--chakra-spacing-1) * 21.5)"
         linkText="Check offers"
         linkHref={ `https://merits.blockscout.com/?tab=spend&utm_source=${ config.chain.id }&utm_medium=spend` }
       />

@@ -346,7 +346,7 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
           Lock on one chain, mint or release on the other — every crossing is attested by the bridge attestor set.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4 surface-inset-x">
+      <CardContent className="flex flex-col gap-4 px-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <AssetPicker
             label="Asset"
@@ -500,7 +500,7 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
               <span className="flex items-center gap-1">
                 In flight to Paxeer
                 <Tooltip>
-                  <TooltipTrigger aria-label="About the in-flight cap" className="focus-ring inline-flex size-11 items-center justify-center rounded-full">
+                  <TooltipTrigger aria-label="About the in-flight cap" className="focus-ring inline-flex size-3.5 items-center justify-center rounded-full">
                     <InfoIcon className="size-3.5"/>
                   </TooltipTrigger>
                   <TooltipContent variant="outline" className="max-w-60 font-normal">
@@ -523,7 +523,7 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
 
         <Button
           size="lg"
-          className="w-full surface-inset-x"
+          className="w-full"
           disabled={ isConnected ? (!onSourceChain && sourceChainId !== undefined ? switching : !ready) : connecting }
           onClick={ primaryAction }
         >

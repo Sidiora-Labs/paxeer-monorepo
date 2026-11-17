@@ -618,6 +618,7 @@
   "orderEntry.bbo.disabled.tips": "BBO tidak didukung ketika TP/SL, Post-Only, IOC, atau FOK dipilih.",
   "orderEntry.estLiqPrice": "Perkiraan harga lik.",
   "orderEntry.disableOrderConfirm": "Nonaktifkan konfirmasi pesanan",
+  "orderEntry.nativeFunding.twoTransactions": "Dua transaksi akan dilakukan: menyetor agunan yang kurang, lalu memasang order. Persetujuan token mungkin juga diperlukan.",
   "orderEntry.orderConfirm": "Konfirmasi pesanan",
   "orderEntry.confirmScaledOrder": "Konfirmasi order berskala",
   "orderEntry.hidden": "Tersembunyi",

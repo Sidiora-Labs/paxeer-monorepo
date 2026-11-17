@@ -1,0 +1,794 @@
+[meta]
+title = "Developer dashboard shell and dimensions"
+geometry_widths = [390, 1280, 1440, 1920, 2560]
+viewport_height = 900
+scheme = "dark"
+unit = "CSS px"
+tolerance = 1
+
+[shell]
+desktop_sidebar_width = 248
+desktop_header_height = 64
+phone_header_height = 69
+phone_bottom_navigation_height = 105
+navigation = ["Overview", "Keys", "Logs", "Webhooks"]
+sections = ["Overview", "Keys", "Logs", "Webhooks", "Payments"]
+reserved_controls = ["Search", "Notifications", "Explorer", "Settings", "New action"]
+reserved_controls_description = "Controls without a destination or action are hidden and retain their space in the shared shell."
+account = "The shared sidebar displays the principal and account caption."
+phone_title = "The phone header exposes the page title to assistive technology."
+
+[content]
+session = "Sign-in uses the runtime gateway tenant and offers the token form and the browser-key action available on the device."
+keys = "Key issuance, rotation and revocation retain their fields, confirmation and secret dialogs."
+loading = "Loading uses separate usage, statistics and activity cards."
+empty = "An overview without an active key displays the quota explanation and Open Keys action; empty activity displays its named state."
+accessibility = "Focus indicators, labels, landmarks, control states, contrast colours and reduced motion remain available."
+
+[width.w390]
+part_count = 187
+differing_part_count = 55
+
+[part.w390.dashboard.activity-card]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.dashboard.activity-first-row]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.empty.activity-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w390.empty.first-heading]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w390.empty.live-keys-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w390.empty.payments-count-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w390.empty.usage-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w390.empty.webhook-count-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w390.keys-revoked.activity-card]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.keys-revoked.activity-first-row]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.keys-secret.activity-card]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.keys-secret.activity-first-row]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.loading.loading-card]
+cause = "additional_content"
+content = "Loading presents separate usage, statistics and activity cards."
+
+[part.w390.loading.primary-control]
+cause = "shared_ui"
+content = "The section strip keeps complete labels in scrollable buttons with the shared touch minimum."
+
+[part.w390.payments-long.activity-card]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.payments-long.activity-first-row]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.receipt-loading.activity-card]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.receipt-loading.activity-first-row]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.receipt-unavailable.activity-card]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.receipt-unavailable.activity-first-row]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.requests-long.activity-card]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.requests-long.activity-first-row]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.sign-in.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-copy-refused.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-copy-refused.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-copy-refused.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-held-busy.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-held-busy.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-held-busy.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-key-busy.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-key-busy.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-key-busy.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-key-loading.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-key-loading.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-key-loading.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-storage.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-storage.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-token-busy.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-token-busy.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-token-busy.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-unconfigured.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-unconfigured.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-unconfigured.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-unsupported.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-unsupported.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-in-unsupported.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w390.sign-out.activity-card]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.sign-out.activity-first-row]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.sign-out-busy.activity-card]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.sign-out-busy.activity-first-row]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.sign-out-refused.activity-card]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.sign-out-refused.activity-first-row]
+cause = "shared_ui"
+content = "The shared list layout wraps complete identifiers and trailing metadata at phone widths."
+
+[part.w390.unavailable.primary-control]
+cause = "shared_ui"
+content = "The section strip keeps complete labels in scrollable buttons with the shared touch minimum."
+
+[width.w1280]
+part_count = 187
+differing_part_count = 33
+
+[part.w1280.empty.activity-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1280.empty.first-heading]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1280.empty.live-keys-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1280.empty.payments-count-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1280.empty.usage-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1280.empty.webhook-count-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1280.loading.loading-card]
+cause = "additional_content"
+content = "Loading presents separate usage, statistics and activity cards."
+
+[part.w1280.sign-in.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-copy-refused.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-copy-refused.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-copy-refused.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-held-busy.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-held-busy.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-held-busy.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-key-busy.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-key-busy.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-key-busy.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-key-loading.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-key-loading.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-key-loading.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-storage.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-storage.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-token-busy.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-token-busy.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-token-busy.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-unconfigured.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-unconfigured.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-unconfigured.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-unsupported.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-unsupported.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1280.sign-in-unsupported.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[width.w1440]
+part_count = 187
+differing_part_count = 33
+
+[part.w1440.empty.activity-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1440.empty.first-heading]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1440.empty.live-keys-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1440.empty.payments-count-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1440.empty.usage-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1440.empty.webhook-count-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1440.loading.loading-card]
+cause = "additional_content"
+content = "Loading presents separate usage, statistics and activity cards."
+
+[part.w1440.sign-in.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-copy-refused.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-copy-refused.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-copy-refused.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-held-busy.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-held-busy.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-held-busy.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-key-busy.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-key-busy.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-key-busy.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-key-loading.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-key-loading.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-key-loading.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-storage.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-storage.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-token-busy.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-token-busy.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-token-busy.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-unconfigured.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-unconfigured.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-unconfigured.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-unsupported.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-unsupported.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1440.sign-in-unsupported.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[width.w1920]
+part_count = 187
+differing_part_count = 33
+
+[part.w1920.empty.activity-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1920.empty.first-heading]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1920.empty.live-keys-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1920.empty.payments-count-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1920.empty.usage-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1920.empty.webhook-count-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w1920.loading.loading-card]
+cause = "additional_content"
+content = "Loading presents separate usage, statistics and activity cards."
+
+[part.w1920.sign-in.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-copy-refused.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-copy-refused.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-copy-refused.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-held-busy.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-held-busy.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-held-busy.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-key-busy.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-key-busy.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-key-busy.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-key-loading.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-key-loading.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-key-loading.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-storage.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-storage.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-token-busy.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-token-busy.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-token-busy.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-unconfigured.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-unconfigured.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-unconfigured.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-unsupported.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-unsupported.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w1920.sign-in-unsupported.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[width.w2560]
+part_count = 187
+differing_part_count = 33
+
+[part.w2560.empty.activity-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w2560.empty.first-heading]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w2560.empty.live-keys-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w2560.empty.payments-count-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w2560.empty.usage-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w2560.empty.webhook-count-card]
+cause = "additional_content"
+content = "The empty overview includes the quota explanation and Open Keys action, followed by the statistics and the activity empty state."
+
+[part.w2560.loading.loading-card]
+cause = "additional_content"
+content = "Loading presents separate usage, statistics and activity cards."
+
+[part.w2560.sign-in.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-copy-refused.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-copy-refused.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-copy-refused.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-held-busy.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-held-busy.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-held-busy.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-key-busy.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-key-busy.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-key-busy.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-key-loading.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-key-loading.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-key-loading.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-storage.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-storage.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-token-busy.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-token-busy.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-token-busy.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-unconfigured.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-unconfigured.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-unconfigured.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-unsupported.primary-control]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-unsupported.session-token]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."
+
+[part.w2560.sign-in-unsupported.sign-in-card]
+cause = "additional_content"
+content = "Sign-in presents the token form first and one available browser-key action, using the runtime gateway tenant."

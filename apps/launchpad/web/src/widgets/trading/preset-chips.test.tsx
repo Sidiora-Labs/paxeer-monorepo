@@ -35,7 +35,7 @@ function expectSingleLine(chip: HTMLButtonElement) {
   expect(classes).toContain('whitespace-nowrap');
   expect(classes).toContain('min-w-0');
   expect(classes.filter(name => CLIP.test(name))).toEqual([]);
-  expect(classes.filter(name => BORDER.test(name))).toEqual([]);
+  expect(classes.filter(name => BORDER.test(name))).toEqual(['border', 'border-control-edge']);
   expect(chip.querySelector('br')).toBeNull();
   expect(chip.textContent).not.toMatch(/\s/);
 }

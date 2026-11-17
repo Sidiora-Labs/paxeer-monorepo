@@ -14,9 +14,9 @@ import { Skeleton } from 'toolkit/chakra/skeleton';
 import isCustomAppError from 'ui/shared/AppError/isCustomAppError';
 import OptimisticL2TxnBatchDA from 'ui/shared/batch/OptimisticL2TxnBatchDA';
 import DataFetchAlert from 'ui/shared/DataFetchAlert';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import DetailedInfoTimestamp from 'ui/shared/DetailedInfo/DetailedInfoTimestamp';
 import PrevNext from 'ui/shared/PrevNext';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 import OptimisticL2TxnBatchBlobCallData from './OptimisticL2TxnBatchBlobCallData';
 import OptimisticL2TxnBatchBlobCelestia from './OptimisticL2TxnBatchBlobCelestia';
@@ -59,7 +59,6 @@ const OptimisticL2TxnBatchDetails = ({ query }: Props) => {
 
   return (
     <DetailedInfo.Container
-      templateColumns={{ base: 'minmax(0, 1fr)', lg: 'minmax(min-content, 200px) minmax(0, 1fr)' }}
     >
       <DetailedInfo.ItemLabel
         isLoading={ isPlaceholderData }

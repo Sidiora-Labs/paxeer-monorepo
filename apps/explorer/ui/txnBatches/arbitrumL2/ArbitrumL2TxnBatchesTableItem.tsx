@@ -27,11 +27,11 @@ const ArbitrumL2TxnBatchesTableItem = ({ item, isLoading }: Props) => {
 
   return (
     <TableRow>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <BatchEntityL2
           isLoading={ isLoading }
           number={ item.number }
-          fontWeight={ 600 }
+          fontWeight="semibold"
           noIcon
         />
       </TableCell>
@@ -41,13 +41,13 @@ const ArbitrumL2TxnBatchesTableItem = ({ item, isLoading }: Props) => {
           <ArbitrumL2TxnBatchDA dataContainer={ item.batch_data_container } isLoading={ isLoading }/>
         </HStack>
       </TableCell>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <BlockEntityL1
           number={ item.commitment_transaction.block_number }
           isLoading={ isLoading }
         />
       </TableCell>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <Skeleton loading={ isLoading } display="inline-block">{ item.blocks_count ? item.blocks_count.toLocaleString() : 'N/A' }</Skeleton>
       </TableCell>
       <TableCell pr={ 12 } verticalAlign="middle">
@@ -66,11 +66,11 @@ const ArbitrumL2TxnBatchesTableItem = ({ item, isLoading }: Props) => {
           color="text.secondary"
         />
       </TableCell>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <Link
           href={ route({ pathname: '/batches/[number]', query: { number: item.number.toString(), tab: 'txs' } }) }
           loading={ isLoading }
-          minW="40px"
+          minW="var(--chakra-spacing-10)"
         >
           { item.transactions_count.toLocaleString() }
         </Link>

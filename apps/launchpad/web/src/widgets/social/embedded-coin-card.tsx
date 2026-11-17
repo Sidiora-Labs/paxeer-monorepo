@@ -40,7 +40,7 @@ export function EmbeddedCoinCard({ poolAddress, stats, positionDisclosure, posit
   const mcap = stats.state === 'ready' ? marketCapRaw(stats.stats) : null;
 
   return (
-    <Link
+    <Link prefetch={false}
       href={`/coin/${poolAddress}`}
       className={cn('flex items-center gap-3 rounded-sm bg-surface-2 p-3 transition-colors duration-fast hover:bg-surface-hover', className)}
       aria-label={`Open ${symbol ?? shortAddress(poolAddress)}`}

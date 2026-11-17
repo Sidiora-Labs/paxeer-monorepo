@@ -131,10 +131,16 @@ const ContractVerificationForm = ({ method: methodFromQuery, config, hash }: Pro
     <FormProvider { ...formApi }>
       <chakra.form
         noValidate
+        autoComplete="off"
         onSubmit={ handleSubmit(onFormSubmit) }
         onChange={ handleFormChange }
       >
-        <Grid as="section" columnGap="30px" rowGap={{ base: 2, lg: 5 }} templateColumns={{ base: '1fr', lg: 'minmax(auto, 680px) minmax(0, 340px)' }}>
+        <Grid
+          as="section"
+          columnGap={ 8 }
+          rowGap={{ base: 2, lg: 5 }}
+          templateColumns={{ base: '1fr', lg: 'minmax(auto, var(--chakra-sizes-2xl)) minmax(0, var(--chakra-sizes-80))' }}
+        >
           { !hash && <ContractVerificationFieldAddress/> }
           <ContractVerificationFieldLicenseType/>
           <ContractVerificationFieldMethod methods={ config.verification_options }/>

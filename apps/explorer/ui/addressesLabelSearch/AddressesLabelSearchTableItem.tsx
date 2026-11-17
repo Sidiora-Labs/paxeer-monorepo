@@ -23,8 +23,8 @@ const AddressesLabelSearchTableItem = ({
         <AddressEntity
           address={ item }
           isLoading={ isLoading }
-          fontWeight={ 700 }
-          my="2px"
+          fontWeight="bold"
+          my="{spacing.0.5}"
         />
       </TableCell>
       <TableCell isNumeric>
@@ -32,11 +32,11 @@ const AddressesLabelSearchTableItem = ({
           amount={ item.coin_balance }
           noSymbol
           loading={ isLoading }
-          lineHeight="24px"
+          textStyle="number"
         />
       </TableCell>
       <TableCell isNumeric>
-        <Skeleton loading={ isLoading } display="inline-block" lineHeight="24px">
+        <Skeleton loading={ isLoading } display="inline-block" textStyle="number">
           { Number(item.transactions_count).toLocaleString() }
         </Skeleton>
       </TableCell>

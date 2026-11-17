@@ -3,7 +3,6 @@ import { useTranslation } from "@paxeer-network/i18n";
 import {
   cn,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuPortal,
   DropdownMenuRoot,
   DropdownMenuTrigger,
@@ -46,20 +45,18 @@ const WalletMenuItem: FC<WalletMenuItemProps> = ({
   className,
 }) => {
   return (
-    <DropdownMenuItem asChild>
-      <button
-        type="button"
-        onClick={onClick}
-        className={cn(
-          "oui-flex oui-items-center oui-gap-2 oui-py-1.5 oui-px-2 hover:oui-bg-base-5",
-          "oui-rounded",
-          "oui-font-semibold oui-tracking-wide",
-          className,
-        )}
-      >
-        {children}
-      </button>
-    </DropdownMenuItem>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "oui-flex oui-items-center oui-gap-2 oui-py-1.5 oui-px-2 hover:oui-bg-base-5",
+        "oui-rounded-[4px]",
+        "oui-font-semibold oui-tracking-[0.03em]",
+        className,
+      )}
+    >
+      {children}
+    </button>
   );
 };
 
@@ -142,21 +139,21 @@ export const WalletSelector: FC<WalletSelectorProps> = ({
     <DropdownMenuPortal>
       <DropdownMenuContent
         align={isRTL ? "start" : "end"}
-        className="oui-max-h-60 oui-max-w-[calc(100vw-var(--oui-space-6))] oui-overflow-y-auto [&_[role=menuitem]]:oui-min-h-12 [&_[role=menuitem]]:oui-h-auto [&_[role=menuitem]]:oui-whitespace-normal [&_[role=menuitem]]:oui-break-all"
+        className="oui-max-h-[240px] oui-overflow-y-auto oui-custom-scrollbar"
       >
         {showConnectedItem && connectedWallet && (
           <WalletMenuItem
             onClick={() => handleSelectWallet(connectedWallet.address)}
-            className="oui-w-96"
+            className="oui-w-[368px]"
           >
             <Flex direction="column" itemAlign="start" gapY={1}>
-              <Text size="2xs" className="oui-text-base-contrast-80">
+              <Text size="2xs" className="oui-text-base-contrast-54">
                 {t("common.myWallet")}
               </Text>
               <Text
                 size="2xs"
-                intensity={80}
-                className="oui-text-base-contrast-80 oui-leading-normal"
+                intensity={54}
+                className="oui-text-base-contrast-36 oui-leading-[15px]"
               >
                 {`(${getChainLabel(currentNetwork)}) ${connectedWallet.address}`}
               </Text>
@@ -170,16 +167,16 @@ export const WalletSelector: FC<WalletSelectorProps> = ({
               <WalletMenuItem
                 key={wallet.address}
                 onClick={() => handleSelectWallet(wallet.address)}
-                className="oui-w-96"
+                className="oui-w-[368px]"
               >
                 <Flex direction="column" itemAlign="start" gapY={1}>
-                  <Text size="2xs" className="oui-text-base-contrast-80">
+                  <Text size="2xs" className="oui-text-base-contrast-54">
                     {t("common.externalWallet")}
                   </Text>
                   <Text
                     size="2xs"
-                    intensity={80}
-                    className="oui-text-base-contrast-80 oui-leading-normal"
+                    intensity={54}
+                    className="oui-text-base-contrast-36 oui-leading-[15px]"
                   >
                     {`(${getChainLabel(wallet.network)}) ${wallet.address}`}
                   </Text>
@@ -194,16 +191,16 @@ export const WalletSelector: FC<WalletSelectorProps> = ({
           className={cn(
             "oui-justify-center",
             hasExternalWallets && "oui-w-full",
-            !hasExternalWallets && "oui-w-48",
+            !hasExternalWallets && "oui-w-[190px]",
           )}
         >
           <Flex
             direction={isRTL ? "rowReverse" : "row"}
             itemAlign="center"
             gapX={1}
-            className="oui-text-primary oui-font-semibold oui-tracking-wide"
+            className="oui-text-primary oui-font-semibold oui-tracking-[0.03em]"
           >
-            <AddIcon className="oui-size-4" />
+            <AddIcon className="oui-size-[18px]" />
             <Text size="2xs">{t("transfer.withdraw.addExternalWallet")}</Text>
           </Flex>
         </WalletMenuItem>
@@ -212,42 +209,28 @@ export const WalletSelector: FC<WalletSelectorProps> = ({
   );
 
   return (
-    <Flex
-      justify="between"
-      className="oui-w-full oui-mb-3 oui-flex-wrap oui-gap-2"
-    >
-      <Text
-        size="2xs"
-        intensity={80}
-        className="oui-shrink-0 oui-whitespace-nowrap"
-      >
+    <Flex justify="between" className="oui-w-full oui-mb-3">
+      <Text size="2xs" intensity={36}>
         {t("common.wallet")}
       </Text>
       <DropdownMenuRoot open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label={t("common.wallet")}
+          <div
             className={cn(
-              "oui-flex oui-min-w-0 oui-flex-wrap oui-items-center oui-gap-1 oui-cursor-pointer oui-text-base-contrast-80 hover:oui-text-base-contrast-80",
+              "oui-flex oui-items-center oui-gap-1 oui-cursor-pointer oui-text-base-contrast-54 hover:oui-text-base-contrast-80",
               isRTL && "oui-flex-row-reverse",
             )}
           >
             {selectedWalletOpt?.name && (
               <WalletIcon name={selectedWalletOpt.name} size="3xs" />
             )}
-            <Text.formatted
-              size="2xs"
-              intensity={80}
-              rule="address"
-              className="oui-whitespace-nowrap"
-            >
+            <Text.formatted size="2xs" intensity={54} rule="address">
               {selectedWalletOpt?.address || ""}
             </Text.formatted>
             <Text
               size="2xs"
-              intensity={80}
-              className="oui-text-base-contrast-80"
+              intensity={54}
+              className="oui-text-base-contrast-36"
             >
               {` (${getChainLabel(selectedWalletOpt?.network)})`}
             </Text>
@@ -256,7 +239,7 @@ export const WalletSelector: FC<WalletSelectorProps> = ({
             ) : (
               <CaretDownIcon size={12} className="oui-text-inherit" />
             )}
-          </button>
+          </div>
         </DropdownMenuTrigger>
         {dropdownContent}
       </DropdownMenuRoot>

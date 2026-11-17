@@ -29,19 +29,19 @@ export const useFundingHistoryColumns = () => {
       {
         title: t("common.symbol"),
         dataIndex: "symbol",
-
+        width: 80,
         render: (value: string) => <SymbolBadge symbol={value} />,
       },
       {
         title: t("common.time"),
         dataIndex: "created_time",
-
+        width: 120,
         rule: "date",
       },
       {
         title: `${t("funding.fundingRate")} / ${t("funding.annualRate")}`,
         dataIndex: "funding_rate",
-
+        width: 80,
         render: (value: any, record) => {
           return (
             <Flex gap={1}>
@@ -61,7 +61,7 @@ export const useFundingHistoryColumns = () => {
       {
         title: t("funding.paymentType"),
         dataIndex: "payment_type",
-
+        width: 80,
         render: (value: any) => {
           switch (value) {
             case "Pay":
@@ -78,7 +78,7 @@ export const useFundingHistoryColumns = () => {
       {
         title: `${t("funding.fundingFee")} (USDC)`,
         dataIndex: "funding_fee",
-
+        width: 80,
         rule: "price",
         formatter(value, record, index) {
           return Number(value) * -1;

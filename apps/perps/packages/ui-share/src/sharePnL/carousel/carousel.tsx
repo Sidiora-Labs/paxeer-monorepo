@@ -100,7 +100,6 @@ const Carousel = React.forwardRef<
 
   const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (event.target !== event.currentTarget) return;
       if (event.key === "ArrowLeft") {
         event.preventDefault();
         scrollPrev();
@@ -133,8 +132,7 @@ const Carousel = React.forwardRef<
       api.scrollTo(props.initIndex);
     }
     return () => {
-      api.off("select", onSelect);
-      api.off("reInit", onSelect);
+      api?.off("select", onSelect);
     };
   }, [api, onSelect]);
 
@@ -169,9 +167,7 @@ const Carousel = React.forwardRef<
     <CarouselContext.Provider value={memoizedValue}>
       <div
         ref={ref}
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
-        aria-label="Share backgrounds"
+        onKeyDownCapture={handleKeyDown}
         className={cn("oui-relative", className)}
         role="region"
         aria-roledescription="carousel"
@@ -345,9 +341,6 @@ export const Dot: React.FC<{
   const activedClassName = activeClassName || "oui-bg-primary-darken";
   return (
     <button
-      type="button"
-      aria-label={`Slide ${index + 1}`}
-      aria-pressed={active}
       onClick={() => onClick?.(index)}
       className={cn(
         "oui-size-2 oui-rounded-full oui-bg-base-contrast-30",

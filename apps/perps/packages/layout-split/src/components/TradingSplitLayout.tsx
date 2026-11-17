@@ -31,12 +31,12 @@ const SplitLineBar: React.FC<SplitLineBarProps> = (props) => {
         filteredCls || undefined,
         "!oui-transition-none",
         "!oui-bg-transparent !oui-shadow-none",
-        "hover:!oui-bg-primary-light hover:!oui-shadow-sm hover:!oui-shadow-primary-light/80",
-        "active:!oui-bg-primary-light active:!oui-shadow-sm active:!oui-shadow-primary-light/80",
-        "focus:!oui-bg-primary-light focus:!oui-shadow-sm focus:!oui-shadow-primary-light/80",
+        "hover:!oui-bg-primary-light hover:!oui-shadow-[0px_0px_4px_0px] hover:!oui-shadow-primary-light/80",
+        "active:!oui-bg-primary-light active:!oui-shadow-[0px_0px_4px_0px] active:!oui-shadow-primary-light/80",
+        "focus:!oui-bg-primary-light focus:!oui-shadow-[0px_0px_4px_0px] focus:!oui-shadow-primary-light/80",
         mode === "horizontal"
-          ? "!oui-mx-1 !oui-w-0.5 !oui-min-w-0.5"
-          : "!oui-my-1 !oui-h-0.5 !oui-min-h-0.5",
+          ? "!oui-mx-[3px] !oui-w-[2px] !oui-min-w-[2px]"
+          : "!oui-my-[3px] !oui-h-[2px] !oui-min-h-[2px]",
         disable && "oui-pointer-events-none",
       )}
     >
@@ -44,7 +44,7 @@ const SplitLineBar: React.FC<SplitLineBarProps> = (props) => {
         onMouseDown={onMouseDown}
         className={cn(
           "!oui-transition-none",
-          mode === "horizontal" ? "after:!oui-w-0.5" : "after:!oui-h-0.5",
+          mode === "horizontal" ? "after:!oui-w-[2px]" : "after:!oui-h-[2px]",
           "after:!oui-bg-transparent after:!oui-shadow-transparent",
         )}
       />

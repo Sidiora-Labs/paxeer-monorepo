@@ -36,26 +36,42 @@ export interface ActivityFeedProps {
   readonly amountSortEnabled: boolean;
 }
 
-export function MobileActivityFeed({ groups, onSelect, dateLabel }: ActivityFeedProps) {
+export function MobileActivityFeed({
+  groups,
+  onSelect,
+  dateLabel,
+}: ActivityFeedProps) {
   return (
     <div className="flex flex-col gap-6">
       {groups.map((group) => (
         <section key={group.id} aria-labelledby={`activity-month-${group.id}`}>
           <div className="flex items-baseline justify-between gap-4 pb-2">
-            <h2 id={`activity-month-${group.id}`} className="text-sm font-bold text-muted-foreground">
+            <h2
+              id={`activity-month-${group.id}`}
+              className="whitespace-nowrap text-sm font-bold text-muted-foreground"
+            >
               {group.label}
             </h2>
-            <span className="text-sm font-semibold text-foreground-secondary">{group.subtotal}</span>
+            <span className="text-sm font-semibold text-foreground-secondary">
+              {group.subtotal}
+            </span>
           </div>
           <List>
             {group.rows.map((row) => (
               <ListItem
                 key={row.id}
                 title={row.title}
-                subtitle={<span className="flex flex-col gap-1"><span>{row.subtitle}</span>{row.status}</span>}
+                subtitle={
+                  <span className="flex flex-col gap-1">
+                    <span>{row.subtitle}</span>
+                    {row.status}
+                  </span>
+                }
                 trailing={row.amount}
                 trailingCaption={dateLabel(row.occurredAt)}
-                onClick={() => { onSelect(row.id); }}
+                onClick={() => {
+                  onSelect(row.id);
+                }}
               />
             ))}
           </List>
@@ -81,21 +97,35 @@ function sortRows(
     if (key === "amount") {
       return multiplier * (left.sortAmount - right.sortAmount);
     }
-    return multiplier * (left.occurredAt.getTime() - right.occurredAt.getTime());
+    return (
+      multiplier * (left.occurredAt.getTime() - right.occurredAt.getTime())
+    );
   });
 }
 
-export function DesktopActivityFeed({ groups, onSelect, dateLabel, columns, amountSortEnabled }: ActivityFeedProps) {
+export function DesktopActivityFeed({
+  groups,
+  onSelect,
+  dateLabel,
+  columns,
+  amountSortEnabled,
+}: ActivityFeedProps) {
   const [sort, setSort] = useState<ActivitySort>("date");
   const [direction, setDirection] = useState<SortDirection>("descending");
   const activeSort = !amountSortEnabled && sort === "amount" ? "date" : sort;
   const sorted = useMemo(
-    () => groups.map((group) => ({ ...group, rows: sortRows(group.rows, activeSort, direction) })),
+    () =>
+      groups.map((group) => ({
+        ...group,
+        rows: sortRows(group.rows, activeSort, direction),
+      })),
     [activeSort, direction, groups],
   );
   const changeSort = (next: ActivitySort) => {
     if (next === sort) {
-      setDirection((current) => current === "ascending" ? "descending" : "ascending");
+      setDirection((current) =>
+        current === "ascending" ? "descending" : "ascending",
+      );
       return;
     }
     setSort(next);
@@ -106,7 +136,9 @@ export function DesktopActivityFeed({ groups, onSelect, dateLabel, columns, amou
       type="button"
       variant="link"
       size="sm"
-      onClick={() => { changeSort(key); }}
+      onClick={() => {
+        changeSort(key);
+      }}
     >
       {label}
       {activeSort === key ? (direction === "ascending" ? " ↑" : " ↓") : null}
@@ -114,22 +146,56 @@ export function DesktopActivityFeed({ groups, onSelect, dateLabel, columns, amou
   );
 
   return (
-    <Card elevation="outline" padding="none" className="human-table-scroll" tabIndex={0}>
-      <table className="human-data-table border-collapse text-left text-sm">
+    <Card
+      elevation="outline"
+      padding="none"
+      className="human-table-scroll"
+      tabIndex={0}
+    >
+      <table className="human-data-table human-activity-table border-collapse text-left text-sm">
         <thead className="bg-surface-sunken text-foreground-secondary">
           <tr>
-            <th scope="col" aria-sort={activeSort === "activity" ? direction : "none"} className="border-b border-border px-4 py-2">{sortHeader("activity", columns.activity)}</th>
-            <th scope="col" aria-sort={activeSort === "date" ? direction : "none"} className="border-b border-border px-4 py-2">{sortHeader("date", columns.date)}</th>
-            <th scope="col" className="border-b border-border px-4 py-2 font-semibold">{columns.status}</th>
-            <th scope="col" aria-sort={activeSort === "amount" ? direction : "none"} className="border-b border-border px-4 py-2 text-right">
-              {amountSortEnabled ? sortHeader("amount", columns.amount) : <span className="font-semibold">{columns.amount}</span>}
+            <th
+              scope="col"
+              aria-sort={activeSort === "activity" ? direction : "none"}
+              className="border-b border-border px-4 py-2"
+            >
+              {sortHeader("activity", columns.activity)}
+            </th>
+            <th
+              scope="col"
+              aria-sort={activeSort === "date" ? direction : "none"}
+              className="border-b border-border px-4 py-2"
+            >
+              {sortHeader("date", columns.date)}
+            </th>
+            <th
+              scope="col"
+              className="border-b border-border px-4 py-2 font-semibold"
+            >
+              {columns.status}
+            </th>
+            <th
+              scope="col"
+              aria-sort={activeSort === "amount" ? direction : "none"}
+              className="border-b border-border px-4 py-2 text-right"
+            >
+              {amountSortEnabled ? (
+                sortHeader("amount", columns.amount)
+              ) : (
+                <span className="font-semibold">{columns.amount}</span>
+              )}
             </th>
           </tr>
         </thead>
         {sorted.map((group) => (
           <tbody key={group.id} className="divide-y divide-border">
             <tr className="bg-surface-sunken/70">
-              <th scope="rowgroup" colSpan={3} className="px-4 py-2 font-bold text-muted-foreground">
+              <th
+                scope="rowgroup"
+                colSpan={3}
+                className="px-4 py-2 font-bold text-muted-foreground"
+              >
                 {group.label}
               </th>
               <td className="px-4 py-2 text-right font-semibold text-foreground-secondary">
@@ -139,10 +205,19 @@ export function DesktopActivityFeed({ groups, onSelect, dateLabel, columns, amou
             {group.rows.map((row) => (
               <tr key={row.id} className="align-middle">
                 <td className="px-4 py-3">
-                  <Button type="button" variant="link" size="sm" onClick={() => { onSelect(row.id); }}>
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    onClick={() => {
+                      onSelect(row.id);
+                    }}
+                  >
                     <span className="flex flex-col items-start gap-1 text-left">
                       <span>{row.title}</span>
-                      <span className="font-normal text-muted-foreground">{row.subtitle}</span>
+                      <span className="font-normal text-muted-foreground">
+                        {row.subtitle}
+                      </span>
                     </span>
                   </Button>
                 </td>
@@ -160,6 +235,8 @@ export function DesktopActivityFeed({ groups, onSelect, dateLabel, columns, amou
   );
 }
 
-export function ActivityEvidenceBadge({ children }: Readonly<{ children: ReactNode }>) {
+export function ActivityEvidenceBadge({
+  children,
+}: Readonly<{ children: ReactNode }>) {
   return <Badge variant="neutral">{children}</Badge>;
 }

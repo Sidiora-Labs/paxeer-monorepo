@@ -70,6 +70,66 @@ export function resolveThemeWith(
     theme.scheme === 'dark' ? 0.55 : 0.8,
     theme.colors.text.strong
   );
+  const actionControlFill =
+    theme.scheme === 'dark' ? mix(accent.primary, 0.6, theme.colors.text.strong) : accent.primary;
+  properties['--color-action-control-fill'] = actionControlFill;
+  const luminance = (value: string): number => {
+    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value);
+    let channels: number[];
+    if (hex) {
+      const digits = hex[1].length === 3 ? hex[1].replace(/./g, (digit) => digit + digit) : hex[1];
+      channels = [0, 2, 4].map((offset) => Number.parseInt(digits.slice(offset, offset + 2), 16));
+    } else {
+      const rgb =
+        /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*(0|1|0?\.\d+)\s*)?\)$/.exec(
+          value
+        ) ??
+        /^rgb\(\s*(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})\s*(?:\/\s*(0|1|0?\.\d+)\s*)?\)$/.exec(value);
+      if (!rgb) throw new Error(`not a colour value: ${value}`);
+      channels = rgb.slice(1, 4).map(Number);
+      if (rgb[4] !== undefined && Number(rgb[4]) !== 1)
+        throw new Error(`luminance needs an opaque colour: ${value}`);
+    }
+    if (channels.some((channel) => channel > 255))
+      throw new Error(`colour channel out of range: ${value}`);
+    const linear = channels.map((channel) => {
+      const srgb = channel / 255;
+      return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+  };
+  const backgroundLuminance = luminance(actionControlFill);
+  const inkContrast = (ink: string): number => {
+    const inkLuminance = luminance(ink);
+    return (
+      (Math.max(inkLuminance, backgroundLuminance) + 0.05) /
+      (Math.min(inkLuminance, backgroundLuminance) + 0.05)
+    );
+  };
+  if (data.accentInks.length === 0) throw new Error('no ink candidates');
+  properties['--color-action-control-ink'] = data.accentInks.reduce((best, candidate) =>
+    inkContrast(candidate) > inkContrast(best) ? candidate : best
+  );
+  const controlTheme =
+    data.themes[
+      theme.scheme === 'light'
+        ? theme.contrast === 'high'
+          ? 'contrast-dark'
+          : 'dark'
+        : theme.contrast === 'high'
+          ? 'contrast-light'
+          : 'light'
+    ];
+  properties['--color-control-fill'] = theme.colors.text.primary;
+  properties['--color-control-ink'] = theme.colors.surface.base;
+  properties['--color-control-accent'] = mix(
+    accent.primary,
+    controlTheme.scheme === 'dark' ? 0.55 : 0.8,
+    controlTheme.colors.text.strong
+  );
+  for (const status of ['success', 'danger', 'warning', 'info'] as const) {
+    properties['--color-control-' + status] = controlTheme.colors.status[status];
+  }
   data.aliases.forEach(function (alias) {
     properties[alias[0]] = 'var(' + alias[1] + ')';
   });

@@ -884,6 +884,7 @@ defmodule BlockScoutWeb.API.RPC.ContractControllerTest do
         Application.put_env(:tesla, :adapter, previous_adapter)
       end)
 
+      BlockScoutWeb.SourcifyServer.start("0xf26594F585De4EB0Ae9De865d9053FEe02ac6eF1")
       :ok
     end
 

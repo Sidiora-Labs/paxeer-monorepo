@@ -32,7 +32,8 @@ export function OptionList({
     <RadioGroup.Root
       value={value}
       onValueChange={onValueChange}
-      className={cn("flex flex-col divide-y divide-border/70", className)}
+      tabIndex={-1}
+      className={cn("flex flex-col divide-y divide-border-strong", className)}
       aria-label={ariaLabel}
     >
       {items.map((item) => {
@@ -42,18 +43,24 @@ export function OptionList({
             key={item.value}
             value={item.value}
             disabled={item.disabled === true}
-            className="group flex w-full cursor-pointer items-center justify-between gap-3 py-4 text-left outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="group flex w-full cursor-pointer items-center justify-between gap-3 py-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent-strong disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-body-sm font-medium text-foreground">{item.label}</span>
+              <span className="text-body-sm font-medium text-foreground">
+                {item.label}
+              </span>
               {item.description && (
-                <span className="text-label text-muted-foreground">{item.description}</span>
+                <span className="text-label text-muted-foreground">
+                  {item.description}
+                </span>
               )}
             </span>
             <span
               className={cn(
                 "inline-flex size-icon-md shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                checked ? "border-accent" : "border-border-strong group-hover:border-faint-foreground",
+                checked
+                  ? "border-accent"
+                  : "border-border-strong group-hover:border-faint-foreground",
               )}
               aria-hidden
             >

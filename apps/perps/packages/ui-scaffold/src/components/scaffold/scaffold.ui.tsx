@@ -21,7 +21,7 @@ export const DefaultTradingViewTncLink = ({
       rel="noopener noreferrer"
       className={className ?? ""}
     >
-      <Text intensity={80} size="2xs">
+      <Text intensity={54} size="2xs">
         Charts powered by TradingView
       </Text>
     </a>
@@ -63,7 +63,7 @@ export const DesktopScaffold: React.FC<DesktopScaffoldProps> = (props) => {
   return (
     <div
       style={{
-        height: `calc(100dvh - ${footerHeight}px)`,
+        height: `calc(100vh - ${footerHeight}px)`,
       }}
       className={cn(
         "oui-scaffold-root oui-font-semibold",
@@ -74,9 +74,6 @@ export const DesktopScaffold: React.FC<DesktopScaffoldProps> = (props) => {
         classNames?.root,
       )}
     >
-      <a className="oui-skip-link" href="#workspace-main">
-        Skip to content
-      </a>
       {/* topNavbar */}
       <Box
         ref={topNavbarRef}
@@ -91,8 +88,8 @@ export const DesktopScaffold: React.FC<DesktopScaffoldProps> = (props) => {
         className={cn(
           "oui-scaffold-container",
           "oui-relative oui-h-full",
-          // The workspace follows the available container width.
-          "oui-min-w-0",
+          // 1024px - 6px (scrollbar widt) = 1018px
+          "oui-min-w-[1018px]",
           classNames?.container,
         )}
       >
@@ -103,7 +100,7 @@ export const DesktopScaffold: React.FC<DesktopScaffoldProps> = (props) => {
               "oui-relative oui-z-[1]",
               "oui-mt-2",
               "oui-bg-base-9",
-              "oui-min-w-0",
+              "oui-min-w-[994px]",
             )}
           />
           {/* <AnnouncementWidget
@@ -114,14 +111,8 @@ export const DesktopScaffold: React.FC<DesktopScaffoldProps> = (props) => {
         {/*--------- body start ------ */}
         {!hasLeftSidebar ? (
           // ----------No leftSidebar layout start ---------
-          <Box
-            asChild
-            height="100%"
-            className={cn("oui-min-w-0", classNames?.content)}
-          >
-            <main id="workspace-main" tabIndex={-1}>
-              {children}
-            </main>
+          <Box height="100%" className={cn(classNames?.content)}>
+            {children}
           </Box>
         ) : (
           // ----------No leftSidebar layout end ---------
@@ -137,7 +128,7 @@ export const DesktopScaffold: React.FC<DesktopScaffoldProps> = (props) => {
                 expand
                   ? `${sideBarExpandWidth}px`
                   : `${sideBarCollaspedWidth}px`
-              } minmax(0, 1fr)`,
+              } 1fr`,
               // gridTemplateRows: "auto 1fr",
               // gridTemplateAreas: `"left main" "left main"`,
             }}
@@ -151,12 +142,9 @@ export const DesktopScaffold: React.FC<DesktopScaffoldProps> = (props) => {
             </div>
             <Box
               width={"100%"}
-              asChild
-              className={cn("oui-min-w-0", classNames?.content)}
+              className={cn("oui-overflow-hidden", classNames?.content)}
             >
-              <main id="workspace-main" tabIndex={-1}>
-                {children}
-              </main>
+              {children}
             </Box>
           </Grid>
           // ---------- left & body layout end ---------

@@ -1,4 +1,4 @@
-import { Box, Flex, Text } from '@chakra-ui/react';
+import { Flex, Text } from '@chakra-ui/react';
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
 
@@ -7,6 +7,7 @@ import useApiQuery from 'lib/api/useApiQuery';
 import { publicClient } from 'lib/web3/client';
 import { Link } from 'toolkit/chakra/link';
 import { TableBody, TableCell, TableColumnHeader, TableHeader, TableRoot, TableRow } from 'toolkit/chakra/table';
+import TableScrollArea from 'ui/blocks/TableScrollArea';
 import DataFetchAlert from 'ui/shared/DataFetchAlert';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import { ScanTableCard } from 'ui/shared/scan';
@@ -34,7 +35,7 @@ function ChainRow({ chain }: { chain: ChainRecord }) {
   return (
     <TableRow data-chain-id={ row.id }>
       <TableCell><Link href={ `/chains/${ row.id }` }>{ row.name }</Link></TableCell>
-      <TableCell>{ row.chain_id }</TableCell>
+      <TableCell isNumeric>{ row.chain_id }</TableCell>
       <TableCell>{ row.launchSymbol || (launch.isError ? 'Unavailable' : '') }</TableCell>
       <TableCell><Text wordBreak="break-all">{ row.operator }</Text></TableCell>
       <TableCell>{ statusLabel(row.status) }</TableCell>
@@ -42,7 +43,7 @@ function ChainRow({ chain }: { chain: ChainRecord }) {
         <Text>{ row.gas_allowance.toLocaleString() } gas</Text>
         <Text>{ row.byte_allowance.toLocaleString() } bytes</Text>
       </TableCell>
-      <TableCell>{ row.created_height }</TableCell>
+      <TableCell isNumeric>{ row.created_height }</TableCell>
     </TableRow>
   );
 }
@@ -54,10 +55,11 @@ export function ChainsList() {
 
   return (
     <>
-      <Flex as="nav" aria-label={ paxeerX.navigation.text } gap={ 4 } mb={ 6 } alignItems="center">
-        <Text fontWeight={ 600 }>{ paxeerX.navigation.text }</Text>
+      <Flex as="nav" aria-label={ paxeerX.navigation.text } gap={ 4 } mb={ 6 } alignItems="center" flexWrap="wrap">
+        <Text fontWeight="semibold">{ paxeerX.navigation.text }</Text>
         { paxeerX.navigation.items.map((item) => (
-          <Link key={ item.href } href={ item.href } aria-current="page">{ item.text }</Link>
+          <Link key={ item.href } href={ item.href }
+            aria-current="page" minH="touchTarget" minW="touchTarget" display="inline-flex" alignItems="center">{ item.text }</Link>
         )) }
       </Flex>
       <PageTitle title="Chains"/>
@@ -68,24 +70,24 @@ export function ChainsList() {
           { query.data.length === 0 ? (
             <Text px={ 4 } py={ 6 }>There are no virtual chains.</Text>
           ) : (
-            <Box overflowX="auto">
+            <TableScrollArea label="Virtual chains">
               <TableRoot variant="scan" aria-label="Virtual chains">
                 <TableHeader>
                   <TableRow>
                     <TableColumnHeader>Name</TableColumnHeader>
-                    <TableColumnHeader>Chain ID</TableColumnHeader>
+                    <TableColumnHeader isNumeric>Chain ID</TableColumnHeader>
                     <TableColumnHeader>Launch asset</TableColumnHeader>
                     <TableColumnHeader>Operator</TableColumnHeader>
                     <TableColumnHeader>Status</TableColumnHeader>
                     <TableColumnHeader>Allowance</TableColumnHeader>
-                    <TableColumnHeader>Created height</TableColumnHeader>
+                    <TableColumnHeader isNumeric>Created height</TableColumnHeader>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   { query.data.map((chain) => <ChainRow key={ chain.id } chain={ chain }/>) }
                 </TableBody>
               </TableRoot>
-            </Box>
+            </TableScrollArea>
           ) }
         </ScanTableCard>
       ) }

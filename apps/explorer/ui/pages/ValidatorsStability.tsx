@@ -122,7 +122,7 @@ const ValidatorsStability = () => {
         { /* { filterInput } */ }
       </HStack>
       { (!isMobile || pagination.isVisible) && (
-        <ActionBar mt={ -6 }>
+        <ActionBar w="100%" mx={ 0 } px={ 0 } mt={ -6 }>
           <HStack gap={ 3 } display={{ base: 'none', lg: 'flex' }}>
             { filterMenu }
             { /* { filterInput } */ }
@@ -138,7 +138,7 @@ const ValidatorsStability = () => {
       <Box hideFrom="lg">
         <ValidatorsList data={ data.items } isLoading={ isPlaceholderData }/>
       </Box>
-      <Box hideBelow="lg" overflowX="auto">
+      <Box hideBelow="lg" overflowX="auto" maxW="100%" tabIndex={ 0 } role="region" aria-label="Validators">
         <ValidatorsTable data={ data.items } sort={ sort } setSorting={ handleSortChange } isLoading={ isPlaceholderData }/>
       </Box>
     </>

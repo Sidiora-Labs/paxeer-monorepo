@@ -30,7 +30,7 @@ const CustomAbiListItem = ({ item, isLoading, onEditClick, onDeleteClick }: Prop
       <Box maxW="100%">
         <AddressEntity
           address={ item.contract_address }
-          fontWeight="600"
+          fontWeight="semibold"
           isLoading={ isLoading }
         />
         <Skeleton textStyle="sm" color="text.secondary" mt={ 0.5 } ml={ 8 } display="inline-block" loading={ isLoading }>

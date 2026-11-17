@@ -1,4 +1,3 @@
-import styles from "../../../presentation.module.css";
 import React, { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -25,7 +24,7 @@ export const AssetsUI: React.FC<
   const { t } = useTranslation();
   return (
     <Card
-      classNames={{ footer: "oui-min-h-12", root: "oui-h-auto oui-min-h-60" }}
+      classNames={{ footer: "oui-h-[48px]", root: "oui-h-[240px]" }}
       title={
         <AssetsHeader
           disabled={!props.canTrade}
@@ -41,24 +40,17 @@ export const AssetsUI: React.FC<
         <Statistic
           label={
             <Flex gap={1}>
-              <Text intensity={80}>{t("common.totalValue")}</Text>
+              <Text intensity={54}>{t("common.totalValue")}</Text>
               <button
-                type="button"
-                aria-label={
-                  props.visible
-                    ? "Hide portfolio value"
-                    : "Show portfolio value"
-                }
-                aria-pressed={props.visible}
                 onClick={() => {
                   props.toggleVisible();
                 }}
                 data-testid="oui-testid-portfolio-assets-eye-btn"
               >
                 {props.visible ? (
-                  <EyeIcon size={16} color="inherit" />
+                  <EyeIcon size={16} color={"white"} />
                 ) : (
-                  <EyeCloseIcon size={16} color="inherit" />
+                  <EyeCloseIcon size={16} color={"white"} />
                 )}
               </button>
             </Flex>
@@ -128,9 +120,9 @@ export const AssetStatistic = (props: AssetStatisticProps) => {
       : props.maxWithdrawAmount.toString();
 
   return (
-    <div className={styles.metrics}>
+    <Grid cols={2} className="oui-h-12">
       <Statistic label={t("common.unrealizedPnl")}>
-        <Flex wrap="wrap">
+        <Flex>
           <Text.pnl
             coloring
             size="lg"
@@ -158,12 +150,12 @@ export const AssetStatistic = (props: AssetStatisticProps) => {
             content={t("transfer.withdraw.available.tooltip", {
               amount: maxWithdrawAmountText,
             })}
-            className="oui-max-w-72"
+            className="oui-max-w-[274px]"
             delayDuration={300}
           >
             <Text
               size="xs"
-              intensity={80}
+              intensity={36}
               className="oui-cursor-pointer oui-border-b oui-border-dashed oui-border-line-12"
             >
               {t("portfolio.overview.availableWithdraw")}
@@ -175,6 +167,6 @@ export const AssetStatistic = (props: AssetStatisticProps) => {
       >
         {props.freeCollateral}
       </Statistic>
-    </div>
+    </Grid>
   );
 };

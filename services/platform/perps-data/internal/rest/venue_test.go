@@ -249,7 +249,7 @@ func TestVenueREST(t *testing.T) {
 			if err := json.Unmarshal(venueData(t, mux, path), &entry); err != nil {
 				t.Fatal(err)
 			}
-			wantKeys(t, entry, "symbol", "index_price", "mark_price", "last_funding_rate_hourly", "last_funding_rate", "open_interest", "volume_24h")
+			wantKeys(t, entry, "symbol", "index_price", "mark_price", "price_24h", "updated_at", "last_funding_rate_hourly", "last_funding_rate", "open_interest", "volume_24h")
 			if field[string](t, entry, "symbol") != "BTC" {
 				t.Fatalf("symbol: %s", entry["symbol"])
 			}
@@ -282,7 +282,7 @@ func TestVenueREST(t *testing.T) {
 		}
 		seen := map[string]bool{}
 		for i, entry := range entries {
-			wantKeys(t, entry, "symbol", "paxeerSymbol", "mark_price", "index_price", "open_interest", "last_funding_rate_hourly",
+			wantKeys(t, entry, "symbol", "paxeerSymbol", "mark_price", "price_24h", "updated_at", "index_price", "open_interest", "last_funding_rate_hourly",
 				"last_funding_rate", "24h_open", "24h_close", "24h_high", "24h_low", "24h_amount", "24h_volume")
 			symbol := field[string](t, entry, "paxeerSymbol")
 			id, ok := marketIDs[symbol]

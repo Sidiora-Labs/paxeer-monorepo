@@ -4,8 +4,9 @@ import React from 'react';
 import type { FheOperation } from 'types/api/fheOperations';
 
 import { AddressHighlightProvider } from 'lib/contexts/addressHighlight';
-import { TableBody, TableColumnHeader, TableHeader, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { TableBody, TableColumnHeader, TableHeader, TableRow } from 'toolkit/chakra/table';
 import TxFHEOperationsTableItem from 'ui/tx/fheOperations/TxFHEOperationsTableItem';
+import ActivityTable from 'ui/txs/ActivityTable';
 
 interface Props {
   data: Array<FheOperation>;
@@ -16,10 +17,10 @@ const TxFHEOperationsTable = ({ data, isLoading }: Props) => {
   return (
     <AddressHighlightProvider>
       <Box maxW="100%" overflowX="auto" hideBelow="lg">
-        <TableRoot tableLayout="fixed" minWidth="900px" w="100%">
+        <ActivityTable label="FHE operations" tableLayout="fixed" minWidth="var(--chakra-sizes-4xl)" w="100%">
           <TableHeader>
             <TableRow>
-              <TableColumnHeader width="10%">Index</TableColumnHeader>
+              <TableColumnHeader width="10%" isNumeric>Index</TableColumnHeader>
               <TableColumnHeader width="15%">Operation</TableColumnHeader>
               <TableColumnHeader width="12%">Type</TableColumnHeader>
               <TableColumnHeader width="12%">FHE type</TableColumnHeader>
@@ -38,7 +39,7 @@ const TxFHEOperationsTable = ({ data, isLoading }: Props) => {
               />
             )) }
           </TableBody>
-        </TableRoot>
+        </ActivityTable>
       </Box>
     </AddressHighlightProvider>
   );

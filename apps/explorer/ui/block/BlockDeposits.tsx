@@ -6,7 +6,9 @@ import BeaconChainDepositsTable from 'ui/deposits/beaconChain/BeaconChainDeposit
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import Pagination from 'ui/shared/pagination/Pagination';
 import type { QueryWithPagesResult } from 'ui/shared/pagination/useQueryWithPages';
-import { formatScanTableCount, ScanTableCard } from 'ui/shared/scan';
+import { formatScanTableCount } from 'ui/shared/scan';
+
+import BlockListCard from './BlockListCard';
 
 type Props = {
   blockDepositsQuery: QueryWithPagesResult<'general:block_deposits'>;
@@ -18,7 +20,7 @@ const BlockDeposits = ({ blockDepositsQuery, itemsCount }: Props) => {
 
   const content = items ? (
     <>
-      <Box hideFrom="lg">
+      <Box hideFrom="lg" data-block-mobile-grid>
         <BeaconChainDepositsList
           items={ items }
           isLoading={ blockDepositsQuery.isPlaceholderData }
@@ -47,7 +49,7 @@ const BlockDeposits = ({ blockDepositsQuery, itemsCount }: Props) => {
     undefined;
 
   return (
-    <ScanTableCard title={ title } pagination={ pagination }>
+    <BlockListCard title={ title } pagination={ pagination }>
       <DataListDisplay
         isError={ blockDepositsQuery.isError }
         itemsNum={ items?.length }
@@ -55,7 +57,7 @@ const BlockDeposits = ({ blockDepositsQuery, itemsCount }: Props) => {
       >
         { content }
       </DataListDisplay>
-    </ScanTableCard>
+    </BlockListCard>
   );
 };
 

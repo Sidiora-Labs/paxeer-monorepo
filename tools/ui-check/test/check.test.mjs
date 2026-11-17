@@ -1,14 +1,18 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
-import { mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { after, before } from "node:test";
-import { checkSurface } from "../check.mjs";
-import { DEVICES, LIMITS, MODES, REPOSITORY, readSurface, renderMatrix } from "../config.mjs";
-import { serveFiles } from "../server.mjs";
+import { PNG } from "pngjs";
+import { chromium } from "playwright";
+import { checkSurface, FRAME_TAB_PRESSES, FRAME_TRAVERSAL_MS, keyboardFindings, readSurface } from "../check.mjs";
+import { DEVICES, LIMITS, MODES, REPOSITORY, renderMatrix } from "../config.mjs";
+import { observePage } from "../browser.mjs";
+import { serveFiles, startSurface } from "../server.mjs";
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
 const cli = resolve(dirname(fileURLToPath(import.meta.url)), "../check.mjs");
@@ -24,13 +28,15 @@ let sequence = 0;
 const lateRequests = { response: 0, answer: 0 };
 const lateClosures = { response: 0, answer: 0 };
 const lateResponseMs = LIMITS.navigationMs - 1000;
+const surfaceSockets = new Set();
+let socketConnections = 0;
 
 before(async function serveTestPages() {
   root = await mkdtemp(join(tmpdir(), "ui-check-"));
   server = createServer((request, response) => {
     if (request.url === "/never") return;
     const url = new URL(request.url, "http://localhost");
-    if (["/late.html", "/base.css"].includes(url.pathname)) {
+    if (["/late.html", "/socket.html", "/base.css"].includes(url.pathname)) {
       readFile(join(fixtures, url.pathname.slice(1))).then((body) => {
         response.writeHead(200, { "content-type": url.pathname.endsWith(".css") ? "text/css" : "text/html" });
         response.end(body);
@@ -55,16 +61,29 @@ before(async function serveTestPages() {
     response.writeHead(200, { "content-type": "text/plain" });
     response.end("Ready");
   });
+  server.on("upgrade", (request, socket) => {
+    surfaceSockets.add(socket);
+    socket.once("close", () => surfaceSockets.delete(socket));
+    socket.on("error", () => socket.destroy());
+    socket.on("data", () => socket.end(Buffer.from([0x88, 0])));
+    const accept = createHash("sha1").update(`${request.headers["sec-websocket-key"]}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64");
+    socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
+    const message = Buffer.from("Socket ready");
+    socket.write(Buffer.concat([Buffer.from([0x81, message.length]), message]));
+    socketConnections++;
+  });
   await new Promise((resolve) => server.listen(0, "localhost", resolve));
   address = `http://localhost:${server.address().port}`;
   files = await serveFiles(fixtures, "http://localhost:0");
   external = createServer((request, response) => { externalRequests++; response.end("External service"); });
+  external.on("upgrade", (request, socket) => { externalRequests++; socket.destroy(); });
   await new Promise((resolve) => external.listen(0, "localhost", resolve));
   externalAddress = `http://localhost:${external.address().port}`;
 });
 
 after(async function closeTestPages() {
   await files?.close();
+  for (const socket of surfaceSockets) socket.destroy();
   for (const instance of [server, external]) {
     if (!instance) continue;
     await new Promise((resolve) => { instance.close(resolve); instance.closeAllConnections(); });
@@ -119,10 +138,11 @@ async function cleanPagePassesWholeDeviceList() {
   assertMatrix(result);
   assert.equal(result.passed, true, JSON.stringify(result.findings));
   assert.ok(result.renders.every((render) => render.hasContent));
+  assert.ok(result.renders.every((render) => render.cancelled === 0));
   assert.deepEqual(result.findings, []);
   assert.equal(lines.length, 2);
-  assert.match(lines[0], /^clean: 34 renders, 0 did not render, 0 showed nothing, 0 findings$/);
-  assert.match(lines[1], /^Total: 34 renders, 0 showed nothing, 0 findings, pass, 0 views and states with fewer than all modes$/);
+  assert.match(lines[0], /^clean: 34 renders, 0 did not render, 0 showed nothing, 0 findings, 0 retried$/);
+  assert.match(lines[1], /^Total: 34 renders, 0 showed nothing, 0 findings, 0 cancelled, pass, 0 views and states with fewer than all modes, 0 retried$/);
   assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 34);
   const png = await readFile(join(out, result.renders[0].screenshot));
   assert.equal(png.readUInt32BE(16), 360);
@@ -143,8 +163,8 @@ async function emptyBodyReportsLoadAtEverySize() {
     assert.deepEqual(render.findings.map((finding) => finding.values.source), ["empty-document", "single-colour-viewport"]);
   }
   assert.deepEqual(lines, [
-    "blank: 34 renders, 0 did not render, 34 showed nothing, 68 findings",
-    "Total: 34 renders, 34 showed nothing, 68 findings, fail, 0 views and states with fewer than all modes",
+    "blank: 34 renders, 0 did not render, 34 showed nothing, 68 findings, 0 retried",
+    "Total: 34 renders, 34 showed nothing, 68 findings, 0 cancelled, fail, 0 views and states with fewer than all modes, 0 retried",
   ]);
 }
 test(emptyBodyReportsLoadAtEverySize);
@@ -185,8 +205,8 @@ async function coveredTextReportsTheViewportMeasurement() {
   const png = await readFile(join(out, result.renders[0].screenshot));
   assert.ok(png.readUInt32BE(20) > 900, "Viewport content is measured separately from the full-page screenshot");
   assert.deepEqual(lines, [
-    "covered: 68 renders, 0 did not render, 34 showed nothing, 34 findings",
-    "Total: 68 renders, 34 showed nothing, 34 findings, fail, 0 views and states with fewer than all modes",
+    "covered: 68 renders, 0 did not render, 34 showed nothing, 34 findings, 0 retried",
+    "Total: 68 renders, 34 showed nothing, 34 findings, 0 cancelled, fail, 0 views and states with fewer than all modes, 0 retried",
   ]);
 }
 test(coveredTextReportsTheViewportMeasurement);
@@ -241,10 +261,10 @@ async function parallelRendersPreserveContentFindingsAndCounts() {
     assert.equal(result.findings.length, 102);
     assert.deepEqual([...new Set(result.findings.map((finding) => finding.values.source))], ["empty-document", "single-colour-viewport"]);
     assert.deepEqual(lines, [
-      "blank: 34 renders, 0 did not render, 34 showed nothing, 68 findings",
-      "covered: 68 renders, 0 did not render, 34 showed nothing, 34 findings",
-      "text: 34 renders, 0 did not render, 0 showed nothing, 0 findings",
-      "Total: 136 renders, 68 showed nothing, 102 findings, fail, 0 views and states with fewer than all modes",
+      "blank: 34 renders, 0 did not render, 34 showed nothing, 68 findings, 0 retried",
+      "covered: 68 renders, 0 did not render, 34 showed nothing, 34 findings, 0 retried",
+      "text: 34 renders, 0 did not render, 0 showed nothing, 0 findings, 0 retried",
+      "Total: 136 renders, 68 showed nothing, 102 findings, 0 cancelled, fail, 0 views and states with fewer than all modes, 0 retried",
     ]);
     results.push({ result, lines });
   }
@@ -272,7 +292,7 @@ async function eachPageReportsOnlyItsFindingKind() {
     }
     if (kind === "load") {
       const sources = new Set(result.findings.map((finding) => finding.values.source));
-      for (const source of ["console", "pageerror", "unhandledrejection", "response", "requestfailed", "unanswered-request"]) assert.ok(sources.has(source), source);
+      for (const source of ["console", "pageerror", "unhandledrejection", "response", "unanswered-request"]) assert.ok(sources.has(source), source);
       for (const resource of ["stylesheet", "script"]) assert.ok(result.findings.some((finding) => finding.values.resource === resource));
     }
   }
@@ -288,7 +308,7 @@ async function controlsUseThreeToOneContrast() {
   const surface = await surfaceFor("control-contrast");
   const command = await runCli(["--surface", surface, "--out", join(root, "control-status")]);
   assert.notEqual(command.code, 0);
-  assert.match(command.stdout, /findings, fail/);
+  assert.match(command.stdout, /findings, 0 cancelled, fail/);
 }
 test(controlsUseThreeToOneContrast);
 
@@ -415,6 +435,66 @@ async function fixedAnswersStayInTheBrowser() {
 }
 test(fixedAnswersStayInTheBrowser);
 
+async function fixedAnswersUseStateViewAndSurfaceOrder() {
+  const pattern = `${externalAddress}/ordered`;
+  const filesByLevel = {
+    surface: join(root, "surface-answer.json"),
+    view: join(root, "view-answer.json"),
+    state: join(root, "state-answer.json"),
+  };
+  for (const [level, filename] of Object.entries(filesByLevel)) {
+    await writeFile(filename, JSON.stringify({ message: `${level} answer` }));
+  }
+  const answer = (file) => ({ method: "GET", pattern, file: file.slice(root.length + 1), headers: { "content-type": "application/json" } });
+  const page = `/answers.html?address=${encodeURIComponent(pattern)}`;
+  const surface = await surfaceFor("ordered", {
+    answers: [answer(filesByLevel.surface)],
+    views: [
+      { name: "surface", path: page, modes: ["default"], states: [{ name: "surface", modes: ["default"], steps: [{ action: "wait", text: "surface answer" }] }] },
+      { name: "view", path: page, modes: ["default"], answers: [answer(filesByLevel.view)], states: [{ name: "view", modes: ["default"], steps: [{ action: "wait", text: "view answer" }] }] },
+      { name: "state", path: page, modes: ["default"], states: [{ name: "state", modes: ["default"], steps: [{ action: "wait", text: "state answer" }], answers: [answer(filesByLevel.state)] }] },
+    ],
+  });
+  const result = await checkSurface({ surface, out: join(root, "ordered") }, () => {});
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 132);
+  assert.deepEqual(result.views, [
+    { name: "surface", modes: ["default"], answers: 0, states: [{ name: "surface", modes: ["default"], answers: 0 }] },
+    { name: "view", modes: ["default"], answers: 1, states: [{ name: "view", modes: ["default"], answers: 0 }] },
+    { name: "state", modes: ["default"], answers: 0, states: [{ name: "state", modes: ["default"], answers: 1 }] },
+  ]);
+  assert.equal(externalRequests, 0);
+}
+test(fixedAnswersUseStateViewAndSurfaceOrder);
+
+async function fixedAnswersStayWithinTheirStateAndView() {
+  const pattern = `${externalAddress}/isolated`;
+  const stateFile = join(root, "isolated-state-answer.json");
+  const viewFile = join(root, "isolated-view-answer.json");
+  await writeFile(stateFile, JSON.stringify({ message: "state only" }));
+  await writeFile(viewFile, JSON.stringify({ message: "view only" }));
+  const entry = (file) => ({ method: "GET", pattern, file: file.slice(root.length + 1), headers: { "content-type": "application/json" } });
+  const path = `/answers.html?address=${encodeURIComponent(pattern)}`;
+  const surface = await surfaceFor("isolated", {
+    views: [
+      { name: "states", path, modes: ["default"], states: [
+        { name: "first", modes: ["default"], steps: [{ action: "wait", text: "state only" }], answers: [entry(stateFile)] },
+        { name: "second", modes: ["default"], steps: [{ action: "wait", text: "state only" }] },
+      ] },
+      { name: "scoped", path, modes: ["default"], answers: [entry(viewFile)] },
+      { name: "other", path, modes: ["default"], answers: [] },
+    ],
+  });
+  const result = await checkSurface({ surface, out: join(root, "isolated") }, () => {});
+  assert.equal(result.renders.filter((render) => render.view === "states" && render.state === "first").every((render) => render.findings.length === 0), true);
+  assert.ok(result.renders.filter((render) => render.view === "states" && render.state === "second").every((render) => render.findings.some((finding) => finding.values.source === "unanswered-request")));
+  assert.ok(result.renders.filter((render) => render.view === "scoped").every((render) => render.findings.length === 0));
+  assert.ok(result.renders.filter((render) => render.view === "other").every((render) => render.findings.some((finding) => finding.values.source === "unanswered-request")));
+  assert.equal(result.passed, false);
+  assert.equal(externalRequests, 0);
+}
+test(fixedAnswersStayWithinTheirStateAndView);
+
 async function lateRequestsKeepReportsAndExitStatus() {
   assert.ok(lateResponseMs > LIMITS.settleMs);
   await writeFile(join(root, "late-answer.txt"), "Fixed answer");
@@ -450,9 +530,9 @@ async function lateRequestsKeepReportsAndExitStatus() {
         assert.equal(finding.values.message, "Page finding");
       }
       assert.deepEqual(command.stdout.trim().split("\n"), [
-        "late: 22 renders, 0 did not render, 0 showed nothing, 0 findings",
-        `following: 22 renders, 0 did not render, 0 showed nothing, ${withFinding ? 22 : 0} findings`,
-        `Total: 44 renders, 0 showed nothing, ${withFinding ? 22 : 0} findings, ${withFinding ? "fail" : "pass"}, 2 views and states with fewer than all modes`,
+        "late: 22 renders, 0 did not render, 0 showed nothing, 0 findings, 0 retried",
+        `following: 22 renders, 0 did not render, 0 showed nothing, ${withFinding ? 22 : 0} findings, 0 retried`,
+        `Total: 44 renders, 0 showed nothing, ${withFinding ? 22 : 0} findings, 0 cancelled, ${withFinding ? "fail" : "pass"}, 2 views and states with fewer than all modes, 0 retried`,
       ]);
       for (const kind of ["response", "answer"]) {
         assert.equal(lateRequests[kind] - started[kind], 44);
@@ -475,7 +555,7 @@ async function activeSurfaceRequestFailuresRemainLoadFindings() {
   assert.equal(result.renders.length, 22);
   for (const render of result.renders) {
     assert.equal(render.rendered, true);
-    assert.ok(render.findings.length > 0);
+    assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
     assert.ok(render.findings.every((finding) => finding.kind === "load"));
     assert.ok(render.findings.some((finding) => finding.values.source === "requestfailed"
       && finding.values.address === `${address}/network-failure`
@@ -484,6 +564,242 @@ async function activeSurfaceRequestFailuresRemainLoadFindings() {
 }
 test(activeSurfaceRequestFailuresRemainLoadFindings);
 
+async function requestSurface(script, { refuse = false } = {}) {
+  const directory = await mkdtemp(join(root, "request-surface-"));
+  const css = await readFile(join(fixtures, "base.css"), "utf8");
+  await writeFile(join(directory, "index.html"), `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Requests</title><link rel="icon" href="data:,"><style>${css}</style><body><p>Reading</p><script>${script}</script></body></html>`);
+  const pending = new Map();
+  const instance = createServer((request, response) => {
+    const url = new URL(request.url, "http://localhost");
+    if (url.pathname === "/ready") {
+      response.writeHead(200, { connection: "close" });
+      response.end("Ready");
+      if (refuse) instance.close();
+    } else if (url.pathname === "/pending") {
+      const id = url.searchParams.get("id");
+      pending.set(id, (pending.get(id) ?? 0) + 1);
+    } else if (url.pathname === "/started") {
+      response.end(String(pending.get(url.searchParams.get("id")) ?? 0));
+    } else if (url.pathname === "/network-failure") response.destroy();
+    else if (url.pathname === "/redirect") {
+      response.writeHead(302, { location: `${externalAddress}/unanswered` });
+      response.end();
+    } else {
+      readFile(join(directory, "index.html")).then((body) => {
+        response.writeHead(200, { "content-type": "text/html" });
+        response.end(body);
+      }, () => response.destroy());
+    }
+  });
+  await new Promise((resolve) => instance.listen(0, "localhost", resolve));
+  const origin = `http://localhost:${instance.address().port}`;
+  return {
+    options: { directory, address: origin, readyPath: "/ready", views: [{ name: "requests", path: "/index.html", modes: ["default"] }] },
+    async close() {
+      await new Promise((resolve) => { instance.close(resolve); instance.closeAllConnections(); });
+    },
+  };
+}
+
+async function cancelledReads(count, context) {
+  const surface = await requestSurface(`
+    (async () => {
+      const id = crypto.randomUUID();
+      const controllers = Array.from({ length: ${count} }, () => new AbortController());
+      const reads = controllers.map((controller) => fetch('/pending?id=' + id, { signal: controller.signal }).catch((error) => {
+        if (error.name !== 'AbortError') throw error;
+      }));
+      while (Number(await (await fetch('/started?id=' + id)).text()) !== controllers.length) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      for (const controller of controllers) controller.abort();
+      await Promise.all(reads);
+      document.querySelector('p').textContent = 'Cancelled ${count} reads';
+    })();
+  `);
+  try {
+    const { result, lines } = await execute("requests", surface.options);
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.equal(result.renders.length, 22);
+    assert.deepEqual(result.findings, []);
+    for (const render of result.renders) {
+      assert.equal(render.rendered, true);
+      assert.equal(render.cancelled, count);
+      assert.deepEqual(render.findings, []);
+    }
+    assert.equal(lines.at(-1), `Total: 22 renders, 0 showed nothing, 0 findings, ${22 * count} cancelled, pass, 1 views and states with fewer than all modes, 0 retried`);
+    context.diagnostic(`${count} page-cancelled reads per render, ${22 * count} cancelled in total, no findings`);
+  } finally { await surface.close(); }
+}
+
+async function onePageCancelledReadHasNoFinding(context) {
+  await cancelledReads(1, context);
+}
+test(onePageCancelledReadHasNoFinding);
+
+async function threePageCancelledReadsHaveNoFindings(context) {
+  await cancelledReads(3, context);
+}
+test(threePageCancelledReadsHaveNoFindings);
+
+async function unansweredRequestsProduceOneFinding(context) {
+  const outsideRequests = externalRequests;
+  for (const target of [`${externalAddress}/unanswered`, "/redirect"]) {
+    const surface = await requestSurface(`fetch(${JSON.stringify(target)}).catch(() => {});`);
+    try {
+      const { result } = await execute("requests", surface.options);
+      assert.equal(result.passed, false);
+      assert.equal(result.renders.length, 22);
+      for (const render of result.renders) {
+        assert.equal(render.rendered, true);
+        assert.equal(render.cancelled, 0);
+        assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+        assert.equal(render.findings[0].kind, "load");
+        assert.equal(render.findings[0].values.source, "unanswered-request");
+        assert.equal(render.findings[0].values.address, `${externalAddress}/unanswered`);
+      }
+      context.diagnostic(`${target.startsWith("/") ? "Redirected" : "Direct"} unanswered request produces one load finding per render`);
+    } finally { await surface.close(); }
+  }
+  assert.equal(externalRequests, outsideRequests);
+}
+test(unansweredRequestsProduceOneFinding);
+
+async function surfaceSocketRequiresOriginNetworkPermission(context) {
+  const browser = await chromium.launch();
+  try {
+    const isolated = await browser.newContext();
+    await isolated.route("**/*", async (route) => {
+      await route.fulfill({ response: await route.fetch() });
+    });
+    await isolated.routeWebSocket("**/*", (socket) => socket.connectToServer());
+    const page = await isolated.newPage();
+    const messages = [];
+    page.on("console", (message) => { if (message.type() === "error") messages.push(message.text()); });
+    const connections = socketConnections;
+    await page.goto(`${address}/socket.html`);
+    await page.waitForFunction(() => document.body.dataset.socket === "error");
+    assert.equal(socketConnections, connections);
+    assert.equal(await page.locator("#message").textContent(), "Connecting");
+    assert.equal(messages.length, 1, JSON.stringify(messages));
+    assert.match(messages[0], /WebSocket.*(?:local|loopback|permission)/i);
+    context.diagnostic(messages[0]);
+  } finally { await browser.close(); }
+}
+test(surfaceSocketRequiresOriginNetworkPermission);
+
+async function surfaceSocketWritesItsFirstMessageIntoTheRender() {
+  const connections = socketConnections;
+  const { result } = await execute("socket", {
+    address, readyPath: "/socket.html",
+    views: [{ name: "socket", path: "/socket.html", states: [{
+      name: "received", steps: [{ action: "wait", text: "Socket ready" }],
+    }] }],
+  });
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.deepEqual(result.findings, []);
+  assert.equal(result.renders.length, 68);
+  assert.equal(socketConnections - connections, 68);
+  for (const state of ["default", "received"]) {
+    const renders = result.renders.filter((render) => render.state === state);
+    assertMatrix({ renders });
+    assert.ok(renders.every((render) => render.hasContent && render.cancelled === 0));
+  }
+}
+test(surfaceSocketWritesItsFirstMessageIntoTheRender);
+
+async function socketToAnotherAddressKeepsOneLoadFinding() {
+  const outsideRequests = externalRequests;
+  const connections = socketConnections;
+  const target = `${externalAddress.replace("http:", "ws:")}/socket`;
+  const { result } = await execute("socket", {
+    address, readyPath: "/socket.html",
+    views: [{ name: "socket", path: `/socket.html?address=${encodeURIComponent(`${externalAddress}/socket`)}` }],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 34);
+  for (const render of result.renders) {
+    assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+    assert.equal(render.hasContent, true);
+    assert.equal(render.cancelled, 0);
+    const finding = render.findings[0];
+    assert.equal(finding.kind, "load");
+    assert.deepEqual(finding.values, { source: "unanswered-request", method: "GET", address: target, resource: "websocket" });
+  }
+  assert.equal(externalRequests, outsideRequests);
+  assert.equal(socketConnections, connections);
+}
+test(socketToAnotherAddressKeepsOneLoadFinding);
+
+async function unfetchableSurfaceRequestsProduceOneFinding(context) {
+  const surface = await requestSurface('fetch("/network-failure").catch(() => {});');
+  try {
+    const { result } = await execute("requests", surface.options);
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    for (const render of result.renders) {
+      assert.equal(render.rendered, true);
+      assert.equal(render.cancelled, 0);
+      assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+      const finding = render.findings[0];
+      assert.equal(finding.kind, "load");
+      assert.equal(finding.values.source, "requestfailed");
+      assert.equal(finding.values.address, `${surface.options.address}/network-failure`);
+      assert.match(finding.values.message, /socket hang up|ECONNRESET/);
+    }
+    context.diagnostic("Unfetchable surface request produces one load finding per render");
+  } finally { await surface.close(); }
+}
+test(unfetchableSurfaceRequestsProduceOneFinding);
+
+async function refusedConnectionsRemainRequestFailures(context) {
+  const surface = await requestSurface("", { refuse: true });
+  try {
+    const { result } = await execute("requests", surface.options);
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    for (const render of result.renders) {
+      assert.equal(render.rendered, false);
+      assert.equal(render.cancelled, 0);
+      const failures = render.findings.filter((finding) => finding.values.source === "requestfailed");
+      assert.equal(failures.length, 1, JSON.stringify(render.findings));
+      assert.equal(failures[0].kind, "load");
+      assert.match(failures[0].values.message, /ECONNREFUSED/);
+    }
+    context.diagnostic("Refused connections remain requestfailed load findings");
+  } finally { await surface.close(); }
+}
+test(refusedConnectionsRemainRequestFailures);
+
+async function cancelledDocumentNavigationRemainsAFinding(context) {
+  const surface = await requestSurface(`
+    addEventListener('load', async () => {
+      const id = crypto.randomUUID();
+      location.href = '/pending?id=' + id;
+      while (Number(await (await fetch('/started?id=' + id)).text()) !== 1) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      window.stop();
+    });
+  `);
+  try {
+    const { result } = await execute("requests", surface.options);
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    for (const render of result.renders) {
+      assert.equal(render.cancelled, 0);
+      const failures = render.findings.filter((finding) => finding.values.source === "requestfailed");
+      assert.equal(failures.length, 1, JSON.stringify(render.findings));
+      assert.equal(failures[0].kind, "load");
+      assert.equal(failures[0].values.resource, "document");
+      assert.equal(failures[0].values.message, "net::ERR_ABORTED");
+    }
+    context.diagnostic("Cancelled document navigation remains a requestfailed load finding with net::ERR_ABORTED");
+  } finally { await surface.close(); }
+}
+test(cancelledDocumentNavigationRemainsAFinding);
+
 async function commandBuildsAndServesFiles() {
   const surface = await surfaceFor("clean", {
     build: `${JSON.stringify(process.execPath)} -e "process.stdout.write('Surface ready')"`,
@@ -491,9 +807,219 @@ async function commandBuildsAndServesFiles() {
   });
   const result = await runCli(["--surface", surface, "--out", join(root, "self-served"), "--jobs", "1"]);
   assert.equal(result.code, 0, result.stderr + result.stdout);
-  assert.match(result.stdout, /34 renders, 0 showed nothing, 0 findings, pass/);
+  assert.match(result.stdout, /34 renders, 0 showed nothing, 0 findings, 0 cancelled, pass/);
 }
 test(commandBuildsAndServesFiles);
+
+function nodeCommand(source) {
+  return `${JSON.stringify(process.execPath)} -e '${source.replaceAll("'", "'\\''")}'`;
+}
+
+async function temporaryBuildSurface(options = {}) {
+  const directory = await mkdtemp(join(root, "build-surface-"));
+  await writeFile(join(directory, "index.html"), "Ready");
+  const filename = await surfaceFor("built", {
+    directory, build: nodeCommand("process.stdout.write('Built')"),
+    start: undefined, address: "http://localhost:0", readyPath: "/index.html",
+    views: [{ name: "built", path: "/index.html", modes: ["default"] }],
+    ...options,
+  });
+  return { filename, directory };
+}
+
+async function buildBoundsRequireWholeMilliseconds(context) {
+  for (const buildMs of [null, false, "1000", {}, [], -1, 0, 999, 1000.5, 1800001]) {
+    const { filename } = await temporaryBuildSurface({ buildMs });
+    await assert.rejects(readSurface(filename), (error) => {
+      assert.match(error.message, /Surface Test surface buildMs.*whole number from 1000 to 1800000/);
+      context.diagnostic(error.message);
+      return true;
+    });
+  }
+  for (const buildMs of [1000, 1800000]) {
+    const { filename } = await temporaryBuildSurface({ buildMs });
+    assert.equal((await readSurface(filename)).buildMs, buildMs);
+  }
+}
+test(buildBoundsRequireWholeMilliseconds);
+
+async function outputsRequireBuildAndOneToSixteenPaths(context) {
+  for (const outputs of [null, false, "dist", {}, [], Array.from({ length: 17 }, (_, index) => `dist-${index}`), [null], [1], [""], [" "]]) {
+    const { filename } = await temporaryBuildSurface({ outputs });
+    await assert.rejects(readSurface(filename), (error) => {
+      assert.match(error.message, /Surface Test surface outputs.*(one to sixteen paths|nonempty string)/);
+      context.diagnostic(error.message);
+      return true;
+    });
+  }
+  const { filename } = await temporaryBuildSurface({ build: undefined, outputs: ["dist"] });
+  await assert.rejects(readSurface(filename), (error) => {
+    assert.match(error.message, /Surface Test surface outputs requires a build command/);
+    context.diagnostic(error.message);
+    return true;
+  });
+  const outputs = Array.from({ length: 16 }, (_, index) => `dist-${index}/nested`);
+  const valid = await temporaryBuildSurface({ outputs });
+  assert.deepEqual((await readSurface(valid.filename)).outputs, outputs);
+}
+test(outputsRequireBuildAndOneToSixteenPaths);
+
+async function outputsStayInsideTheSurfaceAndOutsideDependencies(context) {
+  for (const output of [root, "C:\\output", "../outside", "nested/../../outside", ".", "nested/..", "node_modules", "dist/node_modules", "node_modules/pkg/dist", "dist/node_modules/../cache"]) {
+    const { filename } = await temporaryBuildSurface({ outputs: [output] });
+    await assert.rejects(readSurface(filename), (error) => {
+      assert.match(error.message, /Surface Test surface outputs.*(relative paths inside|node_modules)/);
+      context.diagnostic(error.message);
+      return true;
+    });
+  }
+  for (const target of [root, join(root, "absent-outside")]) {
+    for (const output of ["linked", "linked/nested/output"]) {
+      const { filename, directory } = await temporaryBuildSurface({ outputs: [output] });
+      await symlink(target, join(directory, "linked"));
+      await assert.rejects(readSurface(filename), (error) => {
+        assert.match(error.message, /Surface Test surface outputs.*inside the surface directory after resolving links/);
+        context.diagnostic(error.message);
+        return true;
+      });
+    }
+  }
+  for (const target of [".", "node_modules/pkg"]) {
+    const { filename, directory } = await temporaryBuildSurface({ outputs: ["linked"] });
+    await mkdir(join(directory, "node_modules/pkg"), { recursive: true });
+    await symlink(target, join(directory, "linked"));
+    await assert.rejects(readSurface(filename), (error) => {
+      assert.match(error.message, /Surface Test surface outputs.*(directory itself|node_modules)/);
+      context.diagnostic(error.message);
+      return true;
+    });
+  }
+}
+test(outputsStayInsideTheSurfaceAndOutsideDependencies);
+
+async function surfaceBuildCanExceedTheCommonBound(context) {
+  const duration = LIMITS.buildMs + 1000;
+  const { filename } = await temporaryBuildSurface({
+    build: nodeCommand(`setTimeout(() => process.stdout.write('Built'), ${duration})`),
+    buildMs: duration + 10000,
+  });
+  const surface = await readSurface(filename);
+  const started = Date.now();
+  const service = await startSurface(surface);
+  try {
+    assert.ok(Date.now() - started >= duration);
+    assert.equal(await (await fetch(new URL("/index.html", service.address))).text(), "Ready");
+  } finally { await service.close(); }
+  context.diagnostic(`Build completed within ${surface.buildMs} ms after exceeding ${LIMITS.buildMs} ms`);
+}
+test(surfaceBuildCanExceedTheCommonBound);
+
+async function smallerBuildBoundIsReportedWithRemovedOutputs(context) {
+  const { filename, directory } = await temporaryBuildSurface({
+    build: nodeCommand(`setTimeout(() => process.stdout.write('Built'), ${LIMITS.buildMs + 1000})`), buildMs: 1000,
+    outputs: ["old.txt", "absent"],
+  });
+  await writeFile(join(directory, "old.txt"), "Old output");
+  const out = join(root, `build-timeout-${sequence}`);
+  const command = await runCli(["--surface", filename, "--out", out]);
+  assert.equal(command.code, 1, command.stderr + command.stdout);
+  const result = JSON.parse(await readFile(join(out, "result.json"), "utf8"));
+  assert.equal(result.passed, false);
+  assert.equal(result.renders.length, 0);
+  assert.equal(result.buildMs, 1000);
+  assert.deepEqual(result.outputs, ["old.txt"]);
+  assert.equal(result.findings.length, 1);
+  assert.match(result.findings[0].values.message, /Surface Test surface build did not succeed: timed out after 1000 ms/);
+  await assert.rejects(readFile(join(directory, "old.txt")), { code: "ENOENT" });
+  context.diagnostic(result.findings[0].values.message);
+}
+test(smallerBuildBoundIsReportedWithRemovedOutputs);
+
+async function removedOutputsAreRebuiltBeforeTheStartServesThem() {
+  const outputs = ["dist", "old.txt", "linked.txt", "absent"];
+  const html = (await readFile(join(fixtures, "clean.html"), "utf8"))
+    .replace('<link rel="stylesheet" href="/base.css">', `<style>${await readFile(join(fixtures, "base.css"), "utf8")}</style>`)
+    .replace("<h1>Surface</h1>", "<h1>Fresh build</h1>");
+  const reservation = createServer();
+  await new Promise((resolve) => reservation.listen(0, "localhost", resolve));
+  const origin = `http://localhost:${reservation.address().port}`;
+  await new Promise((resolve) => reservation.close(resolve));
+  const { filename, directory } = await temporaryBuildSurface({
+    buildMs: 3000, outputs,
+    build: nodeCommand(`
+      const fs = require('node:fs');
+      const assert = require('node:assert/strict');
+      for (const path of ${JSON.stringify(outputs)}) assert.equal(fs.existsSync(path), false, path);
+      assert.equal(fs.readFileSync('keep.txt', 'utf8'), 'Keep beside outputs');
+      fs.mkdirSync('dist');
+      fs.writeFileSync('dist/index.html', ${JSON.stringify(html)});
+    `),
+    start: nodeCommand(`
+      const fs = require('node:fs');
+      const http = require('node:http');
+      const body = fs.readFileSync('dist/index.html');
+      http.createServer((request, response) => {
+        response.writeHead(200, { 'content-type': 'text/html' });
+        response.end(body);
+      }).listen(${new URL(origin).port}, 'localhost');
+    `),
+    address: origin,
+    views: [{ name: "built", path: "/index.html", modes: ["default"], states: [{
+      name: "fresh", steps: [{ action: "wait", text: "Fresh build" }],
+    }] }],
+  });
+  await mkdir(join(directory, "dist/nested"), { recursive: true });
+  await writeFile(join(directory, "dist/index.html"), "Stale output");
+  await writeFile(join(directory, "dist/nested/stale.txt"), "Stale nested output");
+  await writeFile(join(directory, "old.txt"), "Old output");
+  await writeFile(join(directory, "keep.txt"), "Keep beside outputs");
+  await symlink("keep.txt", join(directory, "linked.txt"));
+  const out = join(root, `rebuilt-${sequence}`);
+  const result = await checkSurface({ surface: filename, out }, () => {});
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 44);
+  assert.ok(result.renders.every((render) => render.rendered && render.hasContent));
+  assert.equal(result.buildMs, 3000);
+  assert.deepEqual(result.outputs, ["dist", "old.txt", "linked.txt"]);
+  assert.deepEqual(JSON.parse(await readFile(join(out, "result.json"), "utf8")), result);
+  assert.equal(await readFile(join(directory, "dist/index.html"), "utf8"), html);
+  assert.equal(await readFile(join(directory, "keep.txt"), "utf8"), "Keep beside outputs");
+  for (const path of ["dist/nested", "old.txt", "linked.txt", "absent"]) {
+    await assert.rejects(readFile(join(directory, path)), { code: "ENOENT" });
+  }
+}
+test(removedOutputsAreRebuiltBeforeTheStartServesThem);
+
+async function outputLinksAreCheckedAgainBeforeCleanup() {
+  const { filename, directory } = await temporaryBuildSurface({ outputs: ["keep.txt", "dist"] });
+  await writeFile(join(directory, "keep.txt"), "Keep output");
+  const surface = await readSurface(filename);
+  await symlink(root, join(directory, "dist"));
+  await assert.rejects(startSurface(surface), /Surface Test surface outputs.*inside the surface directory after resolving links/);
+  assert.equal(await readFile(join(directory, "index.html"), "utf8"), "Ready");
+  assert.equal(await readFile(join(directory, "keep.txt"), "utf8"), "Keep output");
+}
+test(outputLinksAreCheckedAgainBeforeCleanup);
+
+async function surfacesWithoutBuildKeysKeepTheCommonBoundAndFiles() {
+  const { filename, directory } = await temporaryBuildSurface();
+  const out = join(root, `unchanged-build-${sequence}`);
+  const html = '<!doctype html><html lang="en"><title>Ready</title><link rel="icon" href="data:,"><body style="font:16px sans-serif;color:black;background:white"><p>Ready</p></body></html>';
+  await writeFile(join(directory, "index.html"), html);
+  await writeFile(join(directory, "keep.txt"), "Keep output");
+  const surface = await readSurface(filename);
+  assert.equal(surface.buildMs, undefined);
+  assert.equal(surface.outputs, undefined);
+  const command = await runCli(["--surface", filename, "--out", out]);
+  assert.equal(command.code, 0, command.stderr + command.stdout);
+  const result = JSON.parse(await readFile(join(out, "result.json"), "utf8"));
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.buildMs, LIMITS.buildMs);
+  assert.deepEqual(result.outputs, []);
+  assert.equal(await readFile(join(directory, "index.html"), "utf8"), html);
+  assert.equal(await readFile(join(directory, "keep.txt"), "utf8"), "Keep output");
+}
+test(surfacesWithoutBuildKeysKeepTheCommonBoundAndFiles);
 
 async function textClippedToNothingPasses() {
   const { result } = await execute("hidden-text");
@@ -545,6 +1071,64 @@ async function tallFocusKeepsItsStartingEdgeVisible() {
   }
 }
 test(tallFocusKeepsItsStartingEdgeVisible);
+
+async function clippedInputUsesItsVisibleControlFocusMark() {
+  const { result } = await execute("clipped-focus");
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.deepEqual(result.findings, []);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#switch"]);
+  }
+}
+test(clippedInputUsesItsVisibleControlFocusMark);
+
+async function clippedInputWithoutControlFocusMarkKeepsOneFinding() {
+  const { result } = await execute("clipped-focus", {
+    views: [{ name: "unmarked", path: "/clipped-focus.html?unmarked" }],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 4);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#switch"]);
+    assert.equal(render.findings.length, 1);
+    const finding = render.findings[0];
+    assert.equal(finding.kind, "focus");
+    assert.equal(finding.selector, "#switch");
+    assert.equal(finding.values.visibleChange, false);
+    assert.equal(finding.values.outside, false);
+    assert.equal(finding.values.left, 16);
+    assert.equal(finding.values.top, 16);
+    assert.equal(finding.values.bottom, 80);
+  }
+}
+test(clippedInputWithoutControlFocusMarkKeepsOneFinding);
+
+async function visibleInputKeepsItsOwnFocusMeasurement() {
+  for (const unmarked of [false, true]) {
+    const { result } = await execute("clipped-focus", {
+      views: [{ name: "visible", path: `/clipped-focus.html?visible${unmarked ? "&unmarked" : ""}` }],
+    });
+    assertMatrix(result);
+    assert.equal(result.passed, !unmarked, JSON.stringify(result.findings));
+    assert.equal(result.findings.length, unmarked ? 4 : 0);
+    for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+      assert.deepEqual(render.focused, ["#switch"]);
+      assert.equal(render.findings.length, unmarked ? 1 : 0);
+      for (const finding of render.findings) {
+        assert.equal(finding.kind, "focus");
+        assert.equal(finding.selector, "#switch");
+        assert.equal(finding.values.visibleChange, false);
+        assert.equal(finding.values.outside, false);
+        assert.equal(finding.values.left, 24);
+        assert.equal(finding.values.top, 24);
+        assert.equal(finding.values.bottom, 72);
+      }
+    }
+  }
+}
+test(visibleInputKeepsItsOwnFocusMeasurement);
 
 async function modalFocusIncludesTheInitiallyFocusedControl() {
   const { result } = await execute("modal-focus");
@@ -747,6 +1331,35 @@ async function expectationFieldsAreStrict() {
 }
 test(expectationFieldsAreStrict);
 
+async function viewAndStateAnswersUseTheSurfaceValidationRules() {
+  const answer = join(root, "validation-answer.json");
+  await writeFile(answer, JSON.stringify({ message: "Answer" }));
+  const valid = { method: "GET", pattern: `${externalAddress}/validation`, file: "validation-answer.json" };
+  const invalid = [
+    { ...valid, unknown: true },
+    { ...valid, method: "get" },
+    { ...valid, pattern: "/validation" },
+    { ...valid, file: "../" },
+    ...[199, 600, 404.5, "404"].map((status) => ({ ...valid, status })),
+    { ...valid, headers: { "content-type": 4 } },
+  ];
+  const emptyView = await surfaceFor("clean", { views: [{ name: "view-answers", path: "/clean.html", answers: [] }] });
+  assert.deepEqual((await readSurface(emptyView)).views[0].answers, []);
+  const emptyState = await surfaceFor("clean", { views: [{ name: "view-answers", path: "/clean.html", states: [{ name: "state-answers", steps: [{ action: "wait", text: "Surface" }], answers: [] }] }] });
+  assert.deepEqual((await readSurface(emptyState)).views[0].states[0].answers, []);
+  for (const level of ["view", "state"]) {
+    for (const entry of invalid) {
+      const view = level === "view"
+        ? { name: "view-answers", path: "/clean.html", answers: [entry] }
+        : { name: "view-answers", path: "/clean.html", states: [{ name: "state-answers", steps: [{ action: "wait", text: "Surface" }], answers: [entry] }] };
+      const surface = await surfaceFor("clean", { views: [view] });
+      const label = level === "view" ? "View view-answers answers" : "View view-answers state state-answers answers";
+      await assert.rejects(readSurface(surface), new RegExp(`${label}.*(?:unknown field|must|Answer files)`));
+    }
+  }
+}
+test(viewAndStateAnswersUseTheSurfaceValidationRules);
+
 async function clipboardWritesSucceedWithoutReadPermission() {
   const { result } = await execute("clipboard", { views: [{
     name: "clipboard", path: "/clipboard.html", states: [{ name: "copied", steps: [
@@ -760,6 +1373,173 @@ async function clipboardWritesSucceedWithoutReadPermission() {
   assert.deepEqual([...new Set(result.renders.map((render) => render.state))], ["default", "copied"]);
 }
 test(clipboardWritesSucceedWithoutReadPermission);
+
+async function retrySurface({ stalls = 1, finding = false } = {}) {
+  const directory = await mkdtemp(join(root, "retry-surface-"));
+  const css = await readFile(join(fixtures, "base.css"), "utf8");
+  const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Render page</title><link rel="icon" href="data:,"><style>${css}</style><body><svg id="panel" role="img" aria-label="Panel" style="width:200px;height:80px;background:blue"><rect width="100%" height="100%" fill="none" stroke="black"/></svg></body></html>`;
+  await writeFile(join(directory, "index.html"), html);
+  let visits = 0;
+  const instance = createServer((request, response) => {
+    if (request.url === "/ready") { response.end("Ready"); return; }
+    if (request.url !== "/index.html") { response.writeHead(404); response.end(); return; }
+    const stalled = ++visits <= stalls;
+    readFile(join(directory, "index.html"), "utf8").then((body) => {
+      if (stalled) body = body.replace("width:200px;height:80px;background:blue", "width:100px;height:80px;background:red")
+        .replace("</body>", '<script>console.error("Page is busy"); addEventListener("load", () => setTimeout(() => { while (true) {} }, 0));</script></body>');
+      else if (finding) body = body.replace("</body>", '<script>console.error("Page finding");</script></body>');
+      response.writeHead(200, { "content-type": "text/html" });
+      response.end(body);
+    }, () => response.destroy());
+  });
+  await new Promise((resolve) => instance.listen(0, "localhost", resolve));
+  return {
+    options: {
+      directory, address: `http://localhost:${instance.address().port}`, readyPath: "/ready",
+      views: [{ name: "retry", path: "/index.html", modes: ["default"] }],
+    },
+    get visits() { return visits; },
+    async close() {
+      await new Promise((resolve) => { instance.close(resolve); instance.closeAllConnections(); });
+    },
+  };
+}
+
+async function renderDeadlineUsesTheSecondOutcome(context) {
+  const surface = await retrySurface();
+  try {
+    const { result, out, lines } = await execute("retry", surface.options, { jobs: 1, renderMs: 30000 });
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.equal(result.renders.length, 22);
+    assert.equal(surface.visits, 23);
+    assert.equal(result.retriedCount, 1);
+    assert.deepEqual(result.findings, []);
+    const [retried, ...following] = result.renders;
+    assert.equal(retried.retried, true);
+    assert.ok(["navigation", "settle"].includes(retried.firstDeadlineStep));
+    assert.ok(result.renders.every((render) => render.rendered && render.hasContent && render.cancelled === 0));
+    assert.ok(following.every((render) => !render.retried && render.firstDeadlineStep === null));
+    assert.equal(retried.screenshot, "00001.png");
+    const screenshot = PNG.sync.read(await readFile(join(out, retried.screenshot)));
+    const pixel = (20 * screenshot.width + 20) * 4;
+    assert.deepEqual([...screenshot.data.subarray(pixel, pixel + 4)], [0, 0, 255, 255]);
+    assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 22);
+    assert.deepEqual(lines, [
+      "retry: 22 renders, 0 did not render, 0 showed nothing, 0 findings, 1 retried",
+      "Total: 22 renders, 0 showed nothing, 0 findings, 0 cancelled, pass, 1 views and states with fewer than all modes, 1 retried",
+    ]);
+    context.diagnostic(lines.join("\n"));
+  } finally { await surface.close(); }
+}
+test(renderDeadlineUsesTheSecondOutcome);
+
+async function renderDeadlineRetriesOnlyOnce(context) {
+  const surface = await retrySurface({ stalls: Infinity });
+  try {
+    const { result, out, lines } = await execute("retry", surface.options, { jobs: 2, renderMs: 3000 });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    assert.equal(surface.visits, 44);
+    assert.equal(result.retriedCount, 22);
+    for (const render of result.renders) {
+      assert.equal(render.retried, true);
+      assert.ok(["navigation", "settle"].includes(render.firstDeadlineStep));
+      assert.equal(render.rendered, false);
+      assert.equal(render.screenshot, null);
+      const deadlines = render.findings.filter((finding) => finding.values.source === "deadline");
+      assert.equal(deadlines.length, 1, JSON.stringify(render.findings));
+      assert.equal(deadlines[0].kind, "load");
+      assert.equal(deadlines[0].values.milliseconds, 3000);
+      assert.ok(["navigation", "settle"].includes(deadlines[0].values.step));
+      assert.equal(render.findings.filter((finding) => finding.values.source === "console").length, 1);
+    }
+    assert.equal(result.findings.filter((finding) => finding.values.source === "deadline").length, 22);
+    assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 0);
+    assert.match(lines[0], /, 22 retried$/);
+    assert.match(lines.at(-1), /, fail, 1 views and states with fewer than all modes, 22 retried$/);
+    context.diagnostic(lines.join("\n"));
+  } finally { await surface.close(); }
+}
+test(renderDeadlineRetriesOnlyOnce);
+
+async function otherFindingsDoNotRetryRenders(context) {
+  const surface = await retrySurface({ stalls: 0, finding: true });
+  try {
+    const { result, lines } = await execute("retry", surface.options, { jobs: 2 });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    assert.equal(surface.visits, 22);
+    assert.equal(result.retriedCount, 0);
+    for (const render of result.renders) {
+      assert.equal(render.retried, false);
+      assert.equal(render.firstDeadlineStep, null);
+      assert.equal(render.rendered, true);
+      assert.equal(render.findings.length, 1);
+      assert.equal(render.findings[0].kind, "load");
+      assert.equal(render.findings[0].values.source, "console");
+      assert.equal(render.findings[0].values.message, "Page finding");
+    }
+    assert.equal(result.findings.length, 22);
+    assert.match(lines[0], /, 0 retried$/);
+    assert.match(lines.at(-1), /, fail, 1 views and states with fewer than all modes, 0 retried$/);
+    context.diagnostic(lines.join("\n"));
+  } finally { await surface.close(); }
+}
+test(otherFindingsDoNotRetryRenders);
+
+async function parallelRetriesKeepMatrixOrderAndScreenshotNames(context) {
+  const outcomes = [];
+  for (const stalls of [0, 1]) {
+    const surface = await retrySurface({ stalls });
+    try {
+      const { result, out, lines } = await execute("retry", {
+        ...surface.options,
+        views: [{ name: "retry", path: "/index.html", states: [{ name: "ready", steps: [{ action: "press", selector: "body", key: "Escape" }] }] }],
+      }, { jobs: stalls ? 2 : 1, renderMs: 30000 });
+      assert.equal(result.passed, true, JSON.stringify(result.findings));
+      assert.equal(result.renders.length, 68);
+      assert.equal(surface.visits, 68 + stalls);
+      assert.equal(result.retriedCount, stalls);
+      assert.deepEqual(result.renders.map((render) => render.screenshot), Array.from({ length: 68 }, (_, index) => `${String(index + 1).padStart(5, "0")}.png`));
+      assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 68);
+      outcomes.push(result.renders.map(({ retried, firstDeadlineStep, ...render }) => render));
+      context.diagnostic(lines.join("\n"));
+    } finally { await surface.close(); }
+  }
+  assert.deepEqual(outcomes[1], outcomes[0]);
+}
+test(parallelRetriesKeepMatrixOrderAndScreenshotNames);
+
+async function geometryWritesTheSecondRenderMeasurements(context) {
+  const surface = await retrySurface();
+  try {
+    const geometryFile = `retry-geometry-${++sequence}.json`;
+    const filename = await surfaceFor("retry", {
+      ...surface.options, geometry: { file: geometryFile, widths: [390] },
+      views: [{ name: "retry", path: "/index.html", parts: [{ name: "panel", selector: "#panel" }] }],
+    });
+    const lines = [];
+    const result = await checkSurface({ surface: filename, writeGeometry: true, jobs: 1, renderMs: 30000 }, (line) => lines.push(line));
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.equal(result.renders.length, 1);
+    assert.equal(surface.visits, 2);
+    assert.equal(result.retriedCount, 1);
+    const [render] = result.renders;
+    assert.equal(render.retried, true);
+    assert.ok(["navigation", "settle"].includes(render.firstDeadlineStep));
+    assert.equal(render.screenshot, null);
+    assert.deepEqual(render.geometry, [{
+      part: "panel", selector: "#panel", matches: 1,
+      values: { left: 16, top: 16, width: 200, height: 80, fontSize: 16, lineHeight: 24 },
+    }]);
+    assert.deepEqual(JSON.parse(await readFile(join(root, geometryFile), "utf8")), {
+      version: 1, entries: [{ view: "retry", width: 390, part: "panel", selector: "#panel", values: render.geometry[0].values }],
+    });
+    assert.match(lines.at(-1), /, pass, 0 views and states with fewer than all modes, 1 retried$/);
+    context.diagnostic(lines.join("\n"));
+  } finally { await surface.close(); }
+}
+test(geometryWritesTheSecondRenderMeasurements);
 
 async function renderDeadlineContinuesWithTheNextView() {
   assert.equal(LIMITS.renderMs, 300000);
@@ -785,7 +1565,10 @@ async function renderDeadlineContinuesWithTheNextView() {
   assert.ok(following.every((render) => render.rendered && render.findings.length === 0), JSON.stringify(following));
   assert.equal(following[0].screenshot, "00023.png");
   assert.equal(result.findings.filter((finding) => finding.values.source === "deadline").length, 22);
-  assert.match(lines[1], /^following: 22 renders, 0 did not render, 0 showed nothing, 0 findings$/);
+  assert.ok(stuck.every((render) => render.retried));
+  const followingRetries = following.filter((render) => render.retried).length;
+  assert.equal(result.retriedCount, stuck.length + followingRetries);
+  assert.equal(lines[1], `following: 22 renders, 0 did not render, 0 showed nothing, 0 findings, ${followingRetries} retried`);
 }
 test(renderDeadlineContinuesWithTheNextView);
 
@@ -825,9 +1608,9 @@ async function modesRestrictTheMatrixAndStatesInheritThem() {
     assert.ok(renders.every((render) => render.mode === "default" && render.rendered));
     assert.deepEqual(renders.map(({ size, scheme, mode }) => ({ ...size, scheme, mode })), renderMatrix(["default"]));
   }
-  assert.deepEqual(result.views, [{ name: "states", modes: ["default"], states: [{ name: "waiting", modes: ["default"] }] }]);
+  assert.deepEqual(result.views, [{ name: "states", modes: ["default"], answers: 0, states: [{ name: "waiting", modes: ["default"], answers: 0 }] }]);
   assert.equal(result.reducedModeCount, 2);
-  assert.equal(lines.at(-1), "Total: 44 renders, 0 showed nothing, 0 findings, pass, 2 views and states with fewer than all modes");
+  assert.equal(lines.at(-1), "Total: 44 renders, 0 showed nothing, 0 findings, 0 cancelled, pass, 2 views and states with fewer than all modes, 0 retried");
   const surface = await surfaceFor("states", { views: [{
     name: "states", path: "/states.html", modes: ["default"], states: [
       { name: "all", modes: [...MODES].reverse(), steps: [{ action: "wait", text: "Waiting" }] },
@@ -878,3 +1661,162 @@ async function commandValidatesJobsAndKeepsTheDeadlineInternal() {
   }
 }
 test(commandValidatesJobsAndKeepsTheDeadlineInternal);
+
+async function framesPassAsOneStopAndFollowingControlsKeepTheirFocusChecks() {
+  for (const unmarked of [false, true]) {
+    const { result } = await execute("frame-traversal", {
+      views: [{ name: "frame", path: `/frame-traversal.html${unmarked ? "?unmarked" : ""}` }],
+    });
+    assertMatrix(result);
+    assert.equal(result.passed, !unmarked, JSON.stringify(result.findings));
+    assert.equal(result.findings.length, unmarked ? 4 : 0);
+    for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+      assert.deepEqual(render.focused, ["#before", "#frame", "#after"]);
+      assert.equal(render.findings.length, unmarked ? 1 : 0);
+      for (const finding of render.findings) {
+        assert.equal(finding.kind, "focus");
+        assert.equal(finding.selector, "#after");
+        assert.equal(finding.values.visibleChange, false);
+        assert.equal(finding.values.outside, false);
+      }
+    }
+  }
+}
+test(framesPassAsOneStopAndFollowingControlsKeepTheirFocusChecks);
+
+async function trappedFrameEndsTraversalWithOneBoundedFinding() {
+  const { result } = await execute("frame-trap");
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 4);
+  assert.equal(result.retriedCount, 0);
+  assert.equal(FRAME_TAB_PRESSES, 32);
+  assert.equal(FRAME_TRAVERSAL_MS, 2000);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#before", "#frame"]);
+    assert.equal(render.findings.length, 1);
+    const finding = render.findings[0];
+    assert.equal(finding.kind, "focus");
+    assert.equal(finding.selector, "#frame");
+    assert.equal(finding.values.message, "Keyboard traversal did not leave the frame");
+    assert.ok(finding.values.presses > 0 && finding.values.presses <= FRAME_TAB_PRESSES);
+    assert.equal(finding.values.maximumPresses, FRAME_TAB_PRESSES);
+    assert.equal(finding.values.maximumMilliseconds, FRAME_TRAVERSAL_MS);
+  }
+}
+test(trappedFrameEndsTraversalWithOneBoundedFinding);
+
+async function frameFreeTraversalKeepsEveryTabPress() {
+  const browser = await chromium.launch();
+  try {
+    const context = await browser.newContext();
+    await context.addInitScript(observePage);
+    const page = await context.newPage();
+    await page.goto(`${files.address}/frame-traversal.html?without-frame`);
+    const keyboard = await keyboardFindings(page);
+    assert.deepEqual(keyboard, { findings: [], visited: ["#before", "#after"] });
+    assert.equal(await page.evaluate(() => Number(document.body.dataset.tabs)), 4);
+  } finally { await browser.close(); }
+}
+test(frameFreeTraversalKeepsEveryTabPress);
+
+const embeddedMessage = { script: "/embedded/", message: "Embedded script notice" };
+
+async function declaredEmbeddedMessagesStayVisibleWithTheirCounts() {
+  const { result, lines } = await execute("embedded-messages", {
+    embeddedMessages: [embeddedMessage, { script: "/unused/", message: "Unused notice" }],
+    views: [{ name: "embedded", path: "/embedded-messages.html", modes: ["default"] }],
+  });
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 22);
+  assert.deepEqual(result.findings, []);
+  for (const render of result.renders) {
+    assert.equal(render.rendered, true);
+    assert.deepEqual(render.embeddedMessages, [{ ...embeddedMessage, count: 2 }]);
+  }
+  assert.equal(lines[0], "embedded: 22 renders, 0 did not render, 0 showed nothing, 0 findings, 0 retried, 44 declared messages");
+}
+test(declaredEmbeddedMessagesStayVisibleWithTheirCounts);
+
+async function undeclaredLocationsTextsAndUncaughtErrorsKeepLoadFindings() {
+  for (const [variant, source, message, path] of [
+    ["outside", "console", embeddedMessage.message, "/outside/messages.js"],
+    ["different", "console", "Another embedded notice", "/embedded/messages.js"],
+    ["uncaught", "pageerror", embeddedMessage.message, null],
+    ["rejection", "unhandledrejection", embeddedMessage.message, null],
+  ]) {
+    const { result } = await execute("embedded-messages", {
+      embeddedMessages: [embeddedMessage],
+      views: [{ name: variant, path: `/embedded-messages.html?${variant}`, modes: ["default"] }],
+    });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    for (const render of result.renders) {
+      assert.equal(render.rendered, true);
+      const sources = variant === "rejection" ? ["pageerror", "unhandledrejection"] : [source];
+      assert.equal(render.findings.length, sources.length, JSON.stringify(render.findings));
+      assert.deepEqual(render.findings.map((finding) => finding.values.source), sources);
+      for (const finding of render.findings) {
+        assert.equal(finding.kind, "load");
+        assert.ok(finding.values.message.includes(message));
+        if (path) assert.equal(new URL(finding.values.location.url).pathname, path);
+      }
+      assert.deepEqual(render.embeddedMessages, [{ ...embeddedMessage, count: 2 }]);
+    }
+  }
+}
+test(undeclaredLocationsTextsAndUncaughtErrorsKeepLoadFindings);
+
+async function matchingTextAndPathAtAnotherOriginKeepTheirFinding() {
+  await writeFile(join(root, "external-message.js"), `console.error(${JSON.stringify(embeddedMessage.message)});`);
+  const target = `${externalAddress}/embedded/messages.js`;
+  const outsideRequests = externalRequests;
+  const { result } = await execute("embedded-messages", {
+    embeddedMessages: [embeddedMessage],
+    answers: [{ method: "GET", pattern: target, file: "external-message.js", headers: { "content-type": "text/javascript" } }],
+    views: [{ name: "external", path: `/embedded-messages.html?external=${encodeURIComponent(target)}`, modes: ["default"] }],
+  });
+  assert.equal(result.passed, false);
+  assert.equal(result.renders.length, 22);
+  assert.equal(externalRequests, outsideRequests);
+  for (const render of result.renders) {
+    assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+    assert.equal(render.findings[0].kind, "load");
+    assert.equal(render.findings[0].values.source, "console");
+    assert.equal(render.findings[0].values.message, embeddedMessage.message);
+    assert.equal(render.findings[0].values.location.url, target);
+    assert.deepEqual(render.embeddedMessages, [{ ...embeddedMessage, count: 2 }]);
+  }
+}
+test(matchingTextAndPathAtAnotherOriginKeepTheirFinding);
+
+async function unmatchedEmbeddedMessagesAreOptional() {
+  const { result, lines } = await execute("clean", {
+    embeddedMessages: [embeddedMessage], views: [{ name: "clean", path: "/clean.html", modes: ["default"] }],
+  });
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 22);
+  assert.ok(result.renders.every((render) => render.embeddedMessages.length === 0));
+  assert.equal(lines[0], "clean: 22 renders, 0 did not render, 0 showed nothing, 0 findings, 0 retried");
+}
+test(unmatchedEmbeddedMessagesAreOptional);
+
+async function embeddedMessageEntriesRequireDirectoryPathsAndExactText() {
+  for (const value of [null, false, {}, "messages"]) {
+    await assert.rejects(readSurface(await surfaceFor("clean", { embeddedMessages: value })), /surface\.embeddedMessages must be an array/);
+  }
+  for (const entry of [
+    null, false, [], "message", {}, { message: embeddedMessage.message }, { script: "/embedded/" },
+    ...["/messages.js", "/embedded", "/", "embedded/messages.js", "//embedded/messages.js", "/embedded/../messages.js", "/embedded/?query", "/embedded/#hash", "/embedded/\\messages.js"].map((script) => ({ ...embeddedMessage, script })),
+    ...[null, false, 1, {}, [], "", "  "].map((message) => ({ ...embeddedMessage, message })),
+    { ...embeddedMessage, unknown: true },
+  ]) {
+    await assert.rejects(readSurface(await surfaceFor("clean", { embeddedMessages: [embeddedMessage, entry] })), /surface\.embeddedMessages\[1\]/);
+  }
+  for (const script of ["/embedded/", "/embedded/messages.js", "/vendor/charts/bundle"]) {
+    const entries = [{ ...embeddedMessage, script }];
+    assert.deepEqual((await readSurface(await surfaceFor("clean", { embeddedMessages: entries }))).embeddedMessages, entries);
+  }
+  assert.deepEqual((await readSurface(await surfaceFor("clean", { embeddedMessages: [] }))).embeddedMessages, []);
+}
+test(embeddedMessageEntriesRequireDirectoryPathsAndExactText);

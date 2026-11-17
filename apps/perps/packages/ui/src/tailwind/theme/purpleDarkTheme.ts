@@ -11,13 +11,6 @@ export const PURPLE_DARK_THEME_CSS_VARS: ThemeCssVars = {
   "--oui-font-family":
     '"Manrope","PingFang SC", "Noto Sans CJK SC", "Noto Sans", sans-serif',
 
-  "--oui-color-canvas": "14 13 18",
-  "--oui-color-surface": "22 20 28",
-  "--oui-color-surface-raised": "29 26 38",
-  "--oui-color-text": "255 255 255",
-  "--oui-color-text-muted": "218 218 218",
-  "--oui-color-focus-ring": "176 132 233",
-
   /* colors */
   "--oui-color-primary": "176 132 233",
   "--oui-color-primary-light": "213 190 244",

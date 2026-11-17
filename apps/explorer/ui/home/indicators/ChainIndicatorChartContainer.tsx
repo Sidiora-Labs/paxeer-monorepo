@@ -12,9 +12,10 @@ type Props = {
   data: TimeChartData;
   isError: boolean;
   isPending: boolean;
+  caption?: string;
 };
 
-const ChainIndicatorChartContainer = ({ data, isError, isPending }: Props) => {
+const ChainIndicatorChartContainer = ({ data, isError, isPending, caption }: Props) => {
 
   if (isPending) {
     return <ContentLoader mt="auto" fontSize="xs"/>;
@@ -29,8 +30,9 @@ const ChainIndicatorChartContainer = ({ data, isError, isPending }: Props) => {
   }
 
   return (
-    <Box mx="-10px" my="-5px" h="calc(100% + 10px)" w="calc(100% + 20px)">
-      <ChainIndicatorChartContent data={ data }/>
+    <Box mx="calc(var(--chakra-spacing-2\.5) * -1)" my="calc(var(--chakra-spacing-1\.25) * -1)"
+      h="calc(100% + var(--chakra-spacing-2\.5))" w="calc(100% + var(--chakra-spacing-5))">
+      <ChainIndicatorChartContent data={ data } caption={ caption }/>
     </Box>
   );
 };

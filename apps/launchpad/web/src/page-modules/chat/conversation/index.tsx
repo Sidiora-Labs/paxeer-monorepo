@@ -24,5 +24,5 @@ export default function ConversationModule(){
    :failure?.kind==='error'
     ?<ErrorState title="Can't load this chat right now" message={failure.message} onRetry={()=>setAttempt(value=>value+1)}/>
     :value&&value.wallet===address?<DmThread key={`${address}:${id}`} conversationId={id} peerAddress={value.conversation.peer}/>:<p role="status" className="p-4 text-sm text-text-faint">Loading...</p>;
- return <div className="mx-auto flex min-h-[calc(100dvh-var(--sl-shell-top-total))] w-full max-w-content-narrow-max-width flex-col gap-3 px-4 py-4 text-text md:px-6"><Link href="/chat" className="w-fit text-sm text-text-muted underline-offset-2 hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-focus">Back to messages</Link>{body}</div>;
+ return <div className="mx-auto flex min-h-[calc(100dvh-var(--sl-shell-top-total))] w-full max-w-content-narrow-max-width flex-col gap-3 px-4 py-4 text-text md:px-6"><Link prefetch={false} href="/chat" className="inline-flex min-h-touch-target-min w-fit items-center text-sm text-text-muted underline-offset-2 hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-focus">Back to messages</Link>{body}</div>;
 }

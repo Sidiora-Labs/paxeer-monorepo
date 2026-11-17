@@ -89,7 +89,7 @@ const LatestBlocksItem = ({ block, duration, isLoading, view = 'mobile' }: Props
       px={{ base: 3, lg: 4 }}
       py={ 2 }
       _hover={{ bg: 'raised' }}
-      borderBottomWidth="1px"
+      borderBottomWidth="1"
       borderStyle="solid"
       borderColor="border.divider"
     >
@@ -97,7 +97,7 @@ const LatestBlocksItem = ({ block, duration, isLoading, view = 'mobile' }: Props
         boxSize={ 9 }
         flexShrink={ 0 }
         borderRadius="md"
-        borderWidth="1px"
+        borderWidth="1"
         borderStyle="solid"
         borderColor="border.divider"
       >
@@ -110,7 +110,7 @@ const LatestBlocksItem = ({ block, duration, isLoading, view = 'mobile' }: Props
           noIcon
           tailLength={ 2 }
           textStyle="number"
-          fontWeight="500"
+          fontWeight="medium"
         />
         <TimeWithTooltip
           timestamp={ block.timestamp }
@@ -118,9 +118,9 @@ const LatestBlocksItem = ({ block, duration, isLoading, view = 'mobile' }: Props
           timeFormat="relative"
           isLoading={ isLoading }
           color="text.secondary"
-          textStyle="xs"
+          textStyle="text.xs"
           display="block"
-          mt="2px"
+          mt="var(--chakra-spacing-0\.5)"
         />
       </Box>
       <Box
@@ -131,18 +131,18 @@ const LatestBlocksItem = ({ block, duration, isLoading, view = 'mobile' }: Props
         order={{ base: 1, md: 0 }}
       >
         <Flex alignItems="center" columnGap={ 1 } minW={ 0 } overflow="hidden">
-          <Skeleton loading={ isLoading } textStyle="number" fontWeight="500" flexShrink={ 0 }>Hash</Skeleton>
+          <Skeleton loading={ isLoading } textStyle="number" fontWeight="medium" flexShrink={ 0 }>Hash</Skeleton>
           <BlockEntityLink hash={ block.hash } isLoading={ isLoading }>
-            <HashStringShortenDynamic hash={ block.hash } fontWeight="500" textStyle="number"/>
+            <HashStringShortenDynamic hash={ block.hash } fontWeight="medium" textStyle="number"/>
           </BlockEntityLink>
         </Flex>
-        <Skeleton loading={ isLoading } textStyle="xs" color="text.secondary" w="fit-content" mt="2px">
+        <Skeleton loading={ isLoading } textStyle="text.xs" color="text.secondary" w="fit-content" mt="var(--chakra-spacing-0\.5)">
           <chakra.span>{ block.transactions_count ?? '—' } { block.transactions_count === 1 ? 'txn' : 'txns' }{ durationText }</chakra.span>
         </Skeleton>
       </Box>
       { block.celo?.l1_era_finalized_epoch_number && (
         <Tooltip content={ `Finalized epoch #${ block.celo.l1_era_finalized_epoch_number }` }>
-          <IconSvg name="checkered_flag" boxSize={ 5 } p="1px" isLoading={ isLoading } flexShrink={ 0 }/>
+          <IconSvg name="checkered_flag" boxSize={ 5 } p="var(--chakra-spacing-0\.25)" isLoading={ isLoading } flexShrink={ 0 }/>
         </Tooltip>
       ) }
       { hasReward && (

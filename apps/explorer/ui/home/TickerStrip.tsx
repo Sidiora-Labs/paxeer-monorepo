@@ -35,9 +35,14 @@ const TickerStrip = () => {
     <Flex
       as="section"
       aria-label="Token prices"
+      tabIndex={ 0 }
       data-label="ticker-strip"
       overflowX="auto"
-      borderBottomWidth="1px"
+      minH="touchTarget"
+      css={{ '& a': { display: 'inline-flex', alignItems: 'center', minWidth: 'touchTarget',
+        minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } } }}
+      overscrollBehaviorX="contain"
+      borderBottomWidth="1"
       borderColor="border.divider"
       gap={ 6 }
       py={ 3 }

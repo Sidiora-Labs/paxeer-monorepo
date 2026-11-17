@@ -59,13 +59,27 @@ export function observePage() {
     const style = getComputedStyle(element);
     return element.getClientRects().length > 0 && element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && style.visibility === "visible" && style.display !== "none" && !clippedToNothing(element);
   };
-  const measurements = { shifts: [], motions: [], selector, elements, visible, parentElement };
+  const focusControl = (element) => {
+    if (clippedToNothing(element)) {
+      while (!visible(element) && parentElement(element)) element = parentElement(element);
+    }
+    return element;
+  };
+  const measurements = { shifts: [], shiftWindows: [], shiftCount: 0, motions: [], selector, elements, visible, parentElement, focusControl };
   Object.defineProperty(window, "__uiCheck", { value: measurements });
-  new PerformanceObserver((list) => {
-    for (const entry of list.getEntries()) {
+  const recordShifts = (entries) => {
+    for (const entry of entries) {
+      measurements.shiftCount++;
       if (!entry.hadRecentInput) measurements.shifts.push({ value: entry.value, time: entry.startTime, sources: (entry.sources ?? []).map((source) => selector(source.node)) });
     }
-  }).observe({ type: "layout-shift", buffered: true });
+  };
+  const observer = new PerformanceObserver((list) => recordShifts(list.getEntries()));
+  observer.observe({ type: "layout-shift", buffered: true });
+  measurements.drainShifts = () => recordShifts(observer.takeRecords());
+  measurements.findingShifts = () => {
+    measurements.drainShifts();
+    return measurements.shifts.filter((entry) => !measurements.shiftWindows.some(({ start, end }) => entry.time >= start && (end === null || entry.time <= end)));
+  };
   const recordMotion = (event) => {
     const style = getComputedStyle(event.target, event.pseudoElement || null);
     const seconds = (value) => value.trim().endsWith("ms") ? parseFloat(value) : parseFloat(value) * 1000;
@@ -83,6 +97,46 @@ export function observePage() {
   window.addEventListener("unhandledrejection", (event) => {
     measurements.rejections ??= [];
     measurements.rejections.push(String(event.reason?.stack ?? event.reason));
+  });
+}
+
+export function beginIntentionalShifts() {
+  window.__uiCheck.shiftWindows.push({ start: performance.now(), end: null });
+}
+
+export function endIntentionalShifts({ quietFrames, timeoutMs }) {
+  const measurements = window.__uiCheck;
+  const interval = measurements.shiftWindows.at(-1);
+  const layout = () => measurements.elements().map((element) => {
+    const { x, y, width, height } = element.getBoundingClientRect();
+    return [element, x, y, width, height];
+  });
+  return new Promise((resolve) => {
+    let frame;
+    let consecutive = 0;
+    let frames = 0;
+    let previous = layout();
+    let count = measurements.shiftCount;
+    const finish = () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      measurements.drainShifts();
+      interval.end = performance.now();
+      resolve({ ...interval, frames, quietFrames: consecutive });
+    };
+    const tick = () => {
+      measurements.drainShifts();
+      const current = layout();
+      const unchanged = current.length === previous.length && current.every((box, index) => box.every((value, part) => value === previous[index][part]));
+      consecutive = unchanged && measurements.shiftCount === count ? consecutive + 1 : 0;
+      previous = current;
+      count = measurements.shiftCount;
+      frames++;
+      if (consecutive >= quietFrames) finish();
+      else frame = requestAnimationFrame(tick);
+    };
+    const timer = setTimeout(finish, timeoutMs);
+    frame = requestAnimationFrame(tick);
   });
 }
 
@@ -104,8 +158,23 @@ export function doubleText() {
   }
 }
 
+export function measureGeometry(elements) {
+  if (elements.length !== 1 || !window.__uiCheck.visible(elements[0])) return { matches: elements.length, values: null };
+  const element = elements[0];
+  const box = element.getBoundingClientRect();
+  const style = getComputedStyle(element);
+  return {
+    matches: 1,
+    values: {
+      left: box.left, top: box.top, width: box.width, height: box.height,
+      fontSize: parseFloat(style.fontSize),
+      lineHeight: style.lineHeight === "normal" ? "normal" : parseFloat(style.lineHeight),
+    },
+  };
+}
+
 export function measurePage({ limits, typeScale, doubled, reduced }) {
-  const { elements, visible, selector, shifts, motions, parentElement } = window.__uiCheck;
+  const { elements, visible, selector, findingShifts, motions, parentElement } = window.__uiCheck;
   const findings = [];
   const add = (kind, element, values) => findings.push({ kind, selector: typeof element === "string" ? element : selector(element), values });
   const width = window.innerWidth;
@@ -157,6 +226,7 @@ export function measurePage({ limits, typeScale, doubled, reduced }) {
     }
   }
   if (!hasContent) add("load", "document", { source: "empty-document", message: "Document has no visible text, media or controls" });
+  const shifts = findingShifts();
   const shift = shifts.reduce((total, entry) => total + entry.value, 0);
   if (shift > limits.shift) add("shift", shifts.flatMap((entry) => entry.sources)[0] ?? "html", { score: shift, maximum: limits.shift, entries: shifts });
   if (reduced) {
@@ -222,13 +292,15 @@ export function focusedElement() {
   let active = document.activeElement;
   while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
   if (!active || active === document.body || active === document.documentElement) return null;
-  const { focusBefore, appearance, selector } = window.__uiCheck;
+  const { focusBefore, appearance, selector, focusControl } = window.__uiCheck;
+  if (active.matches("iframe,frame")) return { selector: selector(active), frame: true };
   window.__uiCheck.lastFocused = active;
-  const rect = active.getBoundingClientRect();
-  const baseline = focusBefore.get(active);
+  const control = focusControl(active);
+  const rect = control.getBoundingClientRect();
+  const baseline = focusBefore.get(control);
   return {
     selector: selector(active),
-    changed: baseline !== undefined && baseline !== appearance(active),
+    changed: baseline !== undefined && baseline !== appearance(control),
     outside: rect.left < -0.5 || rect.top < -0.5 || rect.left > innerWidth + 0.5 || rect.top > innerHeight + 0.5 || (rect.width <= innerWidth && rect.right > innerWidth + 0.5) || (rect.height <= innerHeight && rect.bottom > innerHeight + 0.5),
     values: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight },
   };

@@ -3,7 +3,7 @@ import { useTranslation } from "@paxeer-network/i18n";
 import { cn } from "@paxeer-network/ui";
 import { CampaignConfig } from "../type";
 import { generateCampaignTimeline } from "../utils";
-import { CampaignsAxis } from "./axis";
+import { CampaignsAxis, CampaignsAxisMobile } from "./axis";
 import { CampaignsCountdown } from "./countdown";
 
 export const CampaignsTimeDesktopUI: FC<{
@@ -16,12 +16,16 @@ export const CampaignsTimeDesktopUI: FC<{
   return (
     <div
       className={cn([
-        "oui-max-w-screen-xl oui-mx-auto oui-flex oui-flex-col oui-items-center",
+        "oui-max-w-[992px] oui-mx-auto oui-flex oui-flex-col oui-items-center",
         isMobile ? "oui-pt-4 oui-gap-10 oui-pb-10" : "oui-py-10 oui-gap-4",
       ])}
     >
       <CampaignsCountdown campaign={campaign} isMobile={isMobile} />
-      <CampaignsAxis points={timelineData} />
+      {isMobile ? (
+        <CampaignsAxisMobile points={timelineData} />
+      ) : (
+        <CampaignsAxis points={timelineData} />
+      )}
     </div>
   );
 };

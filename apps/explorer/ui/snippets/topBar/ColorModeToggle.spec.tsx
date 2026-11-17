@@ -28,8 +28,8 @@ describe('ColorModeToggle', () => {
     fireEvent.click(screen.getByLabelText('Switch to dark theme'));
 
     expect(await screen.findByLabelText('Switch to light theme')).toBeTruthy();
-    expect(window.document.documentElement.style.getPropertyValue('--chakra-colors-black')).toBe('#101112');
-    expect(window.document.documentElement.style.getPropertyValue('--chakra-colors-theme-bg-primary-_dark')).toBe('#101112');
+    expect(window.document.documentElement.style.getPropertyValue('--chakra-colors-black')).toBe('#0B0C10');
+    expect(window.document.documentElement.style.getPropertyValue('--chakra-colors-theme-bg-primary-_dark')).toBe('#0B0C10');
     // lib/cookies and configs/app import each other, so the name is read once the app config is up
     const { NAMES } = await import('lib/cookies');
 

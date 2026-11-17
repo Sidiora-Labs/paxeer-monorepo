@@ -24,10 +24,14 @@ const PaxeerXFeedUpdateDetails = ({ data, isLoading }: Props) => {
   const observations = [ ...summary.observations ].sort((a, b) => a.market_id - b.market_id);
 
   return (
-    <Flex flexDir="column" rowGap={{ base: 3, lg: 4 }} data-price-update={ data.hash }>
+    <Flex flexDir="column" rowGap={{ base: 3, lg: 4 }} data-price-update={ data.hash } css={{
+      '& a': { display: 'inline-flex', alignItems: 'center', minWidth: 'touchTarget', minHeight: 'touchTarget' },
+      '& button': { minWidth: 'touchTarget', minHeight: 'touchTarget' },
+      '& a, & button': { _motionReduce: { transitionProperty: 'none' } },
+    }}>
       <Box
         bg="bg.surface"
-        borderWidth="1px"
+        borderWidth="1"
         borderStyle="solid"
         borderColor="border.divider"
         borderRadius="md"

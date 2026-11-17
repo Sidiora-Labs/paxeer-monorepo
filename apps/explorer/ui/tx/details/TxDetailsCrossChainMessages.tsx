@@ -6,7 +6,7 @@ import useApiQuery from 'lib/api/useApiQuery';
 import { INTERCHAIN_MESSAGE } from 'stubs/interchainIndexer';
 import { generateListStub } from 'stubs/utils';
 import { CollapsibleList } from 'toolkit/chakra/collapsible';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 import TxDetailsCrossChainMessage from './TxDetailsCrossChainMessage';
 
@@ -51,7 +51,7 @@ const TxDetailsCrossChainMessages = ({ hash, isLoading: isLoadingProp }: Props) 
           cutLength={ 5 }
           text={ [ 'View all messages', 'Hide all messages' ] }
           py={ 1 }
-          rowGap="14px"
+          rowGap="var(--chakra-spacing-3\.5)"
         />
       </DetailedInfo.ItemValue>
     </>

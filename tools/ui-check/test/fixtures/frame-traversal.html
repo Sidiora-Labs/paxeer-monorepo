@@ -1,0 +1,17 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Frame traversal</title><link rel="icon" href="data:,"><link rel="stylesheet" href="/base.css"><body>
+<button id="before">Before</button>
+<iframe id="frame" title="Embedded controls" src="/frame-controls.html" style="display:block;width:100%;height:180px;border:0"></iframe>
+<button id="after">After</button>
+<script>
+const parameters = new URLSearchParams(location.search);
+if (parameters.has("without-frame")) document.querySelector("#frame").remove();
+if (parameters.has("unmarked")) {
+  const style = document.createElement("style");
+  style.textContent = "#after:focus-visible { outline: 3px solid transparent; }";
+  document.head.append(style);
+}
+document.body.dataset.tabs = "0";
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Tab") document.body.dataset.tabs = String(Number(document.body.dataset.tabs) + 1);
+});
+</script></body></html>

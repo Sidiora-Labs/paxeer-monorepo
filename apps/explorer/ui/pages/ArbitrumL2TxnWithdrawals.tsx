@@ -6,13 +6,14 @@ import useApiQuery from 'lib/api/useApiQuery';
 import { layerLabels } from 'lib/rollups/utils';
 import getQueryParamString from 'lib/router/getQueryParamString';
 import { ARBITRUM_L2_TXN_WITHDRAWALS_ITEM } from 'stubs/arbitrumL2';
-import { FilterInput } from 'toolkit/components/filters/FilterInput';
 import { FormFieldError } from 'toolkit/components/forms/components/FormFieldError';
 import { TRANSACTION_HASH_REGEXP } from 'toolkit/components/forms/validators/transaction';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import ArbitrumL2TxnWithdrawalsList from 'ui/txnWithdrawals/arbitrumL2/ArbitrumL2TxnWithdrawalsList';
 import ArbitrumL2TxnWithdrawalsTable from 'ui/txnWithdrawals/arbitrumL2/ArbitrumL2TxnWithdrawalsTable';
+
+import { PageFilterInput } from './PageFilterInput';
 
 const ArbitrumL2TxnWithdrawals = () => {
   const router = useRouter();
@@ -36,11 +37,7 @@ const ArbitrumL2TxnWithdrawals = () => {
     setError(null);
   }, [ ]);
 
-  const handleSearchInputFocus = React.useCallback(() => {}, []);
-
-  const handleSearchInputBlur = React.useCallback((event: React.FocusEvent<HTMLInputElement>) => {
-    const { value } = event.target;
-
+  const validateSearchTerm = React.useCallback((value: string) => {
     if (!value || TRANSACTION_HASH_REGEXP.test(value)) {
       setSearchTerm(value);
       setError(null);
@@ -55,12 +52,20 @@ const ArbitrumL2TxnWithdrawals = () => {
     }
   }, [ router ]);
 
+  const handleSearchInputBlur = React.useCallback((event: React.FocusEvent<HTMLInputElement>) => {
+    validateSearchTerm(event.currentTarget.value);
+  }, [ validateSearchTerm ]);
+
   const handleSubmit = React.useCallback((event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const formData = new FormData(event.target as HTMLFormElement);
+    const formData = new FormData(event.currentTarget);
     const searchTerm = formData.get('tx_hash') as string;
-    handleSearchInputBlur({ target: { value: searchTerm } } as React.FocusEvent<HTMLInputElement>);
-  }, [ handleSearchInputBlur ]);
+    validateSearchTerm(searchTerm);
+    if (searchTerm && !TRANSACTION_HASH_REGEXP.test(searchTerm)) {
+      const input = event.currentTarget.elements.namedItem('tx_hash');
+      if (input instanceof HTMLInputElement) input.focus();
+    }
+  }, [ validateSearchTerm ]);
 
   const content = data?.items ? (
     <>
@@ -80,19 +85,19 @@ const ArbitrumL2TxnWithdrawals = () => {
         { layerLabels.current } to { layerLabels.parent } message relayer: search for your { layerLabels.current } transaction to execute a manual withdrawal.
       </Text>
       <chakra.form onSubmit={ handleSubmit } noValidate>
-        <FilterInput
+        <PageFilterInput
           name="tx_hash"
-          w={{ base: '100%', lg: '700px' }}
+          w={{ base: '100%', lg: 'var(--chakra-spacing-182)' }}
           mt={ 6 }
           size="sm"
           placeholder="Search by transaction hash"
           initialValue={ searchTerm }
           onChange={ handleSearchTermChange }
-          onFocus={ handleSearchInputFocus }
           onBlur={ handleSearchInputBlur }
+          inputProps={{ 'aria-invalid': Boolean(error), 'aria-describedby': error ? 'withdrawal-search-error' : undefined }}
         />
       </chakra.form>
-      { error && <FormFieldError message={ error }/> }
+      { error && <Box id="withdrawal-search-error" role="alert"><FormFieldError message={ error }/></Box> }
       <DataListDisplay
         mt={ 6 }
         isError={ isError }

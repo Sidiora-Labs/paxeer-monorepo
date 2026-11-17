@@ -19,7 +19,7 @@ import (
 )
 
 type FrozenProjectionReader interface {
-	ReadRankingUniverseTx(context.Context, pgx.Tx, string, time.Time) (ranker.InputSnapshot, error)
+	ReadRankingUniverseTx(context.Context, pgx.Tx, string, ...time.Time) (ranker.InputSnapshot, error)
 }
 type FrozenInputs struct {
 	pool   *pgxpool.Pool
@@ -32,7 +32,24 @@ func NewFrozenInputs(pool *pgxpool.Pool, reader FrozenProjectionReader) (*Frozen
 	}
 	return &FrozenInputs{pool, reader}, nil
 }
-func (s *FrozenInputs) Freeze(ctx context.Context, runID string, cutoff time.Time) (ranker.InputSnapshot, error) {
+
+// Freeze keeps the explicit-cutoff form for retained callers. A call without a
+// cutoff obtains the cutoff from the database transaction clock.
+func (s *FrozenInputs) Freeze(ctx context.Context, runID string, cutoffs ...time.Time) (ranker.InputSnapshot, error) {
+	in, err := s.freeze(ctx, runID, cutoffs)
+	if _, _, refusal := ranker.RefreshRefusalDetails(err); refusal {
+		return in, ranker.ErrUnavailable
+	}
+	return in, err
+}
+
+// FreezeAtDatabaseClock is the service path. The transaction chooses and uses
+// one UTC second for every input comparison.
+func (s *FrozenInputs) FreezeAtDatabaseClock(ctx context.Context, runID string) (ranker.InputSnapshot, error) {
+	return s.freeze(ctx, runID, nil)
+}
+
+func (s *FrozenInputs) freeze(ctx context.Context, runID string, cutoffs []time.Time) (ranker.InputSnapshot, error) {
 	bounded, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	tx, err := s.pool.BeginTx(bounded, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
@@ -40,12 +57,25 @@ func (s *FrozenInputs) Freeze(ctx context.Context, runID string, cutoff time.Tim
 		return ranker.InputSnapshot{}, err
 	}
 	defer rollbackTransaction(bounded, tx)
-	in, err := s.reader.ReadRankingUniverseTx(bounded, tx, runID, cutoff)
+	if len(cutoffs) > 1 {
+		return ranker.InputSnapshot{}, ranker.NewRefreshRefusal("cutoff", "validation", ranker.ErrUnavailable)
+	}
+	var in ranker.InputSnapshot
+	if reader, ok := s.reader.(interface {
+		ReadRankingUniverseTxDetailed(context.Context, pgx.Tx, string, ...time.Time) (ranker.InputSnapshot, error)
+	}); ok {
+		in, err = reader.ReadRankingUniverseTxDetailed(bounded, tx, runID, cutoffs...)
+	} else {
+		in, err = s.reader.ReadRankingUniverseTx(bounded, tx, runID, cutoffs...)
+	}
 	if err != nil {
 		return ranker.InputSnapshot{}, err
 	}
-	if !in.Complete || in.RunID != runID || in.CutoffTimeUTC != cutoff.Unix() || len(in.Candidates) > 1000000 || in.Provenance == nil || in.Provenance.Validate(in) != nil || in.Provenance.UniverseDigest != ranker.CanonicalUniverse(in.Candidates) {
-		return in, ranker.ErrUnavailable
+	if !in.Complete || in.RunID != runID || len(in.Candidates) > 1000000 {
+		return in, ranker.NewRefreshRefusal("completion", "validation", ranker.ErrUnavailable)
+	}
+	if in.Provenance == nil || in.Provenance.Validate(in) != nil || in.Provenance.UniverseDigest != ranker.CanonicalUniverse(in.Candidates) {
+		return in, ranker.NewRefreshRefusal("provenance", "validation", ranker.ErrUnavailable)
 	}
 	if err = tx.Commit(bounded); err != nil {
 		return ranker.InputSnapshot{}, err
@@ -91,23 +121,43 @@ func (r *CanonicalInputReader) source(name string) string {
 func (r *CanonicalInputReader) stats(name string) string {
 	return pgx.Identifier{r.StatsSchema, name}.Sanitize()
 }
-func (r *CanonicalInputReader) ReadRankingUniverseTx(ctx context.Context, tx pgx.Tx, runID string, cutoff time.Time) (ranker.InputSnapshot, error) {
-	in := ranker.InputSnapshot{RunID: runID, AlgorithmVersion: ranker.AlgorithmVersion, FeatureSchemaVersion: ranker.FeatureSchemaVersion, CutoffTimeUTC: cutoff.Unix(), Candidates: []ranker.Candidate{}}
-	if tx == nil || cutoff.Unix() < 86400 {
+func (r *CanonicalInputReader) ReadRankingUniverseTx(ctx context.Context, tx pgx.Tx, runID string, cutoffs ...time.Time) (ranker.InputSnapshot, error) {
+	in, err := r.ReadRankingUniverseTxDetailed(ctx, tx, runID, cutoffs...)
+	if _, _, refusal := ranker.RefreshRefusalDetails(err); refusal {
 		return in, ranker.ErrUnavailable
+	}
+	return in, err
+}
+
+func (r *CanonicalInputReader) ReadRankingUniverseTxDetailed(ctx context.Context, tx pgx.Tx, runID string, cutoffs ...time.Time) (ranker.InputSnapshot, error) {
+	in := ranker.InputSnapshot{RunID: runID, AlgorithmVersion: ranker.AlgorithmVersion, FeatureSchemaVersion: ranker.FeatureSchemaVersion, Candidates: []ranker.Candidate{}}
+	if tx == nil || len(cutoffs) > 1 {
+		return in, ranker.NewRefreshRefusal("cutoff", "validation", ranker.ErrUnavailable)
+	}
+	var cutoff time.Time
+	if len(cutoffs) == 1 {
+		cutoff = cutoffs[0].UTC().Truncate(time.Second)
+	} else if err := tx.QueryRow(ctx, "SELECT date_trunc('second', clock_timestamp())").Scan(&cutoff); err != nil {
+		return in, err
+	} else {
+		cutoff = cutoff.UTC().Truncate(time.Second)
+	}
+	in.CutoffTimeUTC = cutoff.Unix()
+	if cutoff.Unix() < 86400 {
+		return in, ranker.NewRefreshRefusal("cutoff", "validation", ranker.ErrUnavailable)
 	}
 	visibility, err := r.Visibility.ReadRankingVisibility(ctx)
 	if err != nil {
 		return in, err
 	}
-	if !visibility.Complete || visibility.Revision == "" || visibility.ObservedAt.IsZero() || visibility.ObservedAt.After(time.Now()) || time.Since(visibility.ObservedAt) > 60*time.Second {
-		return in, ranker.ErrUnavailable
+	if !visibility.Complete || visibility.Revision == "" || visibility.ObservedAt.IsZero() {
+		return in, ranker.NewRefreshRefusal("visibility", "validation", ranker.ErrUnavailable)
 	}
 	// The snapshot admits only moderation observed at or before the cutoff and
 	// at most 60 s before it; an observation outside that window would exclude
 	// every candidate, so the run fails and the previous heads stay current.
 	if observed := visibility.ObservedAt.Unix(); observed > cutoff.Unix() || cutoff.Unix()-observed > 60 {
-		return in, ranker.ErrUnavailable
+		return in, ranker.NewRefreshRefusal("visibility", "cutoff", ranker.ErrUnavailable)
 	}
 	var raw, typed int64
 	var alive bool
@@ -116,7 +166,7 @@ func (r *CanonicalInputReader) ReadRankingUniverseTx(ctx context.Context, tx pgx
 		return in, err
 	}
 	if raw != typed || typed < 1 || !alive {
-		return in, ranker.ErrUnavailable
+		return in, ranker.NewRefreshRefusal("watermark", "validation", ranker.ErrUnavailable)
 	}
 	var blockHash string
 	var completed time.Time
@@ -126,7 +176,7 @@ func (r *CanonicalInputReader) ReadRankingUniverseTx(ctx context.Context, tx pgx
 		return in, err
 	}
 	if !complete || completed.Unix() > cutoff.Unix() {
-		return in, ranker.ErrUnavailable
+		return in, ranker.NewRefreshRefusal("block", "cutoff", ranker.ErrUnavailable)
 	}
 	var coherent bool
 	err = tx.QueryRow(ctx, `SELECT NOT EXISTS(SELECT 1 FROM `+r.stats("accounting_pool_fences_v2")+` WHERE frozen) AND NOT EXISTS(SELECT 1 FROM `+r.source("indexer_accounting_fills_v1")+` f WHERE (f.payload->'position'->>'height')::numeric<=$2 AND NOT EXISTS(SELECT 1 FROM `+r.stats("accounting_market_commits_v2")+` c WHERE c.projection_version=$1 AND c.source_fill_id=f.source_fill_id AND c.source_fact_digest=f.source_fact_digest AND c.fill=f.payload)) AND NOT EXISTS(SELECT 1 FROM `+r.stats("accounting_market_commits_v2")+` c WHERE c.projection_version=$1 AND (c.fill->'position'->>'height')::numeric<=$2 AND NOT EXISTS(SELECT 1 FROM `+r.source("indexer_accounting_fills_v1")+` f WHERE f.source_fill_id=c.source_fill_id AND f.source_fact_digest=c.source_fact_digest AND f.payload=c.fill))`, r.ProjectionVersion, typed).Scan(&coherent)
@@ -134,7 +184,7 @@ func (r *CanonicalInputReader) ReadRankingUniverseTx(ctx context.Context, tx pgx
 		return in, err
 	}
 	if !coherent {
-		return in, ranker.ErrUnavailable
+		return in, ranker.NewRefreshRefusal("coherence", "validation", ranker.ErrUnavailable)
 	}
 	in.CutoffHeight = uint64(typed)
 	revision := strconv.FormatInt(typed, 10)
@@ -166,7 +216,7 @@ func (r *CanonicalInputReader) ReadRankingUniverseTx(ctx context.Context, tx pgx
 		c, err := row.candidate(cutoff.Unix())
 		if err != nil {
 			rows.Close()
-			return in, err
+			return in, ranker.NewRefreshRefusal("provenance", "validation", err)
 		}
 		c.SourceRevision = in.Provenance.StatsRevision
 		c.SourceObservedAt = completed.Unix()
@@ -202,13 +252,13 @@ func rawUSDLDecimal(raw string) (string, error) {
 	}
 	return new(big.Rat).SetFrac(n, big.NewInt(1000000)).FloatString(6), nil
 }
-func (r *CanonicalInputReader) MarshalUniverse(ctx context.Context, pool *pgxpool.Pool, runID string, cutoff time.Time) (json.RawMessage, error) {
+func (r *CanonicalInputReader) MarshalUniverse(ctx context.Context, pool *pgxpool.Pool, runID string, cutoffs ...time.Time) (json.RawMessage, error) {
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return nil, err
 	}
 	defer rollbackTransaction(ctx, tx)
-	in, err := r.ReadRankingUniverseTx(ctx, tx, runID, cutoff)
+	in, err := r.ReadRankingUniverseTx(ctx, tx, runID, cutoffs...)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +311,7 @@ func (c *HTTPRankingVisibility) ReadRankingVisibility(ctx context.Context) (Rank
 	if err != nil || len(raw) > 64<<20 {
 		return out, ranker.ErrUnavailable
 	}
-	if json.Unmarshal(raw, &out) != nil || !out.Complete || len(out.Revision) != 64 || out.Pools == nil || len(out.Pools) > 1000000 || out.ObservedAt.IsZero() || out.ObservedAt.After(time.Now()) || time.Since(out.ObservedAt) > 60*time.Second {
+	if json.Unmarshal(raw, &out) != nil || !out.Complete || len(out.Revision) != 64 || out.Pools == nil || len(out.Pools) > 1000000 || out.ObservedAt.IsZero() {
 		return out, ranker.ErrUnavailable
 	}
 	return out, nil

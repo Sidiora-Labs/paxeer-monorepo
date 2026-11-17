@@ -1,0 +1,30 @@
+{
+  "algorithm": "proportional_floor_v1",
+  "decimals": 6,
+  "quoteAsset": "USDL",
+  "version": 3,
+  "positionErrors": {},
+  "data": {
+    "positions": [],
+    "summary": {
+      "wallet": "0x4444444444444444444444444444444444444444",
+      "basisQuality": "complete",
+      "completeValueUsdlRaw": "0",
+      "pricedSubtotalUsdlRaw": "0",
+      "knownRealizedSubtotalUsdlRaw": "0",
+      "positionCount": 0,
+      "pricingQuality": "priced",
+      "realizedPnlRaw": "0",
+      "snapshotId": "snap-4444",
+      "unpricedAssetCount": 0,
+      "watermark": {
+        "chainId": "125",
+        "height": "4200",
+        "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+        "projectionRevision": "7",
+        "integrity": "healthy",
+        "observedAt": "2026-10-12T15:00:00.000Z"
+      }
+    }
+  }
+}

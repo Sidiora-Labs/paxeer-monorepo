@@ -1,11 +1,5 @@
 module.exports = {
-  roots: ["<rootDir>"],
-  testMatch: [
-    "**/__tests__/**/*.+(ts|tsx|js)",
-    "**/?(*.)+(spec|test).+(ts|tsx|js)",
-  ],
+  ...require("../../jest.config.cjs"),
+  rootDir: __dirname,
   testEnvironment: "jsdom",
-  transform: {
-    "\\.[jt]sx?$": "babel-jest",
-  },
 };

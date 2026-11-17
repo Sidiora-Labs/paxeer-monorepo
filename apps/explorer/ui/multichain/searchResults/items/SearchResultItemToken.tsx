@@ -30,7 +30,7 @@ const SearchResultItemToken = ({ data, chain, isMobile }: Props) => {
     <SearchResultListItem
       href={ route({ pathname: '/token/[hash]', query: { hash: data.address_hash } }, { chain }) }
     >
-      <Box w={{ base: '100%', lg: '200px' }}>
+      <Box w={{ base: '100%', lg: 'calc(var(--chakra-spacing-1) * 50)' }}>
         <TokenEntity
           token={{
             address_hash: data.address_hash,
@@ -44,7 +44,7 @@ const SearchResultItemToken = ({ data, chain, isMobile }: Props) => {
           noLink
           jointSymbol
           noCopy
-          fontWeight={{ base: '600', lg: '700' }}
+          fontWeight={{ base: 'semibold', lg: 'bold' }}
         />
       </Box>
       <Flex alignItems="center" w={{ base: '100%', lg: 'auto' }} flexGrow={ 1 }>
@@ -52,7 +52,7 @@ const SearchResultItemToken = ({ data, chain, isMobile }: Props) => {
           overflow="hidden"
           whiteSpace="nowrap"
           textOverflow="ellipsis"
-          fontWeight={{ base: '400', lg: '500' }}
+          fontWeight={{ base: 'normal', lg: 'medium' }}
           color="text.secondary"
           _groupHover={{ color: 'inherit' }}
         >
@@ -60,12 +60,12 @@ const SearchResultItemToken = ({ data, chain, isMobile }: Props) => {
             <HashStringShortenDynamic hash={ data.address_hash }/>
           ) }
         </Box>
-        { isVerified && <IconSvg name="status/success" boxSize="14px" color="green.500" ml={ 1 } flexShrink={ 0 }/> }
+        { isVerified && <IconSvg name="status/success" boxSize="calc(var(--chakra-spacing-1) * 3.5)" color="positive" ml={ 1 } flexShrink={ 0 }/> }
         <Text
           overflow="hidden"
           whiteSpace="nowrap"
           textOverflow="ellipsis"
-          fontWeight={{ base: '400', lg: '600' }}
+          fontWeight={{ base: 'normal', lg: 'semibold' }}
           ml="auto"
           maxW={{ base: '60%', lg: 'unset' }}
         >

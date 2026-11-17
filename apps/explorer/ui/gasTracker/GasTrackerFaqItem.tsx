@@ -1,6 +1,4 @@
-import { Text } from '@chakra-ui/react';
-
-import { AccordionItem, AccordionItemTrigger, AccordionItemContent } from 'toolkit/chakra/accordion';
+import { Box, Text, chakra } from '@chakra-ui/react';
 
 interface Props {
   question: string;
@@ -9,14 +7,21 @@ interface Props {
 
 const GasTrackerFaqItem = ({ question, answer }: Props) => {
   return (
-    <AccordionItem as="section" value={ question }>
-      <AccordionItemTrigger variant="faq" >
+    <Box as="details" borderBottomWidth="1" borderColor="hairline">
+      <chakra.summary
+        cursor="pointer"
+        minH="touchTarget"
+        py={ 3 }
+        textStyle="body"
+        fontWeight="semibold"
+        color="text.primary"
+        _hover={{ color: 'accent' }}
+        _focusVisible={{ outlineWidth: '2', outlineStyle: 'solid', outlineColor: 'focusRing', outlineOffset: 'var(--chakra-border-widths-2)' }}
+      >
         { question }
-      </AccordionItemTrigger>
-      <AccordionItemContent pb={ 4 } px={ 0 }>
-        <Text color="text.secondary">{ answer }</Text>
-      </AccordionItemContent>
-    </AccordionItem>
+      </chakra.summary>
+      <Text color="text.secondary" textWrap="pretty" pb={ 4 }>{ answer }</Text>
+    </Box>
   );
 };
 

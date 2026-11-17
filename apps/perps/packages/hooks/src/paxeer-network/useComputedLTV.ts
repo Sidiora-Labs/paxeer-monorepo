@@ -5,6 +5,9 @@ import { Decimal, zero } from "@paxeer-network/utils";
 import { useCollateral, useHoldingStream, useIndexPricesStream } from "..";
 import { useAppStore } from "./appStore";
 
+const EMPTY_HOLDINGS: NonNullable<ReturnType<typeof useHoldingStream>["data"]> =
+  [];
+
 const { LTV, collateralRatio } = account;
 
 interface LTVOptions {
@@ -19,7 +22,7 @@ export const useComputedLTV = (options: LTVOptions = {}) => {
 
   const tokensInfo = useAppStore((state) => state.tokensInfo);
 
-  const { usdc, data: holdingList = [] } = useHoldingStream();
+  const { usdc, data: holdingList = EMPTY_HOLDINGS } = useHoldingStream();
 
   const { getIndexPrice } = useIndexPricesStream();
 

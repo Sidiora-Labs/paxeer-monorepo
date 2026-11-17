@@ -82,7 +82,7 @@ const AccountsLabelSearch = () => {
       <Flex alignItems="center" columnGap={ 2 } flexWrap="wrap" rowGap={ 1 }>
         <Skeleton loading={ isPlaceholderData } display="inline-block">
           Found{ ' ' }
-          <chakra.span fontWeight={ 700 }>
+          <chakra.span fontWeight="bold">
             { num }{ data?.next_page_params || pagination.page > 1 ? '+' : '' }
           </chakra.span>{ ' ' }
           matching result{ num > 1 ? 's' : '' } for

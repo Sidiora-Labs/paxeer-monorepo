@@ -263,8 +263,8 @@ assert.match(
 );
 assert.match(
   globals,
-  /repeat\(\s*auto-fit,\s*minmax\(min\(100%,\s*var\(--space-popover\)\),\s*1fr\)\s*\)/,
-  "row layout responds to the card container",
+  /\.dashboard-card \[role="listitem"\]\s*\{(?=[^}]*display:\s*flex)(?=[^}]*flex-wrap:\s*nowrap)(?=[^}]*align-items:\s*center)/,
+  "dashboard rows keep horizontal tracks aligned at the center",
 );
 assert.match(
   globals,

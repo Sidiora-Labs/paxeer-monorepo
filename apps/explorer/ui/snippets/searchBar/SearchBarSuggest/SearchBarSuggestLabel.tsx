@@ -9,13 +9,15 @@ import highlightText from 'lib/highlightText';
 import HashStringShortenDynamic from 'ui/shared/HashStringShortenDynamic';
 import IconSvg from 'ui/shared/IconSvg';
 
-const SearchBarSuggestLabel = ({ data, isMobile, searchTerm, addressFormat }: ItemsProps<SearchResultLabel>) => {
-  const icon = <IconSvg name="publictags" boxSize={ 5 } color="icon.primary"/>;
+import { resultLayout } from './resultLayout';
+
+const SearchBarSuggestLabel = ({ data, searchTerm, addressFormat }: ItemsProps<SearchResultLabel>) => {
+  const icon = <IconSvg aria-hidden={ true } name="publictags" boxSize={ 5 } color="icon.primary"/>;
   const hash = data.filecoin_robust_address || (addressFormat === 'bech32' ? toBech32Address(data.address_hash) : data.address_hash);
 
   const name = (
     <Text
-      fontWeight={ 700 }
+      fontWeight="bold"
       overflow="hidden"
       whiteSpace="nowrap"
       textOverflow="ellipsis"
@@ -34,25 +36,18 @@ const SearchBarSuggestLabel = ({ data, isMobile, searchTerm, addressFormat }: It
     </Text>
   );
 
-  const isContractVerified = data.is_smart_contract_verified && <IconSvg name="status/success" boxSize="14px" color="positive" flexShrink={ 0 }/>;
-
-  if (isMobile) {
-    return (
-      <>
-        <Flex alignItems="center" overflow="hidden" gap={ 2 }>
-          { icon }
-          { name }
-        </Flex>
-        <Flex alignItems="center" overflow="hidden" gap={ 1 }>
-          { address }
-          { isContractVerified }
-        </Flex>
-      </>
-    );
-  }
+  const isContractVerified = data.is_smart_contract_verified && (
+    <IconSvg
+      aria-hidden={ true }
+      name="status/success"
+      boxSize={ 'var(--chakra-spacing-3\\.5)' }
+      color="positive"
+      flexShrink={ 0 }
+    />
+  );
 
   return (
-    <Grid alignItems="center" gridTemplateColumns="228px max-content 24px" gap={ 2 }>
+    <Grid alignItems="center" css={ resultLayout } gap={ 2 }>
       <Flex alignItems="center" gap={ 2 }>
         { icon }
         { name }

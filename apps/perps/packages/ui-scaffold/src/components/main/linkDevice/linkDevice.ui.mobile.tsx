@@ -1,8 +1,7 @@
-import { SimpleDialog } from "../../../../../ui-connector/src/platformOverlays";
 import { FC, SVGProps, useState } from "react";
 import { useAccount } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
-
+import { SimpleDialog } from "@paxeer-network/ui";
 import { Flex, Text } from "@paxeer-network/ui";
 import { LinkDeviceProps } from "./linkDevice.ui";
 
@@ -49,28 +48,22 @@ export const LinkDeviceMobile: FC<LinkDeviceProps> = (props) => {
           },
         }}
       >
-        <Text intensity={80} size="sm">
+        <Text intensity={54} size="sm">
           {t("linkDevice.scanQRCode.connected.description")}
         </Text>
       </SimpleDialog>
       <Flex
-        asChild
-        className="oui-text-base-contrast oui-px-2"
+        className="oui-text-base-contrast oui-px-[6px]"
         intensity={500}
+        height={28}
         r="md"
         onClick={showDialog}
       >
-        <button
-          type="button"
-          aria-label={t("connector.disconnect")}
-          className="oui-shell-action"
-        >
-          <DesktopIcon />
-          <Dot />
-          <LinkIcon />
-          <Dot />
-          <MobileIcon />
-        </button>
+        <DesktopIcon />
+        <Dot />
+        <LinkIcon />
+        <Dot />
+        <MobileIcon />
       </Flex>
     </>
   );

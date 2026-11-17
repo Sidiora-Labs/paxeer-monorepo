@@ -120,7 +120,7 @@ const AddressMudRecordsTable = ({
     minW: `${ colW }px`,
     w: `${ 100 / colsCount }%`,
     verticalAlign: 'top',
-    lineHeight: '20px',
+    textStyle: 'small',
   };
 
   const hasHorizontalScroll = isMobile || isOpened;
@@ -139,8 +139,16 @@ const AddressMudRecordsTable = ({
 
   return (
     // can't implement both horizontal table scroll and sticky header
-    <Box maxW="100%" overflowX={ hasHorizontalScroll ? 'scroll' : 'unset' } whiteSpace="nowrap" ref={ tableRef }>
-      <TableRoot style={{ tableLayout: 'fixed' }}>
+    <Box
+      maxW="100%"
+      overflowX={ hasHorizontalScroll ? 'auto' : 'unset' }
+      whiteSpace="nowrap"
+      ref={ tableRef }
+      tabIndex={ hasHorizontalScroll ? 0 : undefined }
+      role={ hasHorizontalScroll ? 'region' : undefined }
+      aria-label={ hasHorizontalScroll ? 'MUD records' : undefined }
+    >
+      <TableRoot tableLayout="fixed" aria-label="MUD records">
         <TableHeaderSticky top={ hasHorizontalScroll ? 0 : top } display={ hasHorizontalScroll ? 'table' : 'table-header-group' } w="100%">
           <TableRow>
             { keys.map((keyName, index) => {
@@ -154,11 +162,11 @@ const AddressMudRecordsTable = ({
                         data-id={ index }
                         display="flex"
                         alignItems="start"
-                        lineHeight="20px"
+                        textStyle="small"
                         mr={ 2 }
                       >
                         { sorting?.sort === `key${ index }` && sorting.order && (
-                          <Box minW="24px" w="24px" mr={ 2 }>
+                          <Box minW="{spacing.6}" w="{spacing.6}" mr={ 2 }>
                             <IconSvg
                               name="arrows/east"
                               boxSize={ 5 }
@@ -168,7 +176,7 @@ const AddressMudRecordsTable = ({
                         ) }
                         { text }
                       </Link>
-                      <Box minW="20px" w="20px">
+                      <Box minW="{spacing.5}" w="{spacing.5}">
                         <AddressMudRecordsKeyFilter
                           value={ filters[index === 0 ? 'filter_key0' : 'filter_key1'] }
                           title={ text }
@@ -195,12 +203,12 @@ const AddressMudRecordsTable = ({
           { data.items.map((item) => (
             <TableRow key={ item.id }>
               { keys.map((keyName, index) => (
-                <TableCell key={ keyName } backgroundColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }} { ...tdStyles }>
+                <TableCell key={ keyName } backgroundColor="bg.surface" { ...tdStyles }>
                   { index === 0 ? (
                     <Link
                       onClick={ onRecordClick }
                       data-id={ item.id }
-                      fontWeight={ 700 }
+                      fontWeight="bold"
                       href={ route({ pathname: '/address/[hash]', query: { hash, tab: 'mud', table_id: data.table.table_id, record_id: item.id } }) }
                       display="inline"
                     >

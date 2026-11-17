@@ -28,6 +28,8 @@ import { areDatesEqual } from "../../utils/util";
 import { TabType } from "../orders.widget";
 import { useFormatOrderHistory } from "./useFormatOrderHistory";
 
+const EMPTY_ORDERS: API.AlgoOrderExt[] = [];
+
 export type OrderListInstance = {
   download?: () => void;
 };
@@ -186,7 +188,7 @@ export const useOrderListScript = (props: useOrderListScriptOptions) => {
     });
   }, [type, t, props.symbol]);
 
-  const formattedData = useFormatOrderHistory(data ?? []);
+  const formattedData = useFormatOrderHistory(data ?? EMPTY_ORDERS);
 
   // Filter by symbol if symbol prop is provided (hide other symbols)
   const filteredData = useMemo(() => {

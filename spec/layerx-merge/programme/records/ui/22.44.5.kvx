@@ -1,0 +1,348 @@
+[manifest]
+task = "22.44.5"
+surface = "Paxscan explorer page frames"
+paths = ["apps/explorer/ui/pages"]
+patterns = ["page layouts and grids", "tables and lists", "shared dialogs, popovers, menus and tooltips", "shared tabs and accordions", "labelled forms and validation", "shared selects and comboboxes", "shared notifications and loading states", "scroll regions and sticky toolbars", "shared scheme selection", "icons and images", "typography and motion"]
+
+[guide.css]
+id = "css"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.html]
+id = "html"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.color]
+id = "color"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.css_layout]
+id = "css-layout"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.form_factor_adaptation]
+id = "form-factor-adaptation"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.respect_os_text_scale]
+id = "respect-os-text-scale"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.validate_input_after_interaction]
+id = "validate-input-after-interaction"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.accessible_error_announcement]
+id = "accessible-error-announcement"
+directories = ["apps/explorer/ui/pages"]
+
+[guide.scrollspy]
+id = "scrollspy"
+directories = ["apps/explorer/ui/pages"]
+
+[presentation]
+layout = "Grids follow the available space and controls wrap within their page frame."
+forms = "Search fields have persistent labels. Deal and withdrawal errors follow interaction and return focus to the invalid field on submission."
+tables = "Page-owned scroll regions have names and keyboard access. Filtered table headings follow the toolbar height."
+media = "Countdown illustrations retain their proportions and images have dimensions."
+motion = "Statistics navigation respects reduced motion and focuses the destination heading."
+
+[view.accounts]
+name = "Accounts"
+route = "/explorer/accounts"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+additional_widths = [360]
+additional_settings = ["reduced motion", "200% text", "keyboard navigation"]
+
+[view.contract_verification_for_address]
+heading = "The heading wraps within the page frame at 360 pixels."
+additional_widths = [360]
+additional_settings = ["reduced motion", "200% text", "keyboard navigation"]
+name = "ContractVerificationForAddress"
+route = "/explorer/address/0xd789a607CEac2f0E14867de4EB15b15C9FFB5859/contract-verification"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.address]
+name = "Address"
+route = "/explorer/address/0xd789a607CEac2f0E14867de4EB15b15C9FFB5859"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.advanced_filter]
+name = "AdvancedFilter"
+route = "/explorer/advanced-filter"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+additional_widths = [360]
+additional_settings = ["reduced motion", "200% text", "keyboard navigation"]
+
+[view.api_docs]
+name = "ApiDocs"
+route = "/explorer/api-docs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.block]
+name = "Block"
+route = "/explorer/block/30146364"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.block_countdown]
+name = "BlockCountdown"
+route = "/explorer/block/countdown/99999999"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+additional_widths = [360]
+additional_settings = ["reduced motion", "200% text", "keyboard navigation"]
+
+[view.block_countdown_index]
+name = "BlockCountdownIndex"
+route = "/explorer/block/countdown"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+additional_widths = [360]
+additional_settings = ["reduced motion", "200% text", "keyboard navigation"]
+
+[view.blocks]
+name = "Blocks"
+route = "/explorer/blocks"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.zeta_chaincctx]
+name = "ZetaChainCCTX"
+route = "/explorer/cc/tx/0x1111111111111111111111111111111111111111111111111111111111111111"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+states = ["loading"]
+
+[view.chakra]
+name = "Chakra"
+route = "/explorer/chakra"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+additional_widths = [360]
+additional_settings = ["reduced motion", "200% text", "keyboard navigation"]
+
+[view.contract_verification]
+heading = "The heading wraps within the page frame at 360 pixels."
+name = "ContractVerification"
+route = "/explorer/contract-verification"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+additional_widths = [360]
+additional_settings = ["reduced motion", "200% text", "keyboard navigation"]
+
+[view.paxeerx_feed]
+name = "PaxeerXFeed"
+route = "/explorer/feed"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.paxeerx_feed_market]
+name = "PaxeerXFeedMarket"
+route = "/explorer/feed/market/1"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.paxeerx_feed_update]
+name = "PaxeerXFeedUpdate"
+route = "/explorer/feed/update/0x7d3c1f0e9b8a76543210fedcba9876543210fedcba9876543210fedcba987654"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.gas_tracker]
+name = "GasTracker"
+route = "/explorer/gas-tracker"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.home]
+name = "Home"
+route = "/explorer/"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+additional_widths = [360]
+additional_settings = ["reduced motion", "200% text", "keyboard navigation"]
+states = ["network overview", "loading statistics", "block and transaction lists"]
+
+[view.internal_txs]
+name = "InternalTxs"
+route = "/explorer/internal-txs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.login]
+name = "Login"
+route = "/explorer/login"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+additional_widths = [360]
+additional_settings = ["reduced motion", "200% text", "keyboard navigation"]
+
+[view.paxeerx_account]
+name = "PaxeerXAccount"
+route = "/explorer/paxeer-x/account/0xd789a607CEac2f0E14867de4EB15b15C9FFB5859"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+additional_widths = [360]
+additional_settings = ["reduced motion", "200% text", "keyboard navigation"]
+
+[view.paxeerx_inference]
+name = "PaxeerXInference"
+route = "/explorer/paxeer-x/inference"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+additional_widths = [360]
+additional_settings = ["reduced motion", "200% text", "keyboard navigation"]
+deal_totals = "Settlement totals wrap within the card at 360 pixels with doubled text. Layer assignments and receipt batches have separate named scroll regions."
+
+[view.search_results]
+name = "SearchResults"
+route = "/explorer/search-results?q=token"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.sprite]
+name = "Sprite"
+route = "/explorer/sprite"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+additional_widths = [360]
+additional_settings = ["reduced motion", "200% text", "keyboard navigation"]
+
+[view.chart]
+name = "Chart"
+route = "/explorer/stats/averageGasPrice"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+additional_widths = [360]
+additional_settings = ["reduced motion", "200% text", "keyboard navigation"]
+states = ["empty chart"]
+
+[view.stats]
+name = "Stats"
+route = "/explorer/stats"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+additional_widths = [360]
+additional_settings = ["reduced motion", "200% text", "keyboard navigation"]
+
+[view.token]
+name = "Token"
+route = "/explorer/token/0x55d536e4d6c1993d8ef2e2a4ef77f02088419420"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.token_instance]
+name = "TokenInstance"
+route = "/explorer/token/0x55d536e4d6c1993d8ef2e2a4ef77f02088419420/instance/42"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.token_transfers]
+name = "TokenTransfers"
+route = "/explorer/token-transfers"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+states = ["empty list"]
+
+[view.tokens]
+name = "Tokens"
+route = "/explorer/tokens"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.transaction]
+name = "Transaction"
+route = "/explorer/tx/0x62d597ebcf3e8d60096dd0363bc2f0f5e2df27ba1dacd696c51aa7c9409f3193"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+additional_widths = [360]
+additional_settings = ["reduced motion", "200% text", "keyboard navigation"]
+
+[view.transactions]
+name = "Transactions"
+route = "/explorer/txs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[view.verified_contracts]
+name = "VerifiedContracts"
+route = "/explorer/verified-contracts"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+
+[component.page_title]
+path = "apps/explorer/ui/shared/Page/PageTitle.tsx"
+views = ["ContractVerification", "ContractVerificationForAddress"]
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+presentation = "Page headings wrap within their containers, including at doubled text size."
+
+[component.scan_table_card]
+path = "apps/explorer/ui/shared/scan/ScanTableCard.tsx"
+views = ["PaxeerXInference"]
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+presentation = "Header identifiers wrap within the card while tables scroll in their named regions."
+
+[observation.contract_address_label]
+view = "ContractVerification"
+route = "/explorer/contract-verification"
+widths = [360]
+schemes = ["light", "dark"]
+settings = ["200% text"]
+component = "apps/explorer/toolkit/chakra/field.tsx"
+presentation = "The floating address label clips its required marker at doubled text size."
+
+[observation.verification_select_focus]
+views = ["ContractVerification", "ContractVerificationForAddress"]
+widths = [360]
+schemes = ["light", "dark"]
+settings = ["200% text", "keyboard navigation"]
+component = "apps/explorer/toolkit/theme/recipes/select.recipe.ts"
+presentation = "The unselected license and verification method triggers retain their resting border and have no outline under keyboard focus."

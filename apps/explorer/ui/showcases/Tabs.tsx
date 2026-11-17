@@ -62,12 +62,12 @@ const TabsShowcase = () => {
 
         <SectionSubHeader>Adaptive tabs</SectionSubHeader>
         <SamplesStack>
-          <Sample gridColumn="1 / 3" w="100%" maxW={{ base: '100vw', lg: '700px' }}>
+          <Sample gridColumn="1 / -1" w="100%" maxW="full">
             <AdaptiveTabs
               w="100%"
               tabs={ tabs }
               defaultValue={ tabs[0].id }
-              outline="1px dashed lightpink"
+              outline="var(--chakra-border-widths-1) dashed var(--chakra-colors-hairline)"
               leftSlot={ <Box display={{ base: 'none', lg: 'block' }}>Left element</Box> }
               leftSlotProps={{ pr: { base: 0, lg: 4 }, color: 'text.secondary' }}
               rightSlot={ <Box display={{ base: 'none', lg: 'flex' }} justifyContent="space-between"><span>Right element</span><span>🙈</span></Box> }

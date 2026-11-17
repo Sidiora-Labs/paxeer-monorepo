@@ -27,7 +27,7 @@ const VerifyWith = ({ className, links, label, longText, shortText }: Props) => 
               size="sm"
               variant="dropdown"
               aria-label={ label }
-              fontWeight={ 500 }
+              fontWeight="medium"
               px={ shortText ? 2 : 1 }
               flexShrink={ 0 }
               columnGap={ 1 }

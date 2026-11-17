@@ -30,11 +30,11 @@ const TransactionTagListItem = ({ item, isLoading, onEditClick, onDeleteClick }:
         <TxEntity
           hash={ item.transaction_hash }
           isLoading={ isLoading }
-          fontWeight={ 600 }
+          fontWeight="semibold"
           maxW="100%"
         />
         <HStack gap={ 3 } mt={ 4 }>
-          <Text textStyle="sm" fontWeight={ 500 }>Private tag</Text>
+          <Text textStyle="sm" fontWeight="medium">Private tag</Text>
           <Tag loading={ isLoading } truncated>{ item.name }</Tag>
         </HStack>
       </Flex>

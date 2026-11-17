@@ -54,13 +54,13 @@ type Archive struct {
 }
 
 func NewArchive(store *Store, objects *storage.Client, prefix, stream, deployment, decoder, abi, code string) (*Archive, error) {
-	if store == nil || objects == nil || !token.MatchString(prefix) || !token.MatchString(stream) || !token.MatchString(deployment) || !archiveHash.MatchString(decoder) || !archiveHash.MatchString(abi) || !archiveHash.MatchString(code) {
+	if store == nil || objects == nil || !token.MatchString(prefix) || !token.MatchString(stream) || !ValidDeploymentVersion(deployment) || !archiveHash.MatchString(decoder) || !archiveHash.MatchString(abi) || !archiveHash.MatchString(code) {
 		return nil, errors.New("delivery: actual archive providers and provenance pins required")
 	}
 	return &Archive{store: store, objects: objects, prefix: prefix, stream: stream, deployment: deployment, decoder: decoder, abi: abi, code: code}, nil
 }
 func ValidateArchiveManifest(m ArchiveManifest) error {
-	if m.Version != 1 || m.ChainID != 125 || !m.Complete || !token.MatchString(m.SourceStream) || !token.MatchString(m.Deployment) || !archiveHash.MatchString(m.DecoderDigest) || !archiveHash.MatchString(m.ABIDigest) || !archiveHash.MatchString(m.CodeDigest) || m.FromHeight < 0 || m.ToHeight < m.FromHeight || m.ToHeight-m.FromHeight >= 10000 || int64(len(m.Blocks)) != m.ToHeight-m.FromHeight+1 {
+	if m.Version != 1 || m.ChainID != 125 || !m.Complete || !token.MatchString(m.SourceStream) || !ValidDeploymentVersion(m.Deployment) || !archiveHash.MatchString(m.DecoderDigest) || !archiveHash.MatchString(m.ABIDigest) || !archiveHash.MatchString(m.CodeDigest) || m.FromHeight < 0 || m.ToHeight < m.FromHeight || m.ToHeight-m.FromHeight >= 10000 || int64(len(m.Blocks)) != m.ToHeight-m.FromHeight+1 {
 		return ErrIntegrity
 	}
 	var count int64
@@ -196,6 +196,8 @@ func (a *Archive) Capture(ctx context.Context, from, to int64) (ArchiveManifest,
 	if err != nil {
 		return m, "", err
 	}
+	// The deployment is part of the canonical manifest bytes, so a dotted
+	// version produces a distinct manifest digest and object name.
 	digest, err := a.put(ctx, "manifests", raw)
 	if err != nil {
 		return m, "", err

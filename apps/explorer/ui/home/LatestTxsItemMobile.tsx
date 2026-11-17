@@ -44,7 +44,7 @@ const LatestTxsItemMobile = ({ tx, isLoading }: Props) => {
       px={ 3 }
       py={ 2 }
       _hover={{ bg: 'raised' }}
-      borderBottomWidth="1px"
+      borderBottomWidth="1"
       borderStyle="solid"
       borderColor="border.divider"
     >
@@ -65,21 +65,21 @@ const LatestTxsItemMobile = ({ tx, isLoading }: Props) => {
         timeFormat="relative"
         isLoading={ isLoading }
         color="text.secondary"
-        textStyle="xs"
+        textStyle="text.xs"
         display="block"
-        mt="2px"
+        mt="var(--chakra-spacing-0\.5)"
       />
       <Box mt={ 2 } data-label="tx-parties">
         <Flex alignItems="center" columnGap={ 1 } minW={ 0 }>
-          <Skeleton loading={ isLoading } textStyle="xs" color="text.muted" flexShrink={ 0 }>From</Skeleton>
-          <AddressEntity address={ tx.from } isLoading={ isLoading } noIcon truncation="constant" textStyle="xs"/>
+          <Skeleton loading={ isLoading } textStyle="text.xs" color="text.muted" flexShrink={ 0 }>From</Skeleton>
+          <AddressEntity address={ tx.from } isLoading={ isLoading } noIcon truncation="constant" textStyle="text.xs"/>
         </Flex>
         { (priceUpdate || dataTo) && (
-          <Flex alignItems="center" columnGap={ 1 } minW={ 0 } mt="2px">
-            <Skeleton loading={ isLoading } textStyle="xs" color="text.muted" flexShrink={ 0 }>To</Skeleton>
+          <Flex alignItems="center" columnGap={ 1 } minW={ 0 } mt="var(--chakra-spacing-0\.5)">
+            <Skeleton loading={ isLoading } textStyle="text.xs" color="text.muted" flexShrink={ 0 }>To</Skeleton>
             { priceUpdate ? (
-              <Link href={ route({ pathname: '/feed' }) } loading={ isLoading } textStyle="xs" whiteSpace="nowrap">Price feed</Link>
-            ) : dataTo && <AddressEntity address={ dataTo } isLoading={ isLoading } noIcon truncation="constant" textStyle="xs"/> }
+              <Link href={ route({ pathname: '/feed' }) } loading={ isLoading } textStyle="text.xs" whiteSpace="nowrap">Price feed</Link>
+            ) : dataTo && <AddressEntity address={ dataTo } isLoading={ isLoading } noIcon truncation="constant" textStyle="text.xs"/> }
           </Flex>
         ) }
       </Box>
@@ -102,7 +102,8 @@ const LatestTxsItemMobile = ({ tx, isLoading }: Props) => {
               </Tag>
             ) }
             { !config.UI.views.tx.hiddenFields?.tx_fee && (
-              <Skeleton loading={ isLoading } display="flex" justifyContent="flex-end" whiteSpace="pre" textStyle="xs" color="text.muted" mt="2px">
+              <Skeleton loading={ isLoading } display="flex" justifyContent="flex-end" whiteSpace="pre"
+                textStyle="text.xs" color="text.muted" mt="var(--chakra-spacing-0\.5)">
                 <Text as="span">Fee </Text>
                 { evmTx ? <TxFee tx={ evmTx } accuracy={ 5 } noUsd/> : '—' }
               </Skeleton>

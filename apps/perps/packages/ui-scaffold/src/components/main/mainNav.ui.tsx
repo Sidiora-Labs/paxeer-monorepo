@@ -88,13 +88,13 @@ export const MainNav: FC<PropsWithChildren<MainNavScriptReturn>> = (props) => {
           className={cn(
             "oui-gap-3",
             // let the left and right views show spacing when overlapping
-            "oui-min-w-0 oui-flex-wrap",
+            "oui-overflow-hidden",
           )}
         >
           {title}
           {props.leading}
           <Flex
-            className="oui-gap-3 oui-flex-wrap oui-min-w-0"
+            className="oui-gap-3 oui-overflow-x-auto"
             style={{ scrollbarWidth: "none" }}
           >
             {mainNav}
@@ -104,7 +104,7 @@ export const MainNav: FC<PropsWithChildren<MainNavScriptReturn>> = (props) => {
 
         {children}
 
-        <Flex itemAlign={"center"} className="oui-gap-2 oui-flex-wrap">
+        <Flex itemAlign={"center"} className="oui-gap-2">
           {accountSummary}
           {showLinkIcon && (
             <>
@@ -127,11 +127,12 @@ export const MainNav: FC<PropsWithChildren<MainNavScriptReturn>> = (props) => {
       width="100%"
       as="header"
       itemAlign={"center"}
+      height={"48px"}
       justify={"between"}
       px={3}
       gapX={3}
       className={cn(
-        "oui-main-nav oui-min-h-12 oui-flex-wrap oui-py-2 oui-font-semibold oui-border-0 lg:oui-border-line-12 lg:oui-border-b",
+        "oui-main-nav oui-font-semibold oui-border-0 lg:oui-border-b-white/[0.12] lg:oui-border-b",
         className,
         classNames?.root,
       )}

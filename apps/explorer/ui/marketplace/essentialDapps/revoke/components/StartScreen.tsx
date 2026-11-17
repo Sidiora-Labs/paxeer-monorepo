@@ -33,7 +33,7 @@ export default function StartScreen() {
             alignItems={{ base: 'flex-start', md: 'center' }}
             p={ 6 }
             borderRadius="md"
-            bgColor={{ _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' }}
+            bgColor="surface"
             flex={ 1 }
             gap={ 6 }
           >

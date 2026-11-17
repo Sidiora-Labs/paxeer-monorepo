@@ -13,6 +13,9 @@ export type { DateRange };
 export const dayPickerClassNames = {
   root: "text-sm text-foreground",
   months: "flex gap-4",
+  month: "min-w-0 flex-1",
+  month_grid:
+    "w-full min-w-[calc(var(--calendar-day-size)*7)] table-fixed border-collapse",
   month_caption: "flex items-center justify-between px-1 pb-2 font-semibold",
   caption_label: "text-sm font-semibold",
   nav: "flex items-center gap-1",
@@ -20,13 +23,13 @@ export const dayPickerClassNames = {
     "inline-flex size-7 items-center justify-center rounded-full hover:bg-surface-sunken",
   button_next:
     "inline-flex size-7 items-center justify-center rounded-full hover:bg-surface-sunken",
-  weekdays: "flex",
-  weekday: "w-9 flex-1 text-center text-xs font-medium text-faint-foreground py-1",
-  week: "flex",
-  day: "w-9 flex-1 p-0",
+  weekdays: "",
+  weekday: "text-center text-xs font-medium text-faint-foreground py-1",
+  week: "",
+  day: "p-0 text-center",
   day_button:
-    "size-9 w-full rounded-full text-sm transition-colors outline-none hover:bg-surface-sunken",
-  outside: "text-faint-foreground/60",
+    "min-h-calendar-day w-full min-w-calendar-day rounded-full text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent-strong hover:bg-surface-sunken",
+  outside: "text-faint-foreground",
   disabled: "opacity-40",
 };
 
@@ -66,20 +69,26 @@ export function CalendarRangePicker({
         <button
           type="button"
           className={cn(
-            "flex h-11 items-center justify-between gap-2 rounded-md border border-border bg-surface px-3.5 text-sm font-medium transition-colors",
-            "hover:bg-surface-sunken/50 focus-visible:ring-2 focus-visible:ring-accent/30 outline-none",
+            "flex h-11 items-center justify-between gap-2 rounded-md border border-border-strong bg-surface px-3.5 text-sm font-medium transition-colors",
+            "hover:bg-surface-sunken/50 focus-visible:ring-2 focus-visible:ring-accent-strong outline-none",
             value?.from ? "text-foreground" : "text-faint-foreground",
             className,
           )}
         >
           <span className="flex items-center gap-2">
-            <CalendarDays className="size-4 text-muted-foreground" aria-hidden />
+            <CalendarDays
+              className="size-4 text-muted-foreground"
+              aria-hidden
+            />
             {label}
           </span>
           <ChevronDown className="size-4 text-faint-foreground" aria-hidden />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="p-3" align="end">
+      <PopoverContent
+        className="max-w-[calc(100vw-var(--space-8))] overflow-x-auto p-3"
+        align="end"
+      >
         <DayPicker
           mode="range"
           selected={value}

@@ -8,10 +8,13 @@ import { route } from 'nextjs/routes';
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { TableBody, TableCell, TableColumnHeader, TableHeader, TableRoot, TableRow } from 'toolkit/chakra/table';
+import TableScrollArea from 'ui/blocks/TableScrollArea';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
 import Pagination from 'ui/shared/pagination/Pagination';
-import { formatScanTableCount, SCAN_ROWS_PER_PAGE, ScanShowRows, ScanTableCard } from 'ui/shared/scan';
+import { formatScanTableCount, SCAN_ROWS_PER_PAGE } from 'ui/shared/scan';
 
+import AccountRowsSelect from './AccountRowsSelect';
+import AccountTableCard from './AccountTableCard';
 import { listIdentities } from './utils';
 
 export interface Props {
@@ -53,50 +56,52 @@ const IdentityList = ({ identities, isLoading }: Props) => {
   );
 
   return (
-    <ScanTableCard
+    <AccountTableCard
       title={ formatScanTableCount({ kind: 'total', value: entries.length, itemsName: 'identities' }) }
       note="Every spelling of this account the node answers for"
       pagination={ paginationNode }
-      showRows={ <ScanShowRows value={ rowsPerPage } onValueChange={ handleRowsPerPageChange } isLoading={ isLoading }/> }
+      showRows={ <AccountRowsSelect value={ rowsPerPage } onValueChange={ handleRowsPerPageChange } isLoading={ isLoading }/> }
     >
       { entries.length === 0 ? (
         <Text color="text.secondary" px={ 4 } py={ 6 }>This account has no Paxeer X identities yet.</Text>
       ) : (
-        <TableRoot variant="scan" data-label="paxeer-x-identities">
-          <TableHeader>
-            <TableRow>
-              <TableColumnHeader width="30%">Identity</TableColumnHeader>
-              <TableColumnHeader width="70%">Value</TableColumnHeader>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            { rows.map((entry) => (
-              <TableRow key={ entry.kind } data-identity={ entry.kind }>
-                <TableCell verticalAlign="middle">
-                  <Skeleton loading={ isLoading } fontWeight={ 600 } display="inline-block">
-                    { entry.label }
-                  </Skeleton>
-                </TableCell>
-                <TableCell verticalAlign="middle">
-                  <Flex columnGap={ 2 } alignItems="center" minW={ 0 }>
-                    <Skeleton loading={ isLoading } overflow="hidden" minW={ 0 }>
-                      { entry.kind === 'evm' ? (
-                        <Link href={ route({ pathname: '/address/[hash]', query: { hash: entry.value } }) } wordBreak="break-all">
-                          { entry.value }
-                        </Link>
-                      ) : (
-                        <Text as="span" wordBreak="break-all" whiteSpace="normal">{ entry.value }</Text>
-                      ) }
-                    </Skeleton>
-                    <CopyToClipboard text={ entry.value } isLoading={ isLoading }/>
-                  </Flex>
-                </TableCell>
+        <TableScrollArea label="Account identities">
+          <TableRoot aria-label="Account identities" variant="scan" data-label="paxeer-x-identities">
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader width="30%">Identity</TableColumnHeader>
+                <TableColumnHeader width="70%">Value</TableColumnHeader>
               </TableRow>
-            )) }
-          </TableBody>
-        </TableRoot>
+            </TableHeader>
+            <TableBody>
+              { rows.map((entry) => (
+                <TableRow key={ entry.kind } data-identity={ entry.kind }>
+                  <TableCell verticalAlign="middle">
+                    <Skeleton loading={ isLoading } fontWeight="semibold" display="inline-block">
+                      { entry.label }
+                    </Skeleton>
+                  </TableCell>
+                  <TableCell verticalAlign="middle">
+                    <Flex columnGap={ 2 } alignItems="center" minW={ 0 }>
+                      <Skeleton loading={ isLoading } overflow="hidden" minW={ 0 }>
+                        { entry.kind === 'evm' ? (
+                          <Link href={ route({ pathname: '/address/[hash]', query: { hash: entry.value } }) } wordBreak="break-all">
+                            { entry.value }
+                          </Link>
+                        ) : (
+                          <Text as="span" wordBreak="break-all" whiteSpace="normal">{ entry.value }</Text>
+                        ) }
+                      </Skeleton>
+                      <CopyToClipboard text={ entry.value } isLoading={ isLoading }/>
+                    </Flex>
+                  </TableCell>
+                </TableRow>
+              )) }
+            </TableBody>
+          </TableRoot>
+        </TableScrollArea>
       ) }
-    </ScanTableCard>
+    </AccountTableCard>
   );
 };
 

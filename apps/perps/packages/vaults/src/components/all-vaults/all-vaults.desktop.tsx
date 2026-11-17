@@ -1,4 +1,3 @@
-import styles from "../../presentation.module.css";
 import { FC, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { VaultInfo } from "../../types/vault";
@@ -14,13 +13,13 @@ export const AllVaultsDesktop: FC<{ vaults: VaultInfo[] }> = (props) => {
   return (
     <div className="oui-flex oui-flex-col oui-gap-6">
       <div className="oui-flex oui-items-center oui-justify-between">
-        <h2 className="oui-text-xl oui-font-normal oui-text-base-contrast">
+        <div className="oui-text-xl oui-font-normal oui-text-base-contrast">
           {t("vaults.allVaults")}
-        </h2>
+        </div>
         <ViewModeToggle mode={viewMode} onChange={setViewMode} />
       </div>
       {viewMode === "grid" ? (
-        <div className={styles.grid}>
+        <div className="oui-grid oui-grid-cols-3 oui-gap-4 min-[1024px]:oui-grid-cols-3">
           {vaults.map((vault) => (
             <VaultCardWidget key={vault.vault_id} vault={vault} />
           ))}

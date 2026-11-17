@@ -10,13 +10,18 @@ import useApiQuery from 'lib/api/useApiQuery';
 import { useColorMode } from 'toolkit/chakra/color-mode';
 import { ContentLoader } from 'toolkit/components/loaders/ContentLoader';
 import { ZERO_ADDRESS } from 'toolkit/utils/consts';
-import { isBrowser } from 'toolkit/utils/isBrowser';
 
 const feature = config.features.apiDocs;
 
 const graphQLStyle = {
   '.graphiql-container': {
     backgroundColor: 'unset',
+  },
+  '.graphiql-logo-link, .cm-s-graphiql .cm-attribute': {
+    color: 'text.secondary',
+  },
+  '.cm-s-graphiql .cm-property': {
+    color: 'link.primary',
   },
 };
 
@@ -29,20 +34,6 @@ const GraphQL = () => {
   });
 
   const { colorMode } = useColorMode();
-
-  const graphqlTheme = window.localStorage.getItem('graphiql:theme');
-
-  // colorModeState used as a key to re-render GraphiQL component after color mode change
-  const [ colorModeState, setColorModeState ] = React.useState(graphqlTheme);
-
-  React.useEffect(() => {
-    if (isBrowser()) {
-      if (graphqlTheme !== colorMode) {
-        window.localStorage.setItem('graphiql:theme', colorMode);
-        setColorModeState(colorMode);
-      }
-    }
-  }, [ colorMode, graphqlTheme ]);
 
   if (!feature.isEnabled) {
     return null;
@@ -84,9 +75,17 @@ const GraphQL = () => {
   });
 
   return (
-    <Box h="100vh" overflowX="scroll" css={ graphQLStyle }>
-      <Box h="100vh" minW="900px" css={ graphQLStyle }>
-        <GraphiQL fetcher={ fetcher } defaultQuery={ initialQuery } key={ colorModeState }/>
+    <Box
+      h="100dvh"
+      overflowX="auto"
+      role="region"
+      aria-label="GraphQL query editor"
+      tabIndex={ 0 }
+      _focusVisible={{ outline: 'var(--chakra-border-widths-2) solid', outlineColor: 'focusRing', outlineOffset: 'var(--chakra-border-widths-2)' }}
+      css={ graphQLStyle }
+    >
+      <Box h="100%" minW="4xl" css={ graphQLStyle }>
+        <GraphiQL fetcher={ fetcher } defaultQuery={ initialQuery } forcedTheme={ colorMode }/>
       </Box>
     </Box>
   );

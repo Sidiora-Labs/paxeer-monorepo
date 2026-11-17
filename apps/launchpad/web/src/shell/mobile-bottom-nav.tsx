@@ -110,7 +110,7 @@ export default function MobileBottomNav() {
             const Icon = barIcon[item.id] ?? item.icon;
             return (
               <li key={item.id} className="flex min-w-0 flex-1 items-center">
-                <Link
+                <Link prefetch={false}
                   href={item.href}
                   aria-label={item.label}
                   aria-current={active ? 'page' : undefined}
@@ -171,7 +171,7 @@ export default function MobileBottomNav() {
                     const Icon = item.icon;
                     return (
                       <li key={item.id}>
-                        <Link
+                        <Link prefetch={false}
                           href={item.href}
                           aria-current={active ? 'page' : undefined}
                           data-route-id={routeForPath(item.href)?.id}

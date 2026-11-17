@@ -1,0 +1,9 @@
+{
+  "code": "DEPENDENCY_UNAVAILABLE",
+  "message": "Authoritative dependency temporarily unavailable",
+  "requestId": "5425d154-d1c4-4c23-b0ac-a7d3c962be12",
+  "retryable": false,
+  "retryAfterMs": null,
+  "fieldErrors": [],
+  "details": null
+}

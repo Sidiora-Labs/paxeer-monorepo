@@ -53,7 +53,7 @@ export interface TokenHeaderProps {
   notice?: ReactNode;
 }
 
-const headerClass = 'flex flex-col gap-3 rounded-md bg-surface-1 p-3';
+const headerClass = 'flex min-h-80 flex-col gap-3 rounded-md bg-surface-1 p-3 sm:min-h-48';
 
 function explorerHref(address: string): string | null {
   return safeExternalDestination(`https://paxscan.paxeer.app/address/${address}`);
@@ -109,9 +109,9 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
 
   if (snapshot.isPending) {
     return (
-      <header data-coin-header="loading" aria-busy="true" className="flex min-h-control-height-lg items-center gap-3 rounded-md bg-surface-1 p-3">
+      <header data-coin-header="loading" aria-busy="true" className="flex min-h-80 items-center gap-3 rounded-md bg-surface-1 p-3 sm:min-h-48">
         <Skeleton variant="block" width={surfaceSpacing(16)} height={surfaceSpacing(16)} label="coin image" />
-        <div className="flex flex-1 flex-col gap-2"><Skeleton variant="text" width={surfaceSpacing(40)} /><Skeleton variant="text" width={surfaceSpacing(60)} /></div>
+        <div className="flex min-w-0 flex-1 flex-col gap-2 [&>*]:max-w-full"><Skeleton variant="text" width={surfaceSpacing(40)} /><Skeleton variant="text" width={surfaceSpacing(60)} /></div>
       </header>
     );
   }

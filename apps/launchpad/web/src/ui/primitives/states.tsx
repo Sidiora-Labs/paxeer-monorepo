@@ -456,7 +456,7 @@ export function StateNotice({
           type="button"
           onClick={onRetry}
           disabled={retrying}
-          className="shrink-0 rounded-xs font-semibold text-text transition-colors duration-fast hover:text-text-muted disabled:cursor-wait disabled:text-text-faint"
+          className="shrink-0 rounded-xs font-semibold text-text transition-colors duration-fast hover:text-text-muted focus-visible:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus focus-visible:underline disabled:cursor-wait disabled:text-text-faint"
         >
           Try again
         </button>
@@ -678,7 +678,7 @@ export function DisclosureRow({
       );
     }
     return (
-      <Link href={href} className={cn(rowClass, className)} aria-disabled={disabled || undefined}>
+      <Link prefetch={false} href={href} className={cn(rowClass, className)} aria-disabled={disabled || undefined}>
         {content}
         <ChevronRight aria-hidden="true" className="size-icon-md shrink-0 text-text-faint" />
       </Link>

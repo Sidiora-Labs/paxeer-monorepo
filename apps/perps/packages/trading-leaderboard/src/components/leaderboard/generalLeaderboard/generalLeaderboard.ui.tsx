@@ -74,7 +74,7 @@ export const GeneralLeaderboard: FC<GeneralLeaderboardProps> = (props) => {
       intensity={900}
       className={cn(
         "oui-trading-leaderboard-general-leaderboard oui-relative",
-        "oui-mx-auto oui-max-w-screen-xl",
+        "oui-mx-auto oui-max-w-[992px]",
         props.className,
       )}
       style={props.style}

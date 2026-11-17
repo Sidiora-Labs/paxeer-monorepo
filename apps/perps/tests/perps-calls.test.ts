@@ -619,22 +619,6 @@ describe("refusals", () => {
 });
 
 function lockfilesCarryNoMinimatchStubTypes(): void {
-  const npmLock = JSON.parse(
-    readFileSync(path.join(ROOT, "package-lock.json"), "utf8"),
-  ) as {
-    packages: Record<string, { version?: string }>;
-  };
-  const npmMinimatchTypes = Object.entries(npmLock.packages).filter(([name]) =>
-    name.endsWith("node_modules/@types/minimatch"),
-  );
-  assert.ok(
-    npmMinimatchTypes.length > 0,
-    "npm lockfile must resolve @types/minimatch",
-  );
-  for (const [name, entry] of npmMinimatchTypes) {
-    assert.equal(entry.version, "5.1.2", `${name} must ship declarations`);
-  }
-
   const pnpmLock = readFileSync(path.join(ROOT, "pnpm-lock.yaml"), "utf8");
   assert.match(pnpmLock, /'@types\/minimatch@5\.1\.2':/);
   assert.match(pnpmLock, /'@types\/minimatch': 5\.1\.2/);

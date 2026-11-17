@@ -1,0 +1,9 @@
+{
+  "result": {
+    "evm_address": "0x0000000000000000000000000000000000000001",
+    "pax_address": "pax1surfacetestaccount",
+    "layerx_did": "did:layerx:surface-test",
+    "layerx_account": "0505050505050505050505050505050505050505050505050505050505050505",
+    "bound": true
+  }
+}

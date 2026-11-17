@@ -1,18 +1,18 @@
-import type { HTMLChakraProps } from '@chakra-ui/react';
-import { Flex, Box } from '@chakra-ui/react';
+import { Flex, Box, chakra } from '@chakra-ui/react';
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
 
 import useFetch from 'lib/hooks/useFetch';
 import { EmptyState } from 'toolkit/chakra/empty-state';
 import { Tooltip } from 'toolkit/chakra/tooltip';
-import { FilterInput } from 'toolkit/components/filters/FilterInput';
 import { ContentLoader } from 'toolkit/components/loaders/ContentLoader';
 import { useClipboard } from 'toolkit/hooks/useClipboard';
 import DataFetchAlert from 'ui/shared/DataFetchAlert';
 import type { IconName } from 'ui/shared/IconSvg';
 import IconSvg from 'ui/shared/IconSvg';
 import PageTitle from 'ui/shared/Page/PageTitle';
+
+import { PageFilterInput } from './PageFilterInput';
 
 const formatFileSize = (fileSizeInBytes: number) => `${ (fileSizeInBytes / 1_024).toFixed(2) } Kb`;
 
@@ -21,35 +21,35 @@ interface IconInfo {
   file_size: number;
 }
 
-const Item = ({ name, file_size: fileSize, bgColor }: IconInfo & HTMLChakraProps<'div'>) => {
-  const { hasCopied, copy } = useClipboard(name, 1000);
-  const [ copied, setCopied ] = React.useState(false);
-
-  React.useEffect(() => {
-    if (hasCopied) {
-      setCopied(true);
-    } else {
-      setCopied(false);
-    }
-  }, [ hasCopied ]);
+const Item = ({ name, file_size: fileSize }: IconInfo) => {
+  const { hasCopied, copy, disclosure } = useClipboard(name);
 
   return (
-    <Flex
-      flexDir="column"
-      alignItems="center"
-      whiteSpace="pre-wrap"
-      wordBreak="break-word"
-      maxW="100px"
-      textAlign="center"
-      onClick={ copy }
-      cursor="pointer"
-    >
-      <IconSvg name={ name.replace('.svg', '') as IconName } boxSize="100px" bgColor={ bgColor } borderRadius="base"/>
-      <Tooltip content={ copied ? 'Copied' : 'Copy to clipboard' } open={ copied }>
-        <Box fontWeight={ 500 } mt={ 2 }>{ name }</Box>
-      </Tooltip>
-      <Box color="text.secondary">{ formatFileSize(fileSize) }</Box>
-    </Flex>
+    <Tooltip content={ hasCopied ? 'Copied' : 'Copy to clipboard' } { ...disclosure }>
+      <chakra.button
+        type="button"
+        display="flex"
+        flexDir="column"
+        alignItems="center"
+        whiteSpace="normal"
+        overflowWrap="anywhere"
+        minW={ 0 }
+        w="var(--chakra-spacing-30)"
+        maxW="100%"
+        textAlign="center"
+        onClick={ copy }
+        cursor="pointer"
+        borderRadius="control"
+        p={ 2 }
+        _hover={{ bg: 'raised' }}
+        _active={{ bg: 'accent.soft' }}
+        css={{ contentVisibility: 'auto', containIntrinsicBlockSize: 'auto var(--chakra-spacing-65)' }}
+      >
+        <IconSvg name={ name.replace('.svg', '') as IconName } boxSize="var(--chakra-spacing-24)" bgColor="surface" borderRadius="base"/>
+        <Box as="span" maxW="100%" fontWeight="medium" mt={ 2 }>{ name }</Box>
+        <Box as="span" maxW="100%" color="text.secondary" role="status">{ hasCopied ? 'Copied' : formatFileSize(fileSize) }</Box>
+      </chakra.button>
+    </Tooltip>
   );
 };
 
@@ -83,7 +83,7 @@ const Sprite = () => {
 
     return (
       <Flex flexWrap="wrap" fontSize="sm" columnGap={ 5 } rowGap={ 5 } justifyContent="flex-start">
-        { items.map((item) => <Item key={ item.name } { ...item } bgColor={{ _light: 'blackAlpha.100', _dark: 'whiteAlpha.100' }}/>) }
+        { items.map((item) => <Item key={ item.name } { ...item }/>) }
       </Flex>
     );
   })();
@@ -99,7 +99,14 @@ const Sprite = () => {
     }, { num: 0, fileSize: 0 });
   }, [ data ]);
 
-  const searchInput = <FilterInput placeholder="Search by name..." onChange={ setSearchTerm } loading={ isFetching } minW={{ base: '100%', lg: '300px' }}/>;
+  const searchInput = (
+    <PageFilterInput
+      placeholder="Search by name..."
+      onChange={ setSearchTerm }
+      loading={ isFetching }
+      minW={{ base: '100%', lg: 'var(--chakra-spacing-75)' }}
+    />
+  );
   const totalEl = total ? <Box ml="auto">Items: { total.num } / Size: { formatFileSize(total.fileSize) }</Box> : null;
 
   const contentAfter = (

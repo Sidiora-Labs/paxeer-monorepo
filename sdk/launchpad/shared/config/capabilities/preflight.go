@@ -294,17 +294,35 @@ func NewPreflightEngine(reader deployment.Reader, m deployment.Manifest, reviewe
 	if reader == nil || maxAge <= 0 || maxAge > time.Hour || timeout <= 0 || timeout > time.Minute || len(reviewedPoolRuntime) != 66 || !strings.HasPrefix(reviewedPoolRuntime, "0x") {
 		return nil, deployment.Issue{Code: "preflight_configuration_invalid"}
 	}
+	manifest, poolRuntime, revision, err := preflightIdentity(m, reviewedPoolRuntime, serialInterfaceSHA256)
+	if err != nil {
+		return nil, err
+	}
+	return &PreflightEngine{reader: reader, manifest: manifest, poolRuntime: poolRuntime, revision: revision, maxAge: maxAge, timeout: timeout}, nil
+}
+
+// NewPreflightRevision derives the engine revision from reviewed configuration
+// without a chain reader.
+func NewPreflightRevision(m deployment.Manifest, reviewedPoolRuntime, serialInterfaceSHA256 string) (deployment.Revision, error) {
+	_, _, revision, err := preflightIdentity(m, reviewedPoolRuntime, serialInterfaceSHA256)
+	return revision, err
+}
+
+func preflightIdentity(m deployment.Manifest, reviewedPoolRuntime, serialInterfaceSHA256 string) (deployment.Manifest, common.Hash, deployment.Revision, error) {
+	if len(reviewedPoolRuntime) != 66 || !strings.HasPrefix(reviewedPoolRuntime, "0x") {
+		return deployment.Manifest{}, common.Hash{}, deployment.Revision{}, deployment.Issue{Code: "preflight_configuration_invalid"}
+	}
 	runtimeBytes, err := hexutil.Decode(reviewedPoolRuntime)
 	if err != nil || len(runtimeBytes) != 32 || common.BytesToHash(runtimeBytes) == (common.Hash{}) {
-		return nil, deployment.Issue{Code: "pool_runtime_identity_missing"}
+		return deployment.Manifest{}, common.Hash{}, deployment.Revision{}, deployment.Issue{Code: "pool_runtime_identity_missing"}
 	}
 	encoded, err := json.Marshal(m)
 	if err != nil {
-		return nil, err
+		return deployment.Manifest{}, common.Hash{}, deployment.Revision{}, err
 	}
 	m, err = deployment.Parse(encoded)
 	if err != nil {
-		return nil, err
+		return deployment.Manifest{}, common.Hash{}, deployment.Revision{}, err
 	}
 	catalog, _ := json.Marshal(struct {
 		Catalog     Catalog `json:"catalog"`
@@ -314,9 +332,9 @@ func NewPreflightEngine(reader deployment.Reader, m deployment.Manifest, reviewe
 	capHash, supportHash := sha256.Sum256(catalog), sha256.Sum256(support)
 	revision, err := deployment.NewRevision(m, hex.EncodeToString(capHash[:]), hex.EncodeToString(supportHash[:]), serialInterfaceSHA256)
 	if err != nil {
-		return nil, err
+		return deployment.Manifest{}, common.Hash{}, deployment.Revision{}, err
 	}
-	return &PreflightEngine{reader: reader, manifest: m, poolRuntime: common.BytesToHash(runtimeBytes), revision: revision, maxAge: maxAge, timeout: timeout}, nil
+	return m, common.BytesToHash(runtimeBytes), revision, nil
 }
 
 func (e *PreflightEngine) Revision() deployment.Revision { return e.revision }

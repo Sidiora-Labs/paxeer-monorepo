@@ -22,6 +22,8 @@ type Principal struct {
 }
 type AuthenticatePrincipal func(*http.Request) (Principal, error)
 
+const internalChatRoute = "/internal/v2/notifications/chat"
+
 type HTTP struct {
 	Principal         AuthenticatePrincipal
 	Store             Store
@@ -269,7 +271,7 @@ func (p InternalPolicy) Authorize(r *http.Request, account string) error {
 	peer := ""
 	if r.Method == "DELETE" {
 		peer = p.DeletePeerDNS
-	} else if r.Method == "POST" && r.URL.Path == "/internal/v2/notifications/chat" {
+	} else if r.Method == http.MethodPost && r.URL.Path == internalChatRoute {
 		peer = p.ChatPeerDNS
 	}
 	if peer == "" || len(r.TLS.PeerCertificates) == 0 || r.TLS.PeerCertificates[0].VerifyHostname(peer) != nil {
@@ -285,6 +287,10 @@ func (p InternalPolicy) Authorize(r *http.Request, account string) error {
 	}
 	return nil
 }
+
+// InternalHandler serves only the account removal and chat intent routes.
+// Serve it only on a private listener that requires and verifies a client
+// certificate, never on a public router. InternalPolicy authorizes both routes.
 func (h HTTP) InternalHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("DELETE /internal/v2/accounts/{accountId}/notification-data", func(w http.ResponseWriter, r *http.Request) {
@@ -314,7 +320,7 @@ func (h HTTP) InternalHandler() http.Handler {
 		e := h.Store.DeleteAccount(r.Context(), account)
 		respond(w, map[string]bool{"deleted": e == nil}, e)
 	})
-	mux.HandleFunc("POST /internal/v2/notifications/chat", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(http.MethodPost+" "+internalChatRoute, func(w http.ResponseWriter, r *http.Request) {
 		var in ChatRequest
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
 		decoder.DisallowUnknownFields()

@@ -8,6 +8,8 @@ The root `.env.example` inventories the components together; select the settings
 
 ## Required
 
+Each perps broker sizes its file store as the stream's 72-hour retention (259200 seconds) times the peak events per second times the bytes of one stored message, plus the longest outbox publication delay in seconds times the same event rate and stored message size. The event rate includes each market's price-feed event in every block and all other stream events; the stored size includes the payload, subject, headers and storage overhead. Late outbox publications need this extra room because their messages remain for the full retention time after publication. The stream refuses a new message when the file store is full. Each broker's volume is larger than its file store, and `40G` is the least file-store value; more markets, faster blocks or longer publication delays require the larger value computed by this rule.
+
 | Name | What it sets | Source default | Secret value | Source reader |
 | --- | --- | --- | --- | --- |
 | `CA_DIR` | Hosted human provisioning CA directory. | None | No | [hosted/human/material.sh](../../../services/platform/hosted/human/material.sh); [hosted/human/onboarding_provision.sh](../../../services/platform/hosted/human/onboarding_provision.sh); [hosted/human/provision.sh](../../../services/platform/hosted/human/provision.sh) |
@@ -423,7 +425,7 @@ The root `.env.example` inventories the components together; select the settings
 | `NATS_CLUSTER_PASSWORD` | Nats cluster password. | None | Yes | [perps-data/deploy/nats/nats.conf](../../../services/platform/perps-data/deploy/nats/nats.conf) |
 | `NATS_GATEWAY_PASSWORD` | Nats gateway password. | None | Yes | [perps-data/deploy/nats/nats.conf](../../../services/platform/perps-data/deploy/nats/nats.conf) |
 | `NATS_INDEXER_PASSWORD` | Nats indexer password. | None | Yes | [perps-data/deploy/nats/nats.conf](../../../services/platform/perps-data/deploy/nats/nats.conf) |
-| `NATS_MAX_FILE_STORE` | Nats max file store. | None | No | [perps-data/deploy/nats/nats.conf](../../../services/platform/perps-data/deploy/nats/nats.conf) |
+| `NATS_MAX_FILE_STORE` | Maximum bytes of JetStream file storage per perps broker; at least 40G, sized for retention and late outbox publications as described above. | None | No | [perps-data/deploy/nats/nats.conf](../../../services/platform/perps-data/deploy/nats/nats.conf) |
 | `NATS_ROUTES` | Nats routes. | None | No | [perps-data/deploy/nats/nats.conf](../../../services/platform/perps-data/deploy/nats/nats.conf) |
 | `NATS_URL` | Nats URL. | None | Yes | [perps-data/internal/config/config.go](../../../services/platform/perps-data/internal/config/config.go) |
 | `NODE_ASSET_ID` | Hosted human provisioning node asset ID. | None | No | [hosted/human/material.sh](../../../services/platform/hosted/human/material.sh); [hosted/human/onboarding_provision.sh](../../../services/platform/hosted/human/onboarding_provision.sh); [hosted/human/provision.sh](../../../services/platform/hosted/human/provision.sh) |
@@ -441,6 +443,7 @@ The root `.env.example` inventories the components together; select the settings
 | `PERPS_COMET_URLS` | Comet URLs. | None | No | [perps-data/internal/config/config.go](../../../services/platform/perps-data/internal/config/config.go) |
 | `PERPS_GATEWAY_URL` | Gateway URL. | None | No | [perps-data/internal/config/config.go](../../../services/platform/perps-data/internal/config/config.go) |
 | `PERPS_RPC_URLS` | RPC URLs. | None | No | [perps-data/internal/config/config.go](../../../services/platform/perps-data/internal/config/config.go) |
+| `PERPS_PRICE_RETENTION_DAYS` | Full-grain pricefeed history window in whole days, at least 1. The indexer retains the last aggregate per market per UTC minute beyond this window, preserves each market's newest observation and removes older raw pricefeed aggregate and skipped events. | `7` | No | [perps-data/internal/config/config.go](../../../services/platform/perps-data/internal/config/config.go) |
 | `PERPS_START_HEIGHT` | Start height. | None | No | [perps-data/internal/config/config.go](../../../services/platform/perps-data/internal/config/config.go) |
 | `PORT` | Listener port for perps indexer, gateway, explorer and portal; optional gateway listen fallback and Express sample port (8080). | None | No | [examples/samples/paid-endpoint-express/index.mjs](../../../services/platform/examples/samples/paid-endpoint-express/index.mjs); [hosted/gateway/src/main.rs](../../../services/platform/hosted/gateway/src/main.rs); [hosted/webhooks/env-init.sh](../../../services/platform/hosted/webhooks/env-init.sh); [perps-data/internal/config/config.go](../../../services/platform/perps-data/internal/config/config.go) |
 | `PRICE_SIDECAR_CONFIG` | Config. | None | No | [hosted/feeder/src/bin/price-sidecar/main.rs](../../../services/platform/hosted/feeder/src/bin/price-sidecar/main.rs) |

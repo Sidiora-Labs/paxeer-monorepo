@@ -32,7 +32,7 @@ const LatestBlocksDegraded = ({ maxNum }: Props) => {
   const items = isLoading ? Array(maxNum).fill(BLOCK) : blocks.slice(0, maxNum);
 
   if (items.length === 0) {
-    return <Box textStyle="sm">No latest blocks found.</Box>;
+    return <Box textStyle="body">No latest blocks found.</Box>;
   }
 
   return (
@@ -46,7 +46,9 @@ const LatestBlocksDegraded = ({ maxNum }: Props) => {
           columns={ [ { label: 'Block', width: '28%' }, { label: 'Hash / Transactions' }, { label: 'Reward', numeric: true, width: '25%' } ] }
         >
           <TableBody>
-            { items.map((block, index) => <LatestBlocksItem key={ block.height + (isLoading ? String(index) : '') } block={ block } isLoading={ isLoading } view="table"/>) }
+            { items.map((block, index) => (
+              <LatestBlocksItem key={ block.height + (isLoading ? String(index) : '') } block={ block } isLoading={ isLoading } view="table"/>
+            )) }
           </TableBody>
         </HomeTable>
       </Box>

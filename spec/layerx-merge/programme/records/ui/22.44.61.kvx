@@ -1,0 +1,21 @@
+[manifest]
+task = "22.44.61"
+surface = "Paxeer Wallet"
+routes = 14
+views = 14
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[production]
+outputs = [".next", "public/sw.js", "public/manifest.json"]
+build_ms = 217333
+
+[render]
+count = 578
+result = "pass"
+content_screenshots = 578
+one_color_screenshots = 0
+
+[review]
+corrections = ["Production routes and offline assets share the same public configuration."]

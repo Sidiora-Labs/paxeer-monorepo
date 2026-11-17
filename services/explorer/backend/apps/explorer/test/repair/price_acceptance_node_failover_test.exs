@@ -78,7 +78,7 @@ defmodule Explorer.Repair.PriceAcceptanceNodeFailoverTest do
     }
 
     if tags[:queue] do
-      Explorer.TestHelper.start_migration_owner!()
+      Explorer.MigrationCase.start_owner!()
       seed_queue(context)
     end
 

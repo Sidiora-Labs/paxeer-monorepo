@@ -44,7 +44,7 @@ const TagShowcase = () => {
         <SectionHeader>Truncated</SectionHeader>
         <SamplesStack>
           <Sample label="truncated: true">
-            <Tag maxW="150px" truncated>Very very very very very very very long text</Tag>
+            <Tag maxW="calc(var(--chakra-spacing-1) * 37.5)" truncated>Very very very very very very very long text</Tag>
           </Sample>
         </SamplesStack>
       </Section>
@@ -63,7 +63,7 @@ const TagShowcase = () => {
         <SamplesStack>
           <Sample label="loading: true">
             <Tag loading>My tag</Tag>
-            <Tag maxW="150px" truncated loading>Very very very very very very very long text</Tag>
+            <Tag maxW="calc(var(--chakra-spacing-1) * 37.5)" truncated loading>Very very very very very very very long text</Tag>
           </Sample>
           <Sample label="loading: true, variant: select">
             <Tag variant="select" loading>Default</Tag>
@@ -71,7 +71,7 @@ const TagShowcase = () => {
           </Sample>
           <Sample label="loading: false">
             <Tag>My tag</Tag>
-            <Tag maxW="150px" truncated>Very very very very very very very long text</Tag>
+            <Tag maxW="calc(var(--chakra-spacing-1) * 37.5)" truncated>Very very very very very very very long text</Tag>
           </Sample>
         </SamplesStack>
       </Section>
@@ -86,7 +86,7 @@ const TagShowcase = () => {
             <EntityTag data={ addressMetadataMock.warpcastTag }/>
             <EntityTag data={ addressMetadataMock.genericTag }/>
             <EntityTag data={ addressMetadataMock.protocolTag }/>
-            <EntityTag data={ addressMetadataMock.infoTagWithLink } maxW="150px"/>
+            <EntityTag data={ addressMetadataMock.infoTagWithLink } maxW="calc(var(--chakra-spacing-1) * 37.5)"/>
             <EntityTag data={ addressMetadataMock.tagWithTooltip }/>
             <EntityTag data={ addressMetadataMock.nameTag } isLoading/>
           </Sample>
@@ -96,7 +96,13 @@ const TagShowcase = () => {
         <SamplesStack>
           <Sample>
             <Tag variant="filter" label="Type">All</Tag>
-            <Tag variant="filter" label="Address" truncated maxW="150px" closable>0x1234567890123456789012345678901234567890</Tag>
+            <Tag
+              variant="filter"
+              label="Address"
+              truncated
+              maxW="calc(var(--chakra-spacing-1) * 37.5)"
+              closable
+            >0x1234567890123456789012345678901234567890</Tag>
             <Tag variant="filter" label="Type" loading>All</Tag>
           </Sample>
         </SamplesStack>

@@ -20,7 +20,7 @@ const Highlights = ({ items, ...rest }: HighlightsProps) => {
         <Box
           key={ item.id }
           data-divided={ index > 0 ? true : undefined }
-          borderTopWidth={ index > 0 ? '1px' : '0' }
+          borderTopWidth={ index > 0 ? 'var(--chakra-spacing-0\\.25)' : '0' }
           borderStyle="solid"
           borderColor="border.divider"
         >

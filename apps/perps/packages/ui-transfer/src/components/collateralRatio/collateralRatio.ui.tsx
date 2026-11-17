@@ -3,12 +3,11 @@ import { useTranslation } from "@paxeer-network/i18n";
 import { Box, Flex, Text, Tooltip } from "@paxeer-network/ui";
 import { Decimal } from "@paxeer-network/utils";
 import { TooltipIcon } from "../icons/tooltipIcon";
-import styles from "../../presentation.module.css";
 
 const TooltipContent: React.FC = () => {
   const { t } = useTranslation();
   return (
-    <Box className="oui-w-72 oui-max-w-full">
+    <Box className="oui-w-72 oui-max-w-72">
       <Text size="2xs" intensity={80}>
         {t("portfolio.overview.column.collateralRatio.explain")}
       </Text>{" "}
@@ -30,24 +29,13 @@ export const CollateralRatioUI: React.FC<{ value: number }> = (props) => {
   const { t } = useTranslation();
   const { value } = props;
   return (
-    <Flex
-      className={styles.infoRow}
-      width="100%"
-      itemAlign="center"
-      justify="between"
-    >
+    <Flex width="100%" itemAlign="center" justify="between">
       <Flex justify="start" itemAlign="center">
-        <Text size="2xs" intensity={80}>
+        <Text size="2xs" intensity={36}>
           {t("portfolio.overview.column.collateralRatio")}
         </Text>
         <Tooltip className="oui-p-2" content={<TooltipContent />}>
-          <button
-            type="button"
-            aria-label={t("portfolio.overview.column.collateralRatio")}
-            className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center"
-          >
-            <TooltipIcon className="oui-text-base-contrast-80" />
-          </button>
+          <TooltipIcon className="oui-ms-[2px] oui-cursor-pointer oui-text-base-contrast-36" />
         </Tooltip>
       </Flex>
       <Text.numeral

@@ -102,7 +102,7 @@ if ($contractVerificationPage.length) {
   }
 
   const store = createStore(reducer)
-  const addressHash = $('#smart_contract_address_hash').val()
+  const addressHash = $('#smart_contract_address_hash').val().toLowerCase()
 
   store.dispatch({
     type: 'PAGE_LOAD',

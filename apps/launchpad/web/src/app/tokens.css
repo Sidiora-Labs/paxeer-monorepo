@@ -237,7 +237,13 @@
   /* layout */
   --sl-rail-width: 3.5rem;
   --sl-rail-expanded-width: 14.5rem;
-  --sl-header-height: 3rem;
+  --sl-header-height: 3.25rem;
+  --sl-header-layout-height: 52px;
+  --sl-shell-layout-space: 4px;
+  --sl-shell-control-size: 44px;
+  --sl-rail-layout-width: 56px;
+  --sl-rail-layout-expanded-width: 232px;
+  --sl-bottom-nav-layout-height: 56px;
   --sl-ticker-height: 2.75rem;
   --sl-shell-top-total: 6.75rem;
   --sl-right-rail-width: 20rem;
@@ -262,6 +268,7 @@
   --sl-screener-card: 4.5rem;
   --sl-stream-card-min-width: 18.75rem;
   --sl-bounty-card-min-width: 20rem;
+  --sl-bounty-token-min-height: max(var(--sl-control-height-md), 2lh);
   --sl-token-card-min-width: 15rem;
   --sl-control-height-sm: 2.75rem;
   --sl-control-height-md: 2.75rem;
@@ -327,6 +334,23 @@
   --sl-viewport-gutter: 0.75rem;
   --sl-menu-min-width: 12.5rem;
   --sl-form-field-min-width: 12.5rem;
+  --sl-portfolio-value-min-height: 6lh;
+  --sl-rewards-table-min-width: 20rem;
+  --sl-rewards-tile-min-height: max(calc(var(--sl-space) * 40), 8lh);
+  --sl-rewards-expanded-tile-min-height: 14lh;
+  --sl-rewards-expanded-card-min-height: 18lh;
+  --sl-bounty-highlight-min-height: calc(var(--sl-space) * 80);
+  --sl-bounty-highlight-expanded-min-height: 20lh;
+  --sl-bounty-description-min-height: calc(var(--sl-space) * 24);
+  --sl-bounty-description-expanded-min-height: 6lh;
+  --sl-bounty-submissions-min-height: calc(var(--sl-space) * 50);
+  --sl-bounty-submissions-expanded-min-height: 13lh;
+  --sl-bounty-list-min-height: calc(var(--sl-space) * 80);
+  --sl-bounty-list-expanded-min-height: 18lh;
+  --sl-bounty-header-min-height: max(calc(var(--sl-space) * 80), 12lh);
+  --sl-bounty-header-expanded-min-height: 25lh;
+  --sl-bounty-entry-min-height: max(calc(var(--sl-space) * 160), 28lh);
+  --sl-bounty-entry-expanded-min-height: 36lh;
   --sl-strategy-option-min-width: 7.5rem;
   --sl-text-page-title: clamp(var(--sl-text-md), 6cqi, var(--sl-text-xl));
   --sl-text-card-title: clamp(var(--sl-text-sm), 6cqi, var(--sl-text-md));
@@ -485,6 +509,7 @@
   --color-surface-2: var(--sl-surface-2);
   --color-surface-3: var(--sl-surface-3);
   --color-surface-hover: var(--sl-surface-hover);
+  --color-control-edge: var(--sl-control-edge);
   --color-surface-active: var(--sl-surface-active);
   --color-surface-inverse: var(--sl-surface-inverse);
   --color-text: var(--sl-text);
@@ -707,10 +732,16 @@
     [role='tab'],
     [role='menuitem'],
     [role='menuitemradio'],
-    nav a
+    nav a,
+    a[href]:not(p a),
+    [tabindex='0']
   ) {
     min-block-size: var(--sl-touch-target-min);
     min-inline-size: var(--sl-touch-target-min);
+  }
+  :where(a[href]:not(p a), span[tabindex='0']) {
+    display: inline-flex;
+    align-items: center;
   }
   :where(input:not([type='checkbox']):not([type='radio']):not([type='range']), textarea, select) {
     font-size: var(--sl-text-md);
@@ -787,6 +818,7 @@
     z-index: var(--sl-z-modal);
   }
   .sl-popover {
+    width: max-content;
     inset: auto;
     margin: 0;
     border: 0;

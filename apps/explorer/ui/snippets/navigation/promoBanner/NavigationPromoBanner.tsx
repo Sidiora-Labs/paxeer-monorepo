@@ -54,7 +54,7 @@ const NavigationPromoBanner = ({ isCollapsed }: Props) => {
         rel="noopener noreferrer"
         pointerEvents="auto"
         w="full"
-        minW={ isHorizontalNavigation ? 'auto' : '60px' }
+        minW={ isHorizontalNavigation ? 'auto' : 'var(--chakra-spacing-15)' }
         mt="auto"
         position={ isHorizontalNavigation ? undefined : 'sticky' }
         bottom={ isHorizontalNavigation ? undefined : { base: 0, lg: 6 } }
@@ -92,11 +92,11 @@ const NavigationPromoBanner = ({ isCollapsed }: Props) => {
               isCollapsed={ isCollapsed }
               isHorizontalNavigation={ isHorizontalNavigation }
             />
-            <IconSvg
+            <IconSvg aria-hidden={ true }
               onClick={ handleClose }
               name="close"
               boxSize={ 3 }
-              color={{ _light: 'gray.300', _dark: 'gray.600' }}
+              color="icon.secondary"
               bgColor="bg.primary"
               borderBottomLeftRadius="sm"
               borderTopRightRadius="sm"

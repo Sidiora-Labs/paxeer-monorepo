@@ -25,7 +25,7 @@ export const StepItem = (props: StepItemProps) => {
         <Text as="div" intensity={98} size={"sm"}>
           {title}
         </Text>
-        <Text as="div" intensity={80} size={"2xs"}>
+        <Text as="div" intensity={54} size={"2xs"}>
           {description}
         </Text>
       </Box>
@@ -35,7 +35,9 @@ export const StepItem = (props: StepItemProps) => {
       {showDivider && (
         <Box
           position={"absolute"}
-          className="oui-start-3 oui-top-6 -oui-bottom-5"
+          className="oui-start-3"
+          top={23}
+          bottom={-21}
           zIndex={0}
         >
           <Divider
@@ -108,7 +110,7 @@ const Dot: FC<{ active: boolean; className?: string }> = ({
   return (
     <div
       className={cn(
-        "oui-w-2 oui-h-2 oui-rounded-full oui-ms-2 oui-mt-1",
+        "oui-w-[8.3px] oui-h-[8.3px] oui-rounded-full oui-ms-2 oui-mt-1",
         className,
         active ? "oui-bg-primary-light" : "oui-bg-base-2",
       )}
