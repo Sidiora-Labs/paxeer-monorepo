@@ -420,7 +420,7 @@ async function openBrowser(worker) {
   worker.browser = await chromium.connect(worker.server.wsEndpoint());
 }
 
-async function renderView(worker, surface, view, state, configuration, out, index, renderMs, geometry) {
+async function renderView(worker, surface, view, state, configuration, out, index, renderMs, geometry, navigationMs) {
   const { width, height, scheme, mode } = configuration;
   let context;
   let active = true;
@@ -562,7 +562,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
         failedResponses.push({ address: response.url(), status: response.status(), expected: matches.length > 0 });
       });
       navigationPending = true;
-      const response = await page.goto(new URL(view.path, surface.address).href, { waitUntil: "load" });
+      const response = await page.goto(new URL(view.path, surface.address).href, { waitUntil: "load", timeout: navigationMs });
       navigationPending = false;
       if (!response || (!response.ok() && !expectedResponses.has(response))) throw new Error(`View did not answer successfully: ${response?.status() ?? "no response"}`);
       if (new URL(page.url()).origin !== surface.address) throw new Error("View navigated outside the surface");
@@ -607,8 +607,10 @@ async function renderView(worker, surface, view, state, configuration, out, inde
       render.rendered = true;
     } catch (error) {
       if (!active) return;
-      const cause = navigationPending && !navigationAnswered
-        ? (error.name === "TimeoutError" ? "navigation-timeout" : navigationFailure) : null;
+      const cause = navigationPending
+        ? (error.name === "TimeoutError"
+          ? (navigationAnswered ? "navigation-load-timeout" : "navigation-timeout")
+          : (navigationAnswered ? null : navigationFailure)) : null;
       addLoad({ source: "render", message: error.message }, cause);
       render.rendered = false;
     }
@@ -666,9 +668,10 @@ function jobCount(value = Math.min(availableParallelism(), 4)) {
   return Number(value);
 }
 
-export async function checkSurface({ surface: filename, out: destination, view: selected, jobs, renderMs = LIMITS.renderMs, writeGeometry: writing = false }, print = console.log) {
+export async function checkSurface({ surface: filename, out: destination, view: selected, jobs, renderMs = LIMITS.renderMs, navigationMs = LIMITS.navigationMs, writeGeometry: writing = false }, print = console.log) {
   const count = jobCount(jobs);
   if (!Number.isSafeInteger(renderMs) || renderMs <= 0 || renderMs > LIMITS.renderMs) throw new Error("renderMs must be a positive whole number within the render limit");
+  if (!Number.isSafeInteger(navigationMs) || navigationMs <= 0 || navigationMs > LIMITS.navigationMs) throw new Error("navigationMs must be a positive whole number within the navigation limit");
   const surface = await readSurface(filename);
   if (writing && !surface.geometry) throw new Error("--write-geometry requires surface.geometry");
   const geometry = surface.geometry ? await readGeometry(surface.geometry.file, writing) : null;
@@ -724,13 +727,13 @@ export async function checkSurface({ surface: filename, out: destination, view: 
           const index = next++;
           const { view, state, configuration, geometry: plan } = tasks[index];
           await openBrowser(worker);
-          const first = await renderView(worker, surface, view, state, configuration, out, index, renderMs, plan);
+          const first = await renderView(worker, surface, view, state, configuration, out, index, renderMs, plan, navigationMs);
           let render = first.render;
           const deadline = render.findings.find((finding) => finding.values.source === "deadline");
           if (deadline || first.loadRetryCause) {
             await closeBrowser(worker, true);
             await openBrowser(worker);
-            ({ render } = await renderView(worker, surface, view, state, configuration, out, index, renderMs, plan));
+            ({ render } = await renderView(worker, surface, view, state, configuration, out, index, renderMs, plan, navigationMs));
             render.retried = true;
             render.firstDeadlineStep = deadline?.values.step ?? null;
             render.firstLoadFailure = first.loadRetryCause;
