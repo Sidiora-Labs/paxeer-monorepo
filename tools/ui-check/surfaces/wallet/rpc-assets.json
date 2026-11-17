@@ -1,0 +1,17 @@
+{
+  "result": {
+    "height": "100",
+    "joined_limit": 100,
+    "assets": [
+      {
+        "asset_id": "0000000000000000000000000000000000000000000000000000000000000000",
+        "denom": "apax",
+        "kind": "native",
+        "name": "Surface test PAX",
+        "symbol": "PAX",
+        "decimals": 18,
+        "supply": "1000000000000000000000000000"
+      }
+    ]
+  }
+}

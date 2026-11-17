@@ -78,6 +78,11 @@ export function FeeChoice({
   const [estimate, setEstimate] = useState<GasEstimate | null>(null);
   const [estimateError, setEstimateError] = useState<string | null>(null);
   const [maximumSid, setMaximumSid] = useState('');
+  const maximumSidError =
+    maximumSid &&
+    (!/^(0|[1-9][0-9]*)(?:\.[0-9]{1,6})?$/u.test(maximumSid) || !/[1-9]/u.test(maximumSid))
+      ? 'Enter a positive SID amount with at most 6 decimal places.'
+      : null;
 
   useEffect(() => {
     let alive = true;
@@ -210,9 +215,12 @@ export function FeeChoice({
           <label className="block text-xs text-pax-muted">
             Maximum SID (6 decimals)
             <input
+              className="mt-2 w-full rounded-xl bg-pax-control px-3 py-2 text-base text-pax-light outline-none focus:bg-pax-overlay focus-visible:ring-2 focus-visible:ring-pax-accent"
               aria-label="Maximum SID"
               inputMode="decimal"
               value={maximumSid}
+              aria-invalid={maximumSidError !== null}
+              aria-describedby={maximumSidError ? 'maximum-sid-error' : undefined}
               onChange={(event) => {
                 selection.cancel();
                 setMaximumSid(event.target.value);
@@ -222,6 +230,11 @@ export function FeeChoice({
               )}
             />
           </label>
+          {maximumSidError && (
+            <p id="maximum-sid-error" role="alert" className="text-xs text-pax-error">
+              {maximumSidError}
+            </p>
+          )}
           <p data-role="sponsored-phase">{selection.sponsored.phase}</p>
           {selection.sponsored.reason && (
             <p role="alert" data-role="sponsored-reason" data-reason={selection.sponsored.reason}>

@@ -43,7 +43,7 @@ export function UniversalHeader({ title, showBack, onBack, rightAction }: Univer
               type="button"
               aria-label="Open account menu"
               onClick={() => setSheetOpen(true)}
-              className="justify-self-start max-w-full flex min-w-0 items-center gap-2 press-scale z-10 focus-visible:ring-2 focus-visible:ring-pax-accent"
+              className="justify-self-start max-w-full flex min-w-[var(--touch-target)] shrink-0 items-center gap-2 press-scale z-10 focus-visible:ring-2 focus-visible:ring-pax-accent"
             >
               <Image
                 src={getAvatarPath(activeAccount?.address || '')}
