@@ -785,7 +785,7 @@
     {
       "path": "packages/ui/src/tabs/tabs.tsx",
       "sourceSha256": "310bc8219734a143a2cce697e9c8fca16ec0c307f316e399746fa8a0a794161f",
-      "runtimeSha256": "3f6920adb34b0c75d56f511142a0479c13047dd7e0bf283e6859b9278652f766"
+      "runtimeSha256": "d98c49fa563f928b8de73dfa3d9cc4c6d41b158ee9c8c9b83a966f1f29d03f04"
     },
     {
       "path": "packages/ui/src/dialog/simpleDialog.tsx",
