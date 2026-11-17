@@ -204322,7 +204322,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.775]
 title = "Name the verification of a committed journey committed in the schema of the human API, its tool, the service and the web application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
