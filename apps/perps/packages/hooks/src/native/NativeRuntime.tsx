@@ -19,6 +19,7 @@ import {
 } from "@paxeer-network/paxeer-backend/nativeClient";
 import { COLLATERAL_TOKENS } from "@paxeer-network/paxeer-backend/core/perps/config";
 import { useMarketsSnapshot } from "@paxeer-network/paxeer-backend/hooks/perps/useMarketsStream";
+import { useFeeTier } from "@paxeer-network/paxeer-backend/hooks/perps/useFeeTier";
 import { useMarginMode } from "@paxeer-network/paxeer-backend/hooks/perps/useMarginMode";
 import { usePortfolioStats } from "@paxeer-network/paxeer-backend/hooks/perps/usePortfolioStats";
 import { useDailyPnl } from "@paxeer-network/paxeer-backend/hooks/perps/useDailyPnl";
@@ -43,6 +44,7 @@ export function NativeRuntime() {
   const [chainMarkets, setChainMarkets] = useState<any[]>([]);
   const markets = feedMarkets.length ? feedMarkets : chainMarkets;
   const margin = useMarginMode(wallet.address);
+  const feeTier = useFeeTier(wallet.address);
   const portfolio = usePortfolioStats();
   const daily = useDailyPnl(wallet.address);
   useEffect(() => {
@@ -52,11 +54,18 @@ export function NativeRuntime() {
     const timer = setTimeout(() => {
       stop = activePoll(async () => {
         try {
-          const { readAuthenticatedFeedMarkets } = await import("@paxeer-network/paxeer-backend/nativeFeedMarkets");
+          const { readAuthenticatedFeedMarkets } =
+            await import("@paxeer-network/paxeer-backend/nativeFeedMarkets");
           const rows = await readAuthenticatedFeedMarkets();
-          if (rows.length) { if (active) setChainMarkets(rows); return; }
-        } catch { /* Native quotes remain an independent fallback. */ }
-        const { readNativeChainMarkets } = await import("@paxeer-network/paxeer-backend/nativeChainMarkets");
+          if (rows.length) {
+            if (active) setChainMarkets(rows);
+            return;
+          }
+        } catch {
+          /* Native quotes remain an independent fallback. */
+        }
+        const { readNativeChainMarkets } =
+          await import("@paxeer-network/paxeer-backend/nativeChainMarkets");
         const rows = await readNativeChainMarkets();
         if (active) setChainMarkets(rows);
       }, 10000);
@@ -105,6 +114,7 @@ export function NativeRuntime() {
           ? "CROSS"
           : "ISOLATED"
         : undefined,
+      feeTier: feeTier.view,
       markets,
       positions: portfolio.positions.filter(
         (row) =>
@@ -159,6 +169,7 @@ export function NativeRuntime() {
       );
   }, [
     margin.data,
+    feeTier.view,
     wallet.address,
     wallet.chainId,
     wallet.isConnected,
