@@ -121,7 +121,9 @@ export function NativeRuntime() {
           row.userAddress?.toLowerCase() === wallet.address?.toLowerCase(),
       ),
       totalVaultUsd: portfolio.isLoading ? null : portfolio.totalVaultUsd,
-      freeCollateral: portfolio.isLoading ? null : portfolio.freeCollateral,
+      freeCollateral: portfolio.isAccountLoading
+        ? null
+        : portfolio.freeCollateral,
       unrealizedPnl: portfolio.isLoading ? null : portfolio.unrealizedPnl,
       dailyPnl: daily.isLoading ? undefined : daily.dailyPnl,
     });
@@ -179,6 +181,7 @@ export function NativeRuntime() {
     portfolio.freeCollateral,
     portfolio.unrealizedPnl,
     portfolio.isLoading,
+    portfolio.isAccountLoading,
     daily.dailyPnl,
     daily.isLoading,
   ]);
@@ -201,8 +204,10 @@ export function NativeRuntime() {
       if (cancelled) return;
       updateNativeSnapshot({
         walletBalances: Object.fromEntries(
-          results.flatMap((result) =>
-            result.status === "fulfilled" ? [result.value] : [],
+          results.map((result, index) =>
+            result.status === "fulfilled"
+              ? result.value
+              : [Object.values(COLLATERAL_TOKENS)[index].symbol, "0"],
           ),
         ),
       });

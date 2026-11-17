@@ -11,11 +11,18 @@ import {
   planNativeOrder,
 } from "@paxeer-network/paxeer-backend/nativeTrading";
 import { formatUnits } from "viem";
+import {
+  nativeOrderCapacity,
+  nativeOrderFunding,
+  NativeInsufficientBalanceError,
+} from "@paxeer-network/paxeer-backend/nativeOrderPlan";
+import { highestPerpsFeeTier } from "@paxeer-network/paxeer-backend/core/perps/feeTier";
 import { toNativeSymbol } from "@paxeer-network/paxeer-backend/nativeMetadata";
 export function useNativeOrderEntry(
   order: any,
   selectedLeverage: number | undefined,
   reset: () => void,
+  beforeDeposit?: () => Promise<void>,
 ) {
   const state = useSyncExternalStore(
     subscribeNativeSnapshot,
@@ -75,10 +82,23 @@ export function useNativeOrderEntry(
       ? quote
       : null;
   const validate = async () => {
-    planNativeOrder(order, markPrice, leverage);
+    const plan = planNativeOrder(order, markPrice, leverage);
+    if (!order.reduce_only) {
+      const current = getNativeSnapshot();
+      const funding = nativeOrderFunding(
+        plan,
+        current.freeCollateral,
+        current.walletBalances.USDC,
+        leverage,
+        current.feeTier?.takerBps ?? highestPerpsFeeTier.takerBps,
+      );
+      if (funding.source === "insufficient")
+        throw new NativeInsufficientBalanceError();
+    }
     return order;
   };
   const submit = async (options?: { resetOnSuccess?: boolean }) => {
+    await validate();
     if (error) throw new Error(error);
     if (
       !order.reduce_only &&
@@ -92,22 +112,31 @@ export function useNativeOrderEntry(
       );
     setIsMutating(true);
     try {
-      const result = await executeNativeOrder({
-        ...order,
-        leverage,
-        native_quote_id: current?.id,
-      });
+      const result = await executeNativeOrder(
+        {
+          ...order,
+          leverage,
+          native_quote_id: current?.id,
+        },
+        { beforeDeposit },
+      );
       if (options?.resetOnSuccess !== false) reset();
       return result;
     } finally {
       setIsMutating(false);
     }
   };
-  const freeCollateral = Number(state.walletBalances.USDC ?? 0);
-  const maxQty =
-    Number.isFinite(markPrice) && markPrice > 0
-      ? (freeCollateral * leverage) / markPrice
-      : 0;
+  const referencePrice =
+    (order.order_type ?? order.type ?? "MARKET").toUpperCase() === "MARKET"
+      ? markPrice
+      : Number(order.order_price) || markPrice;
+  const { freeCollateral, maxQty } = nativeOrderCapacity(
+    state.freeCollateral,
+    state.walletBalances.USDC,
+    leverage,
+    state.feeTier?.takerBps ?? highestPerpsFeeTier.takerBps,
+    referencePrice,
+  );
   const estLiqPrice = current
     ? Number(formatUnits(current.quote.liquidationPrice, 18))
     : null;

@@ -189,7 +189,7 @@ export default function HolderRewardsTable({
                 </td>
                 <td className="px-2 text-right align-middle md:px-3">
                   <div className="flex flex-col items-end gap-0.5">
-                    <span data-numeric className="whitespace-nowrap text-md font-bold text-success md:text-lg tabular-nums">{usdlAmountText(row.pool.distributedRaw)}<span className="ml-1 text-2xs font-semibold text-text-faint">USDL</span></span>
+                    <span data-numeric className="text-md font-bold text-success md:text-lg tabular-nums">{usdlAmountText(row.pool.distributedRaw)}<span className="ml-1 inline-block whitespace-nowrap text-2xs font-semibold text-text-faint">USDL</span></span>
                     {hovered && airdrop && airdrop.pool === row.poolAddress ? <AirdropLine airdrop={airdrop} /> : null}
                   </div>
                 </td>

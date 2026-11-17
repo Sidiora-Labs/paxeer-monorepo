@@ -1,4 +1,6 @@
 export const orderEntry = {
+  "orderEntry.nativeFunding.twoTransactions":
+    "Two transactions follow: deposit the missing collateral, then place the order. A token approval may also be required.",
   "orderEntry.buyLong": "Buy / Long",
   "orderEntry.sellShort": "Sell / Short",
   "orderEntry.reduceOnly": "Reduce only",

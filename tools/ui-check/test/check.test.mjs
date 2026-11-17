@@ -153,6 +153,23 @@ async function cleanPagePassesWholeDeviceList() {
 }
 test(cleanPagePassesWholeDeviceList);
 
+async function fullPageCaptureKeepsTheDeviceMatrixAndContentMeasurements() {
+  const { result, out } = await execute("capture", { views: [{ name: "capture", path: "/capture.html?screens=2", modes: ["default"] }] });
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 22);
+  assert.deepEqual(result.findings, []);
+  assert.equal(result.retriedCount, 0);
+  for (const render of result.renders) {
+    assert.equal(render.rendered, true);
+    assert.equal(render.hasContent, true);
+    assert.equal(render.cancelled, 0);
+    const image = PNG.sync.read(await readFile(join(out, render.screenshot)));
+    assert.equal(image.width, render.size.width);
+    assert.equal(image.height, render.size.height * 2);
+  }
+}
+test(fullPageCaptureKeepsTheDeviceMatrixAndContentMeasurements);
+
 async function emptyBodyReportsLoadAtEverySize() {
   const { result, lines } = await execute("blank");
   assertMatrix(result);
