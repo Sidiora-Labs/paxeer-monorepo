@@ -138,6 +138,58 @@ type TestWrapper struct {
 	hasT bool
 }
 
+func WaitForTestQueryHeight(t testing.TB, a *App, height int64) {
+	t.Helper()
+	store := a.GetStateStore()
+	require.NotNil(t, store)
+	require.Equal(t, height, a.LastBlockHeight())
+	committed := make(map[sdk.StoreKey]map[string][]byte)
+	for _, key := range a.GetCheckCtx().MultiStore().StoreKeys() {
+		if _, persistent := key.(*sdk.KVStoreKey); !persistent {
+			continue
+		}
+		values := make(map[string][]byte)
+		iterator := a.CommitMultiStore().GetCommitKVStore(key).Iterator(nil, nil)
+		for ; iterator.Valid(); iterator.Next() {
+			values[string(iterator.Key())] = bytes.Clone(iterator.Value())
+		}
+		require.NoError(t, iterator.Close())
+		committed[key] = values
+	}
+	require.Eventually(t, func() bool {
+		if store.GetLatestVersion() < height {
+			return false
+		}
+		for key, values := range committed {
+			iterator, err := store.Iterator(key.Name(), height, nil, nil)
+			if err != nil {
+				return false
+			}
+			matched, count := true, 0
+			for ; iterator.Valid(); iterator.Next() {
+				value, exists := values[string(iterator.Key())]
+				if !exists || !bytes.Equal(value, iterator.Value()) {
+					matched = false
+					break
+				}
+				count++
+			}
+			if err := iterator.Close(); err != nil || !matched || count != len(values) {
+				return false
+			}
+		}
+		return true
+	}, 5*time.Second, time.Millisecond, "query store must reach height %d", height)
+}
+
+func WaitForTestReceiptHeight(t testing.TB, a *App, height int64) {
+	t.Helper()
+	require.NotNil(t, a.receiptStore)
+	require.Eventually(t, func() bool {
+		return a.receiptStore.LatestVersion() >= height
+	}, 5*time.Second, time.Millisecond, "receipt store must reach height %d", height)
+}
+
 func NewTestWrapper(tb testing.TB, tm time.Time, valPub cryptotypes.PubKey, enableEVMCustomPrecompiles bool, baseAppOptions ...func(*bam.BaseApp)) *TestWrapper {
 	return newTestWrapper(tb, tm, valPub, enableEVMCustomPrecompiles, false, TestAppOpts{}, baseAppOptions...)
 }
