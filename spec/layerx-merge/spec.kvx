@@ -15496,6 +15496,12 @@ value = "A frame is one stop of the keyboard traversal. The check judges no elem
 basis = "Gotcha 4650. Decisions 3705 and 3729."
 affects = []
 
+[decision.3731]
+title = "The reads of the perps data service carry the price of a market at the start of the window of 24 hours, and the trading workspace forms the 24 hour change it shows from that price"
+value = "The record of a market, the rows of the topics of all markets and of one market, the ticker and the entries of the tickers carry price_24h: the price of the market at the start of the window of 24 hours, taken from the same price rows as the price beside it, the newest of them at or before the start of the window, and null where the market has no such row. The entries of the tickers and the ticker carry updated_at as well, the time of the block of the row that gives their mark price, in milliseconds, null where there is none. The service reaches the earlier row by seeks through the present indexes on the time of a block and on market and block; no statement reads the rows of the window between, and there is no new table, no new write and no migration. change_24h and the 24 hour prices of fills keep their meaning. The trading workspace shows as the 24 hour change of a market the change of its price against price_24h, in percent, and shows no change where either is absent; it does not show change_24h of a read as the change of the price. The names are the ones of the service, and a case of the workspace holds them as the service writes them. Task 22.39.780 brings the service to this form and task 22.39.781 the workspace."
+basis = "Gotcha 4651. Decisions 3046 and 3728."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45156,6 +45162,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.781]
+title = "Form the 24 hour change that the trading workspace shows from the price at the start of the window"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/markets-price-window.test.ts && grep -q -e price_24h apps/perps/packages/paxeer-backend/src/nativeFeedMarkets.ts"
+do_1 = "do_1 Gotcha 4651 and decision 3731. This task starts from the main line that holds task 22.39.780. Read apps/perps/packages/paxeer-backend/src/nativeFeedMarkets.ts, the module of the markets stream in the backend package under apps/perps/packages/paxeer-backend, the runtime of the workspace under apps/perps/packages that chooses between the rows of the stream, the tickers and the chain, and the sources of the reads under services/platform/perps-data/internal/records, services/platform/perps-data/internal/rest and services/platform/perps-data/internal/feeds. List in the final message every place under apps/perps/packages that forms or converts the 24 hour change, the price 24 hours earlier, the time of a price, the volume and the open interest of a market, and for each the name it reads and the name and unit the service writes."
+symbols = []
+
+[capability.22.39.780]
+title = "Carry the price of a market at the start of the window of 24 hours in the reads of the perps data service"
+reqs = ["22998.1"]
+touches = ["services/platform/perps-data", "spec/release-v6-12-0/contracts/data-services.md"]
+tests = []
+verification_contract = "git grep -q TestPriceWindow -- services/platform/perps-data/internal && go test -count=1 -timeout 30m -run TestPriceWindow ./services/platform/perps-data/internal/records/ ./services/platform/perps-data/internal/rest/ ./services/platform/perps-data/internal/feeds/ && grep -q -e price_24h spec/release-v6-12-0/contracts/data-services.md && grep -q -e price_24h services/platform/perps-data/internal/rest/venue.go"
+do_1 = "do_1 Gotcha 4651 and decision 3731. Read services/platform/perps-data/internal/records/records.go, services/platform/perps-data/internal/rest/markets.go, services/platform/perps-data/internal/rest/venue.go, services/platform/perps-data/internal/feeds/topics.go, the migrations 0001 and 0018 under services/platform/perps-data/migrations and sections 11 and 24 of spec/release-v6-12-0/contracts/data-services.md. Give in the final message for the record of a market, for the rows of the topics of all markets and of one market, for the ticker and for an entry of the tickers which price rows give the price it carries, and which indexes of perps.mark_prices and perps.index_prices a read of the newest row at or before a given time can use."
+symbols = []
 
 [capability.22.44.98]
 title = "Pass a frame as one stop of the keyboard traversal of the render check and let a surface file declare the console messages of a script it embeds unchanged"
@@ -175558,6 +175582,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.781]
+title = "Form the 24 hour change that the trading workspace shows from the price at the start of the window"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.780"]
+reqs = ["22998.1"]
+capabilities = ["22.39.781"]
+interfaces = []
+do_1 = "do_1 Gotcha 4651 and decision 3731. This task starts from the main line that holds task 22.39.780. Read apps/perps/packages/paxeer-backend/src/nativeFeedMarkets.ts, the module of the markets stream in the backend package under apps/perps/packages/paxeer-backend, the runtime of the workspace under apps/perps/packages that chooses between the rows of the stream, the tickers and the chain, and the sources of the reads under services/platform/perps-data/internal/records, services/platform/perps-data/internal/rest and services/platform/perps-data/internal/feeds. List in the final message every place under apps/perps/packages that forms or converts the 24 hour change, the price 24 hours earlier, the time of a price, the volume and the open interest of a market, and for each the name it reads and the name and unit the service writes."
+do_2 = "do_2 A row of the markets stream takes price_24h as the service writes it and forms change_24h, in percent, as the price of the row over price_24h less one, times one hundred; where the price or price_24h is absent or not above zero the change is null and price_24h stays at the value the module uses for an absent metric today. change_24h of the read is not taken as the change of the price. An entry of the tickers is treated the same way with its mark price and its price_24h, and its 24 hour open of fills is not the source of the change. The time of the price of an entry is updated_at as the service writes it, and the rule of thirty seconds stays."
+do_3 = "do_3 Bring every other place of the list of the first step to the names and units of the service; a name the service does not write is not read, and a value the service writes as null is not turned into a number that looks like a measurement, except the open interest of a market that has none, which is zero. Where a view shows a missing value it shows what it shows for a missing value today. No size, colour, distance or position of a view changes, and no file under apps/perps/apps changes."
+do_4 = "do_4 Add the case file apps/perps/tests/markets-price-window.test.ts, run with node --test like its neighbours. With rows in the form the service writes, taken from the field lists of the sources named in the first step, it holds: a stream row with price 110 and price_24h 100 gives a change of 10 percent whatever change_24h of the row says; a row without price_24h gives a null change; an entry of the tickers with a fresh updated_at is kept and gives its change from price_24h; an entry with an old or absent updated_at is dropped; and the names price_24h and updated_at stand in the source of the service under services/platform/perps-data/internal/rest and services/platform/perps-data/internal/records where the case can read the repository."
+do_5 = "do_5 Run the typecheck of the workspace and the check of the source of the views. The files under apps/perps/packages and the new case file are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Do not run the test script of the workspace root, and leave the directory of installed packages where the package manager puts it. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages"]
+tests = []
+planned_paths = ["apps/perps/tests/markets-price-window.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/markets-price-window.test.ts && grep -q -e price_24h apps/perps/packages/paxeer-backend/src/nativeFeedMarkets.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.98]
 title = "Pass a frame as one stop of the keyboard traversal of the render check and let a surface file declare the console messages of a script it embeds unchanged"
 status = "pending"
@@ -251209,6 +251265,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.780]
+title = "Carry the price of a market at the start of the window of 24 hours in the reads of the perps data service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.780"]
+interfaces = []
+do_1 = "do_1 Gotcha 4651 and decision 3731. Read services/platform/perps-data/internal/records/records.go, services/platform/perps-data/internal/rest/markets.go, services/platform/perps-data/internal/rest/venue.go, services/platform/perps-data/internal/feeds/topics.go, the migrations 0001 and 0018 under services/platform/perps-data/migrations and sections 11 and 24 of spec/release-v6-12-0/contracts/data-services.md. Give in the final message for the record of a market, for the rows of the topics of all markets and of one market, for the ticker and for an entry of the tickers which price rows give the price it carries, and which indexes of perps.mark_prices and perps.index_prices a read of the newest row at or before a given time can use."
+do_2 = "do_2 Add to services/platform/perps-data/internal/records one function that answers, for every market in one statement, the price at the start of the window of 24 hours: the price of the newest row at or before now less 24 hours, from the same selection of rows that gives price in the record of a market, and beside it the mark price of the newest row of perps.mark_prices at or before that time. A market without such a row answers null for that value. The statement first finds the bound of the window by a seek through an index on the time of a block and then reaches the row of each market by a seek through an index on market and block. It reads no row of the window between, and it adds no table, no index, no write and no migration."
+do_3 = "do_3 The record of a market gains the field price_24h after change_24h, the rows of the topics of all markets and of one market carry it, and both are formed by the function of the second step, so the four reads agree. The ticker and each entry of the tickers gain price_24h, formed from the mark price rows because their price is the mark price, and updated_at, the time of the block of the row that gives their mark price, in milliseconds, null where there is none. change_24h, the 24 hour prices of fills, the volumes and every other field keep their source and their form. Read the other reads under services/platform/perps-data that carry a record of a market, among them the graph and the pages of the portal, and bring each that lists the fields of the record to the new field; where one needs no change say so in the final message."
+do_4 = "do_4 Add cases named TestPriceWindow. The cases use the real PostgreSQL database that the qualification environment names in PERPS_DATA_TEST_DATABASE_URL, as the present cases of the package do. They hold: with a row before the start of the window and rows inside it, price_24h is the price of the newest row at or before the start; a market whose only rows lie inside the window answers null; a market without a fill in the window carries price_24h and no change_24h; the record, the two topics, the ticker and the entry of the tickers agree for one market; updated_at of an entry is the time of the block of its mark row; and with two hundred thousand rows in perps.mark_prices and in perps.index_prices the plan of the statement holds no sequential read of either table. No present case is removed or weakened; a case that holds the count or the list of the fields of a record is brought to the new field."
+do_5 = "do_5 spec/release-v6-12-0/contracts/data-services.md names the new fields where it lists the fields of the record of a market, of the ticker and of an entry of the tickers, with their source and their null rule, and says that change_24h stays the change between fills. Run by hand the cases of the records, rest, feeds and graphql packages and read each summary. The files of services/platform/perps-data and spec/release-v6-12-0/contracts/data-services.md are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/perps-data", "spec/release-v6-12-0/contracts/data-services.md"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./services/platform/perps-data/... && go vet ./services/platform/perps-data/internal/records/ ./services/platform/perps-data/internal/rest/ ./services/platform/perps-data/internal/feeds/"
+verify_cmd = "git grep -q TestPriceWindow -- services/platform/perps-data/internal && go test -count=1 -timeout 30m -run TestPriceWindow ./services/platform/perps-data/internal/records/ ./services/platform/perps-data/internal/rest/ ./services/platform/perps-data/internal/feeds/ && grep -q -e price_24h spec/release-v6-12-0/contracts/data-services.md && grep -q -e price_24h services/platform/perps-data/internal/rest/venue.go"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.777]
 title = "Give the brokers of the perps deployment a file store that holds the whole age of the stream"
