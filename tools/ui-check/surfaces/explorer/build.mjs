@@ -40,5 +40,8 @@ await run(process.execPath, ['--test', fileURLToPath(new URL('./routes.test.mjs'
 await run('bash', ['-c', 'corepack enable && yarn install --frozen-lockfile --ignore-scripts']);
 await run(process.execPath, ['node_modules/svg-icons-cli/index.js', 'build', '-i', './icons', '-o', relative(process.cwd(), '/tmp/explorer-icons'), '--optimize']);
 await writeFile('/tmp/explorer-icons/registry.json', JSON.stringify(await icons('./icons')));
-await run(process.execPath, ['--no-async-stack-traces', 'node_modules/next/dist/bin/next', 'build']);
+await run(process.execPath, [
+  '--no-async-stack-traces', '--import', fileURLToPath(new URL('./build-config.mjs', import.meta.url)),
+  'node_modules/next/dist/bin/next', 'build',
+]);
 await run(process.execPath, [fileURLToPath(new URL('./start.mjs', import.meta.url)), '--prepare']);
