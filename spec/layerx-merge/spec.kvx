@@ -175864,7 +175864,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.798]
 title = "Make the cases of the swap executor and of the pending sends of the wallet independent of machine speed and of the state of other cases"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205506,7 +205506,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.793]
 title = "Bring the cases of the launchpad sdk package and the sources they compare into agreement"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
