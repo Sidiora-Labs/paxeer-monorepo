@@ -145,13 +145,18 @@ fn verification_level_retires_settlement_values_and_maps_rungs() {
     assert_retired_variants(
         &report,
         VerificationLevel,
-        &["paxeer-finalised", "settlement-anchored"],
+        &[
+            "checkpoint-finalised",
+            "paxeer-finalised",
+            "settlement-anchored",
+        ],
     );
     assert_eq!(
         string_list(VerificationLevel, "variants"),
         [
             "unverified",
             "receipt-verified",
+            "committed",
             "checkpoint-finalised",
             "paxeer-finalised",
             "settlement-anchored",
@@ -167,7 +172,7 @@ fn verification_level_retires_settlement_values_and_maps_rungs() {
         BTreeMap::from([
             ("submitted".to_owned(), "unverified".to_owned()),
             ("receipted".to_owned(), "receipt-verified".to_owned()),
-            ("committed".to_owned(), "checkpoint-finalised".to_owned()),
+            ("committed".to_owned(), "committed".to_owned()),
         ])
     );
     let retired = string_list(VerificationLevel, "retired_variants");
@@ -175,10 +180,7 @@ fn verification_level_retires_settlement_values_and_maps_rungs() {
         .into_iter()
         .filter(|level| !retired.contains(level))
         .collect();
-    assert_eq!(
-        active,
-        ["unverified", "receipt-verified", "checkpoint-finalised"]
-    );
+    assert_eq!(active, ["unverified", "receipt-verified", "committed"]);
     for level in mapping.values() {
         assert!(
             active.contains(level),
@@ -254,5 +256,61 @@ fn verification_level_retires_settlement_values_and_maps_rungs() {
                 "{section}.{key}"
             );
         }
+    }
+}
+
+fn verification_values(value: &Json, levels: &mut Vec<String>) {
+    match value {
+        Json::Object(fields) => {
+            for (name, value) in fields {
+                if name == "verification" {
+                    let Json::String(level) = value else {
+                        panic!("verification must be a string");
+                    };
+                    levels.push(level.clone());
+                } else {
+                    verification_values(value, levels);
+                }
+            }
+        }
+        Json::Array(values) => {
+            for value in values {
+                verification_values(value, levels);
+            }
+        }
+        _ => {}
+    }
+}
+
+#[test]
+fn golden_verification_names_current_and_retired_values() {
+    real_schema_report();
+    let mut current = Vec::new();
+    for file in [
+        "account.balance.response.json",
+        "activity.export.statement.response.json",
+        "approval.program.budget.response.json",
+    ] {
+        let source = fs::read_to_string(real_schema_root().join("golden").join(file))
+            .unwrap_or_else(|error| panic!("read {file}: {error}"));
+        let value = parse_json(&source).unwrap_or_else(|error| panic!("parse {file}: {error}"));
+        verification_values(&value, &mut current);
+    }
+    assert!(current.iter().any(|level| level == "committed"));
+    for level in &current {
+        assert!(["committed", "receipt-verified"].contains(&level.as_str()));
+    }
+    let mut historical = Vec::new();
+    for file in [
+        "historical/journey.get.response.json",
+        "withdraw.claim.response.json",
+    ] {
+        let source = fs::read_to_string(real_schema_root().join("golden").join(file))
+            .unwrap_or_else(|error| panic!("read {file}: {error}"));
+        let value = parse_json(&source).unwrap_or_else(|error| panic!("parse {file}: {error}"));
+        verification_values(&value, &mut historical);
+    }
+    for level in string_list(VerificationLevel, "retired_variants") {
+        assert!(historical.contains(&level), "missing historical {level}");
     }
 }

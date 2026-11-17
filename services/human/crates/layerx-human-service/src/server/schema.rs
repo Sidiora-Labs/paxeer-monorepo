@@ -855,25 +855,7 @@ fn embedded_types(
                     insert_type(
                         &mut types,
                         name,
-                        TypeDeclaration::Variants(
-                            parse_list(variants)?
-                                .into_iter()
-                                .map(|variant| {
-                                    if name == "VerificationLevel"
-                                        && matches!(
-                                            variant.as_str(),
-                                            "checkpoint-finalised"
-                                                | "paxeer-finalised"
-                                                | "settlement-anchored"
-                                        )
-                                    {
-                                        "committed".to_owned()
-                                    } else {
-                                        variant
-                                    }
-                                })
-                                .collect(),
-                        ),
+                        TypeDeclaration::Variants(parse_list(variants)?.into_iter().collect()),
                     )?;
                 } else {
                     insert_type(
@@ -959,4 +941,103 @@ fn validate_scalar(
         _ => {}
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod verification_tests {
+    use super::{ApiSchema, TypeDeclaration};
+    use layerx_types::rung::Rung;
+    use serde_json::{json, Value};
+    use std::collections::BTreeSet;
+
+    #[test]
+    fn schema_preserves_current_and_historical_verification_names() {
+        let schema = ApiSchema::v1().unwrap_or_else(|error| panic!("schema: {error:?}"));
+        assert_eq!(schema.version(), (1, 11));
+        let Some(TypeDeclaration::Variants(variants)) = schema.types.get("VerificationLevel")
+        else {
+            panic!("verification variants are required");
+        };
+        assert_eq!(
+            variants,
+            &BTreeSet::from([
+                "unverified".to_owned(),
+                "receipt-verified".to_owned(),
+                "committed".to_owned(),
+                "checkpoint-finalised".to_owned(),
+                "paxeer-finalised".to_owned(),
+                "settlement-anchored".to_owned(),
+            ])
+        );
+        for (rung, expected) in [
+            (Rung::Submitted, "unverified"),
+            (Rung::Receipted, "receipt-verified"),
+            (Rung::Committed, "committed"),
+        ] {
+            let name = super::super::HumanComponentServer::verification_level_name(rung);
+            assert_eq!(name, expected);
+            schema
+                .validate("VerificationLevel", &json!(name), "verification", 0)
+                .unwrap_or_else(|error| panic!("declared current verification: {error:?}"));
+        }
+        for (operation, source) in [
+            (
+                "account.balance",
+                include_str!("../../../../schema/human-api/golden/account.balance.response.json"),
+            ),
+            (
+                "journey.get",
+                include_str!(
+                    "../../../../schema/human-api/golden/historical/journey.get.response.json"
+                ),
+            ),
+            (
+                "withdraw.claim",
+                include_str!("../../../../schema/human-api/golden/withdraw.claim.response.json"),
+            ),
+        ] {
+            let golden: Value = serde_json::from_str(source)
+                .unwrap_or_else(|error| panic!("golden answer: {error:?}"));
+            let bytes = serde_json::to_vec(&golden["body"]["result"])
+                .unwrap_or_else(|error| panic!("stored answer: {error:?}"));
+            let decoded: Value = serde_json::from_slice(&bytes)
+                .unwrap_or_else(|error| panic!("decode stored answer: {error:?}"));
+            assert_eq!(decoded, golden["body"]["result"]);
+            schema
+                .encode_response(
+                    schema
+                        .operation(operation)
+                        .unwrap_or_else(|| panic!("missing {operation}")),
+                    &decoded,
+                )
+                .unwrap_or_else(|error| panic!("declared response vocabulary: {error:?}"));
+        }
+        for level in [
+            "unverified",
+            "receipt-verified",
+            "committed",
+            "checkpoint-finalised",
+            "paxeer-finalised",
+            "settlement-anchored",
+        ] {
+            let encoded = serde_json::to_vec(&json!(level))
+                .unwrap_or_else(|error| panic!("verification encoding: {error:?}"));
+            let decoded: Value = serde_json::from_slice(&encoded)
+                .unwrap_or_else(|error| panic!("verification decoding: {error:?}"));
+            schema
+                .validate("VerificationLevel", &decoded, "verification", 0)
+                .unwrap_or_else(|error| panic!("declared verification: {error:?}"));
+            assert_eq!(decoded, level);
+        }
+        for value in [
+            json!("finalised"),
+            json!("COMMITTED"),
+            json!(null),
+            json!(3),
+        ] {
+            assert!(schema
+                .validate("VerificationLevel", &value, "verification", 0)
+                .is_err());
+        }
+    }
 }

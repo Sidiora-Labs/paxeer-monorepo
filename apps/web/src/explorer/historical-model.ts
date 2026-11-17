@@ -151,7 +151,7 @@ function verificationLevel(value: unknown, at: string): ExplorerVerificationLeve
     case "batch-included":
     case "state-proven":
     case "checkpoint-finalised":
-      return "checkpoint-finalised";
+      return "committed";
     default:
       throw new TypeError(`${at} is not a declared verification level`);
   }

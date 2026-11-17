@@ -35,7 +35,11 @@ fn assert_current_retirements(report: &SchemaReport) {
         ),
         (
             "VerificationLevel",
-            vec!["paxeer-finalised", "settlement-anchored"],
+            vec![
+                "checkpoint-finalised",
+                "paxeer-finalised",
+                "settlement-anchored",
+            ],
         ),
     ]
     .into_iter()

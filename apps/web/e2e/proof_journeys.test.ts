@@ -115,7 +115,7 @@ function proof_activity_producers_reach_detail_and_activity_consumer() {
     const decoded = cross(source, api.encodeActivityEntryDetail, api.decodeActivityEntryDetail);
     assert.notEqual(decoded, previous);
     assert.equal(activity.receiptBacked(decoded.evidence[0]!), true);
-    assert.equal(activity.entryVerification(activity.detailEvidence(decoded)), "checkpoint-finalised");
+    assert.equal(activity.entryVerification(activity.detailEvidence(decoded)), "committed");
     const expected = activity.verificationLabel("checkpoint-finalised");
     assert.equal(expected, copyEntry("activity.verification.checkpoint_finalised").message);
     assert.ok(render(createElement(ActivityVerification, { detail: decoded })).includes(expected));
@@ -129,7 +129,7 @@ function proof_activity_producers_reach_detail_and_activity_consumer() {
     .includes(copyEntry("activity.verification.receipt_verified").message));
   source.stages[0]!.evidence = [receipt("settlement-anchored")];
   const retired = cross(source, api.encodeActivityEntryDetail, api.decodeActivityEntryDetail);
-  assert.equal(activity.entryVerification(activity.detailEvidence(retired)), "unverified");
+  assert.equal(activity.entryVerification(activity.detailEvidence(retired)), "committed");
   assert.equal(activity.receiptBacked(retired.stages[0]!.evidence[0]!), false);
   assert.throws(() => render(createElement(ActivityVerification, { detail: retired })), /verified receipt/u);
   assert.throws(() => observeActivityVerification(retired), /verified receipt/u);
@@ -161,7 +161,7 @@ function proof_approval_labels_reach_screens_and_programs() {
   source.evidence = [receipt("paxeer-finalised")];
   budget.verification = "paxeer-finalised";
   const label = approvals.verificationLabel("paxeer-finalised");
-  assert.equal(label, copyEntry("verification.unverified").message);
+  assert.equal(label, copyEntry("verification.checkpoint_finalised").message);
   assert.ok(render(createElement(ReleasedActivitySection, { entry: cross(source, api.encodeActivityEntryDetail, api.decodeActivityEntryDetail) })).includes(label));
   assert.ok(render(createElement(ProgramBudgetAmount, { budget: cross(budget, api.encodeProgramApprovalBudget, api.decodeProgramApprovalBudget) })).includes(label));
 }
