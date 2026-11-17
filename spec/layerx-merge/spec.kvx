@@ -176272,7 +176272,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.94]
 title = "Bring the wallet application back to the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.75"]
