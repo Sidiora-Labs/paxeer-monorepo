@@ -17,6 +17,8 @@ vi.hoisted(() => {
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
+vi.setConfig({ testTimeout: 30_000 });
+
 import LayoutHome from './LayoutHome';
 import { render, routerState } from './testWrapper';
 

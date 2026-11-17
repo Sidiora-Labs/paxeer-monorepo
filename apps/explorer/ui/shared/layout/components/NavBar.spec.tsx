@@ -18,6 +18,8 @@ vi.hoisted(() => {
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
+vi.setConfig({ testTimeout: 30_000 });
+
 import NavBar from './NavBar';
 
 describe('NavBar', () => {

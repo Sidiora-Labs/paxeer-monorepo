@@ -104,6 +104,21 @@ export function doubleText() {
   }
 }
 
+export function measureGeometry(elements) {
+  if (elements.length !== 1 || !window.__uiCheck.visible(elements[0])) return { matches: elements.length, values: null };
+  const element = elements[0];
+  const box = element.getBoundingClientRect();
+  const style = getComputedStyle(element);
+  return {
+    matches: 1,
+    values: {
+      left: box.left, top: box.top, width: box.width, height: box.height,
+      fontSize: parseFloat(style.fontSize),
+      lineHeight: style.lineHeight === "normal" ? "normal" : parseFloat(style.lineHeight),
+    },
+  };
+}
+
 export function measurePage({ limits, typeScale, doubled, reduced }) {
   const { elements, visible, selector, shifts, motions, parentElement } = window.__uiCheck;
   const findings = [];

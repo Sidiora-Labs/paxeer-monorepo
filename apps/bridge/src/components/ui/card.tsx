@@ -29,7 +29,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="card-header"
       className={ cn(
-        '@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 surface-inset-x has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6',
+        '@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6',
         className,
       ) }
       { ...props }
@@ -41,7 +41,7 @@ function CardTitle({ className, as: Heading = 'h3', ...props }: React.ComponentP
   return (
     <Heading
       data-slot="card-title"
-      className={ cn('text-title-sm leading-tight font-medium tracking-(--tracking-label)', className) }
+      className={ cn('text-card-title leading-tight font-medium tracking-(--tracking-label)', className) }
       { ...props }
     />
   );
@@ -64,12 +64,12 @@ function CardAction({ className, ...props }: React.ComponentProps<'div'>) {
 }
 
 function CardContent({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div data-slot="card-content" className={ cn('surface-inset-x', className) } { ...props }/>;
+  return <div data-slot="card-content" className={ cn('px-6', className) } { ...props }/>;
 }
 
 function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
   return (
-    <div data-slot="card-footer" className={ cn('flex items-center surface-inset-x [.border-t]:pt-6', className) } { ...props }/>
+    <div data-slot="card-footer" className={ cn('flex items-center px-6 [.border-t]:pt-6', className) } { ...props }/>
   );
 }
 

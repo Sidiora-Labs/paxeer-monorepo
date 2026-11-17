@@ -108,6 +108,9 @@ export function AuthenticatedShell({
 
   useLayoutEffect(() => {
     const applyClientSelection = () => {
+      if (document.documentElement.getBoundingClientRect().width === 0) {
+        return;
+      }
       const confirmation = ShellSelector.confirm(initialSelection, clientHints());
       setSelection((current) => {
         if (

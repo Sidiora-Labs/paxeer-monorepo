@@ -138,7 +138,12 @@ export function Keypad({
     { main: "back" },
   ];
   return (
-    <div className={cn("grid grid-cols-3 gap-px overflow-hidden rounded-lg bg-border", className)}>
+    <div
+      className={cn(
+        "grid grid-cols-3 gap-px overflow-hidden rounded-lg bg-border",
+        className,
+      )}
+    >
       {keys.map((k) =>
         k.main === "back" ? (
           <button
@@ -146,7 +151,7 @@ export function Keypad({
             type="button"
             aria-label="Backspace"
             onClick={onBackspace}
-            className="flex min-h-14 items-center justify-center py-3 bg-surface text-foreground transition-colors active:bg-surface-sunken"
+            className="flex min-h-14 items-center justify-center bg-surface text-foreground transition-colors active:bg-surface-sunken"
           >
             <Delete className="size-5" />
           </button>
@@ -155,11 +160,13 @@ export function Keypad({
             key={k.main}
             type="button"
             onClick={() => /^\d$/.test(k.main) && onDigit(k.main)}
-            className="flex min-h-14 flex-col items-center justify-center gap-0 py-3 bg-surface text-foreground transition-colors active:bg-surface-sunken"
+            className="flex min-h-14 flex-col items-center justify-center gap-0 bg-surface text-foreground transition-colors active:bg-surface-sunken"
           >
-            <span className="text-xl font-semibold leading-tight">{k.main}</span>
+            <span className="text-xl font-semibold leading-tight">
+              {k.main}
+            </span>
             {k.sub && (
-              <span className="text-nano font-semibold tracking-widest text-muted-foreground">
+              <span className="text-nano font-semibold tracking-keypad text-muted-foreground">
                 {k.sub}
               </span>
             )}

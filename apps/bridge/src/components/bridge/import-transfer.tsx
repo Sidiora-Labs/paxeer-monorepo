@@ -118,7 +118,7 @@ export function ImportTransfer({ onImported }: { onImported: () => void }) {
           value={ route }
           onChange={ (event) => setRoute(event.target.value) }
           disabled={ pending }
-          className="min-h-11 w-full min-w-0 max-w-full rounded-md border border-input bg-background px-3 text-body focus-ring"
+          className="h-10 w-full min-w-0 max-w-full rounded-md border border-input bg-background px-3.5 text-sm focus-ring"
         >
           <option value={ PAXEER_ROUTE_KEY }>Paxeer → foreign chain (withdrawal)</option>
           { BRIDGE_CHAINS.filter((chain) => chain.kind === 'evm' && chain.vault && chain.viemChain).map((chain) => (

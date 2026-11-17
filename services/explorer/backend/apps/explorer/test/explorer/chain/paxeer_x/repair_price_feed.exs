@@ -19,6 +19,11 @@ defmodule Explorer.Chain.PaxeerX.Repair2233523.PriceFeedCases do
     counter = "paxeer_x_price_feed_scanned_through_#{start}"
     {:ok, coordinator} = Repo.start_link(name: nil, pool: DBConnection.ConnectionPool, pool_size: 1)
     previous = Repo.put_dynamic_repo(coordinator)
+    counter_types = [counter, "paxeer_x_price_feed_last_successful_scan"]
+
+    counters =
+      Repo.all(from(row in LastFetchedCounter, where: row.counter_type in ^counter_types))
+      |> Enum.map(&(&1 |> Map.from_struct() |> Map.delete(:__meta__)))
 
     try do
       Repo.insert_all(PriceFeedScannedBlock, Enum.map(start..(start + 5), &%{block_number: &1, status: "scanned"}))
@@ -92,7 +97,8 @@ defmodule Explorer.Chain.PaxeerX.Repair2233523.PriceFeedCases do
         from(row in PriceFeedScannedBlock, where: row.block_number >= ^start and row.block_number <= ^(start + 6))
       )
 
-      Repo.delete_all(from(row in LastFetchedCounter, where: row.counter_type == ^counter))
+      Repo.delete_all(from(row in LastFetchedCounter, where: row.counter_type in ^counter_types))
+      Repo.insert_all(LastFetchedCounter, counters)
       Repo.put_dynamic_repo(previous)
       Supervisor.stop(coordinator)
     end

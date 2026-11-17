@@ -1,0 +1,57 @@
+{
+  "status": 200,
+  "body": {
+    "ok": true,
+    "result": {
+      "direction": "in",
+      "entry_id": "act_01j8agh6w7a1b2c3d4e5f6g7h8",
+      "evidence": [
+        {
+          "evidence_id": "evd_1ff5df3e1767f57e7f79abc599a8a72cdb08c7066d32d74acb3ef8fd202f8a6d",
+          "class": "layerx-receipt",
+          "verification": "receipt-verified"
+        }
+      ],
+      "fees": {
+        "amount": "1",
+        "currency": "LXP"
+      },
+      "kind": "deposit",
+      "money": {
+        "amount": "25",
+        "currency": "LXP"
+      },
+      "occurred_at": "2026-08-15T10:30:00Z",
+      "stages": [
+        {
+          "copy_key": "status.waiting_for_wallet",
+          "evidence": [],
+          "stage_id": "stg_act_repairdeposit_0",
+          "state": "done"
+        },
+        {
+          "copy_key": "status.confirming_on_paxeer",
+          "evidence": [],
+          "stage_id": "stg_act_repairdeposit_1",
+          "state": "done"
+        },
+        {
+          "copy_key": "status.crediting",
+          "evidence": [],
+          "stage_id": "stg_act_repairdeposit_2",
+          "state": "done"
+        },
+        {
+          "copy_key": "status.done",
+          "evidence": [],
+          "stage_id": "stg_act_repairdeposit_3",
+          "state": "done"
+        }
+      ],
+      "state": "done",
+      "state_copy_key": "status.done",
+      "summary_copy_key": "activity.deposit.summary"
+    },
+    "trace": "trc_activity_detail_contract"
+  }
+}
