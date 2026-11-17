@@ -177037,7 +177037,7 @@ do_7 = "do_7 Decision 3727, gotcha 4647. The verification command installs the p
 
 [task.22.44.67]
 title = "Close the leaderboard and reward views of the launchpad on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.40"]
@@ -251620,7 +251620,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.787]
 title = "Apply every perps call of the trading workspace through both execution paths from one state and compare the results"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
