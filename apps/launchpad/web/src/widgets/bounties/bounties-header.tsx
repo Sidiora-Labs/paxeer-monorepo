@@ -125,7 +125,7 @@ export function BountiesHeader({ tab, gate, stats, inlineStats, className }: Bou
           <p className="text-sm text-text-muted">{copy.subtitle}</p>
           {inlineStats ? <div className="pt-1 lg:hidden">{inlineStats}</div> : null}
         </div>
-        <div className="hidden min-w-0 flex-wrap items-center gap-2 md:flex">
+        <div className="hidden min-w-0 flex-wrap items-center gap-2 md:flex lg:max-xl:basis-full lg:@max-[52em]/bounties:basis-full">
           {stats ? <div className="hidden lg:block">{stats}</div> : null}
           <CreateBountyButton gate={gate} label="Create bounty" />
         </div>

@@ -1,7 +1,6 @@
 'use client';
-import { surfaceSpacing } from '@/app/presentation-tokens';
 import { cn } from '@/lib/utils';
-import { Avatar, Chip, Skeleton } from '@/ui/primitives';
+import { Avatar, Chip } from '@/ui/primitives';
 import { formatUsdl, shortAddress } from '@/utils/format';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import type { PoolStats } from './bounties-contract';
@@ -23,9 +22,8 @@ export function BountyTokenChip({ poolAddress, stats, className }: BountyTokenCh
   const pool = poolAddress.toLowerCase();
   const snapshot = usePoolSnapshot(pool);
   const href = `/coin/${pool}`;
-  if (snapshot.isPending) return <Skeleton variant="pill" width={surfaceSpacing(28)} height={surfaceSpacing(5.5)} label="Loading coin" className={className} />;
   const token = snapshot.data?.token ?? null;
-  if (!token) return <Chip variant="token" href={href} className={className}>{shortAddress(pool)}</Chip>;
+  if (!token) return <Chip variant="token" href={href} className={cn('max-w-full', className)}>{shortAddress(pool)}</Chip>;
   const mcap = marketCapRaw(stats ?? snapshot.data?.stats ?? null);
   return (
     <Chip variant="token" href={href} icon={<Avatar src={null} name={token.symbol} size="xs" decorative />} className={cn('max-w-full flex-wrap', className)}>

@@ -204,13 +204,17 @@ const server = createServer({ cert: await readFile(certificate), key: await read
     const coinLoading = state === 'loading' && /^\/coin\/0x[0-9a-f]{40}$/.test(pagePath);
     const rewardsLoading = state === 'loading' && ['/holder-rewards', '/leaderboard'].includes(pagePath);
     const liveLoading = state === 'loading' && (['/live', '/live/all'].includes(pagePath) || /^\/profile\/0x[0-9a-f]{40}$/i.test(pagePath));
+    const bountyLoading = state === 'loading' && pagePath === '/bounties';
+    const bountyProbe = url.pathname === '/v2/bounties' && url.searchParams.get('limit') === '1';
     if (homeLoading && url.pathname === '/v2/discovery/feed') {
       await new Promise(resolve => setTimeout(resolve, 7500));
     } else if (coinLoading && /^\/v2\/pools\/0x[0-9a-f]{40}$/.test(url.pathname)) {
       await new Promise(resolve => setTimeout(resolve, 750));
     } else if ((rewardsLoading || liveLoading) && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
       await new Promise(resolve => setTimeout(resolve, 350));
-    } else if (state === 'loading' && !homeLoading && !coinLoading && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
+    } else if (bountyLoading && bountyProbe) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } else if (state === 'loading' && !homeLoading && !coinLoading && !bountyLoading && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
       await new Promise(resolve => outgoing.once('close', resolve));
       return;
     }
@@ -255,6 +259,7 @@ const server = createServer({ cert: await readFile(certificate), key: await read
     hostname: '127.0.0.1', port: 4174, method: incoming.method, path: incoming.url,
     headers: {
       ...incoming.headers,
+      connection: 'close',
       host: new URL(origin).host,
       'x-forwarded-host': new URL(origin).host,
       'x-forwarded-port': new URL(origin).port,
@@ -286,6 +291,7 @@ const server = createServer({ cert: await readFile(certificate), key: await read
   });
   incoming.pipe(upstream);
 });
+server.keepAliveTimeout = 30_000;
 const sockets = new WebSocketServer({ noServer: true, handleProtocols: protocols => protocols.has('sidiora.v2') ? 'sidiora.v2' : false });
 const control = JSON.parse(answers.get('stream-control'));
 server.on('upgrade', (incoming, socket, head) => {
