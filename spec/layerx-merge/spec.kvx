@@ -175350,7 +175350,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.84]
 title = "Name the type scale of the UI package in the style sheet of the developer dashboard"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.80", "22.44.81"]
