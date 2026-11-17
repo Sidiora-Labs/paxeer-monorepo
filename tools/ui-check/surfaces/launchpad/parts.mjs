@@ -66,6 +66,8 @@ for (const part of parts) {
   for (const view of surface.views) {
     if (seen.has(view.name)) fail(`view ${view.name} appears in ${seen.get(view.name)} and ${part.name}`);
     seen.set(view.name, part.name);
+    const liveRoute = /^\/(live|pnl|profile)(\/|\?|$)/.test(view.path);
+    if ((part.name === 'live') !== liveRoute) fail(`view ${view.name} does not belong to the ${part.name} route group`);
     const wholeView = whole.views.find((candidate) => candidate.name === view.name);
     if (!wholeView) fail(`${part.name} contains unknown view ${view.name}`);
     else if (!equal(view, wholeView)) fail(`view ${view.name} differs from the whole surface`);
