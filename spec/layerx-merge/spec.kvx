@@ -205770,7 +205770,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.823]
 title = "Name the command package of the role statements of the ranking module in the package inventory of the launchpad Go test runner"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
