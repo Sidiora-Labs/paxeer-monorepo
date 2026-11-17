@@ -176254,7 +176254,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.73]
 title = "Take the trading workspace back to the presentation of its reference source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.18"]
