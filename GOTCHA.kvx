@@ -23020,3 +23020,8 @@ fix = "Decision 3718. Task 22.44.84."
 title = "The library cases of the human service crate start the webhooks binary of the platform workspace"
 symptom = "A case of the library of services/human/crates/layerx-human-service starts the binary layerx-webhooks of the platform workspace through services/platform/hosted/internal/src/producer_test_support.rs, which reads the path of that binary from the setting LAYERX_TEST_WEBHOOKS_BIN. The targets human-test, human-test-unit, human-test-integration and human-test-service of the Makefile build the binary into the target directory of the human workspace and export the setting. The verification of task 22.39.775 calls the library cases of the crate directly and neither builds the binary nor names the setting; the verification of task 22.39.311 does both."
 fix = "Decision 3719. Task 22.39.775."
+
+[gotcha.4640]
+title = "The panel of a section of the developer dashboard takes the focus of the keyboard and can be taller than the window"
+symptom = "The dashboard client under services/platform/hosted/dashboard/web gives the panel of the active section the role of a tab panel and a place in the order of the keyboard. Where the content of a section is taller than the window, as in the receipt view at a width of 390, the box of the focused panel reaches beyond the lower edge of the window, and the rule of the render check for a mark of focus reads a mark that lies outside the window and changes nothing visible. Task 22.44.82 writes the geometry file of the dashboard again and has the directory of the surface alone as its paths."
+fix = "Decision 3720. Task 22.44.82."

@@ -15430,6 +15430,12 @@ value = "A verification that calls the library cases of services/human/crates/la
 basis = "Gotcha 4639. Decision 3716."
 affects = []
 
+[decision.3720]
+title = "The mark of focus of a section panel stays inside the window, and the task that writes the geometry file of the dashboard again corrects it"
+value = "The panel of a section of the developer dashboard shows its mark of focus inside its own box and inside the window at every width, whatever the height of its content. The directory services/platform/hosted/dashboard/web joins the paths of task 22.44.82 for this one correction and for a finding of the render check with its cause there; no size, no part and no behaviour of the dashboard changes by it. A part that still differs from the earlier state for a cause under services/platform/hosted/dashboard/web or in the package under apps/web/packages/layerx-ui stays as it is in that task and is named in its record; a task that follows the record corrects those parts."
+basis = "Gotcha 4640. Decisions 3710 and 3712."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -175458,7 +175464,7 @@ do_2 = "do_2 Build the dashboard with the package as the main line holds it and 
 do_3 = "do_3 Write the record spec/layerx-merge/programme/records/ui/22.44.82.kvx in present tense: for each width the count of parts that still differ from the earlier state and for each such part its cause, content the earlier state does not hold, a part of the earlier shell without a function or the touch rule at the widths up to 834. A part that still differs for a cause in the package or in a file under services/platform/hosted/dashboard/web is outside the paths of this task: change nothing there and name the part, the file and the measures in the record and in the final message."
 do_4 = "do_4 Run the render check of the surface by hand over the whole device list and read the summary per view. The files of the surface directory are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["tools/ui-check/surfaces/dashboard"]
+touches = ["tools/ui-check/surfaces/dashboard", "services/platform/hosted/dashboard/web"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.82.kvx"]
 build_cmd = "node scripts/ci/developer-dashboard-lock.mjs && npm --prefix apps/web ci --ignore-scripts --no-audit --no-fund"
@@ -175474,6 +175480,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3720, gotcha 4640. The directory services/platform/hosted/dashboard/web is now inside the paths of this task for one purpose: a finding of the render check whose cause lies there is corrected there. The panel of a section shows its mark of focus inside its own box and inside the window at every width, so that the rule of the render check for a mark of focus holds in the receipt view at a width of 390 and in every other view. No size of text, no height of a row, no box of a part and no behaviour changes by that, and the static cases of the dashboard keep passing. The parts that still differ from the earlier state for a cause under services/platform/hosted/dashboard/web or in the package are not corrected here: they stay named in the record with file and measures. The main line holds task 22.44.84, which lets the build of the dashboard end with status zero: take the main line first. Where the change moves a measure, write the geometry file again and bring the record to the final state. The work of the earlier candidate stays as it is. It makes no difference whether a finding was there before the change, and no approval is needed to correct it inside the paths. Run the render check of the surface by hand over the whole device list first, then the build once and the counted verification once. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.81]
 title = "Bring the human web application and its package of parts back to the sizes of their earlier state"
