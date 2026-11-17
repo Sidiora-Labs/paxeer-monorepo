@@ -43,7 +43,7 @@ def test_ui_check_workflow_runs_the_render_check_suite():
     assert set(workflow["jobs"]) == {"test"}
     job = workflow["jobs"]["test"]
     assert "ubuntu-24.04" in job["runs-on"]
-    assert job["timeout-minutes"] == "30"
+    assert job["timeout-minutes"] == "60"
     assert not {"if", "needs", "continue-on-error"} & job.keys()
 
     steps = job["steps"]
