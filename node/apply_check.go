@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math/big"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -31,7 +32,9 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm"
+	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/viper"
 	dbm "github.com/tendermint/tm-db"
 	"golang.org/x/sys/unix"
@@ -52,9 +55,183 @@ type ApplyCheckStatePreparer interface {
 	PrepareApplyCheckState(*App, int64) error
 }
 
-// ApplyCheckOptions selects the credentials used by ApplyCheckHome.
+// ApplyCheckOptions selects temporary state used by ApplyCheckHome.
 type ApplyCheckOptions struct {
 	StandInReceiptKey bool
+	StandInCredits    []ApplyCheckCredit
+}
+
+// ApplyCheckCredit adds base units of a token in a disposable application.
+type ApplyCheckCredit struct {
+	Token   common.Address
+	Account common.Address
+	Amount  *big.Int
+}
+
+type ApplyCheckCreditReport struct {
+	Token                     common.Address `json:"token"`
+	Account                   common.Address `json:"account"`
+	Amount                    string         `json:"amount"`
+	BalanceBefore             string         `json:"balance_before"`
+	BalanceAfter              string         `json:"balance_after"`
+	BalanceSource             string         `json:"balance_source"`
+	TotalSupplyMayBeUnchanged bool           `json:"total_supply_may_be_unchanged"`
+}
+
+// ApplyCheckBalancePositions bounds the Solidity and Vyper mapping search.
+const ApplyCheckBalancePositions = 256
+
+// ParseApplyCheckCredits accepts TOKEN:ACCOUNT:AMOUNT with decimal base units.
+func ParseApplyCheckCredits(values []string) ([]ApplyCheckCredit, error) {
+	var credits []ApplyCheckCredit
+	for _, value := range values {
+		parts := strings.Split(value, ":")
+		if len(parts) != 3 || !common.IsHexAddress(parts[0]) || !common.IsHexAddress(parts[1]) {
+			return nil, fmt.Errorf("stand-in-credit must be TOKEN:ACCOUNT:AMOUNT: %q", value)
+		}
+		for _, digit := range parts[2] {
+			if digit < '0' || digit > '9' {
+				return nil, fmt.Errorf("stand-in-credit amount must be positive decimal base units: %q", parts[2])
+			}
+		}
+		amount, ok := new(big.Int).SetString(parts[2], 10)
+		if !ok {
+			return nil, fmt.Errorf("invalid stand-in-credit amount: %q", parts[2])
+		}
+		credits = append(credits, ApplyCheckCredit{Token: common.HexToAddress(parts[0]), Account: common.HexToAddress(parts[1]), Amount: amount})
+	}
+	return credits, validateApplyCheckCredits(credits)
+}
+
+func validateApplyCheckCredits(credits []ApplyCheckCredit) error {
+	seen := make(map[[2]common.Address]bool)
+	for _, credit := range credits {
+		if credit.Amount == nil || credit.Amount.Sign() <= 0 || credit.Amount.BitLen() > 256 {
+			return errors.New("stand-in-credit amount must be a positive uint256 in decimal base units")
+		}
+		pair := [2]common.Address{credit.Token, credit.Account}
+		if seen[pair] {
+			return fmt.Errorf("repeated stand-in-credit token/account pair: %s/%s", credit.Token, credit.Account)
+		}
+		seen[pair] = true
+	}
+	return nil
+}
+
+// prepareApplyCheckState prepares both admission and execution views before
+// the block is built. Neither view is committed.
+func prepareApplyCheckState(a *App, sequence ApplyCheckSequencer, options ApplyCheckOptions) ([]ApplyCheckCreditReport, error) {
+	height := a.LastBlockHeight() + 1
+	if options.StandInReceiptKey {
+		preparer, ok := sequence.(ApplyCheckStatePreparer)
+		if !ok {
+			return nil, errors.New("stand-in receipt key is unavailable")
+		}
+		if err := preparer.PrepareApplyCheckState(a, height); err != nil {
+			return nil, err
+		}
+	}
+	if len(options.StandInCredits) == 0 {
+		return nil, nil
+	}
+	header := a.GetCheckCtx().BlockHeader()
+	header.Height = height
+	working, writeWorking := a.NewUncachedContext(false, header).CacheContext()
+	checking, writeChecking := a.GetCheckCtx().WithBlockHeader(header).CacheContext()
+	// Both branches read their original balances before either is published.
+	credits, err := applyCheckCredits(a, working, options.StandInCredits)
+	if err != nil {
+		return nil, err
+	}
+	checked, err := applyCheckCredits(a, checking, options.StandInCredits)
+	if err != nil {
+		return nil, err
+	}
+	if !reflect.DeepEqual(credits, checked) {
+		return nil, errors.New("stand-in-credit admission and execution balances differ")
+	}
+	writeWorking()
+	writeChecking()
+	if _, err := a.CommitMultiStore().GetWorkingHash(); err != nil {
+		return nil, err
+	}
+	return credits, nil
+}
+
+func applyCheckCredits(a *App, ctx sdk.Context, credits []ApplyCheckCredit) ([]ApplyCheckCreditReport, error) {
+	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx))
+	var reports []ApplyCheckCreditReport
+	for _, credit := range credits {
+		report, err := applyCheckCredit(a, ctx, credit)
+		if err != nil {
+			return nil, fmt.Errorf("stand-in-credit token %s account %s: %w", credit.Token, credit.Account, err)
+		}
+		reports = append(reports, report)
+	}
+	return reports, nil
+}
+
+func applyCheckTokenBalance(a *App, ctx sdk.Context, token, account common.Address) (*big.Int, error) {
+	input := append(crypto.Keccak256([]byte("balanceOf(address)"))[:4], common.LeftPadBytes(account.Bytes(), 32)...)
+	// Each read gets a fresh EVM and cache, so speculative storage and warm
+	// access lists cannot leak between probes.
+	read, _ := ctx.CacheContext()
+	data, err := a.EvmKeeper.StaticCallEVM(read, a.EvmKeeper.GetPaxAddressOrDefault(read, account), &token, input)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) != 32 {
+		return nil, fmt.Errorf("balanceOf returned %d bytes, want 32", len(data))
+	}
+	return new(big.Int).SetBytes(data), nil
+}
+
+func applyCheckCredit(a *App, ctx sdk.Context, credit ApplyCheckCredit) (ApplyCheckCreditReport, error) {
+	report := ApplyCheckCreditReport{Token: credit.Token, Account: credit.Account, Amount: credit.Amount.String()}
+	before, err := applyCheckTokenBalance(a, ctx, credit.Token, credit.Account)
+	if err != nil {
+		return report, err
+	}
+	after := new(big.Int).Add(before, credit.Amount)
+	if after.BitLen() > 256 {
+		return report, errors.New("credited balance exceeds uint256")
+	}
+	report.BalanceBefore, report.BalanceAfter = before.String(), after.String()
+	denom, _, native := a.EvmKeeper.GetNativePointee(ctx, credit.Token.Hex())
+	if pointer, _, exists := a.EvmKeeper.GetERC20NativePointer(ctx, denom); native && exists && pointer == credit.Token {
+		report.BalanceSource = "ledger"
+		holder := a.EvmKeeper.GetPaxAddressOrDefault(ctx, credit.Account)
+		coins := sdk.NewCoins(sdk.NewCoin(denom, sdk.NewIntFromBigInt(credit.Amount)))
+		if err := a.BankKeeper.MintCoins(ctx, evmtypes.ModuleName, coins); err != nil {
+			return report, err
+		}
+		if err := a.BankKeeper.SendCoinsFromModuleToAccount(ctx, evmtypes.ModuleName, holder, coins); err != nil {
+			return report, err
+		}
+		actual, err := applyCheckTokenBalance(a, ctx, credit.Token, credit.Account)
+		if err != nil {
+			return report, err
+		}
+		if actual.Cmp(after) != 0 {
+			return report, fmt.Errorf("ledger credit balance %s, want %s", actual, after)
+		}
+		return report, nil
+	}
+	report.BalanceSource, report.TotalSupplyMayBeUnchanged = "contract_storage", true
+	holder := common.LeftPadBytes(credit.Account.Bytes(), 32)
+	for position := int64(0); position < ApplyCheckBalancePositions; position++ {
+		slot := common.LeftPadBytes(big.NewInt(position).Bytes(), 32)
+		for _, key := range []common.Hash{crypto.Keccak256Hash(holder, slot), crypto.Keccak256Hash(slot, holder)} {
+			original := a.EvmKeeper.GetState(ctx, credit.Token, key)
+			a.EvmKeeper.SetState(ctx, credit.Token, key, common.BigToHash(after))
+			actual, readErr := applyCheckTokenBalance(a, ctx, credit.Token, credit.Account)
+			if readErr == nil && actual.Cmp(after) == 0 {
+				return report, nil
+			}
+			a.EvmKeeper.SetState(ctx, credit.Token, key, original)
+		}
+	}
+	return report, fmt.Errorf("balance storage not found in %d Solidity/Vyper mapping positions", ApplyCheckBalancePositions)
 }
 
 type ApplyCheckReport struct {
@@ -69,13 +246,14 @@ type ApplyCheckReport struct {
 }
 
 type ApplyCheckForm struct {
-	Name             string             `json:"name"`
-	EngineLibrary    string             `json:"engine_library,omitempty"`
-	Results          []ApplyCheckResult `json:"results"`
-	AppHash          string             `json:"app_hash"`
-	Panic            string             `json:"panic,omitempty"`
-	Error            string             `json:"error,omitempty"`
-	ErrorTransaction int                `json:"error_transaction,omitempty"`
+	Name             string                   `json:"name"`
+	StandInCredits   []ApplyCheckCreditReport `json:"stand_in_credits,omitempty"`
+	EngineLibrary    string                   `json:"engine_library,omitempty"`
+	Results          []ApplyCheckResult       `json:"results"`
+	AppHash          string                   `json:"app_hash"`
+	Panic            string                   `json:"panic,omitempty"`
+	Error            string                   `json:"error,omitempty"`
+	ErrorTransaction int                      `json:"error_transaction,omitempty"`
 }
 
 type ApplyCheckTransactionError struct {
@@ -163,6 +341,9 @@ func ApplyCheckHome(ctx context.Context, home string, txs [][]byte, at time.Time
 // key mode. Stand-in keys are kept in memory and are installed only in the
 // disposable application copies.
 func ApplyCheckHomeWithOptions(ctx context.Context, home string, txs [][]byte, at time.Time, sequence ApplyCheckSequencer, applyOptions ApplyCheckOptions) (*ApplyCheckReport, error) {
+	if err := validateApplyCheckCredits(applyOptions.StandInCredits); err != nil {
+		return nil, err
+	}
 	if len(txs) == 0 {
 		return nil, errors.New("applycheck requires at least one transaction")
 	}
@@ -213,18 +394,13 @@ func ApplyCheckHomeWithOptions(ctx context.Context, home string, txs [][]byte, a
 		if err != nil {
 			return nil, err
 		}
+		credits, err := prepareApplyCheckState(a, sequence, applyOptions)
+		if err != nil {
+			_ = a.Close()
+			return nil, err
+		}
 		if report == nil {
 			request, err = buildApplyCheckBlock(a, txs, at)
-			if err == nil {
-				if applyOptions.StandInReceiptKey {
-					preparer, ok := sequence.(ApplyCheckStatePreparer)
-					if !ok {
-						_ = a.Close()
-						return nil, errors.New("stand-in receipt key is unavailable")
-					}
-					err = preparer.PrepareApplyCheckState(a, request.Header.Height)
-				}
-			}
 			if err == nil {
 				err = sequence.BuildBlock(a, request, branch, options)
 			}
@@ -236,22 +412,13 @@ func ApplyCheckHomeWithOptions(ctx context.Context, home string, txs [][]byte, a
 				ReceiptKeyMode:  map[bool]string{true: "stand-in", false: "registered"}[applyOptions.StandInReceiptKey],
 				CommittedHeight: a.LastBlockHeight(), CommittedAppHash: hex.EncodeToString(a.LastCommitID().Hash)}
 			setApplyCheckBlockHash(request)
-		} else if applyOptions.StandInReceiptKey {
-			preparer, ok := sequence.(ApplyCheckStatePreparer)
-			if !ok {
-				_ = a.Close()
-				return nil, errors.New("stand-in receipt key is unavailable")
-			}
-			if err := preparer.PrepareApplyCheckState(a, request.Header.Height); err != nil {
-				_ = a.Close()
-				return nil, err
-			}
 		}
 		if a.LastBlockHeight() != report.CommittedHeight || hex.EncodeToString(a.LastCommitID().Hash) != report.CommittedAppHash {
 			_ = a.Close()
 			return nil, errors.New("application copies have different committed states")
 		}
 		form := runApplyCheckForm(ctx, a, request, txs, name, sequence)
+		form.StandInCredits = credits
 		if err := a.Close(); err != nil {
 			return nil, fmt.Errorf("close %s: %w", name, err)
 		}
@@ -516,6 +683,11 @@ func CompareApplyCheck(forms []ApplyCheckForm) ApplyCheckComparison {
 		}
 	}
 	ref := forms[0]
+	for _, form := range forms[1:] {
+		if !reflect.DeepEqual(ref.StandInCredits, form.StandInCredits) {
+			return ApplyCheckComparison{Form: form.Name, Reference: ref.Name, Field: "stand_in_credits"}
+		}
+	}
 	for i := range ref.Results {
 		for _, form := range forms[1:] {
 			comparison := ApplyCheckComparison{Form: form.Name, Reference: ref.Name, Transaction: i + 1}
