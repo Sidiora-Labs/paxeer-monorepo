@@ -50,7 +50,9 @@ import {
   PRECOMPILES,
 } from "./config";
 import { PerpsPrecompileABI } from "@paxeer-network/paxeer-backend/core/network/abi/PerpsPrecompile";
-import { BLUE_DARK_THEME_CSS_VARS } from "../theme/blueDarkTheme";
+import Link from "next/link";
+import { CookieBanner } from "../legal/CookieBanner";
+import { WORKSPACE_THEME_CSS_VARS } from "../theme/workspaceTheme";
 import {
   nativeLayoutBindings,
   registerNativeSplitLayout,
@@ -75,29 +77,7 @@ const theme = [
   {
     id: "dark",
     name: "Paxeer Xtrades",
-    cssVars: {
-      ...BLUE_DARK_THEME_CSS_VARS,
-      "--oui-color-primary": "255 255 255",
-      "--oui-color-primary-light": "255 255 255",
-      "--oui-color-primary-darken": "255 255 255",
-      "--oui-color-primary-contrast": "0 0 0",
-      "--oui-color-link": "238 240 244",
-      "--oui-color-link-light": "255 255 255",
-      "--oui-gradient-brand-start": "255 255 255",
-      "--oui-gradient-brand-end": "214 218 224",
-      "--oui-color-base-6": "16 21 30",
-      "--oui-color-base-7": "14 18 26",
-      "--oui-color-base-8": "10 13 20",
-      "--oui-color-base-9": "8 11 17",
-      "--oui-color-base-10": "6 9 15",
-      "--oui-color-fill-active": "40 44 52",
-      "--oui-color-trading-profit": "0 192 135",
-      "--oui-color-trading-loss": "255 70 91",
-      "--oui-gradient-primary-start": "255 255 255",
-      "--oui-gradient-primary-end": "218 222 228",
-      "--oui-gradient-secondary-start": "98 104 114",
-      "--oui-gradient-secondary-end": "38 42 49",
-    },
+    cssVars: WORKSPACE_THEME_CSS_VARS,
   },
 ];
 const menus = [
@@ -186,7 +166,28 @@ function NativePages() {
     bottomNavProps,
     mainNavProps: navigation,
     routerAdapter: { onRouteChange: navigate, currentPath: path },
-    footerProps: { poweredBy: false, trailing: "Paxeer Xtrades" },
+    footerProps: {
+      poweredBy: false,
+      trailing: (
+        <>
+          Paxeer Xtrades
+          <nav
+            aria-label="Legal"
+            className="oui-flex oui-items-center oui-gap-2 oui-text-2xs oui-text-base-contrast-54"
+          >
+            <Link href="/privacy" className="hover:oui-text-base-contrast">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="hover:oui-text-base-contrast">
+              Terms of Service
+            </Link>
+            <Link href="/cookies" className="hover:oui-text-base-contrast">
+              Cookie Settings
+            </Link>
+          </nav>
+        </>
+      ),
+    },
   };
   const providerProps = {
     configStore,
@@ -254,6 +255,7 @@ function NativePages() {
     <PaxeerNetworkAppProvider {...(providerProps as any)}>
       {content}
       <NativeWalletDialog />
+      <CookieBanner />
     </PaxeerNetworkAppProvider>
   );
 }

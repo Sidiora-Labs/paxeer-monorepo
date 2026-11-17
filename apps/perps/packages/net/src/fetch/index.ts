@@ -10,11 +10,6 @@ export async function request(url: string, options: RequestInit = {}) {
     );
   }
   const init = { ...options, method, headers };
-  if (/^https?:\/\//i.test(url)) {
-    const response = await fetch(url, init);
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-    return response.json();
-  }
   const { nativeRequest } =
     await import("@paxeer-network/paxeer-backend/nativeClient");
   return nativeRequest(url, init);
