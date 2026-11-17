@@ -205847,7 +205847,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.819]
 title = "Bring four cases of the launchpad indexer module in line with the sources they read and give their waits limits of their own"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
