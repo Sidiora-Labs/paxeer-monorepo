@@ -206235,7 +206235,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.808]
 title = "Bring the suite of the launchpad social module in line with the statements of its sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
