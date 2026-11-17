@@ -759,7 +759,9 @@ async function refusedConnectionsRemainRequestFailures(context) {
     const { result } = await execute("requests", surface.options);
     assert.equal(result.passed, false);
     assert.equal(result.renders.length, 22);
+    assert.equal(result.retriedCount, 0);
     for (const render of result.renders) {
+      assert.equal(render.retried, false);
       assert.equal(render.rendered, false);
       assert.equal(render.cancelled, 0);
       const failures = render.findings.filter((finding) => finding.values.source === "requestfailed");
@@ -1373,6 +1375,169 @@ async function clipboardWritesSucceedWithoutReadPermission() {
   assert.deepEqual([...new Set(result.renders.map((render) => render.state))], ["default", "copied"]);
 }
 test(clipboardWritesSucceedWithoutReadPermission);
+
+async function loadRetrySurface({ closes = 0, navigationDelayMs = 0, status = 200, documentStatus = 200, wide = false } = {}) {
+  const body = await readFile(join(fixtures, "load-retry.html"));
+  const requests = { document: 0, resource: 0, delayed: 0, interrupted: 0 };
+  const timers = new Set();
+  const instance = createServer((request, response) => {
+    const path = new URL(request.url, "http://localhost").pathname;
+    if (path === "/ready") { response.end("Ready"); return; }
+    if (path === "/retry-resource.js") {
+      if (++requests.resource <= closes) { response.destroy(); return; }
+      response.writeHead(status, { "content-type": "text/javascript" });
+      response.end();
+      return;
+    }
+    if (path !== "/index.html") { response.writeHead(404); response.end(); return; }
+    const visit = ++requests.document;
+    const answer = () => {
+      response.writeHead(documentStatus, { "content-type": "text/html" });
+      response.end(body);
+    };
+    if (visit === 1 && navigationDelayMs) {
+      requests.delayed++;
+      const timer = setTimeout(() => { timers.delete(timer); answer(); }, navigationDelayMs);
+      timers.add(timer);
+      response.once("close", () => {
+        if (!response.writableEnded) requests.interrupted++;
+        clearTimeout(timer);
+        timers.delete(timer);
+      });
+    } else answer();
+  });
+  await new Promise((resolve) => instance.listen(0, "localhost", resolve));
+  return {
+    requests,
+    options: {
+      address: `http://localhost:${instance.address().port}`, readyPath: "/ready",
+      views: [{ name: "load-retry", path: `/index.html${wide ? "?wide" : ""}`, modes: ["default"] }],
+    },
+    async close() {
+      for (const timer of timers) clearTimeout(timer);
+      await new Promise((resolve) => { instance.close(resolve); instance.closeAllConnections(); });
+    },
+  };
+}
+
+async function closedApplicationRequestUsesTheSecondRender() {
+  const surface = await loadRetrySurface({ closes: 1 });
+  try {
+    const { result, out, lines } = await execute("load-retry", surface.options, { jobs: 1 });
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.equal(result.renders.length, 22);
+    assert.deepEqual(result.findings, []);
+    assert.equal(result.retriedCount, 1);
+    assert.equal(surface.requests.document, 23);
+    assert.equal(surface.requests.resource, 23);
+    const [render, ...following] = result.renders;
+    assert.equal(render.retried, true);
+    assert.equal(render.firstDeadlineStep, null);
+    assert.equal(render.firstLoadFailure.cause, "connection-closed");
+    assert.equal(render.firstLoadFailure.source, "requestfailed");
+    assert.equal(render.firstLoadFailure.method, "GET");
+    assert.equal(render.firstLoadFailure.address, `${surface.options.address}/retry-resource.js`);
+    assert.equal(render.firstLoadFailure.resource, "script");
+    assert.match(render.firstLoadFailure.message, /socket hang up|ECONNRESET/);
+    assert.ok(result.renders.every((entry) => entry.rendered && entry.hasContent && entry.cancelled === 0));
+    assert.ok(following.every((entry) => !entry.retried && entry.firstLoadFailure === null));
+    assert.equal(render.screenshot, "00001.png");
+    assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 22);
+    assert.match(lines[0], /, 0 findings, 1 retried$/);
+    assert.match(lines.at(-1), /, pass, 1 views and states with fewer than all modes, 1 retried$/);
+  } finally { await surface.close(); }
+}
+test(closedApplicationRequestUsesTheSecondRender);
+
+async function persistentlyClosedApplicationRequestKeepsItsFinding() {
+  const surface = await loadRetrySurface({ closes: Infinity });
+  try {
+    const { result, lines } = await execute("load-retry", surface.options, { jobs: 2 });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    assert.equal(result.retriedCount, 22);
+    assert.equal(surface.requests.document, 44);
+    assert.equal(surface.requests.resource, 44);
+    for (const render of result.renders) {
+      assert.equal(render.rendered, true);
+      assert.equal(render.retried, true);
+      assert.equal(render.firstDeadlineStep, null);
+      assert.equal(render.firstLoadFailure.cause, "connection-closed");
+      assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+      assert.equal(render.findings[0].kind, "load");
+      assert.equal(render.findings[0].values.source, "requestfailed");
+      assert.equal(render.findings[0].values.address, `${surface.options.address}/retry-resource.js`);
+      assert.match(render.findings[0].values.message, /socket hang up|ECONNRESET/);
+    }
+    assert.equal(result.findings.length, 22);
+    assert.match(lines.at(-1), /, fail, 1 views and states with fewer than all modes, 22 retried$/);
+  } finally { await surface.close(); }
+}
+test(persistentlyClosedApplicationRequestKeepsItsFinding);
+
+async function navigationTimeoutUsesTheSecondRender() {
+  const surface = await loadRetrySurface({ navigationDelayMs: LIMITS.navigationMs * 2 });
+  try {
+    const { result, lines } = await execute("load-retry", surface.options, { jobs: 1, renderMs: LIMITS.navigationMs * 4 });
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.equal(result.renders.length, 22);
+    assert.deepEqual(result.findings, []);
+    assert.equal(result.retriedCount, 1);
+    assert.equal(surface.requests.document, 23);
+    assert.equal(surface.requests.resource, 22);
+    assert.equal(surface.requests.delayed, 1);
+    assert.equal(surface.requests.interrupted, 1);
+    const [render, ...following] = result.renders;
+    assert.equal(render.retried, true);
+    assert.equal(render.firstDeadlineStep, null);
+    assert.equal(render.firstLoadFailure.cause, "navigation-timeout");
+    assert.ok(["render", "requestfailed"].includes(render.firstLoadFailure.source));
+    assert.match(render.firstLoadFailure.message, /Timeout .* exceeded/i);
+    assert.ok(result.renders.every((entry) => entry.rendered && entry.hasContent));
+    assert.ok(following.every((entry) => !entry.retried && entry.firstLoadFailure === null));
+    assert.match(lines.at(-1), /, pass, 1 views and states with fewer than all modes, 1 retried$/);
+  } finally { await surface.close(); }
+}
+test(navigationTimeoutUsesTheSecondRender);
+
+async function applicationErrorStatusDoesNotRetry() {
+  for (const options of [{ status: 500 }, { documentStatus: 500 }]) {
+    const surface = await loadRetrySurface(options);
+    try {
+      const { result } = await execute("load-retry", surface.options, { jobs: 2 });
+      assert.equal(result.passed, false);
+      assert.equal(result.renders.length, 22);
+      assert.equal(result.retriedCount, 0);
+      assert.equal(surface.requests.document, 22);
+      for (const render of result.renders) {
+        assert.equal(render.retried, false);
+        assert.equal(render.firstLoadFailure, null);
+        assert.ok(render.findings.some((finding) => finding.kind === "load" && finding.values.source === "response" && finding.values.status === 500), JSON.stringify(render.findings));
+      }
+    } finally { await surface.close(); }
+  }
+}
+test(applicationErrorStatusDoesNotRetry);
+
+async function loadAndLayoutFindingsDoNotRetry() {
+  const surface = await loadRetrySurface({ closes: Infinity, wide: true });
+  try {
+    const { result } = await execute("load-retry", surface.options, { jobs: 2 });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    assert.equal(result.retriedCount, 0);
+    assert.equal(surface.requests.document, 22);
+    assert.equal(surface.requests.resource, 22);
+    for (const render of result.renders) {
+      assert.equal(render.rendered, true);
+      assert.equal(render.retried, false);
+      assert.equal(render.firstLoadFailure, null);
+      assert.ok(render.findings.some((finding) => finding.kind === "load" && finding.values.source === "requestfailed"), JSON.stringify(render.findings));
+      assert.ok(render.findings.some((finding) => finding.kind === "sideways"), JSON.stringify(render.findings));
+    }
+  } finally { await surface.close(); }
+}
+test(loadAndLayoutFindingsDoNotRetry);
 
 async function retrySurface({ stalls = 1, finding = false } = {}) {
   const directory = await mkdtemp(join(root, "retry-surface-"));
