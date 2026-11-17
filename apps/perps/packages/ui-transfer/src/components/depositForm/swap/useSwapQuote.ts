@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useSWR } from "@paxeer-network/hooks";
 import { API } from "@paxeer-network/types";
 import { Decimal } from "@paxeer-network/utils";
+import { paxeerChain } from "@paxeer-network/paxeer-backend/core/chain";
 import { fetcher } from "../utils";
 import { type SwapQuoteResponse } from "./type";
 import { useSwapSupportedChains } from "./useSwapSupportedChains";
@@ -28,7 +29,13 @@ export const useSwapQuote = (options: {
       targetToken?.address &&
       sourceToken?.address !== targetToken?.address;
 
-    if (!isSwapDeposit || !chainKey || !quantity || !slippage) {
+    if (
+      chainId === paxeerChain.id ||
+      !isSwapDeposit ||
+      !chainKey ||
+      !quantity ||
+      !slippage
+    ) {
       return null;
     }
 
