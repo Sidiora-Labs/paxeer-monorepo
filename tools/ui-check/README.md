@@ -56,8 +56,9 @@ state, width, height, scheme, mode, render status, `hasContent`, `cancelled`,
 runs a second time, and `firstDeadlineStep` names the step where its first
 render reaches the deadline, or is `null` without a deadline retry.
 `firstLoadFailure` holds the first eligible load finding's values and a `cause`
-of `navigation-timeout` or `connection-closed` for a load retry, and is `null`
-otherwise. The report's
+of `navigation-timeout` (document unanswered), `navigation-load-timeout`
+(document answered, load event pending) or `connection-closed` for a load retry,
+and is `null` otherwise. The report's
 `retriedCount` counts renders that run a second time. Each view summary and the
 Total line append that count as `N retried` after their existing counts.
 `hasContent` is true only when the document has visible content and the viewport
@@ -82,12 +83,15 @@ measurements and `--write-geometry` also use that render. If it succeeds without
 findings, the retry adds no finding and does not fail the check. If it reaches
 the deadline again, its deadline finding stands and there is no third render.
 The check also repeats a render once in a fresh browser when all its findings
-are load findings caused by navigation timing out before the application answers
-or by an application request's connection closing or resetting before its answer.
+are load findings caused by navigation timing out before the document answers
+(`navigation-timeout`) or after it answers while the load event is pending
+(`navigation-load-timeout`), or by an application request's connection closing or
+resetting before its answer (`connection-closed`).
 This retry also replaces the first outcome and retains its cause in
 `firstLoadFailure`. If the second render has findings, those findings stand.
-HTTP error statuses, refused connections, other load causes and findings of
-another kind prevent a load retry. The 300000-millisecond bound per render,
+State-step failures after navigation ends, HTTP error statuses, refused
+connections, other load causes and findings of another kind prevent a load
+retry. The 300000-millisecond bound per render,
 `--jobs` concurrency and finding kinds stay the same.
 
 ## Surface files
