@@ -233,7 +233,7 @@ describe('shell reads against a real HTTP origin that answers a transient failur
   it('keeps the platform activity footer loading through a retryable 503 and renders the served v2 metrics', async () => {
     served.script.set(PLATFORM, [{ status: 503, body: envelope('DEPENDENCY_UNAVAILABLE', true, 40), headers: { 'Retry-After': '0' } }, { status: 200, body: metrics }]);
     const { container, seen } = mount(<PlatformMetricsFooter />);
-    await waitFor(() => container.querySelector('dl[aria-label="Platform activity"]') !== null);
+    await waitFor(() => container.querySelector('dl[aria-label="Platform activity"]:not([aria-busy="true"])') !== null);
     expect(hits(PLATFORM)).toBeGreaterThanOrEqual(2);
     expect(served.paths).toContain(`GET ${PLATFORM}?window=24h`);
     expect(served.paths.some(path => path.startsWith('GET /platform/metrics'))).toBe(false);
@@ -253,7 +253,7 @@ describe('shell reads against a real HTTP origin that answers a transient failur
     const recorded = v2Reads.responses.platform24h;
     served.script.set(PLATFORM, [{ status: recorded.status, body: recorded.body, headers: recorded.headers }]);
     const { container } = mount(<PlatformMetricsFooter />);
-    await waitFor(() => container.querySelector('dl[aria-label="Platform activity"]') !== null);
+    await waitFor(() => container.querySelector('dl[aria-label="Platform activity"]:not([aria-busy="true"])') !== null);
     const values = Object.fromEntries(Array.from(container.querySelectorAll('dl[aria-label="Platform activity"] > div')).map(row => [row.querySelector('dt')?.textContent, row.querySelector('dd')?.textContent]));
     expect(values).toEqual({ '24h volume': '147.28 USDL', 'Market cap': '10.1K USDL', '24h trades': '2', '24h traders': '1', 'Coins launched': '2', 'New today': '1' });
     expect(container.querySelector('[data-unavailable]')).toBeNull();
@@ -262,7 +262,7 @@ describe('shell reads against a real HTTP origin that answers a transient failur
   it('renders market cap, trades and new today once IF_PLATFORM serves them', async () => {
     served.script.set(PLATFORM, [{ status: 200, body: metricsUpcoming }]);
     const { container } = mount(<PlatformMetricsFooter />);
-    await waitFor(() => container.querySelector('dl[aria-label="Platform activity"]') !== null);
+    await waitFor(() => container.querySelector('dl[aria-label="Platform activity"]:not([aria-busy="true"])') !== null);
     const values = Object.fromEntries(Array.from(container.querySelectorAll('dl[aria-label="Platform activity"] > div')).map(row => [row.querySelector('dt')?.textContent, row.querySelector('dd')]));
     expect(values['Market cap']?.textContent).toBe('9K USDL');
     expect(values['24h trades']?.textContent).toBe('42');

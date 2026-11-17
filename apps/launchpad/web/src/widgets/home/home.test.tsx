@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 // @vitest-environment jsdom
 import React, { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -173,7 +174,7 @@ describe('risk thresholds', () => {
     expect(html).toContain('Top 10 holders 15%, warning');
     expect(html).toContain('text-risk-bad');
     expect(html).toContain('text-risk-unknown');
-    expect(html).not.toMatch(BORDER);
+    expect(assertControlEdges(html)).not.toMatch(BORDER);
     expect(riskMetrics({ holders: null, sniperPct: null, bundlePct: null, devPct: null, top10Pct: null }).every(m => m.level === 'unknown')).toBe(true);
   });
 });
@@ -207,7 +208,7 @@ describe('trending row', () => {
     expect(html).toContain('bg-[var(--sl-tint-accent-row-wash)]');
     expect(html).toContain('Add Pepe Pax to watchlist');
     expect(html).toContain('h-list-row-lg');
-    expect(html).not.toMatch(BORDER);
+    expect(assertControlEdges(html)).not.toMatch(BORDER);
     const compact = render(<ol><TrendingRow row={{ ...row, change: null, changeReason: 'Not enough trading history for a 1-hour change yet.', price: null, priceReason: 'No trade yet, so there is no price.' }} density="compact" /></ol>);
     expect(compact).toContain('Change: Not enough trading history for a 1-hour change yet.');
     expect(compact).toContain('Price: No trade yet, so there is no price.');
@@ -264,7 +265,7 @@ describe('column chrome', () => {
     expect(calls).toContain('patch:{"view":"cards"}');
     act(() => { view.container.querySelector<HTMLButtonElement>('button[aria-label="Filter"]')?.click(); });
     expect(view.container.querySelector('input[type="search"]')).not.toBeNull();
-    expect(view.container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(view.container.innerHTML)).not.toMatch(BORDER);
     act(() => view.root.unmount());
   });
 
@@ -322,7 +323,7 @@ describe('dashboard board', () => {
     expect(html).toContain('Loading coins');
     expect(html).toContain('Loading callouts');
     expect(html).toContain('aria-live="polite"');
-    expect(html).not.toMatch(BORDER);
+    expect(assertControlEdges(html)).not.toMatch(BORDER);
     expect(html).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
   });
 });

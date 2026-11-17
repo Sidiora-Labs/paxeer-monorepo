@@ -349,7 +349,7 @@ function SearchPalette({
           id={listId}
           aria-label="Search results"
           aria-busy={searching || undefined}
-          className="flex flex-col"
+          className="flex h-[calc(var(--sl-touch-target-min)*6)] flex-col overflow-y-auto"
         >
           {showIdle ? (
             <>
@@ -489,7 +489,7 @@ function SearchPalette({
               checked={remember && !privateMode}
               disabled={privateMode}
               onChange={(event) => setRemember(event.target.checked)}
-              className="size-5 shrink-0 accent-[var(--sl-accent)]"
+              className="size-touch-target-min shrink-0 accent-[var(--sl-accent)]"
             />
             Remember recent views on this device
           </label>

@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 // @vitest-environment jsdom
 import { applySurfaceTestStyle } from '@/core/app-foundation/surface-test-style';
 import React, { act } from 'react';
@@ -640,7 +641,7 @@ describe('primitives render in several states without border utilities', () => {
       for (const node of nodes) {
         const out = html(node);
         expect(out.length).toBeGreaterThan(0);
-        expect(out).not.toMatch(BORDER);
+        expect(assertControlEdges(out)).not.toMatch(BORDER);
         expect(out).not.toMatch(/#[0-9a-fA-F]{6}\b/);
       }
     });
@@ -1407,7 +1408,7 @@ describe('shared states: plural titles, raw-error suppression, panel and chip va
       html(<StateNotice kind="error" onRetry={noop} />),
       html(<StateNotice kind="loading" surface={3} />),
     ]) {
-      expect(out).not.toMatch(BORDER);
+      expect(assertControlEdges(out)).not.toMatch(BORDER);
       expect(out).not.toMatch(/shadow/);
     }
   });
@@ -1546,7 +1547,7 @@ describe('UnavailableState surface and heading options, NoticeBar flush and data
     expect(retry(2)).toMatch(/\bbg-surface-3\b/);
     expect(retry(2)).not.toMatch(/\bbg-surface-2\b/);
     expect(retry(3)).toMatch(/\bbg-surface-hover\b/);
-    expect(retry(2)).not.toMatch(BORDER);
+    expect(retry(2).split(/\s+/).filter(name => BORDER.test(name))).toEqual(['border', 'border-control-edge']);
   });
 
   it('NoticeBar forwards data-* attributes and the flush variant drops rounding without a wrapper', () => {

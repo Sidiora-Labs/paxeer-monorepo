@@ -16,7 +16,7 @@ export interface StatDashProps {
 export function StatDash({ reason, subject, align = 'end', className }: StatDashProps) {
   return (
     <Tooltip content={reason} align={align} className="relative z-10">
-      <span tabIndex={0} data-numeric data-unavailable="" aria-label={`${subject}: ${reason}`} className={cn('text-xs text-text-faint', className)}>—</span>
+      <span tabIndex={0} data-numeric data-unavailable="" aria-label={`${subject}: ${reason}`} className={cn('inline-flex min-h-touch-target-min min-w-touch-target-min items-center justify-center text-xs text-text-faint', className)}>—</span>
     </Tooltip>
   );
 }

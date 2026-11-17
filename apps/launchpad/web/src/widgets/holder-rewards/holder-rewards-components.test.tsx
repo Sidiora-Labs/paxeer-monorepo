@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, expect, it } from 'vitest';
@@ -50,7 +51,7 @@ describe('holder rewards components', () => {
     expect(copy.length).toBeLessThanOrEqual(140);
     expect(out).toContain(`href="${launchHolderRewardsHref}"`);
     expect(launchHolderRewardsHref).toBe('/create?strategy=airdrop');
-    expect(out).not.toMatch(BORDER);
+    expect(assertControlEdges(out)).not.toMatch(BORDER);
   });
 
   it('shows three display tiles, real totals only, today\'s value derived from the served USDL total', () => {
@@ -63,7 +64,7 @@ describe('holder rewards components', () => {
     expect(ready).toContain('Valued in USDL');
     expect(ready).toContain('445,691');
     expect(ready).toContain('text-2xl');
-    expect(ready).toContain('grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-form-field-min-width)),1fr))]');
+    expect(ready).toContain('grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-token-card-min-width)),1fr))]');
     expect(ready).not.toContain('aria-label="No data"');
     expect(ready).not.toContain('not available yet');
     const loading = html(<StatsRow stats={{ state: 'loading' }} />);
@@ -82,7 +83,7 @@ describe('holder rewards components', () => {
     expect(unavailable.match(/aria-label="Not available yet"/g)).toHaveLength(3);
     expect(unavailable).toContain('text-2xl');
     expect(unavailable).not.toContain('Failed to fetch');
-    expect(unavailable).not.toMatch(BORDER);
+    expect(assertControlEdges(unavailable)).not.toMatch(BORDER);
     const failed = html(<StatsRow stats={{ state: 'error', error: new TypeError('Failed to fetch'), retry: noop }} />);
     expect(failed.match(/<dt /g)).toHaveLength(3);
     expect(failed).not.toContain('Failed to fetch');
@@ -112,7 +113,7 @@ describe('holder rewards components', () => {
     expect(ready).toContain('bg-rank-1-soft');
     expect(ready).toContain(`href="/coin/${poolA}"`);
     expect(ready).toContain('Strategy changed');
-    expect(ready).not.toMatch(BORDER);
+    expect(assertControlEdges(ready)).not.toMatch(BORDER);
     const loading = html(<TopPayingRail rows={[]} loading />);
     expect(loading).toContain('aria-busy="true"');
     const empty = html(<TopPayingRail rows={[]} />);
@@ -138,7 +139,7 @@ describe('holder rewards components', () => {
     expect(out).toContain('Ranked across the 2 coins shown');
     expect(out).toContain('Load more');
     expect(out).toContain('odd:bg-surface-2');
-    expect(out).not.toMatch(BORDER);
+    expect(assertControlEdges(out)).not.toMatch(BORDER);
     expect(out).not.toMatch(/\$\s?\d/);
   });
 
@@ -160,7 +161,7 @@ describe('holder rewards components', () => {
     expect(preview).toContain('<h3');
     expect(preview).not.toContain('<a ');
     expect(preview).toContain('$MINE');
-    expect(preview).not.toMatch(BORDER);
+    expect(assertControlEdges(preview)).not.toMatch(BORDER);
     const ranked = html(<HolderRewardTokenCard rank={4} name="Tulip" symbol="TULIP" image={null} tokenAddress={tokenA} href={`/coin/${poolA}`} createdAt="2026-09-14T10:00:00.000Z" distributedRaw="226147000000" mcapRaw="61000000000" holdersPaid={875} />);
     expect(ranked).not.toContain('bg-rank-1-soft');
     expect(ranked).toMatch(/>226,147<span[^>]*>USDL</);
@@ -181,7 +182,7 @@ describe('holder rewards components', () => {
     expect(out).toContain('Filters');
     expect(out).toContain('aria-label="Download as CSV"');
     expect(out).not.toMatch(/aria-label="Download as CSV"[^>]*disabled=""/);
-    expect(out).not.toMatch(BORDER);
+    expect(assertControlEdges(out)).not.toMatch(BORDER);
     const disabled = html(<HolderRewardsControls order={defaultOrder} onSortChange={noop} view="table" onViewChange={noop} filters={{ activeOnly: true, pricedOnly: true }} onFiltersChange={noop} onExport={null} />);
     expect(disabled).toMatch(/<button[^>]*disabled=""[^>]*aria-label="Download as CSV"|aria-label="Download as CSV"[^>]*disabled=""/);
     expect(disabled).toContain('aria-label="Filters, 2 active"');

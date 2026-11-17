@@ -28,7 +28,7 @@ export default function HoldersFilters({ value, onChange, pnlReason }: { value: 
         className="min-w-0 flex-1 bg-transparent text-sm text-text outline-none placeholder:text-text-faint"
       />
     </div>
-    <div role="group" aria-label="Profit filters" className="flex items-center gap-2">
+    <div role="group" aria-label="Profit filters" className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
       <Chip pressed={value.filter === 'all'} onClick={() => onChange({ ...value, filter: 'all' })}>All</Chip>
       {pnlFilters.map(filter => (
         <Tooltip key={filter.id} content={pnlReason}>

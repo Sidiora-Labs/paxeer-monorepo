@@ -122,7 +122,7 @@ export function HeroCarousel({ entries, creatorLabel, className }: HeroCarouselP
           >
             <div className="min-w-0">
               <StreamPlayer key={active.stream.id} stream={active.stream} poster={active.thumbnailUrl} muted autoplay className="rounded-none">
-                <Link href={streamHref(active)} className="text-sm font-bold text-accent hover:underline">Go to {coinLabel(active)}</Link>
+                <Link prefetch={false} href={streamHref(active)} className="text-sm font-bold text-accent hover:underline">Go to {coinLabel(active)}</Link>
               </StreamPlayer>
             </div>
             <HeroMetaPanel entry={active} creatorLabel={creatorLabel(active.creatorWallet)} />
@@ -213,7 +213,7 @@ export function HeroFramePlaceholder({ children, className }: HeroFramePlacehold
   return (
     <section data-live-hero aria-label="Featured live streams" className={cn(heroStageClass, className)}>
       <div data-live-hero-frame className={cn(heroFrameClass, 'mx-auto max-w-250')}>
-        <div className="flex aspect-video min-h-56 min-w-0 w-full items-center justify-center bg-surface-2 p-4">
+        <div className="flex aspect-video min-h-min min-w-0 w-full items-center justify-center bg-surface-2 p-4">
           {children}
         </div>
         <div aria-hidden="true" className="hidden flex-col gap-4 p-5 lg:flex">

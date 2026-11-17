@@ -64,7 +64,7 @@ export interface StreamCardProps {
 export function StreamCard({ entry, creatorLabel, className }: StreamCardProps) {
   const name = coinLabel(entry);
   return (
-    <Link
+    <Link prefetch={false}
       href={streamHref(entry)}
       aria-label={streamCardLabel(entry)}
       data-stream-id={entry.stream.id}

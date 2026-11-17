@@ -7,7 +7,7 @@ export default function MetaAgSwapModule() {
       <div className="w-full max-w-lg">
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
           <h1 className="text-lg font-bold text-text">Swap</h1>
-          <Link
+          <Link prefetch={false}
             href="/swap"
             className="text-2xs text-text-faint hover:text-text transition underline-offset-2 hover:underline"
           >

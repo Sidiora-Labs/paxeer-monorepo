@@ -81,7 +81,7 @@ export function StrategyPicker({ value, onChange, disabled = false, className }:
               onClick={() => onChange(strategy.value)}
               onKeyDown={event => onKeyDown(event, index)}
               className={cn(
-                'inline-flex min-h-control-height-md flex-wrap items-center justify-center gap-2 rounded-sm px-3 text-sm font-bold transition-colors duration-fast',
+                'inline-flex min-h-control-height-md flex-wrap items-center justify-center gap-2 rounded-sm border border-control-edge px-3 text-sm font-bold transition-colors duration-fast',
                 checked ? 'bg-surface-3 text-text' : 'text-text-muted hover:bg-surface-hover hover:text-text',
                 disabled && 'cursor-not-allowed text-text-disabled hover:bg-transparent hover:text-text-disabled',
               )}

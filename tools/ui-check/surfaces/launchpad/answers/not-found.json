@@ -1,0 +1,9 @@
+{
+  "code": "NOT_FOUND",
+  "message": "Resource not found",
+  "requestId": "a5dbcdb9-92e9-4b4a-bd4d-55e43ee73b6f",
+  "retryable": false,
+  "retryAfterMs": null,
+  "fieldErrors": [],
+  "details": null
+}

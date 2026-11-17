@@ -181,7 +181,7 @@ async function middlewareConfigurationErrorsRemainRenderable() {
     expect(directive(policy, 'object-src')).toEqual(["'none'"]);
     expect(directive(policy, 'base-uri')).toEqual(["'self'"]);
     expect(response.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
-    expect(response.headers.get('Permissions-Policy')).toBe('clipboard-write=(self), clipboard-read=(self)');
+    expect(response.headers.get('Permissions-Policy')).toBe('clipboard-write=(self), clipboard-read=(self), unload=(self)');
 
     const layout = await RootLayout({ children: createElement('div', { 'data-state': 'configured-app' }) });
     const body = layout.props.children;
@@ -215,7 +215,7 @@ async function middlewareConfigurationErrorsRemainRenderable() {
     expect(directive(policy, 'frame-ancestors')).toEqual(["'self'", ...expectedWallets]);
     expect(directive(policy, 'frame-src')).toEqual(["'self'", 'blob:', ...expectedWallets]);
     expect(response.headers.get('X-Frame-Options')).toBe(wallet ? null : 'SAMEORIGIN');
-    expect(response.headers.get('Permissions-Policy')).toBe('clipboard-write=(self), clipboard-read=(self)');
+    expect(response.headers.get('Permissions-Policy')).toBe('clipboard-write=(self), clipboard-read=(self), unload=(self)');
     expect(directive(policy, 'connect-src').slice(1).sort()).toEqual([
       'https://api-production-e4bd.up.railway.app',
       'https://api.paxscan.io',

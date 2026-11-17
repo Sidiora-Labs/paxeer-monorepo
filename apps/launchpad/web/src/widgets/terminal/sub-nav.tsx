@@ -56,7 +56,7 @@ export default function TerminalSubNav({ active }: { active: TerminalView }) {
           const selected = view.id === active;
           return (
             <li key={view.id} className="flex">
-              <Link
+              <Link prefetch={false}
                 href={terminalViewPath(view.id)}
                 aria-current={selected ? 'page' : undefined}
                 className={cn(

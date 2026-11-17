@@ -69,7 +69,7 @@ function subscribeWide(listener: () => void) {
   return () => query.removeEventListener('change', listener);
 }
 const readWide = () => typeof window.matchMedia !== 'function' || window.matchMedia(WIDE).matches;
-const serverWide = () => true;
+const serverWide = () => false;
 const noSession = () => null;
 
 const toneClass: Record<ChipTone, string> = {
@@ -81,7 +81,7 @@ const toneClass: Record<ChipTone, string> = {
 
 function ChipLink({ chip, hidden }: { chip: TickerChip; hidden: boolean }) {
   return (
-    <Link
+    <Link prefetch={false}
       href={chip.href}
       tabIndex={hidden ? -1 : undefined}
       className="flex min-h-touch-target-min shrink-0 items-center py-1 gap-1.5 rounded-pill bg-surface-1 pl-0.5 pr-2 text-xs transition-colors duration-fast hover:bg-surface-hover"
@@ -151,16 +151,16 @@ function Marquee({ chips, mode }: { chips: TickerChip[]; mode: TickerModeConfig 
       <div
         ref={container}
         className={cn(
-          'relative min-h-full min-w-0 flex-1 motion-reduce:overflow-x-auto',
+          'relative flex min-h-full min-w-0 flex-1 items-center gap-2 motion-reduce:overflow-x-auto',
           paused ? 'overflow-x-auto' : 'overflow-hidden'
         )}
       >
         <p className="sr-only">
           {mode.label}, {chips.length} {chips.length === 1 ? 'entry' : 'entries'}.
         </p>
-        <Link
+        <Link prefetch={false}
           href={mode.href}
-          className="sr-only focus:not-sr-only focus:absolute focus:left-0 focus:top-1 focus:z-[var(--sl-z-raised)] focus:rounded-sm focus:bg-surface-3 focus:px-2 focus:text-xs focus:text-text"
+          className="inline-flex min-h-touch-target-min shrink-0 items-center rounded-sm px-2 text-xs text-text-muted hover:bg-surface-hover hover:text-text"
         >
           Open {mode.label.toLowerCase()}
         </Link>
@@ -219,7 +219,7 @@ function FeedView({ feed, mode }: { feed: TickerFeed; mode: TickerModeConfig }) 
           <button
             type="button"
             onClick={feed.retry}
-            className="font-bold text-text-muted transition-colors duration-fast hover:text-text"
+            className="rounded-xs font-bold text-text-muted transition-colors duration-fast hover:text-text focus-visible:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus focus-visible:underline"
           >
             Retry
           </button>
@@ -247,9 +247,9 @@ function FeedView({ feed, mode }: { feed: TickerFeed; mode: TickerModeConfig }) 
               <span className="sm:hidden">{feed.emptyShort ?? feed.emptyText}</span>
               <span className="hidden sm:inline">{feed.emptyText}</span>
             </span>
-            <Link
+            <Link prefetch={false}
               href={mode.href}
-              className="shrink-0 whitespace-nowrap font-bold text-text-muted hover:text-text"
+              className="inline-flex min-h-touch-target-min shrink-0 items-center whitespace-nowrap font-bold text-text-muted hover:text-text"
             >
               Open {mode.label.toLowerCase()}
             </Link>
@@ -318,7 +318,7 @@ export default function TickerStrip() {
       <div
         role="radiogroup"
         aria-label="Ticker mode"
-        className="flex shrink-0 items-center gap-0.5 rounded-sm bg-surface-1 p-0.5"
+        className="flex shrink-0 items-center gap-0.5 rounded-sm bg-surface-1"
       >
         {tickerModes.map((entry, index) => {
           const Icon = entry.icon;
@@ -353,7 +353,7 @@ export default function TickerStrip() {
           );
         })}
       </div>
-      <div className="relative min-h-ticker-height min-w-0 flex-1 py-1">
+      <div className="relative min-h-ticker-height min-w-0 flex-1">
         {wide ? <Feed mode={mode} /> : null}
       </div>
     </section>
