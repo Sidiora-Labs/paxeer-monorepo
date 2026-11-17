@@ -1,5 +1,5 @@
 defmodule Explorer.SmartContract.Geas.PublisherTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   use Explorer.DataCase
 
@@ -11,11 +11,14 @@ defmodule Explorer.SmartContract.Geas.PublisherTest do
   alias Explorer.SmartContract.Geas.Publisher
 
   setup do
-    configuration = Application.get_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour)
+    configuration = Application.fetch_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour)
     Application.put_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour, enabled: false)
 
     on_exit(fn ->
-      Application.put_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour, configuration)
+      case configuration do
+        {:ok, value} -> Application.put_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour, value)
+        :error -> Application.delete_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour)
+      end
     end)
   end
 

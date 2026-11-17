@@ -1,0 +1,349 @@
+[surface]
+name = "LayerX human web application"
+geometry_widths = [390, 1280, 1440, 1920, 2560]
+units = "CSS pixels"
+
+[typography]
+standard_steps = [12, 14, 16, 18, 20, 24]
+standard_line_heights = [16, 20, 24, 28, 28, 32]
+component_labels = [9, 10, 11, 13, 15, 17, 32]
+scaling = "Text sizes stay fixed across viewport widths."
+
+[layout]
+shell = "Desktop navigation occupies 248 pixels and the header occupies 64 pixels. The mobile header and bottom navigation retain their earlier tracks."
+touch = "Interactive controls occupy at least 44 pixels at touch widths."
+content = "The activity table, empty activity message and closed technical disclosures remain available."
+calendar = "Calendar days occupy 36 pixels on desktop and at least 44 pixels at touch widths."
+keypad = "Numeric keypad rows occupy 56 pixels; letter labels use 0.18em spacing."
+search = "The search screen uses the earlier field padding; the clear control occupies 16 pixels on desktop and at least 44 pixels at touch widths."
+
+[tokens]
+shared_size_differences = ["--text-2xl", "--text-2xl--line-height", "--text-base", "--text-lg", "--text-lg--line-height", "--text-sm", "--text-sm--line-height", "--text-xl", "--text-xl--line-height", "--text-xs", "--text-xs--line-height"]
+present_only_size_names = ["--drawer-width", "--focus-ring-offset", "--focus-ring-width", "--font-size-body", "--font-size-body-sm", "--font-size-display", "--font-size-label", "--font-size-micro", "--font-size-nano", "--font-size-title", "--font-size-title-sm", "--line-height-body", "--line-height-relaxed", "--line-height-snug", "--line-height-tight", "--lx-radius-lg", "--lx-radius-md", "--lx-radius-sheet", "--lx-radius-sm", "--lx-radius-xl", "--modal-content-max-width", "--notification-list-max-height", "--scrollbar-radius", "--search-content-max-width", "--search-list-max-height", "--space-0", "--space-1", "--space-10", "--space-12", "--space-14", "--space-16", "--space-2", "--space-20", "--space-3", "--space-4", "--space-5", "--space-6", "--space-7", "--space-8", "--space-button-lg", "--space-dialog-max", "--space-dialog-search", "--space-filter", "--space-icon-md", "--space-icon-sm", "--space-notification", "--space-notification-wide", "--space-popover", "--space-sidebar", "--space-summary", "--space-switch", "--space-switch-thumb", "--spacing-button-lg", "--spacing-dialog-max", "--spacing-dialog-search", "--spacing-filter", "--spacing-icon-md", "--spacing-icon-sm", "--spacing-notification", "--spacing-notification-wide", "--spacing-popover", "--spacing-sidebar", "--spacing-summary", "--spacing-switch", "--spacing-switch-thumb", "--table-activity-min-width", "--table-header-height", "--text-body", "--text-body--line-height", "--text-body-sm", "--text-body-sm--line-height", "--text-display", "--text-display--line-height", "--text-label", "--text-label--line-height", "--text-micro", "--text-micro--line-height", "--text-nano", "--text-nano--line-height", "--text-title", "--text-title--line-height", "--text-title-sm", "--text-title-sm--line-height", "--touch-target", "--tracking-wider", "--tracking-widest"]
+
+[views]
+width_order = [390, 1280, 1440, 1920, 2560]
+
+[view.settings-devices]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.settings-devices-empty]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.settings-devices-error]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.security-devices]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.security-devices-empty]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.security-devices-error]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.welcome]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.welcome-signed-in]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.home]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.home-empty]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.home-loading]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.home-error]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.activity]
+differing_parts_by_width = [0, 4, 4, 4, 4]
+differences = [
+  { width = 1280, part = "activity-collection", cause = "The activity filters and transaction table remain visible where the earlier desktop view contains an alert." },
+  { width = 1280, part = "activity-first-row", cause = "The activity filters and transaction table remain visible where the earlier desktop view contains an alert." },
+  { width = 1280, part = "card-1", cause = "The activity filters and transaction table remain visible where the earlier desktop view contains an alert." },
+  { width = 1280, part = "primary-control", cause = "The activity filters and transaction table remain visible where the earlier desktop view contains an alert." },
+  { width = 1440, part = "activity-collection", cause = "The activity filters and transaction table remain visible where the earlier desktop view contains an alert." },
+  { width = 1440, part = "activity-first-row", cause = "The activity filters and transaction table remain visible where the earlier desktop view contains an alert." },
+  { width = 1440, part = "card-1", cause = "The activity filters and transaction table remain visible where the earlier desktop view contains an alert." },
+  { width = 1440, part = "primary-control", cause = "The activity filters and transaction table remain visible where the earlier desktop view contains an alert." },
+  { width = 1920, part = "activity-collection", cause = "The activity filters and transaction table remain visible where the earlier desktop view contains an alert." },
+  { width = 1920, part = "activity-first-row", cause = "The activity filters and transaction table remain visible where the earlier desktop view contains an alert." },
+  { width = 1920, part = "card-1", cause = "The activity filters and transaction table remain visible where the earlier desktop view contains an alert." },
+  { width = 1920, part = "primary-control", cause = "The activity filters and transaction table remain visible where the earlier desktop view contains an alert." },
+  { width = 2560, part = "activity-collection", cause = "The activity filters and transaction table remain visible where the earlier desktop view contains an alert." },
+  { width = 2560, part = "activity-first-row", cause = "The activity filters and transaction table remain visible where the earlier desktop view contains an alert." },
+  { width = 2560, part = "card-1", cause = "The activity filters and transaction table remain visible where the earlier desktop view contains an alert." },
+  { width = 2560, part = "primary-control", cause = "The activity filters and transaction table remain visible where the earlier desktop view contains an alert." },
+]
+
+[view.activity-empty]
+differing_parts_by_width = [0, 3, 3, 3, 3]
+differences = [
+  { width = 1280, part = "card-1", cause = "The activity filters and empty activity message remain visible where the earlier desktop view contains an alert." },
+  { width = 1280, part = "card-2", cause = "The activity filters and empty activity message remain visible where the earlier desktop view contains an alert." },
+  { width = 1280, part = "primary-control", cause = "The activity filters and empty activity message remain visible where the earlier desktop view contains an alert." },
+  { width = 1440, part = "card-1", cause = "The activity filters and empty activity message remain visible where the earlier desktop view contains an alert." },
+  { width = 1440, part = "card-2", cause = "The activity filters and empty activity message remain visible where the earlier desktop view contains an alert." },
+  { width = 1440, part = "primary-control", cause = "The activity filters and empty activity message remain visible where the earlier desktop view contains an alert." },
+  { width = 1920, part = "card-1", cause = "The activity filters and empty activity message remain visible where the earlier desktop view contains an alert." },
+  { width = 1920, part = "card-2", cause = "The activity filters and empty activity message remain visible where the earlier desktop view contains an alert." },
+  { width = 1920, part = "primary-control", cause = "The activity filters and empty activity message remain visible where the earlier desktop view contains an alert." },
+  { width = 2560, part = "card-1", cause = "The activity filters and empty activity message remain visible where the earlier desktop view contains an alert." },
+  { width = 2560, part = "card-2", cause = "The activity filters and empty activity message remain visible where the earlier desktop view contains an alert." },
+  { width = 2560, part = "primary-control", cause = "The activity filters and empty activity message remain visible where the earlier desktop view contains an alert." },
+]
+
+[view.activity-loading]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.activity-error]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.activity-detail]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.agents]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.agents-empty]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.agents-loading]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.agents-error]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.agent-detail]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.agent-create]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.approvals]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.approvals-empty]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.approvals-loading]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.approvals-error]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.approval-detail]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.move]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.notifications]
+differing_parts_by_width = [3, 0, 0, 0, 0]
+differences = [
+  { width = 390, part = "card-1", cause = "The recency tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the notification list down by eight pixels." },
+  { width = 390, part = "list-1-first-row", cause = "The recency tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the notification list down by eight pixels." },
+  { width = 390, part = "primary-control", cause = "The recency tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the notification list down by eight pixels." },
+]
+
+[view.notifications-empty]
+differing_parts_by_width = [3, 0, 0, 0, 0]
+differences = [
+  { width = 390, part = "card-1", cause = "The recency tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the empty notification content down by eight pixels." },
+  { width = 390, part = "card-2", cause = "The recency tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the empty notification content down by eight pixels." },
+  { width = 390, part = "primary-control", cause = "The recency tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the empty notification content down by eight pixels." },
+]
+
+[view.notifications-loading]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.notifications-error]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.security-recovery]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.settings]
+differing_parts_by_width = [12, 0, 0, 0, 0]
+differences = [
+  { width = 390, part = "card-1", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "card-10", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "card-5", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "card-6", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "card-7", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "card-8", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "card-9", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "list-5-first-row", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "list-6-first-row", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "list-7-first-row", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "list-8-first-row", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "list-9-first-row", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+]
+
+[view.settings-empty]
+differing_parts_by_width = [12, 0, 0, 0, 0]
+differences = [
+  { width = 390, part = "card-1", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "card-10", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "card-5", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "card-6", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "card-7", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "card-8", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "card-9", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "list-5-first-row", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "list-6-first-row", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "list-7-first-row", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "list-8-first-row", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+  { width = 390, part = "list-9-first-row", cause = "The display tabs retain 44-pixel touch targets; their track occupies eight additional pixels and moves the following settings down by eight pixels." },
+]
+
+[view.settings-loading]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.settings-error]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.settings-security]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.settings-wallet]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.support]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.support-empty]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.support-loading]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.support-error]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.bridge]
+differing_parts_by_width = [10, 0, 0, 0, 0]
+differences = [
+  { width = 390, part = "card-1", cause = "The transfer controls retain 44-pixel touch targets, increasing their enclosing card height and moving the following bridge content down." },
+  { width = 390, part = "card-2", cause = "The transfer controls retain 44-pixel touch targets, increasing their enclosing card height and moving the following bridge content down." },
+  { width = 390, part = "card-3", cause = "The transfer controls retain 44-pixel touch targets, increasing their enclosing card height and moving the following bridge content down." },
+  { width = 390, part = "card-4", cause = "The transfer controls retain 44-pixel touch targets, increasing their enclosing card height and moving the following bridge content down." },
+  { width = 390, part = "card-5", cause = "The transfer controls retain 44-pixel touch targets, increasing their enclosing card height and moving the following bridge content down." },
+  { width = 390, part = "card-6", cause = "The transfer controls retain 44-pixel touch targets, increasing their enclosing card height and moving the following bridge content down." },
+  { width = 390, part = "card-7", cause = "The transfer controls retain 44-pixel touch targets, increasing their enclosing card height and moving the following bridge content down." },
+  { width = 390, part = "card-8", cause = "The transfer controls retain 44-pixel touch targets, increasing their enclosing card height and moving the following bridge content down." },
+  { width = 390, part = "main", cause = "The transfer controls retain 44-pixel touch targets, increasing their enclosing card height and moving the following bridge content down." },
+  { width = 390, part = "ordered-list-1-first-row", cause = "The transfer controls retain 44-pixel touch targets, increasing their enclosing card height and moving the following bridge content down." },
+]
+
+[view.exchange]
+differing_parts_by_width = [9, 0, 0, 0, 0]
+differences = [
+  { width = 390, part = "card-1", cause = "The trading controls retain 44-pixel touch targets, increasing their enclosing panel heights and moving the following exchange content down." },
+  { width = 390, part = "card-10", cause = "The trading controls retain 44-pixel touch targets, increasing their enclosing panel heights and moving the following exchange content down." },
+  { width = 390, part = "card-11", cause = "The trading controls retain 44-pixel touch targets, increasing their enclosing panel heights and moving the following exchange content down." },
+  { width = 390, part = "card-12", cause = "The trading controls retain 44-pixel touch targets, increasing their enclosing panel heights and moving the following exchange content down." },
+  { width = 390, part = "card-13", cause = "The trading controls retain 44-pixel touch targets, increasing their enclosing panel heights and moving the following exchange content down." },
+  { width = 390, part = "card-7", cause = "The trading controls retain 44-pixel touch targets, increasing their enclosing panel heights and moving the following exchange content down." },
+  { width = 390, part = "card-8", cause = "The trading controls retain 44-pixel touch targets, increasing their enclosing panel heights and moving the following exchange content down." },
+  { width = 390, part = "card-9", cause = "The trading controls retain 44-pixel touch targets, increasing their enclosing panel heights and moving the following exchange content down." },
+  { width = 390, part = "main", cause = "The trading controls retain 44-pixel touch targets, increasing their enclosing panel heights and moving the following exchange content down." },
+]
+
+[view.launchpad]
+differing_parts_by_width = [6, 0, 0, 0, 0]
+differences = [
+  { width = 390, part = "card-1", cause = "The selection controls retain 44-pixel touch targets, increasing their enclosing panel height and moving the following launchpad content down." },
+  { width = 390, part = "card-3", cause = "The selection controls retain 44-pixel touch targets, increasing their enclosing panel height and moving the following launchpad content down." },
+  { width = 390, part = "card-4", cause = "The selection controls retain 44-pixel touch targets, increasing their enclosing panel height and moving the following launchpad content down." },
+  { width = 390, part = "card-5", cause = "The selection controls retain 44-pixel touch targets, increasing their enclosing panel height and moving the following launchpad content down." },
+  { width = 390, part = "card-6", cause = "The selection controls retain 44-pixel touch targets, increasing their enclosing panel height and moving the following launchpad content down." },
+  { width = 390, part = "main", cause = "The selection controls retain 44-pixel touch targets, increasing their enclosing panel height and moving the following launchpad content down." },
+]
+
+[view.explorer]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.explorer-account]
+differing_parts_by_width = [3, 0, 0, 0, 0]
+differences = [
+  { width = 390, part = "card-1", cause = "The account pagination links retain 44-pixel touch targets, increasing the account content height." },
+  { width = 390, part = "main", cause = "The account pagination links retain 44-pixel touch targets, increasing the account content height." },
+  { width = 390, part = "primary-control", cause = "The account pagination links retain 44-pixel touch targets, increasing the account content height." },
+]
+
+[view.explorer-account-empty]
+differing_parts_by_width = [3, 0, 0, 0, 0]
+differences = [
+  { width = 390, part = "card-1", cause = "The account pagination links retain 44-pixel touch targets, increasing the account content height." },
+  { width = 390, part = "main", cause = "The account pagination links retain 44-pixel touch targets, increasing the account content height." },
+  { width = 390, part = "primary-control", cause = "The account pagination links retain 44-pixel touch targets, increasing the account content height." },
+]
+
+[view.explorer-account-missing]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.explorer-account-unavailable]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.explorer-program]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []
+
+[view.explorer-receipt]
+differing_parts_by_width = [3, 0, 0, 0, 0]
+differences = [
+  { width = 390, part = "card-1", cause = "The receipt link retains a 44-pixel touch target, increasing its table row and enclosing content heights." },
+  { width = 390, part = "main", cause = "The receipt link retains a 44-pixel touch target, increasing its table row and enclosing content heights." },
+  { width = 390, part = "table-1-first-row", cause = "The receipt link retains a 44-pixel touch target, increasing its table row and enclosing content heights." },
+]
+
+[view.explorer-receipt-missing]
+differing_parts_by_width = [0, 0, 0, 0, 0]
+differences = []

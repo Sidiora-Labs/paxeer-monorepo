@@ -40,25 +40,6 @@ defmodule Indexer.Block.FetcherTest do
 
   setup :verify_on_exit!
 
-  setup do
-    health_config = Application.fetch_env!(:explorer, Explorer.Chain.Health.Monitor)
-
-    Application.put_env(
-      :explorer,
-      Explorer.Chain.Health.Monitor,
-      Keyword.put(health_config, :check_interval, :timer.hours(1))
-    )
-
-    Supervisor.terminate_child(Explorer.Supervisor, Explorer.Chain.Health.Monitor)
-
-    on_exit(fn ->
-      Application.put_env(:explorer, Explorer.Chain.Health.Monitor, health_config)
-      Supervisor.restart_child(Explorer.Supervisor, Explorer.Chain.Health.Monitor)
-    end)
-
-    :ok
-  end
-
   # First block with all schemas to import
   # 37 is determined using the following query:
   # SELECT MIN(blocks.number) FROM
@@ -109,6 +90,8 @@ defmodule Indexer.Block.FetcherTest do
           task_supervisor: Indexer.TaskSupervisor
         }
       )
+
+      Enum.each([InternalTransaction, CoinBalanceCatchup], &wait_for_tasks/1)
 
       Application.put_env(:indexer, Indexer.Fetcher.Celo.EpochBlockOperations.Supervisor, disabled?: true)
 
@@ -1127,7 +1110,8 @@ defmodule Indexer.Block.FetcherTest do
   defp wait_for_tasks(buffered_task) do
     wait_until(:timer.seconds(10), fn ->
       counts = BufferedTask.debug_count(buffered_task)
-      counts.buffer == 0 and counts.tasks == 0
+      state = GenServer.call(buffered_task, :state)
+      state.init_task in [:complete, :delay] and counts.buffer == 0 and counts.tasks == 0
     end)
   end
 

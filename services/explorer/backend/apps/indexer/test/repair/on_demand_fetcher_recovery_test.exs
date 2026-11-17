@@ -491,4 +491,3 @@ defmodule Indexer.OnDemandFetcherRecoveryTest do
     Map.merge(block, %{"number" => EthereumJSONRPC.integer_to_quantity(number), "transactions" => []})
   end
 end
-
