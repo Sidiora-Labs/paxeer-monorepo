@@ -176,20 +176,20 @@ export function TokenSelectorView({
                 <TokenBadge token={t} />
                 <div className="flex-1 text-left min-w-0">
                   <p className="text-sm font-medium">{t.symbol}</p>
-                  <p className="text-xs text-pax-muted truncate">{t.name}</p>
+                  <p className="text-size-11 text-pax-muted truncate">{t.name}</p>
                 </div>
                 {t.isStablecoin && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-pax-info-muted text-pax-info">
+                  <span className="text-size-10 px-1.5 py-0.5 rounded bg-pax-info-muted text-pax-info">
                     Stable
                   </span>
                 )}
                 {t.isNative && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
+                  <span className="text-size-10 px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
                     Native
                   </span>
                 )}
                 {t.isLaunchpad && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
+                  <span className="text-size-10 px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
                     Launchpad
                   </span>
                 )}

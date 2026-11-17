@@ -28,6 +28,10 @@
             {
               "action": "click",
               "selector": "html:has([data-shell-ready]) button[aria-label^=\"Trade settings, slippage\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Max slippage"
             }
           ]
         },
@@ -41,6 +45,10 @@
             {
               "action": "click",
               "selector": "html:has([data-shell-ready]) button:has-text(\"Select coin\") >> nth=0"
+            },
+            {
+              "action": "wait",
+              "text": "Select a coin"
             }
           ]
         }
@@ -60,6 +68,10 @@
             {
               "action": "click",
               "selector": "html:has([data-shell-ready]) button[aria-label=\"Terminal layout\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Reset column layout"
             }
           ]
         },
@@ -73,6 +85,10 @@
             {
               "action": "click",
               "selector": "html:has([data-shell-ready]) button[aria-label=\"Terminal settings\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Reset column layout"
             }
           ]
         }

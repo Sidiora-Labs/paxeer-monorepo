@@ -27,7 +27,7 @@ export function UniversalHeader({ title, showBack, onBack, rightAction }: Univer
   return (
     <>
       <header className="pax-header fixed top-0 left-0 right-0 z-40 bg-pax-bg backdrop-blur-xl safe-area-pt">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-4 min-h-14">
+        <div className="relative flex items-center justify-between gap-2 px-4 min-h-14">
           {/* Left side */}
           {showBack ? (
             <button
@@ -53,10 +53,10 @@ export function UniversalHeader({ title, showBack, onBack, rightAction }: Univer
                 className="w-8 h-8 shrink-0 rounded-full object-cover"
               />
               <div className="pax-header-account-details min-w-0 text-left">
-                <p className="text-sm font-semibold leading-tight truncate max-w-xs">
+                <p className="text-sm font-semibold leading-tight truncate max-w-size-140">
                   {activeAccount?.name || 'Account 1'}
                 </p>
-                <p className="text-xs text-pax-muted leading-tight truncate">
+                <p className="text-size-10 text-pax-muted leading-tight truncate">
                   {activeAccount ? shortenAddress(activeAccount.address) : '—'}
                 </p>
               </div>
@@ -68,7 +68,9 @@ export function UniversalHeader({ title, showBack, onBack, rightAction }: Univer
           )}
 
           {/* Center title */}
-          <h1 className="text-center text-sm font-bold pointer-events-none">{title}</h1>
+          <h1 className="absolute inset-x-0 text-center text-sm font-bold pointer-events-none">
+            {title}
+          </h1>
 
           {/* Right side */}
           <div className="z-10 justify-self-end">{rightAction || <div className="w-9" />}</div>
@@ -98,10 +100,10 @@ export function UniversalHeader({ title, showBack, onBack, rightAction }: Univer
                 className="w-16 h-16 rounded-full object-cover"
               />
               <div className="text-center">
-                <p className="text-base font-bold truncate max-w-xs">
+                <p className="text-base font-bold truncate max-w-size-260">
                   {activeAccount?.name || 'Paxeer Wallet'}
                 </p>
-                <p className="text-xs text-pax-accent mt-0.5">
+                <p className="text-size-11 text-pax-accent mt-0.5">
                   {isEmbedded
                     ? 'Paxeer Wallet · managed custody'
                     : `${wallet?.info?.name ?? 'Browser wallet'} · self-custody`}
@@ -129,7 +131,7 @@ export function UniversalHeader({ title, showBack, onBack, rightAction }: Univer
               >
                 Unified account
               </Link>
-              <p className="text-xs text-pax-muted text-center leading-relaxed">
+              <p className="text-size-11 text-pax-muted text-center leading-relaxed">
                 You can manage account-level options from Settings.
               </p>
             </div>

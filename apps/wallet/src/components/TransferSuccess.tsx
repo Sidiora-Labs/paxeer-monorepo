@@ -348,21 +348,23 @@ export function TransferSuccessResult({
         <div className="w-full mb-4">
           <StatusLadder steps={observation.steps} />
           {observation.lastVerified && observation.steps.length === 0 && (
-            <p data-retained-evidence className="mt-2 text-xs text-pax-muted">
+            <p data-retained-evidence className="mt-2 text-size-11 text-pax-muted">
               Saved evidence for block {observation.lastVerified.blockNumber}; current status
               requires revalidation.
             </p>
           )}
           {observation.replacementHash && (
-            <p className="mt-2 text-xs break-all">Replacement: {observation.replacementHash}</p>
+            <p className="mt-2 text-size-11 break-all">
+              Replacement: {observation.replacementHash}
+            </p>
           )}
           {submissionWarning && (
-            <p role="alert" className="mt-2 text-xs text-pax-muted">
+            <p role="alert" className="mt-2 text-size-11 text-pax-muted">
               {submissionWarning}
             </p>
           )}
           {error && (
-            <p role="alert" className="mt-2 text-xs text-pax-muted">
+            <p role="alert" className="mt-2 text-size-11 text-pax-muted">
               {error}
             </p>
           )}
@@ -384,7 +386,7 @@ export function TransferSuccessResult({
             <div
               className={`glass-card p-3 transition-all duration-normal ${phase === 'completed' ? 'rounded-b-none ' : ''}`}
             >
-              <span className="flex items-center gap-1 text-xs text-pax-muted mb-1">
+              <span className="flex items-center gap-1 text-size-10 text-pax-muted mb-1">
                 <SvgIcon name="arrow-up" className="w-3 h-3" /> From
               </span>
               <div className="flex items-center gap-2">
@@ -395,7 +397,7 @@ export function TransferSuccessResult({
                   <motion.span animate={{ opacity: 1 }} className="text-sm font-medium">
                     {fromAmount} {fromSymbol}
                   </motion.span>
-                  <span className="text-xs text-pax-muted">{fromLabel}</span>
+                  <span className="text-size-10 text-pax-muted">{fromLabel}</span>
                 </div>
               </div>
             </div>
@@ -404,7 +406,7 @@ export function TransferSuccessResult({
             <div
               className={`glass-card p-3 transition-all duration-normal ${phase === 'completed' ? 'rounded-t-none ' : ''}`}
             >
-              <span className="flex items-center gap-1 text-xs text-pax-muted mb-1">
+              <span className="flex items-center gap-1 text-size-10 text-pax-muted mb-1">
                 <SvgIcon name="arrow-down" className="w-3 h-3" /> To
               </span>
               <div className="flex items-center gap-2">
@@ -415,7 +417,7 @@ export function TransferSuccessResult({
                   <motion.span animate={{ opacity: 1 }} className="text-sm font-medium">
                     {toAmount || fromAmount} {toSymbol || fromSymbol}
                   </motion.span>
-                  <span className="text-xs text-pax-muted">{toLabel}</span>
+                  <span className="text-size-10 text-pax-muted">{toLabel}</span>
                 </div>
               </div>
             </div>

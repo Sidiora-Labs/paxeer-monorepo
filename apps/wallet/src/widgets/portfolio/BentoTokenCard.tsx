@@ -36,10 +36,10 @@ export function BentoTokenTall({
     <button
       type="button"
       onClick={onClick}
-      className="min-h-card-featured row-span-2 bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale"
+      className="min-h-card-featured row-span-2 bg-pax-surface rounded-3xl p-4 flex flex-col justify-between text-left press-scale"
     >
       <div className="flex flex-col gap-3">
-        <div className="relative w-10 h-10 rounded-full bg-pax-control overflow-hidden shrink-0">
+        <div className="relative w-icon-42 h-icon-42 rounded-full bg-pax-control overflow-hidden shrink-0">
           <Image
             src={iconUrl || '/wallet/default_icon.webp'}
             alt={symbol}
@@ -50,7 +50,7 @@ export function BentoTokenTall({
         </div>
         <div>
           <p className="text-base font-extrabold leading-tight">{name}</p>
-          <p className="text-xs text-pax-muted mt-0.5">{symbol}</p>
+          <p className="text-size-11 text-pax-muted mt-0.5">{symbol}</p>
         </div>
       </div>
       <div className="mt-auto pt-3">
@@ -58,7 +58,7 @@ export function BentoTokenTall({
           <div className="h-6 w-20 shimmer rounded" />
         ) : (
           <>
-            <p className="text-2xl font-extrabold tracking-[-0.02em] leading-none">{balance}</p>
+            <p className="text-size-22 font-extrabold tracking-[-0.02em] leading-none">{balance}</p>
             {valueUsd !== null && valueUsd > 0 && (
               <p className="text-xs text-pax-subtle mt-1">{formatUsd(valueUsd)}</p>
             )}
@@ -81,10 +81,10 @@ export function BentoTokenCompact({
     <button
       type="button"
       onClick={onClick}
-      className="min-h-card-token bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale"
+      className="min-h-card-token bg-pax-surface rounded-3xl p-4 flex flex-col justify-between text-left press-scale"
     >
       <div className="flex items-center gap-2.5">
-        <div className="relative w-8 h-8 rounded-full bg-pax-control overflow-hidden shrink-0">
+        <div className="relative w-icon-30 h-icon-30 rounded-full bg-pax-control overflow-hidden shrink-0">
           <Image
             src={iconUrl || '/wallet/default_icon.webp'}
             alt={symbol}
@@ -94,14 +94,14 @@ export function BentoTokenCompact({
           />
         </div>
         <div>
-          <p className="text-sm font-bold">{symbol}</p>
-          <p className="text-xs text-pax-muted">{name}</p>
+          <p className="text-size-13 font-bold">{symbol}</p>
+          <p className="text-size-10 text-pax-muted">{name}</p>
         </div>
       </div>
       <div className="mt-auto pt-2">
-        <p className="text-base font-bold">{balance}</p>
+        <p className="text-size-15 font-bold">{balance}</p>
         {valueUsd !== null && valueUsd > 0 && (
-          <p className="text-xs text-pax-muted mt-0.5">{formatUsd(valueUsd)}</p>
+          <p className="text-size-10 text-pax-muted mt-0.5">{formatUsd(valueUsd)}</p>
         )}
       </div>
     </button>
@@ -120,7 +120,7 @@ export function BentoTokenWide({
     <button
       type="button"
       onClick={onClick}
-      className="min-h-[var(--touch-target)] col-span-2 bg-pax-surface rounded-xl px-4 py-4 flex items-center gap-4 text-left press-scale"
+      className="min-h-[var(--touch-target)] col-span-2 bg-pax-surface rounded-3xl px-card-inline py-4 flex items-center gap-3.5 text-left press-scale"
     >
       <div className="relative w-10 h-10 rounded-full bg-pax-control overflow-hidden shrink-0">
         <Image
@@ -133,12 +133,12 @@ export function BentoTokenWide({
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold">{name}</p>
-        <p className="text-xs text-pax-muted mt-0.5">{symbol}</p>
+        <p className="text-size-10 text-pax-muted mt-0.5">{symbol}</p>
       </div>
       <div className="text-right shrink-0">
         <p className="text-sm font-bold">{balance}</p>
         {valueUsd !== null && valueUsd > 0 && (
-          <p className="text-xs text-pax-subtle mt-0.5">{formatUsd(valueUsd)}</p>
+          <p className="text-size-11 text-pax-subtle mt-0.5">{formatUsd(valueUsd)}</p>
         )}
       </div>
     </button>

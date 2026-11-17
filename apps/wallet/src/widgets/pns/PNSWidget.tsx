@@ -425,7 +425,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                 <AlertTriangle className="w-4 h-4 text-pax-error shrink-0 mt-0.5" />
                 <div>
                   <p className="text-xs font-semibold text-pax-error">Registration failed</p>
-                  <p className="text-xs text-pax-error mt-1 break-all">{regError}</p>
+                  <p className="text-size-11 text-pax-error mt-1 break-all">{regError}</p>
                 </div>
               </div>
               <button
@@ -469,7 +469,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
             </button>
             <h1 className="text-base font-bold truncate">{d?.name || 'Loading...'}</h1>
             {isPrimary && (
-              <span className="text-xs bg-pax-accent/20 text-pax-accent px-1.5 py-0.5 rounded font-bold">
+              <span className="text-size-9 bg-pax-accent/20 text-pax-accent px-1.5 py-0.5 rounded font-bold">
                 PRIMARY
               </span>
             )}
@@ -691,7 +691,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                   {actionError && (
                     <div className="flex items-start gap-2 p-3 rounded-xl bg-pax-error-muted  ">
                       <AlertTriangle className="w-3.5 h-3.5 text-pax-error shrink-0 mt-0.5" />
-                      <p className="text-xs text-pax-error break-all">{actionError}</p>
+                      <p className="text-size-11 text-pax-error break-all">{actionError}</p>
                     </div>
                   )}
                 </div>
@@ -716,7 +716,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
           </button>
           <div>
             <h1 className="text-base font-bold">Paxeer Name Service</h1>
-            <p className="text-xs text-pax-muted">.{PNS_TLD} names on Paxeer Network</p>
+            <p className="text-size-11 text-pax-muted">.{PNS_TLD} names on Paxeer Network</p>
           </div>
         </div>
         <div className="flex gap-1 bg-pax-control p-1 rounded-xl">
@@ -763,7 +763,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
               <span className="text-sm text-pax-muted">.{PNS_TLD}</span>
             </div>
             {query && !isValidLabel(query) && (
-              <p className="text-xs text-pax-error/70 mt-1 ml-1">
+              <p className="text-size-10 text-pax-error/70 mt-1 ml-1">
                 3-64 chars, lowercase alphanumeric and hyphens only
               </p>
             )}
@@ -805,7 +805,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                       </p>
                     </div>
                     <div className="px-4 py-3  ">
-                      <p className="text-xs text-pax-muted uppercase tracking-wider mb-2">
+                      <p className="text-size-10 text-pax-muted uppercase tracking-wider mb-2">
                         Duration
                       </p>
                       <div className="flex gap-2 flex-wrap">
@@ -836,7 +836,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                         )}
                       </div>
                       {price && price.premium > BigInt(0) && (
-                        <p className="text-xs text-pax-warning mt-1">
+                        <p className="text-size-10 text-pax-warning mt-1">
                           Includes {formatPaxPrice(price.premium)} PAX premium
                         </p>
                       )}
@@ -856,7 +856,7 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                       >
                         Register {searchedLabel}.{PNS_TLD}
                       </button>
-                      <p className="text-xs text-pax-muted text-center mt-2">
+                      <p className="text-size-10 text-pax-muted text-center mt-2">
                         2-step commit-reveal (~60s)
                       </p>
                     </div>
@@ -894,7 +894,9 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                   <Tag className="w-5 h-5 text-pax-accent" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-pax-muted uppercase tracking-wider">Primary name</p>
+                  <p className="text-size-10 text-pax-muted uppercase tracking-wider">
+                    Primary name
+                  </p>
                   <p className="text-sm font-semibold truncate">{primaryDomain.name}</p>
                 </div>
                 <button
@@ -942,12 +944,12 @@ function ConfiguredPNSWidget({ onBack, onPaxscan }: PNSWidgetProps) {
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium truncate">{d.name}</p>
                           {isPrimary && (
-                            <span className="text-xs bg-pax-accent/20 text-pax-accent px-1 py-0.5 rounded font-bold shrink-0">
+                            <span className="text-size-8 bg-pax-accent/20 text-pax-accent px-1 py-0.5 rounded font-bold shrink-0">
                               PRIMARY
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-pax-muted">
+                        <p className="text-size-10 text-pax-muted">
                           {d.expiry_date ? `Expires: ${formatExpiry(d.expiry_date)}` : 'No expiry'}
                         </p>
                       </div>
@@ -1008,7 +1010,7 @@ function StepRow({
         >
           {label}
         </p>
-        <p className="text-xs text-pax-muted">{sublabel}</p>
+        <p className="text-size-10 text-pax-muted">{sublabel}</p>
       </div>
     </div>
   );

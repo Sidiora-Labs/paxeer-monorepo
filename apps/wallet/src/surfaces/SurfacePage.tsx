@@ -72,10 +72,20 @@ export function SurfacePage({ surface }: { surface: SurfaceId }) {
   return (
     <WalletProvider>
       <main className="mx-auto min-h-dvh max-w-lg">
-        <nav aria-label="Paxeer X" className="flex gap-2 overflow-x-auto px-3 pt-3 no-scrollbar">
+        <nav
+          aria-label="Paxeer X"
+          className="flex gap-1 overflow-x-auto px-3 pt-3 no-scrollbar"
+          onFocus={(event) => {
+            event.target.scrollIntoView({
+              block: 'nearest',
+              inline: 'nearest',
+              behavior: 'instant',
+            });
+          }}
+        >
           <Link
             href="/"
-            className="min-h-[var(--touch-target)] inline-flex items-center rounded-lg bg-pax-control px-3 py-1.5 text-xs font-medium text-pax-muted focus-visible:ring-2 focus-visible:ring-pax-accent"
+            className="min-h-[var(--touch-target)] inline-flex items-center rounded-lg bg-pax-control px-3 py-1.5 text-size-11 font-medium text-pax-muted focus-visible:ring-2 focus-visible:ring-pax-accent"
           >
             Wallet
           </Link>
@@ -85,7 +95,7 @@ export function SurfacePage({ surface }: { surface: SurfaceId }) {
               href={route.href}
               aria-current={route.id === surface ? 'page' : undefined}
               className={cn(
-                'min-h-[var(--touch-target)] inline-flex items-center whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium focus-visible:ring-2 focus-visible:ring-pax-accent',
+                'min-h-[var(--touch-target)] inline-flex items-center whitespace-nowrap rounded-lg px-3 py-1.5 text-size-11 font-medium focus-visible:ring-2 focus-visible:ring-pax-accent',
                 route.id === surface
                   ? 'bg-pax-accent/15 text-pax-accent'
                   : 'bg-pax-control text-pax-muted'

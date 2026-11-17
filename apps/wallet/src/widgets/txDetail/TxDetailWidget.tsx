@@ -194,7 +194,7 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
             </div>
             <div className="space-y-1">
               <p className="text-base font-semibold text-pax-light">Could not load transaction</p>
-              <p className="text-sm text-pax-muted max-w-[260px] leading-relaxed">
+              <p className="text-sm text-pax-muted max-w-size-260 leading-relaxed">
                 {(error as Error).message}
               </p>
             </div>
@@ -246,7 +246,7 @@ export function TxDetailWidget({ txHash, onBack, onPaxscan }: TxDetailWidgetProp
                 <Clock className="w-4 h-4 text-pax-warning shrink-0" />
                 <div className="flex-1">
                   <p className="text-xs font-semibold text-pax-warning">Transaction Pending</p>
-                  <p className="text-xs text-pax-warning/80 mt-0.5">
+                  <p className="text-size-11 text-pax-warning/80 mt-0.5">
                     Waiting for confirmation on the network
                   </p>
                 </div>

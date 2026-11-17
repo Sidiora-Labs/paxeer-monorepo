@@ -94,6 +94,10 @@ interface PairRowProps {
 function PairRow({ row, metadata, timeframe }: PairRowProps) {
   const change = windowChange(row, timeframe);
   const socials = pairSocials(metadata);
+  const marketCap = row.mcapRaw === null
+    ? <StatDash reason={row.mcapReason ?? 'Market cap is not available.'} subject="Market cap" className="text-sm" />
+    : <span data-numeric title={row.circulatingMcapRaw ? `Circulating market cap ${formatUsdl(row.circulatingMcapRaw, { compact: true })}` : undefined} className="text-sm font-bold tabular-nums text-text">{formatUsdl(row.mcapRaw, { compact: true, unit: false })}</span>;
+  const statisticsClass = 'flex h-full shrink-0 flex-col items-end justify-center gap-0.5';
   return (
     <li className="relative flex h-11 items-center gap-2 bg-surface-1 px-2 transition-colors duration-fast hover:bg-surface-hover">
       <Link prefetch={false} href={terminalPoolPath(row.poolAddress)} aria-label={`${row.symbol} ${row.name}`} className="absolute inset-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-[calc(var(--sl-focus-offset)*-1)] focus-visible:outline-focus" />
@@ -124,18 +128,19 @@ function PairRow({ row, metadata, timeframe }: PairRowProps) {
           })}
         </div>
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-0.5">
-        {row.mcapRaw === null
-          ? <StatDash reason={row.mcapReason ?? 'Market cap is not available.'} subject="Market cap" className="text-sm" />
-          : <span data-numeric title={row.circulatingMcapRaw ? `Circulating market cap ${formatUsdl(row.circulatingMcapRaw, { compact: true })}` : undefined} className="text-sm font-bold tabular-nums text-text">{formatUsdl(row.mcapRaw, { compact: true, unit: false })}</span>}
-        {change.reason ? (
-          <Tooltip content={change.reason} align="end">
-            <span tabIndex={0} className="relative z-10 text-xs text-text-faint" aria-label={`Change not available yet. ${change.reason}`}>-</span>
-          </Tooltip>
-        ) : (
+      {change.reason ? (
+        <Tooltip content={change.reason} align="end">
+          <div tabIndex={0} className={`relative z-10 ${statisticsClass}`} aria-label={`Change not available yet. ${change.reason}`}>
+            {marketCap}
+            <span className="text-xs text-text-faint">-</span>
+          </div>
+        </Tooltip>
+      ) : (
+        <div className={statisticsClass}>
+          {marketCap}
           <PercentPill value={change.value} variant="text" />
-        )}
-      </div>
+        </div>
+      )}
     </li>
   );
 }
@@ -183,7 +188,7 @@ function NewPairsBody({ state, timeframe }: { state: ExploreRowsState; timeframe
   const buckets = useMemo(() => trenchBuckets(state.rows), [state.rows]);
   const metadata = state.metadata.state === 'ready' ? state.metadata.data : {};
   const ranking = state.ranking;
-  if (ranking.state === 'loading') return <><span className="sr-only" role="status">Loading new pairs</span><TableRowsSkeleton rows={8} columns={3} /></>;
+  if (state.loading || ranking.state === 'loading') return <><span className="sr-only" role="status">Loading new pairs</span><TableRowsSkeleton rows={1} columns={3} dense /></>;
   if (ranking.state === 'unsupported') return <UnavailableState title="New pairs" operation={ranking.operation} status={ranking.status} onRetry={state.reload} />;
   if (ranking.state === 'error') return <ErrorState title="New pairs can't load right now" message={userFacingMessage(ranking.error)} onRetry={state.reload} variant="inline" />;
   if (buckets.newPairs.length === 0) return <EmptyState icon={Sprout} title="No new coins yet" body="New launches appear here as soon as they are created." action={<Button variant="secondary" size="sm" href="/create">Create coin</Button>} />;
