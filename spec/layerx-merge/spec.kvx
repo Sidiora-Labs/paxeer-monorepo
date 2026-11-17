@@ -15406,6 +15406,12 @@ value = "A module under tools/qualification that loads a module of a service by 
 basis = "Gotcha 4635. Decision 3046."
 affects = []
 
+[decision.3716]
+title = "The verification of a committed journey is named committed in the schema, the human service and the web application"
+value = "The type VerificationLevel declares committed as the variant of the committed rung, and it ranks where checkpoint-finalised ranks. The labels checkpoint-finalised, paxeer-finalised and settlement-anchored are retired decoding values: the schema keeps them declared so that stored history and earlier answers decode, the service gives none of them in a new answer, and the web application shows each of them as it shows committed. The change is additive within the major version: the minor version of the schema takes the next number with its row of compatibility. A task that changes a declaration of the schema on purpose writes the baseline again with the command the schema tool names and writes the generated client again, both in the same task. Task 22.39.775 brings the schema, the schema tool, the service and the web application to this rule."
+basis = "Gotcha 4636. Decision 3046."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45066,6 +45072,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.775]
+title = "Name the verification of a committed journey committed in the schema of the human API, its tool, the service and the web application"
+reqs = ["22998.1"]
+touches = ["services/human/schema/human-api", "services/human/tools/schema-check", "services/human/crates/layerx-human-service", "apps/web"]
+tests = []
+verification_contract = "cargo run --manifest-path services/human/tools/schema-check/Cargo.toml --locked -- services/human/schema/human-api && cargo test --locked --manifest-path services/human/tools/schema-check/Cargo.toml && make -s human-check-api && sh tools/runtime/run-with-clock.sh cargo test --manifest-path services/human/Cargo.toml --locked -p layerx-human-service --lib && npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component"
+do_1 = "do_1 Gotcha 4636, decision 3716. Read services/human/schema/human-api/journeys.kvx, services/human/schema/human-api/home.kvx, services/human/schema/human-api/v1.kvx, services/human/schema/human-api/compatibility.kvx, the README of that directory, the library and the tests of services/human/tools/schema-check, services/human/crates/layerx-human-service/src/server/schema.rs, services/human/crates/layerx-human-service/src/server/production_reads.rs, apps/web/src/api/generated/index.ts, apps/web/src/kit/model.ts and the Makefile targets human-gen-api and human-check-api. List in the final message every place under the paths that names a variant of VerificationLevel, with the value it names and whether it writes an answer, decodes one or shows one."
+symbols = []
 
 [capability.22.39.774]
 title = "Let two qualification test modules load the present module of the owner helpers"
@@ -203863,6 +203878,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.775]
+title = "Name the verification of a committed journey committed in the schema of the human API, its tool, the service and the web application"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.775"]
+interfaces = []
+do_1 = "do_1 Gotcha 4636, decision 3716. Read services/human/schema/human-api/journeys.kvx, services/human/schema/human-api/home.kvx, services/human/schema/human-api/v1.kvx, services/human/schema/human-api/compatibility.kvx, the README of that directory, the library and the tests of services/human/tools/schema-check, services/human/crates/layerx-human-service/src/server/schema.rs, services/human/crates/layerx-human-service/src/server/production_reads.rs, apps/web/src/api/generated/index.ts, apps/web/src/kit/model.ts and the Makefile targets human-gen-api and human-check-api. List in the final message every place under the paths that names a variant of VerificationLevel, with the value it names and whether it writes an answer, decodes one or shows one."
+do_2 = "do_2 The type VerificationLevel declares the variant committed; the mapping of rungs gives it for the committed rung and it ranks where checkpoint-finalised ranks. checkpoint-finalised joins the retired decoding values beside paxeer-finalised and settlement-anchored and stays declared, and the texts of the type and of the states that name it say so in present tense. The minor version of the schema takes the next number and services/human/schema/human-api/compatibility.kvx gets its row. No variant, field or operation is removed, and no other type changes."
+do_3 = "do_3 A golden answer that stands for a present answer of the service names committed where it named checkpoint-finalised; the golden answers of the historical decode keep their labels, and one golden answer at least still decodes each retired label. The cases of the schema tool name the mapping and the variants of the second step, and the check that reads the variants in use and the retired ones holds. Write the baseline again with the command the schema tool names, after every other change of the schema, and read its difference: it holds the changes of this task and the three declarations of journeys.kvx as the main line has them, and nothing else."
+do_4 = "do_4 The service takes the variant committed from the declaration and no longer puts committed in place of a retired label when it loads the schema. What it gives stays as it is, committed for the committed rung and receipt-verified for the receipted rung, and a stored row or an earlier answer with a retired label still decodes. No behaviour of a route changes."
+do_5 = "do_5 Write the generated client again with the target human-gen-api; the target human-check-api holds. The models of the web application under apps/web/src take committed as the value of the committed rung and show it with the word and the mark they show for checkpoint-finalised; a retired label in an answer is shown the same way. No text of the copy catalog changes and no size or part of a view changes. A fixture or a case of the web application that stands for a present answer names committed; one case at least decodes an answer with committed and one an answer with each retired label. Task 22.44.81 changes sizes under apps/web/src at the same time: change only the files this task needs, and when the main line holds that task take it and keep both changes."
+do_6 = "do_6 Run by hand the schema tool over the schema directory, the tests of the schema tool, the cases of the service crate that read the schema directory, the cases of the web application of the verification, and python3 -m pytest -q -m native tools/qualification/test_beta_driver.py where the packages of tools/qualification/requirements.txt are present; give in the final message the exit code of each execution that case lists. The files of services/human/schema/human-api, services/human/tools/schema-check, services/human/crates/layerx-human-service and apps/web are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human/schema/human-api", "services/human/tools/schema-check", "services/human/crates/layerx-human-service", "apps/web"]
+tests = []
+planned_paths = []
+build_cmd = "make human-js-install && make agent-sdk-ts-build && cargo build --locked --manifest-path services/human/tools/schema-check/Cargo.toml"
+verify_cmd = "cargo run --manifest-path services/human/tools/schema-check/Cargo.toml --locked -- services/human/schema/human-api && cargo test --locked --manifest-path services/human/tools/schema-check/Cargo.toml && make -s human-check-api && sh tools/runtime/run-with-clock.sh cargo test --manifest-path services/human/Cargo.toml --locked -p layerx-human-service --lib && npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -387955,7 +388003,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.774]
 title = "Let two qualification test modules load the present module of the owner helpers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -467833,7 +467881,7 @@ do_9 = "do_9 Decision 3669, gotcha 4586. The work of the earlier candidate stays
 
 [task.22.39.688]
 title = "Let the suite of the explorer backend pass whole with no path in the builder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.634", "22.39.685", "22.39.686", "22.39.687", "22.39.695"]

@@ -104,6 +104,66 @@
               "text": "API keys and current quota windows"
             }
           ]
+        },
+        {
+          "name": "navigation-keys",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".dashboard-shell nav[aria-label=\"Primary\"] button:has-text(\"Keys\")"
+            },
+            {
+              "action": "wait",
+              "text": "API keys and current quota windows"
+            }
+          ]
+        },
+        {
+          "name": "navigation-logs",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".dashboard-shell nav[aria-label=\"Primary\"] button:has-text(\"Logs\")"
+            },
+            {
+              "action": "wait",
+              "text": "Principal-isolated request log"
+            }
+          ]
+        },
+        {
+          "name": "navigation-webhooks",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".dashboard-shell nav[aria-label=\"Primary\"] button:has-text(\"Webhooks\")"
+            },
+            {
+              "action": "wait",
+              "text": "Delivery log"
+            }
+          ]
+        },
+        {
+          "name": "navigation-overview",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".dashboard-shell nav[aria-label=\"Primary\"] button:has-text(\"Keys\")"
+            },
+            {
+              "action": "wait",
+              "text": "API keys and current quota windows"
+            },
+            {
+              "action": "click",
+              "selector": ".dashboard-shell nav[aria-label=\"Primary\"] button:has-text(\"Overview\")"
+            },
+            {
+              "action": "wait",
+              "text": "Recent protocol activity"
+            }
+          ]
         }
       ],
       "parts": [
@@ -2207,5 +2267,9 @@
       "min": 28,
       "max": 40
     }
-  ]
+  ],
+  "geometry": {
+    "file": "dashboard/geometry.json",
+    "widths": [390, 1280, 1440, 1920, 2560]
+  }
 }

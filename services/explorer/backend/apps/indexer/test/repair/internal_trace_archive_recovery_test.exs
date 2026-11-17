@@ -81,7 +81,7 @@ defmodule Indexer.InternalTraceArchiveRecoveryTest do
     Application.put_env(
       :ethereum_jsonrpc,
       EthereumJSONRPC.Geth,
-      Keyword.merge(geth, block_traceable?: false, tracer: "call_tracer")
+      Keyword.merge(geth, block_traceable?: false, tracer: "call_tracer", debug_trace_timeout: "5s")
     )
 
     blocks =
@@ -277,4 +277,3 @@ defmodule Indexer.InternalTraceArchiveRecoveryTest do
     end
   end
 end
-

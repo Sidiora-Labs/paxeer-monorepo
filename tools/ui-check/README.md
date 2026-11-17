@@ -51,8 +51,12 @@ when it uses all modes:
   record each focused selector.
 
 Every render has a numbered PNG and an entry in `result.json`, with the view,
-state, width, height, scheme, mode, render status, `hasContent`, `cancelled` and
-findings.
+state, width, height, scheme, mode, render status, `hasContent`, `cancelled`,
+`retried`, `firstDeadlineStep` and findings. `retried` says whether the render
+runs a second time, and `firstDeadlineStep` names the step where its first
+render reaches the deadline, or is `null` when it runs only once. The report's
+`retriedCount` counts renders that run a second time. Each view summary and the
+Total line append that count as `N retried` after their existing counts.
 `hasContent` is true only when the document has visible content and the viewport
 screenshot contains more than one colour. Findings include that context, a
 selector and measured values. A view summary and a total print to stdout, each
@@ -66,6 +70,16 @@ Without that list, any finding fails the command. Startup, navigation and
 screenshot errors produce a nonzero exit.
 A surface that cannot start has a surface-level load finding with null render
 context. Invalid arguments or surface files are rejected before rendering.
+
+When a render reaches its deadline, the check force-closes its browser, starts
+a new browser and renders the same view, state, size, scheme and mode once more
+with the same bound. Only the second render's findings, measurements and
+screenshot count, using the same screenshot name and matrix position. Geometry
+measurements and `--write-geometry` also use that render. If it succeeds without
+findings, the retry adds no finding and does not fail the check. If it reaches
+the deadline again, its deadline finding stands and there is no third render.
+Other causes do not trigger a retry. The 300000-millisecond bound per render,
+`--jobs` concurrency and finding kinds stay the same.
 
 ## Surface files
 
@@ -323,7 +337,7 @@ the regular device matrix, report and exit behavior.
 
 | Kind | Finding |
 | --- | --- |
-| `load` | Undeclared failed HTTP response, expected refusal without a matching response, failed request other than a page-cancelled request, console error, uncaught error or rejection, unmatched external request, startup or render error. A document without visible text of an element's own, media with an area (image, SVG drawing, canvas, video or embedded frame) or controls, or a viewport screenshot containing a single colour, also produces a finding. Text clipped to nothing does not count as content. The finding names the document or screenshot measurement. A render has a 300000-millisecond deadline across navigation, settling, measurement, contrast, keyboard traversal and screenshots. A deadline finding records `source: "deadline"` and the last started `step`; the render is marked not rendered. Its context is closed; if closing exceeds the navigation limit, its browser is ended and replaced before the next render. A matching declared refusal and its browser failed-resource console line are allowed. Page-cancelled requests add to the render's `cancelled` count without a finding; a cancelled document navigation remains a finding. Requests ended by the check produce only their original finding. |
+| `load` | Undeclared failed HTTP response, expected refusal without a matching response, failed request other than a page-cancelled request, console error, uncaught error or rejection, unmatched external request, startup or render error. A document without visible text of an element's own, media with an area (image, SVG drawing, canvas, video or embedded frame) or controls, or a viewport screenshot containing a single colour, also produces a finding. Text clipped to nothing does not count as content. The finding names the document or screenshot measurement. A render has a 300000-millisecond deadline across navigation, settling, measurement, contrast, keyboard traversal and screenshots. On the first deadline, its browser is force-closed and the same render runs once more in a new browser with the same bound; only the second outcome counts. A second deadline produces a finding with `source: "deadline"` and the last started `step`; the render is marked not rendered and its browser is force-closed. The per-render bound, `--jobs` concurrency and finding kinds stay the same. A matching declared refusal and its browser failed-resource console line are allowed. Page-cancelled requests add to the render's `cancelled` count without a finding; a cancelled document navigation remains a finding. Requests ended by the check produce only their original finding. |
 | `sideways` | Document wider than the viewport, or visible element extending past either side or wider than the viewport. Text clipped to no area is excluded. Descendants of horizontal scroll containers are measured within those containers, whose boxes are measured against the viewport. Element geometry has a 0.5-pixel rounding tolerance. |
 | `cut` | Text with hidden or clipped overflow exceeds its box by more than 1 pixel, without declared ellipsis. Scrollable text is allowed. |
 | `contrast` | Axe measures text below 4.5:1, or large text below 3:1 (24 pixels, or bold at approximately 18.67 pixels). A custom axe check measures visible control borders, identifying fills and SVG fills/strokes below 3:1. Disabled controls are excluded. |
