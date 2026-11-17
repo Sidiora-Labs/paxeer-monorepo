@@ -205711,7 +205711,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.811]
 title = "Bring the cases of the home, explore, leaderboard, profile and reward views of the launchpad web application in line with their views and producers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205866,7 +205866,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.806]
 title = "Bring the suite of the launchpad gateway module in line with the gateway schema, the livestream configuration and the playback it reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205897,7 +205897,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.805]
 title = "Bring the suite of the launchpad stats module in line with the holdings rows and the recorded transcripts it reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -206021,7 +206021,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.801]
 title = "Bring the suite of the shared launchpad module in line with the composer, the schema command and the scanner it reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
