@@ -24,7 +24,7 @@ export default async function RootPage({
     typeof parameters.return_to === "string" ? parameters.return_to : undefined;
   const session = await verifiedWebSession(requestHeaders.get("cookie") ?? "");
   return (
-    <div className="mx-auto flex w-full max-w-[var(--search-content-max-width)] flex-col gap-4 p-4 md:p-6">
+    <div className="flex flex-col gap-4">
       <Onboarding
         initialSelection={selectServerShell(requestHeaders, requestCookies)}
         initiallyAuthenticated={session !== undefined}

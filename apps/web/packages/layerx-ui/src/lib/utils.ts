@@ -5,7 +5,19 @@ const mergeThemeClasses = extendTailwindMerge({
   extend: {
     classGroups: {
       "font-size": [
-        { text: ["nano", "micro", "label", "body-sm", "body", "title-sm", "title", "display"] },
+        {
+          text: [
+            "caption",
+            "nano",
+            "micro",
+            "label",
+            "body-sm",
+            "body",
+            "title-sm",
+            "title",
+            "display",
+          ],
+        },
       ],
       shadow: [{ shadow: ["sm", "card", "overlay"] }],
     },
