@@ -539,7 +539,9 @@ defmodule Explorer.ChainTest do
 
       on_exit(fn ->
         Supervisor.terminate_child(Explorer.Supervisor, PendingBlockOperationCount.child_id())
+        Supervisor.restart_child(Explorer.Supervisor, PendingBlockOperationCount.child_id())
         Supervisor.terminate_child(Explorer.Supervisor, PendingTransactionOperationCount.child_id())
+        Supervisor.restart_child(Explorer.Supervisor, PendingTransactionOperationCount.child_id())
       end)
     end
 
@@ -848,13 +850,20 @@ defmodule Explorer.ChainTest do
       Supervisor.terminate_child(Explorer.Supervisor, PendingTransactionOperationCount.child_id())
       Supervisor.restart_child(Explorer.Supervisor, PendingTransactionOperationCount.child_id())
       configuration = Application.get_env(:indexer, Indexer.Fetcher.InternalTransaction.Supervisor)
+      trace_first_block = Application.fetch_env(:indexer, :trace_first_block)
       Application.put_env(:indexer, Indexer.Fetcher.InternalTransaction.Supervisor, disabled?: false)
 
       on_exit(fn ->
-        Application.put_env(:indexer, :trace_first_block, 0)
+        case trace_first_block do
+          {:ok, value} -> Application.put_env(:indexer, :trace_first_block, value)
+          :error -> Application.delete_env(:indexer, :trace_first_block)
+        end
+
         Application.put_env(:indexer, Indexer.Fetcher.InternalTransaction.Supervisor, configuration)
         Supervisor.terminate_child(Explorer.Supervisor, PendingBlockOperationCount.child_id())
+        Supervisor.restart_child(Explorer.Supervisor, PendingBlockOperationCount.child_id())
         Supervisor.terminate_child(Explorer.Supervisor, PendingTransactionOperationCount.child_id())
+        Supervisor.restart_child(Explorer.Supervisor, PendingTransactionOperationCount.child_id())
       end)
     end
 

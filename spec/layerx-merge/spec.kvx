@@ -15388,6 +15388,18 @@ value = "Decision 3708 holds for the package under apps/web/packages/layerx-ui a
 basis = "Gotcha 4632. Decisions 3707, 3708 and 3710."
 affects = []
 
+[decision.3713]
+title = "The packages that build with the 16 line of the web framework name one release"
+value = "Every package file of the repository that builds with the 16 line of the web framework names release 16.4.6, and every lock file of such a package or of its workspace resolves that release. A package file that names a range keeps the form of a range and starts it at that release. Release 16.4.6 is the least release: a later task may raise it for all these packages at once, and none of them stays behind the others. The developer dashboard takes its packages from the lock file of apps/web, as the check under scripts/ci for that lock file says. A check under scripts/ci reads the package files and the lock files of the line and names each one that is below the release; it is run by hand and by the verification of task 22.39.773. The packages of the 15 line and of the 14 line keep their releases."
+basis = "Gotcha 4633."
+affects = []
+
+[decision.3714]
+title = "A render that ends at its deadline is rendered again once in a new browser"
+value = "The render check renders a view again once when the render ends at its deadline: it closes the browser of that render, starts a new one and renders the same view, state, size, scheme and mode with the same bound. The outcome of the second render counts. A second end at the deadline is the finding it was before, and a render that ends for another cause is not rendered again. The result and the summary name the count of renders that were rendered again. The bound of a render, the count of renders at once, the views, the states, the modes and the kinds of finding stay as they are. For a render that holds when it is rendered again this takes the place of the last sentence of decision 3702; a page that does not settle in both renders is repaired in the page. Task 22.44.83 changes the check."
+basis = "Gotcha 4634. Decisions 3591 and 3702."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45048,6 +45060,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.83]
+title = "Let the render check render a view again once when a render ends at its deadline"
+reqs = ["22998.1"]
+touches = ["tools/ui-check"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4634, decision 3714. Read tools/ui-check/check.mjs, tools/ui-check/browser.mjs, tools/ui-check/config.mjs, tools/ui-check/README.md and tools/ui-check/test/check.test.mjs. List in the final message where a render ends at its deadline, what the result holds for such a render and how the browser of a render is closed and opened."
+symbols = []
+
+[capability.22.39.773]
+title = "Bring the packages of the 16 line of the web framework to release 16.4.6"
+reqs = ["22998.1"]
+touches = ["package.json", "package-lock.json", "apps/bridge", "apps/names", "apps/wallet", "apps/web", "sdk/integrations/next/example", "services/platform/examples/samples/paid-route-next", "services/platform/hosted/dashboard/web", "services/wallet", "scripts/ci"]
+tests = []
+verification_contract = "node scripts/ci/web-framework-release.mjs && node scripts/ci/developer-dashboard-lock.mjs && pnpm --dir apps/bridge run build && pnpm --dir apps/bridge run typecheck && pnpm --dir apps/bridge run test && pnpm --dir apps/names run build && pnpm --dir apps/wallet run typecheck && pnpm --dir apps/wallet exec vitest run --passWithNoTests src/components src/widgets src/surfaces && npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component && npm --prefix apps/web run test:foundation && npm --prefix apps/web run build && (test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static && (cd services/wallet/demo && pnpm test)"
+do_1 = "do_1 Gotcha 4633, decision 3713. Read the package files of the root of the repository, of apps/bridge, apps/names, apps/wallet, apps/web, sdk/integrations/next/example, services/platform/examples/samples/paid-route-next, services/platform/hosted/dashboard/web and services/wallet/demo, the lock files apps/bridge/pnpm-lock.yaml, apps/names/pnpm-lock.yaml, apps/wallet/pnpm-lock.yaml, apps/web/package-lock.json, apps/web/pnpm-lock.yaml, package-lock.json at the root, sdk/integrations/next/example/package-lock.json and services/wallet/pnpm-lock.yaml, and scripts/ci/developer-dashboard-lock.mjs. List in the final message, for each package, the release its package file names, the release its lock file resolves and the package manager that writes that lock file."
+symbols = []
 
 [capability.22.44.82]
 title = "Write the geometry file of the developer dashboard again from the corrected package of parts"
@@ -175239,6 +175269,71 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.83]
+title = "Let the render check render a view again once when a render ends at its deadline"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.83"]
+interfaces = []
+do_1 = "do_1 Gotcha 4634, decision 3714. Read tools/ui-check/check.mjs, tools/ui-check/browser.mjs, tools/ui-check/config.mjs, tools/ui-check/README.md and tools/ui-check/test/check.test.mjs. List in the final message where a render ends at its deadline, what the result holds for such a render and how the browser of a render is closed and opened."
+do_2 = "do_2 A render that ends at its deadline is rendered again once: the browser it ran in is closed with force, a new browser is started, and the same view, state, size, scheme and mode are rendered with the same bound. The outcome of the second render takes the place of the first one in the result, with its findings, its measures and its screenshot under the same name. When the second render ends at its deadline too, the finding of the deadline stands as before. A render that ends for another cause is not rendered again, and no render is rendered more than twice. A geometry plan of a render belongs to the render whose outcome counts, and the option that writes a geometry file writes from that render."
+do_3 = "do_3 The result names for each render whether it was rendered again and the step at which the first render ended. The summary line of a view and the Total line print the count of renders that were rendered again; the present parts of both lines keep their words and their order, and the new count follows them. A render that holds when it is rendered again is no finding and does not change the status of the check. The order of the renders in the result and the names of the screenshots stay as they are with every value of the option jobs."
+do_4 = "do_4 The README of the check describes the second render in present tense: when it happens, what counts, what the result and the summary print. The bound of a render, the option jobs and the kinds of finding stay as they are, and the README says so where it describes the deadline."
+do_5 = "do_5 Cases in tools/ui-check/test/check.test.mjs with fixtures of their own and a small bound given to the check: a view whose first render does not settle inside the bound and whose second render does ends with the outcome of the second render, a count of one and a passing status; a view that never settles is rendered twice and no more, holds one finding of the deadline and fails the check; a view with a finding of another kind is rendered once; and with the option jobs at two the order of the renders and the names of the screenshots are the ones of a run without a second render. No present case is removed or weakened."
+do_6 = "do_6 Run the cases of the check by hand and read the summary. The files of tools/ui-check are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.773]
+title = "Bring the packages of the 16 line of the web framework to release 16.4.6"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.773"]
+interfaces = []
+do_1 = "do_1 Gotcha 4633, decision 3713. Read the package files of the root of the repository, of apps/bridge, apps/names, apps/wallet, apps/web, sdk/integrations/next/example, services/platform/examples/samples/paid-route-next, services/platform/hosted/dashboard/web and services/wallet/demo, the lock files apps/bridge/pnpm-lock.yaml, apps/names/pnpm-lock.yaml, apps/wallet/pnpm-lock.yaml, apps/web/package-lock.json, apps/web/pnpm-lock.yaml, package-lock.json at the root, sdk/integrations/next/example/package-lock.json and services/wallet/pnpm-lock.yaml, and scripts/ci/developer-dashboard-lock.mjs. List in the final message, for each package, the release its package file names, the release its lock file resolves and the package manager that writes that lock file."
+do_2 = "do_2 Each of the nine package files names release 16.4.6 of the framework; the one that names a range keeps the form of a range and starts it at 16.4.6. A package of the family of the framework that a package file pins to the same release as the framework moves with it; a package of that family on another line, such as a lint configuration, stays. Each lock file is written by the package manager of its package or workspace, with the option that changes the lock file alone where the manager has one, and resolves release 16.4.6. No other dependency moves beyond what that release requires, and no lock file changes its format version. apps/web has two lock files and both resolve the release. The check of scripts/ci/developer-dashboard-lock.mjs holds after the change."
+do_3 = "do_3 Read the notes of the releases of the framework between the named release and 16.4.6. Where a build, a type check or a case of one of these packages asks for a change of code after the move, make it inside that package and name it in the final message; no behaviour of a surface changes, no size or part of a view changes, and no case is removed, skipped or weakened. A setting of the framework is changed only where a release note asks for it."
+do_4 = "do_4 Write scripts/ci/web-framework-release.mjs: it reads every tracked package file of the repository that names the framework with a release or a range of the 16 line, the lock file beside it and the lock file of its workspace where it has one. It ends with a status other than zero and names the file and the release when a package file names, or a lock file resolves, a release of the 16 line below 16.4.6, and it prints the count of files it read. It reads files alone and runs no package manager. It is run by hand and by the verification of this task; no workflow and no other check changes."
+do_5 = "do_5 Run by hand the build of each of the nine packages that has one and read each summary, then the commands of the verification. A hand build under an earlier release can stop once as gotcha 4633 says: start the same command again, run no command that its notice names and ask nothing about it. The files of the nine packages, the lock files of the first step and scripts/ci/web-framework-release.mjs are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["package.json", "package-lock.json", "apps/bridge", "apps/names", "apps/wallet", "apps/web", "sdk/integrations/next/example", "services/platform/examples/samples/paid-route-next", "services/platform/hosted/dashboard/web", "services/wallet", "scripts/ci"]
+tests = []
+planned_paths = ["scripts/ci/web-framework-release.mjs"]
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir apps/wallet install --frozen-lockfile && pnpm --dir apps/bridge install --frozen-lockfile && pnpm --dir apps/names install --frozen-lockfile && npm --prefix apps/web ci --ignore-scripts --no-audit --no-fund"
+verify_cmd = "node scripts/ci/web-framework-release.mjs && node scripts/ci/developer-dashboard-lock.mjs && pnpm --dir apps/bridge run build && pnpm --dir apps/bridge run typecheck && pnpm --dir apps/bridge run test && pnpm --dir apps/names run build && pnpm --dir apps/wallet run typecheck && pnpm --dir apps/wallet exec vitest run --passWithNoTests src/components src/widgets src/surfaces && npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component && npm --prefix apps/web run test:foundation && npm --prefix apps/web run build && (test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static && (cd services/wallet/demo && pnpm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

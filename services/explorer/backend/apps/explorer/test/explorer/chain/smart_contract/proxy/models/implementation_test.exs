@@ -11,6 +11,19 @@ defmodule Explorer.Chain.SmartContract.Proxy.Models.Implementation.Test do
   setup :verify_on_exit!
   setup :set_mox_global
 
+  setup do
+    setting = Application.fetch_env(:explorer, :proxy)
+
+    on_exit(fn ->
+      case setting do
+        {:ok, value} -> Application.put_env(:explorer, :proxy, value)
+        :error -> Application.delete_env(:explorer, :proxy)
+      end
+    end)
+
+    :ok
+  end
+
   describe "fetching implementation" do
     test "get_implementation/1" do
       smart_contract = insert(:smart_contract)

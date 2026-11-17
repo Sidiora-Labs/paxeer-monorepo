@@ -32,7 +32,7 @@ defmodule Explorer.Repair.PriceAcceptanceColumnTest do
   @index "paxeer_x_price_acceptance_backfill_next_job_index"
 
   setup do
-    Explorer.TestHelper.start_migration_owner!()
+    Explorer.MigrationCase.start_owner!()
     down_migration(@version, RelaxPaxeerXPriceObservationAccepted)
     down_migration(@queue_version, BackfillPaxeerXPriceAcceptance)
 

@@ -50,7 +50,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
   end
 
   setup do
-    Explorer.TestHelper.start_migration_owner!()
+    Explorer.MigrationCase.start_owner!()
     assert Ecto.Migrator.down(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false) in [:ok, :already_down]
     body = fixture("block_txs.json")
     result_body = fixture("block_results.json")
@@ -265,6 +265,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     refute_receive {:node_request, _, _}, 150
     assert Process.alive?(runner)
 
+    :ok = :sys.suspend(runner)
     assert :ok = Explorer.TestHelper.stop_supervised_if_alive(PriceAcceptanceReplay)
     reopened = start_supervised!({PriceAcceptanceReplay, options})
     assert reopened != runner
@@ -277,6 +278,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     assert cursor(orphan.number) == [[-1, -1, false, nil]]
     refute_receive {:node_request, _, _}, 150
     assert Process.alive?(reopened)
+    :ok = :sys.suspend(reopened)
     assert :ok = Explorer.TestHelper.stop_supervised_if_alive(PriceAcceptanceReplay)
   end
 
@@ -307,6 +309,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayLifecycleTest do
     assert cursor() == [[-1, -1, false, nil]]
     refute_receive {:node_request, _, _}, 150
     assert Process.alive?(runner)
+    :ok = :sys.suspend(runner)
     assert :ok = Explorer.TestHelper.stop_supervised_if_alive(PriceAcceptanceReplay)
   end
 
