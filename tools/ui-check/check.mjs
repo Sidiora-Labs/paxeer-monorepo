@@ -248,6 +248,33 @@ function screenshotHasContent(screenshot) {
   return false;
 }
 
+export const FULL_PAGE_CAPTURE_MAX_MS = 60000;
+
+export async function captureFullPage(page, render, out, { navigationMs = LIMITS.navigationMs, maxMs = FULL_PAGE_CAPTURE_MAX_MS } = {}, isActive = () => !page.isClosed()) {
+  let height = null;
+  let milliseconds = navigationMs;
+  try {
+    const dimensions = await page.waitForFunction(() => JSON.stringify({
+      height: Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0, innerHeight),
+      viewportHeight: innerHeight,
+    }), undefined, { timeout: navigationMs });
+    let document;
+    try {
+      document = JSON.parse(await dimensions.jsonValue());
+    } finally {
+      await dimensions.dispose();
+    }
+    height = document.height;
+    milliseconds = Math.max(navigationMs, Math.min(maxMs, navigationMs * Math.ceil(height / document.viewportHeight)));
+    await page.screenshot({ path: join(out, render.screenshot), fullPage: true, timeout: milliseconds, animations: "allow" });
+  } catch (error) {
+    if (!isActive()) return;
+    render.findings.push({ kind: "load", selector: "document", values: { source: "screenshot", height, milliseconds, message: error.message } });
+    render.screenshot = null;
+    render.rendered = false;
+  }
+}
+
 export async function applySteps(page, steps) {
   for (const step of steps) {
     if (step.action === "click") await page.locator(step.selector).click();
@@ -424,7 +451,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
   const endedFailures = [];
   const failedResponses = [];
   const consoleErrors = [];
-  const render = { view: view.name, state: state.name, size: { width, height }, scheme, mode, rendered: false, hasContent: false, cancelled: 0, retried: false, firstDeadlineStep: null, firstLoadFailure: null, embeddedMessages: [], screenshot: out ? `${String(index + 1).padStart(5, "0")}.png` : null, findings: [] };
+  const render = { view: view.name, state: state.name, size: { width, height }, scheme, mode, rendered: false, hasContent: false, cancelled: 0, retried: false, firstDeadlineStep: null, firstLoadFailure: null, embeddedMessages: [], screenshot: out ? `${String(index + 1).padStart(5, "0")}.png` : null, findings };
   let page;
   const work = async () => {
     try {
@@ -587,14 +614,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
     }
     if (page && active && out) {
       startStep("screenshot");
-      try {
-        await page.screenshot({ path: join(out, render.screenshot), fullPage: true, timeout: LIMITS.navigationMs, animations: "allow" });
-      } catch (error) {
-        if (!active) return;
-        addLoad({ source: "screenshot", message: error.message });
-        render.screenshot = null;
-        render.rendered = false;
-      }
+      await captureFullPage(page, render, out, undefined, () => active);
     }
   };
   try {
