@@ -13,7 +13,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import Link from 'next/link';
 import { Check, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -129,7 +129,13 @@ export function DropdownMenu({
       event.preventDefault();
       closeAndRestore();
     } else if (event.key === 'Tab') {
+      event.preventDefault();
+      const candidates = Array.from(document.querySelectorAll<HTMLElement>('a[href],button,input,select,textarea,[tabindex]'))
+        .filter(element => element.tabIndex >= 0 && !element.matches(':disabled,[inert],[inert] *') && element.getClientRects().length > 0 && !menuRef.current?.contains(element));
+      const index = candidates.indexOf(triggerRef.current as HTMLButtonElement);
+      const next = candidates[index + (event.shiftKey ? -1 : 1)];
       setOpen(false);
+      next?.focus();
     } else if (event.key.length === 1 && /\S/.test(event.key)) {
       const needle = event.key.toLowerCase();
       const text = (item: MenuItem) =>
@@ -199,7 +205,7 @@ export function DropdownMenu({
                 if (next instanceof Node && (menuRef.current?.contains(next) || triggerRef.current?.contains(next))) return;
                 const menu = menuRef.current;
                 if (menu?.matches(':popover-open')) menu.hidePopover();
-                setOpen(false);
+                flushSync(() => setOpen(false));
               }}
               style={{ top: position.top, left: position.left }}
               className="sl-popover absolute z-[var(--sl-z-dropdown)] min-w-[min(var(--sl-menu-min-width),calc(100dvw-var(--sl-space-6)))] max-w-[calc(100dvw-var(--sl-space-6))] max-h-[var(--sl-dialog-max-height)] overflow-y-auto rounded-md bg-surface-3 p-1 shadow-pop"

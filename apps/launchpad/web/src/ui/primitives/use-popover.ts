@@ -29,10 +29,12 @@ export function usePopoverPosition(
     if (!anchor) return;
     const rect = anchor.getBoundingClientRect();
     const layer = layerRef.current;
-    if (layer && typeof layer.showPopover === 'function') {
+    if (layer instanceof HTMLDialogElement) {
+      if (!layer.open) layer.showModal();
+    } else if (layer && typeof layer.showPopover === 'function') {
       layer.classList.add('sl-popover');
       layer.setAttribute('popover', popover);
-      if (!layer.matches(':popover-open')) layer.showPopover();
+      if (!layer.matches(':popover-open')) Reflect.apply(layer.showPopover, layer, [{ source: anchor }]);
     }
     const gutter = surfaceToken('--sl-viewport-gutter');
     const gap = offset ?? surfaceToken('--sl-popover-gap');
@@ -83,18 +85,22 @@ export function usePopoverPosition(
   useIsoLayoutEffect(() => {
     if (!open) {
       const layer = layerRef.current;
-      if (layer && typeof layer.hidePopover === 'function' && layer.matches(':popover-open'))
+      if (layer instanceof HTMLDialogElement && layer.open) layer.close();
+      else if (layer && typeof layer.hidePopover === 'function' && layer.matches(':popover-open'))
         layer.hidePopover();
       setPosition(null);
       return;
     }
     measure();
     const onChange = () => flushSync(measure);
+    const onScroll = () => {
+      if (!(layerRef.current instanceof HTMLDialogElement)) onChange();
+    };
     window.addEventListener('resize', onChange);
-    window.addEventListener('scroll', onChange, true);
+    window.addEventListener('scroll', onScroll, true);
     return () => {
       window.removeEventListener('resize', onChange);
-      window.removeEventListener('scroll', onChange, true);
+      window.removeEventListener('scroll', onScroll, true);
     };
   }, [open, measure, layerRef]);
 

@@ -48,8 +48,8 @@ export function DiscoveryPanel({ title, category, activePool, className }: Disco
   // The statistics read itself failed or is not deployed; per-row reasons cover everything else.
   const statsDetail = state.stats.state === 'unsupported' ? technicalDetail(state.stats.operation, state.stats.status) : null;
   let body;
-  if (ranking.state === 'loading') {
-    body = <div role="status" aria-label={`Loading ${title.toLowerCase()}`}><TableRowsSkeleton rows={6} columns={3} dense /></div>;
+  if (state.loading || ranking.state === 'loading') {
+    body = <div role="status" aria-label={`Loading ${title.toLowerCase()}`} className="absolute inset-0 overflow-hidden"><TableRowsSkeleton rows={6} columns={3} dense /></div>;
   } else if (ranking.state === 'unsupported') {
     body = <UnavailableState title={title} operation={ranking.operation} status={ranking.status} message={ranking.message} onRetry={state.reload} className="p-4" />;
   } else if (ranking.state === 'error') {
@@ -120,7 +120,7 @@ export function DiscoveryPanel({ title, category, activePool, className }: Disco
         <span>Coin</span>
         <span>Market cap</span>
       </div>
-      <div className="min-h-24 flex-1 overflow-y-auto">{body}</div>
+      <div className="relative min-h-24 flex-1 overflow-y-auto">{body}</div>
     </section>
   );
 }
