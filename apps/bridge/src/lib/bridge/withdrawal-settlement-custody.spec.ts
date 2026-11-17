@@ -216,6 +216,23 @@ async function mount(component: ReactElement, client = newClient(), chainId: (ty
   return { client, view };
 }
 
+async function observePanelQuery(client: QueryClient, queryKey: ReadonlyArray<unknown>) {
+  const { promise } = await waitFor(() => {
+    const query = client.getQueryCache().find({ queryKey, exact: true });
+    if (!query?.promise) throw new Error('The transfer query has not started.');
+    return { promise: query.promise };
+  });
+  await act(async() => {
+    await promise;
+  });
+}
+
+async function observeWithdrawalPanel(client: QueryClient, transfer: Parameters<typeof transferLiveOptions>[0], refreshKey: number) {
+  await observePanelQuery(client, transferListOptions(wallet.address, refreshKey, 0).queryKey);
+  await observePanelQuery(client, transferLiveOptions(transfer).queryKey);
+  await observePanelQuery(client, releaseAttestationOptions(transfer, false).queryKey);
+}
+
 async function submitWithdrawal() {
   const foreign = bridgeChainByKey('base')!;
   const asset = foreign.assets[0];
@@ -294,6 +311,7 @@ async function settlementBroadcastRestartsReconcilesAndRetries() {
   expect(stored.releasedAt).toBeUndefined();
   expect(phaseOf(stored, undefined, true)).toBe('settling');
   let first = await mount(createElement(TransfersPanel, { refreshKey: 0 }), newClient(), 8453);
+  await observeWithdrawalPanel(first.client, stored, 0);
   await waitFor(() => expect(first.view.getByRole('button', { name: 'Retry settlement' })).toBeTruthy());
   expect(first.view.getByText(/Settlement broadcast/)).toBeTruthy();
   first.view.unmount();
@@ -301,6 +319,7 @@ async function settlementBroadcastRestartsReconcilesAndRetries() {
   // Reopen with a fresh React Query cache: a pending hash must still be read.
   const before = requests.filter((entry) => entry.method === 'eth_getTransactionReceipt').length;
   first = await mount(createElement(TransfersPanel, { refreshKey: 1 }), newClient(), 8453);
+  await observeWithdrawalPanel(first.client, stored, 1);
   await waitFor(() => expect(first.view.getByRole('button', { name: 'Retry settlement' })).toBeTruthy());
   expect(requests.filter((entry) => entry.method === 'eth_getTransactionReceipt').length).toBeGreaterThan(before);
   expect(listTransfers(wallet.address)[0].releasedAt).toBeUndefined();
@@ -319,6 +338,7 @@ async function settlementBroadcastRestartsReconcilesAndRetries() {
   expect(reverted.settlementStatus).toBe('reverted');
   expect(listTransfers(wallet.address)[0].releasedAt).toBeUndefined();
   const reopened = await mount(createElement(TransfersPanel, { refreshKey: 2 }), newClient(), 8453);
+  await observeWithdrawalPanel(reopened.client, listTransfers(wallet.address)[0], 2);
   await waitFor(() => {
     expect(reopened.view.getByText(/settlement attempt reverted/)).toBeTruthy();
     expect(reopened.view.getByRole('button', { name: 'Retry settlement' })).toBeTruthy();

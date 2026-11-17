@@ -9,6 +9,31 @@
     {
       "name": "deposit transfer",
       "path": "/",
+      "parts": [
+        { "name": "header", "selector": "header" },
+        { "name": "navigation", "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]" },
+        { "name": "main", "selector": "main" },
+        { "name": "first heading", "selector": "main h1" },
+        { "name": "primary control", "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type" },
+        { "name": "bridge card", "selector": "#bridge > [data-slot=\"card\"]" },
+        { "name": "source route card", "selector": "section[aria-label=\"From\"]" },
+        { "name": "destination route card", "selector": "section[aria-label=\"To\"]" },
+        { "name": "amount input", "selector": "#bridge-amount" },
+        { "name": "destination input", "selector": "#bridge-destination" },
+        { "name": "first bridge metric", "selector": "#bridge dl > div:first-child" },
+        { "name": "import form", "selector": "form[aria-label=\"Import a bridge transfer\"]" },
+        { "name": "import primary control", "selector": "form[aria-label=\"Import a bridge transfer\"] button[type=\"submit\"]" },
+        { "name": "import route select", "selector": "form[aria-label=\"Import a bridge transfer\"] select" },
+        { "name": "import hash input", "selector": "form[aria-label=\"Import a bridge transfer\"] input" },
+        { "name": "transfer history region", "selector": "#transfers" },
+        { "name": "transfer history message", "selector": "#transfers [role=\"alert\"]" },
+        { "name": "step card", "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)" },
+        { "name": "contracts card", "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]" },
+        { "name": "first route row", "selector": "#how-it-works ul > li:first-child" },
+        { "name": "footer", "selector": "footer" },
+        { "name": "theme control", "selector": "button[data-slot=\"theme-toggle\"]" },
+        { "name": "wallet control", "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")" }
+      ],
       "states": [
         {
           "name": "filled",
@@ -52,6 +77,31 @@
     {
       "name": "withdrawal transfer",
       "path": "/",
+      "parts": [
+        { "name": "header", "selector": "header" },
+        { "name": "navigation", "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]" },
+        { "name": "main", "selector": "main" },
+        { "name": "first heading", "selector": "main h1" },
+        { "name": "primary control", "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type" },
+        { "name": "bridge card", "selector": "#bridge > [data-slot=\"card\"]" },
+        { "name": "source route card", "selector": "section[aria-label=\"From\"]" },
+        { "name": "destination route card", "selector": "section[aria-label=\"To\"]" },
+        { "name": "amount input", "selector": "#bridge-amount" },
+        { "name": "destination input", "selector": "#bridge-destination" },
+        { "name": "first bridge metric", "selector": "#bridge dl > div:first-child" },
+        { "name": "import form", "selector": "form[aria-label=\"Import a bridge transfer\"]" },
+        { "name": "import primary control", "selector": "form[aria-label=\"Import a bridge transfer\"] button[type=\"submit\"]" },
+        { "name": "import route select", "selector": "form[aria-label=\"Import a bridge transfer\"] select" },
+        { "name": "import hash input", "selector": "form[aria-label=\"Import a bridge transfer\"] input" },
+        { "name": "transfer history region", "selector": "#transfers" },
+        { "name": "transfer history message", "selector": "#transfers [role=\"alert\"]" },
+        { "name": "step card", "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)" },
+        { "name": "contracts card", "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]" },
+        { "name": "first route row", "selector": "#how-it-works ul > li:first-child" },
+        { "name": "footer", "selector": "footer" },
+        { "name": "theme control", "selector": "button[data-slot=\"theme-toggle\"]" },
+        { "name": "wallet control", "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")" }
+      ],
       "states": [
         {
           "name": "withdrawal form",
@@ -75,6 +125,31 @@
     {
       "name": "import transfer",
       "path": "/",
+      "parts": [
+        { "name": "header", "selector": "header" },
+        { "name": "navigation", "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]" },
+        { "name": "main", "selector": "main" },
+        { "name": "first heading", "selector": "main h1" },
+        { "name": "primary control", "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type" },
+        { "name": "bridge card", "selector": "#bridge > [data-slot=\"card\"]" },
+        { "name": "source route card", "selector": "section[aria-label=\"From\"]" },
+        { "name": "destination route card", "selector": "section[aria-label=\"To\"]" },
+        { "name": "amount input", "selector": "#bridge-amount" },
+        { "name": "destination input", "selector": "#bridge-destination" },
+        { "name": "first bridge metric", "selector": "#bridge dl > div:first-child" },
+        { "name": "import form", "selector": "form[aria-label=\"Import a bridge transfer\"]" },
+        { "name": "import primary control", "selector": "form[aria-label=\"Import a bridge transfer\"] button[type=\"submit\"]" },
+        { "name": "import route select", "selector": "form[aria-label=\"Import a bridge transfer\"] select" },
+        { "name": "import hash input", "selector": "form[aria-label=\"Import a bridge transfer\"] input" },
+        { "name": "transfer history region", "selector": "#transfers" },
+        { "name": "transfer history message", "selector": "#transfers [role=\"alert\"]" },
+        { "name": "step card", "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)" },
+        { "name": "contracts card", "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]" },
+        { "name": "first route row", "selector": "#how-it-works ul > li:first-child" },
+        { "name": "footer", "selector": "footer" },
+        { "name": "theme control", "selector": "button[data-slot=\"theme-toggle\"]" },
+        { "name": "wallet control", "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")" }
+      ],
       "states": [
         {
           "name": "invalid source transaction",
@@ -88,11 +163,61 @@
     },
     {
       "name": "transfer history",
-      "path": "/"
+      "path": "/",
+      "parts": [
+        { "name": "header", "selector": "header" },
+        { "name": "navigation", "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]" },
+        { "name": "main", "selector": "main" },
+        { "name": "first heading", "selector": "main h1" },
+        { "name": "primary control", "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type" },
+        { "name": "bridge card", "selector": "#bridge > [data-slot=\"card\"]" },
+        { "name": "source route card", "selector": "section[aria-label=\"From\"]" },
+        { "name": "destination route card", "selector": "section[aria-label=\"To\"]" },
+        { "name": "amount input", "selector": "#bridge-amount" },
+        { "name": "destination input", "selector": "#bridge-destination" },
+        { "name": "first bridge metric", "selector": "#bridge dl > div:first-child" },
+        { "name": "import form", "selector": "form[aria-label=\"Import a bridge transfer\"]" },
+        { "name": "import primary control", "selector": "form[aria-label=\"Import a bridge transfer\"] button[type=\"submit\"]" },
+        { "name": "import route select", "selector": "form[aria-label=\"Import a bridge transfer\"] select" },
+        { "name": "import hash input", "selector": "form[aria-label=\"Import a bridge transfer\"] input" },
+        { "name": "transfer history region", "selector": "#transfers" },
+        { "name": "transfer history message", "selector": "#transfers [role=\"alert\"]" },
+        { "name": "step card", "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)" },
+        { "name": "contracts card", "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]" },
+        { "name": "first route row", "selector": "#how-it-works ul > li:first-child" },
+        { "name": "footer", "selector": "footer" },
+        { "name": "theme control", "selector": "button[data-slot=\"theme-toggle\"]" },
+        { "name": "wallet control", "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")" }
+      ]
     },
     {
       "name": "theme and wallet controls",
       "path": "/",
+      "parts": [
+        { "name": "header", "selector": "header" },
+        { "name": "navigation", "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]" },
+        { "name": "main", "selector": "main" },
+        { "name": "first heading", "selector": "main h1" },
+        { "name": "primary control", "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type" },
+        { "name": "bridge card", "selector": "#bridge > [data-slot=\"card\"]" },
+        { "name": "source route card", "selector": "section[aria-label=\"From\"]" },
+        { "name": "destination route card", "selector": "section[aria-label=\"To\"]" },
+        { "name": "amount input", "selector": "#bridge-amount" },
+        { "name": "destination input", "selector": "#bridge-destination" },
+        { "name": "first bridge metric", "selector": "#bridge dl > div:first-child" },
+        { "name": "import form", "selector": "form[aria-label=\"Import a bridge transfer\"]" },
+        { "name": "import primary control", "selector": "form[aria-label=\"Import a bridge transfer\"] button[type=\"submit\"]" },
+        { "name": "import route select", "selector": "form[aria-label=\"Import a bridge transfer\"] select" },
+        { "name": "import hash input", "selector": "form[aria-label=\"Import a bridge transfer\"] input" },
+        { "name": "transfer history region", "selector": "#transfers" },
+        { "name": "transfer history message", "selector": "#transfers [role=\"alert\"]" },
+        { "name": "step card", "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)" },
+        { "name": "contracts card", "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]" },
+        { "name": "first route row", "selector": "#how-it-works ul > li:first-child" },
+        { "name": "footer", "selector": "footer" },
+        { "name": "theme control", "selector": "button[data-slot=\"theme-toggle\"]" },
+        { "name": "wallet control", "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")" }
+      ],
       "states": [
         {
           "name": "dark scheme",
@@ -104,13 +229,9 @@
     }
   ],
   "answers": [],
-  "typeScale": [
-    { "min": 7, "max": 11 },
-    { "min": 12, "max": 13 },
-    { "min": 13, "max": 14 },
-    { "min": 14, "max": 16 },
-    16,
-    { "min": 18, "max": 22 },
-    { "min": 30, "max": 44 }
-  ]
+  "typeScale": [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 30, 36],
+  "geometry": {
+    "file": "bridge/geometry.json",
+    "widths": [390, 1280, 1440, 1920, 2560]
+  }
 }

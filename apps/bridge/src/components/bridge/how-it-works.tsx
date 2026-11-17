@@ -62,7 +62,7 @@ export function HowItWorks({ explorerBase }: { explorerBase?: string }) {
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
             <span className="flex flex-wrap items-center gap-2">
               Paxeer bridge precompile
-              <Badge variant="tonal" className="font-mono text-caption">
+              <Badge variant="tonal" className="font-mono text-caption leading-(--text-sm--line-height)">
                 { shortenAddress(LAYERX_BRIDGE_ADDRESS, 10, 6) }
               </Badge>
             </span>

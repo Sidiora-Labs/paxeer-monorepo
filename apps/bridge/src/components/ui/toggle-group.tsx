@@ -38,7 +38,7 @@ function ToggleGroupItem({ className, variant: _variant, size, ...props }: Toggl
       className={ cn(
         toggleVariants({ variant: 'default', size: ctx.size ?? size }),
         'data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-subtle dark:data-pressed:bg-container-highest',
-        ctx.size === 'sm' || size === 'sm' ? 'min-h-11 min-w-11' : 'min-h-11 min-w-11',
+        ctx.size === 'sm' || size === 'sm' ? 'h-7 min-w-7' : 'h-8 min-w-8',
         className,
       ) }
       { ...props }

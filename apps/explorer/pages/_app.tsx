@@ -1,4 +1,4 @@
-import type { HTMLChakraProps } from '@chakra-ui/react';
+import { Box, type HTMLChakraProps } from '@chakra-ui/react';
 import { GrowthBookProvider } from '@growthbook/growthbook-react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
@@ -107,32 +107,34 @@ function MyApp({ Component, pageProps, router }: AppPropsWithLayout) {
         apiData={ pageProps.apiData }
       />
       <ChakraProvider>
-        <RollbarProvider config={ rollbarConfig }>
-          <AppErrorBoundary
-            { ...ERROR_SCREEN_STYLES }
-            Container={ AppErrorGlobalContainer }
-          >
-            <QueryClientProvider client={ queryClient }>
-              <Web3Provider>
-                <AppContextProvider pageProps={ pageProps }>
-                  <GrowthBookProvider growthbook={ growthBook }>
-                    <SocketProvider url={ socketUrl }>
-                      <RewardsProvider>
-                        <MarketplaceContextProvider>
-                          <SettingsContextProvider>
-                            { content }
-                          </SettingsContextProvider>
-                        </MarketplaceContextProvider>
-                      </RewardsProvider>
-                    </SocketProvider>
-                  </GrowthBookProvider>
-                  <ReactQueryDevtools buttonPosition="bottom-left" position="left"/>
-                  <GoogleAnalytics/>
-                </AppContextProvider>
-              </Web3Provider>
-            </QueryClientProvider>
-          </AppErrorBoundary>
-        </RollbarProvider>
+        <Box minW="0" maxW="100%" overflowX="clip">
+          <RollbarProvider config={ rollbarConfig }>
+            <AppErrorBoundary
+              { ...ERROR_SCREEN_STYLES }
+              Container={ AppErrorGlobalContainer }
+            >
+              <QueryClientProvider client={ queryClient }>
+                <Web3Provider>
+                  <AppContextProvider pageProps={ pageProps }>
+                    <GrowthBookProvider growthbook={ growthBook }>
+                      <SocketProvider url={ socketUrl }>
+                        <RewardsProvider>
+                          <MarketplaceContextProvider>
+                            <SettingsContextProvider>
+                              { content }
+                            </SettingsContextProvider>
+                          </MarketplaceContextProvider>
+                        </RewardsProvider>
+                      </SocketProvider>
+                    </GrowthBookProvider>
+                    <ReactQueryDevtools buttonPosition="bottom-left" position="left"/>
+                    <GoogleAnalytics/>
+                  </AppContextProvider>
+                </Web3Provider>
+              </QueryClientProvider>
+            </AppErrorBoundary>
+          </RollbarProvider>
+        </Box>
       </ChakraProvider>
     </>
   );

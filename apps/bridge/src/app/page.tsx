@@ -23,7 +23,7 @@ export default function Home() {
               `${ liveRoutes } of ${ BRIDGE_CHAINS.length } routes live` :
               'Routes open as vaults deploy' }
           </Badge>
-          <h1 className="max-w-xl text-display font-semibold tracking-tight text-balance">
+          <h1 className="max-w-xl text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
             Move assets to Paxeer — and back
           </h1>
           <p className="max-w-xl text-body leading-relaxed text-muted-foreground">
