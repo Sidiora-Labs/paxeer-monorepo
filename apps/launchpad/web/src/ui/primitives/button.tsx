@@ -48,7 +48,7 @@ export function buttonClass(opts: {
 }) {
   const { variant = 'secondary', size = 'md', fullWidth, pill, className } = opts;
   return cn(
-    'inline-flex min-w-touch-target-min max-w-full flex-wrap select-none items-center justify-center text-center font-bold transition-[background-color] duration-fast',
+    'relative inline-flex min-w-touch-target-min max-w-full flex-wrap select-none items-center justify-center text-center font-bold transition-[background-color] duration-fast',
     'focus-visible:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
     'disabled:cursor-not-allowed aria-disabled:cursor-not-allowed aria-busy:cursor-progress',
     pill ? 'rounded-pill' : 'rounded-sm',
@@ -74,7 +74,7 @@ export function Button({
   ...rest
 }: ButtonProps) {
   const classes = buttonClass({ variant, size, fullWidth, pill, className });
-  const leading = loading ? (
+  const leading = loading && icon ? (
     <LoaderCircle aria-hidden="true" className="size-icon-md animate-spin" />
   ) : icon ? (
     <span
@@ -103,7 +103,8 @@ export function Button({
       {...rest}
     >
       {leading}
-      <span className="min-w-0 max-w-full">{children}</span>
+      {loading && !icon ? <LoaderCircle aria-hidden="true" className="absolute size-icon-md animate-spin" /> : null}
+      <span className={cn('min-w-0 max-w-full', loading && !icon && 'opacity-0')}>{children}</span>
     </button>
   );
 }
