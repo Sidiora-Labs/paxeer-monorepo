@@ -110,7 +110,7 @@ function CopyText({ text, label, onCopy }: { text: string; label: string; onCopy
       } }
       onPointerLeave={ () => setCopied(false) }
       onBlur={ () => setCopied(false) }
-      className="focus-ring grid size-11 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-container-high hover:text-foreground"
+      className="focus-ring grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-container-high hover:text-foreground"
     >
       { copied ? <CheckIcon className="size-3 text-success"/> : <CopyIcon className="size-3"/> }
     </button>
@@ -120,14 +120,14 @@ function CopyText({ text, label, onCopy }: { text: string; label: string; onCopy
 const amountOf = (r: TransferRecord) => (r.type === 'withdraw' ? -r.amount : r.amount);
 const networkCell = (r: TransferRecord) =>
   r.vault ? (
-    <span className="text-body-sm">
+    <span className="text-xs">
       <span className="text-muted-foreground">Vault · </span>
       { r.vault }
     </span>
   ) : r.type === 'transfer' ? (
-    <span className="text-body-sm text-muted-foreground">Internal</span>
+    <span className="text-xs text-muted-foreground">Internal</span>
   ) : r.network ? (
-    <span className="flex items-center gap-1.5 text-body-sm">
+    <span className="flex items-center gap-1.5 text-xs">
       <ChainIcon name={ r.network } src={ r.networkIconSrc } size="2xs"/>
       { r.network }
     </span>
@@ -187,7 +187,7 @@ export function TransferHistory({
             href={ href }
             target="_blank"
             rel="noreferrer"
-            className="focus-ring flex min-h-11 min-w-11 items-center gap-0.5 whitespace-nowrap rounded font-mono text-xs underline decoration-border decoration-dashed underline-offset-4 hover:text-primary"
+            className="focus-ring flex items-center gap-1 whitespace-nowrap rounded font-mono text-xs underline decoration-border decoration-dashed underline-offset-4 hover:text-primary"
           >
             { shortenAddress(r.txHash, 6, 4) }
             <ExternalLinkIcon className="size-3 text-muted-foreground"/>

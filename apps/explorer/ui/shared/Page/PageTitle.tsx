@@ -27,7 +27,7 @@ const PageTitle = ({
   isLoading = false, afterTitle, beforeTitle, secondRow,
 }: Props) => {
   return (
-    <Flex className={ className } flexDir="column" rowGap={ 3 } mb={ 6 } data-entity-header={ kind ? true : undefined }>
+    <Flex className={ className } flexDir="column" rowGap={ 3 } mb={ 6 } minW={ 0 } maxW="100%" data-entity-header={ kind ? true : undefined }>
       { kind && <Box textStyle="label" color="text.muted" data-entity-kind-label>{ kind.toUpperCase() }</Box> }
       <Flex
         flexDir="row"
@@ -71,7 +71,7 @@ const PageTitle = ({
         { withTextAd && <TextAd order={{ base: -1, lg: 100 }} mb={{ base: 6, lg: 0 }} ml="auto" w={{ base: '100%', lg: 'auto' }}/> }
       </Flex>
       { identifier && (
-        <Flex alignItems="center" gap={ 2 } minW={ 0 } fontFamily="mono" fontVariantNumeric="tabular-nums" data-entity-identifier>
+        <Flex alignItems="center" flexWrap="wrap" gap={ 2 } minW={ 0 } maxW="100%" fontFamily="mono" fontVariantNumeric="tabular-nums" data-entity-identifier>
           { identifierContent ?? (
             <>
               <Box overflowWrap="anywhere" minW={ 0 }>{ identifier }</Box>

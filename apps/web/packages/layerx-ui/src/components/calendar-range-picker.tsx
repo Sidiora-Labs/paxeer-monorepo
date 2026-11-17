@@ -15,7 +15,7 @@ export const dayPickerClassNames = {
   months: "flex gap-4",
   month: "min-w-0 flex-1",
   month_grid:
-    "w-full min-w-[calc(var(--touch-target)*7)] table-fixed border-collapse",
+    "w-full min-w-[calc(var(--calendar-day-size)*7)] table-fixed border-collapse",
   month_caption: "flex items-center justify-between px-1 pb-2 font-semibold",
   caption_label: "text-sm font-semibold",
   nav: "flex items-center gap-1",
@@ -28,7 +28,7 @@ export const dayPickerClassNames = {
   week: "",
   day: "p-0 text-center",
   day_button:
-    "min-h-11 w-full min-w-11 rounded-full text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent-strong hover:bg-surface-sunken",
+    "min-h-calendar-day w-full min-w-calendar-day rounded-full text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent-strong hover:bg-surface-sunken",
   outside: "text-faint-foreground",
   disabled: "opacity-40",
 };
@@ -86,7 +86,7 @@ export function CalendarRangePicker({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[calc(var(--touch-target)*7+var(--space-6))] max-w-[calc(100vw-var(--space-8))] overflow-x-auto p-3"
+        className="max-w-[calc(100vw-var(--space-8))] overflow-x-auto p-3"
         align="end"
       >
         <DayPicker

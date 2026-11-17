@@ -45,7 +45,7 @@ export function MobileActivityFeed({
     <div className="flex flex-col gap-6">
       {groups.map((group) => (
         <section key={group.id} aria-labelledby={`activity-month-${group.id}`}>
-          <div className="flex flex-wrap items-baseline justify-between gap-4 pb-2">
+          <div className="flex items-baseline justify-between gap-4 pb-2">
             <h2
               id={`activity-month-${group.id}`}
               className="whitespace-nowrap text-sm font-bold text-muted-foreground"
