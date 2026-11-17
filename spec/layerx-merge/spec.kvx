@@ -206052,7 +206052,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.800]
 title = "Give both Go jobs of the launchpad test workflow one environment and the job of the single modules a limit of 60 minutes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
