@@ -135,7 +135,14 @@ export function DiscoverWidget({ onNavigate, onTokenTrade }: DiscoverWidgetProps
               type="button"
               key={tab.id}
               onClick={() => setRankingCategory(tab.id)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap press-scale transition-all ${
+              onFocus={(event) =>
+                event.currentTarget.scrollIntoView({
+                  block: 'nearest',
+                  inline: 'nearest',
+                  behavior: 'instant',
+                })
+              }
+              className={`flex shrink-0 scroll-m-4 items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap press-scale transition-all ${
                 active ? 'bg-pax-accent/15 text-pax-accent' : 'bg-pax-control text-pax-muted'
               }`}
             >
