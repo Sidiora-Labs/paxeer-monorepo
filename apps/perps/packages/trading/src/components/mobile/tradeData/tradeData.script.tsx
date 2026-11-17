@@ -8,20 +8,20 @@ export const useTradeDataScript = (props: { symbol: string }) => {
   const ticker = useTickerStream(symbol);
   const { symbolInfo } = useTradingPageContext();
   const vol_24h = useMemo(() => {
-    const close = ticker?.["24h_close"];
-    const volume = ticker?.["24h_volume"];
-    if (close && volume && !isNaN(close) && !isNaN(volume)) {
-      return new Decimal(close)
-        .mul(volume)
-        .toFixed(symbolInfo.quote_dp, Decimal.ROUND_DOWN);
+    const volume = ticker?.["24h_amount"];
+    if (volume != null && Number.isFinite(volume)) {
+      return new Decimal(volume).toFixed(
+        symbolInfo.quote_dp,
+        Decimal.ROUND_DOWN,
+      );
     }
     return undefined;
   }, [ticker]);
 
   const openInterest = useMemo(() => {
-    const markPrice = ticker?.["mark_price"];
+    const markPrice = ticker?.["index_price"];
     const openInterest = ticker?.["open_interest"];
-    if (markPrice && openInterest && !isNaN(markPrice)) {
+    if (markPrice && openInterest != null && !isNaN(markPrice)) {
       return new Decimal(markPrice)
         .mul(Number(openInterest))
         .toFixed(symbolInfo.quote_dp, Decimal.ROUND_DOWN);
