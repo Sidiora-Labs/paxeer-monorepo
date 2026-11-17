@@ -175672,7 +175672,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.785]
 title = "Carry in the account info of the native binding every field the max quantity of the order entry reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
