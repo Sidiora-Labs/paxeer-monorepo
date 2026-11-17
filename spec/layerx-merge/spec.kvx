@@ -15508,6 +15508,12 @@ value = "A value that follows from a read is derived in the render and memoized 
 basis = "Gotcha 4652. Decisions 3046, 3718 and 3731."
 affects = []
 
+[decision.3733]
+title = "A layout shift the render check causes itself is left out by its time, whenever it is delivered"
+value = "Before an action of its own that moves the page, the steps of a state or the enlargement of the text, the check reads the time of the page. After the action it waits until the page is at rest, which is a count of consecutive animation frames without a new shift and without a change of the layout that the check names, under an upper bound of time; then it reads the time again and takes the entries the observer still holds. Every shift whose start lies between the two times is left out of the findings, whether it was delivered before or after the wait, and it is left out again when the list is read for the result. A shift that starts before the first time or after the second stays a finding as today, and so does a movement that goes on after the bound. No limit, no score and no other kind of finding changes, and a view that does not move by itself gives the same result in a run alone and in a full run. Task 22.44.99 brings the check to this form."
+basis = "Gotcha 4653. Decisions 3729 and 3730."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45168,6 +45174,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.99]
+title = "Leave out the layout shifts the render check causes itself by their time, however late they are delivered"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/browser.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4653 and decision 3733. Read tools/ui-check/check.mjs, tools/ui-check/browser.mjs, the row of the kind of layout shift in tools/ui-check/README.md and the cases of tools/ui-check/test/check.test.mjs. Give in the final message where the list of shifts is filled, where it is cut, where it is read for the findings, and by which route an entry of the enlargement can reach the findings today."
+symbols = []
 
 [capability.22.39.785]
 title = "Carry in the account info of the native binding every field the max quantity of the order entry reads"
@@ -175620,6 +175635,37 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.99]
+title = "Leave out the layout shifts the render check causes itself by their time, however late they are delivered"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.98"]
+reqs = ["22998.1"]
+capabilities = ["22.44.99"]
+interfaces = []
+do_1 = "do_1 Gotcha 4653 and decision 3733. Read tools/ui-check/check.mjs, tools/ui-check/browser.mjs, the row of the kind of layout shift in tools/ui-check/README.md and the cases of tools/ui-check/test/check.test.mjs. Give in the final message where the list of shifts is filled, where it is cut, where it is read for the findings, and by which route an entry of the enlargement can reach the findings today."
+do_2 = "do_2 The check leaves out its own movement by time. Before the steps of a state and before the enlargement of the text it reads the time of the page on the clock the entries of the observer carry. After the action it waits until the page is at rest, a count of consecutive animation frames without a new shift that you name, under an upper bound of time that you name; it then takes the entries the observer still holds and reads the time again. The page keeps the windows of time, and a shift whose start lies inside one of them is no finding wherever the list is read, also when the entry is delivered after the wait has ended. A shift that starts outside every window is a finding as today. The wait adds no more than its bound to a render, and a page that is at rest at once passes it in the count of frames alone."
+do_3 = "do_3 Add cases to tools/ui-check/test with fixtures of their own. One page moves its content when the text is enlarged, and the case delays the delivery of the entries by a means it controls until after the wait of the check: the render in the mode of doubled text holds no finding of a layout shift. One page moves by itself a fixed time after the enlargement has come to rest: that shift is a finding. One page moves by itself before the steps of a state begin: that shift is a finding. One state with steps that open a panel and move the page gives no finding for that movement. A page that does not move gives the result it gives today. The cases take their times from values of the fixture and of the case, so they do not depend on the speed of the machine."
+do_4 = "do_4 The row of the kind of layout shift in tools/ui-check/README.md says how the movement of the check itself is left out and what stays a finding. Change no file under tools/ui-check/surfaces. The files tools/ui-check/check.mjs, tools/ui-check/browser.mjs, tools/ui-check/README.md and the directory tools/ui-check/test are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. Take the main line into your branch before you start; it holds the form of task 22.44.98, which stays. Do not ask a question and wait for its answer. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/browser.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
