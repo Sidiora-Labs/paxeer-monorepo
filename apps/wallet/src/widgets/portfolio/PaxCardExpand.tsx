@@ -68,17 +68,6 @@ export const PaxCardExpand = ({
         tokenId: h.contract_address ?? '',
       });
     });
-    while (items.length < 4) {
-      items.push({
-        name: '—',
-        symbol: '—',
-        amount: '0',
-        valueUsd: null,
-        bgColor: CARD_COLORS[items.length % CARD_COLORS.length],
-        iconUrl: null,
-        tokenId: '',
-      });
-    }
     return items.slice(0, 4);
   }, [holdings, nativeBalance, nativeValueUsd]);
 
@@ -113,17 +102,17 @@ export const PaxCardExpand = ({
       <motion.div
         key={index}
         layoutId={`card-${index}`}
-        onClick={() => !isExpanded && handleCardClick(index)}
-        className={`relative flex cursor-pointer flex-col items-start justify-between overflow-hidden p-3 text-pax-light ${
+
+        className={`pax-asset-card relative flex min-w-0 flex-col items-start justify-between gap-4 p-3 text-pax-light ${
           isExpanded
-            ? 'h-card-expanded w-full'
+            ? 'min-h-[var(--size-card-expanded)] w-full'
             : hasThreeBottomCards && isBottomRow
-              ? 'h-card-compact flex-1'
-              : 'h-card-row flex-1'
+              ? 'min-h-[var(--size-card-compact)] flex-1'
+              : 'min-h-[var(--size-card-row)] flex-1'
         } rounded-3xl ${item.bgColor}`}
         style={{ transformOrigin: '50% 50% 0px' }}
       >
-        <div className="flex w-full items-start justify-between">
+        <div className="flex w-full flex-wrap items-start justify-between gap-2">
           <motion.div
             layoutId={`icon-${index}`}
             className={`${iconSize} rounded-full bg-pax-overlay overflow-hidden shrink-0 flex items-center justify-center`}
@@ -142,14 +131,18 @@ export const PaxCardExpand = ({
           </motion.div>
 
           {!isExpanded && (
-            <motion.div
+            <motion.button
+              type="button"
+              aria-label={`Expand ${item.symbol}`}
+              aria-expanded={false}
+              onClick={() => handleCardClick(index)}
               initial={{ opacity: 0, filter: 'blur(2px)' }}
               animate={{ opacity: 1, filter: 'blur(0px)' }}
               exit={{ opacity: 0, filter: 'blur(2px)' }}
               className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full bg-pax-overlay p-0.5 transition-colors hover:bg-pax-overlay"
             >
               <Ellipsis className="size-3" />
-            </motion.div>
+            </motion.button>
           )}
 
           <AnimatePresence>
@@ -163,7 +156,7 @@ export const PaxCardExpand = ({
                       .catch(() => {});
                   setExpandedCard(null);
                 }}
-                className="absolute right-4 top-4 flex items-center gap-2 font-semibold tracking-tight hover:opacity-80"
+                className="flex flex-wrap items-center gap-2 font-semibold tracking-tight hover:opacity-80"
               >
                 <p className="text-sm">
                   {item.tokenId === 'pax' ? 'Copy Address' : 'Copy Contract'}
@@ -182,7 +175,7 @@ export const PaxCardExpand = ({
                   onTokenDetail?.(item.tokenId, item.symbol);
                   setExpandedCard(null);
                 }}
-                className="absolute bottom-4 right-4 flex items-center gap-2 rounded-full bg-pax-overlay px-3 py-1 text-sm font-semibold tracking-tight hover:bg-pax-overlay"
+                className="flex flex-wrap items-center gap-2 rounded-full bg-pax-overlay px-3 py-1 text-sm font-semibold tracking-tight hover:bg-pax-overlay"
               >
                 <ExternalLink className="size-3.5" />
                 View Details
@@ -201,14 +194,14 @@ export const PaxCardExpand = ({
           </motion.span>
           <motion.span
             layoutId={`desc-${index}`}
-            className={`font-openrunde select-none font-semibold text-pax-muted ${
+            className={`font-openrunde select-none font-semibold text-pax-light ${
               isExpanded ? 'text-lg' : hasThreeBottomCards && isBottomRow ? 'text-xs' : 'text-sm'
             }`}
           >
             {hidden ? '••••' : item.amount}
           </motion.span>
           {isExpanded && item.valueUsd !== null && item.valueUsd > 0 && !hidden && (
-            <motion.span className="text-sm text-pax-muted mt-0.5">
+            <motion.span className="text-sm text-pax-light mt-0.5">
               {formatUsd(item.valueUsd)}
             </motion.span>
           )}
@@ -232,15 +225,15 @@ export const PaxCardExpand = ({
   };
 
   return (
-    <div className="font-sans flex h-full w-full flex-col items-center justify-center gap-4 p-4">
-      <div ref={containerRef} className="flex h-chart-area w-full flex-col justify-end gap-4">
-        <div className="flex gap-4">
+    <div className="font-sans flex w-full flex-col gap-4">
+      <div ref={containerRef} className="flex w-full flex-col gap-4">
+        <div className="pax-asset-row grid grid-cols-2 gap-4">
           {getTopRowCards().map((item, index) => {
             const originalIndex = expandedCard !== null ? expandedCard : index;
             return renderCard(item, originalIndex, false);
           })}
         </div>
-        <div className="flex gap-4">
+        <div className="pax-asset-row grid grid-cols-2 gap-4">
           {getBottomRowCards().map((item, index) => {
             const originalIndex =
               expandedCard !== null

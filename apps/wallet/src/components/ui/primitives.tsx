@@ -222,9 +222,6 @@ function focusable(container: HTMLElement): HTMLElement[] {
   ];
 }
 
-let modalDepth = 0;
-let modalOverflow = '';
-
 export function ModalPanel({
   children,
   onDismiss,
@@ -239,13 +236,61 @@ export function ModalPanel({
   dismiss.current = onDismiss;
 
   useLayoutEffect(() => {
-    const root = document.documentElement;
-    if (modalDepth++ === 0) {
-      modalOverflow = root.style.overflow;
-      root.style.overflow = 'hidden';
-    }
+    const canScroll = (target: EventTarget | null, delta: number) => {
+      let element = target instanceof Element ? target : null;
+      const dialog = element?.closest('.pax-modal-panel[open]');
+      if (!dialog) return false;
+      while (element) {
+        const style = getComputedStyle(element);
+        if (/auto|scroll/.test(style.overflowY) && element.scrollHeight > element.clientHeight) {
+          if (delta < 0 && element.scrollTop > 0) return true;
+          if (delta > 0 && element.scrollTop + element.clientHeight < element.scrollHeight)
+            return true;
+        }
+        if (element === dialog) break;
+        element = element.parentElement;
+      }
+      return false;
+    };
+    const wheel = (event: WheelEvent) => {
+      if (!canScroll(event.target, event.deltaY)) event.preventDefault();
+    };
+    let touchY = 0;
+    const touchStart = (event: TouchEvent) => {
+      touchY = event.touches[0]?.clientY ?? 0;
+    };
+    const touchMove = (event: TouchEvent) => {
+      const next = event.touches[0]?.clientY ?? touchY;
+      if (!canScroll(event.target, touchY - next)) event.preventDefault();
+      touchY = next;
+    };
+    const keydown = (event: KeyboardEvent) => {
+      if (
+        event.target instanceof Element &&
+        (event.target.matches('input, textarea, select, [contenteditable=true]') ||
+          (event.key === ' ' &&
+            event.target.closest(
+              'button, a, summary, [role=button], [role=radio], [role=checkbox], [role=switch]'
+            )))
+      )
+        return;
+      const delta = ['ArrowDown', 'PageDown', 'End', ' '].includes(event.key)
+        ? 1
+        : ['ArrowUp', 'PageUp', 'Home'].includes(event.key)
+          ? -1
+          : 0;
+      if (delta && !canScroll(event.target, event.shiftKey ? -delta : delta))
+        event.preventDefault();
+    };
+    document.addEventListener('wheel', wheel, { passive: false });
+    document.addEventListener('touchstart', touchStart, { passive: true });
+    document.addEventListener('touchmove', touchMove, { passive: false });
+    document.addEventListener('keydown', keydown);
     return () => {
-      if (--modalDepth === 0) root.style.overflow = modalOverflow;
+      document.removeEventListener('wheel', wheel);
+      document.removeEventListener('touchstart', touchStart);
+      document.removeEventListener('touchmove', touchMove);
+      document.removeEventListener('keydown', keydown);
     };
   }, []);
 

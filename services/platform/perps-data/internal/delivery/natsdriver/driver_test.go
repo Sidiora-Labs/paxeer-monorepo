@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -436,4 +437,81 @@ func TestNATSDriver(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestHubReattachFetchErrors(t *testing.T) {
+	for _, cause := range []string{"consumer_deleted", "iterator_closed", "consumer_closed", "connection_closed"} {
+		t.Run(cause, func(t *testing.T) {
+			nc := inProcessBroker(t)
+			createStream(t, nc)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			consumer, err := NewConsumer(ctx, nc, ConsumerConfig{Stream: testStream, Subject: "perps.125.>", StartSequence: 1, Batch: 4, FetchWait: time.Second})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer consumer.Close()
+			var want error
+			switch cause {
+			case "consumer_deleted":
+				// The ordered iterator handles deletion internally. Its broker
+				// iterator exposes the status to the fetch path directly.
+				consumer.iter.Stop()
+				js, err := jetstream.New(nc)
+				if err != nil {
+					t.Fatal(err)
+				}
+				name := consumer.consumer.CachedInfo().Name
+				brokerConsumer, err := js.Consumer(ctx, testStream, name)
+				if err != nil {
+					t.Fatal(err)
+				}
+				consumer.iter, err = brokerConsumer.Messages(jetstream.PullMaxMessages(4))
+				if err != nil {
+					t.Fatal(err)
+				}
+				fetchDone := make(chan error, 1)
+				go func() {
+					messages, err := consumer.Fetch(ctx)
+					if len(messages) != 0 {
+						err = errors.Join(err, fmt.Errorf("fetched %d messages from empty stream", len(messages)))
+					}
+					fetchDone <- err
+				}()
+				for {
+					info, err := brokerConsumer.Info(ctx)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if info.NumWaiting > 0 {
+						break
+					}
+					select {
+					case err := <-fetchDone:
+						t.Fatalf("fetch ended before deletion: %v", err)
+					case <-time.After(5 * time.Millisecond):
+					}
+				}
+				if err := js.DeleteConsumer(ctx, testStream, name); err != nil {
+					t.Fatal(err)
+				}
+				if err := <-fetchDone; !errors.Is(err, jetstream.ErrConsumerDeleted) {
+					t.Fatalf("fetch after broker deletion = %v, want consumer deleted", err)
+				}
+				return
+			case "iterator_closed":
+				consumer.iter.Stop()
+				want = jetstream.ErrMsgIteratorClosed
+			case "consumer_closed":
+				consumer.Close()
+				want = ErrClosed
+			case "connection_closed":
+				nc.Close()
+				want = jetstream.ErrMsgIteratorClosed
+			}
+			if messages, err := consumer.Fetch(ctx); !errors.Is(err, want) || len(messages) != 0 {
+				t.Fatalf("fetch = %d messages, %v; want %v", len(messages), err, want)
+			}
+		})
+	}
 }

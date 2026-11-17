@@ -1,4 +1,5 @@
-import { themeCatalogue } from './catalogue';
+import { ACCENT_INKS, themeCatalogue } from './catalogue';
+import { bestInk } from './contrast';
 import type {
   ResolvedTheme,
   ThemeColors,
@@ -70,6 +71,30 @@ export function resolveThemeWith(
     theme.scheme === 'dark' ? 0.55 : 0.8,
     theme.colors.text.strong
   );
+  const actionControlFill =
+    theme.scheme === 'dark' ? mix(accent.primary, 0.6, theme.colors.text.strong) : accent.primary;
+  properties['--color-action-control-fill'] = actionControlFill;
+  properties['--color-action-control-ink'] = bestInk(actionControlFill, ACCENT_INKS);
+  const controlTheme =
+    data.themes[
+      theme.scheme === 'light'
+        ? theme.contrast === 'high'
+          ? 'contrast-dark'
+          : 'dark'
+        : theme.contrast === 'high'
+          ? 'contrast-light'
+          : 'light'
+    ];
+  properties['--color-control-fill'] = theme.colors.text.primary;
+  properties['--color-control-ink'] = theme.colors.surface.base;
+  properties['--color-control-accent'] = mix(
+    accent.primary,
+    controlTheme.scheme === 'dark' ? 0.55 : 0.8,
+    controlTheme.colors.text.strong
+  );
+  for (const status of ['success', 'danger', 'warning', 'info'] as const) {
+    properties['--color-control-' + status] = controlTheme.colors.status[status];
+  }
   data.aliases.forEach(function (alias) {
     properties[alias[0]] = 'var(' + alias[1] + ')';
   });

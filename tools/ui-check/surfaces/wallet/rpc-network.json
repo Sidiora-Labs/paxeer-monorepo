@@ -1,0 +1,15 @@
+{
+  "result": {
+    "network_id": "surface-test",
+    "paxeer": {
+      "chain_id": "0x7d",
+      "latest_block": "0x64"
+    },
+    "consensus": {
+      "latest_height": "100",
+      "latest_block_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "latest_app_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+      "catching_up": false
+    }
+  }
+}
