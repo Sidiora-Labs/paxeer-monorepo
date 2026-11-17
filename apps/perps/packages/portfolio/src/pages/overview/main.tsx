@@ -4,29 +4,13 @@ import { MobileOverview } from "./mobile";
 import { MobileOverviewProps } from "./mobile/mobile.widget";
 import { OverviewProvider } from "./provider/overviewProvider";
 
-const LazyAssetWidget = React.lazy(() =>
-  import("./assets").then((mod) => {
-    return { default: mod.AssetWidget };
-  }),
-);
+import { AssetWidget } from "./assets";
 
-const LazyAssetsChartWidget = React.lazy(() =>
-  import("./assetChart").then((mod) => {
-    return { default: mod.AssetsChartWidget };
-  }),
-);
+import { AssetsChartWidget } from "./assetChart";
 
-const LazyPerformanceWidget = React.lazy(() =>
-  import("./performance").then((mod) => {
-    return { default: mod.PerformanceWidget };
-  }),
-);
+import { PerformanceWidget } from "./performance";
 
-const LazyHistoryDataGroupWidget = React.lazy(() =>
-  import("./historyDataGroup").then((mod) => {
-    return { default: mod.HistoryDataGroupWidget };
-  }),
-);
+import { HistoryDataGroupWidget } from "./historyDataGroup";
 
 export type OverviewPageProps = MobileOverviewProps;
 
@@ -42,19 +26,19 @@ export const OverviewPage: FC<OverviewPageProps> = (props) => {
       ) : (
         <Grid cols={2} gap={4}>
           <React.Suspense fallback={null}>
-            <LazyAssetWidget />
+            <AssetWidget />
           </React.Suspense>
           <React.Suspense fallback={null}>
-            <LazyAssetsChartWidget />
+            <AssetsChartWidget />
           </React.Suspense>
           <Grid.span colSpan={2}>
             <React.Suspense fallback={null}>
-              <LazyPerformanceWidget />
+              <PerformanceWidget />
             </React.Suspense>
           </Grid.span>
           <Grid.span colSpan={2}>
             <React.Suspense fallback={null}>
-              <LazyHistoryDataGroupWidget />
+              <HistoryDataGroupWidget />
             </React.Suspense>
           </Grid.span>
         </Grid>

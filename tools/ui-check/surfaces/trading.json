@@ -1,0 +1,599 @@
+{
+  "name": "Trading workspace",
+  "directory": "../../..",
+  "build": "node tools/ui-check/surfaces/trading/build.mjs",
+  "buildMs": 420000,
+  "start": "node tools/ui-check/surfaces/trading/start.mjs",
+  "address": "http://localhost:4173",
+  "readyPath": "/markets",
+  "views": [
+    {
+      "name": "home",
+      "path": "/",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "tickers",
+          "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)"
+        },
+        {
+          "name": "symbol",
+          "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible"
+        },
+        {
+          "name": "chart",
+          "selector": ".oui-tradingview-root:visible"
+        },
+        {
+          "name": "order-book",
+          "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)"
+        },
+        {
+          "name": "order-entry",
+          "selector": ".oui-orderEntry:visible"
+        },
+        {
+          "name": "account-tabs",
+          "selector": ".oui-trading-dataList-tabs:visible"
+        }
+      ]
+    },
+    {
+      "name": "auth-callback",
+      "path": "/auth/callback",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "tickers",
+          "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)"
+        },
+        {
+          "name": "symbol",
+          "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible"
+        },
+        {
+          "name": "chart",
+          "selector": ".oui-tradingview-root:visible"
+        },
+        {
+          "name": "order-book",
+          "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)"
+        },
+        {
+          "name": "order-entry",
+          "selector": ".oui-orderEntry:visible"
+        },
+        {
+          "name": "account-tabs",
+          "selector": ".oui-trading-dataList-tabs:visible"
+        }
+      ]
+    },
+    {
+      "name": "trade",
+      "path": "/trade",
+      "states": [
+        {
+          "name": "wallet-dialog",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "Essential only"
+            },
+            {
+              "action": "click",
+              "selector": "button.wallet-connect-button:visible >> nth=0"
+            },
+            {
+              "action": "wait",
+              "text": "Connect your wallet to use paxeer-network on Paxeer."
+            }
+          ]
+        },
+        {
+          "name": "language-menu",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "Connect"
+            },
+            {
+              "action": "click",
+              "selector": "#language-switcher-icon:visible"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "tickers",
+          "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)"
+        },
+        {
+          "name": "symbol",
+          "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible"
+        },
+        {
+          "name": "chart",
+          "selector": ".oui-tradingview-root:visible"
+        },
+        {
+          "name": "order-book",
+          "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)"
+        },
+        {
+          "name": "order-entry",
+          "selector": ".oui-orderEntry:visible"
+        },
+        {
+          "name": "account-tabs",
+          "selector": ".oui-trading-dataList-tabs:visible"
+        }
+      ]
+    },
+    {
+      "name": "trade-grid",
+      "path": "/trade/grid",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "tickers",
+          "selector": ".oui-markets-expandMarkets:visible, main > div:has(> .oui-symbol-info-bar-mobile)"
+        },
+        {
+          "name": "symbol",
+          "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible"
+        },
+        {
+          "name": "chart",
+          "selector": ".oui-tradingview-root:visible"
+        },
+        {
+          "name": "order-book",
+          "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)"
+        },
+        {
+          "name": "order-entry",
+          "selector": ".oui-orderEntry:visible"
+        },
+        {
+          "name": "account-tabs",
+          "selector": ".oui-trading-dataList-tabs:visible"
+        }
+      ]
+    },
+    {
+      "name": "trade-bitcoin",
+      "path": "/trade?symbol=PERP_BTC_USDC",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "tickers",
+          "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)"
+        },
+        {
+          "name": "symbol",
+          "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible"
+        },
+        {
+          "name": "chart",
+          "selector": ".oui-tradingview-root:visible"
+        },
+        {
+          "name": "order-book",
+          "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)"
+        },
+        {
+          "name": "order-entry",
+          "selector": ".oui-orderEntry:visible"
+        },
+        {
+          "name": "account-tabs",
+          "selector": ".oui-trading-dataList-tabs:visible"
+        }
+      ]
+    },
+    {
+      "name": "markets",
+      "path": "/markets",
+      "states": [
+        {
+          "name": "funding",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[role=tab]:has-text(\"Funding\")"
+            }
+          ]
+        },
+        {
+          "name": "search-empty",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "input:visible >> nth=0",
+              "value": "no-such-market"
+            },
+            {
+              "action": "wait",
+              "text": "No results found"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "summary-cards",
+          "selector": "#oui-markets-header > :first-child"
+        },
+        {
+          "name": "market-lists",
+          "selector": "#oui-markets-header > :last-child"
+        },
+        {
+          "name": "market-table",
+          "selector": "#oui-markets-list"
+        }
+      ]
+    },
+    {
+      "name": "markets-empty",
+      "path": "/markets?renderState=empty",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "summary-cards",
+          "selector": "#oui-markets-header > :first-child"
+        },
+        {
+          "name": "market-lists",
+          "selector": "#oui-markets-header > :last-child"
+        },
+        {
+          "name": "market-table",
+          "selector": "#oui-markets-list"
+        }
+      ]
+    },
+    {
+      "name": "markets-loading",
+      "path": "/markets?renderState=loading",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "summary-cards",
+          "selector": "#oui-markets-header > :first-child"
+        },
+        {
+          "name": "market-lists",
+          "selector": "#oui-markets-header > :last-child"
+        },
+        {
+          "name": "market-table",
+          "selector": "#oui-markets-list"
+        }
+      ]
+    },
+    {
+      "name": "markets-error",
+      "path": "/markets?renderState=error",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "summary-cards",
+          "selector": "#oui-markets-header > :first-child"
+        },
+        {
+          "name": "market-lists",
+          "selector": "#oui-markets-header > :last-child"
+        },
+        {
+          "name": "market-table",
+          "selector": "#oui-markets-list"
+        }
+      ]
+    },
+    {
+      "name": "portfolio",
+      "path": "/portfolio",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "side-navigation",
+          "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1"
+        },
+        {
+          "name": "panels",
+          "selector": ".oui-scaffold-container"
+        }
+      ]
+    },
+    {
+      "name": "portfolio-positions",
+      "path": "/portfolio/positions",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "side-navigation",
+          "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1"
+        },
+        {
+          "name": "panels",
+          "selector": ".oui-scaffold-container"
+        }
+      ]
+    },
+    {
+      "name": "portfolio-orders",
+      "path": "/portfolio/orders",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "side-navigation",
+          "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1"
+        },
+        {
+          "name": "panels",
+          "selector": ".oui-scaffold-container"
+        }
+      ]
+    },
+    {
+      "name": "portfolio-assets",
+      "path": "/portfolio/assets",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "side-navigation",
+          "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1"
+        },
+        {
+          "name": "panels",
+          "selector": ".oui-scaffold-container"
+        }
+      ]
+    },
+    {
+      "name": "portfolio-history",
+      "path": "/portfolio/history",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "side-navigation",
+          "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1"
+        },
+        {
+          "name": "panels",
+          "selector": ".oui-scaffold-container"
+        }
+      ]
+    },
+    {
+      "name": "portfolio-setting",
+      "path": "/portfolio/setting",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "side-navigation",
+          "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1"
+        },
+        {
+          "name": "panels",
+          "selector": ".oui-scaffold-container"
+        }
+      ]
+    },
+    {
+      "name": "portfolio-feeTier",
+      "path": "/portfolio/feeTier",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "side-navigation",
+          "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1"
+        },
+        {
+          "name": "panels",
+          "selector": ".oui-scaffold-container"
+        }
+      ]
+    },
+    {
+      "name": "portfolio-apiKey",
+      "path": "/portfolio/apiKey",
+      "parts": [
+        {
+          "name": "header",
+          "selector": ".oui-scaffold-topNavbar"
+        },
+        {
+          "name": "footer",
+          "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)"
+        },
+        {
+          "name": "side-navigation",
+          "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1"
+        },
+        {
+          "name": "panels",
+          "selector": ".oui-scaffold-container"
+        }
+      ]
+    },
+    {
+      "name": "privacy",
+      "path": "/privacy",
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "policy",
+          "selector": "header + div"
+        },
+        {
+          "name": "footer",
+          "selector": "header + div + div"
+        }
+      ]
+    },
+    {
+      "name": "terms",
+      "path": "/terms",
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "policy",
+          "selector": "header + div"
+        },
+        {
+          "name": "footer",
+          "selector": "header + div + div"
+        }
+      ]
+    },
+    {
+      "name": "cookies",
+      "path": "/cookies",
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "policy",
+          "selector": "header + div"
+        },
+        {
+          "name": "footer",
+          "selector": "header + div + div"
+        }
+      ]
+    }
+  ],
+  "answers": [],
+  "typeScale": [10, 12, 13, 14, 16, 18, 20, 24, 28, 30, 36, 48],
+  "geometry": {
+    "file": "trading/geometry.json",
+    "widths": [390, 1280, 1440, 1920, 2560]
+  },
+  "reportedKinds": ["contrast", "touch", "scale"]
+}

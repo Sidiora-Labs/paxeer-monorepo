@@ -11,6 +11,8 @@ import {
   WalletConnectorProvider,
   NativeWalletDialog,
 } from "@paxeer-network/wallet-connector";
+import { LocaleProvider } from "@paxeer-network/i18n";
+import { loadNativeLocale } from "./locales";
 import { Scaffold } from "@paxeer-network/ui-scaffold";
 import { TradingPage } from "@paxeer-network/trading-next";
 import { registerLayoutSplitPlugin } from "@paxeer-network/layout-split/plugin";
@@ -102,15 +104,79 @@ export default function PaxeerNetwork() {
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <PaxeerProvider>
-          <WalletConnectorProvider>
-            <NativePages />
-          </WalletConnectorProvider>
+          <LocaleProvider resources={loadNativeLocale}>
+            <WalletConnectorProvider>
+              <NativePages />
+            </WalletConnectorProvider>
+          </LocaleProvider>
         </PaxeerProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );
 }
+function useModalInertness() {
+  useEffect(() => {
+    const isolated = new Map<HTMLElement, boolean>();
+    const sync = () => {
+      const hidden = new Set(
+        Array.from(
+          document.querySelectorAll<HTMLElement>('[data-aria-hidden="true"]'),
+        ).filter(
+          (element) =>
+            !element.matches(
+              "[data-radix-focus-guard], .oui-dialog-overlay, .oui-sheet-overlay",
+            ),
+        ),
+      );
+      const modals = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '[role="dialog"][data-state="open"]',
+        ),
+      ).filter((element) => element.getClientRects().length > 0);
+      let branch = modals[modals.length - 1];
+      while (branch?.parentElement) {
+        for (const sibling of Array.from(branch.parentElement.children)) {
+          if (
+            sibling instanceof HTMLElement &&
+            sibling !== branch &&
+            !sibling.matches(
+              "[data-radix-focus-guard], .oui-dialog-overlay, .oui-sheet-overlay",
+            )
+          ) {
+            hidden.add(sibling);
+          }
+        }
+        if (branch.parentElement === document.body) break;
+        branch = branch.parentElement;
+      }
+      for (const [element, previous] of isolated) {
+        if (!hidden.has(element)) {
+          element.inert = previous;
+          isolated.delete(element);
+        }
+      }
+      for (const element of hidden) {
+        if (!isolated.has(element)) isolated.set(element, element.inert);
+        element.inert = true;
+      }
+    };
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-aria-hidden", "data-state"],
+    });
+    sync();
+    return () => {
+      observer.disconnect();
+      for (const [element, previous] of isolated) element.inert = previous;
+    };
+  }, []);
+}
+
 function NativePages() {
+  useModalInertness();
   const router = useRouter();
   const path = router.asPath.split("?")[0];
   const auth = usePaxeer();

@@ -4,23 +4,11 @@ import { Box, cn, TabPanel, Tabs } from "@paxeer-network/ui";
 import { useTradingPageContext } from "../../../provider/tradingPageContext";
 import { TopTabState, TopTabType } from "./topTab.script";
 
-const LazyTradingviewWidget = React.lazy(() =>
-  import("../tradingview/tradingview.widget").then((mod) => {
-    return { default: mod.TradingviewWidget };
-  }),
-);
+import { TradingviewWidget } from "../tradingview/tradingview.widget";
 
-const LazyMWebLastTrades = React.lazy(() =>
-  import("../lastTrades/lastTrades.widget").then((mod) => {
-    return { default: mod.MWebLastTrades };
-  }),
-);
+import { MWebLastTrades } from "../lastTrades/lastTrades.widget";
 
-const LazyTradeDataWidget = React.lazy(() =>
-  import("../tradeData").then((mod) => {
-    return { default: mod.TradeDataWidget };
-  }),
-);
+import { TradeDataWidget } from "../tradeData";
 
 export const TopTab: React.FC<TopTabState & { className?: string }> = (
   props,
@@ -55,7 +43,7 @@ export const TopTab: React.FC<TopTabState & { className?: string }> = (
     >
       <TabPanel title={t("trading.tabs.chart")} value={TopTabType.chart}>
         <React.Suspense fallback={null}>
-          <LazyTradingviewWidget
+          <TradingviewWidget
             symbol={props.symbol}
             tradingViewConfig={tradingViewConfig}
           />
@@ -63,13 +51,13 @@ export const TopTab: React.FC<TopTabState & { className?: string }> = (
       </TabPanel>
       <TabPanel title={t("trading.tabs.trades")} value={TopTabType.trades}>
         <React.Suspense fallback={null}>
-          <LazyMWebLastTrades symbol={props.symbol} />
+          <MWebLastTrades symbol={props.symbol} />
         </React.Suspense>
       </TabPanel>
       <TabPanel title={t("trading.tabs.data")} value={TopTabType.data}>
         <Box px={3}>
           <React.Suspense fallback={null}>
-            <LazyTradeDataWidget symbol={props.symbol} />
+            <TradeDataWidget symbol={props.symbol} />
           </React.Suspense>
         </Box>
       </TabPanel>

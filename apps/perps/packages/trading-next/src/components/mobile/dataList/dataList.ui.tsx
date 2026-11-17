@@ -27,11 +27,7 @@ import {
   DataListTabType,
 } from "./dataList.script";
 
-const LazyPositionHeaderWidget = React.lazy(() =>
-  import("../../base/positionHeader").then((mod) => {
-    return { default: mod.PositionHeaderWidget };
-  }),
-);
+import { PositionHeaderWidget } from "../../base/positionHeader";
 
 const SymbolControlHeader: React.FC<
   DataListState & { type: TabType; ordersStatus?: OrderStatus }
@@ -109,7 +105,7 @@ const OrdersView: React.FC<
         type={props.type}
         ordersStatus={props.ordersStatus}
         classNames={{
-          root: "oui-w-full oui-hide-scrollbar oui-overflow-y-hidden",
+          root: "oui-w-full oui-hide-scrollbar oui-overflow-y-auto",
           content: "!oui-space-y-1",
           cell: "oui-py-2 oui-bg-base-9 oui-p-2 oui-rounded-xl",
         }}
@@ -125,7 +121,7 @@ const PositionsView: React.FC<DataListState> = (props) => {
   return (
     <Flex direction={"column"} gap={2}>
       <React.Suspense fallback={null}>
-        <LazyPositionHeaderWidget
+        <PositionHeaderWidget
           pnlNotionalDecimalPrecision={props.pnlNotionalDecimalPrecision}
           setPnlNotionalDecimalPrecision={props.setPnlNotionalDecimalPrecision}
           symbol={props.showAllSymbol ? undefined : props.symbol}

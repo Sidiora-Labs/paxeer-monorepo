@@ -31,23 +31,11 @@ import { SymbolDisplay } from "../symbolDisplay";
 import { RwaTooltip } from "./rwaTooltip";
 import type { UseSymbolInfoBarFullScriptReturn } from "./symbolInfoBarFull.script";
 
-const LazyDropDownMarketsWidget = React.lazy(() =>
-  import("../dropDownMarkets").then((mod) => {
-    return { default: mod.DropDownMarketsWidget };
-  }),
-);
+import { DropDownMarketsWidget } from "../dropDownMarkets";
 
-const LazyFavoritesDropdownMenuWidget = React.lazy(() =>
-  import("../favoritesDropdownMenu").then((mod) => {
-    return { default: mod.FavoritesDropdownMenuWidget };
-  }),
-);
+import { FavoritesDropdownMenuWidget } from "../favoritesDropdownMenu";
 
-const LazyDataItem = React.lazy(() =>
-  import("./dataItem.ui").then((mod) => {
-    return { default: mod.DataItem };
-  }),
-);
+import { DataItem } from "./dataItem.ui";
 
 const RISK_NOTICE_LEARN_MORE_URL =
   "https://paxeer-network.network/docs/introduction/trade-on-paxeer-network/permissionless-listing";
@@ -145,13 +133,13 @@ const SymbolInfoBarDesktop: React.FC<SymbolInfoBarDesktopProps> = ({
       willChange: "transform",
     }}
   >
-    <Flex gapX={6} className="oui-h-full oui-flex-1 oui-overflow-hidden">
+    <Flex gapX={6} className="oui-h-full oui-flex-1 oui-overflow-auto">
       <Flex gapX={1} className="oui-flex-none oui-shrink-0">
         {leftSection}
       </Flex>
       <Divider className="oui-h-[26px]" direction="vertical" intensity={8} />
       {priceSection}
-      <div className="oui-relative oui-h-full oui-overflow-hidden">
+      <div className="oui-relative oui-h-full oui-overflow-auto">
         <div
           ref={containerRef}
           className="oui-hide-scrollbar oui-h-full oui-overflow-x-auto"
@@ -218,7 +206,7 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
 
   const favoriteIcon = (
     <React.Suspense fallback={null}>
-      <LazyFavoritesDropdownMenuWidget row={{ symbol }} favorite={favorite}>
+      <FavoritesDropdownMenuWidget row={{ symbol }} favorite={favorite}>
         <Flex
           width={12}
           height={12}
@@ -232,7 +220,7 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
             <UnFavoritesIcon2 className="oui-size-3 oui-text-base-contrast-36 hover:oui-text-warning-darken" />
           )}
         </Flex>
-      </LazyFavoritesDropdownMenuWidget>
+      </FavoritesDropdownMenuWidget>
     </React.Suspense>
   );
 
@@ -243,7 +231,7 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
         itemAlign="start"
         className="oui-shrink-0 oui-gap-y-[2px]"
       >
-        <LazyDropDownMarketsWidget
+        <DropDownMarketsWidget
           contentClassName="oui-w-[620px] oui-h-[496px]"
           symbol={props.symbol}
           onSymbolChange={props.onSymbolChange}
@@ -262,7 +250,7 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
               <TriangleDownIcon className="oui-text-base-contrast-54" />
             </Flex>
           </Flex>
-        </LazyDropDownMarketsWidget>
+        </DropDownMarketsWidget>
         <Flex gap={1}>
           <SymbolBadge symbol={symbol} />
           {isRwa && (
@@ -329,11 +317,11 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
     <Flex gapX={8} height="100%">
       <div ref={leadingElementRef}>
         <React.Suspense fallback={null}>
-          <LazyDataItem label={t("markets.column.24hChange")} value={change} />
+          <DataItem label={t("markets.column.24hChange")} value={change} />
         </React.Suspense>
       </div>
       <React.Suspense fallback={null}>
-        <LazyDataItem
+        <DataItem
           label={t("markets.symbolInfoBar.Mark")}
           value={
             <Text.numeral
@@ -347,7 +335,7 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
         />
       </React.Suspense>
       <React.Suspense fallback={null}>
-        <LazyDataItem
+        <DataItem
           label={t("markets.symbolInfoBar.Index")}
           value={
             <Text.numeral dp={quotoDp}>{data?.["index_price"]}</Text.numeral>
@@ -356,7 +344,7 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
         />
       </React.Suspense>
       <React.Suspense fallback={null}>
-        <LazyDataItem
+        <DataItem
           label={t("markets.symbolInfoBar.24hVolume")}
           value={
             <Text.numeral rule="human" dp={2}>
@@ -367,7 +355,7 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
         />
       </React.Suspense>
       <React.Suspense fallback={null}>
-        <LazyDataItem
+        <DataItem
           label={t("markets.symbolInfoBar.predFundingRate")}
           value={<FundingRate symbol={symbol} />}
           hint={<FundingRateHintWidget symbol={symbol} />}
@@ -375,7 +363,7 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
       </React.Suspense>
       <div ref={tailingElementRef}>
         <React.Suspense fallback={null}>
-          <LazyDataItem
+          <DataItem
             label={t("markets.openInterest")}
             value={
               <>

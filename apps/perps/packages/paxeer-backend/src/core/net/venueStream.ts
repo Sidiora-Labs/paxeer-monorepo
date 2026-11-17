@@ -409,7 +409,11 @@ function handleFrame(
 
 function connect(conn: Connection) {
   conn.reconnect = null;
-  if (conn.disposed) return;
+  if (
+    conn.disposed ||
+    process.env.NEXT_PUBLIC_DISABLE_REALTIME_FOR_RENDER === "1"
+  )
+    return;
   let ws: WebSocket;
   try {
     ws = new WebSocket(conn.url);
