@@ -202,7 +202,7 @@ func assertWebAuthorityFields(t *testing.T, raw []byte, m deployment.Manifest) {
 			if _, present := id["runtimeHash"]; present {
 				t.Fatalf("precompile identity %s carries an EVM runtime hash: %v", name, id)
 			}
-		} else if !strings.EqualFold(str(id, "runtimeHash", name), role.RuntimeHash) {
+		} else if !role.AcceptsRuntimeHash(str(id, "runtimeHash", name)) {
 			t.Fatalf("identity %s runtime hash = %v", name, id)
 		}
 		if issues, present := id["issues"]; present {

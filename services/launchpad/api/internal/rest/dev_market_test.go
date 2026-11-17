@@ -248,32 +248,6 @@ func (c *mktChain) head(t *testing.T) *types.Header {
 	return header
 }
 
-// mktApplyIndexerMigration runs core/indexer's goose statements for the tables
-// the internaltest read subset does not create.
-func mktApplyIndexerMigration(t *testing.T, pool *pgxpool.Pool, tables ...string) {
-	t.Helper()
-	raw, err := os.ReadFile("../../../indexer/migrations/00001_init.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	up := strings.SplitN(string(raw), "-- +goose Down", 2)[0]
-	applied := 0
-	for _, block := range strings.Split(up, "-- +goose StatementBegin") {
-		statement := strings.SplitN(block, "-- +goose StatementEnd", 2)[0]
-		for _, table := range tables {
-			if strings.Contains(statement, `CREATE TABLE "indexer"."`+table+`"`) {
-				if _, err = pool.Exec(context.Background(), statement); err != nil {
-					t.Fatalf("indexer migration %s: %v", table, err)
-				}
-				applied++
-			}
-		}
-	}
-	if applied != len(tables) {
-		t.Fatalf("indexer migration applied %d of %v", applied, tables)
-	}
-}
-
 type mktMarketFixture struct {
 	pool  *pgxpool.Pool
 	rdb   *goredis.Client
@@ -285,7 +259,8 @@ func newMktMarketFixture(t *testing.T, withRPC bool) mktMarketFixture {
 	t.Helper()
 	pool := internaltest.NewPostgres(t)
 	rdb := internaltest.NewRedis(t)
-	mktApplyIndexerMigration(t, pool, "cursors", "swaps")
+	internaltest.ApplyIndexerTables(t, pool, "cursors", "swaps")
+	internaltest.ApplyReadMigrations(t, pool, "60000", "60003", "150006")
 	chain := newMktChain(t)
 	admission, err := rest.NewAdmission(100, 100, 50*time.Millisecond)
 	if err != nil {
@@ -732,16 +707,16 @@ func TestFeeBpsFromSwap(t *testing.T) {
 	}
 }
 
-// Against the live chain 125 RPC the watermark carries the canonical hash of
-// the block the development indexer cursor names.
 func TestDevelopmentMarketReadsLiveChainWatermark(t *testing.T) {
-	rpcURL := os.Getenv("NETWORK_RPC_URL")
-	if rpcURL == "" {
-		t.Skip("requires the live chain 125 RPC: set NETWORK_RPC_URL (e.g. https://api5.mainnet-beta.paxeer.network)")
+	owned := newMktChain(t)
+	for range 6 {
+		owned.backend.Commit()
 	}
+	rpcURL := owned.url
 	pool := internaltest.NewPostgres(t)
 	rdb := internaltest.NewRedis(t)
-	mktApplyIndexerMigration(t, pool, "cursors", "swaps")
+	internaltest.ApplyIndexerTables(t, pool, "cursors", "swaps")
+	internaltest.ApplyReadMigrations(t, pool, "60000", "60003", "150006")
 	client, err := ethclient.Dial(rpcURL)
 	if err != nil {
 		t.Fatal(err)
