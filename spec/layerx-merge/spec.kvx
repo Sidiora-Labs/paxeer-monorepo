@@ -388662,7 +388662,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.778]
 title = "Name the present cases of the sequenced execution in the driver of the qualification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
