@@ -1,0 +1,7075 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "view": "auth-callback",
+      "width": 390,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 4,
+        "top": 1111,
+        "width": 382,
+        "height": 331,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 390,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 4,
+        "top": 158,
+        "width": 382,
+        "height": 346,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 836,
+        "width": 390,
+        "height": 64,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 8,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 390,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 4,
+        "top": 520,
+        "width": 151.1875,
+        "height": 587,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 390,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 167.1875,
+        "top": 528,
+        "width": 210.796875,
+        "height": 571,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 390,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 4,
+        "top": 52,
+        "width": 382,
+        "height": 58,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 390,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 0,
+        "top": 52,
+        "width": 390,
+        "height": 58,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1280,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 16,
+        "top": 1223,
+        "width": 1114,
+        "height": 334,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1280,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 296,
+        "top": 120,
+        "width": 554,
+        "height": 1087,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1280,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 858,
+        "top": 164,
+        "width": 280,
+        "height": 1045.75,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1280,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 1158,
+        "top": 282,
+        "width": 256,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1280,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 8,
+        "top": 56,
+        "width": 1130,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1280,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 8,
+        "top": 120,
+        "width": 280,
+        "height": 1087,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1440,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 16,
+        "top": 1223,
+        "width": 1120,
+        "height": 334,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1440,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 296,
+        "top": 120,
+        "width": 560,
+        "height": 1087,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1440,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 864,
+        "top": 164,
+        "width": 280,
+        "height": 1045.75,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1440,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 1164,
+        "top": 282,
+        "width": 256,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1440,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 8,
+        "top": 56,
+        "width": 1136,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1440,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 8,
+        "top": 120,
+        "width": 280,
+        "height": 1087,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1920,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 304,
+        "top": 864,
+        "width": 1312,
+        "height": 334,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1920,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 296,
+        "top": 120,
+        "width": 1040,
+        "height": 728,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1920,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 1344,
+        "top": 164,
+        "width": 280,
+        "height": 686.875,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1920,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 1644,
+        "top": 282,
+        "width": 256,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1920,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 296,
+        "top": 56,
+        "width": 1328,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 1920,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 8,
+        "top": 56,
+        "width": 280,
+        "height": 1150,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 2560,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 304,
+        "top": 864,
+        "width": 1952,
+        "height": 334,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 2560,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 296,
+        "top": 120,
+        "width": 1680,
+        "height": 728,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 2560,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 1984,
+        "top": 164,
+        "width": 280,
+        "height": 686.875,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 2560,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 2284,
+        "top": 282,
+        "width": 256,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 2560,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 296,
+        "top": 56,
+        "width": 1968,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "auth-callback",
+      "width": 2560,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 8,
+        "top": 56,
+        "width": 280,
+        "height": 1150,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "cookies",
+      "width": 390,
+      "part": "footer",
+      "selector": "header + div + div",
+      "values": {
+        "left": 16,
+        "top": 3373.125,
+        "width": 358,
+        "height": 41.5,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "cookies",
+      "width": 390,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 16,
+        "top": 92,
+        "width": 358,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "cookies",
+      "width": 390,
+      "part": "policy",
+      "selector": "header + div",
+      "values": {
+        "left": 16,
+        "top": 236,
+        "width": 358,
+        "height": 3089.125,
+        "fontSize": 13,
+        "lineHeight": 21.125
+      }
+    },
+    {
+      "view": "cookies",
+      "width": 1280,
+      "part": "footer",
+      "selector": "header + div + div",
+      "values": {
+        "left": 304,
+        "top": 2483,
+        "width": 672,
+        "height": 41.5,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "cookies",
+      "width": 1280,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 304,
+        "top": 92,
+        "width": 672,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "cookies",
+      "width": 1280,
+      "part": "policy",
+      "selector": "header + div",
+      "values": {
+        "left": 304,
+        "top": 236,
+        "width": 672,
+        "height": 2199,
+        "fontSize": 13,
+        "lineHeight": 21.125
+      }
+    },
+    {
+      "view": "cookies",
+      "width": 1440,
+      "part": "footer",
+      "selector": "header + div + div",
+      "values": {
+        "left": 384,
+        "top": 2483,
+        "width": 672,
+        "height": 41.5,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "cookies",
+      "width": 1440,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 384,
+        "top": 92,
+        "width": 672,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "cookies",
+      "width": 1440,
+      "part": "policy",
+      "selector": "header + div",
+      "values": {
+        "left": 384,
+        "top": 236,
+        "width": 672,
+        "height": 2199,
+        "fontSize": 13,
+        "lineHeight": 21.125
+      }
+    },
+    {
+      "view": "cookies",
+      "width": 1920,
+      "part": "footer",
+      "selector": "header + div + div",
+      "values": {
+        "left": 624,
+        "top": 2483,
+        "width": 672,
+        "height": 41.5,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "cookies",
+      "width": 1920,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 624,
+        "top": 92,
+        "width": 672,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "cookies",
+      "width": 1920,
+      "part": "policy",
+      "selector": "header + div",
+      "values": {
+        "left": 624,
+        "top": 236,
+        "width": 672,
+        "height": 2199,
+        "fontSize": 13,
+        "lineHeight": 21.125
+      }
+    },
+    {
+      "view": "cookies",
+      "width": 2560,
+      "part": "footer",
+      "selector": "header + div + div",
+      "values": {
+        "left": 944,
+        "top": 2483,
+        "width": 672,
+        "height": 41.5,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "cookies",
+      "width": 2560,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 944,
+        "top": 92,
+        "width": 672,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "cookies",
+      "width": 2560,
+      "part": "policy",
+      "selector": "header + div",
+      "values": {
+        "left": 944,
+        "top": 236,
+        "width": 672,
+        "height": 2199,
+        "fontSize": 13,
+        "lineHeight": 21.125
+      }
+    },
+    {
+      "view": "home",
+      "width": 390,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 4,
+        "top": 1111,
+        "width": 382,
+        "height": 331,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 390,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 4,
+        "top": 158,
+        "width": 382,
+        "height": 346,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 836,
+        "width": 390,
+        "height": 64,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 8,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 390,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 4,
+        "top": 520,
+        "width": 151.1875,
+        "height": 587,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 390,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 167.1875,
+        "top": 528,
+        "width": 210.796875,
+        "height": 571,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 390,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 4,
+        "top": 52,
+        "width": 382,
+        "height": 58,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 390,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 0,
+        "top": 52,
+        "width": 390,
+        "height": 58,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1280,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 16,
+        "top": 1223,
+        "width": 1114,
+        "height": 334,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1280,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 296,
+        "top": 120,
+        "width": 554,
+        "height": 1087,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1280,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 858,
+        "top": 164,
+        "width": 280,
+        "height": 1045.75,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1280,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 1158,
+        "top": 282,
+        "width": 256,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1280,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 8,
+        "top": 56,
+        "width": 1130,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1280,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 8,
+        "top": 120,
+        "width": 280,
+        "height": 1087,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1440,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 16,
+        "top": 1223,
+        "width": 1120,
+        "height": 334,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1440,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 296,
+        "top": 120,
+        "width": 560,
+        "height": 1087,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1440,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 864,
+        "top": 164,
+        "width": 280,
+        "height": 1045.75,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1440,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 1164,
+        "top": 282,
+        "width": 256,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1440,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 8,
+        "top": 56,
+        "width": 1136,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1440,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 8,
+        "top": 120,
+        "width": 280,
+        "height": 1087,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1920,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 304,
+        "top": 864,
+        "width": 1312,
+        "height": 334,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1920,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 296,
+        "top": 120,
+        "width": 1040,
+        "height": 728,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1920,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 1344,
+        "top": 164,
+        "width": 280,
+        "height": 686.875,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1920,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 1644,
+        "top": 282,
+        "width": 256,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1920,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 296,
+        "top": 56,
+        "width": 1328,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 1920,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 8,
+        "top": 56,
+        "width": 280,
+        "height": 1150,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 2560,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 304,
+        "top": 864,
+        "width": 1952,
+        "height": 334,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 2560,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 296,
+        "top": 120,
+        "width": 1680,
+        "height": 728,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 2560,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 1984,
+        "top": 164,
+        "width": 280,
+        "height": 686.875,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 2560,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 2284,
+        "top": 282,
+        "width": 256,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 2560,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 296,
+        "top": 56,
+        "width": 1968,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "home",
+      "width": 2560,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 8,
+        "top": 56,
+        "width": 280,
+        "height": 1150,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 836,
+        "width": 390,
+        "height": 64,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 8,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 390,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 12,
+        "top": 228,
+        "width": 366,
+        "height": 244,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 390,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 12,
+        "top": 480,
+        "width": 366,
+        "height": 1120,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 390,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 12,
+        "top": 112,
+        "width": 366,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 1280,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1232,
+        "height": 356,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 1280,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 24,
+        "top": 504,
+        "width": 1232,
+        "height": 1162.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 1280,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1232,
+        "height": 356,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 1440,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1392,
+        "height": 367.1875,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 1440,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 24,
+        "top": 515.1875,
+        "width": 1392,
+        "height": 1162.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 1440,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1392,
+        "height": 367.1875,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 1920,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1872,
+        "height": 384,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 1920,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 24,
+        "top": 532,
+        "width": 1872,
+        "height": 1162.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 1920,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1872,
+        "height": 384,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 2560,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 2512,
+        "height": 384,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 2560,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 24,
+        "top": 532,
+        "width": 2512,
+        "height": 1162.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets",
+      "width": 2560,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 2512,
+        "height": 384,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 836,
+        "width": 390,
+        "height": 64,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 8,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 390,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 12,
+        "top": 228,
+        "width": 366,
+        "height": 244,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 390,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 12,
+        "top": 480,
+        "width": 366,
+        "height": 1120,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 390,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 12,
+        "top": 112,
+        "width": 366,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 1280,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1232,
+        "height": 356,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 1280,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 24,
+        "top": 504,
+        "width": 1232,
+        "height": 1162.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 1280,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1232,
+        "height": 356,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 1440,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1392,
+        "height": 367.1875,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 1440,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 24,
+        "top": 515.1875,
+        "width": 1392,
+        "height": 1162.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 1440,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1392,
+        "height": 367.1875,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 1920,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1872,
+        "height": 384,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 1920,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 24,
+        "top": 532,
+        "width": 1872,
+        "height": 1162.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 1920,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1872,
+        "height": 384,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 2560,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 2512,
+        "height": 384,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 2560,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 24,
+        "top": 532,
+        "width": 2512,
+        "height": 1162.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-empty",
+      "width": 2560,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 2512,
+        "height": 384,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 836,
+        "width": 390,
+        "height": 64,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 8,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 390,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 12,
+        "top": 228,
+        "width": 366,
+        "height": 244,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 390,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 12,
+        "top": 480,
+        "width": 366,
+        "height": 1120,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 390,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 12,
+        "top": 112,
+        "width": 366,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 1280,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1232,
+        "height": 356,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 1280,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 24,
+        "top": 504,
+        "width": 1232,
+        "height": 1162.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 1280,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1232,
+        "height": 356,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 1440,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1392,
+        "height": 367.1875,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 1440,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 24,
+        "top": 515.1875,
+        "width": 1392,
+        "height": 1162.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 1440,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1392,
+        "height": 367.1875,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 1920,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1872,
+        "height": 384,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 1920,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 24,
+        "top": 532,
+        "width": 1872,
+        "height": 1162.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 1920,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1872,
+        "height": 384,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 2560,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 2512,
+        "height": 384,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 2560,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 24,
+        "top": 532,
+        "width": 2512,
+        "height": 1162.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-error",
+      "width": 2560,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 2512,
+        "height": 384,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 836,
+        "width": 390,
+        "height": 64,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 8,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 390,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 12,
+        "top": 228,
+        "width": 366,
+        "height": 244,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 390,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 12,
+        "top": 480,
+        "width": 366,
+        "height": 1120,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 390,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 12,
+        "top": 112,
+        "width": 366,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 1280,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1232,
+        "height": 356,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 1280,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 24,
+        "top": 504,
+        "width": 1232,
+        "height": 1162.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 1280,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1232,
+        "height": 356,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 1440,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1392,
+        "height": 367.1875,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 1440,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 24,
+        "top": 515.1875,
+        "width": 1392,
+        "height": 1162.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 1440,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1392,
+        "height": 367.1875,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 1920,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1872,
+        "height": 384,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 1920,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 24,
+        "top": 532,
+        "width": 1872,
+        "height": 1162.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 1920,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 1872,
+        "height": 384,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 2560,
+      "part": "market-lists",
+      "selector": "#oui-markets-header > :last-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 2512,
+        "height": 384,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 2560,
+      "part": "market-table",
+      "selector": "#oui-markets-list",
+      "values": {
+        "left": 24,
+        "top": 532,
+        "width": 2512,
+        "height": 1162.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "markets-loading",
+      "width": 2560,
+      "part": "summary-cards",
+      "selector": "#oui-markets-header > :first-child",
+      "values": {
+        "left": 24,
+        "top": 124,
+        "width": 2512,
+        "height": 384,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 836,
+        "width": 390,
+        "height": 64,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 390,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 44,
+        "width": 390,
+        "height": 856,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 390,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 1280,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1280,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 1280,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 1440,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1440,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 1440,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 1920,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1920,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 1920,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 2560,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 2560,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio",
+      "width": 2560,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 900,
+        "width": 390,
+        "height": 0,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 390,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 44,
+        "width": 390,
+        "height": 856,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 390,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 1280,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1280,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 1280,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 1440,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1440,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 1440,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 1920,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1920,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 1920,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 2560,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 2560,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-apiKey",
+      "width": 2560,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 900,
+        "width": 390,
+        "height": 0,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 390,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 44,
+        "width": 390,
+        "height": 856,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 390,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 1280,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1280,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 1280,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 1440,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1440,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 1440,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 1920,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1920,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 1920,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 2560,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 2560,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-assets",
+      "width": 2560,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 900,
+        "width": 390,
+        "height": 0,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 390,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 44,
+        "width": 390,
+        "height": 856,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 390,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 1280,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1280,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 1280,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 1440,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1440,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 1440,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 1920,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1920,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 1920,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 2560,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 2560,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-feeTier",
+      "width": 2560,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 900,
+        "width": 390,
+        "height": 0,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 390,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 44,
+        "width": 390,
+        "height": 856,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 390,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 1280,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1280,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 1280,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 1440,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1440,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 1440,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 1920,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1920,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 1920,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 2560,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 2560,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-history",
+      "width": 2560,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 900,
+        "width": 390,
+        "height": 0,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 390,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 44,
+        "width": 390,
+        "height": 856,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 390,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 1280,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1280,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 1280,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 1440,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1440,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 1440,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 1920,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1920,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 1920,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 2560,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 2560,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-orders",
+      "width": 2560,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 900,
+        "width": 390,
+        "height": 0,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 390,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 44,
+        "width": 390,
+        "height": 856,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 390,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 1280,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1280,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 1280,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 1440,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1440,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 1440,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 1920,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1920,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 1920,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 2560,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 2560,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-positions",
+      "width": 2560,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 900,
+        "width": 390,
+        "height": 0,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 390,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 44,
+        "width": 390,
+        "height": 856,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 390,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 1280,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1280,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 1280,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 1440,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1440,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 1440,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 1920,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 1920,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 1920,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 2560,
+      "part": "panels",
+      "selector": ".oui-scaffold-container",
+      "values": {
+        "left": 0,
+        "top": 48,
+        "width": 2560,
+        "height": 824,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "portfolio-setting",
+      "width": 2560,
+      "part": "side-navigation",
+      "selector": ".oui-group\\/bar:visible, header.oui-scaffold-topNavbar:visible >> nth=-1",
+      "values": {
+        "left": 29,
+        "top": 77,
+        "width": 127,
+        "height": 448,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 390,
+      "part": "footer",
+      "selector": "header + div + div",
+      "values": {
+        "left": 16,
+        "top": 4777.125,
+        "width": 358,
+        "height": 41.5,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 390,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 16,
+        "top": 92,
+        "width": 358,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 390,
+      "part": "policy",
+      "selector": "header + div",
+      "values": {
+        "left": 16,
+        "top": 236,
+        "width": 358,
+        "height": 4493.125,
+        "fontSize": 13,
+        "lineHeight": 21.125
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1280,
+      "part": "footer",
+      "selector": "header + div + div",
+      "values": {
+        "left": 304,
+        "top": 3319.5,
+        "width": 672,
+        "height": 41.5,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1280,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 304,
+        "top": 92,
+        "width": 672,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1280,
+      "part": "policy",
+      "selector": "header + div",
+      "values": {
+        "left": 304,
+        "top": 236,
+        "width": 672,
+        "height": 3035.5,
+        "fontSize": 13,
+        "lineHeight": 21.125
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1440,
+      "part": "footer",
+      "selector": "header + div + div",
+      "values": {
+        "left": 384,
+        "top": 3319.5,
+        "width": 672,
+        "height": 41.5,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1440,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 384,
+        "top": 92,
+        "width": 672,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1440,
+      "part": "policy",
+      "selector": "header + div",
+      "values": {
+        "left": 384,
+        "top": 236,
+        "width": 672,
+        "height": 3035.5,
+        "fontSize": 13,
+        "lineHeight": 21.125
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1920,
+      "part": "footer",
+      "selector": "header + div + div",
+      "values": {
+        "left": 624,
+        "top": 3319.5,
+        "width": 672,
+        "height": 41.5,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1920,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 624,
+        "top": 92,
+        "width": 672,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1920,
+      "part": "policy",
+      "selector": "header + div",
+      "values": {
+        "left": 624,
+        "top": 236,
+        "width": 672,
+        "height": 3035.5,
+        "fontSize": 13,
+        "lineHeight": 21.125
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 2560,
+      "part": "footer",
+      "selector": "header + div + div",
+      "values": {
+        "left": 944,
+        "top": 3319.5,
+        "width": 672,
+        "height": 41.5,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 2560,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 944,
+        "top": 92,
+        "width": 672,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 2560,
+      "part": "policy",
+      "selector": "header + div",
+      "values": {
+        "left": 944,
+        "top": 236,
+        "width": 672,
+        "height": 3035.5,
+        "fontSize": 13,
+        "lineHeight": 21.125
+      }
+    },
+    {
+      "view": "terms",
+      "width": 390,
+      "part": "footer",
+      "selector": "header + div + div",
+      "values": {
+        "left": 16,
+        "top": 5397.5,
+        "width": 358,
+        "height": 41.5,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "terms",
+      "width": 390,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 16,
+        "top": 92,
+        "width": 358,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "terms",
+      "width": 390,
+      "part": "policy",
+      "selector": "header + div",
+      "values": {
+        "left": 16,
+        "top": 236,
+        "width": 358,
+        "height": 5113.5,
+        "fontSize": 13,
+        "lineHeight": 21.125
+      }
+    },
+    {
+      "view": "terms",
+      "width": 1280,
+      "part": "footer",
+      "selector": "header + div + div",
+      "values": {
+        "left": 304,
+        "top": 3707.5,
+        "width": 672,
+        "height": 41.5,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "terms",
+      "width": 1280,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 304,
+        "top": 92,
+        "width": 672,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "terms",
+      "width": 1280,
+      "part": "policy",
+      "selector": "header + div",
+      "values": {
+        "left": 304,
+        "top": 236,
+        "width": 672,
+        "height": 3423.5,
+        "fontSize": 13,
+        "lineHeight": 21.125
+      }
+    },
+    {
+      "view": "terms",
+      "width": 1440,
+      "part": "footer",
+      "selector": "header + div + div",
+      "values": {
+        "left": 384,
+        "top": 3707.5,
+        "width": 672,
+        "height": 41.5,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "terms",
+      "width": 1440,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 384,
+        "top": 92,
+        "width": 672,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "terms",
+      "width": 1440,
+      "part": "policy",
+      "selector": "header + div",
+      "values": {
+        "left": 384,
+        "top": 236,
+        "width": 672,
+        "height": 3423.5,
+        "fontSize": 13,
+        "lineHeight": 21.125
+      }
+    },
+    {
+      "view": "terms",
+      "width": 1920,
+      "part": "footer",
+      "selector": "header + div + div",
+      "values": {
+        "left": 624,
+        "top": 3707.5,
+        "width": 672,
+        "height": 41.5,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "terms",
+      "width": 1920,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 624,
+        "top": 92,
+        "width": 672,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "terms",
+      "width": 1920,
+      "part": "policy",
+      "selector": "header + div",
+      "values": {
+        "left": 624,
+        "top": 236,
+        "width": 672,
+        "height": 3423.5,
+        "fontSize": 13,
+        "lineHeight": 21.125
+      }
+    },
+    {
+      "view": "terms",
+      "width": 2560,
+      "part": "footer",
+      "selector": "header + div + div",
+      "values": {
+        "left": 944,
+        "top": 3707.5,
+        "width": 672,
+        "height": 41.5,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "terms",
+      "width": 2560,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 944,
+        "top": 92,
+        "width": 672,
+        "height": 104,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "terms",
+      "width": 2560,
+      "part": "policy",
+      "selector": "header + div",
+      "values": {
+        "left": 944,
+        "top": 236,
+        "width": 672,
+        "height": 3423.5,
+        "fontSize": 13,
+        "lineHeight": 21.125
+      }
+    },
+    {
+      "view": "trade",
+      "width": 390,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 4,
+        "top": 1111,
+        "width": 382,
+        "height": 331,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 390,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 4,
+        "top": 158,
+        "width": 382,
+        "height": 346,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 836,
+        "width": 390,
+        "height": 64,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 8,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 390,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 4,
+        "top": 520,
+        "width": 151.1875,
+        "height": 587,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 390,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 167.1875,
+        "top": 528,
+        "width": 210.796875,
+        "height": 571,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 390,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 4,
+        "top": 52,
+        "width": 382,
+        "height": 58,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 390,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 0,
+        "top": 52,
+        "width": 390,
+        "height": 58,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1280,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 16,
+        "top": 1223,
+        "width": 1114,
+        "height": 334,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1280,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 296,
+        "top": 120,
+        "width": 554,
+        "height": 1087,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1280,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 858,
+        "top": 164,
+        "width": 280,
+        "height": 1045.75,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1280,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 1158,
+        "top": 282,
+        "width": 256,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1280,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 8,
+        "top": 56,
+        "width": 1130,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1280,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 8,
+        "top": 120,
+        "width": 280,
+        "height": 1087,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1440,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 16,
+        "top": 1223,
+        "width": 1120,
+        "height": 334,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1440,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 296,
+        "top": 120,
+        "width": 560,
+        "height": 1087,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1440,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 864,
+        "top": 164,
+        "width": 280,
+        "height": 1045.75,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1440,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 1164,
+        "top": 282,
+        "width": 256,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1440,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 8,
+        "top": 56,
+        "width": 1136,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1440,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 8,
+        "top": 120,
+        "width": 280,
+        "height": 1087,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1920,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 304,
+        "top": 864,
+        "width": 1312,
+        "height": 334,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1920,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 296,
+        "top": 120,
+        "width": 1040,
+        "height": 728,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1920,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 1344,
+        "top": 164,
+        "width": 280,
+        "height": 686.875,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1920,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 1644,
+        "top": 282,
+        "width": 256,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1920,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 296,
+        "top": 56,
+        "width": 1328,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 1920,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 8,
+        "top": 56,
+        "width": 280,
+        "height": 1150,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 2560,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 304,
+        "top": 864,
+        "width": 1952,
+        "height": 334,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 2560,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 296,
+        "top": 120,
+        "width": 1680,
+        "height": 728,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 2560,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 1984,
+        "top": 164,
+        "width": 280,
+        "height": 686.875,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 2560,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 2284,
+        "top": 282,
+        "width": 256,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 2560,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 296,
+        "top": 56,
+        "width": 1968,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade",
+      "width": 2560,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 8,
+        "top": 56,
+        "width": 280,
+        "height": 1150,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 390,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 4,
+        "top": 1111,
+        "width": 382,
+        "height": 331,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 390,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 4,
+        "top": 158,
+        "width": 382,
+        "height": 346,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 836,
+        "width": 390,
+        "height": 64,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 8,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 390,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 4,
+        "top": 520,
+        "width": 151.1875,
+        "height": 587,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 390,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 167.1875,
+        "top": 528,
+        "width": 210.796875,
+        "height": 571,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 390,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 4,
+        "top": 52,
+        "width": 382,
+        "height": 58,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 390,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 0,
+        "top": 52,
+        "width": 390,
+        "height": 58,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1280,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 16,
+        "top": 1223,
+        "width": 1114,
+        "height": 334,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1280,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 296,
+        "top": 120,
+        "width": 554,
+        "height": 1087,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1280,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 858,
+        "top": 164,
+        "width": 280,
+        "height": 1045.75,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1280,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 1158,
+        "top": 282,
+        "width": 256,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1280,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 8,
+        "top": 56,
+        "width": 1130,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1280,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 8,
+        "top": 120,
+        "width": 280,
+        "height": 1087,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1440,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 16,
+        "top": 1223,
+        "width": 1120,
+        "height": 334,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1440,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 296,
+        "top": 120,
+        "width": 560,
+        "height": 1087,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1440,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 864,
+        "top": 164,
+        "width": 280,
+        "height": 1045.75,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1440,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 1164,
+        "top": 282,
+        "width": 256,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1440,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 8,
+        "top": 56,
+        "width": 1136,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1440,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 8,
+        "top": 120,
+        "width": 280,
+        "height": 1087,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1920,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 304,
+        "top": 864,
+        "width": 1312,
+        "height": 334,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1920,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 296,
+        "top": 120,
+        "width": 1040,
+        "height": 728,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1920,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 1344,
+        "top": 164,
+        "width": 280,
+        "height": 686.875,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1920,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 1644,
+        "top": 282,
+        "width": 256,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1920,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 296,
+        "top": 56,
+        "width": 1328,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 1920,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 8,
+        "top": 56,
+        "width": 280,
+        "height": 1150,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 2560,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 304,
+        "top": 864,
+        "width": 1952,
+        "height": 334,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 2560,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 296,
+        "top": 120,
+        "width": 1680,
+        "height": 728,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 2560,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 1984,
+        "top": 164,
+        "width": 280,
+        "height": 686.875,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 2560,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 2284,
+        "top": 282,
+        "width": 256,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 2560,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 296,
+        "top": 56,
+        "width": 1968,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-bitcoin",
+      "width": 2560,
+      "part": "tickers",
+      "selector": ".oui-trading-markets-container:has(input):visible, .oui-horizontal-markets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 8,
+        "top": 56,
+        "width": 280,
+        "height": 1150,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 390,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 4,
+        "top": 1111,
+        "width": 382,
+        "height": 331,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 390,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 4,
+        "top": 158,
+        "width": 382,
+        "height": 346,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 390,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 836,
+        "width": 390,
+        "height": 64,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 390,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 8,
+        "width": 390,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 390,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 4,
+        "top": 520,
+        "width": 151.1875,
+        "height": 587,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 390,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 167.1875,
+        "top": 528,
+        "width": 210.796875,
+        "height": 571,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 390,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 4,
+        "top": 52,
+        "width": 382,
+        "height": 58,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 390,
+      "part": "tickers",
+      "selector": ".oui-markets-expandMarkets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 0,
+        "top": 52,
+        "width": 390,
+        "height": 58,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1280,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 12,
+        "top": 648,
+        "width": 990,
+        "height": 260,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1280,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 270,
+        "top": 108,
+        "width": 528,
+        "height": 528,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1280,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1280,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1280,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1280,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 802,
+        "top": 152,
+        "width": 208,
+        "height": 484,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1280,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 1026,
+        "top": 120,
+        "width": 238,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1280,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 16,
+        "top": 52,
+        "width": 982,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1280,
+      "part": "tickers",
+      "selector": ".oui-markets-expandMarkets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 4,
+        "top": 152,
+        "width": 262,
+        "height": 484,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1440,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 12,
+        "top": 648,
+        "width": 1117,
+        "height": 260,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1440,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 303,
+        "top": 108,
+        "width": 595,
+        "height": 528,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1440,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1440,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1440,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1440,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 902,
+        "top": 152,
+        "width": 235,
+        "height": 484,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1440,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 1153,
+        "top": 120,
+        "width": 271,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1440,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 16,
+        "top": 52,
+        "width": 1109,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1440,
+      "part": "tickers",
+      "selector": ".oui-markets-expandMarkets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 4,
+        "top": 152,
+        "width": 295,
+        "height": 484,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1920,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 12,
+        "top": 648,
+        "width": 1497,
+        "height": 260,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1920,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 403,
+        "top": 108,
+        "width": 795,
+        "height": 528,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1920,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 1920,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1920,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1920,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 1202,
+        "top": 152,
+        "width": 315,
+        "height": 484,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1920,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 1533,
+        "top": 120,
+        "width": 371,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1920,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 16,
+        "top": 52,
+        "width": 1489,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 1920,
+      "part": "tickers",
+      "selector": ".oui-markets-expandMarkets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 4,
+        "top": 152,
+        "width": 395,
+        "height": 484,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 2560,
+      "part": "account-tabs",
+      "selector": ".oui-trading-dataList-tabs:visible",
+      "values": {
+        "left": 12,
+        "top": 648,
+        "width": 2004,
+        "height": 260,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 2560,
+      "part": "chart",
+      "selector": ".oui-tradingview-root:visible",
+      "values": {
+        "left": 537,
+        "top": 108,
+        "width": 1061,
+        "height": 528,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 2560,
+      "part": "footer",
+      "selector": ":is(.oui-scaffold-footer, .oui-scaffold-bottomNav)",
+      "values": {
+        "left": 0,
+        "top": 871,
+        "width": 2560,
+        "height": 29,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 2560,
+      "part": "header",
+      "selector": ".oui-scaffold-topNavbar",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 48,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 2560,
+      "part": "order-book",
+      "selector": ".oui-orderBook:visible:not(.oui-orderBook .oui-orderBook)",
+      "values": {
+        "left": 1602,
+        "top": 152,
+        "width": 422,
+        "height": 484,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 2560,
+      "part": "order-entry",
+      "selector": ".oui-orderEntry:visible",
+      "values": {
+        "left": 2040,
+        "top": 120,
+        "width": 504,
+        "height": 644,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 2560,
+      "part": "symbol",
+      "selector": ".oui-symbol-info-bar-desktop:visible, .oui-symbol-info-bar-mobile:visible",
+      "values": {
+        "left": 16,
+        "top": 52,
+        "width": 1996,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "trade-grid",
+      "width": 2560,
+      "part": "tickers",
+      "selector": ".oui-markets-expandMarkets:visible, main > div:has(> .oui-symbol-info-bar-mobile)",
+      "values": {
+        "left": 4,
+        "top": 152,
+        "width": 529,
+        "height": 484,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    }
+  ]
+}

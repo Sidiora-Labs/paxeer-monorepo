@@ -23,23 +23,11 @@ import { Countdown } from "../../components/base/countdown";
 import { showRwaOutsideMarketHoursNotify } from "../../components/desktop/notify/rwaNotification";
 import type { TradingState } from "./trading.script";
 
-const LazyTopTabWidget = React.lazy(() =>
-  import("../../components/mobile/topTab").then((mod) => {
-    return { default: mod.TopTabWidget };
-  }),
-);
+import { TopTabWidget } from "../../components/mobile/topTab";
 
-const LazyOrderBookAndEntryWidget = React.lazy(() =>
-  import("../../components/mobile/orderBookAndEntry").then((mod) => {
-    return { default: mod.OrderBookAndEntryWidget };
-  }),
-);
+import { OrderBookAndEntryWidget } from "../../components/mobile/orderBookAndEntry";
 
-const LazyDataListWidget = React.lazy(() =>
-  import("../../components/mobile/dataList").then((mod) => {
-    return { default: mod.DataListWidget };
-  }),
-);
+import { DataListWidget } from "../../components/mobile/dataList";
 
 const MaybeEqual: React.FC = () => {
   return (
@@ -211,13 +199,13 @@ export const MobileLayout: React.FC<TradingState> = (props) => {
         {topBar}
 
         <React.Suspense fallback={null}>
-          <LazyTopTabWidget className="oui-mx-1 oui-rounded-xl oui-bg-base-9" />
+          <TopTabWidget className="oui-mx-1 oui-rounded-xl oui-bg-base-9" />
         </React.Suspense>
         <React.Suspense fallback={null}>
-          <LazyOrderBookAndEntryWidget />
+          <OrderBookAndEntryWidget />
         </React.Suspense>
         <React.Suspense fallback={null}>
-          <LazyDataListWidget
+          <DataListWidget
             symbol={props.symbol}
             className="oui-mx-1 oui-rounded-xl"
             sharePnLConfig={props.sharePnLConfig}

@@ -29,7 +29,10 @@ export const LanguageSwitcher: FC<LanguageSwitcherProps> = (props) => {
   }
 
   const trigger = (
-    <Tooltip content={t("languageSwitcher.tooltip")}>
+    <Tooltip
+      content={t("languageSwitcher.tooltip")}
+      open={props.open ? false : undefined}
+    >
       <LanguageIcon
         className={cn(
           "oui-size-6 lg:oui-size-5",

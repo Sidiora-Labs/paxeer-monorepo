@@ -10,23 +10,11 @@ import {
 import { useMarketCategories } from "../../components/shared/hooks/useMarketCategories";
 import { MarketsPageTab } from "../../type";
 
-const LazyMarketsHeaderWidget = React.lazy(() =>
-  import("./marketsHeader/marketsHeader.widget").then((mod) => {
-    return { default: mod.MarketsHeaderWidget };
-  }),
-);
+import { MarketsHeaderWidget } from "./marketsHeader/marketsHeader.widget";
 
-const LazyMarketsDataListWidget = React.lazy(() =>
-  import("./marketsDataList").then((mod) => {
-    return { default: mod.MarketsDataListWidget };
-  }),
-);
+import { MarketsDataListWidget } from "./marketsDataList";
 
-const LazyFundingWidget = React.lazy(() =>
-  import("./funding/funding.widget").then((mod) => {
-    return { default: mod.FundingWidget };
-  }),
-);
+import { FundingWidget } from "./funding/funding.widget";
 
 export type MarketsHomePageProps = MarketsProviderProps & {
   className?: string;
@@ -103,10 +91,10 @@ const MarketsDesktopContent: React.FC<MarketsContentProps> = (props) => {
           testid="oui-testid-markets-tab"
         >
           <React.Suspense fallback={null}>
-            <LazyMarketsHeaderWidget className="oui-mt-4" />
+            <MarketsHeaderWidget className="oui-mt-4" />
           </React.Suspense>
           <React.Suspense fallback={null}>
-            <LazyMarketsDataListWidget />
+            <MarketsDataListWidget />
           </React.Suspense>
         </TabPanel>
         <TabPanel
@@ -119,7 +107,7 @@ const MarketsDesktopContent: React.FC<MarketsContentProps> = (props) => {
           testid="oui-testid-funding-tab"
         >
           <React.Suspense fallback={null}>
-            <LazyFundingWidget />
+            <FundingWidget />
           </React.Suspense>
         </TabPanel>
       </Tabs>
@@ -157,10 +145,10 @@ const MarketsMobileContent: React.FC<MarketsContentProps> = (props) => {
         testid="oui-testid-markets-tab"
       >
         <React.Suspense fallback={null}>
-          <LazyMarketsHeaderWidget className="oui-mt-2" />
+          <MarketsHeaderWidget className="oui-mt-2" />
         </React.Suspense>
         <React.Suspense fallback={null}>
-          <LazyMarketsDataListWidget />
+          <MarketsDataListWidget />
         </React.Suspense>
       </TabPanel>
       <TabPanel
@@ -169,7 +157,7 @@ const MarketsMobileContent: React.FC<MarketsContentProps> = (props) => {
         testid="oui-testid-funding-tab"
       >
         <React.Suspense fallback={null}>
-          <LazyFundingWidget />
+          <FundingWidget />
         </React.Suspense>
       </TabPanel>
     </Tabs>

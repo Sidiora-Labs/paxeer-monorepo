@@ -1,13 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { cn } from "@paxeer-network/ui";
 import { OrderEntryWidget } from "@paxeer-network/ui-order-entry";
 import type { OrderBookAndEntryState } from "./orderBookAndEntry.script";
 
-const LazyOrderBookWidget = React.lazy(() =>
-  import("../../base/orderBook").then((mod) => {
-    return { default: mod.OrderBookWidget };
-  }),
-);
+import { OrderBookWidget } from "../../base/orderBook";
 
 export const OrderBookAndEntry: React.FC<
   OrderBookAndEntryState & { className?: string }
@@ -15,14 +12,14 @@ export const OrderBookAndEntry: React.FC<
   const [height, setHeight] = useState(0);
   const divRef = useRef(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const div = divRef.current;
     if (!div) {
       return;
     }
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        setHeight(entry.contentRect.height);
+        flushSync(() => setHeight(entry.contentRect.height));
       }
     });
     resizeObserver.observe(div);
@@ -33,11 +30,11 @@ export const OrderBookAndEntry: React.FC<
 
   const orderBookColumn = (
     <div
-      className="oui-rounded-xl oui-bg-base-9"
+      className="oui-min-w-0 oui-rounded-xl oui-bg-base-9"
       style={{ height: `${height + 16}px` }}
     >
       <React.Suspense fallback={null}>
-        <LazyOrderBookWidget
+        <OrderBookWidget
           symbol={props.symbol}
           height={height ? height - 44 : undefined}
         />
@@ -45,7 +42,7 @@ export const OrderBookAndEntry: React.FC<
     </div>
   );
   const orderEntryColumn = (
-    <div className="oui-rounded-xl oui-bg-base-9 oui-p-2">
+    <div className="oui-min-w-0 oui-rounded-xl oui-bg-base-9 oui-p-2">
       <OrderEntryWidget symbol={props.symbol} containerRef={divRef} />
     </div>
   );

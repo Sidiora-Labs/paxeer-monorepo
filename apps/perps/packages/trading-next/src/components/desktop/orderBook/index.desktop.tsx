@@ -1,4 +1,5 @@
-import { FC, useEffect, useRef, useState } from "react";
+import { FC, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useLocalStorage } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
 import { EMPTY_LIST } from "@paxeer-network/types";
@@ -72,17 +73,18 @@ export const DesktopOrderBook: FC<DesktopOrderBookProps> = (props) => {
     }
   }, [base, quote]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { inlineSize: width } = entry.borderBoxSize[0];
-        setShowTotal(width >= 360);
+        flushSync(() => setShowTotal(width >= 360));
       }
     });
 
     const targetDiv = divRef.current;
 
     if (targetDiv) {
+      setShowTotal(targetDiv.getBoundingClientRect().width >= 360);
       resizeObserver.observe(targetDiv);
     }
 

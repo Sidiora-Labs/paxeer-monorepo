@@ -162,6 +162,7 @@ function ensureConnected(): void {
 }
 
 function connect(): void {
+  if (process.env.NEXT_PUBLIC_DISABLE_REALTIME_FOR_RENDER === "1") return;
   if (!isPageActive()) {
     scheduleReconnect();
     return;
