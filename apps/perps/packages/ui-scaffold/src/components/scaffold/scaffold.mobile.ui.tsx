@@ -36,16 +36,13 @@ export const MobileScaffold: React.FC<
   return (
     <div
       style={{
-        paddingBottom: `calc(${bottomNavHeight}px + var(--oui-space-3) + env(safe-area-inset-bottom))`,
+        paddingBottom: `calc(${bottomNavHeight}px + 12px + env(safe-area-inset-bottom))`,
       }}
       className={cn(
         "oui-scaffold-root oui-w-full oui-bg-base-10 oui-pt-2",
         classNames?.root,
       )}
     >
-      <a className="oui-skip-link" href="#workspace-main">
-        Skip to content
-      </a>
       <header
         ref={topNavbarRef}
         className={cn(
@@ -61,7 +58,7 @@ export const MobileScaffold: React.FC<
 
       <Box
         className={cn(
-          "oui-scaffold-container oui-min-w-0",
+          "oui-scaffold-container oui-overflow-hidden",
           // "oui-relative",
           // "oui-custom-scrollbar oui-overflow-y-auto",
           classNames?.container,
@@ -74,15 +71,9 @@ export const MobileScaffold: React.FC<
         <Box
           height="100%"
           width="100%"
-          asChild
-          className={cn(
-            "oui-scaffold-content oui-min-w-0",
-            classNames?.content,
-          )}
+          className={cn("oui-scaffold-content", classNames?.content)}
         >
-          <main id="workspace-main" tabIndex={-1}>
-            {children}
-          </main>
+          {children}
         </Box>
       </Box>
       <footer

@@ -21,7 +21,7 @@ export const OfflineInfo: FC<OfflineInfoProps> = (props) => {
   return (
     <Flex
       className={cn(
-        "oui-offline-info oui-text-base-contrast-80 oui-bg-warning-darken/15 oui-rounded",
+        "oui-offline-info oui-text-warning-darken oui-bg-warning-darken/15 oui-rounded",
         props.className,
       )}
       style={props.style}

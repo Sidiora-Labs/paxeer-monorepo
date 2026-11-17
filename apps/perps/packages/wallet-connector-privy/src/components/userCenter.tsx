@@ -3,6 +3,7 @@ import { useAccount, useWalletConnector } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
   ABSTRACT_CHAIN_ID_MAP,
+  ABSTRACT_TESTNET_CHAINID,
   AccountStatusEnum,
 } from "@paxeer-network/types";
 import {
@@ -87,7 +88,7 @@ const RenderUserCenter = (props: any) => {
   // if (accountStatus.status <= ) {}
   if (state.status === AccountStatusEnum.EnableTradingWithoutConnected) {
     return (
-      <Flex className="oui-bg-base-5 oui-px-2 oui-rounded-md oui-gap-2">
+      <Flex className="oui-bg-base-5 oui-px-[7px] oui-rounded-[6px] oui-gap-[6px]">
         <LinkDeviceMobile>
           <Text.formatted
             rule="address"
@@ -147,9 +148,8 @@ const RenderUserCenter = (props: any) => {
           size: "md",
         }}
       >
-        <>
+        <div onClick={openWalletCenter}>
           <Button
-            onClick={openWalletCenter}
             size="md"
             variant="contained"
             data-testid="oui-testid-nav-bar-address-btn"
@@ -169,14 +169,13 @@ const RenderUserCenter = (props: any) => {
               {formatAddress(userAddress!)}
             </Text.formatted>
           </Button>
-        </>
+        </div>
       </AuthGuard>
     );
   }
   return (
-    <>
+    <div onClick={openWalletCenter}>
       <Button
-        onClick={openWalletCenter}
         size="md"
         variant="contained"
         data-testid="oui-testid-nav-bar-address-btn"
@@ -193,6 +192,6 @@ const RenderUserCenter = (props: any) => {
           {formatAddress(userAddress!)}
         </Text.formatted>
       </Button>
-    </>
+    </div>
   );
 };

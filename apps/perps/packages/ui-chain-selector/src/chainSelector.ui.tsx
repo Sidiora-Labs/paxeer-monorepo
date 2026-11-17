@@ -26,8 +26,8 @@ const chainSelectorVariants = tv({
   slots: {
     icon: "",
     list: "oui-grid oui-grid-cols-1 oui-gap-1",
-    mainnetList: "",
-    testnetList: "",
+    mainnetList: '"',
+    testnetList: '"',
     recentList: "",
     item: "oui-w-full oui-rounded-md",
     tip: "oui-text-center",
@@ -37,16 +37,16 @@ const chainSelectorVariants = tv({
       compact: {
         icon: "oui-w-6 oui-h-6",
         list: "oui-bg-base-9 oui-rounded-lg oui-p-1",
-        mainnetList: "oui-shell-options oui-mt-4",
-        testnetList: "oui-shell-options oui-mt-4",
+        mainnetList: "oui-grid-cols-2 oui-mt-4",
+        testnetList: "oui-grid-cols-1 oui-mt-4",
         recentList: "oui-mt-4",
         item: "oui-bg-base-6 hover:oui-bg-base-7",
         tip: "oui-pt-6",
       },
       wide: {
-        icon: "oui-w-5 oui-h-5",
-        mainnetList: "oui-shell-options oui-mt-3",
-        testnetList: "oui-shell-options oui-mt-3",
+        icon: "oui-w-[18px] oui-h-[18px]",
+        mainnetList: "oui-grid-cols-3 oui-mt-3",
+        testnetList: "oui-grid-cols-2 oui-mt-3",
         recentList: "oui-mt-3",
         item: "oui-bg-base-5 hover:oui-bg-base-6",
         tip: "oui-pt-8",
@@ -171,14 +171,9 @@ export const ChainItem = (props: {
 }) => {
   const { item } = props;
   return (
-    <button
-      type="button"
-      aria-pressed={props.selected}
-      className={cn("oui-min-h-12", props.className)}
-      onClick={props.onClick}
-    >
+    <button className={props.className} onClick={props.onClick}>
       <Flex justify="between" className="oui-py-2.5" px={3}>
-        <Flex itemAlign="center" width="100%" className="oui-gap-x-2">
+        <Flex itemAlign="center" width="100%" className="oui-gap-x-[6px]">
           <ChainIcon chainId={item.id} size="xs" />
           <Text size="2xs">{item.name}</Text>
         </Flex>
@@ -198,8 +193,6 @@ export const RecentChainItem = (props: {
 }) => {
   return (
     <button
-      type="button"
-      aria-label={props.item.name}
       className="oui-border oui-border-line-12 oui-rounded-lg hover:oui-border-primary-light"
       onClick={props.onClick}
     >

@@ -42,7 +42,7 @@ export function PrimaryAction({
   return (
     <Button
       size={position === "header" ? "md" : "lg"}
-      className={cn(position === "footer" && "min-w-40", className)}
+      className={cn(position === "footer" && "min-w-primary-action", className)}
       {...props}
     >
       {children}

@@ -132,7 +132,7 @@ export const MarketsDataList: React.FC<MarketsDataListProps> = (props) => {
             <React.Suspense fallback={null}>
               <LazySearchInput
                 classNames={{
-                  root: "oui-min-w-0 oui-w-60",
+                  root: "oui-min-w-0 oui-w-[240px]",
                 }}
               />
             </React.Suspense>

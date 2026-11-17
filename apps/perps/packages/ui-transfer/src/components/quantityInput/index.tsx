@@ -1,5 +1,4 @@
-import styles from "../../presentation.module.css";
-import { FC, ReactNode, useId, useMemo, useRef, useState } from "react";
+import { FC, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { API } from "@paxeer-network/types";
 import {
@@ -76,15 +75,7 @@ export const QuantityInput: FC<QuantityInputProps> = (props) => {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
-  const generatedId = useId();
-  const inputId = props.id ?? generatedId;
-  const messageId = `${inputId}-hint`;
-  const [interacted, setInteracted] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const displayStatus =
-    status === "error" && (!interacted || editing) ? undefined : status;
-  const displayHint =
-    status === "error" && !displayStatus ? undefined : hintMessage;
+  const [width, setWidth] = useState(0);
 
   const getTokenLabel = (tokenInfo: API.TokenInfo) =>
     showDisplayName
@@ -106,6 +97,11 @@ export const QuantityInput: FC<QuantityInputProps> = (props) => {
       };
     });
   }, [tokens, value, vaultBalanceList, showDisplayName]);
+
+  useEffect(() => {
+    const rect = inputRef?.current?.getBoundingClientRect();
+    setWidth(rect?.width || 0);
+  }, [inputRef]);
 
   const _onTokenChange = (value: string) => {
     const find =
@@ -138,16 +134,24 @@ export const QuantityInput: FC<QuantityInputProps> = (props) => {
   };
 
   const prefix = (
-    <label htmlFor={inputId} className={styles.quantityLabel}>
-      {label || t("common.quantity")}
-      {loading && <Spinner size="sm" />}
-    </label>
+    <Box>
+      <Box className="oui-absolute oui-top-0">
+        <Text size="2xs" intensity={36}>
+          {label || t("common.quantity")}
+        </Text>
+      </Box>
+      {loading && (
+        <Box className="oui-absolute oui-bottom-1">
+          <Spinner size="sm" />
+        </Box>
+      )}
+    </Box>
   );
 
   const tokenLabel = token ? getTokenLabel(token) : undefined;
 
   const suffix = (
-    <div className={styles.quantityToken}>
+    <div className="oui-absolute oui-end-0">
       <Select.tokens
         open={selectOpen}
         onOpenChange={setOpen}
@@ -162,45 +166,43 @@ export const QuantityInput: FC<QuantityInputProps> = (props) => {
         showCaret={tokenShowCaret}
         optionRenderer={optionRenderer}
         contentProps={{
+          onCloseAutoFocus: (event) => {
+            event.preventDefault();
+            inputRef.current?.focus();
+          },
+          onClick: (event) => {
+            event.preventDefault();
+            inputRef.current?.focus();
+          },
+          style: { width },
           align: dir === "rtl" ? "start" : "end",
           sideOffset: 5,
-          className: cn(
-            styles.popover,
-            "oui-w-[var(--oui-spacing-sm)] oui-border oui-border-line-6",
-          ),
+          className: "oui-border oui-border-line-6",
         }}
       />
     </div>
   );
 
   const message = (
-    <Flex
-      id={messageId}
-      className={styles.hint}
-      mt={1}
-      gapX={1}
-      px={1}
-      justify="between"
-      itemAlign="center"
-    >
+    <Flex mt={1} gapX={1} px={1} justify="between" itemAlign="center">
       <Flex gapX={1} itemAlign="center">
         <Box
-          width="var(--oui-space-1)"
-          height="var(--oui-space-1)"
+          width={4}
+          height={4}
           r="full"
           className={cn(
-            displayStatus === "error" && "oui-bg-danger-light",
-            displayStatus === "warning" && "oui-bg-warning-light",
+            status === "error" && "oui-bg-danger-light",
+            status === "warning" && "oui-bg-warning-light",
           )}
         ></Box>
         <Text
           size="2xs"
           className={cn(
-            displayStatus === "error" && "oui-text-danger-light",
-            displayStatus === "warning" && "oui-text-warning-light",
+            status === "error" && "oui-text-danger-light",
+            status === "warning" && "oui-text-warning-light",
           )}
         >
-          {displayHint}
+          {hintMessage}
         </Text>
       </Flex>
       {hintSuffix && (
@@ -231,41 +233,22 @@ export const QuantityInput: FC<QuantityInputProps> = (props) => {
           ]
         }
         {...rest}
-        id={inputId}
-        name={props.name ?? "quantity"}
-        inputMode="decimal"
-        aria-invalid={displayStatus === "error"}
-        aria-describedby={
-          displayHint
-            ? [props["aria-describedby"], messageId].filter(Boolean).join(" ")
-            : props["aria-describedby"]
-        }
-        aria-busy={loading}
-        onFocus={(event) => {
-          setEditing(true);
-          props.onFocus?.(event);
-        }}
-        onBlur={(event) => {
-          setEditing(false);
-          setInteracted(true);
-          props.onBlur?.(event);
-        }}
         classNames={{
           ...classNames,
           root: cn(
-            styles.quantity,
+            "oui-relative oui-h-[54px] oui-px-3",
             "oui-rounded-lg",
-            displayStatus === "error" &&
+            status === "error" &&
               "oui-outline-danger-light focus-within:oui-outline-danger-light",
-            displayStatus === "warning" &&
+            status === "warning" &&
               "oui-outline-warning-light focus-within:oui-outline-warning-light",
             props.readOnly && "focus-within:oui-outline-0",
             classNames?.root,
           ),
-          input: cn("oui-min-w-0 oui-text-base", classNames?.input),
+          input: cn("oui-absolute oui-bottom-0", classNames?.input),
         }}
       />
-      {displayHint && message}
+      {hintMessage && message}
     </>
   );
 };

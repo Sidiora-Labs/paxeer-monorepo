@@ -27,7 +27,6 @@ export const ConfirmHeader: FC<{
         <button
           onClick={props.onClose}
           className="oui-absolute oui-end-0 oui-top-0 oui-p-2 oui-text-base-contrast-54 hover:oui-text-base-contrast-80"
-          type="button"
         >
           <CloseIcon size={18} color="white" />
         </button>

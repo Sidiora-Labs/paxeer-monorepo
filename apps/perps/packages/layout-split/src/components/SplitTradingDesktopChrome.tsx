@@ -1,4 +1,3 @@
-import { useMediaQuery } from "@paxeer-network/ui";
 /**
  * Split layout chrome: DnD for order-entry sortable, Flex wrapper.
  * Wraps the minimal desktop layout (Trading’s DesktopLayout); strategy is injected by the plugin.
@@ -86,7 +85,7 @@ function useDropAnimationConfig() {
 export function SplitTradingDesktopChrome(
   props: SplitTradingDesktopChromeProps,
 ): React.ReactElement {
-  // Compact trading chrome follows the trading surface breakpoint.
+  // max2XL: trading script breakpoint (max-width 1279px); split chrome used to read isSM from a local stub.
   const {
     children,
     max2XL,
@@ -99,7 +98,6 @@ export function SplitTradingDesktopChrome(
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const dropAnimationConfig = useDropAnimationConfig();
-  const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, {
@@ -162,7 +160,7 @@ export function SplitTradingDesktopChrome(
                 className,
                 "oui-flex-1 oui-justify-start oui-overflow-hidden",
                 tradingViewFullScreen &&
-                  "oui-relative oui-h-[calc(100dvh-var(--oui-space-20))] oui-w-full oui-overflow-hidden !oui-p-0",
+                  "oui-relative oui-h-[calc(100vh-80px)] oui-w-screen oui-overflow-hidden !oui-p-0",
               )}
               width="100%"
               p={2}
@@ -174,11 +172,11 @@ export function SplitTradingDesktopChrome(
             </Flex>
           )}
         </SortableContext>
-        <DragOverlay dropAnimation={reducedMotion ? null : dropAnimationConfig}>
+        <DragOverlay dropAnimation={dropAnimationConfig}>
           {/* DragOverlay children must be ReactNode (not a render prop in @dnd-kit/core v6). */}
           {activeId ? (
             <div className="oui-pointer-events-none oui-opacity-80">
-              {activeId}
+              id: {activeId}
             </div>
           ) : null}
           {/* <OrderEntryDragOverlayContent

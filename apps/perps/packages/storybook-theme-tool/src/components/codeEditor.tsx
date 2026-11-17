@@ -9,21 +9,25 @@ import { useTheme } from "./context";
 
 const Container = styled.div`
   position: relative;
-  max-width: var(--oui-content-max-width, 50rem);
+  max-width: 800px;
   margin: 0 auto;
-  column-gap: var(--oui-space-2, 0.5rem);
-  padding: var(--oui-space-4, 1rem);
+  column-gap: 8px;
+  padding: 20px;
 `;
 
 export const CodeEditor = () => {
   const { theme, setTheme } = useTheme();
+  console.log("theme", theme);
+
   const code = useMemo(() => object2Css(theme), [theme]);
 
   const onChange = (val: string, viewUpdate: ViewUpdate) => {
     try {
       const newTheme = parseCssToJson(val);
+      console.log("newTheme", newTheme);
       setTheme(newTheme);
-    } catch {
+    } catch (err) {
+      console.log("parseCssToJson", err);
     }
   };
 
@@ -55,21 +59,13 @@ export const CodeEditor = () => {
         onChange={onChange}
       />
 
-      <div
-        style={{
-          position: "fixed",
-          right: "var(--oui-space-4, 1rem)",
-          bottom: "var(--oui-space-4, 1rem)",
-        }}
-      >
+      <div style={{ position: "fixed", right: 30, bottom: 30 }}>
         <Button
           size="md"
           variant="outlined"
           color="secondary"
           onClick={copy}
-          style={{
-            color: "rgb(var(--oui-color-base-static-contrast, 0 0 0))",
-          }}
+          style={{ color: "#000" }}
         >
           Copy
         </Button>
@@ -78,10 +74,7 @@ export const CodeEditor = () => {
           variant="outlined"
           color="secondary"
           onClick={download}
-          style={{
-            color: "rgb(var(--oui-color-base-static-contrast, 0 0 0))",
-            marginLeft: "var(--oui-space-2, 0.5rem)",
-          }}
+          style={{ color: "#000", marginLeft: 8 }}
         >
           Download
         </Button>

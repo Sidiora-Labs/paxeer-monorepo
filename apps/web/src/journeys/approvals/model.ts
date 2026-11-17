@@ -23,7 +23,7 @@ import type {
   VerifiedMoney,
 } from "../../api/index.ts";
 import { formatExplicitCurrencyAmount } from "../../kit/a11y.ts";
-import { protocolAmount, verificationRung, type ProtocolAmount, type StatusKey, type VerificationRung } from "../../kit/model.ts";
+import { protocolAmount, verificationDisplayRung, type ProtocolAmount, type StatusKey, type VerificationRung } from "../../kit/model.ts";
 
 export const APPROVALS_ROUTE = "/app/approvals";
 export const MONEY_LOCALE = "en-US";
@@ -85,11 +85,11 @@ export function requestedAtLabel(createdAt: Timestamp): string {
 const VERIFICATION_COPY: Readonly<Record<VerificationRung, string>> = Object.freeze({
   unverified: "verification.unverified",
   "receipt-verified": "verification.receipt_verified",
-  "checkpoint-finalised": "verification.checkpoint_finalised",
+  committed: "verification.checkpoint_finalised",
 });
 
 export function verificationLabel(level: string): string {
-  return copyEntry(VERIFICATION_COPY[verificationRung(level)]).message;
+  return copyEntry(VERIFICATION_COPY[verificationDisplayRung(level)]).message;
 }
 
 export function evidenceReferenceLabel(reference: EvidenceRef): string {

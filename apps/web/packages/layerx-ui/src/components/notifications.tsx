@@ -47,9 +47,7 @@ function NotificationRow({
           )}
         </span>
       }
-      subtitle={
-        <span className="whitespace-normal">{item.body}</span>
-      }
+      subtitle={<span className="whitespace-normal">{item.body}</span>}
       trailing={
         <span className="text-xs text-faint-foreground">
           {formatRecency(item.date)}
@@ -89,17 +87,17 @@ export function NotificationsScreen({
 
   return (
     <div className={cn("flex h-full flex-col bg-background", className)}>
-      <header className="flex items-center gap-3 border-b border-border bg-surface px-4 lx-safe-top-min pb-3.5">
+      <header className="relative flex items-center justify-center border-b border-border bg-surface px-4 lx-safe-notification-top pb-3.5">
         <IconButton
           variant="outline"
           size="sm"
           onClick={onBack}
           aria-label="Back"
-          className="shrink-0"
+          className="absolute left-4"
         >
           <ArrowLeft />
         </IconButton>
-        <h2 className="min-w-0 flex-1 text-center text-title-sm font-bold text-foreground">
+        <h2 className="min-w-0 text-center text-title-sm font-bold text-foreground">
           Notifications
         </h2>
       </header>
@@ -157,7 +155,7 @@ export function BellPopover({
             <Bell />
           </IconButton>
           {unread > 0 && (
-            <span className="pointer-events-none absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-micro font-bold text-destructive-foreground">
+            <span className="pointer-events-none absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-caption font-bold text-destructive-foreground">
               {unread}
             </span>
           )}
@@ -221,18 +219,13 @@ export function NotificationsArchive({
   const shown = filterBySegment(items, segment);
 
   return (
-    <div
-      className={cn(
-        "mx-auto flex max-w-notification-wide flex-col gap-4",
-        className,
-      )}
-    >
+    <div className={cn("mx-auto flex max-w-archive flex-col gap-4", className)}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-xl font-bold text-foreground">Notifications</h2>
         <SegmentedControl
           aria-label="Recency"
           size="sm"
-          className="max-w-full flex-1 basis-notification"
+          className="w-notification max-w-full"
           options={SEGMENTS}
           value={segment}
           onValueChange={(v) => setSegment(v as RecencySegment)}

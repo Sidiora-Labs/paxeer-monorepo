@@ -63,7 +63,7 @@ export const WithdrawProcessWidget: FC = () => {
   const { t } = useTranslation();
   return (
     <div className="oui-flex oui-flex-col oui-gap-2 oui-rounded-xl oui-border oui-border-line-12 oui-p-3">
-      <div className="oui-flex oui-items-center oui-justify-between oui-text-sm oui-font-semibold oui-text-base-contrast-80">
+      <div className="oui-flex oui-items-center oui-justify-between oui-text-sm oui-font-semibold oui-text-base-contrast-54">
         <div>{t("vaults.withdraw.process.withdrawProcess")}</div>
         <Text color="primary">{t("vaults.withdraw.process.upTo")}</Text>
       </div>

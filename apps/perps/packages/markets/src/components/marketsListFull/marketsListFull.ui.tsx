@@ -1,5 +1,3 @@
-import { withMarketTableControls } from "../shared/tableColumns";
-import styles from "../../presentation.module.css";
 import { FC } from "react";
 import { cn, DataTable } from "@paxeer-network/ui";
 import { useMarketsContext } from "../marketsProvider";
@@ -32,24 +30,13 @@ export const MarketsListFull: FC<MarketsListFullProps> = (props) => {
 
   return (
     <DataTable
-      className={`${styles.surface} ${styles.table}`}
       bordered
-      columns={withMarketTableControls(columns)}
+      columns={columns}
       loading={loading}
       dataSource={dataSource}
       onRow={(record, index) => {
         return {
-          tabIndex: 0,
-          onKeyDown: (event: React.KeyboardEvent<HTMLTableRowElement>) => {
-            if (
-              event.target === event.currentTarget &&
-              (event.key === "Enter" || event.key === " ")
-            ) {
-              event.preventDefault();
-              event.currentTarget.click();
-            }
-          },
-          className: cn("oui-h-14 oui-cursor-pointer"),
+          className: cn("oui-h-[55px] oui-cursor-pointer"),
           onClick: () => {
             onSymbolChange?.(record);
             favorite.addToHistory(record);

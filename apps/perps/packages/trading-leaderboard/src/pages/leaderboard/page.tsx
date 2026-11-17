@@ -1,4 +1,3 @@
-import surface from "../../surface.module.css";
 import { FC, ReactNode } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Box, cn, Flex, Text, useScreen } from "@paxeer-network/ui";
@@ -30,11 +29,9 @@ export const LeaderboardPage: FC<LeaderboardPageProps> = (props) => {
     <TradingLeaderboardProvider {...rest}>
       <div
         style={{
-          paddingBottom:
-            "calc(var(--oui-space-16) + env(safe-area-inset-bottom))",
+          paddingBottom: "calc(64px + env(safe-area-inset-bottom))",
         }}
         className={cn(
-          surface.surface,
           "oui-trading-leaderboard-page",
           "oui-relative oui-bg-base-10",
           "oui-font-semibold",
@@ -105,17 +102,17 @@ export const LeaderboardTitle = (props: {
         className={cn(
           "oui-trading-leaderboard-title oui-font-bold",
           props.isMobile
-            ? "oui-text-xl oui-leading-normal"
-            : "oui-text-4xl oui-leading-normal",
+            ? "oui-text-[20px] oui-leading-[24px]"
+            : "oui-text-[32px] oui-leading-[44px]",
         )}
       >
         {props.title}
       </Text>
       <Box
-        width={"var(--oui-space-6)"}
-        height={"calc(var(--oui-space-1) * 1.5)"}
+        width={24}
+        height={6}
         r="base"
-        className="oui-gradient-brand"
+        className="oui-bg-[linear-gradient(270deg,rgb(var(--oui-gradient-brand-start))_0%,rgb(var(--oui-gradient-brand-end))_100%)]"
       />
     </Flex>
   );

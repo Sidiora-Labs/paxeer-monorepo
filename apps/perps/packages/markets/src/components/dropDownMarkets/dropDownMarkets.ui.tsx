@@ -1,4 +1,3 @@
-import styles from "../../presentation.module.css";
 import { PropsWithChildren } from "react";
 import {
   Box,
@@ -7,9 +6,10 @@ import {
   Flex,
   TabPanel,
   Tabs,
-  PopoverContent,
-  PopoverRoot,
-  PopoverTrigger,
+  DropdownMenuContent,
+  DropdownMenuPortal,
+  DropdownMenuRoot,
+  DropdownMenuTrigger,
 } from "@paxeer-network/ui";
 import { createCommunityBrokerFilter } from "../../hooks/useCommunityTabs";
 import { MarketsTabName } from "../../type";
@@ -39,23 +39,24 @@ export const DropDownMarkets: React.FC<
   PropsWithChildren<DropDownMarketsProps>
 > = (props) => {
   return (
-    <PopoverRoot open={props.open} onOpenChange={props.onOpenChange}>
-      <PopoverTrigger className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-text-start">
-        {props.children}
-      </PopoverTrigger>
-      <PopoverContent
-        onClick={(e) => e.stopPropagation()}
-        align="start"
-        className={cn(
-          styles.surface,
-          styles.marketPopover,
-          "oui-markets-dropdown-menu-content oui-bg-base-8 oui-p-0",
-          props.contentClassName,
-        )}
-      >
-        <DropDownMarketsConetnt {...props} hide={props.hide} />
-      </PopoverContent>
-    </PopoverRoot>
+    <DropdownMenuRoot open={props.open} onOpenChange={props.onOpenChange}>
+      <DropdownMenuTrigger asChild>{props.children}</DropdownMenuTrigger>
+      <DropdownMenuPortal>
+        <DropdownMenuContent
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          onClick={(e) => e.stopPropagation()}
+          align="start"
+          alignOffset={-32}
+          sideOffset={20}
+          className={cn(
+            "oui-markets-dropdown-menu-content oui-bg-base-8 oui-p-0",
+            props.contentClassName,
+          )}
+        >
+          <DropDownMarketsConetnt {...props} hide={props.hide} />
+        </DropdownMenuContent>
+      </DropdownMenuPortal>
+    </DropdownMenuRoot>
   );
 };
 
@@ -81,22 +82,16 @@ export const DropDownMarketsConetnt: React.FC<DropDownMarketsProps> = (
         }}
       />
       <ShowLowVolumeFilter />
-      <button
-        type="button"
+      <CloseIcon
+        size={12}
+        className="oui-dropDownMarkets-close-btn oui-cursor-pointer oui-text-base-contrast-80"
         onClick={props.hide}
-        aria-label="Close"
-        className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
-      >
-        <CloseIcon
-          size={12}
-          className="oui-dropDownMarkets-close-btn oui-cursor-pointer oui-text-base-contrast-80"
-          opacity={1}
-        />
-      </button>
+        opacity={1}
+      />
     </Flex>
   );
 
-  const cls = "oui-h-[calc(100%_-_var(--oui-space-8)-var(--oui-space-1))]";
+  const cls = "oui-h-[calc(100%_-_36px)]";
 
   const { getFavoritesProps, renderEmptyView } = useFavoritesProps();
   const { tabs } = useMarketsContext();
@@ -124,7 +119,7 @@ export const DropDownMarketsConetnt: React.FC<DropDownMarketsProps> = (
                   root: cn("oui-dropDownMarkets-list", "!oui-bg-base-8"),
                   scroll: "oui-pb-5 oui-px-1",
                 }}
-                rowClassName="!oui-h-8"
+                rowClassName="!oui-h-[34px]"
                 dataFilter={dataFilter}
               />
             </div>
@@ -144,7 +139,7 @@ export const DropDownMarketsConetnt: React.FC<DropDownMarketsProps> = (
             root: cn("oui-dropDownMarkets-list", "!oui-bg-base-8"),
             scroll: "oui-pb-5 oui-px-1",
           }}
-          rowClassName="!oui-h-8"
+          rowClassName="!oui-h-[34px]"
           {...getFavoritesProps(tabType)}
           emptyView={renderEmptyView({
             type: tabType,
@@ -178,7 +173,7 @@ export const DropDownMarketsConetnt: React.FC<DropDownMarketsProps> = (
                 root: cn("oui-dropDownMarkets-list", "!oui-bg-base-8"),
                 scroll: "oui-pb-5 oui-px-1",
               }}
-              rowClassName="!oui-h-8"
+              rowClassName="!oui-h-[34px]"
               dataFilter={createCommunityBrokerFilter(selected)}
             />
           </div>
@@ -200,7 +195,7 @@ export const DropDownMarketsConetnt: React.FC<DropDownMarketsProps> = (
             root: cn("oui-dropDownMarkets-list", "!oui-bg-base-8"),
             scroll: "oui-pb-5 oui-px-1",
           }}
-          rowClassName="!oui-h-8"
+          rowClassName="!oui-h-[34px]"
         />
       </div>
     );
@@ -209,7 +204,6 @@ export const DropDownMarketsConetnt: React.FC<DropDownMarketsProps> = (
   return (
     <Box
       className={cn(
-        styles.surface,
         "oui-markets-dropDownMarkets",
         "oui-overflow-hidden oui-font-semibold",
       )}
@@ -225,7 +219,7 @@ export const DropDownMarketsConetnt: React.FC<DropDownMarketsProps> = (
         onValueChange={onTabChange}
         classNames={{
           tabsListContainer: "oui-px-3",
-          tabsList: "oui-my-1.5",
+          tabsList: "oui-my-[6px]",
           tabsContent: "oui-h-full",
           scrollIndicator: "oui-mx-0",
         }}

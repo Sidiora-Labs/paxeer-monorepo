@@ -36,14 +36,14 @@ export const CampaignItemUI: FC<CampaignItemUIProps> = ({
   );
 
   return (
-    <button
-      type="button"
-      aria-pressed={!!active}
+    <div
       className={cn([
         "oui-w-full",
-        "oui-relative oui-min-h-20 oui-px-3 oui-py-2 oui-cursor-pointer oui-overflow-hidden oui-rounded-lg oui-bg-base-contrast-4",
-        "oui-group oui-border oui-border-solid oui-backdrop-blur-3xl",
-        active ? "oui-border-primary" : "oui-border-transparent",
+        "oui-relative oui-h-[78px] oui-cursor-pointer oui-overflow-hidden oui-rounded-lg oui-bg-base-contrast-4",
+        "oui-group oui-border oui-border-solid oui-backdrop-blur-[200px]",
+        active
+          ? "oui-border-[rgba(var(--oui-gradient-brand-start))]"
+          : "oui-border-transparent",
         "hover:oui-border-base-contrast",
         classNames?.container,
       ])}
@@ -56,7 +56,7 @@ export const CampaignItemUI: FC<CampaignItemUIProps> = ({
           "oui-size-full",
           "oui-absolute oui-start-0 oui-top-0",
           "oui-bg-cover oui-bg-center oui-bg-no-repeat oui-bg-blend-luminosity",
-          active ? "oui-bg-transparent" : "oui-bg-base-4 oui-opacity-40",
+          active ? "oui-bg-transparent" : "oui-bg-[lightgray] oui-opacity-40",
           "group-hover:oui-bg-transparent group-hover:oui-opacity-100",
         ])}
         style={{
@@ -66,7 +66,7 @@ export const CampaignItemUI: FC<CampaignItemUIProps> = ({
       <div
         className={cn([
           "oui-flex oui-size-full oui-flex-col oui-items-center oui-justify-center oui-gap-1",
-          "oui-relative oui-z-10 oui-pt-8",
+          "oui-absolute oui-start-0 oui-top-0 oui-z-10",
           classNames?.content,
         ])}
       >
@@ -76,7 +76,7 @@ export const CampaignItemUI: FC<CampaignItemUIProps> = ({
             active ? "oui-text-base-contrast" : "oui-text-base-contrast-54",
             "group-hover:oui-text-base-contrast",
             "oui-trading-leaderboard-title",
-            "oui-w-full oui-text-center oui-text-sm",
+            "oui-w-3/5 oui-text-center oui-text-sm",
             classNames?.title,
           ])}
         >
@@ -86,7 +86,7 @@ export const CampaignItemUI: FC<CampaignItemUIProps> = ({
           <Text
             className={cn([
               "oui-text-base-contrast-54",
-              "oui-text-center oui-text-3xs",
+              "oui-text-center oui-text-[10px]",
             ])}
           >
             {Array.isArray(campaign.referral_codes)
@@ -95,7 +95,7 @@ export const CampaignItemUI: FC<CampaignItemUIProps> = ({
           </Text>
         )}
       </div>
-    </button>
+    </div>
   );
 };
 
@@ -114,7 +114,7 @@ const CampaignTag: FC<{
         "oui-w-fit oui-rounded-br-lg",
         "oui-absolute oui-start-0 oui-top-0 oui-z-10 oui-flex oui-items-center",
         active && tag !== CampaignTagEnum.COMING
-          ? "oui-bg-primary"
+          ? "oui-bg-[rgba(var(--oui-gradient-brand-start))]"
           : "oui-bg-base-4",
         active && tag !== CampaignTagEnum.ENDED && "group-hover:oui-bg-base-4",
         tag === CampaignTagEnum.ENDED &&
@@ -153,7 +153,7 @@ const PriceTag = ({ price, active }: { price: string; active?: boolean }) => {
   return (
     <div
       className={cn([
-        "oui-flex oui-min-h-5 oui-items-center oui-gap-0.5 oui-rounded-lg oui-bg-warning/70 oui-px-1 oui-py-0.5 oui-backdrop-blur-sm",
+        "oui-flex oui-h-[18px] oui-items-center oui-gap-0.5 oui-rounded-lg oui-bg-warning/70 oui-px-1 oui-py-0.5 oui-backdrop-blur-[2px]",
         "oui-absolute oui-end-1 oui-top-1 oui-z-10 oui-flex oui-items-center",
         active ? "oui-opacity-100" : "oui-opacity-60",
       ])}

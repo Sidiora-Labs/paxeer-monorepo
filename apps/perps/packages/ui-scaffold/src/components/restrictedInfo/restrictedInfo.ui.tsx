@@ -1,7 +1,6 @@
-import { SimpleDialog } from "../../../../ui-connector/src/platformOverlays";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
-import { Checkbox, cn, Flex } from "@paxeer-network/ui";
+import { Checkbox, cn, Flex, SimpleDialog } from "@paxeer-network/ui";
 import { InfoIcon } from "../icons";
 import type { UseRestrictedInfoScriptReturn } from "./restrictedInfo.script";
 
@@ -92,15 +91,15 @@ export const RestrictedInfo: FC<RestrictedInfoProps> = (props) => {
       justify="center"
       className={cn(
         "oui-restricted-info",
-        "oui-rounded-xl oui-p-2",
-        "oui-text-base-contrast-80",
+        "oui-rounded-xl oui-p-[7px]",
+        "oui-text-warning-darken",
         props.className,
       )}
     >
       <Flex
         className={cn(
-          "oui-min-h-5 oui-gap-1",
-          "oui-text-2xs oui-leading-normal md:oui-text-sm",
+          "oui-min-h-[20px] oui-gap-1",
+          "oui-text-2xs oui-leading-4 md:oui-text-sm",
           "oui-items-start lg:oui-justify-center",
           props.mutiLine ? "lg:oui-items-start" : "lg:oui-items-center",
         )}

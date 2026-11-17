@@ -52,9 +52,6 @@ export const Positions: React.FC<Readonly<PositionsState>> = (props) => {
       pagination={pagination}
       manualSorting={true}
       onSort={props.onSort}
-      classNames={{
-        scroll: "oui-max-w-full oui-overflow-x-auto oui-overscroll-x-contain",
-      }}
       initialSort={
         props.initialSort
           ? {
@@ -82,7 +79,7 @@ export const MobilePositions: React.FC<
   } = props;
   return (
     <ListView
-      className="oui-hide-scrollbar oui-w-full oui-space-y-0 oui-overflow-y-auto oui-overscroll-contain"
+      className="oui-hide-scrollbar oui-w-full oui-space-y-0 oui-overflow-y-hidden"
       contentClassName="!oui-space-y-1"
       dataSource={dataSource}
       keyExtractor={(item) =>

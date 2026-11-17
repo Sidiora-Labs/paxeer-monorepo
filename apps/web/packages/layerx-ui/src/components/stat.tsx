@@ -21,7 +21,7 @@ export function Stat({
         className,
       )}
     >
-      <span className="max-w-full text-xl font-bold tabular-nums text-foreground">
+      <span className="max-w-full overflow-x-auto whitespace-nowrap text-2xl font-bold tabular-nums text-foreground">
         {value}
       </span>
       <span className="text-sm text-muted-foreground">{label}</span>
@@ -40,14 +40,13 @@ export function StatPair({
   className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        "grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--space-sidebar)),1fr))] gap-6",
-        className,
-      )}
-    >
+    <div className={cn("grid grid-cols-2", className)}>
       <Stat value={left.value} label={left.label} />
-      <Stat value={right.value} label={right.label} />
+      <Stat
+        value={right.value}
+        label={right.label}
+        className="border-l border-border"
+      />
     </div>
   );
 }

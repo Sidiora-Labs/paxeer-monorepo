@@ -1,4 +1,3 @@
-import styles from "../presentation.module.css";
 import { FC, PropsWithChildren } from "react";
 import { Flex, Box } from "@paxeer-network/ui";
 import {
@@ -17,6 +16,9 @@ export const PortfolioLayoutMobile: FC<
   const hasBottomNav = props.bottomNavProps?.mainMenus?.some(
     (menu) => menu.href === props.current,
   );
+  const contentBottomPadding = hasBottomNav
+    ? "calc(64px + 12px + env(safe-area-inset-bottom))"
+    : "calc(12px + env(safe-area-inset-bottom))";
 
   return (
     <LayoutProvider {...props}>
@@ -24,7 +26,7 @@ export const PortfolioLayoutMobile: FC<
         direction={"column"}
         width={"100%"}
         height={"100%"}
-        className={`${styles.surface} oui-bg-base-10`}
+        className="oui-bg-base-10"
       >
         <header className="oui-scaffold-topNavbar oui-sticky oui-top-0 oui-z-10 oui-w-full oui-bg-base-10">
           <MainNavMobile
@@ -35,8 +37,12 @@ export const PortfolioLayoutMobile: FC<
           />
         </header>
         <Box
-          className={`${styles.mobileContent} oui-scaffold-container oui-w-full`}
-          data-bottom-nav={hasBottomNav}
+          className="oui-scaffold-container oui-min-h-[calc(100vh-44px)] oui-w-full"
+          style={{
+            // Use dvh when available, with the className vh value as a fallback for older WebViews.
+            minHeight: "calc(100dvh - 44px)",
+            paddingBottom: contentBottomPadding,
+          }}
         >
           {props.children}
         </Box>

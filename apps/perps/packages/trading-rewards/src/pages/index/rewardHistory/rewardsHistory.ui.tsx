@@ -1,4 +1,3 @@
-import surface from "../../../surface.module.css";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { AccountStatusEnum } from "@paxeer-network/types";
@@ -31,7 +30,7 @@ export const RewardHistory: FC<RewardsHistoryReturns> = (props) => {
       gap={2}
       itemAlign={"start"}
       r="2xl"
-      className={`${surface.surface} oui-bg-base-9 oui-w-full oui-font-semibold oui-tabular-nums`}
+      className="oui-bg-base-9 oui-w-full oui-font-semibold oui-tabular-nums"
     >
       <Text className="oui-text-lg oui-px-3">
         {t("tradingRewards.rewardHistory")}
@@ -52,7 +51,7 @@ const List: FC<RewardsHistoryReturns> = (props) => {
       renderItem={(item, index) => {
         return <MobileCell data={item} />;
       }}
-      className="oui-mt-3 oui-max-h-[calc(var(--oui-space-24)*4)]"
+      className="oui-mt-3 oui-max-h-[356px]"
     />
   ) : (
     <Box px={3}>
@@ -67,6 +66,7 @@ const MobileCell: FC<{
   const { data } = props;
   const { t } = useTranslation();
 
+  console.log(data.rewardsTooltip);
   const isOrder =
     `${data?.info?.epoch_token || data.epoch_token}`.toLowerCase() === "order";
   const r_warret = commifyOptional(data.info?.r_wallet, { fix: 2 });
@@ -83,7 +83,7 @@ const MobileCell: FC<{
       <Flex direction={"row"} width={"100%"}>
         <Flex
           direction={"column"}
-          className="oui-gap-1 oui-flex-1"
+          className="oui-gap-[6px] oui-flex-1"
           itemAlign={"start"}
         >
           <Text className="oui-text-base-contrast-36 oui-text-2xs">
@@ -93,7 +93,7 @@ const MobileCell: FC<{
         </Flex>
         <Flex
           direction={"column"}
-          className="oui-gap-1 oui-flex-1"
+          className="oui-gap-[6px] oui-flex-1"
           itemAlign={"start"}
         >
           <Text className="oui-text-base-contrast-36 oui-text-2xs">
@@ -108,7 +108,7 @@ const MobileCell: FC<{
         </Flex>
         <Flex
           direction={"column"}
-          className="oui-gap-1 oui-flex-1"
+          className="oui-gap-[6px] oui-flex-1"
           itemAlign={"end"}
         >
           <Text className="oui-text-base-contrast-36 oui-text-2xs">
@@ -138,7 +138,7 @@ const MobileCell: FC<{
       <Flex direction={"row"} width={"100%"}>
         <Flex
           direction={"column"}
-          className="oui-gap-1 oui-flex-1"
+          className="oui-gap-[6px] oui-flex-1"
           itemAlign={"start"}
         >
           <Text className="oui-text-base-contrast-36 oui-text-2xs">
@@ -155,7 +155,7 @@ const MobileCell: FC<{
         </Flex>
         <Flex
           direction={"column"}
-          className="oui-gap-1 oui-flex-1"
+          className="oui-gap-[6px] oui-flex-1"
           itemAlign={"end"}
         >
           <Text className="oui-text-base-contrast-36 oui-text-2xs">
@@ -197,7 +197,7 @@ const DesktopList: FC<RewardsHistoryReturns> = (props) => {
         return (
           <Flex
             direction={"column"}
-            className="oui-gap-0"
+            className="oui-gap-[2px]"
             justify={"start"}
             itemAlign={"start"}
           >
@@ -220,7 +220,6 @@ const DesktopList: FC<RewardsHistoryReturns> = (props) => {
     {
       title: t("tradingRewards.epochRewards"),
       dataIndex: "max_reward_amount",
-      align: "right",
       className: "oui-w-1/4 oui-px-0",
       render: (value, record) => {
         const isOrder =
@@ -277,26 +276,19 @@ const DesktopList: FC<RewardsHistoryReturns> = (props) => {
   ];
 
   return (
-    <div
-      role="region"
-      aria-label="Reward history"
-      tabIndex={0}
-      className={surface.scrollRegion}
-    >
-      <DataTable
-        bordered
-        columns={columns}
-        loading={props.isLoading}
-        dataSource={data}
-        emptyView={<AuthGuardEmpty status={AccountStatusEnum.SignedIn} />}
-        onRow={(record) => {
-          return {
-            className: "oui-h-16",
-          };
-        }}
-        pagination={props.pagination}
-      />
-    </div>
+    <DataTable
+      bordered
+      columns={columns}
+      loading={props.isLoading}
+      dataSource={data}
+      emptyView={<AuthGuardEmpty status={AccountStatusEnum.SignedIn} />}
+      onRow={(record) => {
+        return {
+          className: "oui-h-[59px]",
+        };
+      }}
+      pagination={props.pagination}
+    />
   );
 };
 
