@@ -175800,7 +175800,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.82]
 title = "Write the geometry file of the developer dashboard again from the corrected package of parts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.80", "22.44.81"]
