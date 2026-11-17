@@ -161,9 +161,7 @@ export function Home() {
     <ScreenCard landmark="section" title={copyEntry("navigation.home").message}>
       <div
         className={
-          dense
-            ? "grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--space-summary)),1fr))] gap-8"
-            : "flex flex-col gap-6"
+          dense ? "grid min-w-0 grid-cols-2 gap-8" : "flex flex-col gap-6"
         }
       >
         <section className="flex flex-col gap-4">
