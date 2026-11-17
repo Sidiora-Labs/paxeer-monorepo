@@ -175714,7 +175714,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.788]
 title = "Show in the deposit form of the native binding the ratio and the contribution of the collateral and the value of the gas fee as the binding has them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
