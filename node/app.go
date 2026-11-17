@@ -3048,18 +3048,17 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 		return nil, fmt.Errorf("marshal tx msg data: %w", txMarshalErr)
 	}
 
-	resultLog := vmError
-	var resultEvents []abci.Event
-	if execResult.Err == nil {
-		events := ctx.EventManager().Events()
-		messageEvents := sdk.Events{
-			sdk.NewEvent(sdk.EventTypeMessage, sdk.NewAttribute(sdk.AttributeKeyAction, sdk.MsgTypeURL(msg))),
-		}
-		messageEvents = append(messageEvents, events[anteEventCount:]...)
-		resultLog = (sdk.ABCIMessageLogs{sdk.NewABCIMessageLog(0, "", messageEvents)}).String()
-		txEvents := append(sdk.Events{}, events[:anteEventCount]...)
-		txEvents = append(txEvents, messageEvents...)
-		resultEvents = sdk.MarkEventsToIndex(txEvents.ToABCIEvents(), app.IndexEvents)
+	events := ctx.EventManager().Events()
+	messageEvents := sdk.Events{
+		sdk.NewEvent(sdk.EventTypeMessage, sdk.NewAttribute(sdk.AttributeKeyAction, sdk.MsgTypeURL(msg))),
+	}
+	messageEvents = append(messageEvents, events[anteEventCount:]...)
+	resultLog := (sdk.ABCIMessageLogs{sdk.NewABCIMessageLog(0, "", messageEvents)}).String()
+	txEvents := append(sdk.Events{}, events[:anteEventCount]...)
+	txEvents = append(txEvents, messageEvents...)
+	resultEvents := sdk.MarkEventsToIndex(txEvents.ToABCIEvents(), app.IndexEvents)
+	if execResult.Err != nil {
+		codespace, code, resultLog = sdkerrors.ABCIInfo(sdkerrors.Wrap(sdkerrors.ErrEVMVMError, vmError), app.Trace())
 	}
 
 	return &abci.ExecTxResult{

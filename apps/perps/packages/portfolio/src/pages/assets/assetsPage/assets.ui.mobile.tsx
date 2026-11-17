@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useMemo } from "react";
+import type { SubAccount } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
   Button,
@@ -15,6 +16,8 @@ import {
 import { SelectOption } from "@paxeer-network/ui/src/select/withOptions";
 import type { useAssetsScriptReturn } from "./assets.script";
 import { AccountType } from "./assets.ui.desktop";
+
+const EMPTY_SUB_ACCOUNTS: SubAccount[] = [];
 
 const AccountTag: React.FC<{ name: string }> = ({ name }) => {
   return (
@@ -227,7 +230,7 @@ export const AssetsTableMobile: React.FC<useAssetsScriptReturn> = (props) => {
     onFilter,
   } = props;
 
-  const subAccounts = state.subAccounts ?? [];
+  const subAccounts = state.subAccounts ?? EMPTY_SUB_ACCOUNTS;
 
   const ALL_ACCOUNTS: SelectOption = {
     label: t("common.allAccount"),

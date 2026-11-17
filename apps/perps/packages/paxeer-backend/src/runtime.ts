@@ -1,3 +1,5 @@
+import type { FeeTierView } from "./core/perps/feeTier";
+
 export interface NativeSnapshot {
   address: `0x${string}` | null;
   chainId: number | null;
@@ -11,6 +13,7 @@ export interface NativeSnapshot {
   leverage: Record<string, number>;
   connected: boolean;
   marginMode?: "CROSS" | "ISOLATED";
+  feeTier?: FeeTierView;
 }
 let snapshot: NativeSnapshot = {
   address: null,
@@ -41,6 +44,7 @@ export function updateNativeSnapshot(update: Partial<NativeSnapshot>) {
       dailyPnl: undefined,
       leverage: {},
       marginMode: undefined,
+      feeTier: undefined,
     };
   snapshot = { ...snapshot, ...update };
   listeners.forEach((listener) => listener());

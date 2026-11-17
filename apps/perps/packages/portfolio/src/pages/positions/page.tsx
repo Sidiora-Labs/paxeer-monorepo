@@ -24,6 +24,10 @@ import {
 import type { SelectOption } from "@paxeer-network/ui/src/select/withOptions";
 import { AccountType } from "../assets/assetsPage/assets.ui.desktop";
 
+const EMPTY_SUB_ACCOUNTS: NonNullable<
+  ReturnType<typeof useAccount>["state"]["subAccounts"]
+> = [];
+
 enum TabsType {
   positions = "Positions",
   positionHistory = "Position history",
@@ -35,7 +39,7 @@ export const PositionsPage: React.FC<PositionsProps> = (props) => {
   const { t } = useTranslation();
   const { state, isMainAccount } = useAccount();
 
-  const subAccounts = state.subAccounts ?? [];
+  const subAccounts = state.subAccounts ?? EMPTY_SUB_ACCOUNTS;
 
   const [selectedAccount, setAccount] = React.useState<string>(AccountType.ALL);
 

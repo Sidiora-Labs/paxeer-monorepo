@@ -52,9 +52,12 @@ when it uses all modes:
 
 Every render has a numbered PNG and an entry in `result.json`, with the view,
 state, width, height, scheme, mode, render status, `hasContent`, `cancelled`,
-`retried`, `firstDeadlineStep` and findings. `retried` says whether the render
+`retried`, `firstDeadlineStep`, `firstLoadFailure` and findings. `retried` says whether the render
 runs a second time, and `firstDeadlineStep` names the step where its first
-render reaches the deadline, or is `null` when it runs only once. The report's
+render reaches the deadline, or is `null` without a deadline retry.
+`firstLoadFailure` holds the first eligible load finding's values and a `cause`
+of `navigation-timeout` or `connection-closed` for a load retry, and is `null`
+otherwise. The report's
 `retriedCount` counts renders that run a second time. Each view summary and the
 Total line append that count as `N retried` after their existing counts.
 `hasContent` is true only when the document has visible content and the viewport
@@ -78,7 +81,13 @@ screenshot count, using the same screenshot name and matrix position. Geometry
 measurements and `--write-geometry` also use that render. If it succeeds without
 findings, the retry adds no finding and does not fail the check. If it reaches
 the deadline again, its deadline finding stands and there is no third render.
-Other causes do not trigger a retry. The 300000-millisecond bound per render,
+The check also repeats a render once in a fresh browser when all its findings
+are load findings caused by navigation timing out before the application answers
+or by an application request's connection closing or resetting before its answer.
+This retry also replaces the first outcome and retains its cause in
+`firstLoadFailure`. If the second render has findings, those findings stand.
+HTTP error statuses, refused connections, other load causes and findings of
+another kind prevent a load retry. The 300000-millisecond bound per render,
 `--jobs` concurrency and finding kinds stay the same.
 
 ## Surface files
@@ -114,6 +123,9 @@ The directory may also be absolute. A typical surface file has this form:
     }
   ],
   "answers": [],
+  "embeddedMessages": [
+    { "script": "/vendor/chart/", "message": "Chart data is unavailable" }
+  ],
   "typeScale": [12, 14, 16, 20, 24, { "min": 32, "max": 48 }]
 }
 ```
@@ -236,6 +248,19 @@ pattern and status. Undeclared failed responses and application console errors
 remain findings. View expectations apply only to the initial state; named
 states declare their own expected refusals. Expectations do not supply answers.
 
+The optional surface-level `embeddedMessages` list declares exact console messages
+from scripts embedded unchanged from another party. Each entry contains only
+`script`, an origin-relative path with at least one directory (such as
+`"/vendor/chart/"` or `"/vendor/chart/bundle.js"`), and `message`, a nonempty string.
+Invalid lists and entries are rejected before rendering, with the entry index.
+A console message of type `error` matches only when its location has the surface's
+origin, its URL pathname begins with `script`, and its text equals `message`.
+Each render records matches in `embeddedMessages` as `{ "script", "message",
+"count" }`, and the view summary appends `N declared messages` when the count is
+nonzero. Unmatched declarations add no finding. The same text outside that path
+or origin, other text under that path, and uncaught errors or rejections remain
+load findings.
+
 Each browser context grants clipboard writing to the surface's origin so copy
 controls can complete their normal interaction. Clipboard reading is ungranted.
 
@@ -337,21 +362,21 @@ the regular device matrix, report and exit behavior.
 
 | Kind | Finding |
 | --- | --- |
-| `load` | Undeclared failed HTTP response, expected refusal without a matching response, failed request other than a page-cancelled request, console error, uncaught error or rejection, unmatched external request, startup or render error. A document without visible text of an element's own, media with an area (image, SVG drawing, canvas, video or embedded frame) or controls, or a viewport screenshot containing a single colour, also produces a finding. Text clipped to nothing does not count as content. The finding names the document or screenshot measurement. A render has a 300000-millisecond deadline across navigation, settling, measurement, contrast, keyboard traversal and screenshots. On the first deadline, its browser is force-closed and the same render runs once more in a new browser with the same bound; only the second outcome counts. A second deadline produces a finding with `source: "deadline"` and the last started `step`; the render is marked not rendered and its browser is force-closed. The per-render bound, `--jobs` concurrency and finding kinds stay the same. A matching declared refusal and its browser failed-resource console line are allowed. Page-cancelled requests add to the render's `cancelled` count without a finding; a cancelled document navigation remains a finding. Requests ended by the check produce only their original finding. |
+| `load` | Undeclared failed HTTP response, expected refusal without a matching response, failed request other than a page-cancelled request, console error, uncaught error or rejection, unmatched external request, startup or render error. A document without visible text of an element's own, media with an area (image, SVG drawing, canvas, video or embedded frame) or controls, or a viewport screenshot containing a single colour, also produces a finding. Text clipped to nothing does not count as content. The finding names the document or screenshot measurement. A render has a 300000-millisecond deadline across navigation, settling, measurement, contrast, keyboard traversal and screenshots. On the first deadline, its browser is force-closed and the same render runs once more in a new browser with the same bound; only the second outcome counts. A second deadline produces a finding with `source: "deadline"` and the last started `step`; the render is marked not rendered and its browser is force-closed. A render also runs once more in a fresh browser when every finding is a load finding caused by navigation timing out before the application answers or by an application request's connection closing or resetting before its answer. The second outcome replaces the first, is marked `retried` and retains the first cause and values in `firstLoadFailure`. Findings in that second outcome stay findings. HTTP error statuses, refused connections, other load causes and findings of another kind prevent a load retry. The per-render bound, `--jobs` concurrency and finding kinds stay the same. A matching declared refusal and its browser failed-resource console line are allowed. Page-cancelled requests add to the render's `cancelled` count without a finding; a cancelled document navigation remains a finding. Requests ended by the check produce only their original finding. |
 | `sideways` | Document wider than the viewport, or visible element extending past either side or wider than the viewport. Text clipped to no area is excluded. Descendants of horizontal scroll containers are measured within those containers, whose boxes are measured against the viewport. Element geometry has a 0.5-pixel rounding tolerance. |
 | `cut` | Text with hidden or clipped overflow exceeds its box by more than 1 pixel, without declared ellipsis. Scrollable text is allowed. |
 | `contrast` | Axe measures text below 4.5:1, or large text below 3:1 (24 pixels, or bold at approximately 18.67 pixels). A custom axe check measures visible control borders, identifying fills and SVG fills/strokes below 3:1. Disabled controls are excluded. |
 | `touch` | Enabled touch control below 44 CSS pixels in either direction at widths up to 834. An inline link within a line of text is exempt. |
-| `focus` | In keyboard mode, Tab focus produces no visible change (comparing computed appearance and viewport pixels) on the element, its descendants or ancestors, or fails to reach a sequentially focusable element. While a modal dialog is open, expected elements are limited to the topmost modal, including controls through shadow roots; nonmodal dialogs leave the expected elements unchanged. Appearances are compared with an unfocused baseline. In each direction, a box that fits must stay entirely in the viewport; a larger box must keep its starting edge in the viewport after focus. |
-| `shift` | Sum of layout-shift entries without recent input, from initial painting through settling, exceeds 0.05. |
+| `focus` | In keyboard mode, Tab focus produces no visible change (comparing computed appearance and viewport pixels) on the element, its descendants or ancestors, or fails to reach a sequentially focusable element. While a modal dialog is open, expected elements are limited to the topmost modal, including controls through shadow roots; nonmodal dialogs leave the expected elements unchanged. A frame is recorded as one stop without judging its focus mark or controls inside its document. Tab continues to the following top-document control, using at most 32 additional presses and 2000 milliseconds per frame. If focus does not leave the frame within either bound, one focus finding names the frame and traversal ends there. Appearances are compared with an unfocused baseline. In each direction, a box that fits must stay entirely in the viewport; a larger box must keep its starting edge in the viewport after focus. |
+| `shift` | Sum of layout-shift entries without recent input, from initial painting through settling, exceeds 0.05. State steps and text enlargement each record a window on the page's performance clock. Each window ends after three consecutive animation frames without a new shift or layout change, or after a 500-millisecond wait, after draining queued observer entries. Entries starting inside a window are excluded whenever findings are measured, including entries delivered after the wait. Entries starting before or after every window remain findings under the same score limit, including movement continuing after the wait's bound. The waits add at most 1000 milliseconds per render with both state steps and text enlargement; an immediately quiet page takes only three frames per wait. |
 | `motion` | Under reduced motion, a running animation or transition lasts over 100 milliseconds, including iterations. Start events preserve measurements of motion that finishes before settling. |
 | `scale` | Visible text's computed font size is outside every declared step or fluid range. |
 | `geometry` | A named part differs from its stored box or text metrics by more than one CSS pixel, has no stored entry, or is absent or ambiguous on the page. |
 
 The command waits for fonts, visits the full document to load lazy content,
 returns to the top and observes a further 600 milliseconds before measuring.
-State steps and the doubled-text mode discard the layout movement caused by
-those intentional changes before that observation interval. Findings concern
+State steps and the doubled-text mode exclude layout movement starting in their
+recorded time windows before that observation interval. Findings concern
 the render and observation interval. Visual review of the screenshots covers
 qualities that these measurements do not establish.
 

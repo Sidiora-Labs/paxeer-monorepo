@@ -948,7 +948,7 @@ export function ResizeHandle({
       onKeyDown={onKeyDown}
       data-dragging={dragging ? '' : undefined}
       className={cn(
-        'group flex touch-none select-none items-center justify-center focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus',
+        'group flex touch-none select-none items-center justify-center focus-visible:bg-surface-active focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus',
         vertical
           ? 'h-full min-w-touch-target-min cursor-col-resize'
           : 'min-h-touch-target-min w-full cursor-row-resize',
@@ -958,7 +958,7 @@ export function ResizeHandle({
       <span
         aria-hidden="true"
         className={cn(
-          'rounded-pill transition-colors duration-fast',
+          'rounded-pill transition-colors duration-fast group-focus-visible:bg-accent',
           vertical ? 'h-8 w-1' : 'h-1 w-8',
           dragging ? 'bg-accent' : 'bg-surface-3 group-hover:bg-surface-hover'
         )}

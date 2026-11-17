@@ -618,6 +618,7 @@
   "orderEntry.bbo.disabled.tips": "BBO не поддерживается при выборе TP/SL, Post-Only, IOC или FOK.",
   "orderEntry.estLiqPrice": "Расч. цена ликв.",
   "orderEntry.disableOrderConfirm": "Отключить подтверждение ордера",
+  "orderEntry.nativeFunding.twoTransactions": "Далее следуют две транзакции: внесение недостающего обеспечения, затем размещение ордера. Также может потребоваться разрешение на использование токена.",
   "orderEntry.orderConfirm": "Подтверждение ордера",
   "orderEntry.confirmScaledOrder": "Подтвердить масштабированный ордер",
   "orderEntry.hidden": "Скрытый",

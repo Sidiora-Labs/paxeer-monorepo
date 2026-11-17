@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "@paxeer-network/i18n";
+import { modal } from "@paxeer-network/ui";
 import {
   useAccount,
   useComputedLTV,
@@ -34,8 +36,10 @@ export type OrderEntryScriptInputs = {
   symbol: string;
 };
 
-export const PAXEER_NETWORK_ORDER_SOUND_ALERT_KEY = "paxeerNetwork_order_sound_alert";
-export const PAXEER_NETWORK_ORDER_SOUND_OPTION_KEY = "paxeerNetwork_order_sound_option";
+export const PAXEER_NETWORK_ORDER_SOUND_ALERT_KEY =
+  "paxeerNetwork_order_sound_alert";
+export const PAXEER_NETWORK_ORDER_SOUND_OPTION_KEY =
+  "paxeerNetwork_order_sound_option";
 
 export type OrderEntryScriptReturn = ReturnType<typeof useOrderEntryScript>;
 
@@ -44,6 +48,7 @@ const ORDER_ENTRY_EST_LIQ_ACTIVE_WINDOW_MS = 3 * 1000;
 export const useOrderEntryScript = (inputs: OrderEntryScriptInputs) => {
   /** Active user window for treating estLiqPrice as coming from an actively edited order. */
   const { symbol } = inputs;
+  const { t } = useTranslation();
   const [localOrderType, setLocalOrderType] = useLocalStorage(
     "paxeer-network-order-entry-order-type",
     OrderType.LIMIT,
@@ -85,6 +90,12 @@ export const useOrderEntryScript = (inputs: OrderEntryScriptInputs) => {
     symbolLeverage,
     ...state
   } = useOrderEntry(symbol, {
+    beforeNativeDeposit: async () => {
+      await modal.confirm({
+        title: t("orderEntry.orderConfirm"),
+        content: t("orderEntry.nativeFunding.twoTransactions"),
+      });
+    },
     initialOrder: {
       symbol,
       order_type: localOrderType,

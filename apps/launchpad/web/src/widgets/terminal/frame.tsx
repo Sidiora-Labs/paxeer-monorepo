@@ -174,7 +174,7 @@ function ColumnHandle({ side, layout, onResize, onToggle }: ColumnHandleProps) {
         aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
         aria-expanded={open}
         title={open ? `Collapse ${label}` : `Expand ${label}`}
-        className="flex size-touch-target-min shrink-0 items-center justify-center rounded-sm bg-surface-2 text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text [&_svg]:size-icon-sm"
+        className="flex size-touch-target-min shrink-0 items-center justify-center rounded-sm bg-surface-2 text-text-muted border border-control-edge transition-colors duration-fast hover:bg-surface-hover hover:text-text [&_svg]:size-icon-sm"
       >
         {(side === 'left') === open ? <ChevronLeft aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
       </button>
@@ -270,7 +270,7 @@ export default function TerminalFrame({ left, center, right, status, children }:
         </div>
       </header>
       {children}
-      <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col gap-1 px-1 pb-1 lg:flex-row lg:gap-0">
+      <div ref={bodyRef} aria-busy={bodyWidth === null} className={cn('flex min-h-0 flex-1 flex-col gap-1 px-1 pb-1 lg:flex-row lg:gap-0', bodyWidth === null && 'lg:invisible')}>
         {hasLeft ? (
           <>
             {layout.left.mode === 'open' ? null : <CollapsedStrip side="left" onExpand={() => toggle('left')} />}

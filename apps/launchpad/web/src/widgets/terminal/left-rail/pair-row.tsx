@@ -30,7 +30,7 @@ export function PairRow({ row, active, now }: PairRowProps) {
             href={row.href}
             aria-current={active ? 'page' : undefined}
             title={row.name}
-            className="min-w-0 truncate text-sm font-bold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
+            className="min-w-0 [@media(max-width:834px)]:min-w-touch-target-min truncate text-sm font-bold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
           >
             {row.symbol}
             <span className="sr-only">{`, ${row.name}, market cap ${row.mcap === null ? 'not available yet' : formatCompactUsd(row.mcap)}`}</span>

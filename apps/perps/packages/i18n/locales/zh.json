@@ -618,6 +618,7 @@
   "orderEntry.bbo.disabled.tips": "选择止盈止损、仅挂单、立即成交或取消、全部成交或取消时不支持最佳买卖报价。",
   "orderEntry.estLiqPrice": "预计清算价格",
   "orderEntry.disableOrderConfirm": "禁用订单确认",
+  "orderEntry.nativeFunding.twoTransactions": "接下来将进行两笔交易：先存入不足的保证金，再下单。可能还需要代币授权。",
   "orderEntry.orderConfirm": "订单确认",
   "orderEntry.confirmScaledOrder": "确认阶梯订单",
   "orderEntry.hidden": "隐藏",
