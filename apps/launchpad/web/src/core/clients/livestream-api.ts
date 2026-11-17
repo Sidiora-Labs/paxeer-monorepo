@@ -9,6 +9,7 @@ export type StreamViewerQuality="verified"|"unavailable"|"stale";
 export type StreamStatus='created'|'starting'|'live'|'ending'|'ended'|'failed'|'suspended';
 export interface StreamPublic{id:string;poolAddress:string;creatorWallet:string;title:string;playbackUrl:string|null;playbackId:string|null;thumbnailUrl:string|null;isLive:boolean;viewerCount:number|null;startedAt:number|null;endedAt:number|null;createdAt:number|null;revision?:string;generatedAt?:string;viewerQuality?:StreamViewerQuality;status?:StreamStatus}
 export interface StreamDirectoryEntry extends StreamPublic{revision:string;generatedAt:string;viewerQuality:StreamViewerQuality;status:StreamStatus}
+export interface InitialPoolStreams { poolAddress: string; streams: StreamPublic[] | null }
 export interface CreateStreamResponse{id:string;streamKey:string;rtmpUrl:string;playbackUrl:string;playbackId:string}
 interface AuthBody{wallet:string;signature:string;message:string;nonce?:string;expiresAt?:string}
 const address=/^0x[0-9a-fA-F]{40}$/;

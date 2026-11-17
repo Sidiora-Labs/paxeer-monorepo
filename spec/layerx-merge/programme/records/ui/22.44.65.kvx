@@ -1,0 +1,73 @@
+[manifest]
+task = "22.44.65"
+surface = "Sidiora Launchpad coin, token and creation views"
+views = 9
+named_states = 10
+states = 19
+portrait_height = 900
+alternate_mode_widths = [390, 1440]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[presentation]
+behavior = ["Coin metadata wraps within its column.", "The creation preview can shrink within its column.", "The chart frame, resize handle and chat log indicate keyboard focus.", "Coin pages include the initial public market, holder, stream and revenue state.", "Busy buttons retain their label width."]
+screenshots_reviewed = 200
+review_portrait_height = 900
+alternate_mode_widths = [390, 1440]
+widths = [360, 768, 1440, 2560, 844]
+review_schemes = ["light", "dark"]
+corrections = ["Long coin addresses wrap within the metadata column.", "The coin-details heading balances its lines.", "The creation preview stays within its grid column.", "Keyboard focus uses the surface focus tokens, with the chat outline inside its scrolling box.", "The trading panel renders its responsive content from the first paint.", "Metadata addresses retain their place while details load.", "Preloaded text faces retain the first-paint layout.", "The About tab includes chat from its initial render."]
+loading = "The coin loading view presents the market header, chart, details and activity sections."
+
+[renders]
+count = 646
+with_content = 646
+findings = 0
+all_rendered = true
+all_modes = true
+result = "pass"
+
+[finding_counts.load]
+first = 328
+last = 0
+
+[finding_counts.focus]
+first = 217
+last = 0
+
+[finding_counts.shift]
+first = 81
+last = 0
+
+[finding_counts.sideways]
+first = 0
+last = 0
+
+[finding_counts.cut]
+first = 0
+last = 0
+
+[finding_counts.contrast]
+first = 0
+last = 0
+
+[finding_counts.touch]
+first = 0
+last = 0
+
+[finding_counts.motion]
+first = 0
+last = 0
+
+[finding_counts.scale]
+first = 0
+last = 0
+
+[finding_counts.geometry]
+first = 0
+last = 0
+
+[guides]
+ids = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "css-layout", "visually-stable-font-fallbacks"]

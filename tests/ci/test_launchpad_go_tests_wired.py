@@ -131,6 +131,19 @@ def test_launchpad_workflow_has_go_job():
     (wiring_go,) = [step for step in wiring["steps"]
                     if step.get("uses", "").startswith("actions/setup-go@")]
     assert wiring_go["with"]["go-version"] == "1.27.3"
+    web = workflow["jobs"]["launchpad-test"]
+    (web_go,) = [step for step in web["steps"]
+                 if step.get("uses", "").startswith("actions/setup-go@")]
+    assert web_go["with"] == {"go-version": "1.27.3", "cache": "false"}
+    assert web_go["with"]["go-version"] == setup["with"]["go-version"]
+    assert web_go["with"]["go-version"] == wiring_go["with"]["go-version"]
+    assert web["env"]["GOTOOLCHAIN"] == job["env"]["GOTOOLCHAIN"]
+    assert web["env"]["GOTOOLCHAIN"] == "go" + web_go["with"]["go-version"]
+    version = tuple(map(int, web_go["with"]["go-version"].split(".")))
+    for module in launchpad_go_modules():
+        (required,) = re.findall(r"^go (\S+)$", (ROOT / module / "go.mod").read_text(), re.M)
+        required_version = tuple(map(int, required.split(".")))
+        assert required_version <= version, (module, required)
     (run,) = [step for step in wiring["steps"] if step.get("run", "").startswith(
         "python3 -m pytest "
     )]
@@ -826,7 +839,9 @@ def test_launchpad_remaining_package_inventory_matches_module_sources():
         "metadata", "social", "user", "discovery", "notifications", "security",
         "security/control",
     }
-    for module, packages in runner.SERVICE_PACKAGES.items():
+    for module, packages in {
+        **runner.SERVICE_PACKAGES, "pnl-tracker": runner.PNL_PACKAGES,
+    }.items():
         root = ROOT / "services/launchpad" / module
         prefix = re.search(r"^module (.+)$", (root / "go.mod").read_text(), re.M)[1]
         expected = set()
@@ -838,11 +853,7 @@ def test_launchpad_remaining_package_inventory_matches_module_sources():
                    for i in range(1, len(relative.parts) + 1)):
                 continue
             expected.add(prefix + ("" if relative == Path(".") else "/" + relative.as_posix()))
-        added = {
-            "trading-charts": {prefix + "/internal/cleanup", prefix + "/internal/safefile"},
-            "gateway": {prefix + "/internal/cleanup"},
-        }.get(module, set())
-        assert packages | added == expected, module
+        assert packages == expected, module
 
 
 def test_launchpad_baseline_records_indexer_refusal_classes():

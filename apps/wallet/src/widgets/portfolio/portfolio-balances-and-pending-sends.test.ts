@@ -2,13 +2,18 @@
 import { parseWalletReadRequest, walletReadResponseHeaders } from '@/lib/wallet-read-contract';
 import { createServer, type Server, type ServerResponse } from 'node:http';
 import { once } from 'node:events';
+import { setImmediate } from 'node:timers/promises';
 import { act, createElement, useLayoutEffect, useRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { afterEach, beforeEach, expect, test } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { ethers } from 'ethers';
 import { initBlockscout, type TokenBalance } from '@/lib/data';
 import { fetchPortfolio } from '@/lib/api';
+import {
+  clearBackgroundFailure,
+  getBackgroundFailures,
+} from '@/platform/status/background-failures';
 import { queryKeys, usePortfolioQuery } from '@/lib/queries';
 import { announceRpcChanged, PAXEER_CONFIG } from '@/lib/constants';
 import { RECONCILE_DELAY_MS } from '@/lib/optimistic';
@@ -93,8 +98,15 @@ function queryClient() {
   });
 }
 beforeEach(async () => {
+  vi.useFakeTimers({
+    toFake: ['Date', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'],
+  });
+  vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+  for (const failure of getBackgroundFailures()) clearBackgroundFailure(failure.id);
   localStorage.clear();
   sessionStorage.clear();
+  expect(scopedPendingSendsRepository.read()).toEqual({});
+  blockUntil = { current: 0 };
   peer = new TestInjectedProvider(ROOT_CHAIN);
   peer.authorised = true;
   target = new EventTarget();
@@ -172,14 +184,22 @@ beforeEach(async () => {
   document.body.appendChild(container);
 });
 afterEach(async () => {
-  await stop();
-  client.clear();
-  stopAnnouncement();
-  container.remove();
-  await new Promise<void>((resolve, reject) => {
-    server.close((error) => (error ? reject(error) : resolve()));
-    server.closeAllConnections();
-  });
+  try {
+    await stop();
+    client.clear();
+    stopAnnouncement();
+    container.remove();
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+      server.closeAllConnections();
+    });
+    await setImmediate();
+  } finally {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+    localStorage.clear();
+    sessionStorage.clear();
+  }
 });
 function SendProbe() {
   const wallet = useWallet();
@@ -209,18 +229,25 @@ function current() {
   if (!latestSend) throw new Error('Send producer is not mounted.');
   return latestSend;
 }
-async function until(check: () => boolean, timeout = 4000) {
+async function until(check: () => boolean) {
   await expect
     .poll(
       async () => {
         await act(async () => {
-          await new Promise((resolve) => setTimeout(resolve, 10));
+          await setImmediate();
+          await vi.advanceTimersByTimeAsync(0);
         });
         return check();
       },
-      { timeout, interval: 20 }
+      { timeout: 4000, interval: 20 }
     )
     .toBe(true);
+}
+async function advanceTo(timestamp: number) {
+  expect(timestamp).toBeGreaterThanOrEqual(Date.now());
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(timestamp - Date.now());
+  });
 }
 async function mount(children: React.ReactElement) {
   await act(async () => {
@@ -508,10 +535,12 @@ async function pending_reconcile_survives_loading_account_change_and_reopen() {
   await mount(createElement(ApplyProbe, { address: sender }));
   holdings[0] = tokenBalance(0, '0', '5');
   const before = requests.length;
-  await until(
-    () => Object.keys(scopedPendingSendsRepository.read()).length === 0,
-    RECONCILE_DELAY_MS + 5000
-  );
+  await advanceTo(due - 1);
+  expect(Object.keys(scopedPendingSendsRepository.read())).toHaveLength(1);
+  expect(cached().token_holdings[0].balance_raw).toBe('6');
+  expect(requests).toHaveLength(before);
+  await advanceTo(due);
+  await until(() => Object.keys(scopedPendingSendsRepository.read()).length === 0);
   expect(cached().token_holdings[0].balance_raw).toBe('5');
   expect(cached(OTHER).native_balance.balance_raw).toBe(ethers.parseEther('20').toString());
   expect(blockUntil.current).toBe(0);
@@ -527,20 +556,21 @@ async function pending_failed_reconcile_remains_durable_and_retries() {
   await until(() => cached().native_balance.balance_raw === ethers.parseEther('11').toString());
   const due = Object.values(scopedPendingSendsRepository.read())[0].reconcileAt!;
   failReads = true;
-  await until(
-    () => Object.values(scopedPendingSendsRepository.read())[0]?.reconcileAt! > due,
-    RECONCILE_DELAY_MS + 5000
-  );
+  await advanceTo(due);
+  await until(() => Object.values(scopedPendingSendsRepository.read())[0]?.reconcileAt! > due);
+  const retryAt = Object.values(scopedPendingSendsRepository.read())[0].reconcileAt!;
+  expect(retryAt).toBe(due + RECONCILE_DELAY_MS);
   expect(cached().native_balance.balance_raw).toBe(ethers.parseEther('11').toString());
   expect(Object.keys(scopedPendingSendsRepository.read())).toHaveLength(1);
   failReads = false;
   balances.set(peer.wallet.address.toLowerCase(), ethers.parseEther('10').toString());
   await stop();
   await mount(createElement(ApplyProbe, { address: peer.wallet.address }));
-  await until(
-    () => Object.keys(scopedPendingSendsRepository.read()).length === 0,
-    RECONCILE_DELAY_MS + 5000
-  );
+  await advanceTo(retryAt - 1);
+  expect(Object.keys(scopedPendingSendsRepository.read())).toHaveLength(1);
+  expect(cached().native_balance.balance_raw).toBe(ethers.parseEther('11').toString());
+  await advanceTo(retryAt);
+  await until(() => Object.keys(scopedPendingSendsRepository.read()).length === 0);
   expect(cached().native_balance.balance_raw).toBe(ethers.parseEther('10').toString());
 }
 
@@ -566,11 +596,9 @@ test(
 );
 test(
   pending_reconcile_survives_loading_account_change_and_reopen.name,
-  pending_reconcile_survives_loading_account_change_and_reopen,
-  75000
+  pending_reconcile_survives_loading_account_change_and_reopen
 );
 test(
   pending_failed_reconcile_remains_durable_and_retries.name,
-  pending_failed_reconcile_remains_durable_and_retries,
-  140000
+  pending_failed_reconcile_remains_durable_and_retries
 );

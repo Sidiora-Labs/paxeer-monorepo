@@ -30,7 +30,13 @@ def emit(root):
     if release['apiMajor'] != 2 or hashlib.sha256(openapi_bytes).hexdigest() != release['inputs']['openapi.json']:
         raise ValueError('Pinned v2 OpenAPI digest mismatch')
     document = json.loads(openapi_bytes)
-    operations = {operation['operationId'] for methods in document['paths'].values() for method, operation in methods.items() if method in ('get','post','patch','put','delete')}
+    files = example_sources(document)
+    output.mkdir(parents=True,exist_ok=True)
+    for name, source in files.items(): (output / name).write_text(source)
+    return {'openapiSha256': hashlib.sha256(openapi_bytes).hexdigest(), 'outputs': {name:hashlib.sha256(source.encode()).hexdigest() for name,source in files.items()}}
+
+def example_sources(document, admitted=()):
+    operations = set(admitted) | {operation['operationId'] for methods in document['paths'].values() for method, operation in methods.items() if method in ('get','post','patch','put','delete')}
     required = {'IF_TOPIC_SNAPSHOT_READ','IF_STREAM_TICKET_ISSUE','IF_TRADES'}
     if not required.issubset(operations): raise ValueError('Selected contract lacks required example operations')
     common = "import fs from 'node:fs';\nimport ActualWebSocket from 'ws';\nimport { SdkClient, Operations } from '../dist/index.js';\nconst config = JSON.parse(fs.readFileSync(process.env.SDK_CONNECTED_CONFIG, 'utf8'));\nconst session = config.accessToken ? { mode: 'bearer', token: () => config.accessToken } : undefined;\nglobalThis.WebSocket = class extends ActualWebSocket { constructor(url, protocols) { super(url, protocols, { origin: config.applicationOrigin }); } };\nconst browserFetch = (url, init) => { const headers = new Headers(init?.headers); headers.set('Origin', config.applicationOrigin); return fetch(url, { ...init, headers }); };\nconst client = new SdkClient({ ...config.transport, ...(session ? { session } : {}) }, browserFetch);\nconst api = new Operations(client);\nconst signal = AbortSignal.timeout(30000);\n"
@@ -65,9 +71,8 @@ try {
 } finally { connected.dispose(); }
 """
     }
-    output.mkdir(parents=True,exist_ok=True)
-    for name, source in files.items(): (output / name).write_text(source)
-    return {'openapiSha256': hashlib.sha256(openapi_bytes).hexdigest(), 'outputs': {name:hashlib.sha256(source.encode()).hexdigest() for name,source in files.items()}}
+    return files
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(); parser.add_argument('--root', type=pathlib.Path, default=pathlib.Path(__file__).resolve().parents[5]); args = parser.parse_args()

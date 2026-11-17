@@ -1,6 +1,5 @@
 'use client';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import { Avatar, ShortAddress, Skeleton, UnavailableState } from '@/ui/primitives';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import { useWalletIdentities } from '@/core/market/use-wallet-identities';
@@ -9,8 +8,7 @@ import { FollowButton } from '@/widgets/social/follow-button';
 import { shortAddress } from '@/utils/format';
 import { formatShare, statsShare } from '@/core/market/pool-stats-display';
 import { StatDash } from '@/ui/shared/stat-value';
-
-const GoLiveEntry = dynamic(() => import('@/widgets/live/go-live-entry'), { ssr: false });
+import GoLiveEntry from '@/widgets/live/go-live-entry';
 
 /** Creator attribution: avatar, display name linked to the profile, wallet, follow control and the creator-only broadcast entry. */
 export default function CreatorCard({ poolAddress }: { poolAddress: string }) {
