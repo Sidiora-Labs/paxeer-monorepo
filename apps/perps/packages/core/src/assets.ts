@@ -99,8 +99,8 @@ export class Assets {
     /** token decimals on chain */
     decimals?: number;
   }) {
-    const { getNativeVault } =
-      await import("@paxeer-network/paxeer-backend/nativeClient");
+    const { PERPS_SPENDER } =
+      await import("@paxeer-network/paxeer-backend/core/network/approvals");
     const { getAllowance } =
       await import("@paxeer-network/paxeer-backend/hooks/perps/useVault");
     const { getNativeSnapshot } =
@@ -108,14 +108,8 @@ export class Assets {
     const { formatUnits } = await import("viem");
     const owner = getNativeSnapshot().address;
     if (!owner) return "0";
-    let vault;
-    try {
-      vault = await getNativeVault();
-    } catch {
-      return "0";
-    }
     return formatUnits(
-      await getAllowance(inputs.address as `0x${string}`, owner, vault),
+      await getAllowance(inputs.address as `0x${string}`, owner, PERPS_SPENDER),
       inputs.decimals ?? 6,
     );
   }
@@ -131,8 +125,10 @@ export class Assets {
     amount?: string;
     isSetMaxValue?: boolean;
   }) {
-    const { getNativeVault, nativeToken } =
+    const { nativeToken } =
       await import("@paxeer-network/paxeer-backend/nativeClient");
+    const { PERPS_SPENDER } =
+      await import("@paxeer-network/paxeer-backend/core/network/approvals");
     const { approveToken } =
       await import("@paxeer-network/paxeer-backend/hooks/perps/useVault");
     const { parseUnits } = await import("viem");
@@ -140,11 +136,7 @@ export class Assets {
     const token = nativeToken(inputs.address ?? "USDC");
     const amount = parseUnits(inputs.amount, token.decimals);
     if (amount < 0n) throw new Error("Approval amount must not be negative.");
-    const receipt = await approveToken(
-      token.address,
-      await getNativeVault(true),
-      amount,
-    );
+    const receipt = await approveToken(token.address, PERPS_SPENDER, amount);
     return { ...receipt, hash: receipt.transactionHash };
   }
 
@@ -199,28 +191,20 @@ export class Assets {
     /** vault address */
     vaultAddress: string;
   }) {
-    const { getPublicClient } = await import("@wagmi/core");
-    const { wagmiConfig } =
-      await import("@paxeer-network/paxeer-backend/core/wagmi");
+    const { estimateDepositFee } =
+      await import("@paxeer-network/paxeer-backend/hooks/perps/useAccount");
     const { nativeToken } =
       await import("@paxeer-network/paxeer-backend/nativeClient");
     const { getNativeSnapshot } =
       await import("@paxeer-network/paxeer-backend/runtime");
-    const { PRECOMPILES } =
-      await import("@paxeer-network/paxeer-backend/core/network/precompiles");
-    const { PerpsPrecompileABI } =
-      await import("@paxeer-network/paxeer-backend/core/network/abi/PerpsPrecompile");
     const { parseUnits } = await import("viem");
-    const client = getPublicClient(wagmiConfig)!;
     const token = nativeToken(inputs.address ?? "USDL");
-    const gas = await client.estimateContractGas({
-      address: PRECOMPILES.perps,
-      abi: PerpsPrecompileABI,
-      functionName: "deposit",
-      args: [token.address, parseUnits(inputs.amount, token.decimals)],
-      account: getNativeSnapshot().address!,
-    });
-    return gas * (await client.getGasPrice());
+    const address = getNativeSnapshot().address;
+    if (!address) return 0n;
+    return estimateDepositFee(
+      address,
+      parseUnits(inputs.amount, token.decimals),
+    );
   }
 
   async estimateNativeDepositGasFee(inputs: {

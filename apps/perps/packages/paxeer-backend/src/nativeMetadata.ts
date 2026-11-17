@@ -4,6 +4,7 @@ import {
   getMarketCategory,
 } from "./core/perps/config";
 import { paxeerChain } from "./core/chain";
+import { PERPS_SPENDER } from "./core/network/approvals";
 import { getNativeSnapshot } from "./runtime";
 export const toNativeSymbol = (symbol: string) =>
   symbol
@@ -87,8 +88,9 @@ export function nativeChains() {
         chain_namespace: "EVM",
         currency_symbol: "PAX",
         currency_decimal: 18,
+        vault_address: PERPS_SPENDER,
       },
-      token_infos: Object.values(COLLATERAL_TOKENS).map((token) => ({
+      token_infos: [COLLATERAL_TOKENS.usdl].map((token) => ({
         ...token,
         chain_id: paxeerChain.id,
         is_native: false,
@@ -99,7 +101,7 @@ export function nativeChains() {
   ];
 }
 export function nativeTokens() {
-  return Object.values(COLLATERAL_TOKENS).map((token) => ({
+  return [COLLATERAL_TOKENS.usdl].map((token) => ({
     token: token.symbol,
     symbol: token.symbol,
     decimals: token.decimals,

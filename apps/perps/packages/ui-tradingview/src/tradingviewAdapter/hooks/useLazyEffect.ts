@@ -6,6 +6,8 @@ import {
   useRef,
 } from "react";
 
+const EMPTY_DEPENDENCIES: DependencyList = [];
+
 function debounce(callback: any, time: any) {
   let interval: number | null;
   return () => {
@@ -21,8 +23,8 @@ function debounce(callback: any, time: any) {
 
 export function useLazyEffect(
   effect: EffectCallback,
-  deps: DependencyList = [],
-  wait = 300
+  deps: DependencyList = EMPTY_DEPENDENCIES,
+  wait = 300,
 ) {
   const cleanUp = useRef<void | (() => void)>();
   const effectRef = useRef<EffectCallback>();
@@ -32,7 +34,7 @@ export function useLazyEffect(
     debounce(() => {
       cleanUp.current = effectRef.current?.();
     }, wait),
-    []
+    [],
   );
   useEffect(lazyEffect, deps);
   useEffect(() => {

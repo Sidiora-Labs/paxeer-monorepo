@@ -1,4 +1,10 @@
-import { createWalletClient, custom, type Abi, type Address } from "viem";
+import {
+  createWalletClient,
+  custom,
+  type Abi,
+  type Address,
+  type PublicClient,
+} from "viem";
 import {
   getAccount as getConnectedAccount,
   getWalletClient,
@@ -215,6 +221,45 @@ export async function getAllowance(account: Address): Promise<bigint> {
     functionName: "allowance",
     args: [account, PERPS_SPENDER],
   })) as bigint;
+}
+
+export async function estimateDepositFee(
+  account: Address,
+  amount: bigint,
+  client: Pick<
+    PublicClient,
+    "readContract" | "estimateContractGas" | "getGasPrice"
+  > = getPublicClient(),
+): Promise<bigint> {
+  try {
+    const plan = await buildDepositPlan(
+      amount,
+      async () =>
+        (await client.readContract({
+          address: USDL,
+          abi: erc20Abi,
+          functionName: "allowance",
+          args: [account, PERPS_SPENDER],
+        })) as bigint,
+      SPOT_NATIVE_TOKENS,
+    );
+    const gasPrice = await client.getGasPrice();
+    let gas = 0n;
+    for (const call of plan) {
+      try {
+        gas += await client.estimateContractGas({
+          ...call,
+          abi: call.functionName === "approve" ? erc20Abi : call.abi,
+          account,
+        });
+      } catch {
+        // A deposit can require an approval that has not been sent yet.
+      }
+    }
+    return gas * gasPrice;
+  } catch {
+    return 0n;
+  }
 }
 
 /**

@@ -240,7 +240,8 @@ export const useDepositFormScript = (options: DepositFormScriptOptions) => {
   const disabled =
     !sourceToken ||
     !quantity ||
-    Number(quantity) === 0 ||
+    !Number.isFinite(Number(quantity)) ||
+    Number(quantity) <= 0 ||
     depositDisabled ||
     loading ||
     !!swapErrorMessage;
