@@ -92,7 +92,7 @@ export function ColumnChrome({ column, index, count, onMove, onRemove, onChangeT
             size="sm"
             className="min-w-0 max-w-full"
             trigger={<><span className="whitespace-nowrap">{definition.title}</span><ChevronDown aria-hidden="true" className="size-icon-sm shrink-0" /></>}
-            triggerClassName="min-w-touch-target-min max-w-full justify-start gap-1 px-1.5 text-text"
+            triggerClassName="h-control-height-sm min-w-touch-target-min max-w-full justify-start gap-1 px-1.5 py-0 text-text"
           />
         </h2>
         {actionsRef ? <div ref={actionsRef} data-column-actions="" className="flex shrink-0 items-center empty:hidden" /> : null}

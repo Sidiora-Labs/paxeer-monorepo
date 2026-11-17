@@ -50,8 +50,8 @@ func TestSchemaSequenceGrants(t *testing.T) {
 			t.Fatalf("reviewed migration %d not applied", id)
 		}
 	}
-	if len(d.catalog.Applied) != 38 {
-		t.Fatalf("complete coordinator dependency plan=%d, want 38", len(d.catalog.Applied))
+	if len(d.catalog.Applied) != len(d.plan) {
+		t.Fatalf("complete coordinator dependency plan=%d, want %d", len(d.catalog.Applied), len(d.plan))
 	}
 	if d.manifest.RuntimeRole != "pnl_runtime" || d.manifest.OwnerRole != "pnl_owner" || d.manifest.Superuser || d.manifest.CreateDB || d.manifest.CreateRole || d.manifest.BypassRLS || d.manifest.RuntimeOwnsObjects {
 		t.Fatal("runtime gained administrative authority")

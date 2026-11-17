@@ -19,6 +19,11 @@ const webkitAutofillRules = {
 const globalCss: SystemConfig['globalCss'] = {
   '*, *::before, *::after': {
     boxSizing: 'border-box',
+    '@media (prefers-reduced-motion: reduce)': {
+      animation: 'none !important',
+      transition: 'none !important',
+      scrollBehavior: 'auto !important',
+    },
   },
   ':root': {
     colorScheme: 'light dark',
@@ -60,15 +65,22 @@ const globalCss: SystemConfig['globalCss'] = {
   ':where(button, input, textarea, select)': {
     font: 'inherit',
   },
-  ':where(button, input:not([type=checkbox], [type=radio], [type=hidden]), select, textarea, [role=tab], [role=menuitem], [role=option], label:has(input[type=checkbox], input[type=radio]))': {
-    '@media (pointer: coarse)': { minBlockSize: 'touchTarget', minInlineSize: 'touchTarget' },
+  ':where(a, button, input, select, textarea, [tabindex])': {
+    scrollMarginBlock: 'spacing.20',
+  },
+  [ ':where(a[href], button, input:not([type=checkbox], [type=radio], [type=hidden]), select, textarea, ' +
+    '[role=tab], [role=menuitem], [role=option], label:has(input[type=checkbox], input[type=radio]))' ]: {
+    '@media (max-width: 834px)': {
+      minBlockSize: 'var(--chakra-sizes-touch-target) !important',
+      minInlineSize: 'var(--chakra-sizes-touch-target) !important',
+    },
   },
   ':where(input, select, textarea)': {
     '@media (pointer: coarse)': { fontSize: 'max(var(--chakra-font-sizes-text-md), 1em)' },
   },
   ':focus-visible': {
-    outline: 'var(--chakra-border-widths-2) solid',
-    outlineColor: 'focusRing',
+    outline: 'var(--chakra-border-widths-2) solid !important',
+    outlineColor: 'var(--chakra-colors-focus-ring) !important',
     outlineOffset: 'var(--chakra-spacing-0\\.5)',
   },
   mark: {

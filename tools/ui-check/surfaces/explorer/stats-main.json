@@ -1,0 +1,77 @@
+{
+  "average_block_time": {
+    "id": "stub",
+    "value": "9074405",
+    "title": "Placeholder Counter",
+    "description": "Placeholder description",
+    "units": ""
+  },
+  "total_addresses": {
+    "id": "stub",
+    "value": "9074405",
+    "title": "Placeholder Counter",
+    "description": "Placeholder description",
+    "units": ""
+  },
+  "total_blocks": {
+    "id": "stub",
+    "value": "9074405",
+    "title": "Placeholder Counter",
+    "description": "Placeholder description",
+    "units": ""
+  },
+  "total_transactions": {
+    "id": "stub",
+    "value": "9074405",
+    "title": "Placeholder Counter",
+    "description": "Placeholder description",
+    "units": ""
+  },
+  "yesterday_transactions": {
+    "id": "stub",
+    "value": "9074405",
+    "title": "Placeholder Counter",
+    "description": "Placeholder description",
+    "units": ""
+  },
+  "total_operational_transactions": {
+    "id": "stub",
+    "value": "9074405",
+    "title": "Placeholder Counter",
+    "description": "Placeholder description",
+    "units": ""
+  },
+  "yesterday_operational_transactions": {
+    "id": "stub",
+    "value": "9074405",
+    "title": "Placeholder Counter",
+    "description": "Placeholder description",
+    "units": ""
+  },
+  "daily_new_transactions": {
+    "chart": [],
+    "info": {
+      "id": "chart_0",
+      "title": "Daily transactions",
+      "description": "The average amount in ETH spent per transaction",
+      "units": "ETH",
+      "resolutions": [
+        "DAY",
+        "MONTH"
+      ]
+    }
+  },
+  "daily_new_operational_transactions": {
+    "chart": [],
+    "info": {
+      "id": "chart_0",
+      "title": "Daily op txns",
+      "description": "The average amount in ETH spent per transaction",
+      "units": "ETH",
+      "resolutions": [
+        "DAY",
+        "MONTH"
+      ]
+    }
+  }
+}

@@ -196,7 +196,10 @@ function recipesResolveToTheVisualSystem() {
   expect(system.cva(system.getRecipe('button'))({ variant: 'solid' })).toMatchObject(expectedRecipeStyles({
     bg: 'button.solid.bg', color: 'button.solid.text',
   }));
-  expect(system.cva(system.getRecipe('button'))({ variant: 'outline' })).toMatchObject(expectedRecipeStyles({ borderWidth: 'var(--chakra-border-widths-1)', borderColor: 'hairline' }));
+  for (const variant of [ 'outline', 'dropdown', 'header', 'pagination' ] as const) {
+    expect(system.cva(system.getRecipe('button'))({ variant }))
+      .toMatchObject(expectedRecipeStyles({ borderWidth: 'var(--chakra-border-widths-1)', borderColor: 'border.strong' }));
+  }
   expect(system.cva(system.getRecipe('button'))({ variant: 'solid' })).toMatchObject(expectedRecipeStyles({
     _focusVisible: { outline: 'var(--chakra-border-widths-2) solid', outlineColor: 'focusRing', outlineOffset: 'var(--chakra-spacing-0\\.5)' },
   }));

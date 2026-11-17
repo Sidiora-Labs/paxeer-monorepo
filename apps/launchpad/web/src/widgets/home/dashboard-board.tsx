@@ -112,7 +112,7 @@ export function DashboardBoard({ className }: DashboardBoardProps) {
     // One column: the distance between two neighbouring slots, which includes the gap.
     const [first, second] = Array.from(element.children) as HTMLElement[];
     const pitch = first && second ? second.offsetLeft - first.offsetLeft : 0;
-    element.scrollBy({ left: direction * (pitch > 0 ? pitch : element.clientWidth), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+    element.scrollBy({ left: direction * (pitch > 0 ? pitch : element.clientWidth) });
   }, []);
 
   return (
@@ -140,7 +140,7 @@ export function DashboardBoard({ className }: DashboardBoardProps) {
           data-home-board="true"
           data-board-overflow={overflow.overflow ? 'true' : 'false'}
           data-board-full={full ? 'true' : 'false'}
-          className={cn('relative flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory focus-within:snap-none gap-dashboard-column-gap overflow-x-auto overflow-y-hidden scroll-px-2', overflow.overflow && 'pb-1', boardVisibleClass, boardScrollbarClass)}
+          className={cn('relative flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory scroll-smooth motion-reduce:scroll-auto focus-within:snap-none gap-dashboard-column-gap overflow-x-auto overflow-y-hidden scroll-px-2', overflow.overflow && 'pb-1', boardVisibleClass, boardScrollbarClass)}
           style={{ '--board-count': String(columns.length) } as CSSProperties}
         >
           {columns.map((column, index) => (

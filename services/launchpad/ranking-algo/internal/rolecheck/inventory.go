@@ -41,19 +41,19 @@ func statement(id, file, function string, call int, kind string, objects []Objec
 }
 
 var Statements = []Statement{
-	statement("input.watermark", storePath+"frozen_inputs.go", "ReadRankingUniverseTx", 0, "SELECT", []Object{
+	statement("input.watermark", storePath+"frozen_inputs.go", "ReadRankingUniverseTxDetailed", 1, "SELECT", []Object{
 		relation("indexer.indexer_ingest_watermarks_v1", "raw_complete_height typed_complete_height chain_id stream_id", "SELECT"),
 		relation("indexer.indexer_ingest_leases_v1", "expires_at chain_id stream_id", "SELECT"),
 	}, "pg_catalog.clock_timestamp"),
-	statement("input.completeness", storePath+"frozen_inputs.go", "ReadRankingUniverseTx", 1, "SELECT", []Object{
+	statement("input.completeness", storePath+"frozen_inputs.go", "ReadRankingUniverseTxDetailed", 2, "SELECT", []Object{
 		relation("indexer.indexer_block_completeness_v1", "block_hash completed_at fetch_complete required_decode_complete chain_id stream_id height", "SELECT"),
 	}, ""),
-	statement("input.coherence", storePath+"frozen_inputs.go", "ReadRankingUniverseTx", 2, "SELECT", []Object{
+	statement("input.coherence", storePath+"frozen_inputs.go", "ReadRankingUniverseTxDetailed", 3, "SELECT", []Object{
 		relation("stats.accounting_pool_fences_v2", "frozen", "SELECT"),
 		relation("indexer.indexer_accounting_fills_v1", "payload source_fill_id source_fact_digest", "SELECT"),
 		relation("stats.accounting_market_commits_v2", "projection_version source_fill_id source_fact_digest fill", "SELECT"),
 	}, ""),
-	statement("input.universe", storePath+"frozen_inputs.go", "ReadRankingUniverseTx", 3, "SELECT", []Object{
+	statement("input.universe", storePath+"frozen_inputs.go", "ReadRankingUniverseTxDetailed", 4, "SELECT", []Object{
 		relation("stats.accounting_market_commits_v2", "pool fill projection_version", "SELECT"),
 		relation("indexer.indexer_canonical_creations_v1", "pool height transaction_index log_index block_timestamp", "SELECT"),
 	}, "pg_catalog.sum pg_catalog.count pg_catalog.least"),
@@ -97,7 +97,7 @@ var Statements = []Statement{
 	statement("publication.entries", storePath+"publication.go", "nextEvent", 1, "SELECT", []Object{
 		relation("ranking.snapshot_entries", "pool_address score rank run_id category", "SELECT"),
 	}, ""),
-	statement("publication.commit", storePath+"publication.go", "CommitStreamOnce", 0, "UPDATE", []Object{
+	statement("publication.commit", storePath+"publication.go", "CommitStreamOnceWithStatus", 0, "UPDATE", []Object{
 		relation("ranking.publication_outbox", "published_at attempts broker_stream broker_sequence sequence", "UPDATE SELECT"),
 	}, "pg_catalog.clock_timestamp"),
 	statement("publication.failure", storePath+"publication.go", "recordFailure", 0, "UPDATE", []Object{
@@ -162,6 +162,7 @@ var Statements = []Statement{
 	}, "pg_catalog.has_sequence_privilege"),
 	statement("recovery.assert", "sdk/launchpad/shared/queue/queue.go", "Assert", 0, "SELECT", nil, "recovery.assert_epoch"),
 	statement("stream.append", "sdk/launchpad/shared/delivery/stream.go", "AppendTx", 0, "SELECT", nil, "api_stream.append_ranking"),
+	statement("input.date_trunc", storePath+"frozen_inputs.go", "ReadRankingUniverseTxDetailed", 0, "SELECT", nil, "pg_catalog.date_trunc pg_catalog.clock_timestamp"),
 }
 
 func pruneStatement(table string) Statement {

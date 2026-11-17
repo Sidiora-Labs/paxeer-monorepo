@@ -71,6 +71,9 @@ func TestEmptyUniverseVisibilityContract(t *testing.T) {
 				if err != ranker.ErrUnavailable {
 					t.Fatalf("visibility error = %v, want ErrUnavailable", err)
 				}
+				if _, _, err = client.CurrentRankingRevision(context.Background()); err != ranker.ErrUnavailable {
+					t.Fatalf("visibility fence error = %v, want ErrUnavailable", err)
+				}
 				return
 			}
 			if err != nil || !out.Complete || out.Pools == nil || len(out.Pools) != 0 || out.Revision != revision || !out.ObservedAt.Equal(observed) {

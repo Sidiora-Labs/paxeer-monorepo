@@ -77,8 +77,14 @@ export function app(isPrivateMode = false): CspDev.DirectiveDescriptor {
       // https://github.com/vercel/next.js/issues/14221#issuecomment-657258278
       config.app.isDev ? KEY_WORDS.UNSAFE_EVAL : '',
 
-      // hash of ColorModeScript: system + dark
-      '\'sha256-yYJq8IP5/WhJj6zxyTmujEqBFs/MufRufp2QKJFU76M=\'',
+      // Theme initialization: system, light and dark.
+      '\'sha256-PbrzcDgamFVCwFbb0hKpXUmeKK7b36Wr/22Kv+urCfU=\'',
+      '\'sha256-hTEzbAz9HxiizGIN1daKKtkXOvmLJEtdhtLbiUCPrUI=\'',
+      '\'sha256-Y3pcyxw0dAuHMErSqBgBdPsIwF0fXU2UTjwB0Xvue8k=\'',
+
+      '\'sha256-64E7bdCYMOCExWXPn2+wrx0TdDDXCcRPqhYOu6BfFzY=\'',
+      '\'sha256-szf+GBxePo0B1QhwOnNxLY7+/COIQC+CjHcdxNGMR5U=\'',
+      '\'sha256-Lkf363vIhw+1uP6SgZwLqcElYR/b0xErUxU1HxuLScY=\'',
 
       // CapybaraRunner
       '\'sha256-5+YTmTcBwCYdJ8Jetbr6kyjGp0Ry/H7ptpoun6CrSwQ=\'',

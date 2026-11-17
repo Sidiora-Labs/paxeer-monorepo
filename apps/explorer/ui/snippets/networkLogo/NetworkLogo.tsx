@@ -39,7 +39,8 @@ const NetworkLogo = ({ className }: Props) => {
       alignItems="center"
       minH="touchTarget"
       minW="touchTarget"
-      flexShrink={ 0 }
+      maxW="100%"
+      flexShrink={ 1 }
     >
       <Image
         h="var(--chakra-spacing-6)"

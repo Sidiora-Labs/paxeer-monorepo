@@ -317,6 +317,7 @@ func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error
 	start := time.Now()
 	res, err = app.BaseApp.Commit(ctx)
 	if err == nil {
+		app.publishLeaderSchedule()
 		logStore := func(name string, hash []byte) {
 			logger.Info("committed store", "height", app.LastBlockHeight(), "store", name, "hash", fmt.Sprintf("%X", hash))
 		}

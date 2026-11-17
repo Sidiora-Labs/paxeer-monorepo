@@ -401,7 +401,15 @@ func TestJourneyCompositionBindsActualRuntimeComponents(t *testing.T) {
 	if err = json.Unmarshal(db.Runtimes["pnl_runtime"].ExpectedSchema, &expected); err != nil {
 		t.Fatal(err)
 	}
-	expected.Privileges = append(expected.Privileges, production.Grant{Schema: "pnl", Object: "l18_outbox", Privileges: []string{"UPDATE"}, Columns: []string{"published_at"}, ObjectKind: "table"})
+	outboxUpdates := 0
+	for _, grant := range expected.Privileges {
+		if grant.Schema == "pnl" && grant.Object == "l18_outbox" && grant.ObjectKind == "table" && len(grant.Privileges) == 1 && grant.Privileges[0] == "UPDATE" && len(grant.Columns) == 1 && grant.Columns[0] == "published_at" {
+			outboxUpdates++
+		}
+	}
+	if outboxUpdates != 1 {
+		t.Fatalf("coordinator outbox marker grants=%d, want 1", outboxUpdates)
+	}
 	fullConfig.ExpectedSchemaFile, fullConfig.ExpectedSchemaSHA256 = writeCompositionDocument(t, expected)
 	fullConfig.RuntimeInstanceID = "pnl_composition_full"
 	fullDocument := d

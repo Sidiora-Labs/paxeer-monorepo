@@ -8,6 +8,7 @@ import { route } from 'nextjs-routes';
 
 import useApiQuery from 'lib/api/useApiQuery';
 import { Link } from 'toolkit/chakra/link';
+import { Skeleton } from 'toolkit/chakra/skeleton';
 
 function tokenChange(token: TokenInfo) {
   if (!('price_change_percentage_24h' in token)) {
@@ -22,12 +23,14 @@ function tokenChange(token: TokenInfo) {
 }
 
 const TickerStrip = () => {
-  const { data, isError, isPlaceholderData } = useApiQuery('general:tokens', {
+  const { data, isError, isPlaceholderData, isPending } = useApiQuery('general:tokens', {
     queryOptions: { refetchOnMount: false },
   });
   const tokens = data?.items?.filter((token) => token.exchange_rate != null) ?? [];
 
-  if (isError || isPlaceholderData || tokens.length === 0) {
+  const isLoading = isPending || isPlaceholderData;
+
+  if (isError || (!isLoading && tokens.length === 0)) {
     return null;
   }
 
@@ -35,7 +38,8 @@ const TickerStrip = () => {
     <Flex
       as="section"
       aria-label="Token prices"
-      tabIndex={ 0 }
+      tabIndex={ isLoading ? -1 : 0 }
+      aria-busy={ isLoading }
       data-label="ticker-strip"
       overflowX="auto"
       minH="touchTarget"
@@ -47,7 +51,8 @@ const TickerStrip = () => {
       gap={ 6 }
       py={ 3 }
     >
-      { tokens.map((token) => {
+      { isLoading && <Skeleton loading h="touchTarget" w="full"/> }
+      { !isLoading && tokens.map((token) => {
         const price = new BigNumber(token.exchange_rate!);
         const change = tokenChange(token);
         let changeColor = 'text.muted';

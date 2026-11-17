@@ -45,8 +45,8 @@ const Stats = () => {
   const apiQuery = useApiQuery('general:stats', {
     queryOptions: { refetchOnMount: false, placeholderData: HOMEPAGE_STATS },
   });
-  const apiData = apiQuery.isPlaceholderData ? undefined : apiQuery.data;
-  const statsData = hasStatsService && !statsQuery.isPlaceholderData && !statsQuery.isError ? statsQuery.data : undefined;
+  const apiData = apiQuery.data;
+  const statsData = hasStatsService && !statsQuery.isError ? statsQuery.data : undefined;
   const isLoading = apiQuery.isPlaceholderData || apiQuery.isPending ||
     (hasStatsService && (statsQuery.isPlaceholderData || statsQuery.isPending));
   const rawBlockTime = statsData?.average_block_time?.value;
