@@ -20,6 +20,9 @@ import { useAssetTotalValue } from "../../../hooks/useAssetTotalValue";
 import { PAXEER_NETWORK_ASSETS_VISIBLE_KEY } from "../type";
 import { useAssetsColumns } from "./assets.column";
 
+const EMPTY_HOLDINGS: NonNullable<ReturnType<typeof useCollateral>["holding"]> =
+  [];
+
 export const useAssetsScript = () => {
   const [visible, setVisible] = useLocalStorage<boolean>(
     PAXEER_NETWORK_ASSETS_VISIBLE_KEY,
@@ -27,7 +30,7 @@ export const useAssetsScript = () => {
   );
 
   const { state, subAccount, isMainAccount } = useAccount();
-  const { holding = [] } = useCollateral();
+  const { holding = EMPTY_HOLDINGS } = useCollateral();
   const { getIndexPrice } = useIndexPricesStream();
 
   const tokensInfo = useAppStore((state) => state.tokensInfo);
