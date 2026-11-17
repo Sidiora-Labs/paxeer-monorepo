@@ -175648,7 +175648,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.97]
 title = "Let a surface reach its own socket under the render check and read the focus mark of a clipped input on its control"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.74"]
