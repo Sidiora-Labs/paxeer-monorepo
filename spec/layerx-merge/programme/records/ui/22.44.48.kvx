@@ -1,0 +1,36 @@
+[surface]
+name = "Paxeer X documentation"
+routes = 99
+views = 106
+states = 37
+render_cases = 143
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+additional_mode_widths = [390, 1440]
+matrix_renders = 3290
+content = "The front page describes the LayerX kernel inside paxd; all documentation routes retain their content and navigation."
+controls = "Search exploration, results, section selection, empty results, loading, error and retry; assistant drafts, answers, sources, loading, stopping, error, retry, clearing and dismissal; navigation dialogs, contents, copy feedback, language tabs, endpoint validation, FAQ disclosures, themes and system filters."
+responses = "Search uses the published index. Assistant answers use the published payment quickstart and the assistant event protocol."
+presentation = "Inline code uses the text scale. Heading links remain visible. Search filters wrap within a scrollable region. Landscape search reserves a control row and a results row. Illustration stages reserve their token height before drawing. Landing sections retain their layout space. Assistant code retains the code block size and conversation focus stays inside its scroll area."
+guides = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "dialog", "responsive-table"]
+
+[mode_coverage]
+full_views = ["a2a", "platform-api", "sdk-quickstarts", "modules"]
+full_states = ["home:faq-expanded", "installation:search-results", "installation:assistant-empty", "installation:main-navigation", "search-loading:search-loading", "search-error:search-error", "assistant-loading:assistant-loading", "assistant-error:assistant-error"]
+required_view_modes = "Every view and state renders in default mode for every listed device in both schemes; representative reference, code and module views also render reduced-motion, double-text and keyboard modes."
+
+[render]
+widths = ["360x900", "390x900", "430x900", "768x900", "834x900", "1024x900", "1280x900", "1440x900", "1920x900", "2560x900", "844x390"]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+additional_mode_widths = [390, 1440]
+renders = 3290
+duration_seconds = 8573
+result = "The documentation routes and representative reference, code and module views render across the device list."
+
+[review]
+screenshots = 62
+corrected = ["code blocks retain the text scale", "heading anchors remain visible", "search filters wrap within a scrollable region", "landing sections retain their layout space", "assistant conversation focus keeps its outline", "responsive tables stay within a bounded scroll region for keyboard focus", "landscape search keeps its filters, results and footer in separate bounded rows", "illustration stages reserve their token height and draw independently of scrolling", "loading assistant focus stays within the active conversation"]

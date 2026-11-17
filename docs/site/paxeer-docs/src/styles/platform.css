@@ -72,7 +72,7 @@ html.dark .brand-mark .paxeer-logo-dark { display: block; }
 .article h2 { margin-block: var(--space-10) var(--space-4); font-size: var(--font-heading-lg-size); font-weight: var(--font-weight-normal); letter-spacing: var(--tracking-heading); }
 .article h3 { margin-block-start: var(--space-7); font-size: var(--font-heading-md-size); letter-spacing: var(--tracking-tight); }
 .article h4 { font-size: var(--font-heading-sm-size); }
-.article :is(h2, h3, h4) { scroll-margin-block-start: calc(var(--header-height) + var(--space-4)); }
+.article :is(h2, h3, h4) { position: relative; padding-inline-end: var(--target-size); scroll-margin-block-start: calc(var(--header-height) + var(--space-4)); }
 .article a:not(.heading-anchor) { color: var(--color-text); text-decoration: underline; text-underline-offset: var(--underline-offset); text-decoration-color: var(--color-border); overflow-wrap: anywhere; }
 .article a:not(.heading-anchor):not(.prev-next a) { display: inline-flex; align-items: center; min-block-size: var(--target-size); min-inline-size: var(--target-size); }
 .article .page-description { max-inline-size: var(--content-width); font-size: var(--font-text-lg-size); }
@@ -80,7 +80,7 @@ html.dark .brand-mark .paxeer-logo-dark { display: block; }
 .article pre { margin: 0; border: 0; border-radius: 0; padding: var(--space-4); tab-size: 2; }
 .article code { font-size: var(--font-code-size); }
 .article pre code { font-size: inherit; }
-.table-scroll { max-inline-size: 100%; overflow: auto; margin-block: var(--space-6); border: var(--border-width) solid var(--color-border-subtle); border-radius: var(--radius-sm); overscroll-behavior-inline: contain; }
+.table-scroll { max-inline-size: 100%; max-block-size: min(70dvh, 40rem); overflow: auto; margin-block: var(--space-6); border: var(--border-width) solid var(--color-border-subtle); border-radius: var(--radius-sm); overscroll-behavior: contain; }
 .table-scroll table { min-inline-size: var(--table-min-width); }
 .table-scroll :is(th, td) { min-inline-size: var(--field-min-width); }
 [data-numeric] { text-align: end; }
@@ -89,7 +89,7 @@ html.dark .brand-mark .paxeer-logo-dark { display: block; }
 .copy-button { padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); }
 .source-note, .callout { padding: var(--space-4) var(--space-5); margin-block: var(--space-5); background: var(--color-surface); border: var(--border-width) solid var(--color-border-subtle); border-radius: var(--radius-md); color: var(--color-text-secondary); font-size: var(--font-text-sm-size); overflow-wrap: anywhere; }
 .source-note p:last-child { margin-block-end: 0; }
-.heading-anchor { display: inline-flex; align-items: center; justify-content: center; min-inline-size: var(--target-size); min-block-size: var(--target-size); opacity: 0; font-size: var(--font-text-md-size); color: var(--color-text-secondary); }
+.heading-anchor { position: absolute; inset-inline-end: 0; inset-block-start: 50%; display: inline-flex; align-items: center; justify-content: center; min-inline-size: var(--target-size); min-block-size: var(--target-size); transform: translateY(-50%); opacity: 1; font-size: var(--font-text-md-size); color: var(--color-text-secondary); }
 :is(h2,h3,h4):hover .heading-anchor, .heading-anchor:focus-visible { opacity: 1; }
 .table-of-contents { display: none; position: sticky; inset-block-start: calc(var(--header-height) + var(--space-6)); align-self: start; max-block-size: calc(100dvh - var(--header-height) - var(--space-10)); overflow-y: auto; }
 .table-of-contents > p { font: var(--font-text-xs-size)/var(--line-height-compact) var(--font-mono); letter-spacing: var(--tracking-label); margin-block-end: var(--space-4); }
@@ -121,12 +121,12 @@ html.dark .brand-mark .paxeer-logo-dark { display: block; }
 /* Search uses the browser's dialog focus and dismissal. */
 .search-trigger { color: var(--color-text-secondary); }
 .search-trigger kbd { margin-inline-start: var(--space-4); font: var(--font-text-xs-size)/var(--line-height-compact) var(--font-mono); }
-.search-dialog { padding: 0; background: var(--gray-0); color: var(--color-text); border: var(--border-width) solid var(--color-border); border-radius: var(--radius-md); inline-size: min(var(--search-width), calc(100% - var(--space-8))); max-inline-size: none; block-size: min(var(--search-height), calc(100dvh - var(--space-8))); max-block-size: calc(100dvh - var(--space-8)); margin: auto; overflow: hidden; box-shadow: var(--shadow-lg); }
+.search-dialog { padding: 0; background: var(--gray-0); color: var(--color-text); border: var(--border-width) solid var(--color-border); border-radius: var(--radius-md); inline-size: min(var(--search-width), calc(100% - var(--space-8))); max-inline-size: none; block-size: min(var(--search-height), calc(100dvh - var(--space-8))); max-block-size: calc(100dvh - var(--space-8)); margin: auto; overflow: auto; box-shadow: var(--shadow-lg); }
 .search-dialog[open] { display: flex; flex-direction: column; }
 .search-input-row { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4); border-block-end: var(--border-width) solid var(--color-border-subtle); }
 .search-input-row input { min-inline-size: 0; inline-size: 100%; flex: 1; background: var(--color-transparent); border-radius: var(--radius-sm); font-size: var(--font-text-md-size); }
 .search-input-row button { padding: var(--space-2); border-radius: var(--radius-sm); }
-.search-filters { display: flex; gap: var(--space-2); overflow-x: auto; padding: var(--space-3) var(--space-4); border-block-end: var(--border-width) solid var(--color-border-subtle); }
+.search-filters { display: flex; flex-wrap: wrap; gap: var(--space-2); max-block-size: 30%; overflow: auto; padding: var(--space-3) var(--space-4); border-block-end: var(--border-width) solid var(--color-border-subtle); }
 .search-filters button { flex: none; min-block-size: var(--target-size); padding: var(--space-2) var(--space-3); font-size: var(--font-text-sm-size); border: var(--border-width) solid var(--color-border); border-radius: var(--radius-pill); background: var(--gray-0); white-space: nowrap; }
 .search-filters button[aria-pressed="true"] { background: var(--color-text); color: var(--color-text-inverse); }
 .search-results { flex: 1; min-block-size: 0; overflow-y: auto; padding: var(--space-2); overscroll-behavior: contain; }
@@ -137,10 +137,10 @@ html.dark .brand-mark .paxeer-logo-dark { display: block; }
 .search-result strong { font-size: var(--font-text-sm-size); font-weight: var(--font-weight-medium); }
 .search-result-excerpt { font-size: var(--font-text-sm-size); line-height: var(--line-height-body); color: var(--color-text-secondary); overflow-wrap: anywhere; }
 .search-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-block-start: var(--border-width) solid var(--color-border-subtle); color: var(--color-text-secondary); font-size: var(--font-text-xs-size); }
-.search-input-row, .search-filters, .search-footer { flex: none; }
+.search-input-row, .search-footer { flex: none; }
+.search-filters { flex: 0 1 auto; min-block-size: 0; }
 .search-empty { flex: 0 1 auto; min-block-size: 0; padding: var(--space-5); font-size: var(--font-text-sm-size); color: var(--color-text-secondary); overflow: auto; }
 
-.landing-col > section:nth-of-type(n+5) { content-visibility: auto; contain-intrinsic-size: auto none auto var(--section-estimate); }
 
 /* The landing page keeps its framed artwork and shared rhythm. */
 .landing { container: landing / inline-size; }
@@ -329,10 +329,16 @@ html.dark .brand-mark .paxeer-logo-dark { display: block; }
 summary:hover { background-color: var(--color-surface-elevated); }
 pre:focus-visible { outline: var(--focus-width) solid var(--color-ring); outline-offset: calc(-1 * (var(--focus-offset) + var(--focus-width))); }
 @media (max-height: 30em) and (min-width: 40em) {
-  .search-dialog[open] { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .search-dialog[open] { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: calc(var(--target-size) + var(--space-8)) minmax(0, 1fr) auto; }
   .search-input-row { grid-area: 1 / 1; min-inline-size: 0; }
   .search-input-row > svg { display: none; }
-  .search-filters { grid-area: 1 / 2; min-inline-size: 0; }
+  .search-filters { grid-area: 1 / 2; min-inline-size: 0; max-block-size: 100%; }
   .search-empty, .search-results { grid-area: 2 / 1 / 3 / -1; }
   .search-results:empty { display: none; }
+  .search-footer { display: flex; grid-area: 3 / 1 / 4 / -1; }
 }
+
+/* Navigation and contents controls remain available while their panels are inspected. */
+.header-menu-button, .docs-menu-button { display: inline-flex; }
+.mobile-toc { display: block; }
+.doc-figure-stage { contain: layout paint style; }
