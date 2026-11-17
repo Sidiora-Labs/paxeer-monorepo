@@ -52,18 +52,18 @@ export function HoldingsFilter({
         {open && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-            <div className="absolute right-0 top-full mt-1.5 w-56 bg-pax-card   rounded-xl shadow-2xl z-50 p-3 space-y-3 animate-scale-in">
+            <div className="absolute right-0 top-full mt-1.5 w-56 max-w-[calc(100vw-2rem)] bg-pax-card   rounded-xl shadow-2xl z-50 p-3 space-y-3 animate-scale-in">
               <button
                 type="button"
                 onClick={onToggleHideDust}
-                className="min-h-[var(--touch-target)] w-full flex items-center justify-between px-2 py-2 rounded-lg hover:bg-pax-control transition-all"
+                className="min-h-[var(--touch-target)] w-full flex flex-wrap gap-2 items-center justify-between px-2 py-2 rounded-lg hover:bg-pax-control transition-all"
               >
                 <div className="flex items-center gap-2">
                   <SvgIcon name="filter" className="w-3.5 h-3.5" />
                   <span className="text-xs">Hide dust (&lt;$1)</span>
                 </div>
                 <div
-                  className={`w-8 h-4.5 rounded-full transition-all flex items-center ${
+                  className={`w-8 h-4.5 shrink-0 rounded-full transition-all flex items-center ${
                     hideDust ? 'bg-pax-accent justify-end' : 'bg-pax-overlay justify-start'
                   }`}
                 >
@@ -84,7 +84,7 @@ export function HoldingsFilter({
                           type="button"
                           key={addr}
                           onClick={() => onToggleTokenVisibility(addr)}
-                          className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-pax-control transition-all"
+                          className="w-full flex flex-wrap gap-2 items-center justify-between px-2 py-1.5 rounded-lg hover:bg-pax-control transition-all"
                         >
                           <span
                             className={`text-xs truncate ${isHid ? 'text-pax-muted line-through' : ''}`}
@@ -92,7 +92,7 @@ export function HoldingsFilter({
                             {h.symbol || '???'}
                           </span>
                           <div
-                            className={`w-8 h-4.5 rounded-full transition-all flex items-center ${
+                            className={`w-8 h-4.5 shrink-0 rounded-full transition-all flex items-center ${
                               !isHid ? 'bg-pax-accent justify-end' : 'bg-pax-overlay justify-start'
                             }`}
                           >

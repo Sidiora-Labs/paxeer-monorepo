@@ -221,6 +221,7 @@ export function ExchangeView({ sidRate, legs, collateralEndpoint }: ExchangeView
           <label className="block text-sm text-pax-light">
             Collateral asset
             <select
+              className="mt-2 w-full rounded-xl bg-pax-control p-3 text-pax-light focus-visible:ring-2 focus-visible:ring-pax-accent"
               name="collateralToken"
               aria-label="Collateral asset"
               value={collateralToken}

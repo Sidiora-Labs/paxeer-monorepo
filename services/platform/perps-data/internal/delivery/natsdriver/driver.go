@@ -283,7 +283,7 @@ func (c *Consumer) Fetch(ctx context.Context) ([]*Message, error) {
 	if c.ctx.Err() != nil {
 		return messages, errors.Join(ErrClosed, terminal, invalid)
 	}
-	if errors.Is(terminal, context.DeadlineExceeded) && bounded.Err() == context.DeadlineExceeded {
+	if terminal == context.DeadlineExceeded && bounded.Err() == context.DeadlineExceeded {
 		terminal = nil
 	}
 	if invalid != nil || terminal != nil {
@@ -315,7 +315,7 @@ func (c *Consumer) receive(bounded context.Context) ([]jetstream.Msg, error, err
 		}
 		msg, err = c.iter.Next(jetstream.NextMaxWait(drainWait))
 	}
-	if len(received) > 0 && errors.Is(err, nats.ErrTimeout) {
+	if len(received) > 0 && err == nats.ErrTimeout {
 		return received, nil, nil
 	}
 	if errors.Is(err, jetstream.ErrMsgIteratorClosed) && c.ctx.Err() != nil {

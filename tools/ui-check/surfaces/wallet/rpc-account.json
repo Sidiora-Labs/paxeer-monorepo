@@ -1,0 +1,17 @@
+{
+  "result": {
+    "account": {
+      "evm_address": "0x0000000000000000000000000000000000000001",
+      "pax_address": "pax1surfacetestaccount",
+      "layerx_did": "did:layerx:surface-test",
+      "layerx_account": "0505050505050505050505050505050505050505050505050505050505050505",
+      "bound": true
+    },
+    "paxeer": {
+      "address": "0x0000000000000000000000000000000000000001",
+      "balance": "123456789012345678900000000",
+      "nonce": "1",
+      "height": "100"
+    }
+  }
+}

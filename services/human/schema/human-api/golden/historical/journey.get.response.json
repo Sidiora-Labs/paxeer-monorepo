@@ -50,6 +50,11 @@
           "evidence_id": "evd_01j2gx3famp6b7c8d9e0f1g2h3",
           "class": "local-journey-state",
           "verification": "unverified"
+        },
+        {
+          "evidence_id": "evd_01j2gx3famr0e1f2g3h4j5k6m7",
+          "class": "layerx-receipt",
+          "verification": "settlement-anchored"
         }
       ],
       "started_at": "2026-08-18T09:30:00Z",

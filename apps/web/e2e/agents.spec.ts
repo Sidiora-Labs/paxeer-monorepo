@@ -150,7 +150,7 @@ test("creation journey complete requires all stages receipt-verified", () => {
           {
             class: "layerx-receipt",
             evidence_id: "rcp_002",
-            verification: "checkpoint-finalised",
+            verification: "committed",
           },
         ],
       },
@@ -224,7 +224,7 @@ test("agent detail shows spend versus limit computed from verified receipts", ()
       period_end: "2026-08-31T23:59:59Z",
       spent: { amount: 30000n, currency: CURRENCY },
       remaining: { amount: 70000n, currency: CURRENCY },
-      verification: "checkpoint-finalised",
+      verification: "committed",
     },
     limit: {
       monthly: { amount: 100000n, currency: CURRENCY },
@@ -235,7 +235,7 @@ test("agent detail shows spend versus limit computed from verified receipts", ()
       {
         class: "checkpoint-proof",
         evidence_id: "ckp_001",
-        verification: "checkpoint-finalised",
+        verification: "committed",
       },
     ],
   };

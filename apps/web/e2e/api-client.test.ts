@@ -12,6 +12,12 @@ import {
   HumanApiError,
   createHumanApiClient,
   decodeMoney,
+  decodeAccountBalance,
+  decodeEvidenceRef,
+  decodeProgramApprovalBudget,
+  decodeJourney,
+  decodeVerificationLevel,
+  encodeEvidenceRef,
   encodeMoney,
   encodeVersionInfo,
   operationNames,
@@ -20,6 +26,9 @@ import {
   type JsonValue,
   type OperationShape,
 } from "../src/api/generated/index.ts";
+
+import { verificationWord, verificationDisplayRung } from "../src/kit/model.ts";
+import { entryVerification, verificationLabel, receiptBacked } from "../src/journeys/activity/model.ts";
 
 const goldenRoot = new URL("../../../services/human/schema/human-api/golden/", import.meta.url);
 const schemaRoot = new URL("../", goldenRoot);
@@ -324,3 +333,46 @@ test("the web application reaches the service only through the generated client"
   const surface = await readFile(new URL("../src/api/index.ts", import.meta.url), "utf8");
   assert.ok(surface.includes("./generated/index.ts"), "src/api/index.ts must present the generated client");
 });
+
+async function verification_answers_preserve_current_and_historical_labels() {
+  const balanceVector = await readGolden<GoldenResponse>("account.balance.response.json");
+  const balance = decodeAccountBalance(balanceVector.body.result, "current balance");
+  assert.equal(balance.verification, "committed");
+  assert.equal(balance.evidence[0]?.verification, "committed");
+  const budgetVector = await readGolden<GoldenResponse>("approval.program.budget.response.json");
+  const budget = decodeProgramApprovalBudget(budgetVector.body.result, "current program budget");
+  assert.equal(budget.verification, "committed");
+  assert.equal(budget.evidence[0]?.verification, "committed");
+  const historical = await readGolden<GoldenResponse>("historical/journey.get.response.json");
+  const withdrawal = await readGolden<GoldenResponse>("withdraw.claim.response.json");
+  const oldJourney = decodeJourney(historical.body.result, "historical journey");
+  const oldWithdrawal = decodeJourney(withdrawal.body.result, "historical withdrawal");
+  const references = [
+    ...oldJourney.evidence, ...oldJourney.stages.flatMap((stage) => stage.evidence),
+    ...oldWithdrawal.evidence, ...oldWithdrawal.stages.flatMap((stage) => stage.evidence),
+  ];
+  for (const level of ["committed", "checkpoint-finalised", "paxeer-finalised", "settlement-anchored"] as const) {
+    const decoded = decodeVerificationLevel(JSON.parse(JSON.stringify(level)) as JsonValue, "verification");
+    assert.equal(decoded, level);
+    assert.equal(verificationDisplayRung(decoded), "committed");
+    assert.equal(verificationWord(decoded), verificationWord("committed"));
+    assert.equal(verificationLabel(decoded), verificationLabel("committed"));
+    const reference = level === "committed"
+      ? balance.evidence.find((entry) => entry.verification === level)
+      : references.find((entry) => entry.verification === level);
+    assert.ok(reference, `golden answer must decode ${level}`);
+    const encoded = encodeEvidenceRef(reference);
+    assert.ok(encoded !== null && typeof encoded === "object" && !Array.isArray(encoded));
+    assert.equal(encoded.verification, level);
+    assert.equal(decodeEvidenceRef(encoded, "round-trip evidence").verification, level);
+    assert.equal(entryVerification([reference]), "committed");
+  }
+  for (const level of ["paxeer-finalised", "settlement-anchored"] as const) {
+    const reference = references.find((entry) => entry.verification === level);
+    assert.ok(reference);
+    assert.equal(receiptBacked(reference), false);
+  }
+  assert.throws(() => decodeVerificationLevel("finalised", "verification"), /declared VerificationLevel/u);
+}
+
+test(verification_answers_preserve_current_and_historical_labels);
