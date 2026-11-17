@@ -96,7 +96,7 @@ describe('leaderboard view without a backend', () => {
     await waitFor(() => hero(view.container)?.getAttribute('data-cup-state') === 'unsupported');
     expect(seen.some(url => url.startsWith('/v2/cups/current'))).toBe(true);
     const frame = hero(view.container)!;
-    expect(frame.className).toContain('md:aspect-[16/7]');
+    expect(frame.className).toContain('md:before:aspect-[16/7]');
     const control = frame.querySelector('[role=radiogroup][aria-label="Ranking period"]')!;
     expect(control.querySelectorAll('[role=radio]')).toHaveLength(4);
     expect(control.querySelector<HTMLButtonElement>('[aria-label="Competition"]')!.disabled).toBe(true);

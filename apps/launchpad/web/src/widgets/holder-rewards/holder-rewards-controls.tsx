@@ -37,7 +37,7 @@ export default function HolderRewardsControls({ order, onSortChange, view, onVie
         <span className="text-text-faint">Paired with</span>
         <UsdlBadge />
       </span>
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
         <SegmentedControl
           label="View"
           value={view}
@@ -53,7 +53,7 @@ export default function HolderRewardsControls({ order, onSortChange, view, onVie
           align="end"
           size="sm"
           items={filterMenuItems(filters, onFiltersChange)}
-          triggerClassName="rounded-pill bg-surface-1 px-3 text-text"
+          triggerClassName="shrink-0 whitespace-nowrap rounded-pill bg-surface-1 px-3 text-text"
           trigger={(
             <>
               <ListFilter aria-hidden="true" className="size-icon-sm" />
