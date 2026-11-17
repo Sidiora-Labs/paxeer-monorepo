@@ -175785,7 +175785,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.98]
 title = "Pass a frame as one stop of the keyboard traversal of the render check and let a surface file declare the console messages of a script it embeds unchanged"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.97"]
