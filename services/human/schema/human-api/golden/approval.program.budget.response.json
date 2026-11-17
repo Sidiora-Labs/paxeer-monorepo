@@ -14,7 +14,7 @@
       "maximum_age_sequences": "16",
       "within_bound": true,
       "terminal": false,
-      "verification": "checkpoint-finalised",
+      "verification": "committed",
       "proof_digest": "c1cda26362828b69266512052b97cb3729e3b052e4ade47c0a1e3383defe73c7",
       "receipt_digest": "6f32860910ca0fb2a20c7fda143666b09dbf8db5238195c90a586fb542ff0cad",
       "checkpoint_digest": "47320987f9a49d5b00119b960f247a956773f57543982b8bfcb6da5bb3afd9ef",
@@ -22,7 +22,7 @@
         {
           "evidence_id": "evd_96d2f38fac5fd2c37b103e521e82d466503a4bcd79c619c64890263f00f3a782",
           "class": "checkpoint-proof",
-          "verification": "checkpoint-finalised"
+          "verification": "committed"
         }
       ]
     },

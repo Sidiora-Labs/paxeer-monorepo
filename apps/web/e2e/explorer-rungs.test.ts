@@ -107,9 +107,9 @@ function explorer_levels_collapse_to_three_rungs() {
   const levels: readonly (readonly [string, VerificationRung])[] = [
     ["unverified", "unverified"],
     ["sequencer-signed", "receipt-verified"],
-    ["batch-included", "checkpoint-finalised"],
-    ["state-proven", "checkpoint-finalised"],
-    ["checkpoint-finalised", "checkpoint-finalised"],
+    ["batch-included", "committed"],
+    ["state-proven", "committed"],
+    ["checkpoint-finalised", "committed"],
   ];
   for (const [level, expected] of levels) {
     for (const { decode, value } of RECORDS) {

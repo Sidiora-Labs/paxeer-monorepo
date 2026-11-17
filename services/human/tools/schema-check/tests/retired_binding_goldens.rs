@@ -150,7 +150,7 @@ fn version_golden_answers_the_declared_minor() {
     assert_eq!(field(body, "ok"), &Json::Bool(true));
     let version = VersionInfo::from_json(field(body, "result"));
     assert!(!version.service.is_empty(), "missing service version");
-    assert_eq!(declared_version("minor"), Json::Number("10".to_owned()));
+    assert_eq!(declared_version("minor"), Json::Number("11".to_owned()));
     for key in ["major", "minor"] {
         assert_eq!(
             field(version.schema, key),

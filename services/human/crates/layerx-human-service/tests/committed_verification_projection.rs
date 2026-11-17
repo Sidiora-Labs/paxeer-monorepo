@@ -312,16 +312,12 @@ fn assert_material_schema(material: &Value) {
         .unwrap_or_else(|error| {
             panic!("{}: {error:?}", "current label crosses response validation")
         });
-    for retired in [
-        "checkpoint-finalised",
-        "settlement-anchored",
-        "paxeer-finalised",
-    ] {
+    for undeclared in ["finalised", "COMMITTED", "settled"] {
         let mut invalid = material.clone();
-        invalid["verification"] = json!(retired);
+        invalid["verification"] = json!(undeclared);
         assert!(
             schema.encode_response(operation, &invalid).is_err(),
-            "retired output {retired}"
+            "undeclared output {undeclared}"
         );
     }
 }
