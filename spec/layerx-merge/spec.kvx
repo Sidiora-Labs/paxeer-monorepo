@@ -15412,6 +15412,12 @@ value = "The type VerificationLevel declares committed as the variant of the com
 basis = "Gotcha 4636. Decision 3046."
 affects = []
 
+[decision.3717]
+title = "The file store of a perps broker holds the whole age of the stream with room for a late publication, and the hub attaches again when its consumer is silent behind the stream"
+value = "The file store of each broker of the perps data stream is sized by one rule, which docs/release/variables/service-platform.md states: the time the stream keeps a message, times the events of one second, times the bytes of one stored message, and on top of that the same product for the longest time that outbox rows may wait before they are published. The volume of a broker is larger than its file store. The project file of the perps deployment gives each broker 40G. That is the least value: a deployment with more markets, a faster pace of blocks or a longer wait computes its own by the rule and never names less. When the consumer of the hub has delivered nothing for the time after which the hub asks for the stream, and the stream answers with a last sequence beyond the last message the hub applied, the hub closes that consumer and attaches a new one by the rules of a later attach, at the sequence after the last applied message. It does so again after each further such time while the condition holds. No message is applied twice and none is left out, no socket is closed and no loss is signalled for it as long as the stream still holds the message after the last applied one; the rules for a gap, for a stream created anew and for a stream that stays unanswered stay as they are. A consumer that is silent because the stream holds nothing newer is kept. Task 22.39.776 brings the hub to this rule and task 22.39.777 the project file and the document."
+basis = "Gotcha 4637. Decision 3709."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45072,6 +45078,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.777]
+title = "Give the brokers of the perps deployment a file store that holds the whole age of the stream"
+reqs = ["22998.1"]
+touches = ["deploy", "tools/deploy/tests", "docs/release/variables/service-platform.md"]
+tests = []
+verification_contract = "bash tools/deploy/tests/*-perps-project.test.sh && ! grep -q -e NATS_MAX_FILE_STORE.=..8G deploy/*-perps-project.kvx && grep -c -e NATS_MAX_FILE_STORE.=..40G deploy/*-perps-project.kvx && grep -c 40G docs/release/variables/service-platform.md"
+do_1 = "do_1 Gotcha 4637, decision 3717. Read the project file of the perps deployment under deploy, the tool under tools/deploy that reads it with its case under tools/deploy/tests, services/platform/perps-data/internal/stream/layout.go, services/platform/perps-data/deploy/nats/nats.conf, the cases of services/platform/perps-data/deploy and the rows of the perps brokers in docs/release/variables/service-platform.md. List in the final message every place of the repository that names a value for the setting NATS_MAX_FILE_STORE, with the value."
+symbols = []
+
+[capability.22.39.776]
+title = "Let the hub of the perps gateway attach again when its consumer is silent behind the stream"
+reqs = ["22998.1"]
+touches = ["services/platform/perps-data"]
+tests = []
+verification_contract = "git grep -q TestHubReattach -- services/platform/perps-data/internal/ws && go test -count=1 -timeout 30m -run TestHub ./services/platform/perps-data/internal/ws/ ./services/platform/perps-data/internal/delivery/natsdriver/"
+do_1 = "do_1 Gotcha 4637, decision 3717. Read services/platform/perps-data/internal/ws/hub.go, services/platform/perps-data/internal/delivery/natsdriver/driver.go, the cases of both packages and services/platform/perps-data/cmd/perps-gateway/main.go. List in the final message every way in which the consumer of the hub can end or fall silent: an error of a fetch, a closed iterator, a consumer removed on the broker, a start of the server that held the consumer, a connection lost and regained. For each, say what the client library reports to the driver, what the driver returns to the hub and what the hub does, and prove each answer with the broker of the cases where that is possible."
+symbols = []
 
 [capability.22.39.775]
 title = "Name the verification of a committed journey committed in the schema of the human API, its tool, the service and the web application"
@@ -250422,6 +250446,70 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.777]
+title = "Give the brokers of the perps deployment a file store that holds the whole age of the stream"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.777"]
+interfaces = []
+do_1 = "do_1 Gotcha 4637, decision 3717. Read the project file of the perps deployment under deploy, the tool under tools/deploy that reads it with its case under tools/deploy/tests, services/platform/perps-data/internal/stream/layout.go, services/platform/perps-data/deploy/nats/nats.conf, the cases of services/platform/perps-data/deploy and the rows of the perps brokers in docs/release/variables/service-platform.md. List in the final message every place of the repository that names a value for the setting NATS_MAX_FILE_STORE, with the value."
+do_2 = "do_2 The project file gives each of its three brokers the value 40G for the setting, and a comment line above the first of them names the rule of decision 3717 in one sentence. No other row and no other value of the project file changes."
+do_3 = "do_3 The row of the setting in docs/release/variables/service-platform.md says what the setting bounds, and a short paragraph beside the rows of the perps brokers states the rule of decision 3717 in present tense: the time the stream keeps a message, the events of one second, the bytes of one stored message, the room for outbox rows that are published late, that the stream refuses a new message when the file store is full, that the volume of a broker is larger than its file store, and that 40G is the least value. The document keeps its form, and where a check of the repository reads the document it holds."
+do_4 = "do_4 The case of the perps project tool under tools/deploy/tests asserts that every broker row of the project file names the setting and that its value, read as a count of bytes, is no less than 40G; it does not pass with the earlier value. No other assertion of that case changes."
+do_5 = "do_5 Run the case of the perps project tool by hand and read its summary. The files of services/platform/perps-data are outside the paths of this task: the cases of its deployment directory keep the value they use. The project file, the case under tools/deploy/tests and docs/release/variables/service-platform.md are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy", "tools/deploy/tests", "docs/release/variables/service-platform.md"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/*-perps-project.py"
+verify_cmd = "bash tools/deploy/tests/*-perps-project.test.sh && ! grep -q -e NATS_MAX_FILE_STORE.=..8G deploy/*-perps-project.kvx && grep -c -e NATS_MAX_FILE_STORE.=..40G deploy/*-perps-project.kvx && grep -c 40G docs/release/variables/service-platform.md"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.776]
+title = "Let the hub of the perps gateway attach again when its consumer is silent behind the stream"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.776"]
+interfaces = []
+do_1 = "do_1 Gotcha 4637, decision 3717. Read services/platform/perps-data/internal/ws/hub.go, services/platform/perps-data/internal/delivery/natsdriver/driver.go, the cases of both packages and services/platform/perps-data/cmd/perps-gateway/main.go. List in the final message every way in which the consumer of the hub can end or fall silent: an error of a fetch, a closed iterator, a consumer removed on the broker, a start of the server that held the consumer, a connection lost and regained. For each, say what the client library reports to the driver, what the driver returns to the hub and what the hub does, and prove each answer with the broker of the cases where that is possible."
+do_2 = "do_2 The fetch loop of the hub follows decision 3717: when the consumer has delivered nothing for the time after which the hub asks for the stream, the hub reads the last sequence of the stream in the same bounded request, and when it lies beyond the last applied message the hub ends that consumer and attaches a new one at the sequence after the last applied message, through the path a later attach already takes. The hub writes one log line for it with the last applied message and the last sequence of the stream. While the condition holds it does so again after each further such time and not more often. A consumer that is silent because the stream holds nothing newer is kept. The rules for a gap, for a stream created anew or gone back, for the outage that closes the subscribed sockets and for the first attach of the process stay as they are."
+do_3 = "do_3 Where the client library tells the driver that the broker no longer holds the ordered consumer or that its heartbeats are missing, the driver returns that as an error of the fetch and not as an empty fetch, so that the hub attaches again at once. Where the library tells nothing, the rule of the second step covers it. The durable consumer of the driver and every other caller of the driver keep their behaviour."
+do_4 = "do_4 Cases with the name prefix TestHubReattach in the ws package, and one of the same prefix in the driver package where the driver changes. The cases use the real broker and the real PostgreSQL database that the present cases of the package use. With a hub that runs and a subscribed socket: the consumer of the hub is removed on the broker and messages are published after it; the broker of the case is shut down and started again on the same store directory and messages are published after it. In both the hub applies every message once and in order within a bound the case names, the socket stays open and receives the frames, and no loss is signalled. A hub whose stream holds nothing newer attaches no new consumer over several of the probe times. A stream created anew still closes the subscribed sockets as the present case shows. The present cases of the package keep passing; none is removed or weakened."
+do_5 = "do_5 Run by hand the cases of the ws package and of the driver package and read each summary. The files of services/platform/perps-data are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/perps-data"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./services/platform/perps-data/... && go vet ./services/platform/perps-data/internal/ws/ ./services/platform/perps-data/internal/delivery/natsdriver/"
+verify_cmd = "git grep -q TestHubReattach -- services/platform/perps-data/internal/ws && go test -count=1 -timeout 30m -run TestHub ./services/platform/perps-data/internal/ws/ ./services/platform/perps-data/internal/delivery/natsdriver/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.772]
 title = "Bound the age of the price rows per block in the perps data service"
