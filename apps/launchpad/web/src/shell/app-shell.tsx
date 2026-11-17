@@ -1,6 +1,6 @@
 'use client';
 
-import { type CSSProperties, type ReactNode, useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { type ReactNode, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePathname } from 'next/navigation';
 import { clearPrivateFoundationCache } from '@/core/app-foundation/private-cache';
@@ -29,7 +29,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const { expanded: railExpanded } = useRailState();
   const shellRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLDivElement>(null);
-  const [topHeight, setTopHeight] = useState<number | null>(null);
 
   useLayoutEffect(() => {
     const element = topRef.current;
@@ -37,7 +36,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
     const update = () => {
       const height = element.offsetHeight;
       shellRef.current?.style.setProperty('--shell-top', `${height}px`);
-      setTopHeight(height);
     };
     update();
     const observer = new ResizeObserver(update);
@@ -110,8 +108,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const route = routeForPath(pathname);
   // --shell-top is the fixed header stack height: measured once mounted, and
   // before that the CSS default (top bar, plus the ticker from md up).
-  const shellTop =
-    topHeight === null ? undefined : ({ '--shell-top': `${topHeight}px` } as CSSProperties);
 
   return (
     <div
@@ -137,7 +133,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
       data-shell-ready={ready ? '' : undefined}
       data-shell-pathname={pathname}
       data-shell-route-id={route?.id || 'unknown'}
-      style={shellTop}
       className={cn('foundation-shell min-w-0 max-w-full bg-canvas text-text', SHELL_TOP_VARS)}
     >
       <a

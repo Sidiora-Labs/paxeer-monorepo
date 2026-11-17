@@ -63,6 +63,23 @@ checkCoinRoutes(parts.find((part) => part.name === 'coin').surface);
 
 const seen = new Map();
 const sharedKeys = ['build', 'buildMs', 'start', 'address', 'readyPath', 'typeScale'];
+const communityPaths = [
+  '/bounties', '/bounties?render=empty', '/bounties?render=error', '/bounties?render=loading',
+  '/bounties/8e894db0-87e7-4d2a-9f1c-3a192a239ba0', '/bounties/new',
+  '/chat', '/chat/7f3b2a10-5c4d-4e8f-9a1b-2c3d4e5f6a7b',
+  '/docs', '/docs/dmca', '/docs/do-not-sell', '/docs/privacy', '/docs/terms', '/docs/trademark-guidelines',
+];
+const community = parts.find(part => part.name === 'community').surface;
+for (const route of communityPaths) {
+  const view = community.views.find(candidate => candidate.path === route);
+  if (!view) fail(`community is missing ${route}`);
+  else {
+    const modes = view.modes ?? ['default', 'reduced-motion', 'double-text', 'keyboard'];
+    for (const mode of ['default', 'reduced-motion', 'double-text', 'keyboard']) {
+      if (!modes.includes(mode)) fail(`community view ${view.name} is missing ${mode}`);
+    }
+  }
+}
 
 for (const part of parts) {
   const { surface } = part;

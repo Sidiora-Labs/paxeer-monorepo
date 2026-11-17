@@ -349,6 +349,7 @@
   --sl-bounty-list-expanded-min-height: 18lh;
   --sl-bounty-header-min-height: max(calc(var(--sl-space) * 80), 12lh);
   --sl-bounty-header-expanded-min-height: 25lh;
+  --sl-bounty-header-column-min-height: 20lh;
   --sl-bounty-entry-min-height: max(calc(var(--sl-space) * 160), 28lh);
   --sl-bounty-entry-expanded-min-height: 36lh;
   --sl-strategy-option-min-width: 7.5rem;
