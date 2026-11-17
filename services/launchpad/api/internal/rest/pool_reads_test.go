@@ -137,13 +137,8 @@ func newPoolReadsFixture(t *testing.T, statsOrigin string) poolReadsFixture {
 			t.Fatalf("registered migration %s: %v", name, err)
 		}
 	}
-	chainSchema, err := os.ReadFile("../../../indexer/internal/migrate/chainlaunch.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = pool.Exec(ctx, string(chainSchema)); err != nil {
-		t.Fatal(err)
-	}
+	internaltest.ApplyIndexerTables(t, pool, "swaps")
+	internaltest.ApplyReadMigrations(t, pool, "60000", "60003", "150006")
 	tokenFirst := "0x" + strings.Repeat("3", 40)
 	tokenSecond := "0x" + strings.Repeat("4", 40)
 	tokenStateless := "0x" + strings.Repeat("6", 40)

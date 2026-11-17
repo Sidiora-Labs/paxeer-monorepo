@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdirSync, copyFileSync, symlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, copyFileSync, cpSync, symlinkSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { stripTypeScriptTypes, registerHooks } from 'node:module';
@@ -18,8 +18,7 @@ if (mode === 'prepare') {
   const installed = spawnSync('npm', ['ci', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: tools, encoding: 'utf8' });
   assert.equal(installed.status, 0, installed.stderr);
   symlinkSync(resolve(tools, 'node_modules'), resolve(temporary, 'node_modules'), 'dir');
-  copyFileSync(resolve(source, 'scripts/compile-validators.mjs'), resolve(destination, 'scripts/compile-validators.mjs'));
-  for (const file of ['schemas.gen.json', 'operations.gen.ts']) copyFileSync(resolve(source, 'src', file), resolve(destination, 'src', file));
+  cpSync(source, destination, { recursive: true });
   copyFileSync(resolve(repo, 'sdk/launchpad/packages/sdk-v2/src/schemas.gen.json'), resolve(temporary, 'sdk-v2/src/schemas.gen.json'));
   writeFileSync(resolve(temporary, 'package.json'), '{"type":"module"}');
   const compiled = spawnSync(process.execPath, [resolve(destination, 'scripts/compile-validators.mjs')], { encoding: 'utf8' });

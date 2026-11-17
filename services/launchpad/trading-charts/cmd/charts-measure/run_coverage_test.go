@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -56,13 +57,36 @@ func TestRunPreparesBoundedArtifactsBeforeProviderDial(t *testing.T) {
 			t.Fatalf("bounded artifact %s: %+v, %v", name, info, err)
 		}
 	}
-	t.Setenv("DATABASE_URL", internaltest.NewDatabase(t))
+	dsn := internaltest.NewDatabase(t)
+	database := internaltest.OpenPool(t, dsn)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	var commitAuthority string
+	if err := database.QueryRow(ctx, `SELECT current_setting('track_commit_timestamp')`).Scan(&commitAuthority); err != nil {
+		t.Fatal(err)
+	}
+	var want string
+	switch commitAuthority {
+	case "off":
+		want = "actual commit timestamp authority must be enabled"
+	case "on":
+		want = "actual canonical RPC unavailable"
+	default:
+		t.Fatalf("unexpected track_commit_timestamp setting: %q", commitAuthority)
+	}
+	t.Setenv("DATABASE_URL", dsn)
 	output = filepath.Join(t.TempDir(), "database-measurement")
 	flag.CommandLine = flag.NewFlagSet("charts-measure", flag.ContinueOnError)
 	flag.CommandLine.SetOutput(io.Discard)
 	os.Args = []string{"charts-measure", "-config", path, "-config-sha256", hex.EncodeToString(sum[:]), "-output", output}
-	if err := run(); err == nil || !strings.Contains(err.Error(), "commit timestamp authority") {
-		t.Fatalf("database timestamp authority: %v", err)
+	if err := run(); err == nil || err.Error() != want {
+		t.Fatalf("database track_commit_timestamp=%s: got %v, want %q", commitAuthority, err, want)
+	}
+	for _, name := range []string{"samples.ndjson", "latencies.ndjson", "locks.ndjson"} {
+		info, err := os.Stat(filepath.Join(output, name))
+		if err != nil || info.Size() != 0 || info.Mode().Perm() != 0600 {
+			t.Fatalf("bounded artifact %s: %+v, %v", name, info, err)
+		}
 	}
 	for _, tc := range []struct {
 		name, output, occupied, want string
