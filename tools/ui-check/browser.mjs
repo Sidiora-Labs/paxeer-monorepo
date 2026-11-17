@@ -59,7 +59,13 @@ export function observePage() {
     const style = getComputedStyle(element);
     return element.getClientRects().length > 0 && element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && style.visibility === "visible" && style.display !== "none" && !clippedToNothing(element);
   };
-  const measurements = { shifts: [], motions: [], selector, elements, visible, parentElement };
+  const focusControl = (element) => {
+    if (clippedToNothing(element)) {
+      while (!visible(element) && parentElement(element)) element = parentElement(element);
+    }
+    return element;
+  };
+  const measurements = { shifts: [], motions: [], selector, elements, visible, parentElement, focusControl };
   Object.defineProperty(window, "__uiCheck", { value: measurements });
   new PerformanceObserver((list) => {
     for (const entry of list.getEntries()) {
@@ -237,13 +243,14 @@ export function focusedElement() {
   let active = document.activeElement;
   while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
   if (!active || active === document.body || active === document.documentElement) return null;
-  const { focusBefore, appearance, selector } = window.__uiCheck;
+  const { focusBefore, appearance, selector, focusControl } = window.__uiCheck;
   window.__uiCheck.lastFocused = active;
-  const rect = active.getBoundingClientRect();
-  const baseline = focusBefore.get(active);
+  const control = focusControl(active);
+  const rect = control.getBoundingClientRect();
+  const baseline = focusBefore.get(control);
   return {
     selector: selector(active),
-    changed: baseline !== undefined && baseline !== appearance(active),
+    changed: baseline !== undefined && baseline !== appearance(control),
     outside: rect.left < -0.5 || rect.top < -0.5 || rect.left > innerWidth + 0.5 || rect.top > innerHeight + 0.5 || (rect.width <= innerWidth && rect.right > innerWidth + 0.5) || (rect.height <= innerHeight && rect.bottom > innerHeight + 0.5),
     values: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, viewportWidth: innerWidth, viewportHeight: innerHeight },
   };
