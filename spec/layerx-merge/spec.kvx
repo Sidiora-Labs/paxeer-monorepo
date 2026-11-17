@@ -15442,6 +15442,12 @@ value = "Decision 3681 holds for the explorer as for the launchpad. The file too
 basis = "Gotcha 4641. Decisions 3587, 3591, 3624, 3681 and 3708."
 affects = []
 
+[decision.3722]
+title = "Each open task that closes a part of the launchpad names the rule for sizes in a step"
+value = "Tasks 22.44.64 to 22.44.69 each get a last step with the rule of decision 3708 in the words the tasks of the explorer parts have: no size of text, no line height, no distance, no height of a control or a row and no track grows or shrinks for a finding, a control that takes touch measures at least 44 pixels at the widths up to 834 and keeps its size above, a colour changes only where the contrast rule asks for it, and a finding of the kind scale is settled with a size the tokens of the surface hold. Nothing else of these tasks changes."
+basis = "Gotcha 4642. Decisions 3681, 3708 and 3721."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -176241,6 +176247,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3722, gotcha 4642. Decision 3708 holds for every correction of this task: no size of text, no line height, no distance, no height of a control or a row and no track grows or shrinks for a finding; a control that takes touch measures at least 44 pixels at the widths up to 834 and keeps its size above; a colour changes only where the contrast rule asks for it. A finding of the kind scale is settled with a size the tokens of the surface hold: where the surface draws text at a size its tokens hold, the type scale of the part file and of the whole file names that step, and the script of the parts keeps passing. Give in the record, for each kind of finding, the count of the first run of the part and of the last. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.68]
 title = "Close the live, profit card and profile views of the launchpad on the device list with the render check"
@@ -176273,6 +176280,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3722, gotcha 4642. Decision 3708 holds for every correction of this task: no size of text, no line height, no distance, no height of a control or a row and no track grows or shrinks for a finding; a control that takes touch measures at least 44 pixels at the widths up to 834 and keeps its size above; a colour changes only where the contrast rule asks for it. A finding of the kind scale is settled with a size the tokens of the surface hold: where the surface draws text at a size its tokens hold, the type scale of the part file and of the whole file names that step, and the script of the parts keeps passing. Give in the record, for each kind of finding, the count of the first run of the part and of the last. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.67]
 title = "Close the leaderboard and reward views of the launchpad on the device list with the render check"
@@ -176305,6 +176313,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3722, gotcha 4642. Decision 3708 holds for every correction of this task: no size of text, no line height, no distance, no height of a control or a row and no track grows or shrinks for a finding; a control that takes touch measures at least 44 pixels at the widths up to 834 and keeps its size above; a colour changes only where the contrast rule asks for it. A finding of the kind scale is settled with a size the tokens of the surface hold: where the surface draws text at a size its tokens hold, the type scale of the part file and of the whole file names that step, and the script of the parts keeps passing. Give in the record, for each kind of finding, the count of the first run of the part and of the last. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.66]
 title = "Close the explore, search and watchlist views of the launchpad on the device list with the render check"
@@ -176337,6 +176346,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3722, gotcha 4642. Decision 3708 holds for every correction of this task: no size of text, no line height, no distance, no height of a control or a row and no track grows or shrinks for a finding; a control that takes touch measures at least 44 pixels at the widths up to 834 and keeps its size above; a colour changes only where the contrast rule asks for it. A finding of the kind scale is settled with a size the tokens of the surface hold: where the surface draws text at a size its tokens hold, the type scale of the part file and of the whole file names that step, and the script of the parts keeps passing. Give in the record, for each kind of finding, the count of the first run of the part and of the last. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.65]
 title = "Close the coin, token and creation views of the launchpad on the device list with the render check"
@@ -176369,6 +176379,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3722, gotcha 4642. Decision 3708 holds for every correction of this task: no size of text, no line height, no distance, no height of a control or a row and no track grows or shrinks for a finding; a control that takes touch measures at least 44 pixels at the widths up to 834 and keeps its size above; a colour changes only where the contrast rule asks for it. A finding of the kind scale is settled with a size the tokens of the surface hold: where the surface draws text at a size its tokens hold, the type scale of the part file and of the whole file names that step, and the script of the parts keeps passing. Give in the record, for each kind of finding, the count of the first run of the part and of the last. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.64]
 title = "Close the bounty, chat and document views of the launchpad on the device list with the render check"
@@ -176401,6 +176412,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3722, gotcha 4642. Decision 3708 holds for every correction of this task: no size of text, no line height, no distance, no height of a control or a row and no track grows or shrinks for a finding; a control that takes touch measures at least 44 pixels at the widths up to 834 and keeps its size above; a colour changes only where the contrast rule asks for it. A finding of the kind scale is settled with a size the tokens of the surface hold: where the surface draws text at a size its tokens hold, the type scale of the part file and of the whole file names that step, and the script of the parts keeps passing. Give in the record, for each kind of finding, the count of the first run of the part and of the last. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it."
 
 [task.22.44.63]
 title = "Hold the signed-in form of each view of the wallet application in its surface file and close the render check on it"
