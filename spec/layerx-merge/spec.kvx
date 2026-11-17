@@ -467881,7 +467881,7 @@ do_9 = "do_9 Decision 3669, gotcha 4586. The work of the earlier candidate stays
 
 [task.22.39.688]
 title = "Let the suite of the explorer backend pass whole with no path in the builder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.634", "22.39.685", "22.39.686", "22.39.687", "22.39.695"]
