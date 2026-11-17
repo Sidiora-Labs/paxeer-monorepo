@@ -205835,7 +205835,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.807]
 title = "Bring the suite of the launchpad metadata module in line with the scanner it reads, and let its case of the process limits read the machine first"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
