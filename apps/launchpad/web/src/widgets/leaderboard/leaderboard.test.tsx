@@ -127,7 +127,10 @@ describe('rank row', () => {
     expect(html).toContain('>You<');
     // Board rows are 48px with the handle at text-md bold and PnL at num-md (components.md 36).
     expect(html).toContain('min-h-12');
-    expect(html).toMatch(/class="[^"]*truncate text-md font-bold[^"]*"/);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const link = doc.querySelector('a')!;
+    expect(link.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-md', 'font-bold']));
+    expect(link.querySelector('span')!.className.split(/\s+/)).toContain('truncate');
     expect(html).toMatch(/class="text-md font-bold[^"]*tabular-nums text-danger"/);
     expect(html).not.toContain('text-rank-');
   });
@@ -193,7 +196,12 @@ describe('cup hero and rules', () => {
         expect(html).toContain('No prize pool announced');
         // The rules row keeps its place (disabled) so the hero anatomy matches a ready cup.
         expect(html).toContain('Schedule, scoring, eligibility and rules');
-        expect(html).toMatch(/<button[^>]*id="cup-rules-unavailable"[^>]*disabled/);
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const rules = doc.querySelector('summary#cup-rules-unavailable')!;
+        expect(rules.getAttribute('aria-disabled')).toBe('true');
+        expect(rules.getAttribute('aria-expanded')).toBe('false');
+        expect(rules.closest('details')!.hasAttribute('open')).toBe(false);
+        expect(doc.querySelector<HTMLDivElement>('#cup-rules-unavailable-panel')!.hidden).toBe(true);
       }
       // The art area is present in every state, and the frame grows instead of clipping its content.
       expect(html).toContain('data-cup-art');

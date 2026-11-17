@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import React, { act } from 'react';
@@ -64,7 +65,7 @@ const { derivePanelState } = await import('./panel-state');
 const { ColumnChrome } = await import('./column-chrome');
 const { Column } = await import('./column');
 const { DashboardBoard, columnSlotStyle, boardVisibleClass, compactHomeQuery } = await import('./dashboard-board');
-const { timeframes, timeframeSegmentsMinWidth } = await import('./trending-widget');
+const { timeframes, timeframeSegmentsMinWidth, servedTimeframes } = await import('./trending-widget');
 const { HomeFeed, homeFeedTabs } = await import('./home-feed');
 const { default: HomeModule } = await import('@/page-modules/home');
 const { addColumn, defaultLayout, resetLayoutStore, setLayout } = await import('./layout-store');
@@ -228,7 +229,7 @@ describe('ranking panels render exactly one state across refetches', () => {
     dom.window.close();
   });
 
-  it(homePanelProfilesUseGatewayOrigin);
+  it(homePanelProfilesUseGatewayOrigin.name, homePanelProfilesUseGatewayOrigin);
 
   for (const [name, Widget, emptyTitle] of [
     ['Trending', TrendingWidget, trendingEmptyTitles.trending],
@@ -306,7 +307,6 @@ describe('column header layout', () => {
 function url0(): string { return profiles.origin; }
 
 const BORDER = /\b(border(?!-0\b|-none\b)(-[a-z0-9/\[\]-]+)?|divide-[a-z]|ring-(?!offset)[a-z0-9]|outline-(?!none|focus|2|offset)[a-z]+)\b/;
-const classesOf = (root: ParentNode) => Array.from(root.querySelectorAll('[class]')).flatMap(element => (element.getAttribute('class') ?? '').split(/\s+/));
 
 describe('column tab rows never clip a control', () => {
   it('Trending: ranking tabs and a change window that is a segmented group in a wide column, a compact pill in a narrow one', async () => {
@@ -327,24 +327,22 @@ describe('column tab rows never clip a control', () => {
     expect(segments.map(segment => segment.textContent)).toEqual(timeframes);
     expect(segments.find(segment => segment.getAttribute('aria-checked') === 'true')?.textContent).toBe('24h');
     expect(segments.filter(segment => segment.getAttribute('aria-label')?.endsWith('coming soon')).map(segment => segment.textContent)).toEqual(['4h', '12h']);
-    const trigger = toolbar.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]')!;
-    expect(trigger.parentElement?.className.split(/\s+/)).toContain('@min-column-timeframes:hidden');
+    const trigger = toolbar.querySelector<HTMLSelectElement>('select[aria-label="Change window"]')!;
+    expect(trigger.parentElement?.parentElement?.className.split(/\s+/)).toContain('@min-column-timeframes:hidden');
     // Both forms drive one window: a segment pick shows in the pill, and the unserved notice follows it.
     act(() => { segments[1].click(); });
-    expect(trigger.textContent).toBe('4h');
+    expect(trigger.value).toBe('4h');
     expect(container.textContent).toContain('4h change');
     act(() => { segments[3].click(); });
-    expect(trigger.textContent).toBe('24h');
+    expect(trigger.value).toBe('24h');
     expect(trigger.getAttribute('aria-label')).toBe('Change window');
-    expect(trigger.textContent).toBe('24h');
-    act(() => { trigger.click(); });
-    await waitFor(() => document.querySelector('[role="listbox"][aria-label="Change window"]') !== null);
-    const options = Array.from(document.querySelectorAll('[role="listbox"][aria-label="Change window"] [role="option"]'));
-    expect(options.map(option => option.textContent?.replace('soon', '').trim())).toEqual(timeframes);
-    expect(options.filter(option => option.textContent?.includes('soon')).map(option => option.textContent?.replace('soon', '').trim())).toEqual(['4h', '12h']);
-    act(() => { (options[0] as HTMLElement).click(); });
-    expect(trigger.textContent).toBe('1h');
-    expect(classesOf(toolbar).filter(name => BORDER.test(name))).toEqual([]);
+    expect(trigger.value).toBe('24h');
+    const options = Array.from(trigger.options).filter(option => option.value !== '');
+    expect(options.map(option => option.textContent)).toEqual(timeframes);
+    expect(options.filter(option => !servedTimeframes.has(option.value as typeof timeframes[number])).map(option => option.value)).toEqual(['4h', '12h']);
+    act(() => { trigger.value = options[0].value; trigger.dispatchEvent(new window.Event('change', { bubbles: true })); });
+    expect(trigger.value).toBe('1h');
+    expect(assertControlEdges(toolbar.outerHTML)).not.toMatch(BORDER);
     unmount(root, container, queryClient);
   });
 
@@ -363,12 +361,13 @@ describe('column tab rows never clip a control', () => {
       expect(classes).toContain('px-1.5');
       expect(classes.some(name => /^(truncate|overflow-|text-ellipsis|line-clamp)/.test(name))).toBe(false);
     }
-    const trigger = toolbar.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]')!;
+    const trigger = toolbar.querySelector<HTMLSelectElement>('select[aria-label="Change window"]')!;
     // Value-only pill: no chevron, compact padding, the full name on hover, pinned to the row's right slot.
     expect(trigger.querySelector('svg')).toBeNull();
-    expect(trigger.className.split(/\s+/)).toEqual(expect.arrayContaining(['px-2', 'whitespace-nowrap']));
+    expect(trigger.parentElement?.className.split(/\s+/)).toContain('px-2');
+    expect(trigger.className.split(/\s+/)).toEqual(expect.arrayContaining(['whitespace-nowrap', 'text-sm', '[field-sizing:content]']));
     expect(trigger.getAttribute('title')).toBe('Change window: 24h');
-    expect(trigger.parentElement?.className.split(/\s+/)).toContain('ml-auto');
+    expect(trigger.parentElement?.parentElement?.className.split(/\s+/)).toContain('ml-auto');
     // Width budget at the 288 px minimum: 272 px inside the row's 8 px side padding. Text widths are bold 13 px
     // Manrope as measured in Chromium (canvas measureText); a label missing here must be measured before it ships.
     const measured: Record<string, number> = { Trend: 38.2, Unusual: 53.9, Movers: 48.4, Vol: 20, '1h': 14.4, '4h': 16.7, '12h': 22.5, '24h': 24.6 };
@@ -376,7 +375,7 @@ describe('column tab rows never clip a control', () => {
     const tabs = segments.reduce((sum, segment) => sum + width(segment.textContent) + 12, 4);
     const pill = Math.max(...timeframes.map(frame => width(frame))) + 16;
     expect(tabs + 8 + pill).toBeLessThanOrEqual(288 - 16);
-    width(trigger.textContent);
+    width(trigger.value);
     // From the container-query width the four window segments sit on the same line as the ranking tabs.
     const windowSegments = timeframes.reduce((sum, frame) => sum + width(frame) + 12, 4);
     expect(tabs + 8 + windowSegments).toBeLessThanOrEqual(timeframeSegmentsMinWidth - 16);
@@ -391,12 +390,12 @@ describe('column tab rows never clip a control', () => {
     const toolbar = tabs.parentElement!;
     expect(toolbar.className.split(/\s+/)).toContain('flex-wrap');
     expect(toolbar.className.split(/\s+/).some(name => /^overflow-/.test(name))).toBe(false);
-    const pill = toolbar.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]')!;
-    expect(pill.textContent).toBe('24h');
-    expect(pill.parentElement?.className.split(/\s+/)).toContain('ml-auto');
+    const pill = toolbar.querySelector<HTMLSelectElement>('select[aria-label="Window"]')!;
+    expect(pill.value).toBe('24h');
+    expect(pill.parentElement?.parentElement?.className.split(/\s+/)).toContain('ml-auto');
     // Chromium at 1024: tabs 198 px + gap 8 + pill 69 px = 275 px inside the 321 px column less 16 px row padding.
     expect(198 + 8 + 69).toBeLessThanOrEqual(321 - 16);
-    expect(classesOf(toolbar).filter(name => BORDER.test(name))).toEqual([]);
+    expect(assertControlEdges(toolbar.outerHTML)).not.toMatch(BORDER);
     unmount(root, container, queryClient);
   });
 
@@ -483,7 +482,7 @@ describe('dashboard board fills the width with its columns and makes overflow us
     expect(list.getAttribute('data-board-overflow')).toBe('true');
     const rail = container.querySelector<HTMLElement>('[data-board-rail]')!;
     expect(rail.className.split(/\s+/)).toContain('bg-surface-2');
-    expect(classesOf(rail.parentElement!).concat(rail.className.split(/\s+/)).filter(name => BORDER.test(name))).toEqual([]);
+    expect(assertControlEdges(rail.parentElement!.outerHTML)).not.toMatch(BORDER);
     expect(rail.textContent).toContain('+3');
     const left = rail.querySelector<HTMLButtonElement>('button[aria-label="Scroll columns left"]')!;
     const right = rail.querySelector<HTMLButtonElement>('button[aria-label="Scroll columns right, 3 more"]')!;
@@ -592,7 +591,7 @@ describe('home below lg is a single callouts feed', () => {
     await waitFor(() => !/Loading callouts/.test(container.textContent ?? ''), 8000);
     expect(container.querySelector('[data-home-feed] [role="tablist"]')).not.toBeNull();
     expect(container.querySelector('button[aria-pressed]')?.textContent).toBe('Live');
-    expect(classesOf(container).filter(name => BORDER.test(name))).toEqual([]);
+    expect(assertControlEdges(container.innerHTML)).not.toMatch(BORDER);
     expect(container.innerHTML).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
     unmount(root, container, queryClient);
     await new Promise<void>(resolve => feedOrigin.server.close(() => resolve()));
