@@ -36,12 +36,14 @@ export function HoldingsFilter({
 
   return (
     <div className="col-span-2 flex items-center justify-between px-1 pt-2">
-      <h3 className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em]">Holdings</h3>
+      <h3 className="text-size-13 font-bold text-pax-muted uppercase tracking-[0.06em]">
+        Holdings
+      </h3>
       <div className="relative">
         <button
           type="button"
           onClick={() => setOpen(!open)}
-          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium press-scale transition-all ${
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-size-11 font-medium press-scale transition-all ${
             hasActiveFilter ? 'bg-pax-accent/10 text-pax-accent' : 'bg-pax-control text-pax-muted'
           }`}
         >
@@ -72,7 +74,7 @@ export function HoldingsFilter({
               </button>
               {allHoldings.length > 0 && (
                 <div>
-                  <p className="text-xs text-pax-muted uppercase tracking-wide mb-1.5 px-2">
+                  <p className="text-size-10 text-pax-muted uppercase tracking-wide mb-1.5 px-2">
                     Toggle tokens
                   </p>
                   <div className="max-h-40 overflow-y-auto space-y-0.5">

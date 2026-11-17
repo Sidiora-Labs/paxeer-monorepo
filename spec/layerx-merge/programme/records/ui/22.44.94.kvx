@@ -1,0 +1,1207 @@
+[surface]
+name = "Paxeer Wallet"
+widths = [390, 1280, 1440, 1920, 2560]
+height = 900
+scheme = "dark"
+mode = "default"
+unit = "CSS pixels at the regular text size and comfortable density."
+tolerance = 1
+measures = ["left", "top", "width", "height", "fontSize", "lineHeight"]
+
+[typography]
+onboarding_heading = [24, 32]
+privacy_heading = [30, 36]
+module_heading = [18, 28]
+offline_heading = [20, 28]
+small_text = [14, 20]
+privacy_text = [14, 22.75]
+module_navigation = [11, 16.5]
+scale = [8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 30, 32, 42, 45]
+
+[layout]
+wallet_choice_height = 80.25
+offline_icon = [72, 72]
+touch_width_maximum = 834
+touch_minimum = 44
+navigation_focus = "The navigation reveals each focused link within its scroll region."
+account = "The account views retain a sign-in panel below the fixed header."
+inference = "The inference view uses the module heading, navigation and connection status sizes."
+auth_callback = "The sign-in return page retains its status and retry control with the fixed text steps."
+
+[counts.onboarding]
+widths = [390, 1280, 1440, 1920, 2560]
+comparison_record = "22.44.75"
+comparison_parts = [4, 4, 4, 4, 4]
+differing_parts = [0, 0, 0, 0, 0]
+
+[view.onboarding.w390]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.onboarding.w1280]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.onboarding.w1440]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.onboarding.w1920]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.onboarding.w2560]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[counts.wallet-shell]
+widths = [390, 1280, 1440, 1920, 2560]
+comparison_record = "22.44.75"
+comparison_parts = [4, 4, 4, 4, 4]
+differing_parts = [0, 0, 0, 0, 0]
+
+[view.wallet-shell.w390]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.wallet-shell.w1280]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.wallet-shell.w1440]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.wallet-shell.w1920]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.wallet-shell.w2560]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[counts.account]
+widths = [390, 1280, 1440, 1920, 2560]
+comparison_record = "22.44.75"
+comparison_parts = [4, 4, 4, 4, 4]
+differing_parts = [3, 2, 2, 2, 2]
+
+[view.account.w390]
+differing_parts = 3
+comparison_parts = 4
+parts = ["main", "primary-control", "sign-in-link"]
+
+[part.account.w390.main]
+cause = "content"
+content = "The current sign-in panel includes the link and the space below the fixed header."
+earlier = [0, 0, 390, 52, 16, 24]
+current = [0, 0, 390, 172, 16, 24]
+
+[part.account.w390.primary-control]
+cause = "touch"
+content = "The Back control is 44 pixels wide for touch."
+earlier = [8, 6, 36, 44, 16, 24]
+current = [8, 6, 44, 44, 16, 24]
+
+[part.account.w390.sign-in-link]
+cause = "content"
+content = "The sign-in link is present in the current wallet."
+earlier = "absent"
+current = [16, 112, 133, 44, 14, 20]
+
+[view.account.w1280]
+differing_parts = 2
+comparison_parts = 4
+parts = ["main", "sign-in-link"]
+
+[part.account.w1280.main]
+cause = "content"
+content = "The current sign-in panel includes the link and the space below the fixed header."
+earlier = [416, 0, 448, 52, 16, 24]
+current = [416, 0, 448, 172, 16, 24]
+
+[part.account.w1280.sign-in-link]
+cause = "content"
+content = "The sign-in link is present in the current wallet."
+earlier = "absent"
+current = [432, 112, 133, 44, 14, 20]
+
+[view.account.w1440]
+differing_parts = 2
+comparison_parts = 4
+parts = ["main", "sign-in-link"]
+
+[part.account.w1440.main]
+cause = "content"
+content = "The current sign-in panel includes the link and the space below the fixed header."
+earlier = [496, 0, 448, 52, 16, 24]
+current = [496, 0, 448, 172, 16, 24]
+
+[part.account.w1440.sign-in-link]
+cause = "content"
+content = "The sign-in link is present in the current wallet."
+earlier = "absent"
+current = [512, 112, 133, 44, 14, 20]
+
+[view.account.w1920]
+differing_parts = 2
+comparison_parts = 4
+parts = ["main", "sign-in-link"]
+
+[part.account.w1920.main]
+cause = "content"
+content = "The current sign-in panel includes the link and the space below the fixed header."
+earlier = [736, 0, 448, 52, 16, 24]
+current = [736, 0, 448, 172, 16, 24]
+
+[part.account.w1920.sign-in-link]
+cause = "content"
+content = "The sign-in link is present in the current wallet."
+earlier = "absent"
+current = [752, 112, 133, 44, 14, 20]
+
+[view.account.w2560]
+differing_parts = 2
+comparison_parts = 4
+parts = ["main", "sign-in-link"]
+
+[part.account.w2560.main]
+cause = "content"
+content = "The current sign-in panel includes the link and the space below the fixed header."
+earlier = [1056, 0, 448, 52, 16, 24]
+current = [1056, 0, 448, 172, 16, 24]
+
+[part.account.w2560.sign-in-link]
+cause = "content"
+content = "The sign-in link is present in the current wallet."
+earlier = "absent"
+current = [1072, 112, 133, 44, 14, 20]
+
+[counts.account-history]
+widths = [390, 1280, 1440, 1920, 2560]
+comparison_record = "22.44.75"
+comparison_parts = [4, 4, 4, 4, 4]
+differing_parts = [3, 2, 2, 2, 2]
+
+[view.account-history.w390]
+differing_parts = 3
+comparison_parts = 4
+parts = ["main", "primary-control", "sign-in-link"]
+
+[part.account-history.w390.main]
+cause = "content"
+content = "The current sign-in panel includes the link and the space below the fixed header."
+earlier = [0, 0, 390, 52, 16, 24]
+current = [0, 0, 390, 172, 16, 24]
+
+[part.account-history.w390.primary-control]
+cause = "touch"
+content = "The Back control is 44 pixels wide for touch."
+earlier = [8, 6, 36, 44, 16, 24]
+current = [8, 6, 44, 44, 16, 24]
+
+[part.account-history.w390.sign-in-link]
+cause = "content"
+content = "The sign-in link is present in the current wallet."
+earlier = "absent"
+current = [16, 112, 133, 44, 14, 20]
+
+[view.account-history.w1280]
+differing_parts = 2
+comparison_parts = 4
+parts = ["main", "sign-in-link"]
+
+[part.account-history.w1280.main]
+cause = "content"
+content = "The current sign-in panel includes the link and the space below the fixed header."
+earlier = [416, 0, 448, 52, 16, 24]
+current = [416, 0, 448, 172, 16, 24]
+
+[part.account-history.w1280.sign-in-link]
+cause = "content"
+content = "The sign-in link is present in the current wallet."
+earlier = "absent"
+current = [432, 112, 133, 44, 14, 20]
+
+[view.account-history.w1440]
+differing_parts = 2
+comparison_parts = 4
+parts = ["main", "sign-in-link"]
+
+[part.account-history.w1440.main]
+cause = "content"
+content = "The current sign-in panel includes the link and the space below the fixed header."
+earlier = [496, 0, 448, 52, 16, 24]
+current = [496, 0, 448, 172, 16, 24]
+
+[part.account-history.w1440.sign-in-link]
+cause = "content"
+content = "The sign-in link is present in the current wallet."
+earlier = "absent"
+current = [512, 112, 133, 44, 14, 20]
+
+[view.account-history.w1920]
+differing_parts = 2
+comparison_parts = 4
+parts = ["main", "sign-in-link"]
+
+[part.account-history.w1920.main]
+cause = "content"
+content = "The current sign-in panel includes the link and the space below the fixed header."
+earlier = [736, 0, 448, 52, 16, 24]
+current = [736, 0, 448, 172, 16, 24]
+
+[part.account-history.w1920.sign-in-link]
+cause = "content"
+content = "The sign-in link is present in the current wallet."
+earlier = "absent"
+current = [752, 112, 133, 44, 14, 20]
+
+[view.account-history.w2560]
+differing_parts = 2
+comparison_parts = 4
+parts = ["main", "sign-in-link"]
+
+[part.account-history.w2560.main]
+cause = "content"
+content = "The current sign-in panel includes the link and the space below the fixed header."
+earlier = [1056, 0, 448, 52, 16, 24]
+current = [1056, 0, 448, 172, 16, 24]
+
+[part.account-history.w2560.sign-in-link]
+cause = "content"
+content = "The sign-in link is present in the current wallet."
+earlier = "absent"
+current = [1072, 112, 133, 44, 14, 20]
+
+[counts.account-plan]
+widths = [390, 1280, 1440, 1920, 2560]
+comparison_record = "22.44.75"
+comparison_parts = [4, 4, 4, 4, 4]
+differing_parts = [3, 2, 2, 2, 2]
+
+[view.account-plan.w390]
+differing_parts = 3
+comparison_parts = 4
+parts = ["main", "primary-control", "sign-in-link"]
+
+[part.account-plan.w390.main]
+cause = "content"
+content = "The current sign-in panel includes the link and the space below the fixed header."
+earlier = [0, 0, 390, 52, 16, 24]
+current = [0, 0, 390, 172, 16, 24]
+
+[part.account-plan.w390.primary-control]
+cause = "touch"
+content = "The Back control is 44 pixels wide for touch."
+earlier = [8, 6, 36, 44, 16, 24]
+current = [8, 6, 44, 44, 16, 24]
+
+[part.account-plan.w390.sign-in-link]
+cause = "content"
+content = "The sign-in link is present in the current wallet."
+earlier = "absent"
+current = [16, 112, 133, 44, 14, 20]
+
+[view.account-plan.w1280]
+differing_parts = 2
+comparison_parts = 4
+parts = ["main", "sign-in-link"]
+
+[part.account-plan.w1280.main]
+cause = "content"
+content = "The current sign-in panel includes the link and the space below the fixed header."
+earlier = [416, 0, 448, 52, 16, 24]
+current = [416, 0, 448, 172, 16, 24]
+
+[part.account-plan.w1280.sign-in-link]
+cause = "content"
+content = "The sign-in link is present in the current wallet."
+earlier = "absent"
+current = [432, 112, 133, 44, 14, 20]
+
+[view.account-plan.w1440]
+differing_parts = 2
+comparison_parts = 4
+parts = ["main", "sign-in-link"]
+
+[part.account-plan.w1440.main]
+cause = "content"
+content = "The current sign-in panel includes the link and the space below the fixed header."
+earlier = [496, 0, 448, 52, 16, 24]
+current = [496, 0, 448, 172, 16, 24]
+
+[part.account-plan.w1440.sign-in-link]
+cause = "content"
+content = "The sign-in link is present in the current wallet."
+earlier = "absent"
+current = [512, 112, 133, 44, 14, 20]
+
+[view.account-plan.w1920]
+differing_parts = 2
+comparison_parts = 4
+parts = ["main", "sign-in-link"]
+
+[part.account-plan.w1920.main]
+cause = "content"
+content = "The current sign-in panel includes the link and the space below the fixed header."
+earlier = [736, 0, 448, 52, 16, 24]
+current = [736, 0, 448, 172, 16, 24]
+
+[part.account-plan.w1920.sign-in-link]
+cause = "content"
+content = "The sign-in link is present in the current wallet."
+earlier = "absent"
+current = [752, 112, 133, 44, 14, 20]
+
+[view.account-plan.w2560]
+differing_parts = 2
+comparison_parts = 4
+parts = ["main", "sign-in-link"]
+
+[part.account-plan.w2560.main]
+cause = "content"
+content = "The current sign-in panel includes the link and the space below the fixed header."
+earlier = [1056, 0, 448, 52, 16, 24]
+current = [1056, 0, 448, 172, 16, 24]
+
+[part.account-plan.w2560.sign-in-link]
+cause = "content"
+content = "The sign-in link is present in the current wallet."
+earlier = "absent"
+current = [1072, 112, 133, 44, 14, 20]
+
+[counts.privacy]
+widths = [390, 1280, 1440, 1920, 2560]
+comparison_record = "22.44.75"
+comparison_parts = [10, 10, 10, 10, 10]
+differing_parts = [2, 0, 0, 0, 0]
+
+[view.privacy.w390]
+differing_parts = 2
+comparison_parts = 10
+parts = ["main", "primary-control"]
+
+[part.privacy.w390.main]
+cause = "touch"
+content = "The contact link is 44 pixels high for touch and the text flows around its box."
+earlier = [0, 0, 390, 5734.75, 16, 24]
+current = [0, 0, 390, 5756, 16, 24]
+
+[part.privacy.w390.primary-control]
+cause = "touch"
+content = "The contact link is 44 pixels high for touch and the text flows around its box."
+earlier = [24, 5540, 136, 14, 14, 22.75]
+current = [24, 5536, 136, 44, 14, 22.75]
+
+[view.privacy.w1280]
+differing_parts = 0
+comparison_parts = 10
+parts = []
+
+[view.privacy.w1440]
+differing_parts = 0
+comparison_parts = 10
+parts = []
+
+[view.privacy.w1920]
+differing_parts = 0
+comparison_parts = 10
+parts = []
+
+[view.privacy.w2560]
+differing_parts = 0
+comparison_parts = 10
+parts = []
+
+[counts.offline]
+widths = [390, 1280, 1440, 1920, 2560]
+comparison_record = "22.44.75"
+comparison_parts = [3, 3, 3, 3, 3]
+differing_parts = [0, 0, 0, 0, 0]
+
+[view.offline.w390]
+differing_parts = 0
+comparison_parts = 3
+parts = []
+
+[view.offline.w1280]
+differing_parts = 0
+comparison_parts = 3
+parts = []
+
+[view.offline.w1440]
+differing_parts = 0
+comparison_parts = 3
+parts = []
+
+[view.offline.w1920]
+differing_parts = 0
+comparison_parts = 3
+parts = []
+
+[view.offline.w2560]
+differing_parts = 0
+comparison_parts = 3
+parts = []
+
+[counts.auth-callback]
+widths = [390, 1280, 1440, 1920, 2560]
+comparison_record = "22.44.75"
+comparison_parts = [3, 3, 3, 3, 3]
+differing_parts = [3, 3, 3, 3, 3]
+
+[view.auth-callback.w390]
+differing_parts = 3
+comparison_parts = 3
+parts = ["main", "primary-control", "status"]
+
+[part.auth-callback.w390.main]
+cause = "content"
+content = "The sign-in return page is present in the current wallet."
+earlier = "absent"
+current = [0, 0, 390, 900, 16, 24]
+
+[part.auth-callback.w390.primary-control]
+cause = "content"
+content = "The sign-in return page is present in the current wallet."
+earlier = "absent"
+current = [152, 498, 86, 44, 12, 16]
+
+[part.auth-callback.w390.status]
+cause = "content"
+content = "The sign-in return page is present in the current wallet."
+earlier = "absent"
+current = [152.5, 422, 85, 20, 14, 20]
+
+[view.auth-callback.w1280]
+differing_parts = 3
+comparison_parts = 3
+parts = ["main", "primary-control", "status"]
+
+[part.auth-callback.w1280.main]
+cause = "content"
+content = "The sign-in return page is present in the current wallet."
+earlier = "absent"
+current = [0, 0, 1280, 900, 16, 24]
+
+[part.auth-callback.w1280.primary-control]
+cause = "content"
+content = "The sign-in return page is present in the current wallet."
+earlier = "absent"
+current = [597, 498, 86, 44, 12, 16]
+
+[part.auth-callback.w1280.status]
+cause = "content"
+content = "The sign-in return page is present in the current wallet."
+earlier = "absent"
+current = [597.5, 422, 85, 20, 14, 20]
+
+[view.auth-callback.w1440]
+differing_parts = 3
+comparison_parts = 3
+parts = ["main", "primary-control", "status"]
+
+[part.auth-callback.w1440.main]
+cause = "content"
+content = "The sign-in return page is present in the current wallet."
+earlier = "absent"
+current = [0, 0, 1440, 900, 16, 24]
+
+[part.auth-callback.w1440.primary-control]
+cause = "content"
+content = "The sign-in return page is present in the current wallet."
+earlier = "absent"
+current = [677, 498, 86, 44, 12, 16]
+
+[part.auth-callback.w1440.status]
+cause = "content"
+content = "The sign-in return page is present in the current wallet."
+earlier = "absent"
+current = [677.5, 422, 85, 20, 14, 20]
+
+[view.auth-callback.w1920]
+differing_parts = 3
+comparison_parts = 3
+parts = ["main", "primary-control", "status"]
+
+[part.auth-callback.w1920.main]
+cause = "content"
+content = "The sign-in return page is present in the current wallet."
+earlier = "absent"
+current = [0, 0, 1920, 900, 16, 24]
+
+[part.auth-callback.w1920.primary-control]
+cause = "content"
+content = "The sign-in return page is present in the current wallet."
+earlier = "absent"
+current = [917, 498, 86, 44, 12, 16]
+
+[part.auth-callback.w1920.status]
+cause = "content"
+content = "The sign-in return page is present in the current wallet."
+earlier = "absent"
+current = [917.5, 422, 85, 20, 14, 20]
+
+[view.auth-callback.w2560]
+differing_parts = 3
+comparison_parts = 3
+parts = ["main", "primary-control", "status"]
+
+[part.auth-callback.w2560.main]
+cause = "content"
+content = "The sign-in return page is present in the current wallet."
+earlier = "absent"
+current = [0, 0, 2560, 900, 16, 24]
+
+[part.auth-callback.w2560.primary-control]
+cause = "content"
+content = "The sign-in return page is present in the current wallet."
+earlier = "absent"
+current = [1237, 498, 86, 44, 12, 16]
+
+[part.auth-callback.w2560.status]
+cause = "content"
+content = "The sign-in return page is present in the current wallet."
+earlier = "absent"
+current = [1237.5, 422, 85, 20, 14, 20]
+
+[counts.bridge]
+widths = [390, 1280, 1440, 1920, 2560]
+comparison_record = "22.44.75"
+comparison_parts = [4, 4, 4, 3, 3]
+differing_parts = [0, 0, 0, 0, 0]
+
+[view.bridge.w390]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.bridge.w1280]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.bridge.w1440]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.bridge.w1920]
+differing_parts = 0
+comparison_parts = 3
+parts = []
+
+[view.bridge.w2560]
+differing_parts = 0
+comparison_parts = 3
+parts = []
+
+[counts.inference]
+widths = [390, 1280, 1440, 1920, 2560]
+comparison_record = "22.44.75"
+comparison_parts = [6, 6, 6, 6, 6]
+differing_parts = [6, 6, 6, 6, 6]
+
+[view.inference.w390]
+differing_parts = 6
+comparison_parts = 6
+parts = ["connection-status", "first-heading", "main", "navigation", "primary-control", "surface-region"]
+
+[part.inference.w390.connection-status]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [16, 116, 358, 20, 14, 20]
+
+[part.inference.w390.first-heading]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [16, 72, 358, 28, 18, 28]
+
+[part.inference.w390.main]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [0, 0, 390, 900, 16, 24]
+
+[part.inference.w390.navigation]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [0, 0, 390, 56, 16, 24]
+
+[part.inference.w390.primary-control]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [12, 12, 55, 44, 11, 16.5]
+
+[part.inference.w390.surface-region]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [0, 56, 390, 176, 16, 24]
+
+[view.inference.w1280]
+differing_parts = 6
+comparison_parts = 6
+parts = ["connection-status", "first-heading", "main", "navigation", "primary-control", "surface-region"]
+
+[part.inference.w1280.connection-status]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [400, 116, 480, 20, 14, 20]
+
+[part.inference.w1280.first-heading]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [400, 72, 480, 28, 18, 28]
+
+[part.inference.w1280.main]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [384, 0, 512, 900, 16, 24]
+
+[part.inference.w1280.navigation]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [384, 0, 512, 56, 16, 24]
+
+[part.inference.w1280.primary-control]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [396, 12, 55, 44, 11, 16.5]
+
+[part.inference.w1280.surface-region]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [384, 56, 512, 176, 16, 24]
+
+[view.inference.w1440]
+differing_parts = 6
+comparison_parts = 6
+parts = ["connection-status", "first-heading", "main", "navigation", "primary-control", "surface-region"]
+
+[part.inference.w1440.connection-status]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [480, 116, 480, 20, 14, 20]
+
+[part.inference.w1440.first-heading]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [480, 72, 480, 28, 18, 28]
+
+[part.inference.w1440.main]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [464, 0, 512, 900, 16, 24]
+
+[part.inference.w1440.navigation]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [464, 0, 512, 56, 16, 24]
+
+[part.inference.w1440.primary-control]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [476, 12, 55, 44, 11, 16.5]
+
+[part.inference.w1440.surface-region]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [464, 56, 512, 176, 16, 24]
+
+[view.inference.w1920]
+differing_parts = 6
+comparison_parts = 6
+parts = ["connection-status", "first-heading", "main", "navigation", "primary-control", "surface-region"]
+
+[part.inference.w1920.connection-status]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [720, 116, 480, 20, 14, 20]
+
+[part.inference.w1920.first-heading]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [720, 72, 480, 28, 18, 28]
+
+[part.inference.w1920.main]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [704, 0, 512, 900, 16, 24]
+
+[part.inference.w1920.navigation]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [704, 0, 512, 56, 16, 24]
+
+[part.inference.w1920.primary-control]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [716, 12, 55, 44, 11, 16.5]
+
+[part.inference.w1920.surface-region]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [704, 56, 512, 176, 16, 24]
+
+[view.inference.w2560]
+differing_parts = 6
+comparison_parts = 6
+parts = ["connection-status", "first-heading", "main", "navigation", "primary-control", "surface-region"]
+
+[part.inference.w2560.connection-status]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [1040, 116, 480, 20, 14, 20]
+
+[part.inference.w2560.first-heading]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [1040, 72, 480, 28, 18, 28]
+
+[part.inference.w2560.main]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [1024, 0, 512, 900, 16, 24]
+
+[part.inference.w2560.navigation]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [1024, 0, 512, 56, 16, 24]
+
+[part.inference.w2560.primary-control]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [1036, 12, 55, 44, 11, 16.5]
+
+[part.inference.w2560.surface-region]
+cause = "content"
+content = "The inference view is present in the current wallet."
+earlier = "absent"
+current = [1024, 56, 512, 176, 16, 24]
+
+[counts.exchange]
+widths = [390, 1280, 1440, 1920, 2560]
+comparison_record = "22.44.75"
+comparison_parts = [4, 4, 4, 3, 3]
+differing_parts = [0, 0, 0, 0, 0]
+
+[view.exchange.w390]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.exchange.w1280]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.exchange.w1440]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.exchange.w1920]
+differing_parts = 0
+comparison_parts = 3
+parts = []
+
+[view.exchange.w2560]
+differing_parts = 0
+comparison_parts = 3
+parts = []
+
+[counts.fees]
+widths = [390, 1280, 1440, 1920, 2560]
+comparison_record = "22.44.75"
+comparison_parts = [4, 4, 4, 3, 3]
+differing_parts = [0, 0, 0, 0, 0]
+
+[view.fees.w390]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.fees.w1280]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.fees.w1440]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.fees.w1920]
+differing_parts = 0
+comparison_parts = 3
+parts = []
+
+[view.fees.w2560]
+differing_parts = 0
+comparison_parts = 3
+parts = []
+
+[counts.launchpad]
+widths = [390, 1280, 1440, 1920, 2560]
+comparison_record = "22.44.75"
+comparison_parts = [4, 4, 4, 3, 3]
+differing_parts = [0, 0, 0, 0, 0]
+
+[view.launchpad.w390]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.launchpad.w1280]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.launchpad.w1440]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.launchpad.w1920]
+differing_parts = 0
+comparison_parts = 3
+parts = []
+
+[view.launchpad.w2560]
+differing_parts = 0
+comparison_parts = 3
+parts = []
+
+[counts.web-data]
+widths = [390, 1280, 1440, 1920, 2560]
+comparison_record = "22.44.75"
+comparison_parts = [4, 4, 4, 3, 3]
+differing_parts = [0, 0, 0, 0, 0]
+
+[view.web-data.w390]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.web-data.w1280]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.web-data.w1440]
+differing_parts = 0
+comparison_parts = 4
+parts = []
+
+[view.web-data.w1920]
+differing_parts = 0
+comparison_parts = 3
+parts = []
+
+[view.web-data.w2560]
+differing_parts = 0
+comparison_parts = 3
+parts = []
+
+[token.font-size-2xl]
+name = "--font-size-2xl"
+value = "1.5rem"
+
+[token.font-size-3xl]
+name = "--font-size-3xl"
+value = "1.875rem"
+
+[token.font-size-display]
+name = "--font-size-display"
+value = "2.625rem"
+
+[token.line-height-display]
+name = "--line-height-display"
+value = "1"
+
+[token.offset-focus-ring]
+name = "--offset-focus-ring"
+value = "0.1875rem"
+
+[token.offset-scan]
+name = "--offset-scan"
+value = "0.5rem"
+
+[token.radius-full]
+name = "--radius-full"
+value = "999px"
+
+[token.scale-press]
+name = "--scale-press"
+value = "0.97"
+
+[token.size-card-compact]
+name = "--size-card-compact"
+value = "6.25rem"
+
+[token.size-card-expanded]
+name = "--size-card-expanded"
+value = "11.25rem"
+
+[token.size-card-featured]
+name = "--size-card-featured"
+value = "12.5rem"
+
+[token.size-card-medium]
+name = "--size-card-medium"
+value = "5.9375rem"
+
+[token.size-card-row]
+name = "--size-card-row"
+value = "8.75rem"
+
+[token.size-card-small]
+name = "--size-card-small"
+value = "5rem"
+
+[token.size-card-token]
+name = "--size-card-token"
+value = "6.875rem"
+
+[token.size-chart-area]
+name = "--size-chart-area"
+value = "19.375rem"
+
+[token.size-dialog-max]
+name = "--size-dialog-max"
+value = "48rem"
+
+[token.size-dialog-width]
+name = "--size-dialog-width"
+value = "28rem"
+
+[token.size-focus-ring]
+name = "--size-focus-ring"
+value = "0.125rem"
+
+[token.size-glass-blur]
+name = "--size-glass-blur"
+value = "1.25rem"
+
+[token.size-icon-lg]
+name = "--size-icon-lg"
+value = "1.5rem"
+
+[token.size-icon-md]
+name = "--size-icon-md"
+value = "1.25rem"
+
+[token.size-icon-sm]
+name = "--size-icon-sm"
+value = "1rem"
+
+[token.size-modal-max-height]
+name = "--size-modal-max-height"
+value = "70dvh"
+
+[token.size-scrollbar]
+name = "--size-scrollbar"
+value = "0.75rem"
+
+[token.size-slider-thumb]
+name = "--size-slider-thumb"
+value = "1.125rem"
+
+[token.size-slider-track]
+name = "--size-slider-track"
+value = "0.375rem"
+
+[token.size-success-mark]
+name = "--size-success-mark"
+value = "6.25rem"
+
+[token.size-table-min]
+name = "--size-table-min"
+value = "42rem"
+
+[token.space-0]
+name = "--space-0"
+value = "0rem"
+
+[token.space-0-5]
+name = "--space-0-5"
+value = "0.125rem"
+
+[token.space-1-5]
+name = "--space-1-5"
+value = "0.375rem"
+
+[token.space-10]
+name = "--space-10"
+value = "2.5rem"
+
+[token.space-11]
+name = "--space-11"
+value = "2.75rem"
+
+[token.space-12]
+name = "--space-12"
+value = "3rem"
+
+[token.space-14]
+name = "--space-14"
+value = "3.5rem"
+
+[token.space-16]
+name = "--space-16"
+value = "4rem"
+
+[token.space-1px]
+name = "--space-1px"
+value = "1px"
+
+[token.space-2-5]
+name = "--space-2-5"
+value = "0.625rem"
+
+[token.space-20]
+name = "--space-20"
+value = "5rem"
+
+[token.space-24]
+name = "--space-24"
+value = "6rem"
+
+[token.space-28]
+name = "--space-28"
+value = "7rem"
+
+[token.space-3-5]
+name = "--space-3-5"
+value = "0.875rem"
+
+[token.space-32]
+name = "--space-32"
+value = "8rem"
+
+[token.space-36]
+name = "--space-36"
+value = "9rem"
+
+[token.space-40]
+name = "--space-40"
+value = "10rem"
+
+[token.space-44]
+name = "--space-44"
+value = "11rem"
+
+[token.space-48]
+name = "--space-48"
+value = "12rem"
+
+[token.space-52]
+name = "--space-52"
+value = "13rem"
+
+[token.space-56]
+name = "--space-56"
+value = "14rem"
+
+[token.space-60]
+name = "--space-60"
+value = "15rem"
+
+[token.space-64]
+name = "--space-64"
+value = "16rem"
+
+[token.space-7]
+name = "--space-7"
+value = "1.75rem"
+
+[token.space-72]
+name = "--space-72"
+value = "18rem"
+
+[token.space-80]
+name = "--space-80"
+value = "20rem"
+
+[token.space-9]
+name = "--space-9"
+value = "2.25rem"
+
+[token.space-96]
+name = "--space-96"
+value = "24rem"
+
+[token.space-bounce]
+name = "--space-bounce"
+value = "0.25rem"
+
+[token.space-px]
+name = "--space-px"
+value = "1px"
+
+[token.space-typing]
+name = "--space-typing"
+value = "0.3125rem"
+
+[token.tracking-label]
+name = "--tracking-label"
+value = "0.06em"
+
+[token.type-size-lg]
+name = "--type-size-lg"
+value = "1.125rem"
+
+[token.type-size-md]
+name = "--type-size-md"
+value = "1rem"
+
+[token.type-size-sm]
+name = "--type-size-sm"
+value = "0.875rem"
+
+[token.type-size-xl]
+name = "--type-size-xl"
+value = "1.25rem"
+
+[token.type-size-xs]
+name = "--type-size-xs"
+value = "0.75rem"

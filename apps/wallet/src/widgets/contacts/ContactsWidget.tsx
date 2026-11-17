@@ -249,11 +249,11 @@ export function ContactsWidget({ onBack }: ContactsWidgetProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{c.name}</p>
-                    <p className="text-xs text-pax-muted font-mono truncate">
+                    <p className="text-size-11 text-pax-muted font-mono truncate">
                       {c.address.slice(0, 6)}...{c.address.slice(-4)}
                     </p>
                     {c.note && (
-                      <p className="text-xs text-pax-muted/60 truncate mt-0.5">{c.note}</p>
+                      <p className="text-size-10 text-pax-muted/60 truncate mt-0.5">{c.note}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">

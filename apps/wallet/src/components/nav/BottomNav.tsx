@@ -68,7 +68,7 @@ export function BottomNav({ active, onNavigate }: BottomNavProps) {
               )}
             >
               <SvgIcon name={icon} className="w-5 h-5" />
-              <span className="text-xs font-medium max-w-full">{label}</span>
+              <span className="text-size-10 font-medium max-w-full">{label}</span>
             </button>
           );
         })}

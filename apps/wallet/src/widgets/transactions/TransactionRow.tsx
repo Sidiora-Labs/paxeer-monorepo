@@ -59,7 +59,7 @@ export function TransactionRow({
           {isSent ? '-' : '+'}
           {formattedAmount} {row.symbol}
         </p>
-        {dateLabel && <p className="text-xs text-pax-muted">{dateLabel}</p>}
+        {dateLabel && <p className="text-size-10 text-pax-muted">{dateLabel}</p>}
       </div>
     </button>
   );

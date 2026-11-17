@@ -82,7 +82,9 @@ export function NetworkErrorScreen({
 
       <div className="space-y-1">
         <p className="text-base font-semibold text-pax-light">{cfg.title}</p>
-        <p className="text-sm text-pax-muted max-w-xs leading-relaxed">{message || cfg.subtitle}</p>
+        <p className="text-sm text-pax-muted max-w-size-260 leading-relaxed">
+          {message || cfg.subtitle}
+        </p>
         {countdownSeconds !== undefined && countdownSeconds > 0 && (
           <p className="text-xs font-mono text-pax-warning mt-1">Retry in {countdownSeconds}s</p>
         )}
