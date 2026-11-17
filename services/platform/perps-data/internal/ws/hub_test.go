@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -141,9 +142,10 @@ func hubSeedBook(t *testing.T, db *sql.DB) {
 
 // hubBroker starts an in-process JetStream broker holding PERPS_V1 for chain
 // 125 on one replica; maxMsgs > 0 bounds the stream and discards the oldest.
-func hubBroker(t *testing.T, maxMsgs int64) (*server.Server, *nats.Conn, jetstream.JetStream) {
+func hubBroker(t *testing.T, maxMsgs int64) (*server.Server, *nats.Conn, jetstream.JetStream, *server.Options) {
 	t.Helper()
-	ns, err := server.NewServer(&server.Options{Host: "127.0.0.1", Port: server.RANDOM_PORT, JetStream: true, StoreDir: t.TempDir(), NoLog: true, NoSigs: true})
+	opts := &server.Options{Host: "127.0.0.1", Port: server.RANDOM_PORT, JetStream: true, StoreDir: t.TempDir(), NoLog: true, NoSigs: true}
+	ns, err := server.NewServer(opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +154,8 @@ func hubBroker(t *testing.T, maxMsgs int64) (*server.Server, *nats.Conn, jetstre
 	if !ns.ReadyForConnections(10 * time.Second) {
 		t.Fatal("in-process broker not ready")
 	}
-	nc, err := nats.Connect(ns.ClientURL())
+	opts.Port = ns.Addr().(*net.TCPAddr).Port
+	nc, err := nats.Connect(ns.ClientURL(), nats.MaxReconnects(-1), nats.ReconnectWait(time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +172,7 @@ func hubBroker(t *testing.T, maxMsgs int64) (*server.Server, *nats.Conn, jetstre
 	if _, err := js.CreateStream(context.Background(), cfg); err != nil {
 		t.Fatal(err)
 	}
-	return ns, nc, js
+	return ns, nc, js, opts
 }
 
 // hubPublisher publishes delivery envelopes with the headers of the perps
@@ -219,19 +222,20 @@ func blockTime(at time.Time) string {
 // hubRig is one hub with its broker, providers and socket server, and the
 // spot user socket the hub loss closes, as the gateway wires it.
 type hubRig struct {
-	hub     *Hub
-	ns      *server.Server
-	nc      *nats.Conn
-	pub     *hubPublisher
-	url     string
-	spotURL string
-	losses  *atomic.Int64
-	stop    func()
+	hub           *Hub
+	ns            *server.Server
+	nc            *nats.Conn
+	pub           *hubPublisher
+	url           string
+	spotURL       string
+	losses        *atomic.Int64
+	stop          func()
+	brokerOptions *server.Options
 }
 
 func newHubRig(t *testing.T, db *sql.DB, maxMsgs int64) *hubRig {
 	t.Helper()
-	ns, nc, js := hubBroker(t, maxMsgs)
+	ns, nc, js, opts := hubBroker(t, maxMsgs)
 	metrics, err := telemetry.New(config.Gateway)
 	if err != nil {
 		t.Fatal(err)
@@ -266,7 +270,7 @@ func newHubRig(t *testing.T, db *sql.DB, maxMsgs int64) *hubRig {
 	httpServer := httptest.NewServer(mux)
 	t.Cleanup(httpServer.Close)
 	base := "ws" + strings.TrimPrefix(httpServer.URL, "http")
-	r := &hubRig{hub: hub, ns: ns, nc: nc, pub: &hubPublisher{js: js}, url: base + "/ws", spotURL: base + "/v1/ws", losses: losses}
+	r := &hubRig{hub: hub, ns: ns, nc: nc, pub: &hubPublisher{js: js}, url: base + "/ws", spotURL: base + "/v1/ws", losses: losses, brokerOptions: opts}
 	r.start(t)
 	t.Cleanup(func() { r.stop() })
 	return r
@@ -865,4 +869,166 @@ func TestHub(t *testing.T) {
 			t.Fatalf("live frame %s ts %d, want 2-0 at %d", id, live.TS, at.UnixMilli())
 		}
 	})
+}
+
+func hubConsumerName(t *testing.T, r *hubRig) string {
+	t.Helper()
+	var name string
+	hubWait(t, "one waiting consumer", func() bool {
+		ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
+		defer cancel()
+		s, err := r.pub.js.Stream(ctx, stream.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		names := s.ConsumerNames(ctx)
+		var found []string
+		for n := range names.Name() {
+			found = append(found, n)
+		}
+		if err := names.Err(); err != nil {
+			t.Fatal(err)
+		}
+		if len(found) != 1 {
+			return false
+		}
+		c, err := r.pub.js.Consumer(ctx, stream.Name, found[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		info, err := c.Info(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		name = found[0]
+		return info.NumWaiting > 0
+	})
+	return name
+}
+
+func TestHubReattachWithinNineSeconds(t *testing.T) {
+	db := hubDB(t)
+	for _, cause := range []string{"consumer_deleted", "broker_restarted_on_same_store", "consumer_paused_behind_stream"} {
+		t.Run(cause, func(t *testing.T) {
+			hubReset(t, db)
+			r := newHubRig(t, db, 0)
+			c, snap := r.dial(t, btcTrade)
+			spot := r.spotDial(t)
+			var applied, published []string
+			defer r.hub.Listen(func(_ string, env delivery.Envelope) {
+				applied = append(applied, env.EventID)
+			})()
+			publishFill := func(n int64) {
+				hubFill(t, db, n)
+				_, id := r.pub.publish(t, "perps.125.0.fill", "fill", n, blockTime(time.Now()))
+				published = append(published, id)
+			}
+			heardAfter := time.Now()
+			publishFill(1)
+			if id := tradeID(t, c.delta(t, snap.Seq+1)); id != "1-0" {
+				t.Fatalf("first trade %s", id)
+			}
+			name := hubConsumerName(t, r)
+			deadline := time.Now().Add(9 * time.Second)
+			switch cause {
+			case "consumer_deleted":
+				if err := r.pub.js.DeleteConsumer(context.Background(), stream.Name, name); err != nil {
+					t.Fatal(err)
+				}
+			case "broker_restarted_on_same_store":
+				reconnected := make(chan struct{}, 1)
+				r.nc.SetReconnectHandler(func(*nats.Conn) { reconnected <- struct{}{} })
+				r.ns.Shutdown()
+				r.ns.WaitForShutdown()
+				opts := *r.brokerOptions
+				ns, err := server.NewServer(&opts)
+				if err != nil {
+					t.Fatal(err)
+				}
+				go ns.Start()
+				t.Cleanup(func() { ns.Shutdown(); ns.WaitForShutdown() })
+				if !ns.ReadyForConnections(5 * time.Second) {
+					t.Fatal("restarted broker not ready")
+				}
+				select {
+				case <-reconnected:
+				case <-time.After(time.Until(deadline)):
+					t.Fatal("connection did not reconnect within nine seconds")
+				}
+			case "consumer_paused_behind_stream":
+				paused, err := r.pub.js.PauseConsumer(context.Background(), stream.Name, name, time.Now().Add(time.Minute))
+				if err != nil || !paused.Paused {
+					t.Fatalf("pause consumer: %+v, %v", paused, err)
+				}
+			}
+			for n := int64(2); n <= 8; n++ {
+				publishFill(n)
+			}
+			for n := int64(2); n <= 8; n++ {
+				if err := c.conn.SetReadDeadline(deadline); err != nil {
+					t.Fatal(err)
+				}
+				var f DataFrame
+				if err := c.conn.ReadJSON(&f); err != nil {
+					t.Fatalf("trade %d did not arrive within nine seconds: %v", n, err)
+				}
+				if f.Snapshot || f.SnapshotID != snap.SnapshotID || f.Seq != snap.Seq+uint64(n) || !c.guard(f) || tradeID(t, f) != fmt.Sprintf("%d-0", n) {
+					t.Fatalf("trade %d frame %+v", n, f)
+				}
+			}
+			for r.applied() != 8 && time.Now().Before(deadline) {
+				time.Sleep(time.Millisecond)
+			}
+			if r.applied() != 8 || time.Now().After(deadline) {
+				t.Fatal("recovery exceeded nine seconds")
+			}
+			if cause == "consumer_paused_behind_stream" && time.Since(heardAfter) < probeAfter {
+				t.Fatal("silent consumer reattached before the probe interval")
+			}
+			publishFill(9)
+			if id := tradeID(t, c.delta(t, snap.Seq+9)); id != "9-0" {
+				t.Fatalf("next trade %s", id)
+			}
+			r.hub.mu.Lock()
+			equal := slices.Equal(applied, published)
+			count := len(applied)
+			r.hub.mu.Unlock()
+			if !equal || r.applied() != 9 {
+				t.Fatalf("applied %d messages, want all nine once in stream order", count)
+			}
+			if n := r.lossCount(); n != 0 {
+				t.Fatalf("recovery signalled %d losses", n)
+			}
+			spotUserSend(t, spot.conn, "ping", "", "")
+			spotUserExpect(t, spotUserRead(t, spot.conn, 5*time.Second), `{"type":"pong"}`)
+		})
+	}
+}
+
+func TestHubReattachIdleKeepsConsumerForThreeProbeIntervals(t *testing.T) {
+	db := hubDB(t)
+	r := newHubRig(t, db, 0)
+	c, snap := r.dial(t, btcTrade)
+	name := hubConsumerName(t, r)
+	var creates atomic.Int64
+	sub, err := r.nc.Subscribe("$JS.API.CONSUMER.CREATE.>", func(*nats.Msg) { creates.Add(1) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sub.Unsubscribe()
+	if err := r.nc.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(3*probeAfter + time.Second)
+	if got := hubConsumerName(t, r); got != name || creates.Load() != 0 {
+		t.Fatalf("idle consumer %s became %s with %d create requests", name, got, creates.Load())
+	}
+	hubFill(t, db, 1)
+	r.pub.publish(t, "perps.125.0.fill", "fill", 1, blockTime(time.Now()))
+	if id := tradeID(t, c.delta(t, snap.Seq+1)); id != "1-0" {
+		t.Fatalf("trade after idle interval %s", id)
+	}
+	if r.lossCount() != 0 {
+		t.Fatalf("idle consumer signalled %d losses", r.lossCount())
+	}
 }
