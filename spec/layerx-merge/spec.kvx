@@ -175503,7 +175503,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.93]
 title = "Bring the parts of the developer dashboard that still differ back to the measures of their earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.82"]
