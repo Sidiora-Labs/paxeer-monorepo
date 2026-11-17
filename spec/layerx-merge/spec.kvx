@@ -175836,7 +175836,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.103]
 title = "Give the job of the render check a limit of 60 minutes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205415,7 +205415,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.796]
 title = "Renew the transcript of the handler journey of the candles package of the launchpad from the present handler"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205446,7 +205446,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.795]
 title = "Write the sources of the metadata package of the launchpad in syntax that type stripping takes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205476,7 +205476,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.794]
 title = "Bring the client of the ranking package of the launchpad and its round trip case in line with the pagination of the ranking service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205537,7 +205537,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.792]
 title = "Set up the container runtime of the launchpad test workflow only where the runner carries none, and give its web job the Go version of the Go jobs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
