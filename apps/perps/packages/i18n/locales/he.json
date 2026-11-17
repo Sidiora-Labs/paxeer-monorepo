@@ -618,6 +618,7 @@
   "orderEntry.bbo.disabled.tips": "BBO לא נתמך כאשר TP/SL, Post‑Only, IOC או FOK נבחרו.",
   "orderEntry.estLiqPrice": "מחיר חיסול משוער",
   "orderEntry.disableOrderConfirm": "ביטול אישור פקודה",
+  "orderEntry.nativeFunding.twoTransactions": "יתבצעו שתי עסקאות: הפקדת הביטחונות החסרים ולאחר מכן שליחת ההוראה. ייתכן שיידרש גם אישור לטוקן.",
   "orderEntry.orderConfirm": "אישור פקודה",
   "orderEntry.confirmScaledOrder": "אישור פקודה מקוטעת",
   "orderEntry.hidden": "מוסתר",

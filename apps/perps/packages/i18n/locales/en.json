@@ -618,6 +618,7 @@
   "orderEntry.bbo.disabled.tips": "BBO is not supported when TP/SL, Post-Only, IOC, or FOK is selected.",
   "orderEntry.estLiqPrice": "Est. liq. price",
   "orderEntry.disableOrderConfirm": "Disable order confirmation",
+  "orderEntry.nativeFunding.twoTransactions": "Two transactions follow: deposit the missing collateral, then place the order. A token approval may also be required.",
   "orderEntry.orderConfirm": "Order confirm",
   "orderEntry.confirmScaledOrder": "Confirm scaled order",
   "orderEntry.hidden": "Hidden",
