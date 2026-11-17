@@ -1,0 +1,70 @@
+{
+  "items": [
+    {
+      "timestamp": "2022-11-11T11:11:11.000000Z",
+      "fee": {
+        "type": "actual",
+        "value": "2100000000000000"
+      },
+      "gas_limit": "21000",
+      "block_number": 9004925,
+      "status": "ok",
+      "method": "placeholder",
+      "confirmations": 71,
+      "type": 0,
+      "exchange_rate": "1828.71",
+      "historic_exchange_rate": null,
+      "to": {
+        "hash": "0x0000000000000000000000000000000000000002",
+        "implementations": null,
+        "is_contract": false,
+        "is_verified": null,
+        "name": null,
+        "private_tags": [],
+        "public_tags": [],
+        "watchlist_names": [],
+        "ens_domain_name": null
+      },
+      "transaction_burnt_fee": null,
+      "max_fee_per_gas": null,
+      "result": "success",
+      "hash": "0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+      "gas_price": "100000000000",
+      "priority_fee": null,
+      "base_fee_per_gas": "24",
+      "from": {
+        "hash": "0x0000000000000000000000000000000000000002",
+        "implementations": null,
+        "is_contract": false,
+        "is_verified": null,
+        "name": null,
+        "private_tags": [],
+        "public_tags": [],
+        "watchlist_names": [],
+        "ens_domain_name": null
+      },
+      "token_transfers": null,
+      "transaction_types": [
+        "coin_transfer"
+      ],
+      "gas_used": "21000",
+      "created_contract": null,
+      "position": 0,
+      "nonce": 295929,
+      "has_error_in_internal_transactions": false,
+      "actions": [],
+      "decoded_input": null,
+      "token_transfers_overflow": false,
+      "raw_input": "0x",
+      "value": "42000420000000000000",
+      "max_priority_fee_per_gas": null,
+      "revert_reason": null,
+      "confirmation_duration": [
+        0,
+        14545
+      ],
+      "transaction_tag": null
+    }
+  ],
+  "next_page_params": null
+}

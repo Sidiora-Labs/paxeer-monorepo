@@ -36,7 +36,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           { ...(selected ? { 'data-selected': true } : {}) }
           { ...(highlighted ? { 'data-highlighted': true } : {}) }
           { ...(loadingSkeleton ? { 'data-loading-skeleton': true } : {}) }
-          disabled={ !loadingSkeleton && (loading || disabled) }
+          disabled={ loadingSkeleton || loading || disabled }
           loading={ loading }
           { ...rest }
         >

@@ -1,0 +1,112 @@
+[manifest]
+task = "22.44.38"
+surface = "Paxscan explorer"
+page_files = 89
+routes_with_views = 89
+named_states = 24
+planned_renders = 3122
+fixture_sources = ["apps/explorer/stubs", "apps/explorer/mocks/paxeerX", "apps/explorer/mocks/stats/daily_txs.ts", "apps/explorer/playwright/fonts.css", "apps/explorer/public/openapi.yaml", "apps/explorer/ui/tx/details/fixtures/vector-v4-committed.json"]
+parameter_values = "Public test fixture block, transaction, address, token, market and account identifiers"
+
+[coverage]
+routes = "Every routable page has a view with concrete parameters; API handlers and framework entry points are not page views."
+states = "Blocks, transactions, accounts, tokens, search and price markets include filled, empty, loading and error states; search suggestions, token filters and dialogs, menus, popovers and navigation drawers include open states."
+schemes = ["light", "dark"]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+shared_templates = "Secondary lists, feature unavailable pages and chain-specific wrappers use default mode; their list, detail, form and unavailable templates retain representatives in all modes."
+
+full_mode_views = ["/404", "/accounts", "/address/[hash]/contract-verification", "/address/[hash]", "/advanced-filter", "/api-docs", "/block/[height_or_hash]", "/block/countdown/[height]", "/block/countdown", "/blocks", "/chakra", "/contract-verification", "/feed", "/feed/market/[id]", "/feed/update/[hash]", "/gas-tracker", "/", "/login", "/paxeer-x/account/[hash]", "/paxeer-x/inference", "/search-results", "/sprite", "/stats/[id]", "/stats", "/token/[hash]", "/token/[hash]/instance/[id]", "/tokens", "/tx/[hash]", "/txs"]
+full_mode_states = ["/accounts empty", "/accounts loading", "/accounts error", "/blocks empty", "/blocks loading", "/blocks error", "/chakra dialog-open", "/chakra menu-open", "/chakra popover-open", "/feed empty", "/feed loading", "/feed error", "/ search-suggestions", "/ navigation-open", "/search-results empty", "/search-results loading", "/search-results error", "/tokens empty", "/tokens loading", "/tokens error", "/tokens filter-open", "/txs empty", "/txs loading", "/txs error"]
+
+[presentation]
+theme = "The document accepts the theme class selected before hydration."
+header = "The network name, search and market price wrap within the available width; main content paints in its own stacking context beneath the translucent header."
+keyboard = "Focus rings use the scheme accent; switches mark the visible track, and modal navigation keeps focus within its controls."
+footer = "The short network description balances its lines."
+motion = "Reduced motion suppresses animations and transitions."
+numbers = "Grouped statistics can wrap at comma boundaries while preserving their values and type styles."
+icons = "The icon catalogue receives its validated registry with the page and keeps its entries visible during background refresh."
+ticker = "The token-price strip reserves its content while loading and shows only returned rates."
+loading = "Statistics preserve the intrinsic skeleton content until data arrives; loading skeleton buttons are disabled."
+popovers = "Native popovers identify their source for sequential keyboard navigation and close when focus moves to another control."
+touch = "Controls provide a minimum target of 44 CSS pixels through width 834."
+script_policy = "Theme initialization scripts are identified by exact hashes for the system, light and dark forms."
+
+[guidance]
+ids = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "responsive-table", "navbar", "dialog", "tabs"]
+
+[home_coverage]
+routes = 5
+named_states = 5
+combinations = 10
+device_renders = 340
+
+[home_content]
+images = 340
+images_with_content = 340
+images_with_text = 340
+images_with_multiple_colours = 340
+reviewed_images = 100
+reviewed_widths = [360, 768, 1440, 2560]
+reviewed_landscape = [844, 390]
+reviewed_schemes = ["light", "dark"]
+presentation = "Statistics wrap at comma groups, and every icon catalogue entry paints throughout the page."
+
+[home_result]
+renders = 340
+unrendered = 0
+empty = 0
+findings = 0
+result = "pass"
+
+[home_findings]
+load = 0
+focus = 0
+contrast = 0
+cut = 0
+touch = 0
+motion = 0
+shift = 0
+sideways = 0
+scale = 0
+
+[part.home]
+views = 5
+states = 5
+renders = 340
+task = "22.44.38"
+routes = ["/404", "/chakra", "/", "/login", "/sprite"]
+
+[part.blocks]
+views = 4
+task = "22.44.85"
+
+[part.transactions]
+views = 10
+task = "22.44.86"
+
+[part.addresses]
+views = 10
+task = "22.44.87"
+
+[part.tokens]
+views = 5
+task = "22.44.88"
+
+[part.statistics]
+views = 7
+task = "22.44.89"
+
+[part.chains]
+views = 13
+task = "22.44.90"
+
+[part.rollup]
+views = 14
+task = "22.44.91"
+
+[part.services]
+views = 21
+task = "22.44.92"

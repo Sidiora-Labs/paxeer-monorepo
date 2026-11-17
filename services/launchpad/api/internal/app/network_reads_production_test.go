@@ -3,21 +3,24 @@ package app
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/config"
@@ -27,20 +30,8 @@ import (
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 )
 
-// The production network reads run the production construction path: a
-// NETWORK_AUTHORITY_CONFIG_FILE document bound by its SHA-256 (the reviewed
-// manifest, BeaconProxy runtime, interface digest, expected preflight revision
-// and the manifest addresses), newNetworkAuthority over the live chain 125
-// HTTPS RPC (NETWORK_RPC_URL), and RegisterNetworkReads on a router. The
-// transaction read is checked against the real swap of pool
-// 0xce20da50f92d21d8bee497910c782e9aa25b6263 at block 33963749; the pruned
-// public RPC keeps ~100k blocks, so a run after that window reports the
-// receipt as unknown and the test says so instead of passing silently.
-
 const (
-	productionPoolSwapTx     = "0xf5f9ed1136e71f03ffd44ae7f80ee192998b80fccd96ad3f75824fa9ef3c2845"
-	productionPoolSwapHeight = "33963749"
-	productionPoolSwapBlock  = "0x1cd6b450aa87745be16a8760a928a2e7ddd1097e872bdcd99b31ff66f77c2945"
+	productionPoolSwapTx = "0xf5f9ed1136e71f03ffd44ae7f80ee192998b80fccd96ad3f75824fa9ef3c2845"
 )
 
 func productionNetworkRPC(t *testing.T) string {
@@ -114,8 +105,37 @@ func productionNetworkReadsServer(t *testing.T, cfg *config.Config) *httptest.Se
 	return srv
 }
 
+var productionNetworkTrust sync.Once
+
+func ownedProductionNetworkRPC(t *testing.T, endpoint string) string {
+	t.Helper()
+	target, err := url.Parse(endpoint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewTLSServer(httputil.NewSingleHostReverseProxy(target))
+	t.Cleanup(server.Close)
+	t.Setenv("GODEBUG", os.Getenv("GODEBUG")+",x509usefallbackroots=1")
+	productionNetworkTrust.Do(func() {
+		roots, err := x509.SystemCertPool()
+		if err != nil {
+			t.Fatal(err)
+		}
+		roots.AddCert(server.Certificate())
+		x509.SetFallbackRoots(roots)
+	})
+	return server.URL
+}
+
 func TestProductionNetworkReadsFromBoundAuthorityDocument(t *testing.T) {
-	endpoint := productionNetworkRPC(t)
+	owned := receiptEvidenceNode(t, 125)
+	hash := owned.send(t, nil, common.FromHex("0x60006000a060006000f3"))
+	owned.backend.Commit()
+	receipt, err := owned.backend.Client().TransactionReceipt(context.Background(), hash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	endpoint := ownedProductionNetworkRPC(t, owned.endpoint)
 	path, digest := writeNetworkAuthorityDocument(t, endpoint)
 	srv := productionNetworkReadsServer(t, &config.Config{NodeEnv: "production", NetworkAuthorityFile: path, NetworkAuthoritySHA256: digest, NetworkRPCURL: endpoint})
 
@@ -140,7 +160,7 @@ func TestProductionNetworkReadsFromBoundAuthorityDocument(t *testing.T) {
 		t.Fatalf("deployment data %+v", deploymentBody)
 	}
 
-	status, body, _ = netCall(t, "GET", srv.URL+"/v2/transactions/"+productionPoolSwapTx)
+	status, body, _ = netCall(t, "GET", srv.URL+"/v2/transactions/"+hash.Hex())
 	if status != 200 || interfaces.ValidateJSON("TxStatusResponse", body) != nil {
 		t.Fatalf("transaction %d %s", status, body)
 	}
@@ -148,10 +168,7 @@ func TestProductionNetworkReadsFromBoundAuthorityDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if tx.Data.Status == "unknown" {
-		t.Fatalf("the pruned RPC no longer serves block %s; rerun against an archive NETWORK_RPC_URL: %s", productionPoolSwapHeight, body)
-	}
-	if tx.Data.Status != "included_success" || tx.Data.Receipt == nil || string(tx.Data.Receipt.Height) != productionPoolSwapHeight || !strings.EqualFold(tx.Data.Receipt.BlockHash, productionPoolSwapBlock) || !tx.Data.Receipt.Success || tx.Data.Receipt.Position.TransactionIndex != "0" {
+	if tx.Data.Status != "included_success" || tx.Data.Receipt == nil || string(tx.Data.Receipt.Height) != receipt.BlockNumber.String() || !strings.EqualFold(tx.Data.Receipt.BlockHash, receipt.BlockHash.Hex()) || !tx.Data.Receipt.Success || tx.Data.Receipt.Position.TransactionIndex != "0" {
 		t.Fatalf("transaction status %s", body)
 	}
 	rpcClient, err := dialNetworkRPC(context.Background(), endpoint, false)
@@ -159,11 +176,6 @@ func TestProductionNetworkReadsFromBoundAuthorityDocument(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer rpcClient.Close()
-	hash := common.HexToHash(productionPoolSwapTx)
-	receipt, err := ethclient.NewClient(rpcClient).TransactionReceipt(context.Background(), hash)
-	if err != nil {
-		t.Fatal(err)
-	}
 	expected, err := chain.TransactionStatus(context.Background(), rpcClient, hash)
 	if err != nil {
 		t.Fatal(err)

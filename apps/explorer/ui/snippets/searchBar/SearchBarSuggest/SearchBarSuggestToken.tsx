@@ -37,9 +37,9 @@ const SearchBarSuggestToken = ({ data, searchTerm, addressFormat, chainInfo }: I
   const name = (
     <Text
       fontWeight="bold"
-      overflow="hidden"
-      whiteSpace="nowrap"
-      textOverflow="ellipsis"
+      minW={ 0 }
+      whiteSpace="normal"
+      overflowWrap="anywhere"
     >
       <span
         dangerouslySetInnerHTML={{ __html: highlightText(data.name + (data.symbol ? ` (${ data.symbol })` : ''), searchTerm) }}
@@ -72,7 +72,7 @@ const SearchBarSuggestToken = ({ data, searchTerm, addressFormat, chainInfo }: I
 
   return (
     <Grid css={ resultLayout } gap={ 2 }>
-      <Flex alignItems="center">
+      <Flex alignItems="center" minW={ 0 } flexWrap="wrap">
         { icon }
         { name }
         { 'certified' in data && data.certified && certifiedIcon }

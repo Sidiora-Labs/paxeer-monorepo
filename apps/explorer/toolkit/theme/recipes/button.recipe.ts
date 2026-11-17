@@ -7,6 +7,7 @@ export const recipe = defineRecipe({
     minH: 'touchTarget',
     minW: 'touchTarget',
     fontWeight: 'medium',
+    focusRingColor: 'focusRing',
     overflow: 'hidden',
     borderRadius: 'full',
     _focusVisible: { outline: 'var(--chakra-border-widths-2) solid', outlineColor: 'focusRing', outlineOffset: 'var(--chakra-spacing-0\\.5)' },
@@ -334,7 +335,9 @@ export const recipe = defineRecipe({
       icon_background: {
         bg: 'button.icon_background.bg',
         color: 'icon.secondary',
-        border: 'none',
+        borderWidth: 'var(--chakra-border-widths-1)',
+        borderStyle: 'solid',
+        borderColor: 'border.strong',
         _hover: {
           color: 'hover',
         },
@@ -427,7 +430,7 @@ export const recipe = defineRecipe({
         _last: { borderTopRightRadius: 'control', borderBottomRightRadius: 'control' },
       },
     },
-    { variant: [ 'outline', 'dropdown', 'header', 'pagination' ], css: { borderColor: 'hairline' } },
+    { variant: [ 'outline', 'dropdown', 'header', 'pagination' ], css: { borderColor: 'border.strong' } },
   ],
   defaultVariants: {
     size: 'md',

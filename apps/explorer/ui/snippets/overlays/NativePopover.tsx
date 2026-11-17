@@ -27,20 +27,28 @@ const NativePopover = ({ open, onOpenChange, anchorRef, anchorName, matchAnchorW
     const content = contentRef.current;
     if (!content) return;
 
+    const dismissOutside = (event: Event) => {
+      if (event.type === 'focusin' && event.target === document.body && anchorRef.current?.querySelector('input')) return;
+      if (!content.contains(event.target as Node) && !anchorRef.current?.contains(event.target as Node)) {
+        if (nativePopover && content.matches(':popover-open')) content.hidePopover();
+        onOpenChange({ open: false });
+      }
+    };
+
     if (nativePopover) {
       const isShown = content.matches(':popover-open');
-      if (open && !isShown) content.showPopover();
+      if (open && !isShown) {
+        const source = anchorRef.current?.querySelector<HTMLElement>('input, button') ?? anchorRef.current;
+        Reflect.apply(content.showPopover, content, source ? [ { source } ] : []);
+      }
       if (!open && isShown) content.hidePopover();
-      return;
+      if (!open) return;
+      document.addEventListener('focusin', dismissOutside, true);
+      return () => document.removeEventListener('focusin', dismissOutside, true);
     }
 
     if (!open) return;
 
-    const dismissOutside = (event: Event) => {
-      if (!content.contains(event.target as Node) && !anchorRef.current?.contains(event.target as Node)) {
-        onOpenChange({ open: false });
-      }
-    };
     const dismissWithEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
       event.preventDefault();

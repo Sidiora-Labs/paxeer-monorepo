@@ -178976,7 +178976,7 @@ do_9 = "do_9 Decision 3705, gotcha 4625. This task starts from the main line tha
 
 [task.22.44.38]
 title = "Close the explorer on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.11", "22.44.37", "22.44.52", "22.44.58", "22.44.59"]
@@ -205773,7 +205773,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.809]
 title = "Bring the suites of the launchpad discovery and notifications modules in line with the wallet range view they read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205835,7 +205835,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.807]
 title = "Bring the suite of the launchpad metadata module in line with the scanner it reads, and let its case of the process limits read the machine first"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205928,7 +205928,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.804]
 title = "Bring the suite of the launchpad ranking module in line with its listener, its recorded statements and its publication rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -206052,7 +206052,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.800]
 title = "Give both Go jobs of the launchpad test workflow one environment and the job of the single modules a limit of 60 minutes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -252780,7 +252780,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.799]
 title = "Read the leader schedule of the node from the committed state of the application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
