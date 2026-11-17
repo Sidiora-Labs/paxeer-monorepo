@@ -387955,7 +387955,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.774]
 title = "Let two qualification test modules load the present module of the owner helpers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
