@@ -15418,6 +15418,12 @@ value = "The file store of each broker of the perps data stream is sized by one 
 basis = "Gotcha 4637. Decision 3709."
 affects = []
 
+[decision.3718]
+title = "The style sheet of a surface names the token of the type scale for a size the scale holds, and a task that changes a shared package of parts builds each surface that builds with it"
+value = "Where the type scale of the UI package under apps/web/packages/layerx-ui holds a token for a size of text, the style sheet of a surface that builds with the package names that token and not its value. The body text of the developer dashboard names --font-size-body. No part measures another size by that. The verification of a task that changes the package holds the build of the human web application and the build of the developer dashboard, each with the checks its build script runs. Task 22.44.84 brings the style sheet of the dashboard to this rule."
+basis = "Gotcha 4638. Decisions 3708 and 3712."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45078,6 +45084,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.84]
+title = "Name the type scale of the UI package in the style sheet of the developer dashboard"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/dashboard/web"]
+tests = []
+verification_contract = "(test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static"
+do_1 = "do_1 Gotcha 4638, decision 3718. Read services/platform/hosted/dashboard/web/app/globals.css, services/platform/hosted/dashboard/web/tests/built-style.mjs, the package file of the dashboard, apps/web/packages/layerx-ui/src/styles/tokens.css and the records spec/layerx-merge/programme/records/ui/22.44.80.kvx and spec/layerx-merge/programme/records/ui/22.44.81.kvx. List in the final message every rule of the style sheet of the dashboard that gives a size of text as a value and not as a token, with the value and with the token of the type scale that holds the same value where there is one."
+symbols = []
 
 [capability.22.39.777]
 title = "Give the brokers of the perps deployment a file store that holds the whole age of the stream"
@@ -175323,6 +175338,37 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.84]
+title = "Name the type scale of the UI package in the style sheet of the developer dashboard"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.80", "22.44.81"]
+reqs = ["22998.1"]
+capabilities = ["22.44.84"]
+interfaces = []
+do_1 = "do_1 Gotcha 4638, decision 3718. Read services/platform/hosted/dashboard/web/app/globals.css, services/platform/hosted/dashboard/web/tests/built-style.mjs, the package file of the dashboard, apps/web/packages/layerx-ui/src/styles/tokens.css and the records spec/layerx-merge/programme/records/ui/22.44.80.kvx and spec/layerx-merge/programme/records/ui/22.44.81.kvx. List in the final message every rule of the style sheet of the dashboard that gives a size of text as a value and not as a token, with the value and with the token of the type scale that holds the same value where there is one."
+do_2 = "do_2 The rule of the body text names the token --font-size-body, and every other rule of the list whose value a token of the type scale holds names that token. A rule that inherits its size stays as it is. No part measures another size, line height or box than before the change at any width: no size grows and none shrinks, and no rule, part or behaviour of the dashboard changes beyond the names of these values."
+do_3 = "do_3 The check services/platform/hosted/dashboard/web/tests/built-style.mjs keeps every assertion it has; none is removed or weakened, and the build script of the dashboard keeps running it. The package under apps/web/packages/layerx-ui is outside the paths of this task and is not changed."
+do_4 = "do_4 Run by hand the build of the dashboard as the verification runs it and read its end: the build script runs the check of the built style sheet, and it ends with status zero. Then run the static cases of the dashboard. Render the dashboard by hand at the widths 390 and 1440 before and after the change and name in the final message the computed size of the body text, of the first heading and of the first control at both widths; they are equal. Task 22.39.773 changes the package file of the dashboard at the same time: change only the files this task needs, and when the main line holds that task take it and keep both changes. The files of services/platform/hosted/dashboard/web are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/dashboard/web"]
+tests = []
+planned_paths = []
+build_cmd = "node scripts/ci/developer-dashboard-lock.mjs && npm --prefix apps/web ci --ignore-scripts --no-audit --no-fund"
+verify_cmd = "(test -e services/platform/hosted/dashboard/web/node_modules || ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules) && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build && npm --prefix services/platform/hosted/dashboard/web run test:static"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
