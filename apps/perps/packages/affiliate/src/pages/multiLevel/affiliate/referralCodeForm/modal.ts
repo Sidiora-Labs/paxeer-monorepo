@@ -1,10 +1,10 @@
-import { registerAffiliateDialog } from "../../../../components/dialog";
+import { registerSimpleDialog, registerSimpleSheet } from "@paxeer-network/ui";
 import { ReferralCodeFormWidget } from "./referralCodeForm.widget";
 
 export const ReferralCodeFormDialogId = "ReferralCodeFormDialogId";
 export const ReferralCodeFormSheetId = "ReferralCodeFormSheetId";
 
-registerAffiliateDialog(ReferralCodeFormDialogId, ReferralCodeFormWidget, {
+registerSimpleDialog(ReferralCodeFormDialogId, ReferralCodeFormWidget, {
   size: "sm",
   classNames: {
     content: "oui-border oui-border-line-6",
@@ -12,4 +12,4 @@ registerAffiliateDialog(ReferralCodeFormDialogId, ReferralCodeFormWidget, {
   },
 });
 
-registerAffiliateDialog(ReferralCodeFormSheetId, ReferralCodeFormWidget);
+registerSimpleSheet(ReferralCodeFormSheetId, ReferralCodeFormWidget);

@@ -105,10 +105,8 @@ export default function HolderRewardsView() {
       <HolderRewardsHeader>
         <StatsRow stats={stats} />
       </HolderRewardsHeader>
-      {list.availability ? (
-        <HolderRewardsUnavailable availability={list.availability} onRetry={retryAll} />
-      ) : (
-        <>
+      <div className="grid min-w-0">
+        <div aria-hidden={list.availability ? true : undefined} inert={list.availability ? true : undefined} className={`col-start-1 row-start-1 flex min-w-0 flex-col gap-8${list.availability ? ' invisible' : ''}`}>
           <TopPayingRail rows={topRows} loading={top.loading || top.pricesPending || top.identityPending} />
           <section aria-labelledby="all-holder-rewards-title" aria-describedby="holder-rewards-scope" className="flex flex-col gap-3">
             <h2 id="all-holder-rewards-title" className="sr-only">All holder rewards coins</h2>
@@ -137,8 +135,9 @@ export default function HolderRewardsView() {
               />
             )}
           </section>
-        </>
-      )}
+        </div>
+        {list.availability ? <div className="col-start-1 row-start-1 min-w-0 self-start"><HolderRewardsUnavailable availability={list.availability} onRetry={retryAll} /></div> : null}
+      </div>
     </div>
   );
 }

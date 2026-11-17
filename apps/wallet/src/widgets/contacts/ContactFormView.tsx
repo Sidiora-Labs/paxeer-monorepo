@@ -157,7 +157,7 @@ export function ContactFormView({
               <button
                 type="button"
                 onClick={() => onDelete(deleteConfirmId)}
-                className="min-h-[var(--touch-target)] flex-1 py-2.5 rounded-xl bg-pax-error-muted text-pax-error text-sm font-medium press-scale focus-visible:ring-2 focus-visible:ring-pax-error"
+                className="min-h-[var(--touch-target)] flex-1 py-2.5 rounded-xl bg-pax-error-muted text-pax-light text-sm font-medium press-scale focus-visible:ring-2 focus-visible:ring-pax-error"
               >
                 {t.common.confirm}
               </button>

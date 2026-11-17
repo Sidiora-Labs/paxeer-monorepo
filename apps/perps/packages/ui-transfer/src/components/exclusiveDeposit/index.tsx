@@ -82,7 +82,7 @@ export const ExclusiveDeposit: FC<ExclusiveDepositProps> = ({ active }) => {
     : "--";
 
   return (
-    <Box className="oui-flex oui-flex-col oui-items-center oui-rounded-xl oui-bg-base-8 oui-tracking-wide">
+    <Box className="oui-flex oui-flex-col oui-items-center oui-rounded-xl oui-bg-base-8 oui-tracking-[0.03em]">
       <WarningBanner message={warningMessage} />
 
       {confirmed && (
@@ -108,7 +108,7 @@ export const ExclusiveDeposit: FC<ExclusiveDepositProps> = ({ active }) => {
 
         {/* Min. Deposit */}
         <Flex className="oui-w-full" justify="between">
-          <Text size="xs" intensity={80}>
+          <Text size="xs" intensity={36}>
             {t("transfer.exclusiveDeposit.minDeposit")}
           </Text>
           <Text
@@ -122,7 +122,7 @@ export const ExclusiveDeposit: FC<ExclusiveDepositProps> = ({ active }) => {
 
         {/* Estimated time */}
         <Flex className="oui-w-full" justify="between">
-          <Text size="xs" intensity={80}>
+          <Text size="xs" intensity={36}>
             {t("transfer.exclusiveDeposit.estimatedTime")}
           </Text>
           <Text size="xs" intensity={98}>

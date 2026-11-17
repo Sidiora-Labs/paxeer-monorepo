@@ -97,20 +97,17 @@ export const MainNavMobile: FC<MainNavMobileProps> = (props) => {
     return (
       <Flex
         width={"100%"}
+        height={44}
         px={3}
         direction={"row"}
         itemAlign={"center"}
         justify={"center"}
-        className="oui-relative oui-min-h-12"
+        className="oui-relative"
       >
-        <button
-          type="button"
-          aria-label="Back"
-          className="oui-shell-icon-button oui-absolute oui-start-0"
+        <ChevronLeftIcon
+          className="oui-absolute oui-start-6 oui-text-base-contrast-54"
           onClick={onBack}
-        >
-          <ChevronLeftIcon aria-hidden="true" />
-        </button>
+        />
         <Text className="oui-text-base oui-font-bold oui-text-base-contrast">
           {subTitle}
         </Text>
@@ -148,13 +145,13 @@ export const MainNavMobile: FC<MainNavMobileProps> = (props) => {
     }
 
     return (
-      <Flex width="100%" justify="between" className="oui-flex-wrap oui-gap-2">
-        <Flex gapX={2} className="oui-flex-wrap oui-min-w-0">
+      <Flex width="100%" justify="between">
+        <Flex gapX={2}>
           {props?.customLeftNav || leftNav}
           {title}
         </Flex>
 
-        <Flex gapX={2} className="oui-flex-wrap oui-min-w-0">
+        <Flex gapX={2}>
           {props.leading}
           {languageSwitcher}
           {scanQRCode}
@@ -171,13 +168,10 @@ export const MainNavMobile: FC<MainNavMobileProps> = (props) => {
   return (
     <Flex
       width={"100%"}
+      height={44}
       px={3}
       itemAlign={"center"}
-      className={cn(
-        "oui-min-h-12 oui-py-2",
-        props.className,
-        props.classNames?.root,
-      )}
+      className={cn(props.className, props.classNames?.root)}
     >
       {renderContent()}
     </Flex>

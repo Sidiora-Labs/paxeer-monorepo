@@ -63,7 +63,7 @@ function createUpdatedLayout(
 }
 
 /**
- * Split layout renderer: picks root by current container breakpoint,
+ * Split layout renderer: picks root by current breakpoint (from viewport width),
  * renders that tree, and on size change updates only the current breakpoint's root.
  */
 export function SplitRenderer(
@@ -78,7 +78,6 @@ export function SplitRenderer(
     (p) => p.id === ctx?.selectedPresetId,
   )?.name;
   const breakpoint = useViewportBreakpoint({
-    containerRef,
     fallbackWidth: typeof window !== "undefined" ? window.innerWidth : 1440,
   });
 
@@ -180,11 +179,7 @@ export function SplitRenderer(
   }
 
   return (
-    <div
-      ref={containerRef}
-      className={className}
-      style={{ minWidth: 0, ...style }}
-    >
+    <div ref={containerRef} className={className}>
       <SplitLayoutConfigProvider
         panels={panels}
         layout={layout}
@@ -202,18 +197,19 @@ export function SplitRenderer(
       >
         <SplitNodeRenderer node={rootNode} path={[]} rootNode={rootNode} />
       </SplitLayoutConfigProvider>
-      {ctx && (
-        <div className="oui-flex oui-justify-end oui-gap-2 oui-p-2 oui-text-base-contrast-80">
-          {presetName && <span className="oui-text-sm">{presetName}</span>}
-          <button
-            type="button"
-            onClick={() => ctx.reset()}
-            className="oui-shell-action oui-rounded oui-bg-base-6 oui-px-3 oui-text-sm"
-          >
-            Reset
-          </button>
-        </div>
-      )}
+      <div
+        className="oui-fixed oui-bottom-5 oui-end-2 oui-flex oui-flex-col oui-items-end oui-text-lg oui-text-trade-loss"
+        style={{ zIndex: 1000 }}
+      >
+        <span>{breakpoint}</span>
+        {presetName && <span className="oui-text-sm">{presetName}</span>}
+        <button
+          onClick={() => ctx?.reset()}
+          className="oui-mt-1 oui-rounded oui-bg-gray-500 oui-px-2 oui-py-1 oui-text-sm oui-text-white"
+        >
+          Reset
+        </button>
+      </div>
     </div>
   );
 }

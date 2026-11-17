@@ -43,61 +43,64 @@ export const SettingMobile: FC<SettingScriptReturns> = (props) => {
   const renderItem = (position: OrderPanelPosition) => {
     const isSelected = props.orderPanelLayout === position;
     const handleClick = () => props.setOrderPanelLayout(position);
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleClick();
+      }
+    };
     return (
       <Flex
-        asChild
         key={position}
         direction="column"
         gapY={2}
-        className="oui-group oui-min-w-0 oui-flex-1 oui-cursor-pointer"
+        className="oui-group oui-flex-1 oui-cursor-pointer"
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        role="button"
+        tabIndex={0}
         aria-pressed={isSelected}
         aria-label={`Layout ${position}`}
       >
-        <button
-          type="button"
-          onClick={handleClick}
-          className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+        <Flex
+          direction="column"
+          className={cn(
+            "oui-h-[160px] oui-w-[120px] oui-shrink-0 oui-overflow-hidden oui-rounded-[10px] oui-border-4 oui-border-base-5 oui-bg-base-10 oui-p-0.5",
+            "group-hover:oui-border-base-4",
+            isSelected && "!oui-border-primary-light",
+          )}
         >
           <Flex
-            direction="column"
-            className={cn(
-              "oui-h-40 oui-w-full oui-max-w-28 oui-shrink-0 oui-overflow-hidden oui-rounded-lg oui-border-4 oui-border-base-5 oui-bg-base-10 oui-p-0.5",
-              "group-hover:oui-border-base-4",
-              isSelected && "!oui-border-primary-light",
-            )}
+            direction="row"
+            itemAlign="stretch"
+            className="oui-h-[152px] oui-shrink-0 oui-gap-0.5"
           >
-            <Flex
-              direction="row"
-              itemAlign="stretch"
-              className="oui-h-36 oui-shrink-0 oui-gap-0.5"
-            >
-              {position === "left" ? (
-                <>
-                  <OrderEntryStripIcon />
-                  <EmptyBlockIcon />
-                </>
-              ) : (
-                <>
-                  <EmptyBlockIcon />
-                  <OrderEntryStripIcon />
-                </>
-              )}
-            </Flex>
-            <div className="oui-min-h-1 oui-flex-1 oui-bg-base-10" />
+            {position === "left" ? (
+              <>
+                <OrderEntryStripIcon />
+                <EmptyBlockIcon />
+              </>
+            ) : (
+              <>
+                <EmptyBlockIcon />
+                <OrderEntryStripIcon />
+              </>
+            )}
           </Flex>
-          <Text
-            size="2xs"
-            intensity={80}
-            className={cn(
-              "oui-text-center oui-text-base-contrast-80 group-hover:oui-text-base-contrast-80",
-              isSelected && "oui-text-base-contrast-80",
-            )}
-          >
-            {position === "left"
-              ? t("trading.layout.advanced.left")
-              : t("trading.layout.advanced.right")}
-          </Text>
-        </button>
+          <div className="oui-min-h-[4px] oui-flex-1 oui-bg-base-10" />
+        </Flex>
+        <Text
+          size="2xs"
+          intensity={54}
+          className={cn(
+            "oui-text-center oui-text-base-contrast-54 group-hover:oui-text-base-contrast-80",
+            isSelected && "oui-text-base-contrast-80",
+          )}
+        >
+          {position === "left"
+            ? t("trading.layout.advanced.left")
+            : t("trading.layout.advanced.right")}
+        </Text>
       </Flex>
     );
   };
@@ -107,29 +110,23 @@ export const SettingMobile: FC<SettingScriptReturns> = (props) => {
       <Flex mt={1} p={4} intensity={900} r="xl" itemAlign="center">
         <LanguageSwitcherWidget open={open} onOpenChange={setOpen} />
         <Flex
-          asChild
           className="oui-cursor-pointer"
           itemAlign="center"
           width="100%"
+          onClick={onLanguageChange}
         >
-          <button
-            type="button"
-            onClick={onLanguageChange}
-            className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
+          <Text
+            size="base"
+            weight="semibold"
+            intensity={80}
+            className="oui-ms-2"
           >
-            <Text
-              size="base"
-              weight="semibold"
-              intensity={80}
-              className="oui-ms-2"
-            >
-              {t("languageSwitcher.language")}
-            </Text>
-            <ChevronRightIcon
-              size={18}
-              className="oui-ms-auto oui-text-base-contrast-80"
-            />
-          </button>
+            {t("languageSwitcher.language")}
+          </Text>
+          <ChevronRightIcon
+            size={18}
+            className="oui-ms-auto oui-text-base-contrast-36"
+          />
         </Flex>
       </Flex>
 
@@ -160,7 +157,7 @@ export const SettingMobile: FC<SettingScriptReturns> = (props) => {
             <Text intensity={80} size="xs">
               {t("portfolio.setting.cancelOpenOrders")}
             </Text>
-            <Text intensity={80} size="2xs" className="oui-font-normal">
+            <Text intensity={36} size="2xs" className="oui-font-normal">
               {t("portfolio.setting.cancelOpenOrders.description")}
             </Text>
             <AuthGuardTooltip>
@@ -203,7 +200,7 @@ export const SettingMobile: FC<SettingScriptReturns> = (props) => {
               itemAlign={"start"}
               className="oui-flex-1 oui-gap-2"
             >
-              <Text intensity={80} size="2xs" className="oui-font-normal">
+              <Text intensity={36} size="2xs" className="oui-font-normal">
                 {t("portfolio.setting.soundAlerts.description")}
               </Text>
               <AuthGuardTooltip>

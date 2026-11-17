@@ -151,10 +151,10 @@ fn real_schema_declares_operation_retired_error_code() {
 }
 
 #[test]
-fn compatibility_rows_cover_every_minor_through_ten() {
+fn compatibility_rows_cover_every_minor_through_eleven() {
     real_schema_report();
     assert_eq!(declaration("v1.kvx", "schema", "major"), "1");
-    assert_eq!(declaration("v1.kvx", "schema", "minor"), "10");
+    assert_eq!(declaration("v1.kvx", "schema", "minor"), "11");
 
     let source = read_schema("compatibility.kvx");
     let rows: Vec<_> = source
@@ -165,7 +165,7 @@ fn compatibility_rows_cover_every_minor_through_ten() {
         })
         .filter(|section| section.starts_with("compatibility.row."))
         .collect();
-    assert_eq!(rows.len(), 11, "one compatibility row per schema minor");
+    assert_eq!(rows.len(), 12, "one compatibility row per schema minor");
     let versions: Vec<_> = rows
         .iter()
         .map(|section| declaration("compatibility.kvx", section, "schema"))
@@ -174,6 +174,6 @@ fn compatibility_rows_cover_every_minor_through_ten() {
     assert_eq!(unique.len(), versions.len(), "duplicate schema minor row");
     assert_eq!(
         unique,
-        (0..=10).map(|minor| format!("\"1.{minor}\"")).collect()
+        (0..=11).map(|minor| format!("\"1.{minor}\"")).collect()
     );
 }

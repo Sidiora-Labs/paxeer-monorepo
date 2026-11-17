@@ -55,8 +55,8 @@ export const AssetHistory: FC<AssetHistoryProps> = (props) => {
         bordered
         loading={isLoading}
         classNames={{
-          root: "oui-h-[calc(100%_-_var(--oui-space-12))]",
-          scroll: "oui-min-h-[calc(var(--oui-space-24)*4)]",
+          root: "oui-h-[calc(100%_-_49px)]",
+          scroll: "oui-min-h-[400px]",
         }}
         columns={columns}
         dataSource={dataSource}

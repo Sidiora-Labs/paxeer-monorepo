@@ -1,5 +1,3 @@
-import { InfoPopover } from "../../../../../components/infoPopover";
-import surface from "../../../../../surface.module.css";
 import { FC, MouseEvent, ReactNode, useCallback, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -56,26 +54,60 @@ const getRefereeType = (
   };
 };
 
+const useMobileDescriptionModal = (content: ReactNode, title: ReactNode) => {
+  const { isMobile } = useScreen();
+
+  return useCallback(
+    (e: MouseEvent) => {
+      if (!isMobile) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      modal.dialog({
+        title,
+        closable: true,
+        size: "sm",
+        content: (
+          <div className="oui-text-sm oui-leading-5 oui-text-base-contrast">
+            {content}
+          </div>
+        ),
+      });
+    },
+    [isMobile, content, title],
+  );
+};
+
 const DescriptionCell: FC<{
   description?: string | null;
 }> = ({ description }) => {
   const { t } = useTranslation();
   const hasDescription = !!description && description.length > 0;
+  const onClick = useMobileDescriptionModal(
+    description,
+    t("affiliate.refereeNote"),
+  );
+  const { isMobile } = useScreen();
 
   if (!hasDescription) {
     return (
-      <Text size="2xs" intensity={54} className="oui-leading-normal">
+      <Text size="2xs" intensity={54} className="oui-leading-[18px]">
         --
       </Text>
     );
   }
 
   return (
-    <InfoPopover content={description} title={t("affiliate.refereeNote")}>
-      <span className="oui-block oui-max-w-full oui-text-2xs oui-leading-normal">
+    <Tooltip content={description} open={isMobile ? false : undefined}>
+      <Text
+        size="2xs"
+        intensity={54}
+        className="oui-block oui-max-w-full oui-cursor-pointer oui-truncate oui-underline oui-decoration-dashed oui-underline-offset-4 oui-decoration-base-contrast-36 oui-leading-[18px]"
+        onClick={onClick}
+      >
         {description}
-      </span>
-    </InfoPopover>
+      </Text>
+    </Tooltip>
   );
 };
 
@@ -84,12 +116,7 @@ const AddressDescriptionCell: FC<{
 }> = ({ item }) => {
   const { t } = useTranslation();
   return (
-    <Flex
-      direction="column"
-      itemAlign="start"
-      gap={1}
-      className={`${surface.surface} oui-min-w-0`}
-    >
+    <Flex direction="column" itemAlign="start" gap={1} className="oui-min-w-0">
       <AddressCell address={item.address} title={t("common.address")} />
       <DescriptionCell description={item.description} />
     </Flex>
@@ -189,31 +216,28 @@ const MobileRefereeItem: FC<{
           className="oui-flex-wrap oui-justify-end oui-gap-y-1"
         >
           {showActionColumn && item.bind_type !== "legacy" && (
-            <button
-              type="button"
+            <Text
               className="oui-refereesTable-edit-btn oui-shrink-0 oui-cursor-pointer oui-text-primary-light"
               onClick={() => onEditReferee(ReferralCodeFormType.Edit, item)}
             >
               {t("common.edit")}
-            </button>
+            </Text>
           )}
-          <button
-            type="button"
+          <Text
             className="oui-refereesTable-note-btn oui-shrink-0 oui-cursor-pointer oui-text-primary-light"
             onClick={() => onEditDescription(item)}
           >
             {t("affiliate.note")}
-          </button>
+          </Text>
           {showActionColumn &&
             item.bind_type !== "legacy" &&
             !item.is_default_rate && (
-              <button
-                type="button"
+              <Text
                 className="oui-refereesTable-reset-btn oui-shrink-0 oui-cursor-pointer oui-text-primary-light"
                 onClick={() => onEditReferee(ReferralCodeFormType.Reset, item)}
               >
                 {t("common.reset")}
-              </button>
+              </Text>
             )}
         </Flex>
       </MobileCell>
@@ -262,7 +286,7 @@ export const RefereesTableUI: FC<RefereesTableUIProps> = (props) => {
       {
         title: t("affiliate.referralCodes.column.you&DirectReferees"),
         dataIndex: "referee_rebate_rate",
-
+        width: 175,
         render: (_: unknown, record: RefereeDataType) => (
           <Text>
             {getRebateRateText(record.referral_rebate_rate) + "/"}
@@ -335,35 +359,32 @@ export const RefereesTableUI: FC<RefereesTableUIProps> = (props) => {
             className="oui-flex-wrap oui-gap-y-1"
           >
             {props.showActionColumn && record.bind_type !== "legacy" && (
-              <button
-                type="button"
+              <Text
                 className="oui-refereesTable-edit-btn oui-shrink-0 oui-cursor-pointer oui-text-primary-light"
                 onClick={() =>
                   props.onEditReferee(ReferralCodeFormType.Edit, record)
                 }
               >
                 {t("common.edit")}
-              </button>
+              </Text>
             )}
-            <button
-              type="button"
+            <Text
               className="oui-refereesTable-note-btn oui-shrink-0 oui-cursor-pointer oui-text-primary-light"
               onClick={() => props.onEditDescription(record)}
             >
               {t("affiliate.note")}
-            </button>
+            </Text>
             {props.showActionColumn &&
               record.bind_type !== "legacy" &&
               !record.is_default_rate && (
-                <button
-                  type="button"
+                <Text
                   className="oui-refereesTable-reset-btn oui-shrink-0 oui-cursor-pointer oui-text-primary-light"
                   onClick={() =>
                     props.onEditReferee(ReferralCodeFormType.Reset, record)
                   }
                 >
                   {t("common.reset")}
-                </button>
+                </Text>
               )}
           </Flex>
         ),
@@ -404,23 +425,16 @@ export const RefereesTableUI: FC<RefereesTableUIProps> = (props) => {
             showPagination ? "" : "oui-pb-3"
           }`}
         >
-          <div
-            role="region"
-            aria-label="Referral data"
-            tabIndex={0}
-            className={surface.scrollRegion}
-          >
-            <AuthGuardDataTable
-              bordered
-              columns={refereeColumns}
-              dataSource={props.refereesData}
-              loading={props.isRefereesLoading}
-              pagination={showPagination ? props.refereesPagination : undefined}
-              onSort={props.onRefereesSort}
-              onRow={() => ({ className: "oui-refereesTable-row oui-h-12" })}
-              className="oui-refereesTable-table [&_.oui-h-10.oui-w-full]:!oui-mx-0 [&_.oui-table-pagination]:!oui-justify-end [&_th]:!oui-tracking-normal [&_th]:!oui-px-3 [&_td]:!oui-px-3"
-            />
-          </div>
+          <AuthGuardDataTable
+            bordered
+            columns={refereeColumns}
+            dataSource={props.refereesData}
+            loading={props.isRefereesLoading}
+            pagination={showPagination ? props.refereesPagination : undefined}
+            onSort={props.onRefereesSort}
+            onRow={() => ({ className: "oui-refereesTable-row oui-h-12" })}
+            className="oui-refereesTable-table [&_.oui-h-10.oui-w-full]:!oui-mx-0 [&_.oui-table-pagination]:!oui-justify-end [&_th]:!oui-tracking-[0.03em] [&_th]:!oui-px-3 [&_td]:!oui-px-3"
+          />
         </div>
       )}
     </>

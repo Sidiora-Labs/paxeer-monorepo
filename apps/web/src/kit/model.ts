@@ -42,22 +42,35 @@ export const STATUS_PRESENTATIONS = Object.freeze({
 export const VERIFICATION_PRESENTATIONS = Object.freeze({
   unverified: Object.freeze({ copyKey: "verification.unverified" }),
   "receipt-verified": Object.freeze({ copyKey: "verification.receipt_verified" }),
-  "checkpoint-finalised": Object.freeze({ copyKey: "verification.checkpoint_finalised" }),
+  committed: Object.freeze({ copyKey: "verification.checkpoint_finalised" }),
 } as const);
 
 export type StatusKey = keyof typeof STATUS_PRESENTATIONS;
 export type StatusTone = (typeof STATUS_PRESENTATIONS)[StatusKey]["tone"];
 export type VerificationKey = keyof typeof VERIFICATION_PRESENTATIONS;
-export type VerificationRung = "unverified" | "receipt-verified" | "checkpoint-finalised";
+export type VerificationRung = "unverified" | "receipt-verified" | "committed";
 
 export function verificationRung(level: string): VerificationRung {
   switch (level) {
     case "unverified":
     case "receipt-verified":
-    case "checkpoint-finalised":
+    case "committed":
       return level;
+    case "checkpoint-finalised":
+      return "committed";
     default:
       return "unverified";
+  }
+}
+
+export function verificationDisplayRung(level: string): VerificationRung {
+  switch (level) {
+    case "checkpoint-finalised":
+    case "paxeer-finalised":
+    case "settlement-anchored":
+      return "committed";
+    default:
+      return verificationRung(level);
   }
 }
 
@@ -90,7 +103,7 @@ export function statusKeyFromCopyKey(copyKey: string): StatusKey {
 }
 
 export function verificationWord(level: string): string {
-  return copyEntry(VERIFICATION_PRESENTATIONS[verificationRung(level)].copyKey).message;
+  return copyEntry(VERIFICATION_PRESENTATIONS[verificationDisplayRung(level)].copyKey).message;
 }
 
 export async function verifiedReceiptWord(
@@ -105,7 +118,7 @@ export async function verifiedReceiptWord(
   const receipt = await verifySequencerReceipt(signedReceipt, rawTransaction, keys);
   if (evidence === undefined) return verificationWord("receipt-verified");
   await verifyCommittedReceipt(receipt, evidence);
-  return verificationWord("checkpoint-finalised");
+  return verificationWord("committed");
 }
 
 export function directionWord(direction: MoneyDirection): string {

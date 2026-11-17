@@ -37,9 +37,6 @@ export const Liquidation: FC<LiquidationState> = (props) => {
             <button
               key={`item-${value}`}
               className="oui-relative oui-px-2 oui-py-[2px] oui-text-sm"
-              type="button"
-              aria-pressed={props.filterDays === value}
-              onClick={() => props.updateFilterDays(value as any)}
             >
               <div className="oui-z-10">
                 <Text.gradient
@@ -55,7 +52,9 @@ export const Liquidation: FC<LiquidationState> = (props) => {
               </div>
               <div
                 className="oui-absolute oui-inset-0 oui-rounded oui-opacity-[.12] oui-gradient-primary"
-                aria-hidden="true"
+                onClick={() => {
+                  props.updateFilterDays(value as any);
+                }}
               ></div>
             </button>
           );
@@ -78,7 +77,6 @@ export const Liquidation: FC<LiquidationState> = (props) => {
         }}
         classNames={{
           root: "!oui-h-[calc(100%_-_49px)]",
-          scroll: "oui-surface-scroll oui-overflow-x-auto",
         }}
         // onRow={(record, index, row) => {
         //   return {
@@ -111,10 +109,7 @@ const TooltipHeaderCell: FC<{
           className: "oui-fill-base-6",
         }}
       >
-        <button
-          className="oui-border-b oui-border-dashed oui-border-line-12"
-          type="button"
-        >
+        <button className="oui-border-b oui-border-dashed oui-border-line-12">
           {props.label}
         </button>
       </Tooltip>

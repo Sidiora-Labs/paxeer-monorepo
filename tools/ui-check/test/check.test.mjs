@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { after, before } from "node:test";
+import { PNG } from "pngjs";
+import { chromium } from "playwright";
 import { checkSurface } from "../check.mjs";
 import { DEVICES, LIMITS, MODES, REPOSITORY, readSurface, renderMatrix } from "../config.mjs";
 import { serveFiles, startSurface } from "../server.mjs";
@@ -24,13 +27,15 @@ let sequence = 0;
 const lateRequests = { response: 0, answer: 0 };
 const lateClosures = { response: 0, answer: 0 };
 const lateResponseMs = LIMITS.navigationMs - 1000;
+const surfaceSockets = new Set();
+let socketConnections = 0;
 
 before(async function serveTestPages() {
   root = await mkdtemp(join(tmpdir(), "ui-check-"));
   server = createServer((request, response) => {
     if (request.url === "/never") return;
     const url = new URL(request.url, "http://localhost");
-    if (["/late.html", "/base.css"].includes(url.pathname)) {
+    if (["/late.html", "/socket.html", "/base.css"].includes(url.pathname)) {
       readFile(join(fixtures, url.pathname.slice(1))).then((body) => {
         response.writeHead(200, { "content-type": url.pathname.endsWith(".css") ? "text/css" : "text/html" });
         response.end(body);
@@ -55,16 +60,29 @@ before(async function serveTestPages() {
     response.writeHead(200, { "content-type": "text/plain" });
     response.end("Ready");
   });
+  server.on("upgrade", (request, socket) => {
+    surfaceSockets.add(socket);
+    socket.once("close", () => surfaceSockets.delete(socket));
+    socket.on("error", () => socket.destroy());
+    socket.on("data", () => socket.end(Buffer.from([0x88, 0])));
+    const accept = createHash("sha1").update(`${request.headers["sec-websocket-key"]}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64");
+    socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
+    const message = Buffer.from("Socket ready");
+    socket.write(Buffer.concat([Buffer.from([0x81, message.length]), message]));
+    socketConnections++;
+  });
   await new Promise((resolve) => server.listen(0, "localhost", resolve));
   address = `http://localhost:${server.address().port}`;
   files = await serveFiles(fixtures, "http://localhost:0");
   external = createServer((request, response) => { externalRequests++; response.end("External service"); });
+  external.on("upgrade", (request, socket) => { externalRequests++; socket.destroy(); });
   await new Promise((resolve) => external.listen(0, "localhost", resolve));
   externalAddress = `http://localhost:${external.address().port}`;
 });
 
 after(async function closeTestPages() {
   await files?.close();
+  for (const socket of surfaceSockets) socket.destroy();
   for (const instance of [server, external]) {
     if (!instance) continue;
     await new Promise((resolve) => { instance.close(resolve); instance.closeAllConnections(); });
@@ -122,8 +140,8 @@ async function cleanPagePassesWholeDeviceList() {
   assert.ok(result.renders.every((render) => render.cancelled === 0));
   assert.deepEqual(result.findings, []);
   assert.equal(lines.length, 2);
-  assert.match(lines[0], /^clean: 34 renders, 0 did not render, 0 showed nothing, 0 findings$/);
-  assert.match(lines[1], /^Total: 34 renders, 0 showed nothing, 0 findings, 0 cancelled, pass, 0 views and states with fewer than all modes$/);
+  assert.match(lines[0], /^clean: 34 renders, 0 did not render, 0 showed nothing, 0 findings, 0 retried$/);
+  assert.match(lines[1], /^Total: 34 renders, 0 showed nothing, 0 findings, 0 cancelled, pass, 0 views and states with fewer than all modes, 0 retried$/);
   assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 34);
   const png = await readFile(join(out, result.renders[0].screenshot));
   assert.equal(png.readUInt32BE(16), 360);
@@ -144,8 +162,8 @@ async function emptyBodyReportsLoadAtEverySize() {
     assert.deepEqual(render.findings.map((finding) => finding.values.source), ["empty-document", "single-colour-viewport"]);
   }
   assert.deepEqual(lines, [
-    "blank: 34 renders, 0 did not render, 34 showed nothing, 68 findings",
-    "Total: 34 renders, 34 showed nothing, 68 findings, 0 cancelled, fail, 0 views and states with fewer than all modes",
+    "blank: 34 renders, 0 did not render, 34 showed nothing, 68 findings, 0 retried",
+    "Total: 34 renders, 34 showed nothing, 68 findings, 0 cancelled, fail, 0 views and states with fewer than all modes, 0 retried",
   ]);
 }
 test(emptyBodyReportsLoadAtEverySize);
@@ -186,8 +204,8 @@ async function coveredTextReportsTheViewportMeasurement() {
   const png = await readFile(join(out, result.renders[0].screenshot));
   assert.ok(png.readUInt32BE(20) > 900, "Viewport content is measured separately from the full-page screenshot");
   assert.deepEqual(lines, [
-    "covered: 68 renders, 0 did not render, 34 showed nothing, 34 findings",
-    "Total: 68 renders, 34 showed nothing, 34 findings, 0 cancelled, fail, 0 views and states with fewer than all modes",
+    "covered: 68 renders, 0 did not render, 34 showed nothing, 34 findings, 0 retried",
+    "Total: 68 renders, 34 showed nothing, 34 findings, 0 cancelled, fail, 0 views and states with fewer than all modes, 0 retried",
   ]);
 }
 test(coveredTextReportsTheViewportMeasurement);
@@ -242,10 +260,10 @@ async function parallelRendersPreserveContentFindingsAndCounts() {
     assert.equal(result.findings.length, 102);
     assert.deepEqual([...new Set(result.findings.map((finding) => finding.values.source))], ["empty-document", "single-colour-viewport"]);
     assert.deepEqual(lines, [
-      "blank: 34 renders, 0 did not render, 34 showed nothing, 68 findings",
-      "covered: 68 renders, 0 did not render, 34 showed nothing, 34 findings",
-      "text: 34 renders, 0 did not render, 0 showed nothing, 0 findings",
-      "Total: 136 renders, 68 showed nothing, 102 findings, 0 cancelled, fail, 0 views and states with fewer than all modes",
+      "blank: 34 renders, 0 did not render, 34 showed nothing, 68 findings, 0 retried",
+      "covered: 68 renders, 0 did not render, 34 showed nothing, 34 findings, 0 retried",
+      "text: 34 renders, 0 did not render, 0 showed nothing, 0 findings, 0 retried",
+      "Total: 136 renders, 68 showed nothing, 102 findings, 0 cancelled, fail, 0 views and states with fewer than all modes, 0 retried",
     ]);
     results.push({ result, lines });
   }
@@ -511,9 +529,9 @@ async function lateRequestsKeepReportsAndExitStatus() {
         assert.equal(finding.values.message, "Page finding");
       }
       assert.deepEqual(command.stdout.trim().split("\n"), [
-        "late: 22 renders, 0 did not render, 0 showed nothing, 0 findings",
-        `following: 22 renders, 0 did not render, 0 showed nothing, ${withFinding ? 22 : 0} findings`,
-        `Total: 44 renders, 0 showed nothing, ${withFinding ? 22 : 0} findings, 0 cancelled, ${withFinding ? "fail" : "pass"}, 2 views and states with fewer than all modes`,
+        "late: 22 renders, 0 did not render, 0 showed nothing, 0 findings, 0 retried",
+        `following: 22 renders, 0 did not render, 0 showed nothing, ${withFinding ? 22 : 0} findings, 0 retried`,
+        `Total: 44 renders, 0 showed nothing, ${withFinding ? 22 : 0} findings, 0 cancelled, ${withFinding ? "fail" : "pass"}, 2 views and states with fewer than all modes, 0 retried`,
       ]);
       for (const kind of ["response", "answer"]) {
         assert.equal(lateRequests[kind] - started[kind], 44);
@@ -608,7 +626,7 @@ async function cancelledReads(count, context) {
       assert.equal(render.cancelled, count);
       assert.deepEqual(render.findings, []);
     }
-    assert.equal(lines.at(-1), `Total: 22 renders, 0 showed nothing, 0 findings, ${22 * count} cancelled, pass, 1 views and states with fewer than all modes`);
+    assert.equal(lines.at(-1), `Total: 22 renders, 0 showed nothing, 0 findings, ${22 * count} cancelled, pass, 1 views and states with fewer than all modes, 0 retried`);
     context.diagnostic(`${count} page-cancelled reads per render, ${22 * count} cancelled in total, no findings`);
   } finally { await surface.close(); }
 }
@@ -645,6 +663,73 @@ async function unansweredRequestsProduceOneFinding(context) {
   assert.equal(externalRequests, outsideRequests);
 }
 test(unansweredRequestsProduceOneFinding);
+
+async function surfaceSocketRequiresOriginNetworkPermission(context) {
+  const browser = await chromium.launch();
+  try {
+    const isolated = await browser.newContext();
+    await isolated.route("**/*", async (route) => {
+      await route.fulfill({ response: await route.fetch() });
+    });
+    await isolated.routeWebSocket("**/*", (socket) => socket.connectToServer());
+    const page = await isolated.newPage();
+    const messages = [];
+    page.on("console", (message) => { if (message.type() === "error") messages.push(message.text()); });
+    const connections = socketConnections;
+    await page.goto(`${address}/socket.html`);
+    await page.waitForFunction(() => document.body.dataset.socket === "error");
+    assert.equal(socketConnections, connections);
+    assert.equal(await page.locator("#message").textContent(), "Connecting");
+    assert.equal(messages.length, 1, JSON.stringify(messages));
+    assert.match(messages[0], /WebSocket.*(?:local|loopback|permission)/i);
+    context.diagnostic(messages[0]);
+  } finally { await browser.close(); }
+}
+test(surfaceSocketRequiresOriginNetworkPermission);
+
+async function surfaceSocketWritesItsFirstMessageIntoTheRender() {
+  const connections = socketConnections;
+  const { result } = await execute("socket", {
+    address, readyPath: "/socket.html",
+    views: [{ name: "socket", path: "/socket.html", states: [{
+      name: "received", steps: [{ action: "wait", text: "Socket ready" }],
+    }] }],
+  });
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.deepEqual(result.findings, []);
+  assert.equal(result.renders.length, 68);
+  assert.equal(socketConnections - connections, 68);
+  for (const state of ["default", "received"]) {
+    const renders = result.renders.filter((render) => render.state === state);
+    assertMatrix({ renders });
+    assert.ok(renders.every((render) => render.hasContent && render.cancelled === 0));
+  }
+}
+test(surfaceSocketWritesItsFirstMessageIntoTheRender);
+
+async function socketToAnotherAddressKeepsOneLoadFinding() {
+  const outsideRequests = externalRequests;
+  const connections = socketConnections;
+  const target = `${externalAddress.replace("http:", "ws:")}/socket`;
+  const { result } = await execute("socket", {
+    address, readyPath: "/socket.html",
+    views: [{ name: "socket", path: `/socket.html?address=${encodeURIComponent(`${externalAddress}/socket`)}` }],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 34);
+  for (const render of result.renders) {
+    assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+    assert.equal(render.hasContent, true);
+    assert.equal(render.cancelled, 0);
+    const finding = render.findings[0];
+    assert.equal(finding.kind, "load");
+    assert.deepEqual(finding.values, { source: "unanswered-request", method: "GET", address: target, resource: "websocket" });
+  }
+  assert.equal(externalRequests, outsideRequests);
+  assert.equal(socketConnections, connections);
+}
+test(socketToAnotherAddressKeepsOneLoadFinding);
 
 async function unfetchableSurfaceRequestsProduceOneFinding(context) {
   const surface = await requestSurface('fetch("/network-failure").catch(() => {});');
@@ -986,6 +1071,64 @@ async function tallFocusKeepsItsStartingEdgeVisible() {
 }
 test(tallFocusKeepsItsStartingEdgeVisible);
 
+async function clippedInputUsesItsVisibleControlFocusMark() {
+  const { result } = await execute("clipped-focus");
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.deepEqual(result.findings, []);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#switch"]);
+  }
+}
+test(clippedInputUsesItsVisibleControlFocusMark);
+
+async function clippedInputWithoutControlFocusMarkKeepsOneFinding() {
+  const { result } = await execute("clipped-focus", {
+    views: [{ name: "unmarked", path: "/clipped-focus.html?unmarked" }],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 4);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#switch"]);
+    assert.equal(render.findings.length, 1);
+    const finding = render.findings[0];
+    assert.equal(finding.kind, "focus");
+    assert.equal(finding.selector, "#switch");
+    assert.equal(finding.values.visibleChange, false);
+    assert.equal(finding.values.outside, false);
+    assert.equal(finding.values.left, 16);
+    assert.equal(finding.values.top, 16);
+    assert.equal(finding.values.bottom, 80);
+  }
+}
+test(clippedInputWithoutControlFocusMarkKeepsOneFinding);
+
+async function visibleInputKeepsItsOwnFocusMeasurement() {
+  for (const unmarked of [false, true]) {
+    const { result } = await execute("clipped-focus", {
+      views: [{ name: "visible", path: `/clipped-focus.html?visible${unmarked ? "&unmarked" : ""}` }],
+    });
+    assertMatrix(result);
+    assert.equal(result.passed, !unmarked, JSON.stringify(result.findings));
+    assert.equal(result.findings.length, unmarked ? 4 : 0);
+    for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+      assert.deepEqual(render.focused, ["#switch"]);
+      assert.equal(render.findings.length, unmarked ? 1 : 0);
+      for (const finding of render.findings) {
+        assert.equal(finding.kind, "focus");
+        assert.equal(finding.selector, "#switch");
+        assert.equal(finding.values.visibleChange, false);
+        assert.equal(finding.values.outside, false);
+        assert.equal(finding.values.left, 24);
+        assert.equal(finding.values.top, 24);
+        assert.equal(finding.values.bottom, 72);
+      }
+    }
+  }
+}
+test(visibleInputKeepsItsOwnFocusMeasurement);
+
 async function modalFocusIncludesTheInitiallyFocusedControl() {
   const { result } = await execute("modal-focus");
   assertMatrix(result);
@@ -1230,6 +1373,173 @@ async function clipboardWritesSucceedWithoutReadPermission() {
 }
 test(clipboardWritesSucceedWithoutReadPermission);
 
+async function retrySurface({ stalls = 1, finding = false } = {}) {
+  const directory = await mkdtemp(join(root, "retry-surface-"));
+  const css = await readFile(join(fixtures, "base.css"), "utf8");
+  const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Render page</title><link rel="icon" href="data:,"><style>${css}</style><body><svg id="panel" role="img" aria-label="Panel" style="width:200px;height:80px;background:blue"><rect width="100%" height="100%" fill="none" stroke="black"/></svg></body></html>`;
+  await writeFile(join(directory, "index.html"), html);
+  let visits = 0;
+  const instance = createServer((request, response) => {
+    if (request.url === "/ready") { response.end("Ready"); return; }
+    if (request.url !== "/index.html") { response.writeHead(404); response.end(); return; }
+    const stalled = ++visits <= stalls;
+    readFile(join(directory, "index.html"), "utf8").then((body) => {
+      if (stalled) body = body.replace("width:200px;height:80px;background:blue", "width:100px;height:80px;background:red")
+        .replace("</body>", '<script>console.error("Page is busy"); addEventListener("load", () => setTimeout(() => { while (true) {} }, 0));</script></body>');
+      else if (finding) body = body.replace("</body>", '<script>console.error("Page finding");</script></body>');
+      response.writeHead(200, { "content-type": "text/html" });
+      response.end(body);
+    }, () => response.destroy());
+  });
+  await new Promise((resolve) => instance.listen(0, "localhost", resolve));
+  return {
+    options: {
+      directory, address: `http://localhost:${instance.address().port}`, readyPath: "/ready",
+      views: [{ name: "retry", path: "/index.html", modes: ["default"] }],
+    },
+    get visits() { return visits; },
+    async close() {
+      await new Promise((resolve) => { instance.close(resolve); instance.closeAllConnections(); });
+    },
+  };
+}
+
+async function renderDeadlineUsesTheSecondOutcome(context) {
+  const surface = await retrySurface();
+  try {
+    const { result, out, lines } = await execute("retry", surface.options, { jobs: 1, renderMs: 30000 });
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.equal(result.renders.length, 22);
+    assert.equal(surface.visits, 23);
+    assert.equal(result.retriedCount, 1);
+    assert.deepEqual(result.findings, []);
+    const [retried, ...following] = result.renders;
+    assert.equal(retried.retried, true);
+    assert.ok(["navigation", "settle"].includes(retried.firstDeadlineStep));
+    assert.ok(result.renders.every((render) => render.rendered && render.hasContent && render.cancelled === 0));
+    assert.ok(following.every((render) => !render.retried && render.firstDeadlineStep === null));
+    assert.equal(retried.screenshot, "00001.png");
+    const screenshot = PNG.sync.read(await readFile(join(out, retried.screenshot)));
+    const pixel = (20 * screenshot.width + 20) * 4;
+    assert.deepEqual([...screenshot.data.subarray(pixel, pixel + 4)], [0, 0, 255, 255]);
+    assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 22);
+    assert.deepEqual(lines, [
+      "retry: 22 renders, 0 did not render, 0 showed nothing, 0 findings, 1 retried",
+      "Total: 22 renders, 0 showed nothing, 0 findings, 0 cancelled, pass, 1 views and states with fewer than all modes, 1 retried",
+    ]);
+    context.diagnostic(lines.join("\n"));
+  } finally { await surface.close(); }
+}
+test(renderDeadlineUsesTheSecondOutcome);
+
+async function renderDeadlineRetriesOnlyOnce(context) {
+  const surface = await retrySurface({ stalls: Infinity });
+  try {
+    const { result, out, lines } = await execute("retry", surface.options, { jobs: 2, renderMs: 3000 });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    assert.equal(surface.visits, 44);
+    assert.equal(result.retriedCount, 22);
+    for (const render of result.renders) {
+      assert.equal(render.retried, true);
+      assert.ok(["navigation", "settle"].includes(render.firstDeadlineStep));
+      assert.equal(render.rendered, false);
+      assert.equal(render.screenshot, null);
+      const deadlines = render.findings.filter((finding) => finding.values.source === "deadline");
+      assert.equal(deadlines.length, 1, JSON.stringify(render.findings));
+      assert.equal(deadlines[0].kind, "load");
+      assert.equal(deadlines[0].values.milliseconds, 3000);
+      assert.ok(["navigation", "settle"].includes(deadlines[0].values.step));
+      assert.equal(render.findings.filter((finding) => finding.values.source === "console").length, 1);
+    }
+    assert.equal(result.findings.filter((finding) => finding.values.source === "deadline").length, 22);
+    assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 0);
+    assert.match(lines[0], /, 22 retried$/);
+    assert.match(lines.at(-1), /, fail, 1 views and states with fewer than all modes, 22 retried$/);
+    context.diagnostic(lines.join("\n"));
+  } finally { await surface.close(); }
+}
+test(renderDeadlineRetriesOnlyOnce);
+
+async function otherFindingsDoNotRetryRenders(context) {
+  const surface = await retrySurface({ stalls: 0, finding: true });
+  try {
+    const { result, lines } = await execute("retry", surface.options, { jobs: 2 });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    assert.equal(surface.visits, 22);
+    assert.equal(result.retriedCount, 0);
+    for (const render of result.renders) {
+      assert.equal(render.retried, false);
+      assert.equal(render.firstDeadlineStep, null);
+      assert.equal(render.rendered, true);
+      assert.equal(render.findings.length, 1);
+      assert.equal(render.findings[0].kind, "load");
+      assert.equal(render.findings[0].values.source, "console");
+      assert.equal(render.findings[0].values.message, "Page finding");
+    }
+    assert.equal(result.findings.length, 22);
+    assert.match(lines[0], /, 0 retried$/);
+    assert.match(lines.at(-1), /, fail, 1 views and states with fewer than all modes, 0 retried$/);
+    context.diagnostic(lines.join("\n"));
+  } finally { await surface.close(); }
+}
+test(otherFindingsDoNotRetryRenders);
+
+async function parallelRetriesKeepMatrixOrderAndScreenshotNames(context) {
+  const outcomes = [];
+  for (const stalls of [0, 1]) {
+    const surface = await retrySurface({ stalls });
+    try {
+      const { result, out, lines } = await execute("retry", {
+        ...surface.options,
+        views: [{ name: "retry", path: "/index.html", states: [{ name: "ready", steps: [{ action: "press", selector: "body", key: "Escape" }] }] }],
+      }, { jobs: stalls ? 2 : 1, renderMs: 30000 });
+      assert.equal(result.passed, true, JSON.stringify(result.findings));
+      assert.equal(result.renders.length, 68);
+      assert.equal(surface.visits, 68 + stalls);
+      assert.equal(result.retriedCount, stalls);
+      assert.deepEqual(result.renders.map((render) => render.screenshot), Array.from({ length: 68 }, (_, index) => `${String(index + 1).padStart(5, "0")}.png`));
+      assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 68);
+      outcomes.push(result.renders.map(({ retried, firstDeadlineStep, ...render }) => render));
+      context.diagnostic(lines.join("\n"));
+    } finally { await surface.close(); }
+  }
+  assert.deepEqual(outcomes[1], outcomes[0]);
+}
+test(parallelRetriesKeepMatrixOrderAndScreenshotNames);
+
+async function geometryWritesTheSecondRenderMeasurements(context) {
+  const surface = await retrySurface();
+  try {
+    const geometryFile = `retry-geometry-${++sequence}.json`;
+    const filename = await surfaceFor("retry", {
+      ...surface.options, geometry: { file: geometryFile, widths: [390] },
+      views: [{ name: "retry", path: "/index.html", parts: [{ name: "panel", selector: "#panel" }] }],
+    });
+    const lines = [];
+    const result = await checkSurface({ surface: filename, writeGeometry: true, jobs: 1, renderMs: 30000 }, (line) => lines.push(line));
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.equal(result.renders.length, 1);
+    assert.equal(surface.visits, 2);
+    assert.equal(result.retriedCount, 1);
+    const [render] = result.renders;
+    assert.equal(render.retried, true);
+    assert.ok(["navigation", "settle"].includes(render.firstDeadlineStep));
+    assert.equal(render.screenshot, null);
+    assert.deepEqual(render.geometry, [{
+      part: "panel", selector: "#panel", matches: 1,
+      values: { left: 16, top: 16, width: 200, height: 80, fontSize: 16, lineHeight: 24 },
+    }]);
+    assert.deepEqual(JSON.parse(await readFile(join(root, geometryFile), "utf8")), {
+      version: 1, entries: [{ view: "retry", width: 390, part: "panel", selector: "#panel", values: render.geometry[0].values }],
+    });
+    assert.match(lines.at(-1), /, pass, 0 views and states with fewer than all modes, 1 retried$/);
+    context.diagnostic(lines.join("\n"));
+  } finally { await surface.close(); }
+}
+test(geometryWritesTheSecondRenderMeasurements);
+
 async function renderDeadlineContinuesWithTheNextView() {
   assert.equal(LIMITS.renderMs, 300000);
   const { result, lines } = await execute("stuck", { views: [
@@ -1254,7 +1564,10 @@ async function renderDeadlineContinuesWithTheNextView() {
   assert.ok(following.every((render) => render.rendered && render.findings.length === 0), JSON.stringify(following));
   assert.equal(following[0].screenshot, "00023.png");
   assert.equal(result.findings.filter((finding) => finding.values.source === "deadline").length, 22);
-  assert.match(lines[1], /^following: 22 renders, 0 did not render, 0 showed nothing, 0 findings$/);
+  assert.ok(stuck.every((render) => render.retried));
+  const followingRetries = following.filter((render) => render.retried).length;
+  assert.equal(result.retriedCount, stuck.length + followingRetries);
+  assert.equal(lines[1], `following: 22 renders, 0 did not render, 0 showed nothing, 0 findings, ${followingRetries} retried`);
 }
 test(renderDeadlineContinuesWithTheNextView);
 
@@ -1296,7 +1609,7 @@ async function modesRestrictTheMatrixAndStatesInheritThem() {
   }
   assert.deepEqual(result.views, [{ name: "states", modes: ["default"], answers: 0, states: [{ name: "waiting", modes: ["default"], answers: 0 }] }]);
   assert.equal(result.reducedModeCount, 2);
-  assert.equal(lines.at(-1), "Total: 44 renders, 0 showed nothing, 0 findings, 0 cancelled, pass, 2 views and states with fewer than all modes");
+  assert.equal(lines.at(-1), "Total: 44 renders, 0 showed nothing, 0 findings, 0 cancelled, pass, 2 views and states with fewer than all modes, 0 retried");
   const surface = await surfaceFor("states", { views: [{
     name: "states", path: "/states.html", modes: ["default"], states: [
       { name: "all", modes: [...MODES].reverse(), steps: [{ action: "wait", text: "Waiting" }] },

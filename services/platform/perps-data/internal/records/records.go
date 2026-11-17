@@ -59,7 +59,7 @@ func NewSymbol(db *sql.DB) (*Symbol, error) {
 }
 
 // MarketRecord is one record of the markets table (Hyperpax:data_api.md:424-461,
-// contracts/data-services.md section 11): twelve market fields and the eleven
+// contracts/data-services.md section 11): fourteen market fields and the eleven
 // perp_ fields. Prices and notionals are USD and times are epoch milliseconds.
 // The funding fields are exact decimal strings of the latest FundingSettled,
 // null before the first one: last_funding_rate_hourly and perp_funding_rate
@@ -70,6 +70,7 @@ type MarketRecord struct {
 	SymbolFull            string   `json:"symbol_full"`
 	Price                 *float64 `json:"price"`
 	Change24h             *float64 `json:"change_24h"`
+	Price24h              *float64 `json:"price_24h"`
 	Volume24h             float64  `json:"volume_24h"`
 	OpenInterest          float64  `json:"open_interest"`
 	Funding8h             *string  `json:"funding_8h"`

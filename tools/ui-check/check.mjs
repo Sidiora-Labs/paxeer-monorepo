@@ -128,6 +128,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
   let context;
   let active = true;
   let step = "navigation";
+  let deadlineStep = null;
   let timer;
   const deadline = new Error("Render deadline exceeded");
   const startStep = (name) => {
@@ -144,7 +145,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
   const endedFailures = [];
   const failedResponses = [];
   const consoleErrors = [];
-  const render = { view: view.name, state: state.name, size: { width, height }, scheme, mode, rendered: false, hasContent: false, cancelled: 0, screenshot: out ? `${String(index + 1).padStart(5, "0")}.png` : null, findings: [] };
+  const render = { view: view.name, state: state.name, size: { width, height }, scheme, mode, rendered: false, hasContent: false, cancelled: 0, retried: false, firstDeadlineStep: null, screenshot: out ? `${String(index + 1).padStart(5, "0")}.png` : null, findings: [] };
   let page;
   const work = async () => {
     try {
@@ -156,7 +157,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
       });
       if (!active) { await context.close(); return; }
       context.on("close", () => { active = false; });
-      await context.grantPermissions(["clipboard-write"], { origin: surface.address });
+      await context.grantPermissions(["clipboard-write", "local-network-access"], { origin: surface.address });
       await context.addInitScript(observePage);
       await context.route("**/*", async (route) => {
         const request = route.request();
@@ -314,13 +315,15 @@ async function renderView(worker, surface, view, state, configuration, out, inde
     ]);
   } catch (error) {
     if (error !== deadline) throw error;
+    deadlineStep = step;
     addLoad({ source: "deadline", step, milliseconds: renderMs });
     render.rendered = false;
     render.screenshot = null;
   } finally {
     clearTimeout(timer);
     active = false;
-    if (context && !await withinTime(context.close(), LIMITS.navigationMs)) await closeBrowser(worker, true);
+    if (deadlineStep) await closeBrowser(worker, true);
+    else if (context && !await withinTime(context.close(), LIMITS.navigationMs)) await closeBrowser(worker, true);
     for (const error of consoleErrors) {
       if (error.location.lineNumber === 0 && error.location.columnNumber === 0 && endedFailures.some((failure) => failure.address === error.location.url && error.message === `Failed to load resource: ${failure.message}`)) continue;
       const status = error.message.match(/^Failed to load resource: the server responded with a status of (\d{3})(?: \(.*\))?$/);
@@ -361,7 +364,7 @@ export async function checkSurface({ surface: filename, out: destination, view: 
     states: (view.states ?? []).map((state) => ({ name: state.name, modes: state.modes, answers: state.answers.length })),
   }));
   const reducedModeCount = summaries.reduce((total, view) => total + Number(view.modes.length < MODES.length) + view.states.filter((state) => state.modes.length < MODES.length).length, 0);
-  const result = { surface: surface.name, buildMs: surface.buildMs ?? LIMITS.buildMs, outputs: [], devices: DEVICES, limits: LIMITS, views: summaries, reducedModeCount, renders: [], findings: [], passed: false };
+  const result = { surface: surface.name, buildMs: surface.buildMs ?? LIMITS.buildMs, outputs: [], devices: DEVICES, limits: LIMITS, views: summaries, reducedModeCount, retriedCount: 0, renders: [], findings: [], passed: false };
   const tasks = views.flatMap((view) => {
     const initial = { name: "default", steps: [], expects: view.expects, modes: view.modes };
     const entries = geometry?.entries.filter((entry) => entry.view === view.name) ?? [];
@@ -401,7 +404,15 @@ export async function checkSurface({ surface: filename, out: destination, view: 
           const index = next++;
           const { view, state, configuration, geometry: plan } = tasks[index];
           await openBrowser(worker);
-          result.renders[index] = await renderView(worker, surface, view, state, configuration, out, index, renderMs, plan);
+          let render = await renderView(worker, surface, view, state, configuration, out, index, renderMs, plan);
+          const deadline = render.findings.find((finding) => finding.values.source === "deadline");
+          if (deadline) {
+            await openBrowser(worker);
+            render = await renderView(worker, surface, view, state, configuration, out, index, renderMs, plan);
+            render.retried = true;
+            render.firstDeadlineStep = deadline.values.step;
+          }
+          result.renders[index] = render;
         }
       } finally {
         await closeBrowser(worker);
@@ -412,7 +423,7 @@ export async function checkSurface({ surface: filename, out: destination, view: 
     for (const view of views) {
       const renders = result.renders.filter((render) => render.view === view.name);
       const findings = renders.flatMap((render) => render.findings);
-      print(`${view.name}: ${renders.length} renders, ${renders.filter((render) => !render.rendered).length} did not render, ${renders.filter((render) => !render.hasContent).length} showed nothing, ${findings.length} findings${counts(findings)}`);
+      print(`${view.name}: ${renders.length} renders, ${renders.filter((render) => !render.rendered).length} did not render, ${renders.filter((render) => !render.hasContent).length} showed nothing, ${findings.length} findings${counts(findings)}, ${renders.filter((render) => render.retried).length} retried`);
     }
   } catch (error) {
     result.findings.push({ kind: "load", view: null, state: null, size: null, scheme: null, mode: null, selector: "document", values: { source: "surface", message: error.message } });
@@ -420,6 +431,7 @@ export async function checkSurface({ surface: filename, out: destination, view: 
     await service?.close();
   }
   result.renders = result.renders.filter(Boolean);
+  result.retriedCount = result.renders.filter((render) => render.retried).length;
   result.findings.push(...result.renders.flatMap((render) => render.findings));
   result.passed = result.renders.length === tasks.length && result.renders.every((render) => render.rendered) && result.findings.length === reported(result.findings);
   if (surface.reportedKinds !== undefined) {
@@ -429,7 +441,7 @@ export async function checkSurface({ surface: filename, out: destination, view: 
   }
   if (writing && result.passed) await writeGeometry(surface.geometry.file, result.renders, geometry, selected);
   if (out) await writeFile(join(out, "result.json"), `${JSON.stringify(result, null, 2)}\n`);
-  print(`Total: ${result.renders.length} renders, ${result.renders.filter((render) => !render.hasContent).length} showed nothing, ${result.findings.length} findings${counts(result.findings)}, ${result.renders.reduce((total, render) => total + render.cancelled, 0)} cancelled, ${result.passed ? "pass" : "fail"}, ${reducedModeCount} views and states with fewer than all modes`);
+  print(`Total: ${result.renders.length} renders, ${result.renders.filter((render) => !render.hasContent).length} showed nothing, ${result.findings.length} findings${counts(result.findings)}, ${result.renders.reduce((total, render) => total + render.cancelled, 0)} cancelled, ${result.passed ? "pass" : "fail"}, ${reducedModeCount} views and states with fewer than all modes, ${result.retriedCount} retried`);
   return result;
 }
 

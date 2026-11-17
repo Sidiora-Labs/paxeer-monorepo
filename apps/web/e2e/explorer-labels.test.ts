@@ -44,7 +44,7 @@ function explorer_label_uses_kit_rung_words() {
 }
 
 function explorer_label_for_retired_level_is_unverified() {
-  assert.equal(verificationLabel("settlement-anchored"), copyEntry("verification.unverified").message);
+  assert.equal(verificationLabel("settlement-anchored"), copyEntry("verification.checkpoint_finalised").message);
   assert.equal(verificationLabel("state-proven"), copyEntry("verification.unverified").message);
 }
 

@@ -2,179 +2,79 @@
 @tailwind components;
 @tailwind utilities;
 
-@font-face {
-  font-family: "Manrope";
-  src: url("/fonts/Manrope/Manrope-Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Manrope";
-  src: url("/fonts/Manrope/Manrope-Medium.ttf") format("truetype");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Manrope";
-  src: url("/fonts/Manrope/Manrope-SemiBold.ttf") format("truetype");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Manrope";
-  src: url("/fonts/Manrope/Manrope-Bold.ttf") format("truetype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "DIN2014";
-  src: url("/fonts/DIN2014/din-2014_regular.woff2") format("woff2");
-  font-weight: 400;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "DIN2014";
-  src: url("/fonts/DIN2014/din-2014_demi.woff2") format("woff2");
-  font-weight: 600;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "DIN2014";
-  src: url("/fonts/DIN2014/din-2014_bold.woff2") format("woff2");
-  font-weight: 700;
-  font-display: swap;
-}
-
-:root {
-  --oui-scrollbar-thumb: rgb(var(--oui-color-base-7));
-  --oui-scrollbar-thumb-hover: rgb(var(--oui-color-base-5));
-}
-
-html,
-body,
-#__next {
-  min-height: 100%;
-  margin: 0;
-  background: rgb(var(--oui-color-canvas));
-  color: rgb(var(--oui-color-text));
-}
-
-html {
-  color-scheme: dark;
-  text-size-adjust: 100%;
-}
-
-html[data-oui-theme="light"] {
-  color-scheme: light;
-  --oui-scrollbar-thumb: rgb(var(--oui-color-base-3));
-  --oui-scrollbar-thumb-hover: rgb(var(--oui-color-base-1));
-}
-
-body {
-  overflow-wrap: anywhere;
-  font-family: var(--oui-font-family);
-  font-variant-numeric: tabular-nums;
-}
-
-::selection {
-  background: rgb(var(--oui-color-primary) / 0.28);
-  color: rgb(var(--oui-color-text));
-}
-
-*:focus-visible {
-  outline: var(--oui-focus-ring-width) solid
-    rgb(var(--oui-color-focus-ring) / 0.9);
-  outline-offset: var(--oui-focus-ring-offset);
-}
-
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--oui-scrollbar-thumb) transparent;
-}
-
-*::-webkit-scrollbar {
-  width: var(--oui-scrollbar-size);
-  height: var(--oui-scrollbar-size);
-}
-
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-*::-webkit-scrollbar-thumb {
-  border: var(--oui-border-width) solid transparent;
-  border-radius: var(--oui-radius-md);
-  background: var(--oui-scrollbar-thumb);
-  background-clip: padding-box;
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background: var(--oui-scrollbar-thumb-hover);
-  background-clip: padding-box;
-}
-
 @layer components {
   @property --gradientAngle {
     syntax: "<angle>";
     inherits: false;
     initial-value: 0deg;
   }
-
   @keyframes angleRotateChange {
-    from {
+    0% {
       --gradientAngle: 0deg;
     }
-    to {
+    100% {
       --gradientAngle: 360deg;
     }
   }
-
   .oui-gradient-button::before {
-    animation: angleRotateChange var(--oui-duration-gradient) linear infinite;
+    transition: var(--gradientAngle) 0.3s linear;
+    animation-name: angleRotateChange;
+    animation-timing-function: cubic-bezier(0, 0, 1, 1);
+    animation-iteration-count: infinite;
+    animation-duration: 5s;
     background-image: linear-gradient(
       var(--gradientAngle),
-      rgb(var(--oui-color-primary-light)) 10%,
-      rgb(var(--oui-color-primary)) 30%,
+      #ffffff 10%,
+      #d6dae0 20%,
+      #8c939e 30%,
       rgb(var(--oui-color-base-9)) 50%,
       rgb(var(--oui-color-base-9)) 100%
     );
   }
 }
 
+@font-face {
+  font-family: DIN2014;
+  src: url("/fonts/DIN2014/din-2014_regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+html,
+body,
+#__next {
+  margin: 0;
+  min-height: 100%;
+  background: rgb(var(--oui-color-base-10, 7 8 10));
+  color: rgb(var(--oui-color-base-foreground, 255 255 255));
+}
+body {
+  font-family: var(--oui-font-family, sans-serif);
+}
 .site-wordmark {
   display: inline-flex;
   align-items: center;
-  gap: var(--oui-space-2);
-  color: rgb(var(--oui-color-text));
-  font-size: var(--oui-font-size-lg);
-  font-weight: 600;
-  line-height: 1.5;
+  gap: 9px;
   white-space: nowrap;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 32px;
 }
-
 .site-wordmark img {
   display: block;
   flex: none;
   object-fit: contain;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    animation-duration: var(--oui-duration-reduced-motion) !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: var(--oui-duration-reduced-motion) !important;
-  }
+@font-face {
+  font-family: DIN2014;
+  src: url("/fonts/DIN2014/din-2014_demi.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: DIN2014;
+  src: url("/fonts/DIN2014/din-2014_bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
 }

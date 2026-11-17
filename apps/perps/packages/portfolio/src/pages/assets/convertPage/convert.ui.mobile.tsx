@@ -1,4 +1,3 @@
-import styles from "../../../presentation.module.css";
 import { Fragment, isValidElement, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -70,26 +69,26 @@ export const ConvertMobileUI: React.FC<ConvertMobileUIProps> = ({
         items={[
           // {
           //   size: "sm",
-          //   type: "select",
+          //   type: "picker",
           //   name: "account",
           //   value: selectedAccount,
           //   options: memoizedOptions,
           // },
           {
             size: "md",
-            type: "select",
+            type: "picker",
             name: "converted_asset",
             value: convertedAssetFilter,
             options: convertedAssetOptions,
-            classNames: { trigger: "oui-whitespace-nowrap" },
+            className: "oui-whitespace-nowrap",
           },
           {
             size: "md",
-            type: "select",
+            type: "picker",
             name: "status",
             value: statusFilter,
             options: statusOptions,
-            classNames: { trigger: "oui-whitespace-nowrap" },
+            className: "oui-whitespace-nowrap",
           },
           {
             type: "range",
@@ -142,13 +141,9 @@ const ConvertMobileField: React.FC<ConvertMobileFieldProps> = ({
     toast.success(t("common.copy.copied"));
   };
   return (
-    <button
-      type="button"
+    <div
+      className={`oui-text-2xs oui-font-semibold oui-text-base-contrast-80 [&_p]:oui-text-base-contrast-36 ${className}`}
       onClick={onClick}
-      className={[
-        "oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed",
-        `oui-text-2xs oui-font-semibold oui-text-base-contrast-80 [&_p]:oui-text-base-contrast-80 ${className}`,
-      ].join(" ")}
     >
       <p>{label}</p>
       {isValidElement(value) ? (
@@ -158,7 +153,7 @@ const ConvertMobileField: React.FC<ConvertMobileFieldProps> = ({
           {value || "-"}
         </Text.formatted>
       )}
-    </button>
+    </div>
   );
 };
 
@@ -183,24 +178,20 @@ const ConvertMobileItem: React.FC<ConvertMobileItemProps> = (props) => {
             convertedAssets={item.converted_asset}
             details={item.details}
           />
-          <button
-            type="button"
+          <div
+            className="oui-ms-2 oui-text-primary"
             onClick={() => {
               modal.show(ConverHistoryItemDetailsDialog, {
                 item,
                 chainsInfo: props.chainsInfo,
               });
             }}
-            className={[
-              "oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed",
-              "oui-ms-2 oui-text-primary",
-            ].join(" ")}
           >
             {t("portfolio.overview.column.convert.details")}
-          </button>
+          </div>
         </div>
         <Text.formatted
-          className="oui-text-2xs oui-text-base-contrast-80"
+          className="oui-text-2xs oui-text-base-contrast-36"
           rule="date"
         >
           {item.created_time}
@@ -208,7 +199,7 @@ const ConvertMobileItem: React.FC<ConvertMobileItemProps> = (props) => {
       </div>
 
       {/* 5 fields in grid container: 3 per row, wrap to next line */}
-      <div className={styles.listMetrics}>
+      <div className="oui-grid oui-grid-cols-3 oui-gap-2">
         <ConvertMobileField
           label={t("portfolio.overview.column.convert.receivedAmount")}
           value={amountWithAsset(item.received_qty, item.received_asset)}
@@ -226,7 +217,7 @@ const ConvertMobileItem: React.FC<ConvertMobileItemProps> = (props) => {
           label={t("common.type")}
           value={item.type?.charAt(0).toUpperCase() + item.type?.slice(1)}
         />
-        <div className="oui-flex oui-flex-col oui-gap-1 oui-text-2xs oui-text-base-contrast-80">
+        <div className="oui-flex oui-flex-col oui-gap-1 oui-text-2xs oui-text-base-contrast-36">
           <p>{t("common.status")}</p>
           <ConvertStatusBadge status={getEffectiveConvertStatus(item)} />
         </div>
@@ -252,7 +243,7 @@ const ConverHistoryItemDetailsDialog =
         open={visible}
         onOpenChange={onOpenChange}
       >
-        <div className="oui-flex oui-h-72 oui-flex-col oui-gap-3 oui-overflow-y-auto oui-rounded-lg oui-bg-base-7 oui-p-2">
+        <div className="oui-flex oui-h-[300px] oui-flex-col oui-gap-3 oui-overflow-y-auto oui-rounded-lg oui-bg-base-7 oui-p-2">
           {item.details.map((detail, index) => (
             <Fragment key={detail.transaction_id ?? index}>
               <div className="oui-flex oui-flex-col oui-gap-2">
@@ -262,7 +253,7 @@ const ConverHistoryItemDetailsDialog =
                     {detail.converted_asset}
                   </div>
                 </div>
-                <div className={styles.listMetrics}>
+                <div className="oui-grid oui-grid-cols-3 oui-gap-2">
                   <ConvertMobileField
                     label={t("common.qty")}
                     value={detail.converted_qty}

@@ -1,6 +1,4 @@
-import { InfoPopover as Tips } from "../../../../components/infoPopover";
-import surface from "../../../../surface.module.css";
-import { type ReactNode, useId, useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
   Box,
@@ -11,6 +9,7 @@ import {
   Divider,
   Tooltip,
   formatAddress,
+  Tips,
 } from "@paxeer-network/ui";
 import { ReferralCodeFormField, ReferralCodeFormType } from "../../../../types";
 import { ReferralCodeFormReturns } from "./referralCodeForm.script";
@@ -165,7 +164,6 @@ export const ReferralCodeForm = (props: ReferralCodeFormProps) => {
         variant="contained"
         color="gray"
         fullWidth
-        type="button"
         onClick={props.close}
         size="md"
         className="oui-referralCodeForm-cancel-btn"
@@ -174,7 +172,7 @@ export const ReferralCodeForm = (props: ReferralCodeFormProps) => {
       </Button>
       <Button
         fullWidth
-        type="submit"
+        onClick={props.onClick}
         disabled={props.buttonDisabled || props.confirmButtonLoading}
         loading={props.confirmButtonLoading}
         size="md"
@@ -189,13 +187,7 @@ export const ReferralCodeForm = (props: ReferralCodeFormProps) => {
     switch (type) {
       case ReferralCodeFormType.Create:
         return (
-          <Flex
-            width={"100%"}
-            direction="column"
-            itemAlign="start"
-            gap={6}
-            className={surface.surface}
-          >
+          <Flex width={"100%"} direction="column" itemAlign="start" gap={6}>
             {referralCodeInput}
             {!noCommissionAvailable && rateEditor}
             {buttons}
@@ -230,24 +222,15 @@ export const ReferralCodeForm = (props: ReferralCodeFormProps) => {
   };
 
   return (
-    <form
-      className="oui-w-full"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!props.buttonDisabled && !props.confirmButtonLoading)
-          void props.onClick();
-      }}
+    <Flex
+      direction="column"
+      itemAlign="start"
+      gap={6}
+      className="oui-affiliate-referralCodeForm oui-font-semibold"
     >
-      <Flex
-        direction="column"
-        itemAlign="start"
-        gap={6}
-        className={`${surface.surface} oui-affiliate-referralCodeForm oui-font-semibold`}
-      >
-        {titleView}
-        {renderContent()}
-      </Flex>
-    </form>
+      {titleView}
+      {renderContent()}
+    </Flex>
   );
 };
 
@@ -275,7 +258,10 @@ type CommissionRatesCardProps = {
 
 const CommissionRatesCard = (props: CommissionRatesCardProps) => {
   const { t } = useTranslation();
-  const id = useId();
+  const selectablePercent =
+    props.totalSplitRate > 0
+      ? Math.min(100, (props.maxBonusRate / props.totalSplitRate) * 100)
+      : 100;
 
   return (
     <Flex width={"100%"} direction="column" itemAlign="start" gap={2}>
@@ -322,21 +308,28 @@ const CommissionRatesCard = (props: CommissionRatesCardProps) => {
 
         {props.showSlider && (
           <Box width={"100%"} my={1} className="oui-relative">
-            <label htmlFor={id} className="oui-sr-only">
-              {t("affiliate.youKeep")}
-            </label>
-            <input
-              id={id}
-              name="referrer_rebate_percentage"
-              type="range"
+            <Slider
               min={0}
-              max={Math.min(props.totalSplitRate, props.maxBonusRate)}
+              max={props.totalSplitRate}
               step={1}
-              value={props.youKeepRate}
-              aria-valuetext={formatPercent(props.youKeepRate)}
-              onChange={(event) => props.onChange(Number(event.target.value))}
-              className="oui-w-full oui-accent-success"
+              value={[props.youKeepRate]}
+              onValueChange={(value) => {
+                const newValue = value[0] as number;
+                const nextValue = Math.min(newValue, props.maxBonusRate);
+                props.onChange(nextValue);
+              }}
+              classNames={{
+                range: "oui-bg-success-darken oui-h-2 oui-top-[0px]",
+                trackInner: "oui-h-2 oui-top-[0px] oui-bg-base-contrast-12",
+                thumb: "oui-border-[#d9d9d9] oui-bg-[#d9d9d9] oui-size-4",
+              }}
             />
+            {selectablePercent < 100 && (
+              <div
+                className="oui-pointer-events-none oui-absolute oui-end-0 oui-top-1/2 oui-h-2 oui-translate-y-[-50%] oui-rounded-e-full oui-bg-[repeating-linear-gradient(45deg,rgba(255,255,255,0.08)_0,rgba(255,255,255,0.08)_4px,transparent_4px,transparent_8px)]"
+                style={{ left: `${selectablePercent}%` }}
+              />
+            )}
           </Box>
         )}
 
@@ -359,12 +352,13 @@ const RateRow = (props: {
   bordered?: boolean;
 }) => {
   const label = (
-    <button
-      type="button"
-      className="oui-text-2xs oui-text-content oui-underline oui-decoration-dotted oui-underline-offset-4"
+    <Text
+      size="2xs"
+      intensity={98}
+      className="oui-cursor-pointer oui-underline oui-decoration-dotted oui-underline-offset-4"
     >
       {props.label}
-    </button>
+    </Text>
   );
 
   return (
@@ -380,7 +374,7 @@ const RateRow = (props: {
       {props.tooltip ? (
         <Tooltip
           content={props.tooltip}
-          className="oui-max-w-[calc(var(--oui-space-24)*2)] oui-bg-base-6"
+          className="oui-max-w-[200px] oui-bg-base-6"
           arrow={{ className: "oui-fill-base-6" }}
         >
           {label}
@@ -446,8 +440,8 @@ const PassDownHint = (props: { amount: number }) => {
       gap={2}
       className="oui-overflow-hidden"
     >
-      <div className="oui-h-3 oui-w-6 oui-shrink-0 oui-rounded-sm oui-border oui-border-line-6 oui-bg-base-contrast/10" />
-      <Text size="2xs" intensity={36} className="oui-leading-normal">
+      <div className="oui-h-3 oui-w-6 oui-shrink-0 oui-rounded-[2px] oui-border oui-border-line-6 oui-bg-[repeating-linear-gradient(45deg,rgba(255,255,255,0.08)_0,rgba(255,255,255,0.08)_4px,transparent_4px,transparent_8px)]" />
+      <Text size="2xs" intensity={36} className="oui-leading-[15px]">
         {t("affiliate.atLeastPassesDown", {
           amount: formatPercent(props.amount),
         })}

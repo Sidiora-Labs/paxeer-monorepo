@@ -1,8 +1,13 @@
-import { SimpleDialog } from "../../../ui-connector/src/platformOverlays";
-import React, { FC, PropsWithChildren, SVGProps, useState } from "react";
+import React, {
+  Children,
+  FC,
+  PropsWithChildren,
+  SVGProps,
+  useState,
+} from "react";
 import { useAccount } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
-import { Flex, Text } from "@paxeer-network/ui";
+import { Flex, SimpleDialog, Text } from "@paxeer-network/ui";
 
 export const LinkDeviceMobile = (props: PropsWithChildren) => {
   const [open, setOpen] = useState(false);
@@ -47,42 +52,31 @@ export const LinkDeviceMobile = (props: PropsWithChildren) => {
           },
         }}
       >
-        <Text intensity={80} size="sm">
+        <Text intensity={54} size="sm">
           {t("linkDevice.scanQRCode.connected.description")}
         </Text>
       </SimpleDialog>
-      <Flex
-        asChild
-        className="oui-gap-2"
-        itemAlign={"center"}
-        onClick={showDialog}
-      >
-        <button
-          type="button"
-          aria-label={t("connector.disconnect")}
-          className="oui-shell-action"
+      <Flex className="oui-gap-[6px]" itemAlign={"center"} onClick={showDialog}>
+        <Flex
+          className="oui-text-base-contrast"
+          intensity={500}
+          height={28}
+          r="md"
         >
-          <Flex
-            className="oui-text-base-contrast"
-            intensity={500}
-            height={28}
-            r="md"
-          >
-            <DesktopIcon />
-            <Dot />
-            <LinkIcon />
-            <Dot />
-            <MobileIcon />
-          </Flex>
-          {props.children}
-        </button>
+          <DesktopIcon />
+          <Dot />
+          <LinkIcon />
+          <Dot />
+          <MobileIcon />
+        </Flex>
+        {props.children}
       </Flex>
     </>
   );
 };
 const Dot = () => {
   return (
-    <Flex className="oui-gap-x-px oui-px-px">
+    <Flex className="oui-gap-x-[1px] oui-px-[1px]">
       <DotIcon />
       <DotIcon />
       <DotIcon />

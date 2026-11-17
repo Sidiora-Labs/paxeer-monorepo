@@ -1428,7 +1428,7 @@ def crash_case(case_id: str) -> CaseFunction:
         results = [native_test(ctx, "native-crash-recovery", package, *tests)]
         if agent:
             results.append(agent_test(ctx, f"agent-{agent[0]}", *agent))
-        ledger = native_test(ctx, "native-commit-boundary", "./node", "TestRepair_102_StrictResultCommitment")
+        ledger = native_test(ctx, "native-commit-boundary", "./node", "TestSequencedExecutionStrictResultCommitment")
         programs_case(
             ctx,
             result=results,
@@ -1747,7 +1747,7 @@ def one_ledger(ctx: CaseContext) -> None:
         raise CaseFailure(f"schema check did not report conformance:\n{schema.tail()}")
     rejection = native_test(
         ctx, "native-ledger-boundary-rejections", "./node",
-        "TestRepair_102_TenantReplay", "TestRepair_102_StrictResultCommitment",
+        "TestSequencedExecutionTenantReplay", "TestSequencedExecutionStrictResultCommitment",
         "TestCommittedHashRejectCorruptedCommittedHash", "TestHaltedBlockLeavesCommittedStateAtPreviousHeight",
     )
     conformance = ctx.run(

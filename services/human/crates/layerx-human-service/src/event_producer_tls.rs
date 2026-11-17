@@ -528,18 +528,25 @@ fn verify_delivery(
     let deadline = Instant::now()
         .checked_add(Duration::from_secs(10))
         .unwrap_or_else(|| panic!("deadline"));
-    while (required(outbox.pending(), "recovery queue").is_some() || !outbox.ready())
-        && Instant::now() < deadline
-    {
+    let mut response = None;
+    while Instant::now() < deadline {
+        if required(outbox.pending(), "recovery queue").is_none() && outbox.ready() {
+            let current = required(
+                tls.upstream(approval.port, "consumer-token")
+                    .get(&format!("/internal/v1/events/{}", second.observation.id)),
+                "read approval",
+            );
+            let available = current.status != 503;
+            response = Some(current);
+            if available {
+                break;
+            }
+        }
         thread::sleep(Duration::from_millis(100));
     }
     assert!(required(outbox.pending(), "delivered").is_none());
     assert!(outbox.ready());
-    let response = required(
-        tls.upstream(approval.port, "consumer-token")
-            .get(&format!("/internal/v1/events/{}", second.observation.id)),
-        "read approval",
-    );
+    let response = response.unwrap_or_else(|| panic!("approval read unavailable"));
     assert_eq!(response.status, 200);
     let record: layerx_platform_internal::events::Record =
         required(serde_json::from_slice(&response.body), "approval record");
@@ -846,12 +853,29 @@ fn step_after_source_restart(
     outbox: &super::HumanOutbox,
     health: &Arc<Health>,
 ) -> Result<(), String> {
+    let expected = outbox.pending()?.ok_or("journey observation unavailable")?;
+    assert!(!expected.observed);
     let deadline = Instant::now()
         .checked_add(Duration::from_secs(10))
         .unwrap_or_else(|| panic!("source readiness deadline"));
     loop {
-        match producer.step(outbox, health) {
-            Ok(()) => return Ok(()),
+        let pending = outbox.pending()?.ok_or("journey observation unavailable")?;
+        assert_eq!(pending.observation.id, expected.observation.id);
+        let result = if pending.observed {
+            producer.poll_admission(health)
+        } else {
+            producer.step(outbox, health)
+        };
+        match result {
+            Ok(())
+                if outbox.ready()
+                    && outbox.pending()?.is_some_and(|pending| {
+                        pending.observation.id == expected.observation.id && pending.observed
+                    }) =>
+            {
+                return Ok(());
+            }
+            Ok(()) => {}
             Err(error)
                 if error == "source-producer refused"
                     || error == "webhook-trigger refused"

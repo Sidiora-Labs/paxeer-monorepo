@@ -1,0 +1,4625 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "view": "account",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "header h1",
+      "values": {
+        "left": 0,
+        "top": 18,
+        "width": 390,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "account",
+      "width": 390,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account",
+      "width": 390,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 52,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "header button[aria-label=\"Back\"]",
+      "values": {
+        "left": 8,
+        "top": 6,
+        "width": 36,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "header h1",
+      "values": {
+        "left": 0,
+        "top": 18,
+        "width": 1280,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "account",
+      "width": 1280,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account",
+      "width": 1280,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 416,
+        "top": 0,
+        "width": 448,
+        "height": 52,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "header button[aria-label=\"Back\"]",
+      "values": {
+        "left": 8,
+        "top": 6,
+        "width": 36,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "header h1",
+      "values": {
+        "left": 0,
+        "top": 18,
+        "width": 1440,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "account",
+      "width": 1440,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account",
+      "width": 1440,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 496,
+        "top": 0,
+        "width": 448,
+        "height": 52,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "header button[aria-label=\"Back\"]",
+      "values": {
+        "left": 8,
+        "top": 6,
+        "width": 36,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "header h1",
+      "values": {
+        "left": 0,
+        "top": 18,
+        "width": 1920,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "account",
+      "width": 1920,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account",
+      "width": 1920,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 736,
+        "top": 0,
+        "width": 448,
+        "height": 52,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "header button[aria-label=\"Back\"]",
+      "values": {
+        "left": 8,
+        "top": 6,
+        "width": 36,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "header h1",
+      "values": {
+        "left": 0,
+        "top": 18,
+        "width": 2560,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "account",
+      "width": 2560,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account",
+      "width": 2560,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 1056,
+        "top": 0,
+        "width": 448,
+        "height": 52,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "header button[aria-label=\"Back\"]",
+      "values": {
+        "left": 8,
+        "top": 6,
+        "width": 36,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "header h1",
+      "values": {
+        "left": 0,
+        "top": 18,
+        "width": 390,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 390,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 390,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 52,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "header button[aria-label=\"Back\"]",
+      "values": {
+        "left": 8,
+        "top": 6,
+        "width": 36,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "header h1",
+      "values": {
+        "left": 0,
+        "top": 18,
+        "width": 1280,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 1280,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 1280,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 416,
+        "top": 0,
+        "width": 448,
+        "height": 52,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "header button[aria-label=\"Back\"]",
+      "values": {
+        "left": 8,
+        "top": 6,
+        "width": 36,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "header h1",
+      "values": {
+        "left": 0,
+        "top": 18,
+        "width": 1440,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 1440,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 1440,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 496,
+        "top": 0,
+        "width": 448,
+        "height": 52,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "header button[aria-label=\"Back\"]",
+      "values": {
+        "left": 8,
+        "top": 6,
+        "width": 36,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "header h1",
+      "values": {
+        "left": 0,
+        "top": 18,
+        "width": 1920,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 1920,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 1920,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 736,
+        "top": 0,
+        "width": 448,
+        "height": 52,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "header button[aria-label=\"Back\"]",
+      "values": {
+        "left": 8,
+        "top": 6,
+        "width": 36,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "header h1",
+      "values": {
+        "left": 0,
+        "top": 18,
+        "width": 2560,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 2560,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 2560,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 1056,
+        "top": 0,
+        "width": 448,
+        "height": 52,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-history",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "header button[aria-label=\"Back\"]",
+      "values": {
+        "left": 8,
+        "top": 6,
+        "width": 36,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "header h1",
+      "values": {
+        "left": 0,
+        "top": 18,
+        "width": 390,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 390,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 390,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 52,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "header button[aria-label=\"Back\"]",
+      "values": {
+        "left": 8,
+        "top": 6,
+        "width": 36,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "header h1",
+      "values": {
+        "left": 0,
+        "top": 18,
+        "width": 1280,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 1280,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 1280,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 416,
+        "top": 0,
+        "width": 448,
+        "height": 52,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "header button[aria-label=\"Back\"]",
+      "values": {
+        "left": 8,
+        "top": 6,
+        "width": 36,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "header h1",
+      "values": {
+        "left": 0,
+        "top": 18,
+        "width": 1440,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 1440,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 1440,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 496,
+        "top": 0,
+        "width": 448,
+        "height": 52,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "header button[aria-label=\"Back\"]",
+      "values": {
+        "left": 8,
+        "top": 6,
+        "width": 36,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "header h1",
+      "values": {
+        "left": 0,
+        "top": 18,
+        "width": 1920,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 1920,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 1920,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 736,
+        "top": 0,
+        "width": 448,
+        "height": 52,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "header button[aria-label=\"Back\"]",
+      "values": {
+        "left": 8,
+        "top": 6,
+        "width": 36,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "header h1",
+      "values": {
+        "left": 0,
+        "top": 18,
+        "width": 2560,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 2560,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 2560,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 1056,
+        "top": 0,
+        "width": 448,
+        "height": 52,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "account-plan",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "header button[aria-label=\"Back\"]",
+      "values": {
+        "left": 8,
+        "top": 6,
+        "width": 36,
+        "height": 44,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 390,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 16,
+        "top": 116,
+        "width": 358,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 16,
+        "top": 72,
+        "width": 358,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 390,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 390,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 12,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 390,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 0,
+        "top": 56,
+        "width": 390,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1280,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 400,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 400,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1280,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 384,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1280,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 384,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 396,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1280,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 384,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1440,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 480,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 480,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1440,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 464,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1440,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 464,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 476,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1440,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 464,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1920,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 720,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 720,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1920,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 704,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1920,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 704,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 716,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 1920,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 704,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 2560,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 1040,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 1040,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 2560,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 1024,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 2560,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 1024,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 1036,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "bridge",
+      "width": 2560,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 1024,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 390,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 16,
+        "top": 116,
+        "width": 358,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 16,
+        "top": 72,
+        "width": 358,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 390,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 390,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 12,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 390,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 0,
+        "top": 56,
+        "width": 390,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1280,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 400,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 400,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1280,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 384,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1280,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 384,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 396,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1280,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 384,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1440,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 480,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 480,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1440,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 464,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1440,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 464,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 476,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1440,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 464,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1920,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 720,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 720,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1920,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 704,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1920,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 704,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 716,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 1920,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 704,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 2560,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 1040,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 1040,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 2560,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 1024,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 2560,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 1024,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 1036,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "exchange",
+      "width": 2560,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 1024,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "fees",
+      "width": 390,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 16,
+        "top": 116,
+        "width": 358,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "fees",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 16,
+        "top": 72,
+        "width": 358,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "fees",
+      "width": 390,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "fees",
+      "width": 390,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "fees",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 12,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "fees",
+      "width": 390,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 0,
+        "top": 56,
+        "width": 390,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1280,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 400,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 400,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1280,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 384,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1280,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 384,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 396,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1280,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 384,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1440,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 480,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 480,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1440,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 464,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1440,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 464,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 476,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1440,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 464,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1920,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 720,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 720,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1920,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 704,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1920,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 704,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 716,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "fees",
+      "width": 1920,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 704,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "fees",
+      "width": 2560,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 1040,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "fees",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 1040,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "fees",
+      "width": 2560,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 1024,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "fees",
+      "width": 2560,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 1024,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "fees",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 1036,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "fees",
+      "width": 2560,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 1024,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 390,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 16,
+        "top": 116,
+        "width": 358,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 16,
+        "top": 72,
+        "width": 358,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 390,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 390,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 12,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 390,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 0,
+        "top": 56,
+        "width": 390,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1280,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 400,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 400,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1280,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 384,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1280,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 384,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 396,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1280,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 384,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1440,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 480,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 480,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1440,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 464,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1440,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 464,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 476,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1440,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 464,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1920,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 720,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 720,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1920,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 704,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1920,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 704,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 716,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 1920,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 704,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 2560,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 1040,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 1040,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 2560,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 1024,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 2560,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 1024,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 1036,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "launchpad",
+      "width": 2560,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 1024,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "offline",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 127.5,
+        "top": 412,
+        "width": 135,
+        "height": 28,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "offline",
+      "width": 390,
+      "part": "icon-card",
+      "selector": "main > img",
+      "values": {
+        "left": 159,
+        "top": 324,
+        "width": 72,
+        "height": 72,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "offline",
+      "width": 390,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "offline",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "a:has-text(\"Try again\")",
+      "values": {
+        "left": 144.5,
+        "top": 532,
+        "width": 101,
+        "height": 44,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "offline",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 572.5,
+        "top": 412,
+        "width": 135,
+        "height": 28,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "offline",
+      "width": 1280,
+      "part": "icon-card",
+      "selector": "main > img",
+      "values": {
+        "left": 604,
+        "top": 324,
+        "width": 72,
+        "height": 72,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "offline",
+      "width": 1280,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "offline",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "a:has-text(\"Try again\")",
+      "values": {
+        "left": 589.5,
+        "top": 532,
+        "width": 101,
+        "height": 44,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "offline",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 652.5,
+        "top": 412,
+        "width": 135,
+        "height": 28,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "offline",
+      "width": 1440,
+      "part": "icon-card",
+      "selector": "main > img",
+      "values": {
+        "left": 684,
+        "top": 324,
+        "width": 72,
+        "height": 72,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "offline",
+      "width": 1440,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "offline",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "a:has-text(\"Try again\")",
+      "values": {
+        "left": 669.5,
+        "top": 532,
+        "width": 101,
+        "height": 44,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "offline",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 892.5,
+        "top": 412,
+        "width": 135,
+        "height": 28,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "offline",
+      "width": 1920,
+      "part": "icon-card",
+      "selector": "main > img",
+      "values": {
+        "left": 924,
+        "top": 324,
+        "width": 72,
+        "height": 72,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "offline",
+      "width": 1920,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "offline",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "a:has-text(\"Try again\")",
+      "values": {
+        "left": 909.5,
+        "top": 532,
+        "width": 101,
+        "height": 44,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "offline",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 1212.5,
+        "top": 412,
+        "width": 135,
+        "height": 28,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "offline",
+      "width": 2560,
+      "part": "icon-card",
+      "selector": "main > img",
+      "values": {
+        "left": 1244,
+        "top": 324,
+        "width": 72,
+        "height": 72,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "offline",
+      "width": 2560,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "offline",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "a:has-text(\"Try again\")",
+      "values": {
+        "left": 1229.5,
+        "top": 532,
+        "width": 101,
+        "height": 44,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 390,
+      "part": "brand-card",
+      "selector": "div:has(> img[alt=\"shield\"])",
+      "values": {
+        "left": 155,
+        "top": 301.875,
+        "width": 80,
+        "height": 80,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 24,
+        "top": 405.875,
+        "width": 342,
+        "height": 32,
+        "fontSize": 24,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 390,
+      "part": "main",
+      "selector": "div.min-h-screen:has(> div > h1), div.min-h-screen:has(> div > div > h1)",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 24,
+        "top": 517.875,
+        "width": 342,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 390,
+      "part": "wallet-choice-card",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 24,
+        "top": 517.875,
+        "width": 342,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 1280,
+      "part": "brand-card",
+      "selector": "div:has(> img[alt=\"shield\"])",
+      "values": {
+        "left": 600,
+        "top": 301.875,
+        "width": 80,
+        "height": 80,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 448,
+        "top": 405.875,
+        "width": 384,
+        "height": 32,
+        "fontSize": 24,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 1280,
+      "part": "main",
+      "selector": "div.min-h-screen:has(> div > h1), div.min-h-screen:has(> div > div > h1)",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 448,
+        "top": 517.875,
+        "width": 384,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 1280,
+      "part": "wallet-choice-card",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 448,
+        "top": 517.875,
+        "width": 384,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 1440,
+      "part": "brand-card",
+      "selector": "div:has(> img[alt=\"shield\"])",
+      "values": {
+        "left": 680,
+        "top": 301.875,
+        "width": 80,
+        "height": 80,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 528,
+        "top": 405.875,
+        "width": 384,
+        "height": 32,
+        "fontSize": 24,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 1440,
+      "part": "main",
+      "selector": "div.min-h-screen:has(> div > h1), div.min-h-screen:has(> div > div > h1)",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 528,
+        "top": 517.875,
+        "width": 384,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 1440,
+      "part": "wallet-choice-card",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 528,
+        "top": 517.875,
+        "width": 384,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 1920,
+      "part": "brand-card",
+      "selector": "div:has(> img[alt=\"shield\"])",
+      "values": {
+        "left": 920,
+        "top": 301.875,
+        "width": 80,
+        "height": 80,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 768,
+        "top": 405.875,
+        "width": 384,
+        "height": 32,
+        "fontSize": 24,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 1920,
+      "part": "main",
+      "selector": "div.min-h-screen:has(> div > h1), div.min-h-screen:has(> div > div > h1)",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 768,
+        "top": 517.875,
+        "width": 384,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 1920,
+      "part": "wallet-choice-card",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 768,
+        "top": 517.875,
+        "width": 384,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 2560,
+      "part": "brand-card",
+      "selector": "div:has(> img[alt=\"shield\"])",
+      "values": {
+        "left": 1240,
+        "top": 301.875,
+        "width": 80,
+        "height": 80,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 1088,
+        "top": 405.875,
+        "width": 384,
+        "height": 32,
+        "fontSize": 24,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 2560,
+      "part": "main",
+      "selector": "div.min-h-screen:has(> div > h1), div.min-h-screen:has(> div > div > h1)",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 1088,
+        "top": 517.875,
+        "width": 384,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "onboarding",
+      "width": 2560,
+      "part": "wallet-choice-card",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 1088,
+        "top": 517.875,
+        "width": 384,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 24,
+        "top": 64,
+        "width": 342,
+        "height": 36,
+        "fontSize": 30,
+        "lineHeight": 36
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 390,
+      "part": "list-1-first-row",
+      "selector": "section ul >> nth=0 >> li >> nth=0",
+      "values": {
+        "left": 32,
+        "top": 551.5,
+        "width": 334,
+        "height": 113.75,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 390,
+      "part": "list-2-first-row",
+      "selector": "section ul >> nth=1 >> li >> nth=0",
+      "values": {
+        "left": 32,
+        "top": 1010.25,
+        "width": 334,
+        "height": 91,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 390,
+      "part": "list-3-first-row",
+      "selector": "section ul >> nth=2 >> li >> nth=0",
+      "values": {
+        "left": 32,
+        "top": 2072.5,
+        "width": 334,
+        "height": 68.25,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 390,
+      "part": "list-4-first-row",
+      "selector": "section ul >> nth=3 >> li >> nth=0",
+      "values": {
+        "left": 32,
+        "top": 2309.75,
+        "width": 334,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 390,
+      "part": "list-5-first-row",
+      "selector": "section ul >> nth=4 >> li >> nth=0",
+      "values": {
+        "left": 32,
+        "top": 2684.75,
+        "width": 334,
+        "height": 113.75,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 390,
+      "part": "list-6-first-row",
+      "selector": "section ul >> nth=5 >> li >> nth=0",
+      "values": {
+        "left": 32,
+        "top": 4376.25,
+        "width": 334,
+        "height": 91,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 390,
+      "part": "list-7-first-row",
+      "selector": "section ul >> nth=6 >> li >> nth=0",
+      "values": {
+        "left": 32,
+        "top": 4733.25,
+        "width": 334,
+        "height": 68.25,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 390,
+      "part": "main",
+      "selector": "body > div.min-h-screen, main.min-h-screen",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 5734.75,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "a[href^=\"mailto:\"] >> nth=0",
+      "values": {
+        "left": 24,
+        "top": 5540,
+        "width": 136,
+        "height": 14,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 328,
+        "top": 64,
+        "width": 624,
+        "height": 36,
+        "fontSize": 30,
+        "lineHeight": 36
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1280,
+      "part": "list-1-first-row",
+      "selector": "section ul >> nth=0 >> li >> nth=0",
+      "values": {
+        "left": 336,
+        "top": 460.5,
+        "width": 616,
+        "height": 68.25,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1280,
+      "part": "list-2-first-row",
+      "selector": "section ul >> nth=1 >> li >> nth=0",
+      "values": {
+        "left": 336,
+        "top": 760,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1280,
+      "part": "list-3-first-row",
+      "selector": "section ul >> nth=2 >> li >> nth=0",
+      "values": {
+        "left": 336,
+        "top": 1367.25,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1280,
+      "part": "list-4-first-row",
+      "selector": "section ul >> nth=3 >> li >> nth=0",
+      "values": {
+        "left": 336,
+        "top": 1536.25,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1280,
+      "part": "list-5-first-row",
+      "selector": "section ul >> nth=4 >> li >> nth=0",
+      "values": {
+        "left": 336,
+        "top": 1797.5,
+        "width": 616,
+        "height": 68.25,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1280,
+      "part": "list-6-first-row",
+      "selector": "section ul >> nth=5 >> li >> nth=0",
+      "values": {
+        "left": 336,
+        "top": 2833,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1280,
+      "part": "list-7-first-row",
+      "selector": "section ul >> nth=6 >> li >> nth=0",
+      "values": {
+        "left": 336,
+        "top": 3076.25,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1280,
+      "part": "main",
+      "selector": "body > div.min-h-screen, main.min-h-screen",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 3850.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "a[href^=\"mailto:\"] >> nth=0",
+      "values": {
+        "left": 328,
+        "top": 3655.5,
+        "width": 136,
+        "height": 14,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 408,
+        "top": 64,
+        "width": 624,
+        "height": 36,
+        "fontSize": 30,
+        "lineHeight": 36
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1440,
+      "part": "list-1-first-row",
+      "selector": "section ul >> nth=0 >> li >> nth=0",
+      "values": {
+        "left": 416,
+        "top": 460.5,
+        "width": 616,
+        "height": 68.25,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1440,
+      "part": "list-2-first-row",
+      "selector": "section ul >> nth=1 >> li >> nth=0",
+      "values": {
+        "left": 416,
+        "top": 760,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1440,
+      "part": "list-3-first-row",
+      "selector": "section ul >> nth=2 >> li >> nth=0",
+      "values": {
+        "left": 416,
+        "top": 1367.25,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1440,
+      "part": "list-4-first-row",
+      "selector": "section ul >> nth=3 >> li >> nth=0",
+      "values": {
+        "left": 416,
+        "top": 1536.25,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1440,
+      "part": "list-5-first-row",
+      "selector": "section ul >> nth=4 >> li >> nth=0",
+      "values": {
+        "left": 416,
+        "top": 1797.5,
+        "width": 616,
+        "height": 68.25,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1440,
+      "part": "list-6-first-row",
+      "selector": "section ul >> nth=5 >> li >> nth=0",
+      "values": {
+        "left": 416,
+        "top": 2833,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1440,
+      "part": "list-7-first-row",
+      "selector": "section ul >> nth=6 >> li >> nth=0",
+      "values": {
+        "left": 416,
+        "top": 3076.25,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1440,
+      "part": "main",
+      "selector": "body > div.min-h-screen, main.min-h-screen",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 3850.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "a[href^=\"mailto:\"] >> nth=0",
+      "values": {
+        "left": 408,
+        "top": 3655.5,
+        "width": 136,
+        "height": 14,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 648,
+        "top": 64,
+        "width": 624,
+        "height": 36,
+        "fontSize": 30,
+        "lineHeight": 36
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1920,
+      "part": "list-1-first-row",
+      "selector": "section ul >> nth=0 >> li >> nth=0",
+      "values": {
+        "left": 656,
+        "top": 460.5,
+        "width": 616,
+        "height": 68.25,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1920,
+      "part": "list-2-first-row",
+      "selector": "section ul >> nth=1 >> li >> nth=0",
+      "values": {
+        "left": 656,
+        "top": 760,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1920,
+      "part": "list-3-first-row",
+      "selector": "section ul >> nth=2 >> li >> nth=0",
+      "values": {
+        "left": 656,
+        "top": 1367.25,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1920,
+      "part": "list-4-first-row",
+      "selector": "section ul >> nth=3 >> li >> nth=0",
+      "values": {
+        "left": 656,
+        "top": 1536.25,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1920,
+      "part": "list-5-first-row",
+      "selector": "section ul >> nth=4 >> li >> nth=0",
+      "values": {
+        "left": 656,
+        "top": 1797.5,
+        "width": 616,
+        "height": 68.25,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1920,
+      "part": "list-6-first-row",
+      "selector": "section ul >> nth=5 >> li >> nth=0",
+      "values": {
+        "left": 656,
+        "top": 2833,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1920,
+      "part": "list-7-first-row",
+      "selector": "section ul >> nth=6 >> li >> nth=0",
+      "values": {
+        "left": 656,
+        "top": 3076.25,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1920,
+      "part": "main",
+      "selector": "body > div.min-h-screen, main.min-h-screen",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 3850.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "a[href^=\"mailto:\"] >> nth=0",
+      "values": {
+        "left": 648,
+        "top": 3655.5,
+        "width": 136,
+        "height": 14,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 968,
+        "top": 64,
+        "width": 624,
+        "height": 36,
+        "fontSize": 30,
+        "lineHeight": 36
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 2560,
+      "part": "list-1-first-row",
+      "selector": "section ul >> nth=0 >> li >> nth=0",
+      "values": {
+        "left": 976,
+        "top": 460.5,
+        "width": 616,
+        "height": 68.25,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 2560,
+      "part": "list-2-first-row",
+      "selector": "section ul >> nth=1 >> li >> nth=0",
+      "values": {
+        "left": 976,
+        "top": 760,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 2560,
+      "part": "list-3-first-row",
+      "selector": "section ul >> nth=2 >> li >> nth=0",
+      "values": {
+        "left": 976,
+        "top": 1367.25,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 2560,
+      "part": "list-4-first-row",
+      "selector": "section ul >> nth=3 >> li >> nth=0",
+      "values": {
+        "left": 976,
+        "top": 1536.25,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 2560,
+      "part": "list-5-first-row",
+      "selector": "section ul >> nth=4 >> li >> nth=0",
+      "values": {
+        "left": 976,
+        "top": 1797.5,
+        "width": 616,
+        "height": 68.25,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 2560,
+      "part": "list-6-first-row",
+      "selector": "section ul >> nth=5 >> li >> nth=0",
+      "values": {
+        "left": 976,
+        "top": 2833,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 2560,
+      "part": "list-7-first-row",
+      "selector": "section ul >> nth=6 >> li >> nth=0",
+      "values": {
+        "left": 976,
+        "top": 3076.25,
+        "width": 616,
+        "height": 45.5,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 2560,
+      "part": "main",
+      "selector": "body > div.min-h-screen, main.min-h-screen",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 3850.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "privacy",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "a[href^=\"mailto:\"] >> nth=0",
+      "values": {
+        "left": 968,
+        "top": 3655.5,
+        "width": 136,
+        "height": 14,
+        "fontSize": 14,
+        "lineHeight": 22.75
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 390,
+      "part": "brand-card",
+      "selector": "div:has(> img[alt=\"shield\"])",
+      "values": {
+        "left": 155,
+        "top": 301.875,
+        "width": 80,
+        "height": 80,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 24,
+        "top": 405.875,
+        "width": 342,
+        "height": 32,
+        "fontSize": 24,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 390,
+      "part": "main",
+      "selector": "div.min-h-screen:has(> div > h1), div.min-h-screen:has(> div > div > h1)",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 24,
+        "top": 517.875,
+        "width": 342,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 390,
+      "part": "wallet-choice-card",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 24,
+        "top": 517.875,
+        "width": 342,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 1280,
+      "part": "brand-card",
+      "selector": "div:has(> img[alt=\"shield\"])",
+      "values": {
+        "left": 600,
+        "top": 301.875,
+        "width": 80,
+        "height": 80,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 448,
+        "top": 405.875,
+        "width": 384,
+        "height": 32,
+        "fontSize": 24,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 1280,
+      "part": "main",
+      "selector": "div.min-h-screen:has(> div > h1), div.min-h-screen:has(> div > div > h1)",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 448,
+        "top": 517.875,
+        "width": 384,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 1280,
+      "part": "wallet-choice-card",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 448,
+        "top": 517.875,
+        "width": 384,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 1440,
+      "part": "brand-card",
+      "selector": "div:has(> img[alt=\"shield\"])",
+      "values": {
+        "left": 680,
+        "top": 301.875,
+        "width": 80,
+        "height": 80,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 528,
+        "top": 405.875,
+        "width": 384,
+        "height": 32,
+        "fontSize": 24,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 1440,
+      "part": "main",
+      "selector": "div.min-h-screen:has(> div > h1), div.min-h-screen:has(> div > div > h1)",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 528,
+        "top": 517.875,
+        "width": 384,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 1440,
+      "part": "wallet-choice-card",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 528,
+        "top": 517.875,
+        "width": 384,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 1920,
+      "part": "brand-card",
+      "selector": "div:has(> img[alt=\"shield\"])",
+      "values": {
+        "left": 920,
+        "top": 301.875,
+        "width": 80,
+        "height": 80,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 768,
+        "top": 405.875,
+        "width": 384,
+        "height": 32,
+        "fontSize": 24,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 1920,
+      "part": "main",
+      "selector": "div.min-h-screen:has(> div > h1), div.min-h-screen:has(> div > div > h1)",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 768,
+        "top": 517.875,
+        "width": 384,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 1920,
+      "part": "wallet-choice-card",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 768,
+        "top": 517.875,
+        "width": 384,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 2560,
+      "part": "brand-card",
+      "selector": "div:has(> img[alt=\"shield\"])",
+      "values": {
+        "left": 1240,
+        "top": 301.875,
+        "width": 80,
+        "height": 80,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 1088,
+        "top": 405.875,
+        "width": 384,
+        "height": 32,
+        "fontSize": 24,
+        "lineHeight": 32
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 2560,
+      "part": "main",
+      "selector": "div.min-h-screen:has(> div > h1), div.min-h-screen:has(> div > div > h1)",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 1088,
+        "top": 517.875,
+        "width": 384,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "wallet-shell",
+      "width": 2560,
+      "part": "wallet-choice-card",
+      "selector": "button:has-text(\"Recommended\")",
+      "values": {
+        "left": 1088,
+        "top": 517.875,
+        "width": 384,
+        "height": 80.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 390,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 16,
+        "top": 116,
+        "width": 358,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 390,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 16,
+        "top": 72,
+        "width": 358,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 390,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 390,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 390,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 12,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 390,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 0,
+        "top": 56,
+        "width": 390,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1280,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 400,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1280,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 400,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1280,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 384,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1280,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 384,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1280,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 396,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1280,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 384,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1440,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 480,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1440,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 480,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1440,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 464,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1440,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 464,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1440,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 476,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1440,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 464,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1920,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 720,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1920,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 720,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1920,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 704,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1920,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 704,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1920,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 716,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 1920,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 704,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 2560,
+      "part": "connection-status",
+      "selector": "[data-role=\"not-connected\"]",
+      "values": {
+        "left": 1040,
+        "top": 116,
+        "width": 480,
+        "height": 20,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 2560,
+      "part": "first-heading",
+      "selector": "h1",
+      "values": {
+        "left": 1040,
+        "top": 72,
+        "width": 480,
+        "height": 28,
+        "fontSize": 18,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 2560,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 1024,
+        "top": 0,
+        "width": 512,
+        "height": 900,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 2560,
+      "part": "navigation",
+      "selector": "nav[aria-label=\"Paxeer X\"]",
+      "values": {
+        "left": 1024,
+        "top": 0,
+        "width": 512,
+        "height": 56,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 2560,
+      "part": "primary-control",
+      "selector": "nav a[href=\"/wallet/\"]",
+      "values": {
+        "left": 1036,
+        "top": 12,
+        "width": 55,
+        "height": 44,
+        "fontSize": 11,
+        "lineHeight": 16.5
+      }
+    },
+    {
+      "view": "web-data",
+      "width": 2560,
+      "part": "surface-region",
+      "selector": "section[aria-label]",
+      "values": {
+        "left": 1024,
+        "top": 56,
+        "width": 512,
+        "height": 176,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    }
+  ]
+}

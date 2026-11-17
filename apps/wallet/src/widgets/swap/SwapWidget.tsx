@@ -27,9 +27,12 @@
  * Replaces the legacy `SwapPage`. Same prop contract.
  */
 
-import { useCallback, useState } from 'react';
-import { formatUnits } from 'ethers';
-import { useWalletState } from '@/providers/WalletProvider';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { formatUnits, JsonRpcProvider } from 'ethers';
+import { useWallet, useWalletState } from '@/providers/WalletProvider';
+import { getActiveRpcUrl } from '@/lib/constants';
+import { setSwapNetwork } from '@/lib/swap/network';
+import { SwapQuoteSkeleton } from '@/components/ui/Skeletons';
 import { parseAmountToWei } from './util';
 import { classifySwapError } from './prettifyError';
 import {
@@ -53,7 +56,34 @@ export interface SwapWidgetProps {
   onPaxscan?: (path?: string) => void;
 }
 
-export function SwapWidget({ onPaxscan }: SwapWidgetProps) {
+export function SwapWidget(props: SwapWidgetProps) {
+  const wallet = useWallet();
+  const endpoint = getActiveRpcUrl();
+  const chainId = wallet.chainId;
+  const network = useMemo(() => {
+    if (wallet.status !== 'ready' || chainId === null) return null;
+    return {
+      chainId,
+      endpoint,
+      indexerUrl: '/wallet/api/wallet',
+      metadataUrl: '/wallet/api/sdk/metadata/tokens',
+    };
+  }, [wallet.status, chainId, endpoint]);
+  const [configured, setConfigured] = useState<typeof network>(null);
+  useEffect(() => {
+    if (!network) return;
+    const provider = new JsonRpcProvider(network.endpoint, network.chainId, {
+      staticNetwork: true,
+    });
+    setSwapNetwork({ ...network, provider });
+    setConfigured(network);
+    return () => provider.destroy();
+  }, [network]);
+  if (!network || configured !== network) return <SwapQuoteSkeleton />;
+  return <ConnectedSwapWidget {...props} />;
+}
+
+function ConnectedSwapWidget({ onPaxscan }: SwapWidgetProps) {
   const { activeAccount } = useWalletState();
   const recipient = activeAccount?.address;
 
