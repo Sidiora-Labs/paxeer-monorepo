@@ -23,10 +23,8 @@ import {
   getLockedBalance,
   getWalletBalance,
   createVault,
-  approveToken,
   deposit,
   withdraw,
-  getAllowance,
 } from "./hooks/perps/useVault";
 const ZERO = "0x0000000000000000000000000000000000000000";
 export class NativeCapabilityError extends Error {
@@ -412,9 +410,6 @@ export async function nativeDeposit(inputs: {
   const vault = await getNativeVault(true);
   const amount = parseUnits(inputs.amount, token.decimals);
   if (amount <= 0n) throw new Error("Enter a positive deposit amount.");
-  const address = getNativeSnapshot().address!;
-  if ((await getAllowance(token.address, address, vault)) < amount)
-    await approveToken(token.address, vault, amount);
   const receipt = await deposit(vault, token.address, amount);
   return { ...receipt, hash: receipt.transactionHash };
 }
