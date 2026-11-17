@@ -42,13 +42,13 @@ export function DiscoverWidget({ onNavigate, onTokenTrade }: DiscoverWidgetProps
   return (
     <div className="grid grid-cols-2 gap-2.5 px-3 pt-3 pb-24">
       <div className="col-span-2 px-1 pt-1">
-        <h3 className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em]">Apps</h3>
+        <h3 className="text-size-13 font-bold text-pax-muted uppercase tracking-[0.06em]">Apps</h3>
       </div>
 
       <button
         type="button"
         onClick={() => openExternalUrl('https://www.kindlelaunch.com')}
-        className="row-span-2 bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-card-featured"
+        className="row-span-2 bg-pax-surface rounded-3xl p-4 flex flex-col justify-between text-left press-scale min-h-card-featured"
       >
         <div className="w-12 h-12 rounded-2xl overflow-hidden shrink-0">
           <Image
@@ -61,14 +61,14 @@ export function DiscoverWidget({ onNavigate, onTokenTrade }: DiscoverWidgetProps
         </div>
         <div className="mt-auto pt-3">
           <p className="text-base font-extrabold leading-tight">KindleLaunch</p>
-          <p className="text-xs text-pax-muted mt-1">Launch and trade tokens</p>
+          <p className="text-size-11 text-pax-muted mt-1">Launch and trade tokens</p>
         </div>
       </button>
 
       <button
         type="button"
         onClick={() => openExplorerPath()}
-        className="bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-card-medium"
+        className="bg-pax-surface rounded-3xl p-4 flex flex-col justify-between text-left press-scale min-h-card-medium"
       >
         <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0">
           <Image
@@ -80,14 +80,14 @@ export function DiscoverWidget({ onNavigate, onTokenTrade }: DiscoverWidgetProps
           />
         </div>
         <div className="mt-auto pt-2">
-          <p className="text-sm font-bold">PaxScan</p>
+          <p className="text-size-13 font-bold">PaxScan</p>
         </div>
       </button>
 
       <button
         type="button"
         onClick={() => onNavigate('pns')}
-        className="bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-card-medium"
+        className="bg-pax-surface rounded-3xl p-4 flex flex-col justify-between text-left press-scale min-h-card-medium"
       >
         <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0">
           <Image
@@ -99,21 +99,23 @@ export function DiscoverWidget({ onNavigate, onTokenTrade }: DiscoverWidgetProps
           />
         </div>
         <div className="mt-auto pt-2">
-          <p className="text-sm font-bold">PNS</p>
+          <p className="text-size-13 font-bold">PNS</p>
         </div>
       </button>
 
       <div className="col-span-2 px-1 pt-1">
-        <h3 className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em]">Paxeer X</h3>
+        <h3 className="text-size-13 font-bold text-pax-muted uppercase tracking-[0.06em]">
+          Paxeer X
+        </h3>
       </div>
       {SURFACE_ROUTES.map((route) => (
         <Link
           key={route.id}
           href={route.href}
-          className="bg-pax-surface rounded-xl p-4 flex flex-col justify-between text-left press-scale min-h-card-small"
+          className="bg-pax-surface rounded-3xl p-4 flex flex-col justify-between text-left press-scale min-h-card-small"
         >
-          <p className="text-sm font-bold">{route.label}</p>
-          <p className="text-xs text-pax-muted mt-1">{route.description}</p>
+          <p className="text-size-13 font-bold">{route.label}</p>
+          <p className="text-size-11 text-pax-muted mt-1">{route.description}</p>
         </Link>
       ))}
 
@@ -121,7 +123,7 @@ export function DiscoverWidget({ onNavigate, onTokenTrade }: DiscoverWidgetProps
 
       <div className="col-span-2 flex items-center gap-2 px-1 pt-1">
         <Flame className="w-4 h-4 text-pax-warning" />
-        <h3 className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em]">
+        <h3 className="text-size-13 font-bold text-pax-muted uppercase tracking-[0.06em]">
           Discover Tokens
         </h3>
       </div>
@@ -142,7 +144,7 @@ export function DiscoverWidget({ onNavigate, onTokenTrade }: DiscoverWidgetProps
                   behavior: 'instant',
                 })
               }
-              className={`flex shrink-0 scroll-m-4 items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap press-scale transition-all ${
+              className={`flex shrink-0 scroll-m-4 items-center gap-2 px-3 py-1.5 rounded-lg text-size-11 font-medium whitespace-nowrap press-scale transition-all ${
                 active ? 'bg-pax-accent/15 text-pax-accent' : 'bg-pax-control text-pax-muted'
               }`}
             >

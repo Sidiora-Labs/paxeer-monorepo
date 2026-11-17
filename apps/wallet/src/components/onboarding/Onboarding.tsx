@@ -108,16 +108,16 @@ export function Onboarding({ initialStep }: OnboardingProps = {}) {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-bold">Paxeer Wallet</span>
                   {embeddedAvailable ? (
-                    <span className="text-xs uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-pax-accent-muted text-pax-accent">
+                    <span className="text-size-10 uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-pax-accent-muted text-pax-accent">
                       Recommended
                     </span>
                   ) : (
-                    <span className="text-xs uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-pax-control text-pax-muted">
+                    <span className="text-size-10 uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-pax-control text-pax-muted">
                       Unavailable
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-pax-muted mt-0.5 leading-snug">
+                <p className="text-size-11 text-pax-muted mt-0.5 leading-snug">
                   {embeddedAvailable
                     ? 'Sign in with email or social. Same wallet on every Paxeer app — no seed phrase.'
                     : (wallet.configError ??
@@ -148,7 +148,7 @@ export function Onboarding({ initialStep }: OnboardingProps = {}) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <span className="text-sm font-bold">{detail.info.name}</span>
-                  <p className="text-xs text-pax-muted mt-0.5 leading-snug">
+                  <p className="text-size-11 text-pax-muted mt-0.5 leading-snug">
                     Connect the browser wallet you already hold the keys for.
                   </p>
                 </div>

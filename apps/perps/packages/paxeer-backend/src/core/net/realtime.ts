@@ -185,7 +185,7 @@ export function watchSocket(
 export function activePoll(
   task: () => unknown | Promise<unknown>,
   intervalMs: number,
-  immediate = true,
+  immediate: boolean | "now" = true,
 ): CancelTask {
   let stopped = false,
     running = false,
@@ -221,7 +221,8 @@ export function activePoll(
     window.addEventListener("offline", resume);
     document.addEventListener("visibilitychange", resume);
   }
-  if (immediate) cancelNext = scheduleActive(run, 250);
+  if (immediate === "now") void run();
+  else if (immediate) cancelNext = scheduleActive(run, 250);
   else if (intervalMs > 0) timer = setTimeout(resume, intervalMs);
   return () => {
     stopped = true;

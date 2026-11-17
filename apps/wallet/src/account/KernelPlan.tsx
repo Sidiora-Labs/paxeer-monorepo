@@ -295,7 +295,7 @@ export function KernelPlan({
   const submitGate = stage.step === 'planned' ? gate : null;
 
   return (
-    <section aria-label="Kernel plan" className="space-y-3 rounded-xl bg-pax-surface p-4">
+    <section aria-label="Kernel plan" className="space-y-3 rounded-3xl bg-pax-surface p-4">
       <h2 className="text-sm font-bold">Move value across the network</h2>
       <KernelNotice gate={gate} />
       {document.status === 'loading' && <Skeleton className="h-6 w-full" />}

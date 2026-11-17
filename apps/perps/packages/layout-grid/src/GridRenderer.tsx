@@ -1,12 +1,19 @@
-import React, { useMemo, useCallback, useEffect, useRef } from "react";
+import React, {
+  useMemo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   GridLayout,
-  useContainerWidth,
   getCompactor,
   type Layout,
   type LayoutItem,
   type CompactType,
 } from "react-grid-layout";
+import { flushSync } from "react-dom";
 import type { LayoutRendererProps } from "@paxeer-network/layout-core";
 import { cn, Flex, Text } from "@paxeer-network/ui";
 import type { GridLayoutModel, GridLayoutItem, BreakpointKey } from "./types";
@@ -50,7 +57,19 @@ export function GridRenderer(
 ): React.ReactElement {
   const { layout, panels, onLayoutChange, onLayoutPersist, className, style } =
     props;
-  const { width, containerRef, mounted } = useContainerWidth();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  const mounted = width > 0;
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    setWidth(container.clientWidth);
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) flushSync(() => setWidth(entry.contentRect.width));
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
 
   // Native layout state belongs to LayoutHost. Resolve the active breakpoint
   // from the measured container and commit RGL state when interaction ends.

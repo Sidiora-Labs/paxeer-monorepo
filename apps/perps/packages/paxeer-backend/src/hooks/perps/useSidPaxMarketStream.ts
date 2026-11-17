@@ -269,6 +269,7 @@ function ensureStream(symbol: string): SymbolStream | null {
 }
 
 function connect(symbol: string, s: SymbolStream) {
+  if (process.env.NEXT_PUBLIC_DISABLE_REALTIME_FOR_RENDER === "1") return;
   if (s.disposed) return;
   if (!isPageActive()) {
     scheduleReconnect(symbol, s);

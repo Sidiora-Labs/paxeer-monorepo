@@ -6,11 +6,7 @@ import type { MarketType } from "./horizontalMarkets.script";
 import type { HorizontalMarketsProps } from "./horizontalMarkets.ui";
 import type { DropdownPos } from "./marketTypeFilter.ui";
 
-const LazyHorizontalMarkets = React.lazy(() =>
-  import("./horizontalMarkets.ui").then((mod) => {
-    return { default: mod.HorizontalMarkets };
-  }),
-);
+import { HorizontalMarkets } from "./horizontalMarkets.ui";
 
 export type HorizontalMarketsWidgetProps = MarketsProviderProps &
   Partial<Pick<HorizontalMarketsProps, "symbols" | "className">> & {
@@ -34,7 +30,7 @@ const HorizontalMarketsInner: React.FC<
   });
   return (
     <React.Suspense fallback={null}>
-      <LazyHorizontalMarkets
+      <HorizontalMarkets
         {...state}
         className={className}
         dropdownPos={dropdownPos}

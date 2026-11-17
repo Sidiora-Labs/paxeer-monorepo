@@ -112,7 +112,6 @@ const SheetContent = React.forwardRef<
             sideAnimationClassName,
             className,
           )}
-          onOpenAutoFocus={(e) => e.preventDefault()}
           onCloseAutoFocus={(e) => e.preventDefault()}
           {...props}
         >

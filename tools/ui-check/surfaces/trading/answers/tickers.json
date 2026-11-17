@@ -1,0 +1,47 @@
+{
+  "success": true,
+  "data": [
+    {
+      "paxeerSymbol": "ETH",
+      "symbol": "PERP_ETH_USDC",
+      "mark_price": 1800.0,
+      "open_interest": 0,
+      "est_funding_rate": 0,
+      "last_funding_rate": 0,
+      "24h_open": 1800.0,
+      "24h_close": 1800.0,
+      "24h_high": 1800.0,
+      "24h_low": 1800.0,
+      "24h_amount": 0,
+      "24h_volume": 0
+    },
+    {
+      "paxeerSymbol": "BTC",
+      "symbol": "PERP_BTC_USDC",
+      "mark_price": 30000.0,
+      "open_interest": 0,
+      "est_funding_rate": 0,
+      "last_funding_rate": 0,
+      "24h_open": 30000.0,
+      "24h_close": 30000.0,
+      "24h_high": 30000.0,
+      "24h_low": 30000.0,
+      "24h_amount": 0,
+      "24h_volume": 0
+    },
+    {
+      "paxeerSymbol": "XAU",
+      "symbol": "PERP_XAU_USDC",
+      "mark_price": 2000.0,
+      "open_interest": 0,
+      "est_funding_rate": 0,
+      "last_funding_rate": 0,
+      "24h_open": 2000.0,
+      "24h_close": 2000.0,
+      "24h_high": 2000.0,
+      "24h_low": 2000.0,
+      "24h_amount": 0,
+      "24h_volume": 0
+    }
+  ]
+}

@@ -175737,7 +175737,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.791]
 title = "Render the content of a tab panel of the trading workspace in the same render as the element that holds the panel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175799,7 +175799,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.101]
 title = "Give the capture of a full page in the render check a time limit of its own that grows with the height of the page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.100"]
@@ -176272,7 +176272,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.94]
 title = "Bring the wallet application back to the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.75"]
@@ -177116,7 +177116,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.69]
 title = "Close the terminal, swap and order views of the launchpad on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.40"]

@@ -61,6 +61,7 @@ export const queryKeys = {
 
   // ── Typed market data layer (core/market/*) ──────────────────
   poolSnapshot: (address: string) => [MARKET, 'pool-snapshot', lower(address)] as const,
+  poolPriceSnapshot: (address: string) => [MARKET, 'pool-price-snapshot', lower(address)] as const,
   poolDetail: (origin: string, pool: string) => [MARKET, origin, 'pool', lower(pool)] as const,
   statsBatch: (origin: string, pools: readonly string[]) => [MARKET, origin, 'stats-batch', ...sorted(pools)] as const,
   /** Session cache of one pool's immutable registry facts (outside the pruned `production-market` root). */

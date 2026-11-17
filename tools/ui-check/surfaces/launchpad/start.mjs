@@ -303,6 +303,16 @@ async function warmPage(path) {
 
 await warmPage('/holder-rewards');
 await warmPage('/leaderboard');
+await warmPage('/meta-ag/orders');
+await warmPage('/meta-ag/swap');
+await warmPage('/swap');
+await warmPage('/terminal');
+await warmPage('/terminal/0x1111111111111111111111111111111111111111');
+await warmPage('/terminal/portfolio');
+await warmPage('/terminal/rewards');
+await warmPage('/terminal/track');
+await warmPage('/terminal/trenches');
+await warmPage('/terminal/trending');
 server.listen(4173, '203.0.113.1');
 function close() {
   for (const socket of sockets.clients) socket.terminate();

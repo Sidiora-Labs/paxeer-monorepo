@@ -1,6 +1,6 @@
 import { motionDurations, motionEase } from './motion';
 import { surfaceTokens } from './tokens';
-import { bestInk } from './contrast';
+import { bestInk, parseColor } from './contrast';
 import type {
   AccentId,
   AccentPalette,
@@ -175,12 +175,27 @@ function accent(
   mutedDark: string,
   mutedLight: string
 ): AccentPalette {
+  const control = (theme: ThemePalette) => {
+    const foreground = parseColor(primary);
+    const background = parseColor(theme.colors.text.strong);
+    const channels = (['r', 'g', 'b'] as const).map((channel) =>
+      Math.round(foreground[channel] * 0.6 + background[channel] * 0.4)
+    );
+    const fill = theme.scheme === 'dark' ? `rgb(${channels.join(' ')})` : primary;
+    return { fill, ink: bestInk(fill, ACCENT_INKS) };
+  };
   return {
     id,
     label,
     primary,
     muted: { dark: mutedDark, light: mutedLight },
     onPrimary: bestInk(primary, ACCENT_INKS),
+    control: {
+      dark: control(dark),
+      light: control(light),
+      'contrast-dark': control(contrastDark),
+      'contrast-light': control(contrastLight),
+    },
   };
 }
 
