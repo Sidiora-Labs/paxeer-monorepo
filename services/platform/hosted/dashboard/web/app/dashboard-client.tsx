@@ -471,6 +471,19 @@ export default function DashboardClient({
             role="tabpanel"
             aria-labelledby={`tab-${active}`}
             tabIndex={0}
+            onFocus={(event) => {
+              if (event.target !== event.currentTarget) return;
+              const bounds = event.currentTarget.getBoundingClientRect();
+              if (
+                bounds.height <= window.innerHeight &&
+                (bounds.top < 0 || bounds.bottom > window.innerHeight)
+              ) {
+                event.currentTarget.scrollIntoView({
+                  block: "center",
+                  inline: "nearest",
+                });
+              }
+            }}
           >
             {overview && active === "overview" ? (
               <OverviewPanel

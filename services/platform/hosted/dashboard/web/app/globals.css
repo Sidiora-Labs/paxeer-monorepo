@@ -157,6 +157,10 @@
   min-inline-size: 0;
 }
 
+.dashboard-panel:focus-visible {
+  outline-offset: calc(-1 * var(--focus-ring-width));
+}
+
 .dashboard-card {
   min-inline-size: 0;
   padding: var(--space-4);
