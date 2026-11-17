@@ -101,7 +101,7 @@ export function FeedPauseButton({ state, compact = false, className }: { state: 
       type="button"
       aria-pressed={paused}
       onClick={state.togglePause}
-      className={cn('inline-flex h-control-height-sm shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill text-xs font-bold', compact ? 'px-2' : 'px-3', paused ? 'bg-warning-soft text-warning' : 'bg-surface-2 text-text-muted hover:bg-surface-hover hover:text-text', className)}
+      className={cn('inline-flex h-control-height-sm shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill border border-control-edge text-xs font-bold focus-visible:bg-surface-hover focus-visible:text-text', compact ? 'px-2' : 'px-3', paused ? 'bg-warning-soft text-warning' : 'bg-surface-2 text-text-muted hover:bg-surface-hover hover:text-text', className)}
     >
       {paused ? <Play aria-hidden="true" className="size-3" /> : <Pause aria-hidden="true" className="size-3" />}
       <span className={cn(compact && 'sr-only @min-column-icon:not-sr-only')}>{paused ? (pending > 0 ? `Paused, ${pending} new` : 'Paused') : 'Live'}</span>
@@ -124,7 +124,7 @@ export function CalloutsFeedBody({ feed, filter, state, className }: { feed: Cal
       ) : page.state === 'error' ? (
         <ErrorState variant="chip" className="self-start" message="Couldn't load callouts" error={page.error} onRetry={page.retry} />
       ) : visible.length === 0 ? (
-        <EmptyState icon={Megaphone} title={filter.trim() ? 'No callouts match this filter' : calloutsEmpty[feed].title} body={filter.trim() ? `Nothing matches "${filter.trim()}"` : calloutsEmpty[feed].body} />
+        <EmptyState icon={Megaphone} className="[&_p]:text-balance" title={filter.trim() ? 'No callouts match this filter' : calloutsEmpty[feed].title} body={filter.trim() ? `Nothing matches "${filter.trim()}"` : calloutsEmpty[feed].body} />
       ) : (
         visible.map(callout => <CalloutCard key={`${callout.source}:${callout.id}`} callout={callout} stats={statsFor(callout.poolAddress)} />)
       )}

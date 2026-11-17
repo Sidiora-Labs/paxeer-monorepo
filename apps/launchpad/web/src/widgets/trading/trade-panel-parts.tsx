@@ -191,7 +191,7 @@ export function PresetChip({ active = false, disabled = false, onClick, children
       aria-label={label}
       title={label}
       className={cn(
-        'inline-flex h-control-height-sm min-w-0 items-center justify-center whitespace-nowrap rounded-sm font-bold tabular-nums transition-colors duration-fast',
+        'inline-flex border border-control-edge h-control-height-sm min-w-0 items-center justify-center whitespace-nowrap rounded-sm font-bold tabular-nums transition-colors duration-fast',
         size === 'sm' ? 'px-2 text-sm' : 'px-1 text-xs',
         active ? 'bg-surface-active text-text' : 'bg-surface-2 text-text-muted hover:bg-surface-hover hover:text-text',
         disabled && 'cursor-not-allowed text-text-disabled hover:bg-surface-2 hover:text-text-disabled',

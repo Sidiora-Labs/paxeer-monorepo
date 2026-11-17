@@ -118,7 +118,7 @@ export default function TerminalStatusBar({ poolAddress }: { poolAddress: string
           {tools.map(tool => {
             const Icon = tool.icon;
             if (tool.kind === 'link') {
-              return <Link key={tool.href} href={tool.href} className={toolClass}><Icon aria-hidden="true" />{tool.label}</Link>;
+              return <Link prefetch={false} key={tool.href} href={tool.href} className={toolClass}><Icon aria-hidden="true" />{tool.label}</Link>;
             }
             const pressed = open === tool.id;
             return (

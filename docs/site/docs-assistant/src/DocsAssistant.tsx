@@ -111,7 +111,6 @@ async function readEvents(
         "The connection ended before the answer finished. Please retry.",
       );
   } finally {
-    await reader.cancel().catch(() => {});
     reader.releaseLock();
   }
 }
@@ -249,6 +248,19 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
   }, [layout]);
 
   useEffect(() => {
+    const root = launcherRef.current?.closest<HTMLElement>(".docs-assistant");
+    if (!root || layout !== "drawer" || !open || !busy) return;
+    const siblings = root.parentElement
+      ? [...root.parentElement.children].filter((child): child is HTMLElement => child !== root)
+      : [];
+    const previous = siblings.map((element) => element.hasAttribute("inert"));
+    siblings.forEach((element) => element.setAttribute("inert", ""));
+    return () => siblings.forEach((element, index) => {
+      if (!previous[index]) element.removeAttribute("inert");
+    });
+  }, [busy, layout, open]);
+
+  useEffect(() => {
     if (open && turns.length > 0 && followAnswer.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
@@ -258,7 +270,6 @@ export function DocsAssistant({ siteName, suggestions, layout = "floating" }: Do
     const request = requestRef.current;
     if (!request) return;
     requestRef.current = null;
-    request.controller.abort();
     updateTurn(request.turnId, (turn) => ({ ...turn, status: "stopped" }));
     setBusy(false);
     setAnnouncement("Answer stopped.");

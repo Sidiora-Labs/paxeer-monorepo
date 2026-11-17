@@ -24,7 +24,11 @@ import CoinTabs from '@/widgets/coin/coin-tabs';
 import TokenDescription from './token-description';
 import { MetadataViewer } from '@/features/metadata-media/viewer';
 
-const TvChart = dynamic(() => import('./tv-chart'), { ssr: false });
+function PriceChartSkeleton() {
+  return <Skeleton variant="block" className="h-[calc(var(--sl-space)*164)] lg:h-[calc(var(--sl-space)*150)]" label="price chart" />;
+}
+
+const TvChart = dynamic(() => import('./tv-chart'), { ssr: false, loading: PriceChartSkeleton });
 const TradePanel = dynamic(() => import('./trade-panel'), { ssr: false });
 const LiveStream = dynamic(() => import('./live-stream'), { ssr: false });
 const MobileTradeDrawer = dynamic(() => import('./mobile-trade-drawer'), { ssr: false });
@@ -147,13 +151,13 @@ export default function TokenMarketLayout({ poolAddress }: { poolAddress: string
         <div className="flex min-w-0 flex-col gap-2 @min-market-two/market:col-start-1 @min-market-two/market:row-start-1 @min-market-three/market:col-start-2">
           <PremiumErrorBoundary area="Token header"><TokenHeader poolAddress={poolAddress} liveStats={liveStats} livePrice={price} now={live.now} notice={notice} /></PremiumErrorBoundary>
           <PremiumErrorBoundary area="TvChart">
-            <Suspense fallback={<Skeleton variant="block" height={surfaceSpacing(95)} label="price chart" />}>
-              {marketPool ? <TvChart poolAddress={marketPool} symbol={data?.token?.symbol} /> : <Skeleton variant="block" height={surfaceSpacing(95)} label="price chart" />}
+            <Suspense fallback={<PriceChartSkeleton />}>
+              {marketPool ? <TvChart poolAddress={marketPool} symbol={data?.token?.symbol} /> : <PriceChartSkeleton />}
             </Suspense>
           </PremiumErrorBoundary>
         </div>
         <aside aria-label="Trade and coin details" className="grid min-w-0 grid-cols-1 gap-2 @min-market-two/market:col-start-2 @min-market-two/market:row-start-1 @min-market-two/market:row-span-2 @min-market-three/market:col-start-3">
-          {data ? <MetadataViewer key={data.pool.tokenAddress} tokenAddress={data.pool.tokenAddress} tradePanel={trading} /> : trading}
+          {snapshot.isError ? trading : <MetadataViewer tokenAddress={data?.pool.tokenAddress ?? ''} tradePanel={trading} />}
           {pool ? (
             <PremiumErrorBoundary area="LiveStream">
               <Suspense fallback={null}>

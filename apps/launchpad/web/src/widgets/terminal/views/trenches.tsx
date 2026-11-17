@@ -96,7 +96,7 @@ function PairRow({ row, metadata, timeframe }: PairRowProps) {
   const socials = pairSocials(metadata);
   return (
     <li className="relative flex h-11 items-center gap-2 bg-surface-1 px-2 transition-colors duration-fast hover:bg-surface-hover">
-      <Link href={terminalPoolPath(row.poolAddress)} aria-label={`${row.symbol} ${row.name}`} className="absolute inset-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-[calc(var(--sl-focus-offset)*-1)] focus-visible:outline-focus" />
+      <Link prefetch={false} href={terminalPoolPath(row.poolAddress)} aria-label={`${row.symbol} ${row.name}`} className="absolute inset-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-[calc(var(--sl-focus-offset)*-1)] focus-visible:outline-focus" />
       <Avatar src={row.image} name={row.symbol} size="md" decorative badge={row.stage ? <StageBadge stage={row.stage} size={14} /> : undefined} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className="flex min-w-0 items-baseline gap-1.5 text-sm">

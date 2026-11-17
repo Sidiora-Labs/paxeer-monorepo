@@ -37,14 +37,15 @@ export function TradersBoard({ period, className }: TradersBoardProps) {
   const retry = () => { void client.invalidateQueries({ queryKey: queryKeys.leaderboard('trader', window, leaderboardLimit) }); };
 
   return (
-    <section aria-labelledby="traders-board-title" className={cn('rounded-lg bg-surface-1 p-3 sm:p-4', className)}>
+    <section aria-labelledby="traders-board-title" className={cn('min-h-60 rounded-lg bg-surface-1 p-3 sm:p-4', className)}>
       <SectionHeader
         title={<span id="traders-board-title">Top traders</span>}
         description={`${periodLabels[period]}, ranked by profit`}
         loading={board.state === 'loading'}
+        className="[&_h2]:min-h-[2lh]"
       />
       <div className="mt-3">
-        {board.state === 'loading' ? <RankRowSkeleton count={8} /> : null}
+        {board.state === 'loading' ? <RankRowSkeleton count={1} /> : null}
         {board.state === 'unsupported' ? (
           <UnavailableState title="Leaderboard" operation={board.operation} status={board.status} message="Trader rankings are coming soon" onRetry={retry} />
         ) : null}

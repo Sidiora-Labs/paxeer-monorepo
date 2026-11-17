@@ -3,7 +3,11 @@
   "directory": "../../../apps/wallet",
   "build": "NEXT_PUBLIC_PAXEER_WALLET_API=http://127.0.0.1:4174/wallet NEXT_PUBLIC_PAXEER_RPC_URL=http://127.0.0.1:4174/rpc NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:4174/supabase NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=surface-publishable-key NEXT_PUBLIC_AUTH_REDIRECT_URL=http://127.0.0.1:3099/wallet/auth/callback/ NEXT_PUBLIC_FX_RATES_API=http://127.0.0.1:4174/fx NEXT_PUBLIC_MARKET_DATA_API=http://127.0.0.1:4174/market NEXT_PUBLIC_PAXEER_HUMAN_API=http://127.0.0.1:4174/human NEXT_PUBLIC_PAXEER_EXPLORER_URL=http://127.0.0.1:4174/explorer NEXT_PUBLIC_PAXEER_USID_PER_PAX=1000 NEXT_PUBLIC_PERPS_GATEWAY_URL=http://127.0.0.1:4174 NEXT_PUBLIC_PNS_CONTROLLER=0x0000000000000000000000000000000000000021 NEXT_PUBLIC_PNS_PUBLIC_RESOLVER=0x0000000000000000000000000000000000000022 NEXT_PUBLIC_PNS_REVERSE_REGISTRAR=0x0000000000000000000000000000000000000023 NEXT_PUBLIC_PAXAI_VIEWS_URL=http://127.0.0.1:4174/rewards NEXT_PUBLIC_PAXAI_MARKET_ID=1010101010101010101010101010101010101010101010101010101010101010 pnpm run build",
   "buildMs": 600000,
-  "outputs": [".next", "public/sw.js", "public/manifest.json"],
+  "outputs": [
+    ".next",
+    "public/sw.js",
+    "public/manifest.json"
+  ],
   "start": "NEXT_PUBLIC_PAXEER_WALLET_API=http://127.0.0.1:4174/wallet NEXT_PUBLIC_PAXEER_RPC_URL=http://127.0.0.1:4174/rpc NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:4174/supabase NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=surface-publishable-key NEXT_PUBLIC_AUTH_REDIRECT_URL=http://127.0.0.1:3099/wallet/auth/callback/ NEXT_PUBLIC_FX_RATES_API=http://127.0.0.1:4174/fx NEXT_PUBLIC_MARKET_DATA_API=http://127.0.0.1:4174/market NEXT_PUBLIC_PAXEER_HUMAN_API=http://127.0.0.1:4174/human NEXT_PUBLIC_PAXEER_EXPLORER_URL=http://127.0.0.1:4174/explorer NEXT_PUBLIC_PAXEER_USID_PER_PAX=1000 NEXT_PUBLIC_PERPS_GATEWAY_URL=http://127.0.0.1:4174 NEXT_PUBLIC_PNS_CONTROLLER=0x0000000000000000000000000000000000000021 NEXT_PUBLIC_PNS_PUBLIC_RESOLVER=0x0000000000000000000000000000000000000022 NEXT_PUBLIC_PNS_REVERSE_REGISTRAR=0x0000000000000000000000000000000000000023 NEXT_PUBLIC_PAXAI_VIEWS_URL=http://127.0.0.1:4174/rewards NEXT_PUBLIC_PAXAI_MARKET_ID=1010101010101010101010101010101010101010101010101010101010101010 node ../../tools/ui-check/surfaces/wallet/serve.mjs",
   "address": "http://127.0.0.1:3099/",
   "readyPath": "/wallet/",
@@ -101,6 +105,28 @@
               "status": 403
             }
           ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "main",
+          "selector": "div.min-h-screen:has(> div > h1), div.min-h-screen:has(> div > div > h1)"
+        },
+        {
+          "name": "first-heading",
+          "selector": "h1"
+        },
+        {
+          "name": "primary-control",
+          "selector": "button:has-text(\"Recommended\")"
+        },
+        {
+          "name": "wallet-choice-card",
+          "selector": "button:has-text(\"Recommended\")"
+        },
+        {
+          "name": "brand-card",
+          "selector": "div:has(> img[alt=\"shield\"])"
         }
       ]
     },
@@ -24783,7 +24809,7 @@
             },
             {
               "action": "click",
-              "selector": "button:has-text(\"Swap PAX \u2192 USDC\")"
+              "selector": "button:has-text(\"Swap PAX → USDC\")"
             },
             {
               "action": "wait",
@@ -28382,6 +28408,28 @@
             }
           ]
         }
+      ],
+      "parts": [
+        {
+          "name": "main",
+          "selector": "div.min-h-screen:has(> div > h1), div.min-h-screen:has(> div > div > h1)"
+        },
+        {
+          "name": "first-heading",
+          "selector": "h1"
+        },
+        {
+          "name": "primary-control",
+          "selector": "button:has-text(\"Recommended\")"
+        },
+        {
+          "name": "wallet-choice-card",
+          "selector": "button:has-text(\"Recommended\")"
+        },
+        {
+          "name": "brand-card",
+          "selector": "div:has(> img[alt=\"shield\"])"
+        }
       ]
     },
     {
@@ -29112,6 +29160,28 @@
               }
             }
           ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "header h1"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button[aria-label=\"Back\"]"
+        },
+        {
+          "name": "sign-in-link",
+          "selector": "main a:has-text(\"Sign in to wallet\")"
         }
       ]
     },
@@ -29848,6 +29918,28 @@
             }
           ]
         }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "header h1"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button[aria-label=\"Back\"]"
+        },
+        {
+          "name": "sign-in-link",
+          "selector": "main a:has-text(\"Sign in to wallet\")"
+        }
       ]
     },
     {
@@ -30583,19 +30675,115 @@
             }
           ]
         }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "header h1"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button[aria-label=\"Back\"]"
+        },
+        {
+          "name": "sign-in-link",
+          "selector": "main a:has-text(\"Sign in to wallet\")"
+        }
       ]
     },
     {
       "name": "privacy",
-      "path": "/wallet/privacy/"
+      "path": "/wallet/privacy/",
+      "parts": [
+        {
+          "name": "main",
+          "selector": "body > div.min-h-screen, main.min-h-screen"
+        },
+        {
+          "name": "first-heading",
+          "selector": "h1"
+        },
+        {
+          "name": "primary-control",
+          "selector": "a[href^=\"mailto:\"] >> nth=0"
+        },
+        {
+          "name": "list-1-first-row",
+          "selector": "section ul >> nth=0 >> li >> nth=0"
+        },
+        {
+          "name": "list-2-first-row",
+          "selector": "section ul >> nth=1 >> li >> nth=0"
+        },
+        {
+          "name": "list-3-first-row",
+          "selector": "section ul >> nth=2 >> li >> nth=0"
+        },
+        {
+          "name": "list-4-first-row",
+          "selector": "section ul >> nth=3 >> li >> nth=0"
+        },
+        {
+          "name": "list-5-first-row",
+          "selector": "section ul >> nth=4 >> li >> nth=0"
+        },
+        {
+          "name": "list-6-first-row",
+          "selector": "section ul >> nth=5 >> li >> nth=0"
+        },
+        {
+          "name": "list-7-first-row",
+          "selector": "section ul >> nth=6 >> li >> nth=0"
+        }
+      ]
     },
     {
       "name": "offline",
-      "path": "/wallet/offline/"
+      "path": "/wallet/offline/",
+      "parts": [
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "h1"
+        },
+        {
+          "name": "primary-control",
+          "selector": "a:has-text(\"Try again\")"
+        },
+        {
+          "name": "icon-card",
+          "selector": "main > img"
+        }
+      ]
     },
     {
       "name": "auth-callback",
-      "path": "/wallet/auth/callback/"
+      "path": "/wallet/auth/callback/",
+      "parts": [
+        {
+          "name": "main",
+          "selector": "div.min-h-screen:has(button)"
+        },
+        {
+          "name": "status",
+          "selector": "p:has-text(\"Sign-in failed\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "button:has-text(\"Try again\")"
+        }
+      ]
     },
     {
       "name": "bridge",
@@ -33593,6 +33781,32 @@
               "status": 503
             }
           ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Paxeer X\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": "h1"
+        },
+        {
+          "name": "primary-control",
+          "selector": "nav a[href=\"/wallet/\"]"
+        },
+        {
+          "name": "surface-region",
+          "selector": "section[aria-label]"
+        },
+        {
+          "name": "connection-status",
+          "selector": "[data-role=\"not-connected\"]"
         }
       ]
     },
@@ -36622,6 +36836,32 @@
               "status": 503
             }
           ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Paxeer X\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": "h1"
+        },
+        {
+          "name": "primary-control",
+          "selector": "nav a[href=\"/wallet/\"]"
+        },
+        {
+          "name": "surface-region",
+          "selector": "section[aria-label]"
+        },
+        {
+          "name": "connection-status",
+          "selector": "[data-role=\"not-connected\"]"
         }
       ]
     },
@@ -42543,6 +42783,32 @@
             }
           ]
         }
+      ],
+      "parts": [
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Paxeer X\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": "h1"
+        },
+        {
+          "name": "primary-control",
+          "selector": "nav a[href=\"/wallet/\"]"
+        },
+        {
+          "name": "surface-region",
+          "selector": "section[aria-label]"
+        },
+        {
+          "name": "connection-status",
+          "selector": "[data-role=\"not-connected\"]"
+        }
       ]
     },
     {
@@ -45495,6 +45761,32 @@
               "status": 503
             }
           ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Paxeer X\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": "h1"
+        },
+        {
+          "name": "primary-control",
+          "selector": "nav a[href=\"/wallet/\"]"
+        },
+        {
+          "name": "surface-region",
+          "selector": "section[aria-label]"
+        },
+        {
+          "name": "connection-status",
+          "selector": "[data-role=\"not-connected\"]"
         }
       ]
     },
@@ -50702,6 +50994,32 @@
             }
           ]
         }
+      ],
+      "parts": [
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Paxeer X\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": "h1"
+        },
+        {
+          "name": "primary-control",
+          "selector": "nav a[href=\"/wallet/\"]"
+        },
+        {
+          "name": "surface-region",
+          "selector": "section[aria-label]"
+        },
+        {
+          "name": "connection-status",
+          "selector": "[data-role=\"not-connected\"]"
+        }
       ]
     },
     {
@@ -55143,6 +55461,32 @@
               }
             }
           ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "navigation",
+          "selector": "nav[aria-label=\"Paxeer X\"]"
+        },
+        {
+          "name": "first-heading",
+          "selector": "h1"
+        },
+        {
+          "name": "primary-control",
+          "selector": "nav a[href=\"/wallet/\"]"
+        },
+        {
+          "name": "surface-region",
+          "selector": "section[aria-label]"
+        },
+        {
+          "name": "connection-status",
+          "selector": "[data-role=\"not-connected\"]"
         }
       ]
     }

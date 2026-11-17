@@ -52,8 +52,10 @@ export function Chip({
   ...rest
 }: ChipProps) {
   const isOn = selected || pressed === true;
+  const interactive = !!href || !!rest.onClick || pressed !== undefined;
   const classes = cn(
     'inline-flex shrink-0 items-center gap-1.5 py-1 rounded-pill font-bold transition-colors duration-fast',
+    interactive && 'border border-control-edge',
     size === 'sm' ? 'min-h-control-height-sm px-3 text-sm' : 'min-h-control-height-md px-4 text-sm',
     variant === 'token' && 'min-h-[var(--sl-badge-height-sm)] px-2 text-xs',
     isOn
@@ -83,7 +85,7 @@ export function Chip({
   );
   if (href)
     return (
-      <Link href={href} className={classes} aria-current={selected ? 'page' : undefined}>
+      <Link prefetch={false} href={href} className={classes} aria-current={selected ? 'page' : undefined}>
         {body}
       </Link>
     );

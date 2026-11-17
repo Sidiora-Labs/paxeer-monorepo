@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
@@ -119,7 +120,7 @@ describe('terminal coin view, rendered end to end with real providers', () => {
     expect(view.commits() - before).toBeLessThan(60);
     expect(view.container.textContent).toContain('Coin info and safety');
     expect(view.container.querySelector('[aria-label="Active trade preset"]')).not.toBeNull();
-    expect(view.container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(view.container.innerHTML)).not.toMatch(BORDER);
     expect(view.errors.filter(line => /Maximum update depth|is not mounted|Cannot read prop/.test(line))).toEqual([]);
     unmount(view);
   });
@@ -148,7 +149,7 @@ describe('terminal coin view, rendered end to end with real providers', () => {
     expect(text).toContain('Trades');
     expect(view.container.querySelector('[aria-label="Terminal status bar"]')).not.toBeNull();
     expect(view.container.querySelector('[role="status"][aria-label^="Connection"]')?.getAttribute('aria-label')).not.toContain('No pair stream is open');
-    expect(view.container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(view.container.innerHTML)).not.toMatch(BORDER);
     expect(view.errors.filter(line => /Maximum update depth|is not mounted|Cannot read prop/.test(line))).toEqual([]);
     unmount(view);
   });

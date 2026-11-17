@@ -88,26 +88,21 @@ export function CopyControl(props: CopyControlProps) {
       setStatus(nextStatus);
       setMessage(announcement);
       current.current.onFeedback?.(announcement);
+      const duration = getComputedStyle(owner.documentElement).getPropertyValue("--duration-feedback").trim();
+      const milliseconds = Number.parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000);
       timer.current = setTimeout(() => {
         setStatus("idle");
         setMessage("");
         current.current.onFeedback?.("");
-      }, Number.parseFloat(getComputedStyle(owner.documentElement).getPropertyValue("--duration-feedback")));
-    };
-    const command = (event: Event) => {
-      if ("command" in event && event.command === "--copy" && "source" in event && event.source === source) void invoke(event.target);
+      }, milliseconds);
     };
     const click = () => { void invoke(owner.getElementById(targetId)); };
-    if ("CommandEvent" in window) {
-      owner.addEventListener("command", command, true);
-      return () => owner.removeEventListener("command", command, true);
-    }
     source.addEventListener("click", click);
     return () => source.removeEventListener("click", click);
   }, [targetId]);
 
   return <span className="docs-copy-control" data-status={status}>
-    <button ref={button} type="button" className={className} title={title} {...{ command: "--copy", commandfor: targetId }}>
+    <button ref={button} type="button" className={className} title={title}>
       {icon && <svg className="docs-copy-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         {status === "copied" ? <path d="m5 13 4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /> : <><rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.7" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2v1" stroke="currentColor" strokeWidth="1.7" /></>}
       </svg>}

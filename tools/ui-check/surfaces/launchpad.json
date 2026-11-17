@@ -1,0 +1,906 @@
+{
+  "name": "Sidiora Launchpad",
+  "directory": "../../../",
+  "build": "node tools/ui-check/surfaces/launchpad/build.mjs",
+  "start": "node tools/ui-check/surfaces/launchpad/start.mjs",
+  "address": "https://sidiora.test:4173",
+  "readyPath": "/",
+  "views": [
+    {
+      "name": "home",
+      "path": "/",
+      "states": [
+        {
+          "name": "search-dialog",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "callouts yet"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label^=\"Search coins and users (\"]:visible"
+            },
+            {
+              "action": "wait",
+              "text": "Remember recent views on this device"
+            }
+          ]
+        },
+        {
+          "name": "sign-in-dialog",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "callouts yet"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) header button:has-text(\"Sign in\")"
+            },
+            {
+              "action": "wait",
+              "text": "Connect a wallet to sign in"
+            }
+          ]
+        },
+        {
+          "name": "paste-address-dialog",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "callouts yet"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Open a coin from a pasted address\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Paste the coin address here"
+            }
+          ]
+        },
+        {
+          "name": "search-filled",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "callouts yet"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label^=\"Search coins and users (\"]:visible"
+            },
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) input[aria-label=\"Search coins and users by name, symbol, wallet or address\"]",
+              "value": "science"
+            },
+            {
+              "action": "wait",
+              "text": "2 coins, 0 users"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "first-visit",
+      "path": "/?render=first-visit",
+      "states": [
+        {
+          "name": "cookie-consent",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"I understand and agree\")"
+            }
+          ]
+        },
+        {
+          "name": "cookie-accepted",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"I understand and agree\")"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"Accept\")"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "home-empty",
+      "path": "/?render=empty"
+    },
+    {
+      "name": "home-error",
+      "path": "/?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "home-loading",
+      "path": "/?render=loading"
+    },
+    {
+      "name": "auth-callback",
+      "path": "/auth/callback"
+    },
+    {
+      "name": "bounties",
+      "path": "/bounties"
+    },
+    {
+      "name": "bounties-empty",
+      "path": "/bounties?render=empty"
+    },
+    {
+      "name": "bounties-error",
+      "path": "/bounties?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "bounties-loading",
+      "path": "/bounties?render=loading"
+    },
+    {
+      "name": "bounties-bountyId",
+      "path": "/bounties/8e894db0-87e7-4d2a-9f1c-3a192a239ba0"
+    },
+    {
+      "name": "bounties-new",
+      "path": "/bounties/new"
+    },
+    {
+      "name": "chat",
+      "path": "/chat"
+    },
+    {
+      "name": "chat-conversationId",
+      "path": "/chat/7f3b2a10-5c4d-4e8f-9a1b-2c3d4e5f6a7b"
+    },
+    {
+      "name": "coin-address",
+      "path": "/coin/0x1111111111111111111111111111111111111111",
+      "states": [
+        {
+          "name": "trades",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) #coin-tabs-tab-trades"
+            }
+          ]
+        },
+        {
+          "name": "about",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) #coin-tabs-tab-about"
+            }
+          ]
+        },
+        {
+          "name": "callouts",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) #coin-tabs-tab-callouts"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "coin-0x1111111111111111111111111111111111111111-empty",
+      "path": "/coin/0x1111111111111111111111111111111111111111?render=empty"
+    },
+    {
+      "name": "coin-0x1111111111111111111111111111111111111111-error",
+      "path": "/coin/0x1111111111111111111111111111111111111111?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "coin-0x1111111111111111111111111111111111111111-loading",
+      "path": "/coin/0x1111111111111111111111111111111111111111?render=loading"
+    },
+    {
+      "name": "create",
+      "path": "/create",
+      "states": [
+        {
+          "name": "draft-filled",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) #create-name",
+              "value": "Science Inu"
+            },
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) #create-symbol",
+              "value": "SCINU"
+            },
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) #create-description",
+              "value": "A coin for science."
+            }
+          ]
+        },
+        {
+          "name": "social-links",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) summary[aria-controls=\"create-social-links-panel\"]"
+            }
+          ]
+        },
+        {
+          "name": "fee-strategies",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"More options\")"
+            },
+            {
+              "action": "wait",
+              "text": "Fewer options"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "create-chain",
+      "path": "/create/chain",
+      "states": [
+        {
+          "name": "names-filled",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) #chain-name",
+              "value": "science-chain"
+            },
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) #chain-token-name",
+              "value": "Science Inu"
+            },
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) #chain-token-symbol",
+              "value": "SCINU"
+            }
+          ]
+        },
+        {
+          "name": "name-validation",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) #chain-name",
+              "value": "Invalid name"
+            }
+          ]
+        },
+        {
+          "name": "fee-strategies",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"More options\")"
+            },
+            {
+              "action": "wait",
+              "text": "Fewer options"
+            }
+          ]
+        },
+        {
+          "name": "connect-wallet",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"Connect wallet\")"
+            },
+            {
+              "action": "wait",
+              "text": "Connect a wallet to sign in"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docs",
+      "path": "/docs"
+    },
+    {
+      "name": "docs-dmca",
+      "path": "/docs/dmca"
+    },
+    {
+      "name": "docs-do-not-sell",
+      "path": "/docs/do-not-sell"
+    },
+    {
+      "name": "docs-privacy",
+      "path": "/docs/privacy"
+    },
+    {
+      "name": "docs-terms",
+      "path": "/docs/terms"
+    },
+    {
+      "name": "docs-trademark-guidelines",
+      "path": "/docs/trademark-guidelines"
+    },
+    {
+      "name": "explore",
+      "path": "/explore",
+      "states": [
+        {
+          "name": "filter-panel",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Filter\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Filters apply to"
+            }
+          ]
+        },
+        {
+          "name": "column-menu",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Column settings\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Saved on this device"
+            }
+          ]
+        },
+        {
+          "name": "grid",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Column settings\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Saved on this device"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Grid\"]:visible, [role=\"radio\"]:has-text(\"Grid\"):visible"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"Done\")"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "explore-breakout",
+      "path": "/explore?preset=breakout"
+    },
+    {
+      "name": "explore-empty",
+      "path": "/explore?render=empty"
+    },
+    {
+      "name": "explore-error",
+      "path": "/explore?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "explore-loading",
+      "path": "/explore?render=loading"
+    },
+    {
+      "name": "explore-mcap",
+      "path": "/explore?preset=mcap"
+    },
+    {
+      "name": "explore-new",
+      "path": "/explore?preset=new"
+    },
+    {
+      "name": "explore-trending",
+      "path": "/explore?preset=trending"
+    },
+    {
+      "name": "explore-unusual",
+      "path": "/explore?preset=unusual"
+    },
+    {
+      "name": "explore-volume",
+      "path": "/explore?preset=volume"
+    },
+    {
+      "name": "holder-rewards",
+      "path": "/holder-rewards",
+      "states": [
+        {
+          "name": "grid",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) [aria-label=\"Grid view\"]"
+            }
+          ]
+        },
+        {
+          "name": "filters",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Filters\"]"
+            }
+          ]
+        },
+        {
+          "name": "sort",
+          "steps": [
+            {
+              "action": "press",
+              "selector": "html:has([data-shell-ready]) select[name=\"Sort by\"]",
+              "key": "End"
+            },
+            {
+              "action": "press",
+              "selector": "html:has([data-shell-ready]) select[name=\"Sort by\"]",
+              "key": "Enter"
+            },
+            {
+              "action": "press",
+              "selector": "html:has([data-shell-ready]) select[name=\"Sort by\"]",
+              "key": "Escape"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "holder-rewards-empty",
+      "path": "/holder-rewards?render=empty"
+    },
+    {
+      "name": "holder-rewards-error",
+      "path": "/holder-rewards?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "holder-rewards-loading",
+      "path": "/holder-rewards?render=loading"
+    },
+    {
+      "name": "leaderboard",
+      "path": "/leaderboard"
+    },
+    {
+      "name": "leaderboard-callouts",
+      "path": "/leaderboard?tab=callouts"
+    },
+    {
+      "name": "leaderboard-empty",
+      "path": "/leaderboard?render=empty"
+    },
+    {
+      "name": "leaderboard-error",
+      "path": "/leaderboard?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "leaderboard-loading",
+      "path": "/leaderboard?render=loading"
+    },
+    {
+      "name": "leaderboard-month",
+      "path": "/leaderboard?period=1m"
+    },
+    {
+      "name": "leaderboard-rewards",
+      "path": "/leaderboard?tab=rewards"
+    },
+    {
+      "name": "leaderboard-squads",
+      "path": "/leaderboard?tab=squads"
+    },
+    {
+      "name": "leaderboard-week",
+      "path": "/leaderboard?period=1w"
+    },
+    {
+      "name": "live",
+      "path": "/live"
+    },
+    {
+      "name": "live-empty",
+      "path": "/live?render=empty"
+    },
+    {
+      "name": "live-error",
+      "path": "/live?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "live-loading",
+      "path": "/live?render=loading"
+    },
+    {
+      "name": "live-all",
+      "path": "/live/all"
+    },
+    {
+      "name": "live-all-empty",
+      "path": "/live/all?render=empty"
+    },
+    {
+      "name": "live-all-error",
+      "path": "/live/all?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "live-all-loading",
+      "path": "/live/all?render=loading"
+    },
+    {
+      "name": "meta-ag-orders",
+      "path": "/meta-ag/orders"
+    },
+    {
+      "name": "meta-ag-swap",
+      "path": "/meta-ag/swap"
+    },
+    {
+      "name": "new",
+      "path": "/new"
+    },
+    {
+      "name": "not-found",
+      "path": "/page-not-found",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/page-not-found",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "pnl-expired",
+      "path": "/pnl/11111111-1111-4111-8111-111111111111"
+    },
+    {
+      "name": "pnl-missing",
+      "path": "/pnl/22222222-2222-4222-8222-222222222222",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/pnl/22222222-2222-4222-8222-222222222222",
+          "status": 404
+        }
+      ]
+    },
+    {
+      "name": "pnl-error",
+      "path": "/pnl/33333333-3333-4333-8333-333333333333"
+    },
+    {
+      "name": "pnl-cardId",
+      "path": "/pnl/7f3b2a10-5c4d-4e8f-9a1b-2c3d4e5f6a7b"
+    },
+    {
+      "name": "profile",
+      "path": "/profile"
+    },
+    {
+      "name": "profile-walletAddress",
+      "path": "/profile/0x4444444444444444444444444444444444444444",
+      "states": [
+        {
+          "name": "wallets-open",
+          "modes": [
+            "default",
+            "keyboard"
+          ],
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) #profile-wallets"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "profile-0x4444444444444444444444444444444444444444-empty",
+      "path": "/profile/0x4444444444444444444444444444444444444444?render=empty"
+    },
+    {
+      "name": "profile-0x4444444444444444444444444444444444444444-error",
+      "path": "/profile/0x4444444444444444444444444444444444444444?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "profile-0x4444444444444444444444444444444444444444-loading",
+      "path": "/profile/0x4444444444444444444444444444444444444444?render=loading"
+    },
+    {
+      "name": "profile-activity",
+      "path": "/profile/0x4444444444444444444444444444444444444444?tab=activity"
+    },
+    {
+      "name": "profile-closed",
+      "path": "/profile/0x4444444444444444444444444444444444444444?tab=closed"
+    },
+    {
+      "name": "profile-replies",
+      "path": "/profile/0x4444444444444444444444444444444444444444?tab=replies"
+    },
+    {
+      "name": "r-shortCode",
+      "path": "/r/science"
+    },
+    {
+      "name": "rewards",
+      "path": "/rewards"
+    },
+    {
+      "name": "search",
+      "path": "/search"
+    },
+    {
+      "name": "search-q-science-empty",
+      "path": "/search?q=science&render=empty"
+    },
+    {
+      "name": "search-q-science-error",
+      "path": "/search?q=science&render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ]
+    },
+    {
+      "name": "search-q-science-loading",
+      "path": "/search?q=science&render=loading"
+    },
+    {
+      "name": "swap",
+      "path": "/swap",
+      "states": [
+        {
+          "name": "settings",
+          "modes": [
+            "default",
+            "keyboard"
+          ],
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label^=\"Trade settings, slippage\"]"
+            }
+          ]
+        },
+        {
+          "name": "coin-selector",
+          "modes": [
+            "default",
+            "keyboard"
+          ],
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"Select coin\") >> nth=0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "terminal",
+      "path": "/terminal",
+      "states": [
+        {
+          "name": "layout-menu",
+          "modes": [
+            "default",
+            "keyboard"
+          ],
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Terminal layout\"]"
+            }
+          ]
+        },
+        {
+          "name": "settings-menu",
+          "modes": [
+            "default",
+            "keyboard"
+          ],
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Terminal settings\"]"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "terminal-coin",
+      "path": "/terminal/0x1111111111111111111111111111111111111111"
+    },
+    {
+      "name": "terminal-portfolio",
+      "path": "/terminal/portfolio"
+    },
+    {
+      "name": "terminal-rewards",
+      "path": "/terminal/rewards"
+    },
+    {
+      "name": "terminal-track",
+      "path": "/terminal/track"
+    },
+    {
+      "name": "terminal-trenches",
+      "path": "/terminal/trenches"
+    },
+    {
+      "name": "terminal-slug",
+      "path": "/terminal/trending"
+    },
+    {
+      "name": "token",
+      "path": "/token"
+    },
+    {
+      "name": "token-poolAddress",
+      "path": "/token/0x1111111111111111111111111111111111111111"
+    },
+    {
+      "name": "tokens-tokenAddress-metadata",
+      "path": "/tokens/0x3333333333333333333333333333333333333333/metadata"
+    },
+    {
+      "name": "watchlist",
+      "path": "/watchlist"
+    },
+    {
+      "name": "search-q-science",
+      "path": "/search?q=science"
+    }
+  ],
+  "answers": [
+    {
+      "method": "GET",
+      "pattern": "https://www.google-analytics.com/analytics.js",
+      "file": "launchpad/answers/analytics.js",
+      "status": 204,
+      "headers": {
+        "content-type": "text/javascript"
+      }
+    }
+  ],
+  "typeScale": [
+    {
+      "min": 11,
+      "max": 12
+    },
+    {
+      "min": 12,
+      "max": 13
+    },
+    {
+      "min": 13,
+      "max": 14
+    },
+    {
+      "min": 14,
+      "max": 16
+    },
+    {
+      "min": 16,
+      "max": 18
+    },
+    {
+      "min": 20,
+      "max": 24
+    },
+    {
+      "min": 24,
+      "max": 28
+    },
+    {
+      "min": 32,
+      "max": 40
+    },
+    {
+      "min": 48,
+      "max": 64
+    },
+    {
+      "min": 16,
+      "max": 28
+    }
+  ],
+  "buildMs": 600000
+}

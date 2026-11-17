@@ -6,7 +6,7 @@ import { CreateBountyForm } from '@/widgets/bounties/create-bounty-form';
 export default function NewBountyPage() {
   return (
     <div className="mx-auto flex w-full max-w-modal-width-lg flex-col gap-6 px-4 py-6">
-      <Link href="/bounties" className="inline-flex w-fit items-center gap-1 rounded-sm text-sm text-text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-focus">
+      <Link prefetch={false} href="/bounties" className="inline-flex min-h-touch-target-min w-fit items-center gap-1 rounded-sm text-sm text-text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-focus">
         <ArrowLeft aria-hidden="true" className="size-icon-sm" />All bounties
       </Link>
       <header className="flex flex-col gap-1">

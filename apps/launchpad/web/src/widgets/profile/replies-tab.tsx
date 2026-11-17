@@ -102,7 +102,7 @@ export function RepliesTab({ wallet, isOwner = false }: RepliesTabProps) {
         {comments.map(comment => (
           <li key={comment.id} className="rounded-md bg-surface-2 px-3 py-2">
             <div className="flex items-center justify-between gap-3 text-xs text-text-faint">
-              <Link href={poolPath(125, comment.pool_address)} className="truncate font-mono text-text-muted hover:text-text">{comment.parent_id ? 'Replied on' : 'Posted on'} {shortAddress(comment.pool_address)}</Link>
+              <Link prefetch={false} href={poolPath(125, comment.pool_address)} className="truncate font-mono text-text-muted hover:text-text">{comment.parent_id ? 'Replied on' : 'Posted on'} {shortAddress(comment.pool_address)}</Link>
               <span className="shrink-0 tabular-nums">{relativeAge(comment.created_at, now)} ago{comment.like_count > 0 ? ` · ${formatCount(comment.like_count)} likes` : ''}</span>
             </div>
             <p className="mt-1 whitespace-pre-wrap break-words text-sm text-text">{comment.content}</p>

@@ -31,7 +31,7 @@ function ChatMessage({ msg, onReply, replyTarget, onRetry, onRevise, wallet }: {
       <Avatar src={null} name={shortAddress(msg.sender)} size="sm" decorative className="mt-0.5" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <Link href={`/profile/${msg.sender}`} className="font-mono text-xs font-bold text-accent hover:underline">{shortAddress(msg.sender)}</Link>
+          <Link prefetch={false} href={`/profile/${msg.sender}`} className="font-mono text-xs font-bold text-accent hover:underline">{shortAddress(msg.sender)}</Link>
           <time dateTime={new Date(msg.createdAt * 1000).toISOString()} className="text-2xs text-text-faint">{relativeAge(msg.createdAt)}</time>
           <button type="button" onClick={() => onReply(msg)} className="ml-auto text-2xs text-text-faint opacity-0 transition-opacity hover:text-text focus-visible:opacity-100 group-hover:opacity-100">Reply</button>
         </div>
