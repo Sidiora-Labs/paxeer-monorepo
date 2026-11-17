@@ -11,6 +11,8 @@ import { useEventEmitter } from "./useEventEmitter";
 import { useTrack } from "./useTrack";
 import { useWS } from "./useWS";
 
+const EMPTY_SUB_ACCOUNTS: NonNullable<AccountState["subAccounts"]> = [];
+
 export const useAccount = () => {
   const { configStore, keyStore } = useContext(PaxeerNetworkContext);
 
@@ -31,6 +33,11 @@ export const useAccount = () => {
 
   const [state, setState] = useState<AccountState>(account.stateValue);
   const { track } = useTrack();
+  const accountState = useMemo(
+    () =>
+      state.subAccounts ? state : { ...state, subAccounts: EMPTY_SUB_ACCOUNTS },
+    [state],
+  );
 
   const statusChangeHandler = (nextState: AccountState) => {
     setState(() => nextState);
@@ -102,7 +109,7 @@ export const useAccount = () => {
 
   return {
     account,
-    state,
+    state: accountState,
     isSubAccount,
     isMainAccount: !isSubAccount,
     subAccount: {

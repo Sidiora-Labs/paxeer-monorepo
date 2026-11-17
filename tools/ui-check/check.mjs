@@ -406,7 +406,16 @@ async function renderView(worker, surface, view, state, configuration, out, inde
     step = name;
   };
   const findings = [];
-  const addLoad = (values) => { if (active) findings.push({ kind: "load", selector: "document", values }); };
+  const retryCauses = new WeakMap();
+  const addLoad = (values, cause = null) => {
+    if (!active) return;
+    const finding = { kind: "load", selector: "document", values };
+    findings.push(finding);
+    if (cause) retryCauses.set(finding, cause);
+  };
+  let navigationPending = false;
+  let navigationAnswered = false;
+  let navigationFailure = null;
   const expects = state.expects ?? [];
   const answers = [...(state.answers ?? []), ...(view.answers ?? []), ...surface.answers];
   const matchedExpectations = new Set();
@@ -415,7 +424,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
   const endedFailures = [];
   const failedResponses = [];
   const consoleErrors = [];
-  const render = { view: view.name, state: state.name, size: { width, height }, scheme, mode, rendered: false, hasContent: false, cancelled: 0, retried: false, firstDeadlineStep: null, embeddedMessages: [], screenshot: out ? `${String(index + 1).padStart(5, "0")}.png` : null, findings: [] };
+  const render = { view: view.name, state: state.name, size: { width, height }, scheme, mode, rendered: false, hasContent: false, cancelled: 0, retried: false, firstDeadlineStep: null, firstLoadFailure: null, embeddedMessages: [], screenshot: out ? `${String(index + 1).padStart(5, "0")}.png` : null, findings: [] };
   let page;
   const work = async () => {
     try {
@@ -432,7 +441,16 @@ async function renderView(worker, surface, view, state, configuration, out, inde
       await context.route("**/*", async (route) => {
         const request = route.request();
         const url = new URL(request.url());
-        const requestFailed = (error) => addLoad({ source: "requestfailed", method: request.method(), address: url.href, resource: request.resourceType(), message: error.message });
+        const requestFailed = (error, beforeResponse = false) => {
+          const navigation = navigationPending && !navigationAnswered && request.isNavigationRequest() && request.frame() === page.mainFrame();
+          let cause = null;
+          if (beforeResponse && url.origin === surface.address) {
+            if (/\b(?:ECONNRESET|ERR_CONNECTION_CLOSED|ERR_CONNECTION_RESET|ERR_EMPTY_RESPONSE)\b|socket hang up/.test(error.message)) cause = "connection-closed";
+            else if (navigation && (error.name === "TimeoutError" || /\bTimeout \d+ms exceeded\b/.test(error.message))) cause = "navigation-timeout";
+          }
+          if (navigation && cause) navigationFailure = cause;
+          addLoad({ source: "requestfailed", method: request.method(), address: url.href, resource: request.resourceType(), message: error.message }, cause);
+        };
         if (!active) return;
         try {
           if (!["http:", "https:"].includes(url.protocol)) { await route.continue(); return; }
@@ -441,7 +459,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
             try {
               response = await route.fetch({ maxRedirects: 0, timeout: LIMITS.navigationMs });
             } catch (error) {
-              requestFailed(error);
+              requestFailed(error, true);
               if (active) {
                 endedRequests.add(request);
                 await route.abort("failed");
@@ -508,6 +526,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
         addLoad({ source: "requestfailed", method: request.method(), address: request.url(), resource: request.resourceType(), message });
       });
       page.on("response", (response) => {
+        if (navigationPending && response.request().isNavigationRequest() && response.request().frame() === page.mainFrame()) navigationAnswered = true;
         if (!active || response.status() < 400) return;
         const matches = expects.filter((entry) => entry.method === response.request().method() && entry.matcher.test(response.url()) && entry.status === response.status());
         for (const entry of matches) matchedExpectations.add(entry);
@@ -515,7 +534,9 @@ async function renderView(worker, surface, view, state, configuration, out, inde
         else addLoad({ source: "response", method: response.request().method(), address: response.url(), status: response.status(), resource: response.request().resourceType() });
         failedResponses.push({ address: response.url(), status: response.status(), expected: matches.length > 0 });
       });
+      navigationPending = true;
       const response = await page.goto(new URL(view.path, surface.address).href, { waitUntil: "load" });
+      navigationPending = false;
       if (!response || (!response.ok() && !expectedResponses.has(response))) throw new Error(`View did not answer successfully: ${response?.status() ?? "no response"}`);
       if (new URL(page.url()).origin !== surface.address) throw new Error("View navigated outside the surface");
       if (state.steps.length) {
@@ -559,7 +580,9 @@ async function renderView(worker, surface, view, state, configuration, out, inde
       render.rendered = true;
     } catch (error) {
       if (!active) return;
-      addLoad({ source: "render", message: error.message });
+      const cause = navigationPending && !navigationAnswered
+        ? (error.name === "TimeoutError" ? "navigation-timeout" : navigationFailure) : null;
+      addLoad({ source: "render", message: error.message }, cause);
       render.rendered = false;
     }
     if (page && active && out) {
@@ -611,7 +634,9 @@ async function renderView(worker, surface, view, state, configuration, out, inde
   }
   const completed = { ...render };
   completed.findings = findings.map((finding) => ({ view: view.name, state: state.name, size: render.size, scheme, mode, ...finding }));
-  return completed;
+  const loadRetryCause = findings.length && findings.every((finding) => finding.kind === "load" && retryCauses.has(finding))
+    ? { cause: retryCauses.get(findings[0]), ...findings[0].values } : null;
+  return { render: completed, loadRetryCause };
 }
 
 function jobCount(value = Math.min(availableParallelism(), 4)) {
@@ -679,13 +704,16 @@ export async function checkSurface({ surface: filename, out: destination, view: 
           const index = next++;
           const { view, state, configuration, geometry: plan } = tasks[index];
           await openBrowser(worker);
-          let render = await renderView(worker, surface, view, state, configuration, out, index, renderMs, plan);
+          const first = await renderView(worker, surface, view, state, configuration, out, index, renderMs, plan);
+          let render = first.render;
           const deadline = render.findings.find((finding) => finding.values.source === "deadline");
-          if (deadline) {
+          if (deadline || first.loadRetryCause) {
+            await closeBrowser(worker, true);
             await openBrowser(worker);
-            render = await renderView(worker, surface, view, state, configuration, out, index, renderMs, plan);
+            ({ render } = await renderView(worker, surface, view, state, configuration, out, index, renderMs, plan));
             render.retried = true;
-            render.firstDeadlineStep = deadline.values.step;
+            render.firstDeadlineStep = deadline?.values.step ?? null;
+            render.firstLoadFailure = first.loadRetryCause;
           }
           result.renders[index] = render;
         }

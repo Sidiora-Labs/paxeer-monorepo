@@ -3,6 +3,7 @@ import { useAccount } from "@paxeer-network/hooks";
 import { Trans, useTranslation } from "@paxeer-network/i18n";
 import { API, ChainNamespace } from "@paxeer-network/types";
 import { Decimal } from "@paxeer-network/utils";
+import { paxeerChain } from "@paxeer-network/paxeer-backend/core/chain";
 import { InputStatus } from "../../../types";
 import { CurrentChain } from "../../../types";
 import { DEPOSIT_ERROR_CODE_MAP } from "../../../utils";
@@ -46,6 +47,7 @@ export const useDepositValidation = (options: Options) => {
     needSwap,
   } = options;
   const { t } = useTranslation();
+  const isPaxeer = currentChain?.id === paxeerChain.id;
 
   const insufficientBalance = useMemo(() => {
     if (quantity && Number(quantity) > 0) {
@@ -140,7 +142,7 @@ export const useDepositValidation = (options: Options) => {
       const isNotSolBalance =
         Number(dstGasFee) === 0 && Number(nativeBalance) == Number(dstGasFee);
 
-      if (notEnoughGas || isNotSolBalance) {
+      if (notEnoughGas || (!isPaxeer && isNotSolBalance)) {
         return t("transfer.deposit.notEnoughGas", {
           token: nativeSymbol,
         });
@@ -156,6 +158,7 @@ export const useDepositValidation = (options: Options) => {
     insufficientBalance,
     account,
     nativeBalance,
+    isPaxeer,
   ]);
 
   const gasFeeMessage = useMemo(() => {
@@ -206,12 +209,13 @@ export const useDepositValidation = (options: Options) => {
       quantity &&
       Number(quantity) > 0 &&
       depositFee === 0n &&
+      !isPaxeer &&
       !depositFeeRevalidating &&
       account.walletAdapter?.chainNamespace !== ChainNamespace.solana
     ) {
       return t("transfer.deposit.feeUnavailable");
     }
-  }, [t, quantity, depositFee, depositFeeRevalidating, account]);
+  }, [t, quantity, depositFee, depositFeeRevalidating, account, isPaxeer]);
 
   const { inputStatus, hintMessage } = useMemo<{
     inputStatus: InputStatus;
@@ -274,6 +278,9 @@ export const useDepositValidation = (options: Options) => {
     insufficientGasMessage;
 
   const depositDisabled =
+    !quantity ||
+    !Number.isFinite(Number(quantity)) ||
+    Number(quantity) <= 0 ||
     inputStatus === "error" ||
     // if exceed collateral cap, disable deposit button
     isExceedSourceTokenCap ||

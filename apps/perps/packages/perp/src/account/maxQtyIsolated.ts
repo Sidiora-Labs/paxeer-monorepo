@@ -331,10 +331,12 @@ export function maxQtyForIsolatedMargin(inputs: {
 
   // Calculate max_notional
   const maxNotional = Math.min(
-    new Decimal(1)
-      .div(new Decimal(leverage).mul(IMR_Factor))
-      .pow(5 / 4)
-      .toNumber(),
+    IMR_Factor === 0
+      ? Infinity
+      : new Decimal(1)
+          .div(new Decimal(leverage).mul(IMR_Factor))
+          .pow(5 / 4)
+          .toNumber(),
     symbolMaxNotional,
   );
 
@@ -353,11 +355,14 @@ export function maxQtyForIsolatedMargin(inputs: {
         .div(currentOrderReferencePrice)
         .mul(MaxQtySafetyFactor)
         .toNumber();
-      const maxQtyByNotional = new Decimal(maxNotional)
-        .sub(new Decimal(markPrice).mul(positionQty))
-        .sub(pendingLongNotional)
-        .div(currentOrderReferencePrice)
-        .toNumber();
+      const maxQtyByNotional =
+        maxNotional === Infinity
+          ? Infinity
+          : new Decimal(maxNotional)
+              .sub(new Decimal(markPrice).mul(positionQty))
+              .sub(pendingLongNotional)
+              .div(currentOrderReferencePrice)
+              .toNumber();
       return Math.max(0, Math.min(maxQtyByBalance, maxQtyByNotional));
     } else {
       // Short position - use binary search
@@ -397,11 +402,14 @@ export function maxQtyForIsolatedMargin(inputs: {
         .mul(MaxQtySafetyFactor)
         .toNumber();
       // Use abs(position_qty) for short positions
-      const maxQtyByNotional = new Decimal(maxNotional)
-        .sub(new Decimal(markPrice).mul(Math.abs(positionQty)))
-        .sub(pendingSellNotional)
-        .div(currentOrderReferencePrice)
-        .toNumber();
+      const maxQtyByNotional =
+        maxNotional === Infinity
+          ? Infinity
+          : new Decimal(maxNotional)
+              .sub(new Decimal(markPrice).mul(Math.abs(positionQty)))
+              .sub(pendingSellNotional)
+              .div(currentOrderReferencePrice)
+              .toNumber();
       return Math.max(0, Math.min(maxQtyByBalance, maxQtyByNotional));
     } else {
       // Long position - use binary search
@@ -481,7 +489,15 @@ function maxQtyIsolatedBinarySearch(
 
   // Initialize search interval
   let left = Math.max(0, Math.max(0, Math.abs(positionQty)) - pendingOrdersQty);
-  let right = new Decimal(maxNotional)
+  // Closing the position plus affordable opening quantity bounds the search
+  // even when the venue has no power-law notional cap (IMR factor zero).
+  const searchNotional =
+    maxNotional === Infinity
+      ? new Decimal(availableBalance)
+          .div(isolatedMarginRate({ leverage, isoTakerFeeBuffer }))
+          .toNumber()
+      : maxNotional;
+  let right = new Decimal(searchNotional)
     .div(currentOrderReferencePrice)
     .add(Math.abs(positionQty))
     .toNumber();
@@ -528,7 +544,8 @@ function maxQtyIsolatedBinarySearch(
 
     // Check conditions
     const frozenOk = orderFrozen.lte(availableBalance);
-    const notionalOk = openNotional.lte(maxNotional);
+    const notionalOk =
+      maxNotional === Infinity || openNotional.lte(maxNotional);
 
     if (frozenOk && notionalOk) {
       left = mid;

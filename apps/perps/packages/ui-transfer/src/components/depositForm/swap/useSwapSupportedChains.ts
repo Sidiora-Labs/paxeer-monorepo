@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useSWR } from "@paxeer-network/hooks";
+import { paxeerChain } from "@paxeer-network/paxeer-backend/core/chain";
 import { fetcher } from "../utils";
 import type { SupportedChainItem, SupportedChainsResponse } from "./type";
 
@@ -7,8 +8,9 @@ const SUPPORTED_CHAINS_URL =
   "https://api.woofi.com/woofi_dex/depositor/supported_chains";
 
 export const useSwapSupportedChains = (chainId?: number | string) => {
+  const enabled = !!chainId && Number(chainId) !== paxeerChain.id;
   const { data, isLoading } = useSWR<SupportedChainsResponse>(
-    SUPPORTED_CHAINS_URL,
+    enabled ? SUPPORTED_CHAINS_URL : null,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -16,9 +18,9 @@ export const useSwapSupportedChains = (chainId?: number | string) => {
   );
 
   const chains = useMemo((): SupportedChainItem[] => {
-    if (!data || data.status !== "ok") return [];
+    if (!enabled || !data || data.status !== "ok") return [];
     return data.data?.perp_vault?.filter((c) => c.same_chain_deposit === true);
-  }, [data]);
+  }, [data, enabled]);
 
   const chain = useMemo(() => {
     if (!chainId || !chains?.length) return null;

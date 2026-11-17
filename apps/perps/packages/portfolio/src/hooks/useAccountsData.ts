@@ -5,6 +5,13 @@ import { useAccount, useCollateral } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
 import type { API } from "@paxeer-network/types";
 
+const EMPTY_SUB_ACCOUNTS: NonNullable<
+  ReturnType<typeof useAccount>["state"]["subAccounts"]
+> = [];
+
+const EMPTY_HOLDINGS: NonNullable<ReturnType<typeof useCollateral>["holding"]> =
+  [];
+
 const EMPTY_HOLDING: Partial<API.Holding> = {
   token: "USDC",
   holding: 0,
@@ -23,8 +30,8 @@ export interface AccountWithChildren {
 export const useAccountsData = (): AccountWithChildren[] => {
   const { t } = useTranslation();
   const { state, isMainAccount } = useAccount();
-  const { holding = [] } = useCollateral();
-  const subAccounts = state.subAccounts ?? [];
+  const { holding = EMPTY_HOLDINGS } = useCollateral();
+  const subAccounts = state.subAccounts ?? EMPTY_SUB_ACCOUNTS;
 
   return useMemo(() => {
     return produce<any[]>(subAccounts, (draft) => {
