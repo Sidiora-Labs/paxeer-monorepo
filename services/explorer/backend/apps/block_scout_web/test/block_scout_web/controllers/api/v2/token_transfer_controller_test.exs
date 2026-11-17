@@ -162,7 +162,7 @@ defmodule BlockScoutWeb.API.V2.TokenTransferControllerTest do
       assert List.first(response["items"])["token_type"] == "ERC-7984"
     end
 
-    test "returns all transfers if filter is incorrect", %{conn: conn} do
+    test "rejects an unsupported type and returns all unfiltered transfers", %{conn: conn} do
       transaction =
         :transaction
         |> insert()
@@ -183,7 +183,18 @@ defmodule BlockScoutWeb.API.V2.TokenTransferControllerTest do
         token_type: "ERC-20"
       )
 
-      request = get(conn, "/api/v2/token-transfers?type=ERC-20")
+      request = get(conn, "/api/v2/token-transfers?type=ERC-100500")
+
+      assert %{"errors" => errors} = json_response(request, 422)
+      assert length(errors) == 3
+
+      assert Enum.all?(errors, fn error ->
+               match?(%{"title" => "Invalid value", "source" => %{"pointer" => "/type"}}, error)
+             end)
+
+      assert Enum.any?(errors, &String.starts_with?(&1["detail"], "Invalid format. Expected"))
+
+      request = get(conn, "/api/v2/token-transfers")
 
       assert response = json_response(request, 200)
       assert Enum.count(response["items"]) == 2

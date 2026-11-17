@@ -507,6 +507,12 @@ for row in rows:
         continue
     assert row["health"] == "/varz", row
     assert row["vars"]["RAILWAY_RUN_UID"] == "0", row
+    assert "NATS_MAX_FILE_STORE" in row["vars"], row
+    file_store = row["vars"]["NATS_MAX_FILE_STORE"]
+    size = re.fullmatch(r"([0-9]+)([KMGTP]?)(?:B)?", file_store, re.IGNORECASE)
+    assert size is not None, (row["name"], file_store)
+    file_store_bytes = int(size[1]) * 1024 ** " KMGTP".index(size[2].upper() or " ")
+    assert file_store_bytes >= 40 * 1024 ** 3, (row["name"], file_store_bytes)
     routes = row["vars"]["NATS_ROUTES"]
     assert routes.startswith("[") and routes.endswith("]"), routes
     members = routes[1:-1].split(",")

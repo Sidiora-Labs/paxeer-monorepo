@@ -20,7 +20,7 @@ defmodule Explorer.Repair.PriceAcceptanceReplayPaceTest do
   @base 60_000_000
 
   setup do
-    Explorer.TestHelper.start_migration_owner!()
+    Explorer.MigrationCase.start_owner!()
     assert Ecto.Migrator.down(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false) in [:ok, :already_down]
     assert :ok = Ecto.Migrator.up(Repo, @version, BackfillPaxeerXPriceAcceptance, log: false)
 

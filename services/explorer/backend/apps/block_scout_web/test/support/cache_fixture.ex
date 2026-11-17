@@ -10,7 +10,7 @@ defmodule BlockScoutWeb.CacheFixture do
 
   import ExUnit.Assertions, only: [flunk: 1]
 
-  alias Explorer.Chain.Cache.{Accounts, Transactions}
+  alias Explorer.Chain.Cache.{Accounts, BlockNumber, Blocks, Transactions}
 
   def checkout!(cleanup? \\ false)
 
@@ -63,7 +63,7 @@ defmodule BlockScoutWeb.CacheFixture do
 
   @doc false
   def reset!(supervisor) do
-    Enum.each([Transactions, Accounts], fn cache ->
+    Enum.each([BlockNumber, Blocks, Transactions, Accounts], fn cache ->
       id = cache.child_id()
 
       case Supervisor.terminate_child(supervisor, id) do

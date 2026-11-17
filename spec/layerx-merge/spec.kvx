@@ -15394,6 +15394,30 @@ value = "Every package file of the repository that builds with the 16 line of th
 basis = "Gotcha 4633."
 affects = []
 
+[decision.3714]
+title = "A render that ends at its deadline is rendered again once in a new browser"
+value = "The render check renders a view again once when the render ends at its deadline: it closes the browser of that render, starts a new one and renders the same view, state, size, scheme and mode with the same bound. The outcome of the second render counts. A second end at the deadline is the finding it was before, and a render that ends for another cause is not rendered again. The result and the summary name the count of renders that were rendered again. The bound of a render, the count of renders at once, the views, the states, the modes and the kinds of finding stay as they are. For a render that holds when it is rendered again this takes the place of the last sentence of decision 3702; a page that does not settle in both renders is repaired in the page. Task 22.44.83 changes the check."
+basis = "Gotcha 4634. Decisions 3591 and 3702."
+affects = []
+
+[decision.3715]
+title = "A qualification test module that takes helpers from a module of a service loads the file that holds them on the main line"
+value = "A module under tools/qualification that loads a module of a service by its path names the file the main line holds, and it takes each helper in its present form. The two modules of gotcha 4635 load services/platform/hosted/human/test_merged_owner.py. No helper is copied into tools/qualification and no file of the service changes for it. The collection of the directory tools/qualification holds with the native selection and without it. Task 22.39.774 changes the two modules."
+basis = "Gotcha 4635. Decision 3046."
+affects = []
+
+[decision.3716]
+title = "The verification of a committed journey is named committed in the schema, the human service and the web application"
+value = "The type VerificationLevel declares committed as the variant of the committed rung, and it ranks where checkpoint-finalised ranks. The labels checkpoint-finalised, paxeer-finalised and settlement-anchored are retired decoding values: the schema keeps them declared so that stored history and earlier answers decode, the service gives none of them in a new answer, and the web application shows each of them as it shows committed. The change is additive within the major version: the minor version of the schema takes the next number with its row of compatibility. A task that changes a declaration of the schema on purpose writes the baseline again with the command the schema tool names and writes the generated client again, both in the same task. Task 22.39.775 brings the schema, the schema tool, the service and the web application to this rule."
+basis = "Gotcha 4636. Decision 3046."
+affects = []
+
+[decision.3717]
+title = "The file store of a perps broker holds the whole age of the stream with room for a late publication, and the hub attaches again when its consumer is silent behind the stream"
+value = "The file store of each broker of the perps data stream is sized by one rule, which docs/release/variables/service-platform.md states: the time the stream keeps a message, times the events of one second, times the bytes of one stored message, and on top of that the same product for the longest time that outbox rows may wait before they are published. The volume of a broker is larger than its file store. The project file of the perps deployment gives each broker 40G. That is the least value: a deployment with more markets, a faster pace of blocks or a longer wait computes its own by the rule and never names less. When the consumer of the hub has delivered nothing for the time after which the hub asks for the stream, and the stream answers with a last sequence beyond the last message the hub applied, the hub closes that consumer and attaches a new one by the rules of a later attach, at the sequence after the last applied message. It does so again after each further such time while the condition holds. No message is applied twice and none is left out, no socket is closed and no loss is signalled for it as long as the stream still holds the message after the last applied one; the rules for a gap, for a stream created anew and for a stream that stays unanswered stay as they are. A consumer that is silent because the stream holds nothing newer is kept. Task 22.39.776 brings the hub to this rule and task 22.39.777 the project file and the document."
+basis = "Gotcha 4637. Decision 3709."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45054,6 +45078,51 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.777]
+title = "Give the brokers of the perps deployment a file store that holds the whole age of the stream"
+reqs = ["22998.1"]
+touches = ["deploy", "tools/deploy/tests", "docs/release/variables/service-platform.md"]
+tests = []
+verification_contract = "bash tools/deploy/tests/*-perps-project.test.sh && ! grep -q -e NATS_MAX_FILE_STORE.=..8G deploy/*-perps-project.kvx && grep -c -e NATS_MAX_FILE_STORE.=..40G deploy/*-perps-project.kvx && grep -c 40G docs/release/variables/service-platform.md"
+do_1 = "do_1 Gotcha 4637, decision 3717. Read the project file of the perps deployment under deploy, the tool under tools/deploy that reads it with its case under tools/deploy/tests, services/platform/perps-data/internal/stream/layout.go, services/platform/perps-data/deploy/nats/nats.conf, the cases of services/platform/perps-data/deploy and the rows of the perps brokers in docs/release/variables/service-platform.md. List in the final message every place of the repository that names a value for the setting NATS_MAX_FILE_STORE, with the value."
+symbols = []
+
+[capability.22.39.776]
+title = "Let the hub of the perps gateway attach again when its consumer is silent behind the stream"
+reqs = ["22998.1"]
+touches = ["services/platform/perps-data"]
+tests = []
+verification_contract = "git grep -q TestHubReattach -- services/platform/perps-data/internal/ws && go test -count=1 -timeout 30m -run TestHub ./services/platform/perps-data/internal/ws/ ./services/platform/perps-data/internal/delivery/natsdriver/"
+do_1 = "do_1 Gotcha 4637, decision 3717. Read services/platform/perps-data/internal/ws/hub.go, services/platform/perps-data/internal/delivery/natsdriver/driver.go, the cases of both packages and services/platform/perps-data/cmd/perps-gateway/main.go. List in the final message every way in which the consumer of the hub can end or fall silent: an error of a fetch, a closed iterator, a consumer removed on the broker, a start of the server that held the consumer, a connection lost and regained. For each, say what the client library reports to the driver, what the driver returns to the hub and what the hub does, and prove each answer with the broker of the cases where that is possible."
+symbols = []
+
+[capability.22.39.775]
+title = "Name the verification of a committed journey committed in the schema of the human API, its tool, the service and the web application"
+reqs = ["22998.1"]
+touches = ["services/human/schema/human-api", "services/human/tools/schema-check", "services/human/crates/layerx-human-service", "apps/web"]
+tests = []
+verification_contract = "cargo run --manifest-path services/human/tools/schema-check/Cargo.toml --locked -- services/human/schema/human-api && cargo test --locked --manifest-path services/human/tools/schema-check/Cargo.toml && make -s human-check-api && sh tools/runtime/run-with-clock.sh cargo test --manifest-path services/human/Cargo.toml --locked -p layerx-human-service --lib && npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component"
+do_1 = "do_1 Gotcha 4636, decision 3716. Read services/human/schema/human-api/journeys.kvx, services/human/schema/human-api/home.kvx, services/human/schema/human-api/v1.kvx, services/human/schema/human-api/compatibility.kvx, the README of that directory, the library and the tests of services/human/tools/schema-check, services/human/crates/layerx-human-service/src/server/schema.rs, services/human/crates/layerx-human-service/src/server/production_reads.rs, apps/web/src/api/generated/index.ts, apps/web/src/kit/model.ts and the Makefile targets human-gen-api and human-check-api. List in the final message every place under the paths that names a variant of VerificationLevel, with the value it names and whether it writes an answer, decodes one or shows one."
+symbols = []
+
+[capability.22.39.774]
+title = "Let two qualification test modules load the present module of the owner helpers"
+reqs = ["22998.1"]
+touches = ["tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py", "tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py"]
+tests = []
+verification_contract = "python3 -m pytest -q --collect-only -m native tools/qualification && python3 -m pytest -q --collect-only tools/qualification/paxeer-x/tests"
+do_1 = "do_1 Gotcha 4635, decision 3715. Read tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py, tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py, services/platform/hosted/human/test_merged_owner.py and, read only, the step of .github/workflows/node-build.yml that runs the cases of tools/qualification with the native selection. List in the final message every name the two modules take from the module they load by path, and where each name is defined on the main line."
+symbols = []
+
+[capability.22.44.83]
+title = "Let the render check render a view again once when a render ends at its deadline"
+reqs = ["22998.1"]
+touches = ["tools/ui-check"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4634, decision 3714. Read tools/ui-check/check.mjs, tools/ui-check/browser.mjs, tools/ui-check/config.mjs, tools/ui-check/README.md and tools/ui-check/test/check.test.mjs. List in the final message where a render ends at its deadline, what the result holds for such a render and how the browser of a render is closed and opened."
+symbols = []
 
 [capability.22.39.773]
 title = "Bring the packages of the 16 line of the web framework to release 16.4.6"
@@ -175258,6 +175327,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.83]
+title = "Let the render check render a view again once when a render ends at its deadline"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.83"]
+interfaces = []
+do_1 = "do_1 Gotcha 4634, decision 3714. Read tools/ui-check/check.mjs, tools/ui-check/browser.mjs, tools/ui-check/config.mjs, tools/ui-check/README.md and tools/ui-check/test/check.test.mjs. List in the final message where a render ends at its deadline, what the result holds for such a render and how the browser of a render is closed and opened."
+do_2 = "do_2 A render that ends at its deadline is rendered again once: the browser it ran in is closed with force, a new browser is started, and the same view, state, size, scheme and mode are rendered with the same bound. The outcome of the second render takes the place of the first one in the result, with its findings, its measures and its screenshot under the same name. When the second render ends at its deadline too, the finding of the deadline stands as before. A render that ends for another cause is not rendered again, and no render is rendered more than twice. A geometry plan of a render belongs to the render whose outcome counts, and the option that writes a geometry file writes from that render."
+do_3 = "do_3 The result names for each render whether it was rendered again and the step at which the first render ended. The summary line of a view and the Total line print the count of renders that were rendered again; the present parts of both lines keep their words and their order, and the new count follows them. A render that holds when it is rendered again is no finding and does not change the status of the check. The order of the renders in the result and the names of the screenshots stay as they are with every value of the option jobs."
+do_4 = "do_4 The README of the check describes the second render in present tense: when it happens, what counts, what the result and the summary print. The bound of a render, the option jobs and the kinds of finding stay as they are, and the README says so where it describes the deadline."
+do_5 = "do_5 Cases in tools/ui-check/test/check.test.mjs with fixtures of their own and a small bound given to the check: a view whose first render does not settle inside the bound and whose second render does ends with the outcome of the second render, a count of one and a passing status; a view that never settles is rendered twice and no more, holds one finding of the deadline and fails the check; a view with a finding of another kind is rendered once; and with the option jobs at two the order of the renders and the names of the screenshots are the ones of a run without a second render. No present case is removed or weakened."
+do_6 = "do_6 Run the cases of the check by hand and read the summary. The files of tools/ui-check are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.773]
 title = "Bring the packages of the 16 line of the web framework to release 16.4.6"
 status = "pending"
@@ -175356,7 +175458,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.80]
 title = "Bring the developer dashboard back to the shell and the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.77"]
@@ -175389,7 +175491,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.79]
 title = "Bring the bridge application back to the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.78"]
@@ -203800,6 +203902,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.775]
+title = "Name the verification of a committed journey committed in the schema of the human API, its tool, the service and the web application"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.775"]
+interfaces = []
+do_1 = "do_1 Gotcha 4636, decision 3716. Read services/human/schema/human-api/journeys.kvx, services/human/schema/human-api/home.kvx, services/human/schema/human-api/v1.kvx, services/human/schema/human-api/compatibility.kvx, the README of that directory, the library and the tests of services/human/tools/schema-check, services/human/crates/layerx-human-service/src/server/schema.rs, services/human/crates/layerx-human-service/src/server/production_reads.rs, apps/web/src/api/generated/index.ts, apps/web/src/kit/model.ts and the Makefile targets human-gen-api and human-check-api. List in the final message every place under the paths that names a variant of VerificationLevel, with the value it names and whether it writes an answer, decodes one or shows one."
+do_2 = "do_2 The type VerificationLevel declares the variant committed; the mapping of rungs gives it for the committed rung and it ranks where checkpoint-finalised ranks. checkpoint-finalised joins the retired decoding values beside paxeer-finalised and settlement-anchored and stays declared, and the texts of the type and of the states that name it say so in present tense. The minor version of the schema takes the next number and services/human/schema/human-api/compatibility.kvx gets its row. No variant, field or operation is removed, and no other type changes."
+do_3 = "do_3 A golden answer that stands for a present answer of the service names committed where it named checkpoint-finalised; the golden answers of the historical decode keep their labels, and one golden answer at least still decodes each retired label. The cases of the schema tool name the mapping and the variants of the second step, and the check that reads the variants in use and the retired ones holds. Write the baseline again with the command the schema tool names, after every other change of the schema, and read its difference: it holds the changes of this task and the three declarations of journeys.kvx as the main line has them, and nothing else."
+do_4 = "do_4 The service takes the variant committed from the declaration and no longer puts committed in place of a retired label when it loads the schema. What it gives stays as it is, committed for the committed rung and receipt-verified for the receipted rung, and a stored row or an earlier answer with a retired label still decodes. No behaviour of a route changes."
+do_5 = "do_5 Write the generated client again with the target human-gen-api; the target human-check-api holds. The models of the web application under apps/web/src take committed as the value of the committed rung and show it with the word and the mark they show for checkpoint-finalised; a retired label in an answer is shown the same way. No text of the copy catalog changes and no size or part of a view changes. A fixture or a case of the web application that stands for a present answer names committed; one case at least decodes an answer with committed and one an answer with each retired label. Task 22.44.81 changes sizes under apps/web/src at the same time: change only the files this task needs, and when the main line holds that task take it and keep both changes."
+do_6 = "do_6 Run by hand the schema tool over the schema directory, the tests of the schema tool, the cases of the service crate that read the schema directory, the cases of the web application of the verification, and python3 -m pytest -q -m native tools/qualification/test_beta_driver.py where the packages of tools/qualification/requirements.txt are present; give in the final message the exit code of each execution that case lists. The files of services/human/schema/human-api, services/human/tools/schema-check, services/human/crates/layerx-human-service and apps/web are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human/schema/human-api", "services/human/tools/schema-check", "services/human/crates/layerx-human-service", "apps/web"]
+tests = []
+planned_paths = []
+build_cmd = "make human-js-install && make agent-sdk-ts-build && cargo build --locked --manifest-path services/human/tools/schema-check/Cargo.toml"
+verify_cmd = "cargo run --manifest-path services/human/tools/schema-check/Cargo.toml --locked -- services/human/schema/human-api && cargo test --locked --manifest-path services/human/tools/schema-check/Cargo.toml && make -s human-check-api && sh tools/runtime/run-with-clock.sh cargo test --manifest-path services/human/Cargo.toml --locked -p layerx-human-service --lib && npm --prefix apps/web run build:ui && npm --prefix apps/web run typecheck && npm --prefix apps/web run test:component"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -250312,9 +250447,73 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.777]
+title = "Give the brokers of the perps deployment a file store that holds the whole age of the stream"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.777"]
+interfaces = []
+do_1 = "do_1 Gotcha 4637, decision 3717. Read the project file of the perps deployment under deploy, the tool under tools/deploy that reads it with its case under tools/deploy/tests, services/platform/perps-data/internal/stream/layout.go, services/platform/perps-data/deploy/nats/nats.conf, the cases of services/platform/perps-data/deploy and the rows of the perps brokers in docs/release/variables/service-platform.md. List in the final message every place of the repository that names a value for the setting NATS_MAX_FILE_STORE, with the value."
+do_2 = "do_2 The project file gives each of its three brokers the value 40G for the setting, and a comment line above the first of them names the rule of decision 3717 in one sentence. No other row and no other value of the project file changes."
+do_3 = "do_3 The row of the setting in docs/release/variables/service-platform.md says what the setting bounds, and a short paragraph beside the rows of the perps brokers states the rule of decision 3717 in present tense: the time the stream keeps a message, the events of one second, the bytes of one stored message, the room for outbox rows that are published late, that the stream refuses a new message when the file store is full, that the volume of a broker is larger than its file store, and that 40G is the least value. The document keeps its form, and where a check of the repository reads the document it holds."
+do_4 = "do_4 The case of the perps project tool under tools/deploy/tests asserts that every broker row of the project file names the setting and that its value, read as a count of bytes, is no less than 40G; it does not pass with the earlier value. No other assertion of that case changes."
+do_5 = "do_5 Run the case of the perps project tool by hand and read its summary. The files of services/platform/perps-data are outside the paths of this task: the cases of its deployment directory keep the value they use. The project file, the case under tools/deploy/tests and docs/release/variables/service-platform.md are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy", "tools/deploy/tests", "docs/release/variables/service-platform.md"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/*-perps-project.py"
+verify_cmd = "bash tools/deploy/tests/*-perps-project.test.sh && ! grep -q -e NATS_MAX_FILE_STORE.=..8G deploy/*-perps-project.kvx && grep -c -e NATS_MAX_FILE_STORE.=..40G deploy/*-perps-project.kvx && grep -c 40G docs/release/variables/service-platform.md"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.776]
+title = "Let the hub of the perps gateway attach again when its consumer is silent behind the stream"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.776"]
+interfaces = []
+do_1 = "do_1 Gotcha 4637, decision 3717. Read services/platform/perps-data/internal/ws/hub.go, services/platform/perps-data/internal/delivery/natsdriver/driver.go, the cases of both packages and services/platform/perps-data/cmd/perps-gateway/main.go. List in the final message every way in which the consumer of the hub can end or fall silent: an error of a fetch, a closed iterator, a consumer removed on the broker, a start of the server that held the consumer, a connection lost and regained. For each, say what the client library reports to the driver, what the driver returns to the hub and what the hub does, and prove each answer with the broker of the cases where that is possible."
+do_2 = "do_2 The fetch loop of the hub follows decision 3717: when the consumer has delivered nothing for the time after which the hub asks for the stream, the hub reads the last sequence of the stream in the same bounded request, and when it lies beyond the last applied message the hub ends that consumer and attaches a new one at the sequence after the last applied message, through the path a later attach already takes. The hub writes one log line for it with the last applied message and the last sequence of the stream. While the condition holds it does so again after each further such time and not more often. A consumer that is silent because the stream holds nothing newer is kept. The rules for a gap, for a stream created anew or gone back, for the outage that closes the subscribed sockets and for the first attach of the process stay as they are."
+do_3 = "do_3 Where the client library tells the driver that the broker no longer holds the ordered consumer or that its heartbeats are missing, the driver returns that as an error of the fetch and not as an empty fetch, so that the hub attaches again at once. Where the library tells nothing, the rule of the second step covers it. The durable consumer of the driver and every other caller of the driver keep their behaviour."
+do_4 = "do_4 Cases with the name prefix TestHubReattach in the ws package, and one of the same prefix in the driver package where the driver changes. The cases use the real broker and the real PostgreSQL database that the present cases of the package use. With a hub that runs and a subscribed socket: the consumer of the hub is removed on the broker and messages are published after it; the broker of the case is shut down and started again on the same store directory and messages are published after it. In both the hub applies every message once and in order within a bound the case names, the socket stays open and receives the frames, and no loss is signalled. A hub whose stream holds nothing newer attaches no new consumer over several of the probe times. A stream created anew still closes the subscribed sockets as the present case shows. The present cases of the package keep passing; none is removed or weakened."
+do_5 = "do_5 Run by hand the cases of the ws package and of the driver package and read each summary. The files of services/platform/perps-data are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/perps-data"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./services/platform/perps-data/... && go vet ./services/platform/perps-data/internal/ws/ ./services/platform/perps-data/internal/delivery/natsdriver/"
+verify_cmd = "git grep -q TestHubReattach -- services/platform/perps-data/internal/ws && go test -count=1 -timeout 30m -run TestHub ./services/platform/perps-data/internal/ws/ ./services/platform/perps-data/internal/delivery/natsdriver/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.772]
 title = "Bound the age of the price rows per block in the perps data service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.771"]
@@ -387890,6 +388089,38 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.39.774]
+title = "Let two qualification test modules load the present module of the owner helpers"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.774"]
+interfaces = []
+do_1 = "do_1 Gotcha 4635, decision 3715. Read tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py, tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py, services/platform/hosted/human/test_merged_owner.py and, read only, the step of .github/workflows/node-build.yml that runs the cases of tools/qualification with the native selection. List in the final message every name the two modules take from the module they load by path, and where each name is defined on the main line."
+do_2 = "do_2 Both modules load services/platform/hosted/human/test_merged_owner.py in place of the file the main line does not hold. Every name they take from it is one that module holds; where a helper has another form today, the module follows the present form. No file under services changes, and no helper is copied into tools/qualification."
+do_3 = "do_3 Read the two modules for every other file they load or read by a path and check that the main line holds each one; a path it does not hold is brought to the file that holds the content today. Name in the final message each such path and what it became."
+do_4 = "do_4 Run the cases of the two modules by hand and read the summaries. A case that does not hold for a cause inside the two modules, such as a name or a path of an earlier state, is repaired there; no case is removed, skipped or weakened. A case that does not hold for a cause outside the two modules is named in the final message with its first message and is left as it is."
+do_5 = "do_5 Run by hand the collection of the directory tools/qualification with the native selection and without it and read that neither names an error. The two modules are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py", "tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q --collect-only -m native tools/qualification && python3 -m pytest -q --collect-only tools/qualification/paxeer-x/tests"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.708]
 title = "Let the definition of the hosted gateway name the indexer origin and the consensus route"
 status = "done"
@@ -467738,7 +467969,7 @@ do_9 = "do_9 Decision 3669, gotcha 4586. The work of the earlier candidate stays
 
 [task.22.39.688]
 title = "Let the suite of the explorer backend pass whole with no path in the builder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.634", "22.39.685", "22.39.686", "22.39.687", "22.39.695"]
