@@ -175734,7 +175734,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.783]
 title = "Give the deposit of the native binding its allowance address and a fee formed from the gas of its calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175767,7 +175767,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.782]
 title = "Bring the views of the trading workspace to rest with a connected account so that a change of the route shows its view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
