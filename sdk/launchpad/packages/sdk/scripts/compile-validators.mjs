@@ -9,7 +9,7 @@ import { fullFormats } from 'ajv-formats/dist/formats.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = path => JSON.parse(readFileSync(resolve(root, path), 'utf8'));
 const v1Document = read('src/schemas.gen.json');
-const v2Document = read('../sdk-v2/src/schemas.gen.json');
+const v2Document = read('src/schemas-v2.gen.json');
 const operationsSource = readFileSync(resolve(root, 'src/operations.gen.ts'), 'utf8');
 const operationsMatch = /export const operationDefinitions = (\{[\s\S]*\}) as const;\s*$/.exec(operationsSource);
 if (!operationsMatch) throw new Error('operations.gen.ts does not contain a JSON operation definition literal');

@@ -1,6 +1,6 @@
 import { decodeContract, errorsText } from './validate.js';
 import type { ContractTypes } from './types.gen.js';
-import type { ContractTypes as GeneratedV2ContractTypes, PoolDetailData as GeneratedPoolDetailData, PoolDetailResponse as GeneratedPoolDetailResponse } from '@kindle/sdk-v2/types';
+import type { ContractTypes as GeneratedV2ContractTypes, PoolDetailData as GeneratedPoolDetailData, PoolDetailResponse as GeneratedPoolDetailResponse } from './types-v2.gen.js';
 import { v2ContractValidators } from './validators-v2.gen.js';
 
 export function decodeV2Contract<N extends keyof V2ContractTypes>(
