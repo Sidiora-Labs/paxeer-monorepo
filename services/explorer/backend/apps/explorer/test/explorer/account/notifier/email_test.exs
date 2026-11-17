@@ -18,10 +18,14 @@ defmodule Explorer.Account.Notifier.EmailTest do
     only: [compose: 2]
 
   setup do
-    host = Application.get_env(:block_scout_web, BlockScoutWeb.Endpoint)[:url][:host]
-    path = Application.get_env(:block_scout_web, BlockScoutWeb.Endpoint)[:url][:path]
-    scheme = Application.get_env(:block_scout_web, BlockScoutWeb.Endpoint)[:url][:scheme]
-    old_chain_id = Application.get_env(:block_scout_web, :chain_id)
+    settings =
+      for {application, key} <- [
+            {:block_scout_web, BlockScoutWeb.Endpoint},
+            {:block_scout_web, :chain_id},
+            {:explorer, Explorer.Account}
+          ] do
+        {application, key, Application.fetch_env(application, key)}
+      end
 
     Application.put_env(:block_scout_web, BlockScoutWeb.Endpoint,
       url: [scheme: "https", host: "eth.blockscout.com", path: "/", port: 443]
@@ -37,8 +41,12 @@ defmodule Explorer.Account.Notifier.EmailTest do
     Application.put_env(:block_scout_web, :chain_id, "30")
 
     on_exit(fn ->
-      Application.put_env(:block_scout_web, BlockScoutWeb.Endpoint, url: [scheme: scheme, host: host, path: path])
-      Application.put_env(:block_scout_web, :chain_id, old_chain_id)
+      for {application, key, setting} <- settings do
+        case setting do
+          {:ok, value} -> Application.put_env(application, key, value)
+          :error -> Application.delete_env(application, key)
+        end
+      end
     end)
   end
 

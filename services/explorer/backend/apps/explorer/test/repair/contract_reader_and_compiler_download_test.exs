@@ -44,16 +44,32 @@ defmodule Explorer.Repair.ContractReaderAndCompilerDownloadTest do
     put_env(:explorer, :vyper_releases_url, server.url <> "/releases?per_page=100")
     put_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour, enabled: false)
 
-    for {module, path} <- [{SolcDownloader, solc_path()}, {VyperDownloader, vyper_path()}] do
-      :ok = Supervisor.terminate_child(Explorer.Supervisor, module)
-      for file <- [path, path <> ".download", legacy_path(module)], do: File.rm(file)
-      {:ok, _} = Supervisor.restart_child(Explorer.Supervisor, module)
-    end
+    compilers =
+      for {module, path} <- [{SolcDownloader, solc_path()}, {VyperDownloader, vyper_path()}] do
+        :ok = Supervisor.terminate_child(Explorer.Supervisor, module)
+
+        cached =
+          case File.stat(path) do
+            {:ok, stat} -> {File.read!(path), Bitwise.band(stat.mode, 0o777)}
+            {:error, :enoent} -> nil
+          end
+
+        for file <- [path, path <> ".download", legacy_path(module)], do: File.rm(file)
+        {:ok, _} = Supervisor.restart_child(Explorer.Supervisor, module)
+        {module, path, cached}
+      end
 
     on_exit(fn ->
-      for {module, path} <- [{SolcDownloader, solc_path()}, {VyperDownloader, vyper_path()}] do
+      for {module, path, cached} <- compilers do
         Supervisor.terminate_child(Explorer.Supervisor, module)
         for file <- [path, path <> ".download", legacy_path(module)], do: File.rm(file)
+
+        if cached do
+          {contents, mode} = cached
+          File.write!(path, contents)
+          File.chmod!(path, mode)
+        end
+
         Supervisor.restart_child(Explorer.Supervisor, module)
       end
     end)
