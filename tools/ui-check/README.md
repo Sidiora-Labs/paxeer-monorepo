@@ -359,15 +359,15 @@ the regular device matrix, report and exit behavior.
 | `contrast` | Axe measures text below 4.5:1, or large text below 3:1 (24 pixels, or bold at approximately 18.67 pixels). A custom axe check measures visible control borders, identifying fills and SVG fills/strokes below 3:1. Disabled controls are excluded. |
 | `touch` | Enabled touch control below 44 CSS pixels in either direction at widths up to 834. An inline link within a line of text is exempt. |
 | `focus` | In keyboard mode, Tab focus produces no visible change (comparing computed appearance and viewport pixels) on the element, its descendants or ancestors, or fails to reach a sequentially focusable element. While a modal dialog is open, expected elements are limited to the topmost modal, including controls through shadow roots; nonmodal dialogs leave the expected elements unchanged. A frame is recorded as one stop without judging its focus mark or controls inside its document. Tab continues to the following top-document control, using at most 32 additional presses and 2000 milliseconds per frame. If focus does not leave the frame within either bound, one focus finding names the frame and traversal ends there. Appearances are compared with an unfocused baseline. In each direction, a box that fits must stay entirely in the viewport; a larger box must keep its starting edge in the viewport after focus. |
-| `shift` | Sum of layout-shift entries without recent input, from initial painting through settling, exceeds 0.05. |
+| `shift` | Sum of layout-shift entries without recent input, from initial painting through settling, exceeds 0.05. State steps and text enlargement each record a window on the page's performance clock. Each window ends after three consecutive animation frames without a new shift or layout change, or after a 500-millisecond wait, after draining queued observer entries. Entries starting inside a window are excluded whenever findings are measured, including entries delivered after the wait. Entries starting before or after every window remain findings under the same score limit, including movement continuing after the wait's bound. The waits add at most 1000 milliseconds per render with both state steps and text enlargement; an immediately quiet page takes only three frames per wait. |
 | `motion` | Under reduced motion, a running animation or transition lasts over 100 milliseconds, including iterations. Start events preserve measurements of motion that finishes before settling. |
 | `scale` | Visible text's computed font size is outside every declared step or fluid range. |
 | `geometry` | A named part differs from its stored box or text metrics by more than one CSS pixel, has no stored entry, or is absent or ambiguous on the page. |
 
 The command waits for fonts, visits the full document to load lazy content,
 returns to the top and observes a further 600 milliseconds before measuring.
-State steps and the doubled-text mode discard the layout movement caused by
-those intentional changes before that observation interval. Findings concern
+State steps and the doubled-text mode exclude layout movement starting in their
+recorded time windows before that observation interval. Findings concern
 the render and observation interval. Visual review of the screenshots covers
 qualities that these measurements do not establish.
 
