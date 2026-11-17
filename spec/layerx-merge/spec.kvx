@@ -15574,6 +15574,18 @@ value = "Where a case asserts how a view is built, the view as the modernization
 basis = "Gotcha 4665. Decision 3705."
 affects = []
 
+[decision.3744]
+title = "The later side of the visibility bound of the ranking allows a difference between two clocks of at least 5 seconds"
+value = "A client of the ranking visibility accepts an observation that lies after its own clock by no more than an allowance. The allowance is one named value, it is at least 5 seconds, and it stays below the 60 seconds of the older side. An observation that lies after the clock by more than the allowance is refused as before, and so is one more than 60 seconds older than the clock. The older side stays at 60 seconds. Both clients of the module follow one value. The rule of the snapshot against its cutoff is a rule of its own and is not changed by this decision."
+basis = "Gotcha 4667."
+affects = []
+
+[decision.3745]
+title = "A case reads the setting of its environment that it depends on, and a wait of a case ends by a limit of the case itself"
+value = "Where the outcome of a case depends on a setting of its environment that the case cannot set itself, such as a setting of the database server that needs a restart, the case reads that setting first and expects the outcome that belongs to the state it found. Every state the case can meet has its expectation, and no state lets the case report that it was left out. A wait of a case ends by a limit of the case itself: a call that can go on without end runs under a context with a limit the case sets, and the case asserts what it has to see before that limit. A limit of a client inside a case follows the limit of the case, unless a short limit is itself what a step asserts. The outcome of a case does not depend on the speed of the machine or of its disk."
+basis = "Gotchas 4669, 4670 and 4671. Decision 3742."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45234,6 +45246,51 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.820]
+title = "Let the store clients of the expiry case of the launchpad security module follow the limit of the case"
+reqs = ["22998.1"]
+touches = ["services/launchpad/security"]
+tests = []
+verification_contract = "(cd services/launchpad/security && go test -count=5 ./policy/ -run ^TestRealRedisAtomicExpiryCrashRecovery)"
+do_1 = "do_1 Gotcha 4671 and decision 3745. Read the case TestRealRedisAtomicExpiryCrashRecovery in services/launchpad/security/policy/redis_fault_test.go with the way it starts its store, the limits of its clients, the calls it makes at once and the steps that stop and start the store. Search the cases of services/launchpad/security for further clients with limits below one second against a store that writes to its file and give them in the final message."
+symbols = []
+
+[capability.22.39.819]
+title = "Bring four cases of the launchpad indexer module in line with the sources they read and give their waits limits of their own"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/indexer && go test -count=1 ./internal/httpapi/ -run ^TestDeliveryHealthDeadLetter && go test -count=1 ./internal/source/ -run ^TestCommittedSingleBlockReceiptFallback && go test -count=1 -timeout 30m ./internal/processor/)"
+do_1 = "do_1 Gotcha 4670 and decisions 3742 and 3745. Read the four cases named there with their helpers and the sources they call: the handler in services/launchpad/indexer/internal/httpapi/deadletter.go with the function it records through and the migration that creates that function, the function Run in services/launchpad/indexer/internal/processor/processor.go with its lease, its readiness and its standby, the measurement harness in services/launchpad/indexer/internal/processor/lifecycle_coverage_test.go, and the committed source with its fallback through the receipts. Run each case alone once and give in the final message, for each, the two sides it compares and which side is the producer."
+symbols = []
+
+[capability.22.39.818]
+title = "Let the case of the charts measurement command read the commit timestamp setting of its database first"
+reqs = ["22998.1"]
+touches = ["services/launchpad/trading-charts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/trading-charts && go test -count=1 ./cmd/charts-measure/)"
+do_1 = "do_1 Gotcha 4669 and decision 3745. Read the case TestRunPreparesBoundedArtifactsBeforeProviderDial in services/launchpad/trading-charts/cmd/charts-measure/run_coverage_test.go with the helper that gives its database, the function run in services/launchpad/trading-charts/cmd/charts-measure/main.go with the order of its preconditions, and the step under the anchor launchpad_go_commit_timestamps in .github/workflows/launchpad-test.yml. Search the cases of services/launchpad/trading-charts for further expectations that depend on that setting and give them in the final message."
+symbols = []
+
+[capability.22.39.817]
+title = "Let the consumer of the stream contract cases prepare every file the sdk compile script reads"
+reqs = ["22998.1"]
+touches = ["services/launchpad/livestream"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/livestream && go test -count=1 ./internal/streams/ -run ^TestStreamContract)"
+do_1 = "do_1 Gotcha 4668 and decision 3742. Read services/launchpad/livestream/internal/streams/testdata/stream_contract_sdk/consumer.mjs with the cases of services/launchpad/livestream/internal/streams that start it, and the compile script sdk/launchpad/packages/sdk/scripts/compile-validators.mjs with every file it reads and writes. Search the cases under services/launchpad for further places that copy files of the sdk package by a list and give them in the final message; they do not change in this task."
+symbols = []
+
+[capability.22.39.816]
+title = "Give the later side of the visibility bound of the launchpad ranking module an allowance between two clocks"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/ranking-algo && go test -count=1 ./internal/app/ ./internal/store/)"
+do_1 = "do_1 Gotcha 4667 and decision 3744. Read the two functions ReadRankingVisibility in services/launchpad/ranking-algo/internal/app/app.go and services/launchpad/ranking-algo/internal/store/frozen_inputs.go, the cases in services/launchpad/ranking-algo/internal/app/empty_universe_test.go, the function ReadRankingUniverseTxDetailed in services/launchpad/ranking-algo/internal/store/frozen_inputs.go with its cutoff and its rule against the cutoff, and the producer of the observation in services/launchpad/social/internal/app/app.go. Give in the final message for the rule against the cutoff: which clock stamps each side, the order of the two reads, and for which positions of the two reads within a second the rule admits or refuses a reading taken for the same run. That rule itself does not change in this task."
+symbols = []
 
 [capability.22.39.815]
 title = "Take the pin of a participant when the secure channel of its connection is established in the client of the wallet gateway"
@@ -205580,6 +205637,160 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.820]
+title = "Let the store clients of the expiry case of the launchpad security module follow the limit of the case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.820"]
+interfaces = []
+do_1 = "do_1 Gotcha 4671 and decision 3745. Read the case TestRealRedisAtomicExpiryCrashRecovery in services/launchpad/security/policy/redis_fault_test.go with the way it starts its store, the limits of its clients, the calls it makes at once and the steps that stop and start the store. Search the cases of services/launchpad/security for further clients with limits below one second against a store that writes to its file and give them in the final message."
+do_2 = "do_2 The limits of the clients of the case follow the limit of the case, so a call ends by the answer of the store or by the limit of the case. Where a short limit is itself what a step asserts, for example a call against a stopped store, that step keeps a short limit of its own and says so in a comment of one line. The way the store writes to its file stays, and the assertions on the atomic expiry and on the recovery stay as they are."
+do_3 = "do_3 Bring every further client found in do_1 in line the same way. No source outside the case files changes. No assertion is weakened or removed, and no case is removed or left out. No file under migrations, no file under deploy and no file of another module changes, and no entry is added to the baseline of the runner of the module suites. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/launchpad/security are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/security"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/security && go vet ./...)"
+verify_cmd = "(cd services/launchpad/security && go test -count=5 ./policy/ -run ^TestRealRedisAtomicExpiryCrashRecovery)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.819]
+title = "Bring four cases of the launchpad indexer module in line with the sources they read and give their waits limits of their own"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.819"]
+interfaces = []
+do_1 = "do_1 Gotcha 4670 and decisions 3742 and 3745. Read the four cases named there with their helpers and the sources they call: the handler in services/launchpad/indexer/internal/httpapi/deadletter.go with the function it records through and the migration that creates that function, the function Run in services/launchpad/indexer/internal/processor/processor.go with its lease, its readiness and its standby, the measurement harness in services/launchpad/indexer/internal/processor/lifecycle_coverage_test.go, and the committed source with its fallback through the receipts. Run each case alone once and give in the final message, for each, the two sides it compares and which side is the producer."
+do_2 = "do_2 The case of the dead letter route prepares its database from the producer, so the record of an authorization decision succeeds and the handler reaches its answers. The answer 503 of the handler for a record that does not succeed stays and keeps a case of its own."
+do_3 = "do_3 The standby of the loop stays. The case of the fenced readiness calls Run under a context with a limit of its own and asserts within that limit that the lease and the readiness are dropped once the renewal is refused, and that the loop holds no lease of another owner. The case of the measurement asserts the state of the processor after the run has returned, by the functions the module gives for that. The case of the receipt fallback prepares answers that the committed source accepts as it is built, and keeps the count of header calls the source really makes for one block."
+do_4 = "do_4 A source of the module changes only for a defect of behaviour that a case shows and that the interface of the module confirms, for example a loop that keeps a lease another owner holds or a processor that reports ready without a fence; give each such change in the final message with its reason. No wait of a case depends on the speed of the machine, and no call of a case runs without a limit."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed or left out. No file under migrations, no file under deploy and no file of another module changes, and no entry is added to the baseline of the runner of the module suites. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/launchpad/indexer are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/indexer && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/indexer && go test -count=1 ./internal/httpapi/ -run ^TestDeliveryHealthDeadLetter && go test -count=1 ./internal/source/ -run ^TestCommittedSingleBlockReceiptFallback && go test -count=1 -timeout 30m ./internal/processor/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.818]
+title = "Let the case of the charts measurement command read the commit timestamp setting of its database first"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.818"]
+interfaces = []
+do_1 = "do_1 Gotcha 4669 and decision 3745. Read the case TestRunPreparesBoundedArtifactsBeforeProviderDial in services/launchpad/trading-charts/cmd/charts-measure/run_coverage_test.go with the helper that gives its database, the function run in services/launchpad/trading-charts/cmd/charts-measure/main.go with the order of its preconditions, and the step under the anchor launchpad_go_commit_timestamps in .github/workflows/launchpad-test.yml. Search the cases of services/launchpad/trading-charts for further expectations that depend on that setting and give them in the final message."
+do_2 = "do_2 The case reads the setting track_commit_timestamp of its database first. Where it is off, the case expects the refusal that names the commit timestamp authority as it does today. Where it is on, the case expects that the command passed that precondition and gives the refusal of the next one, and it still asserts what the command prepared before it dialed a provider. Both states have their expectation, and no state lets the case report that it was left out."
+do_3 = "do_3 Bring every further expectation found in do_1 in line the same way. The command itself does not change. No assertion is weakened or removed, and no case is removed or left out. No file under migrations, no file under deploy and no file of another module changes, and no entry is added to the baseline of the runner of the module suites. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/launchpad/trading-charts are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/trading-charts"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/trading-charts && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/trading-charts && go test -count=1 ./cmd/charts-measure/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.817]
+title = "Let the consumer of the stream contract cases prepare every file the sdk compile script reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.817"]
+interfaces = []
+do_1 = "do_1 Gotcha 4668 and decision 3742. Read services/launchpad/livestream/internal/streams/testdata/stream_contract_sdk/consumer.mjs with the cases of services/launchpad/livestream/internal/streams that start it, and the compile script sdk/launchpad/packages/sdk/scripts/compile-validators.mjs with every file it reads and writes. Search the cases under services/launchpad for further places that copy files of the sdk package by a list and give them in the final message; they do not change in this task."
+do_2 = "do_2 The compile script is the producer. Write the prepare step of the consumer so that the copy holds every file the script reads: the set comes from the script or from the source directory itself and not from a second list, so a further input of the script needs no change of the consumer. The files the consumer writes after the compile step and the answers it gives to the cases keep their form."
+do_3 = "do_3 Where a stream contract case still differs from the sdk package after that, decision 3742 holds: the package prevails and the case prepares its side from it. A source of the module changes only for a defect of behaviour that a case shows and that the package or the interface of the module confirms; give each such change in the final message."
+do_4 = "do_4 No assertion is weakened or removed, and no case is removed or left out. No file under migrations, no file under deploy and no file of another module changes, and no entry is added to the baseline of the runner of the module suites. No file under sdk changes. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/launchpad/livestream are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/livestream"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/livestream && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/livestream && go test -count=1 ./internal/streams/ -run ^TestStreamContract)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.816]
+title = "Give the later side of the visibility bound of the launchpad ranking module an allowance between two clocks"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.816"]
+interfaces = []
+do_1 = "do_1 Gotcha 4667 and decision 3744. Read the two functions ReadRankingVisibility in services/launchpad/ranking-algo/internal/app/app.go and services/launchpad/ranking-algo/internal/store/frozen_inputs.go, the cases in services/launchpad/ranking-algo/internal/app/empty_universe_test.go, the function ReadRankingUniverseTxDetailed in services/launchpad/ranking-algo/internal/store/frozen_inputs.go with its cutoff and its rule against the cutoff, and the producer of the observation in services/launchpad/social/internal/app/app.go. Give in the final message for the rule against the cutoff: which clock stamps each side, the order of the two reads, and for which positions of the two reads within a second the rule admits or refuses a reading taken for the same run. That rule itself does not change in this task."
+do_2 = "do_2 Give the later side of the bound in both clients the allowance of decision 3744 as one named value that both follow. An observation after the clock by no more than the allowance is accepted, one beyond it is refused as before, and the older side stays at 60 seconds. The error and the refusal a caller sees stay the same."
+do_3 = "do_3 Add cases for both clients that state both edges of both sides: an observation at the allowance is accepted, one just beyond it is refused, one 60 seconds older is accepted and one beyond that is refused. The cases set the times themselves and do not depend on the speed of the machine. The existing cases keep their meaning."
+do_4 = "do_4 No assertion is weakened or removed, and no case is removed or left out. No file under migrations, no file under deploy and no file of another module changes, and no entry is added to the baseline of the runner of the module suites. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/launchpad/ranking-algo are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/ranking-algo && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/ranking-algo && go test -count=1 ./internal/app/ ./internal/store/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
