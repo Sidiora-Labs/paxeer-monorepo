@@ -53,7 +53,7 @@ export const SymbolInfoBar: FC<SymbolInfoBarProps> = (props) => {
         props.className,
       )}
     >
-      <Flex gapX={3} className="oui-h-full oui-flex-1 oui-overflow-hidden">
+      <Flex gapX={3} className="oui-h-full oui-flex-1 oui-overflow-auto">
         <Flex gapX={3}>
           <TokenIcon symbol={symbol} size="xs" />
           <Flex direction="column" itemAlign="start" gap={1}>

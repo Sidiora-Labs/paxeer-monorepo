@@ -81,30 +81,37 @@ export function TopTrades({ wallet, isOwner, limit = 5, className }: TopTradesPr
         action={<span className="text-xs text-text-faint">Profit</span>}
         className="items-center px-1"
       />
-      {state.state === 'loading' ? (
-        <Skeleton variant="rows" rows={3} label="Loading top trades" />
-      ) : issue ? (
-        <PortfolioIssueState issue={issue} variant="inline" className="py-2" />
-      ) : state.state === 'unsupported' ? (
-        <UnavailableState variant="inline" title="Top trades" plural operation={state.operation} status={state.status} message="Check back in a bit" />
-      ) : state.state === 'error' && collected ? (
-        <PlaceholderRows rows={limit} />
-      ) : state.state === 'error' ? (
-        <ErrorState variant="inline" title="Can't load top trades right now" message="Can't load top trades right now" onRetry={state.retry} />
-      ) : trades.length === 0 ? (
-        <EmptyState variant="inline" title="No closed trades yet." body={page?.next ? 'None of the loaded trades are closed yet.' : "Trades show up here once they're sold."} className="py-4 text-center" />
-      ) : (
-        <>
-          <ol aria-label="Top trades" className="flex flex-col gap-0.5">
-            {trades.map(trade => {
-              const meta = metadata.data?.[trade.position.tokenAddress.toLowerCase()];
-              const identity = tokenIdentity(trade.position.tokenAddress, meta);
-              return <TradeRow key={trade.position.positionId} trade={trade} name={identity.name} symbol={identity.symbol} logo={identity.logo} poolAddress={meta?.pool_address ?? null} />;
-            })}
-          </ol>
-          {page?.next ? <p className="px-3 text-xs text-text-faint">Based on the first {page.positions.length} of {page.summary.positionCount} positions.</p> : null}
-        </>
-      )}
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)]">
+        <div aria-hidden="true" className="invisible col-start-1 row-start-1 pointer-events-none">
+          <Skeleton variant="rows" rows={3} />
+        </div>
+        <div className="col-start-1 row-start-1 min-w-0">
+          {state.state === 'loading' ? (
+            <Skeleton variant="rows" rows={3} label="Loading top trades" />
+          ) : issue ? (
+            <PortfolioIssueState issue={issue} variant="inline" className="py-2" />
+          ) : state.state === 'unsupported' ? (
+            <UnavailableState variant="inline" title="Top trades" plural operation={state.operation} status={state.status} message="Check back in a bit" />
+          ) : state.state === 'error' && collected ? (
+            <PlaceholderRows rows={limit} />
+          ) : state.state === 'error' ? (
+            <ErrorState variant="inline" title="Can't load top trades right now" message="Can't load top trades right now" onRetry={state.retry} />
+          ) : trades.length === 0 ? (
+            <EmptyState variant="inline" title="No closed trades yet." body={page?.next ? 'None of the loaded trades are closed yet.' : "Trades show up here once they're sold."} className="py-4 text-center" />
+          ) : (
+            <>
+              <ol aria-label="Top trades" className="flex flex-col gap-0.5">
+                {trades.map(trade => {
+                  const meta = metadata.data?.[trade.position.tokenAddress.toLowerCase()];
+                  const identity = tokenIdentity(trade.position.tokenAddress, meta);
+                  return <TradeRow key={trade.position.positionId} trade={trade} name={identity.name} symbol={identity.symbol} logo={identity.logo} poolAddress={meta?.pool_address ?? null} />;
+                })}
+              </ol>
+              {page?.next ? <p className="px-3 text-xs text-text-faint">Based on the first {page.positions.length} of {page.summary.positionCount} positions.</p> : null}
+            </>
+          )}
+        </div>
+      </div>
     </section>
   );
 }

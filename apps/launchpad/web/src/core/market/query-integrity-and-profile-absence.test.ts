@@ -84,7 +84,7 @@ async function base_path_loss_rejects_prefixed_configuration_before_serving_cons
     expect(configuration.problems[0].variable).toBe(`NEXT_PUBLIC_${name}`);
     for (const build of builders) expect(() => build('/v2/pools')).toThrow('without a path prefix');
     for (const factory of factories) expect(factory).toThrow('without a path prefix');
-    const response = middleware(new NextRequest('http://localhost:3000/explore'));
+    const response = await middleware(new NextRequest('http://localhost:3000/explore'));
     expect(response.headers.get('Content-Security-Policy')).not.toContain(replay.origin);
     expect(renderToStaticMarkup(createElement(BackendConfigurationError, { problems: configuration.problems }))).toContain('role="alert"');
     process.env[`NEXT_PUBLIC_${name}`] = `${replay.origin}/`;

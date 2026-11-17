@@ -12,7 +12,7 @@ export function PublicShareFigures({ share }: { share: PublicShare }) {
   return (
     <section data-account-view="public-share" data-share-id={share.id} data-accounting-revision={share.watermark.projectionRevision} aria-label="Your PnL card" className="min-w-0 space-y-4 break-words">
       <p>{share.wallet ? `Wallet: ${share.wallet}` : 'Wallet hidden'}</p>
-      <p className="text-sm text-text-muted">{share.rangeStart} to {share.rangeEnd} UTC</p>
+      <p className="text-sm text-text-muted"><time dateTime={share.rangeStart}>{share.rangeStart}</time> to <time dateTime={share.rangeEnd}>{share.rangeEnd}</time> UTC</p>
       <dl className="space-y-3">
         {share.fields.map(field => (
           <div key={field} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-baseline gap-4">
@@ -22,7 +22,7 @@ export function PublicShareFigures({ share }: { share: PublicShare }) {
         ))}
       </dl>
       {(share.labels ?? []).map(label => <p key={label}>{label}</p>)}
-      <p className="text-sm text-text-muted">Expires {share.expiresAt}. Copies others save can&apos;t be taken back.</p>
+      <p className="text-sm text-text-muted">Expires <time dateTime={share.expiresAt}>{share.expiresAt}</time>. Copies others save can&apos;t be taken back.</p>
     </section>
   );
 }

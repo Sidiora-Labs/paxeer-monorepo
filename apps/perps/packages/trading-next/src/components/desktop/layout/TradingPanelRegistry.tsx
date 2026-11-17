@@ -19,24 +19,10 @@ import type { LayoutPosition } from "./switchLayout";
 export { TRADING_PANEL_IDS };
 export type { TradingPanelId } from "@paxeer-network/layout-core";
 
-const LazyDataListWidget = React.lazy(() =>
-  import("../dataList").then((mod) => ({ default: mod.DataListWidget })),
-);
-const LazyOrderBookAndTradesWidget = React.lazy(() =>
-  import("../orderBookAndTrades").then((mod) => ({
-    default: mod.OrderBookAndTradesWidget,
-  })),
-);
-const LazyRiskRateWidget = React.lazy(() =>
-  import("../riskRate").then((mod) => ({
-    default: mod.RiskRateWidget,
-  })),
-);
-const LazyAssetViewWidget = React.lazy(() =>
-  import("../assetView").then((mod) => ({
-    default: mod.AssetViewWidget,
-  })),
-);
+import { DataListWidget } from "../dataList";
+import { OrderBookAndTradesWidget } from "../orderBookAndTrades";
+import { RiskRateWidget } from "../riskRate";
+import { AssetViewWidget } from "../assetView";
 
 /**
  * Props required to build the trading panel registry.
@@ -159,7 +145,7 @@ export function createTradingPanelRegistry(
   panels.set(TRADING_PANEL_IDS.ORDERBOOK, {
     node: (
       <React.Suspense fallback={null}>
-        <LazyOrderBookAndTradesWidget symbol={symbol} />
+        <OrderBookAndTradesWidget symbol={symbol} />
       </React.Suspense>
     ),
     props: {},
@@ -169,7 +155,7 @@ export function createTradingPanelRegistry(
   panels.set(TRADING_PANEL_IDS.DATA_LIST, {
     node: (
       <React.Suspense fallback={null}>
-        <LazyDataListWidget
+        <DataListWidget
           current={undefined}
           symbol={symbol}
           sharePnLConfig={sharePnLConfig}
@@ -183,7 +169,7 @@ export function createTradingPanelRegistry(
   panels.set(TRADING_PANEL_IDS.MARGIN, {
     node: (
       <React.Suspense fallback={null}>
-        <LazyRiskRateWidget />
+        <RiskRateWidget />
       </React.Suspense>
     ),
     props: {},
@@ -193,7 +179,7 @@ export function createTradingPanelRegistry(
     node: (
       <>
         <React.Suspense fallback={null}>
-          <LazyAssetViewWidget isFirstTimeDeposit={props.isFirstTimeDeposit} />
+          <AssetViewWidget isFirstTimeDeposit={props.isFirstTimeDeposit} />
         </React.Suspense>
         <DepositStatusWidget
           className="oui-mt-3 oui-gap-y-2"

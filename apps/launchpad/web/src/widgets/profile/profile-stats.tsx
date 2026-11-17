@@ -33,7 +33,12 @@ export default function ProfileStats({ wallet, createdAt, className }: ProfileSt
   const stats = useFollowStats(wallet);
   const collected = useProfileIssue('follow-stats', stats.state === 'error' ? { label: 'Follower counts', error: stats.error, retry: stats.retry } : null);
   return (
-    <dl className={cn('flex min-h-10 flex-wrap items-start gap-x-8 gap-y-2', className)}>
+    <div className={cn('grid min-w-0 grid-cols-[minmax(0,1fr)]', className)}>
+      <dl aria-hidden="true" className="invisible col-start-1 row-start-1 flex min-h-10 flex-wrap items-start gap-x-8 gap-y-2 pointer-events-none">
+        <Stat value={<Skeleton width={surfaceSpacing(8)} height={surfaceSpacing(5)} />} label="Followers" />
+        <Stat value={<Skeleton width={surfaceSpacing(8)} height={surfaceSpacing(5)} />} label="Following" />
+      </dl>
+      <dl className="col-start-1 row-start-1 flex min-h-10 flex-wrap items-start gap-x-8 gap-y-2">
       {stats.state === 'loading' ? (
         <>
           <Stat value={<Skeleton width={surfaceSpacing(8)} height={surfaceSpacing(5)} />} label="Followers" />
@@ -57,6 +62,7 @@ export default function ProfileStats({ wallet, createdAt, className }: ProfileSt
         <p role="alert" className="text-xs text-danger">Can't load followers right now</p>
       )}
       {createdAt ? <Stat value={formatJoinedDate(createdAt)} label="Joined" /> : null}
-    </dl>
+      </dl>
+    </div>
   );
 }

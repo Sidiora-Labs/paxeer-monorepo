@@ -3,21 +3,9 @@ import { useTranslation } from "@paxeer-network/i18n";
 import { Box, cn, Flex, Grid, TabPanel, Tabs, Text } from "@paxeer-network/ui";
 import type { OrderBookAndTradesState } from "./orderBookAndTrades.script";
 
-const LazyLastTradesWidget = React.lazy(() =>
-  import("../../base/lastTrades").then((mod) => {
-    return {
-      default: mod.LastTradesWidget,
-    };
-  }),
-);
+import { LastTradesWidget } from "../../base/lastTrades";
 
-const LazyOrderBookWidget = React.lazy(() =>
-  import("../../base/orderBook").then((mod) => {
-    return {
-      default: mod.OrderBookWidget,
-    };
-  }),
-);
+import { OrderBookWidget } from "../../base/orderBook";
 
 const TwoColLayout: React.FC<OrderBookAndTradesState> = (props) => {
   const { t } = useTranslation();
@@ -45,7 +33,7 @@ const TwoColLayout: React.FC<OrderBookAndTradesState> = (props) => {
           className="oui-ps-3 oui-text-sm"
         />
         <React.Suspense fallback={null}>
-          <LazyOrderBookWidget
+          <OrderBookWidget
             symbol={props.symbol}
             height={
               props.containerSize
@@ -67,7 +55,7 @@ const TwoColLayout: React.FC<OrderBookAndTradesState> = (props) => {
           className="oui-text-sm oui-px-3"
         />
         <React.Suspense fallback={null}>
-          <LazyLastTradesWidget
+          <LastTradesWidget
             symbol={props.symbol}
             style={{
               height:
@@ -108,7 +96,7 @@ const TabLayout: React.FC<OrderBookAndTradesState> = (props) => {
       >
         <TabPanel value="orderBook" title={t("trading.orderBook")}>
           <React.Suspense fallback={null}>
-            <LazyOrderBookWidget
+            <OrderBookWidget
               symbol={props.symbol}
               height={
                 props.containerSize
@@ -120,7 +108,7 @@ const TabLayout: React.FC<OrderBookAndTradesState> = (props) => {
         </TabPanel>
         <TabPanel value="lastTrades" title={t("trading.lastTrades")}>
           <React.Suspense fallback={null}>
-            <LazyLastTradesWidget
+            <LastTradesWidget
               symbol={props.symbol}
               style={{
                 height:

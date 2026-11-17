@@ -154,7 +154,12 @@ export function ActivityTab({ wallet, isOwner = false }: ActivityTabProps) {
     <section aria-label="Activity" className="flex flex-col gap-3">
       {toolbar}
       <NoticeBar tone="neutral" wrap>{tradesUnavailableNotice}</NoticeBar>
-      <div className="rounded-lg bg-surface-1 p-1">{body}</div>
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] rounded-lg bg-surface-1 p-1">
+        <div aria-hidden="true" className="invisible col-start-1 row-start-1 pointer-events-none">
+          <Skeleton variant="rows" rows={5} />
+        </div>
+        <div className="col-start-1 row-start-1 min-w-0">{body}</div>
+      </div>
     </section>
   );
 }
