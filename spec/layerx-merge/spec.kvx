@@ -206173,7 +206173,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.810]
 title = "Bring the cases of the primitives, the shell and the read marks of the launchpad web application in line with their views and producers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
