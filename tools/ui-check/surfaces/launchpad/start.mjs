@@ -26,6 +26,17 @@ const answerNames = [
 const answers = new Map(await Promise.all(answerNames.map(async name =>
   [name, await readFile(new URL(`${name}.json`, directory))])));
 const returning = await readFile(new URL('returning.js', directory));
+const loading = await readFile(new URL('loading.js', directory));
+const surface = JSON.parse(await readFile(new URL('./parts/explore.json', import.meta.url), 'utf8'));
+const loadingPaths = new Set(surface.views.filter(view => {
+  const url = new URL(view.path, origin);
+  return url.searchParams.get('render') === 'loading';
+}).map(view => view.path));
+
+function documentScripts(path) {
+  return '<head><script src="/__surface/returning.js"></script>'
+    + (loadingPaths.has(path) ? '<script src="/__surface/loading.js"></script>' : '');
+}
 const scriptDecoder = await readFile(new URL('./assets/fflate.min.js', import.meta.url), 'utf8');
 const standaloneDirectory = resolve('apps/launchpad/web/.next/standalone/web');
 await cp('apps/launchpad/web/public', resolve(standaloneDirectory, 'public'), { recursive: true });
@@ -48,6 +59,7 @@ function answerFor(url, state) {
   if (path === '/v3/portfolio/shares/7f3b2a10-5c4d-4e8f-9a1b-2c3d4e5f6a7b') return { name: 'public-share' };
   if (path === '/v3/portfolio/shares/11111111-1111-4111-8111-111111111111') return { name: 'unavailable', status: 410 };
   if (path === '/v3/portfolio/shares/22222222-2222-4222-8222-222222222222') return { name: 'not-found', status: 404 };
+  if (path === '/v3/portfolio/shares/33333333-3333-4333-8333-333333333333') return { name: 'unavailable', status: 503 };
   if (path.startsWith('/v2/control/'))
     return { name: 'unavailable', status: 503 };
   if (/^\/users\/0x[0-9a-f]{40}\/comments$/.test(path)) return { name: 'comments-empty' };
@@ -174,14 +186,20 @@ const server = createServer({ cert: await readFile(certificate), key: await read
     outgoing.end(returning);
     return;
   }
+  if (url.pathname === '/__surface/loading.js') {
+    outgoing.writeHead(200, { 'content-type': 'text/javascript', 'cache-control': 'no-store' });
+    outgoing.end(loading);
+    return;
+  }
   if (/^\/(v[123]\/|users\/|stats\/|metadata\/|explorer\/api\/)/.test(url.pathname)) {
     const state = scenario(incoming);
     const pagePath = new URL(incoming.headers.referer ?? '/', origin).pathname;
     const homeLoading = state === 'loading' && pagePath === '/';
     const rewardsLoading = state === 'loading' && ['/holder-rewards', '/leaderboard'].includes(pagePath);
+    const liveLoading = state === 'loading' && (['/live', '/live/all'].includes(pagePath) || /^\/profile\/0x[0-9a-f]{40}$/i.test(pagePath));
     if (homeLoading && url.pathname === '/v2/discovery/feed') {
       await new Promise(resolve => setTimeout(resolve, 7500));
-    } else if (rewardsLoading && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
+    } else if ((rewardsLoading || liveLoading) && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
       await new Promise(resolve => setTimeout(resolve, 350));
     } else if (state === 'loading' && !homeLoading && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
       await new Promise(resolve => outgoing.once('close', resolve));
@@ -246,7 +264,7 @@ const server = createServer({ cert: await readFile(certificate), key: await read
     const chunks = [];
     response.on('data', chunk => chunks.push(chunk));
     response.on('end', () => {
-      const body = Buffer.concat(chunks).toString().replace('<head>', '<head><script src="/__surface/returning.js"></script>');
+      const body = Buffer.concat(chunks).toString().replace('<head>', documentScripts(incoming.url));
       delete headers['content-length'];
       delete headers['transfer-encoding'];
       outgoing.writeHead(response.statusCode, headers);
@@ -301,8 +319,24 @@ async function warmPage(path) {
   }
 }
 
+server.keepAliveTimeoutBuffer = 5000;
+
 await warmPage('/holder-rewards');
 await warmPage('/leaderboard');
+await warmPage('/meta-ag/orders');
+await warmPage('/meta-ag/swap');
+await warmPage('/swap');
+await warmPage('/terminal');
+await warmPage('/terminal/0x1111111111111111111111111111111111111111');
+await warmPage('/terminal/portfolio');
+await warmPage('/terminal/rewards');
+await warmPage('/terminal/track');
+await warmPage('/terminal/trenches');
+await warmPage('/terminal/trending');
+const warmDirectory = new URL('./warm/', import.meta.url);
+for (const file of (await readdir(warmDirectory)).sort()) {
+  for (const path of JSON.parse(await readFile(new URL(file, warmDirectory), 'utf8'))) await warmPage(path);
+}
 server.listen(4173, '203.0.113.1');
 function close() {
   for (const socket of sockets.clients) socket.terminate();

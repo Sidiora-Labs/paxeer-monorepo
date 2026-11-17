@@ -65,7 +65,7 @@ function TokenSelectorSheet({
       <ModalPanel
         onDismiss={onClose}
         aria-label={title}
-        className="pax-token-sheet relative w-full max-w-[430px] bg-pax-surface rounded-t-3xl flex flex-col"
+        className="pax-token-sheet relative w-full max-w-size-430 bg-pax-surface rounded-t-3xl flex flex-col"
         style={{ maxHeight: 'var(--size-modal-max-height)' }}
       >
         <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3  ">
@@ -124,17 +124,17 @@ function TokenSelectorSheet({
                   <p className="text-xs text-pax-muted truncate">{t.name}</p>
                 </div>
                 {t.isStablecoin && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-pax-info-muted text-pax-info">
+                  <span className="text-size-10 px-1.5 py-0.5 rounded bg-pax-info-muted text-pax-info">
                     Stable
                   </span>
                 )}
                 {t.isNative && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
+                  <span className="text-size-10 px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
                     Native
                   </span>
                 )}
                 {t.isLaunchpad && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
+                  <span className="text-size-10 px-1.5 py-0.5 rounded bg-pax-accent/10 text-pax-accent">
                     Launchpad
                   </span>
                 )}
@@ -277,7 +277,7 @@ export const PaxSwapModal = (props: PaxSwapModalProps) => {
                 inputMode="decimal"
                 autoComplete="off"
                 aria-label="Amount to pay"
-                className="w-full rounded-xl bg-transparent px-3 py-2 text-center text-display font-semibold tracking-tight text-pax-light"
+                className="w-full rounded-xl bg-transparent px-3 py-2 text-center text-size-45 font-semibold tracking-tight text-pax-light"
                 placeholder="0"
                 value={inputValue}
                 onChange={handleInputChange}

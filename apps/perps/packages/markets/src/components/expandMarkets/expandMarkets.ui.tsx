@@ -17,17 +17,9 @@ import {
 } from "../shared/tabUtils";
 import type { ExpandMarketsScriptReturn } from "./expandMarkets.script";
 
-const LazySearchInput = React.lazy(() =>
-  import("../searchInput").then((mod) => {
-    return { default: mod.SearchInput };
-  }),
-);
+import { SearchInput } from "../searchInput";
 
-const LazyMarketsListWidget = React.lazy(() =>
-  import("../marketsList").then((mod) => {
-    return { default: mod.MarketsListWidget };
-  }),
-);
+import { MarketsListWidget } from "../marketsList";
 
 export type ExpandMarketsProps = ExpandMarketsScriptReturn;
 
@@ -84,7 +76,7 @@ export const ExpandMarkets: React.FC<ExpandMarketsProps> = (props) => {
           renderPanel={(_, dataFilter) => (
             <ExpandMarketsListPanel>
               <React.Suspense fallback={null}>
-                <LazyMarketsListWidget
+                <MarketsListWidget
                   type={tabType}
                   dataFilter={dataFilter}
                   initialSort={tabSort[type]}
@@ -108,7 +100,7 @@ export const ExpandMarkets: React.FC<ExpandMarketsProps> = (props) => {
     return (
       <ExpandMarketsListPanel>
         <React.Suspense fallback={null}>
-          <LazyMarketsListWidget
+          <MarketsListWidget
             type={tabType}
             initialSort={tabSort[type]}
             onSort={onTabSort(tabType)}
@@ -151,7 +143,7 @@ export const ExpandMarkets: React.FC<ExpandMarketsProps> = (props) => {
         renderPanel={(selected) => (
           <ExpandMarketsListPanel>
             <React.Suspense fallback={null}>
-              <LazyMarketsListWidget
+              <MarketsListWidget
                 type={MarketsTabName.All}
                 initialSort={tabSort[MarketsTabName.Community]}
                 onSort={onTabSort(MarketsTabName.Community)}
@@ -176,7 +168,7 @@ export const ExpandMarkets: React.FC<ExpandMarketsProps> = (props) => {
     return (
       <ExpandMarketsListPanel>
         <React.Suspense fallback={null}>
-          <LazyMarketsListWidget
+          <MarketsListWidget
             type={MarketsTabName.All}
             dataFilter={(data) => tabDataFilters[key]?.(data) ?? data}
             initialSort={tabSort[key]}
@@ -200,7 +192,7 @@ export const ExpandMarkets: React.FC<ExpandMarketsProps> = (props) => {
       className={cn(
         "oui-markets-expandMarkets",
         /** Search row + tabs/list: second row minmax(0,1fr) passes a bounded height into Tabs. */
-        "oui-grid oui-size-full oui-min-h-0 oui-min-w-0 oui-grid-rows-[auto_minmax(0,1fr)] oui-overflow-hidden oui-font-semibold",
+        "oui-grid oui-size-full oui-min-h-0 oui-min-w-0 oui-grid-rows-[auto_minmax(0,1fr)] oui-overflow-auto oui-font-semibold",
       )}
       height="100%"
     >
@@ -210,7 +202,7 @@ export const ExpandMarkets: React.FC<ExpandMarketsProps> = (props) => {
         pb={2}
       >
         <React.Suspense fallback={null}>
-          <LazySearchInput
+          <SearchInput
             classNames={{
               root: "oui-expandMarkets-search-input oui-min-w-0 oui-flex-1",
             }}

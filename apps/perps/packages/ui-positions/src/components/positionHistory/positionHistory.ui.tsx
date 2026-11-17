@@ -1,14 +1,7 @@
 import { FC, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { MarginMode } from "@paxeer-network/types";
-import {
-  cn,
-  DataFilter,
-  Flex,
-  Grid,
-  ListView,
-  Text,
-} from "@paxeer-network/ui";
+import { cn, DataFilter, Flex, Grid, ListView, Text } from "@paxeer-network/ui";
 import { AuthGuardDataTable } from "@paxeer-network/ui-connector";
 import { SharePnLConfig } from "@paxeer-network/ui-share";
 import { SymbolProvider } from "../../provider/symbolProvider";
@@ -148,7 +141,7 @@ export const MobilePositionHistory: FC<
       </Flex>
       <ListView
         className={cn(
-          "oui-hide-scrollbar oui-w-full oui-space-y-0 oui-overflow-y-hidden",
+          "oui-hide-scrollbar oui-w-full oui-space-y-0 oui-overflow-y-auto",
           props.classNames?.root,
         )}
         contentClassName={cn("!oui-space-y-1", props.classNames?.content)}

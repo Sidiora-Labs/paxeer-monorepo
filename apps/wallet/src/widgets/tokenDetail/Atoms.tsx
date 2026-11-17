@@ -13,14 +13,16 @@ import type { ReactNode } from 'react';
 import { openExternalUrl, validatedExternalUrl } from '@/lib/security/navigation';
 
 export function SectionLabel({ text }: { text: string }) {
-  return <p className="text-sm font-bold text-pax-muted uppercase tracking-[0.06em]">{text}</p>;
+  return (
+    <p className="text-size-13 font-bold text-pax-muted uppercase tracking-[0.06em]">{text}</p>
+  );
 }
 
 export function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-pax-surface rounded-xl px-4 py-3">
-      <p className="text-xs text-pax-muted mb-1">{label}</p>
-      <p className="text-base font-bold">{value}</p>
+    <div className="bg-pax-surface rounded-3xl px-4 py-3">
+      <p className="text-size-10 text-pax-muted mb-1">{label}</p>
+      <p className="text-size-15 font-bold">{value}</p>
     </div>
   );
 }

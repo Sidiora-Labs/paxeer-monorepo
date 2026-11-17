@@ -29,19 +29,14 @@ type tabConfig = {
   icon?: ReactElement;
   testid?: string;
   value: string;
-  content: ReactNode;
-  collapsed?: boolean;
-  className?: string;
-  classNames?: {
-    content?: string;
-    trigger?: string;
-  };
-  style?: React.CSSProperties;
+  triggerClassName?: string;
 };
 
 interface TabsContextState {
   registerTab: (tab: tabConfig) => void;
-  unregisterTab: (tab: tabConfig) => void;
+  unregisterTab: (value: string) => void;
+  contentVisible: boolean;
+  contentClassName?: string;
 }
 
 const TabsContext = createContext<TabsContextState>({} as TabsContextState);
@@ -100,17 +95,22 @@ const Tabs: FC<TabsProps> = (props) => {
     });
   }, []);
 
-  const unregisterTab = useCallback((config: tabConfig) => {
+  const unregisterTab = useCallback((value: string) => {
     setTabList((prev) => {
       const newTabList = { ...prev };
-      delete newTabList[config.value];
+      delete newTabList[value];
       return newTabList;
     });
   }, []);
 
   const memoizedValue = useMemo<TabsContextState>(
-    () => ({ registerTab, unregisterTab }),
-    [registerTab, unregisterTab],
+    () => ({
+      registerTab,
+      unregisterTab,
+      contentVisible,
+      contentClassName: classNames?.tabsContent,
+    }),
+    [registerTab, unregisterTab, contentVisible, classNames?.tabsContent],
   );
 
   const renderTabsList = () => {
@@ -130,7 +130,7 @@ const Tabs: FC<TabsProps> = (props) => {
               variant={tabsVariant}
               size={rest.size}
               data-testid={tab.testid}
-              className={cnBase(classNames?.trigger, tab.classNames?.trigger)}
+              className={cnBase(classNames?.trigger, tab.triggerClassName)}
             >
               {tab.title}
             </TabsTrigger>
@@ -152,7 +152,6 @@ const Tabs: FC<TabsProps> = (props) => {
 
   return (
     <TabsContext.Provider value={memoizedValue}>
-      {props.children}
       <TabsBase value={value} {...rest} dir={dir}>
         <Flex
           justify="between"
@@ -167,20 +166,7 @@ const Tabs: FC<TabsProps> = (props) => {
           {renderTabsList()}
           {props.trailing}
         </Flex>
-        {contentVisible &&
-          Object.keys(tabList).map((key) => {
-            const tab = tabList[key];
-            return (
-              <TabsContent
-                key={key}
-                value={tab.value}
-                className={cnBase(classNames?.tabsContent, tab.className)}
-                style={tab.style}
-              >
-                {tab.content}
-              </TabsContent>
-            );
-          })}
+        {props.children}
       </TabsBase>
     </TabsContext.Provider>
   );
@@ -205,26 +191,31 @@ const TabPanel: FC<PropsWithChildren<TabPanelProps>> = (props) => {
   const { title, value, icon, style, testid, children, className, classNames } =
     props;
 
-  const { registerTab, unregisterTab } = useContext(TabsContext);
+  const { registerTab, unregisterTab, contentVisible, contentClassName } =
+    useContext(TabsContext);
+  const triggerClassName = classNames?.trigger;
 
   useEffect(() => {
-    const tabConfig = {
+    registerTab({
       title,
       value,
       icon,
       testid,
-      className,
-      classNames,
-      style,
-      content: children,
-    };
-    registerTab(tabConfig);
-    return () => {
-      unregisterTab(tabConfig);
-    };
-  }, [children, style, icon, testid, title, value, className, classNames]);
+      triggerClassName,
+    });
+  }, [registerTab, icon, testid, title, value, triggerClassName]);
 
-  return null;
+  useEffect(() => () => unregisterTab(value), [unregisterTab, value]);
+
+  return contentVisible ? (
+    <TabsContent
+      value={value}
+      className={cnBase(contentClassName, className)}
+      style={style}
+    >
+      {children}
+    </TabsContent>
+  ) : null;
 };
 
 if (process.env.NODE_ENV !== "production") {

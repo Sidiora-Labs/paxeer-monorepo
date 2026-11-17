@@ -195,7 +195,7 @@ export const MobileLiquidation: FC<
       </Flex>
       <ListView
         className={cn(
-          "oui-hide-scrollbar oui-w-full oui-space-y-0 oui-overflow-y-hidden",
+          "oui-hide-scrollbar oui-w-full oui-space-y-0 oui-overflow-y-auto",
           props.classNames?.root,
         )}
         contentClassName={cn("!oui-space-y-1", props.classNames?.content)}

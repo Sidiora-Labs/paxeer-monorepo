@@ -25,7 +25,7 @@ function ConsentControls() {
           <span className="oui-text-base-contrast-54">Not yet set</span>
         )}
       </p>
-      <div className="oui-flex oui-gap-2">
+      <div className="oui-flex oui-flex-wrap oui-gap-2">
         <Button
           type="button"
           onClick={decline}

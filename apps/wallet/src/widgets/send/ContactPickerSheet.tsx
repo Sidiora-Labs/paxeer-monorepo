@@ -36,7 +36,7 @@ export interface ContactPickerSheetProps {
 
 function SectionLabel({ label }: { label: string }) {
   return (
-    <p className="text-xs font-bold text-pax-muted/50 uppercase tracking-widest px-1 pt-3 pb-1 first:pt-0">
+    <p className="text-size-11 font-bold text-pax-muted/50 uppercase tracking-widest px-1 pt-3 pb-1 first:pt-0">
       {label}
     </p>
   );
@@ -85,12 +85,12 @@ function AddressRow({
         <div className="flex items-center gap-2">
           <p className="text-sm font-medium truncate">{name}</p>
           {tag && (
-            <span className="shrink-0 text-xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-pax-control text-pax-muted">
+            <span className="shrink-0 text-size-9 font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-pax-control text-pax-muted">
               {tag}
             </span>
           )}
         </div>
-        <p className="text-xs text-pax-muted font-mono truncate">
+        <p className="text-size-11 text-pax-muted font-mono truncate">
           {address.slice(0, 8)}…{address.slice(-6)}
         </p>
       </div>

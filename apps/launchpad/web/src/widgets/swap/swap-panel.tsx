@@ -152,7 +152,7 @@ function TokenSelectorModal({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name, symbol, or address"
-          className="w-full bg-surface-2 rounded-xl px-3 py-2.5 text-xs text-text transition placeholder:text-text-faint"
+          className="w-full border border-control-edge bg-surface-2 rounded-xl px-3 py-2.5 text-xs text-text transition placeholder:text-text-faint"
         />
       </div>
 
@@ -626,7 +626,7 @@ export default function SwapPanel() {
       : null;
 
   return (
-    <div className="mx-auto w-full max-w-md">
+    <div className="relative mx-auto w-full max-w-md">
       <div className="rounded-2xl bg-surface-1 overflow-hidden">
         {/* Header */}
         <div className="px-5 pt-5 pb-3 flex flex-wrap items-center justify-between gap-3">
@@ -787,7 +787,7 @@ export default function SwapPanel() {
 
       {/* Loading state */}
       {tokensLoading && (
-        <div className="text-center text-text-faint text-2xs mt-4 animate-pulse">
+        <div role="status" className="absolute inset-x-0 top-full text-center text-text-faint text-2xs mt-4 animate-pulse">
           Loading tokens...
         </div>
       )}

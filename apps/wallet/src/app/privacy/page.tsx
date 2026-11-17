@@ -189,7 +189,7 @@ export default function PrivacyPage() {
               tabIndex={0}
               aria-label="Third-party services"
             >
-              <table className="min-w-table w-full text-xs">
+              <table className="w-full break-normal text-xs">
                 <thead>
                   <tr className=" ">
                     <th scope="col" className="text-left px-4 py-2.5 text-pax-muted font-medium">

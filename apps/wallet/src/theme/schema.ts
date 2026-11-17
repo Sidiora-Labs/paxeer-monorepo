@@ -80,6 +80,7 @@ export interface AccentPalette {
   primary: string;
   muted: Record<ColorScheme, string>;
   onPrimary: string;
+  control: Record<ThemeId, { fill: string; ink: string }>;
 }
 
 export interface FontChoice {

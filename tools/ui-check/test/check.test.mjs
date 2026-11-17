@@ -153,6 +153,23 @@ async function cleanPagePassesWholeDeviceList() {
 }
 test(cleanPagePassesWholeDeviceList);
 
+async function fullPageCaptureKeepsTheDeviceMatrixAndContentMeasurements() {
+  const { result, out } = await execute("capture", { views: [{ name: "capture", path: "/capture.html?screens=2", modes: ["default"] }] });
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 22);
+  assert.deepEqual(result.findings, []);
+  assert.equal(result.retriedCount, 0);
+  for (const render of result.renders) {
+    assert.equal(render.rendered, true);
+    assert.equal(render.hasContent, true);
+    assert.equal(render.cancelled, 0);
+    const image = PNG.sync.read(await readFile(join(out, render.screenshot)));
+    assert.equal(image.width, render.size.width);
+    assert.equal(image.height, render.size.height * 2);
+  }
+}
+test(fullPageCaptureKeepsTheDeviceMatrixAndContentMeasurements);
+
 async function emptyBodyReportsLoadAtEverySize() {
   const { result, lines } = await execute("blank");
   assertMatrix(result);
@@ -1499,6 +1516,143 @@ async function navigationTimeoutUsesTheSecondRender() {
   } finally { await surface.close(); }
 }
 test(navigationTimeoutUsesTheSecondRender);
+
+async function loadEventSurface({ holds = 1, blockedStep = 0 } = {}) {
+  const body = await readFile(join(fixtures, "load-event.html"), "utf8");
+  const requests = { document: 0, resource: 0, held: 0 };
+  const instance = createServer((request, response) => {
+    const url = new URL(request.url, "http://localhost");
+    if (url.pathname === "/ready") { response.end("Ready"); return; }
+    if (url.pathname === "/load-resource.js") {
+      requests.resource++;
+      response.writeHead(200, { "content-type": "text/javascript" });
+      if (Number(url.searchParams.get("visit")) <= holds) {
+        requests.held++;
+        response.flushHeaders();
+      } else response.end();
+      return;
+    }
+    if (url.pathname !== "/index.html") { response.writeHead(404); response.end(); return; }
+    const visit = ++requests.document;
+    let document = body.replace("__VISIT__", String(visit));
+    if (visit === blockedStep) document = document.replace("data-step-control", "data-step-control disabled");
+    response.writeHead(200, { "content-type": "text/html" });
+    response.end(document);
+  });
+  await new Promise((resolve) => instance.listen(0, "localhost", resolve));
+  return {
+    requests,
+    options: {
+      address: `http://localhost:${instance.address().port}`, readyPath: "/ready",
+      views: [{ name: "load-event", path: "/index.html", modes: ["default"] }],
+    },
+    async close() {
+      await new Promise((resolve) => { instance.close(resolve); instance.closeAllConnections(); });
+    },
+  };
+}
+
+async function answeredNavigationUsesTheSecondRenderWhenLoadIsPending() {
+  const navigationMs = 2000;
+  const surface = await loadEventSurface();
+  try {
+    const { result, out, lines } = await execute("load-event", surface.options, { jobs: 1, navigationMs });
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.equal(result.renders.length, 22);
+    assert.deepEqual(result.findings, []);
+    assert.equal(result.retriedCount, 1);
+    assert.deepEqual(surface.requests, { document: 23, resource: 23, held: 1 });
+    const [render, ...following] = result.renders;
+    assert.equal(render.retried, true);
+    assert.equal(render.firstDeadlineStep, null);
+    assert.equal(render.firstLoadFailure.cause, "navigation-load-timeout");
+    assert.equal(render.firstLoadFailure.source, "render");
+    assert.match(render.firstLoadFailure.message, new RegExp(`page.goto: Timeout ${navigationMs}ms exceeded`));
+    assert.ok(result.renders.every((entry) => entry.rendered && entry.hasContent && entry.cancelled === 0));
+    assert.ok(following.every((entry) => !entry.retried && entry.firstLoadFailure === null));
+    assert.equal(render.screenshot, "00001.png");
+    assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 22);
+    assert.match(lines[0], /, 0 findings, 1 retried$/);
+    assert.match(lines.at(-1), /, pass, 1 views and states with fewer than all modes, 1 retried$/);
+    assert.equal(result.limits.navigationMs, LIMITS.navigationMs);
+  } finally { await surface.close(); }
+}
+test(answeredNavigationUsesTheSecondRenderWhenLoadIsPending);
+
+async function answeredNavigationKeepsTheSecondLoadTimeoutFinding() {
+  const navigationMs = 2000;
+  const surface = await loadEventSurface({ holds: 2 });
+  try {
+    const { result, lines } = await execute("load-event", surface.options, { jobs: 1, navigationMs });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    assert.equal(result.retriedCount, 1);
+    assert.deepEqual(surface.requests, { document: 23, resource: 23, held: 2 });
+    const [render, ...following] = result.renders;
+    assert.equal(render.rendered, false);
+    assert.equal(render.retried, true);
+    assert.equal(render.firstDeadlineStep, null);
+    assert.equal(render.firstLoadFailure.cause, "navigation-load-timeout");
+    assert.equal(render.firstLoadFailure.source, "render");
+    assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+    assert.equal(render.findings[0].kind, "load");
+    assert.equal(render.findings[0].values.source, "render");
+    assert.match(render.findings[0].values.message, new RegExp(`page.goto: Timeout ${navigationMs}ms exceeded`));
+    assert.deepEqual(result.findings, render.findings);
+    assert.ok(following.every((entry) => entry.rendered && !entry.retried && entry.firstLoadFailure === null));
+    assert.match(lines[0], /22 renders, 1 did not render, 1 showed nothing, 1 findings, 1 retried$/);
+    assert.match(lines.at(-1), /, fail, 1 views and states with fewer than all modes, 1 retried$/);
+  } finally { await surface.close(); }
+}
+test(answeredNavigationKeepsTheSecondLoadTimeoutFinding);
+
+async function answeredNavigationThatLoadsInTimeDoesNotRetry() {
+  const surface = await loadEventSurface({ holds: 0 });
+  try {
+    const { result, lines } = await execute("load-event", surface.options, { jobs: 1, navigationMs: 2000 });
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.equal(result.renders.length, 22);
+    assert.deepEqual(result.findings, []);
+    assert.equal(result.retriedCount, 0);
+    assert.deepEqual(surface.requests, { document: 22, resource: 22, held: 0 });
+    for (const render of result.renders) {
+      assert.equal(render.rendered, true);
+      assert.equal(render.retried, false);
+      assert.equal(render.firstDeadlineStep, null);
+      assert.equal(render.firstLoadFailure, null);
+    }
+    assert.match(lines.at(-1), /, 0 retried$/);
+  } finally { await surface.close(); }
+}
+test(answeredNavigationThatLoadsInTimeDoesNotRetry);
+
+async function stateStepTimeoutAfterNavigationDoesNotRetry() {
+  const surface = await loadEventSurface({ holds: 0, blockedStep: 23 });
+  try {
+    const views = [{ ...surface.options.views[0], states: [{ name: "continue", steps: [{ action: "click", selector: "[data-step-control]" }] }] }];
+    const { result, lines } = await execute("load-event", { ...surface.options, views }, { jobs: 1, navigationMs: 2000 });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 44);
+    assert.equal(result.retriedCount, 0);
+    assert.deepEqual(surface.requests, { document: 44, resource: 44, held: 0 });
+    const render = result.renders[22];
+    assert.equal(render.state, "continue");
+    assert.equal(render.rendered, false);
+    assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+    assert.equal(render.findings[0].kind, "load");
+    assert.equal(render.findings[0].values.source, "render");
+    assert.match(render.findings[0].values.message, new RegExp(`(?:locator|page).click: Timeout ${LIMITS.navigationMs}ms exceeded`));
+    assert.deepEqual(result.findings, render.findings);
+    for (const entry of result.renders) {
+      assert.equal(entry.retried, false);
+      assert.equal(entry.firstDeadlineStep, null);
+      assert.equal(entry.firstLoadFailure, null);
+    }
+    assert.ok(result.renders.filter((entry) => entry !== render).every((entry) => entry.rendered));
+    assert.match(lines.at(-1), /, 0 retried$/);
+  } finally { await surface.close(); }
+}
+test(stateStepTimeoutAfterNavigationDoesNotRetry);
 
 async function applicationErrorStatusDoesNotRetry() {
   for (const options of [{ status: 500 }, { documentStatus: 500 }]) {
