@@ -2,7 +2,7 @@
   "author": "Sidiora Labs",
   "license": "Apache-2.0",
   "name": "@kindle/sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "packageManager": "pnpm@9.15.0",
   "type": "module",
@@ -17,14 +17,15 @@
   "files": [
     "dist",
     "examples",
-    "release-manifest.json"
+    "release-manifest.json",
+    "releases"
   ],
   "scripts": {
-    "generate": "python3 scripts/generate.py",
+    "generate": "python3 scripts/generate.py --current-release",
     "build": "node scripts/compile-validators.mjs && tsc -p tsconfig.json",
     "test": "npm run build && node --test test/*.test.mjs",
-    "generate:operations": "python3 scripts/generate.py --major 2 --operations-only",
-    "generate:examples": "python3 scripts/examples.py"
+    "generate:operations": "python3 scripts/generate.py --current-release",
+    "generate:examples": "python3 scripts/generate.py --current-release"
   },
   "dependencies": {
     "ajv": "8.20.0",
@@ -50,6 +51,7 @@
       "sidiora.v2"
     ],
     "v1ReleaseManifest": "release-manifest.json",
-    "compatibilityWindowRequiredForBreakingChanges": true
+    "compatibilityWindowRequiredForBreakingChanges": true,
+    "currentReleaseManifest": "releases/0.1.1.json"
   }
 }

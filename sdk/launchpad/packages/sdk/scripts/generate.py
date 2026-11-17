@@ -5,10 +5,160 @@ import hashlib
 import importlib.util
 import json
 import pathlib
+import re
 import sys
 import types
 
 sys.dont_write_bytecode = True
+
+RECORDED = pathlib.Path('services/launchpad/api/internal/rest/testdata/contracts/v2/openapi.json')
+PRODUCER = pathlib.Path('tools/launchpad/production/interfaces/codegen.py')
+
+
+def released_schema(package, major):
+    release = json.loads((package / 'release-manifest.json').read_bytes())
+    if release['apiMajor'] != major or release['streamMajor'] != major:
+        raise ValueError('Released schema major mismatch')
+    schema = package / 'src/schemas.gen.json'
+    if sha(schema) != release['outputs']['schemas.gen.json']:
+        raise ValueError('Released schema digest mismatch')
+    document = json.loads(schema.read_bytes())
+    inventory = (package / 'src/types.gen.ts').read_text().split('export interface ContractTypes {', 1)[1]
+    names = re.findall(r'^"([^"]+)":', inventory, re.M)
+    if not names or len(names) != len(set(names)):
+        raise ValueError('Released definition inventory mismatch')
+    document['$defs'] = {name: document['$defs'][name] for name in names}
+    data = (json.dumps(document, sort_keys=True, indent=2) + '\n').encode()
+    if hashlib.sha256(data).hexdigest() != release['inputs']['schema-definitions.json']:
+        raise ValueError('Released schema input mismatch')
+    return document
+
+
+def parameter_type(schema):
+    if '$ref' in schema:
+        return 'V2ContractTypes[' + json.dumps(schema['$ref'].split('/')[-1]) + ']'
+    if 'enum' in schema:
+        return '|'.join(json.dumps(value) for value in schema['enum'])
+    if 'anyOf' in schema:
+        return '|'.join(parameter_type(value) for value in schema['anyOf'])
+    kind = schema.get('type')
+    if kind == 'array':
+        return 'Array<' + parameter_type(schema['items']) + '>'
+    if kind == 'object':
+        return '{' + ';'.join(json.dumps(key) + ('' if key in schema.get('required', []) else '?') + ':' + parameter_type(value) for key, value in schema.get('properties', {}).items()) + '}'
+    if kind in ('integer', 'number'):
+        return 'number'
+    if kind in ('string', 'boolean', 'null'):
+        return kind
+    raise ValueError('Unsupported operation parameter schema: ' + str(schema))
+
+
+def current_operations(package, recorded):
+    catalog = json.loads((package / 'scripts/operation-catalog.json').read_bytes())
+    rows = catalog['operations']
+    admitted = set()
+    for path, methods in recorded['paths'].items():
+        for method, operation in methods.items():
+            if method not in ('get', 'post', 'put', 'patch', 'delete'):
+                continue
+            name = operation['operationId']
+            if name in admitted:
+                raise ValueError('Duplicate recorded operation: ' + name)
+            admitted.add(name)
+            response = operation['responses']['200']['content']['application/json']['schema']['$ref'].split('/')[-1]
+            if name in rows:
+                row = rows[name]
+                if (row['method'], row['path'], row['response']) != (method.upper(), path, response):
+                    raise ValueError('Recorded operation identity mismatch: ' + name)
+            else:
+                if method != 'get' or operation.get('x-authorization') != 'public':
+                    raise ValueError('Explicit public read metadata required: ' + name)
+                row = {'path': path, 'wireMajor': 2, 'binaryBody': False, 'binaryResponse': False,
+                       'method': 'GET', 'service': 'api', 'authenticated': False, 'cookieSession': False,
+                       'idempotentRead': True, 'public': True, 'timeoutMs': 1000, 'body': None,
+                       'response': response, 'emptyResponse': False, 'idempotencyKey': False}
+                rows[name] = row
+            row['parameters'] = local_refs(operation.get('parameters', []))
+    types_out = []
+    for name, row in sorted(rows.items()):
+        fields = []
+        for location in ('path', 'query'):
+            selected = [value for value in row['parameters'] if value['in'] == location]
+            if selected:
+                fields.append(location + ('' if any(value.get('required') for value in selected) else '?') + ':{' + ';'.join(json.dumps(value['name']) + ('' if value.get('required') else '?') + ':' + parameter_type(value['schema']) for value in selected) + '}')
+        if row['binaryBody']:
+            fields.append('body:Blob')
+        elif row['body']:
+            fields.append('body:V2ContractTypes[' + json.dumps(row['body']) + ']')
+        response = 'Response' if row['binaryResponse'] else 'V2ContractTypes[' + json.dumps(row['response']) + ']' if row['response'] else 'undefined'
+        types_out.append(json.dumps(name) + ':{input:{' + ';'.join(fields) + '};response:' + response + '}')
+    generated = "import type { ContractTypes as V2ContractTypes } from './types-v2.gen.js';\n"
+    for name in catalog['identifiers']:
+        generated += 'export const ' + name + ' = ' + json.dumps(name) + ' as const;\n'
+    return generated + 'export interface OperationTypes {\n' + ';\n'.join(types_out) + '\n}\nexport const operationDefinitions = ' + json.dumps(rows, sort_keys=True, indent=2) + ' as const;\n'
+
+
+def current_artifacts(root):
+    package = root / 'sdk/launchpad/packages/sdk'
+    producer = root / PRODUCER
+    module_spec = importlib.util.spec_from_file_location('current_codegen', producer)
+    module = importlib.util.module_from_spec(module_spec)
+    module_spec.loader.exec_module(module)
+    dependency = root / 'sdk/launchpad/packages/sdk-v2'
+    document = released_schema(dependency, 2)
+    ts_root = 'sdk/launchpad/packages/production-contracts-v2/src/'
+    original = module.Generator(document, major=2, format_output=False).emit()
+    original_types = original[ts_root + 'types.gen.ts']
+    frozen = json.loads((dependency / 'release-manifest.json').read_bytes())
+    if hashlib.sha256(original_types.encode()).hexdigest() != frozen['outputs']['types.gen.ts']:
+        raise ValueError('Immutable v2 type reproduction mismatch')
+    recorded = json.loads((root / RECORDED).read_bytes())
+    if recorded['openapi'] != '3.1.0' or recorded['info']['version'] != 'v2':
+        raise ValueError('Recorded OpenAPI v2 required')
+    document['$defs'].update(local_refs(recorded['components']['schemas']))
+    for name, node in document['$defs'].items():
+        module.validate_schema(node, document['$defs'], name)
+    generated = module.Generator(document, major=2, format_output=False).emit()
+    examples = importlib.util.spec_from_file_location('current_examples', package / 'scripts/examples.py')
+    examples_module = importlib.util.module_from_spec(examples)
+    examples.loader.exec_module(examples_module)
+    operations = current_operations(package, recorded)
+    admitted = json.loads((package / 'scripts/operation-catalog.json').read_bytes())['operations']
+    return {
+        'releases/0.1.0/types-v2.gen.ts': original_types,
+        'src/types-v2.gen.ts': generated[ts_root + 'types.gen.ts'],
+        'src/schemas-v2.gen.json': generated[ts_root + 'schemas.gen.json'],
+        'src/operations.gen.ts': operations,
+        **{'examples/' + name: source for name, source in examples_module.example_sources(recorded, admitted).items()},
+    }
+
+
+def emit_current_release(root):
+    package = root / 'sdk/launchpad/packages/sdk'
+    artifacts = current_artifacts(root)
+    metadata = json.loads((package / 'package.json').read_bytes())
+    inputs = [PRODUCER, PRODUCER.with_name('validator.go.txt'), RECORDED]
+    for name in ('sdk', 'sdk-v2'):
+        inputs.extend(pathlib.Path('sdk/launchpad/packages') / name / path for path in ('src/types.gen.ts', 'src/schemas.gen.json', 'release-manifest.json'))
+    inputs.extend(pathlib.Path('sdk/launchpad/packages/sdk/scripts') / name for name in ('generate.py', 'examples.py', 'operation-catalog.json'))
+    release = {
+        'packageVersion': metadata['version'], 'apiMajor': 2, 'streamMajor': 2, 'streamSubprotocol': 'sidiora.v2',
+        'generatorSha256': sha(package / 'scripts/generate.py'),
+        'inputs': {str(path): sha(root / path) for path in inputs},
+        'outputs': {path: hashlib.sha256(source.encode()).hexdigest() for path, source in artifacts.items()},
+    }
+    manifest = package / metadata['kindleCompatibility']['currentReleaseManifest']
+    if manifest != package / 'releases' / (metadata['version'] + '.json'):
+        raise ValueError('Versioned release manifest required')
+    if manifest.exists() and json.loads(manifest.read_bytes()) != release:
+        raise ValueError('Published release inputs differ; select a new package version')
+    for path, source in artifacts.items():
+        target = package / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(source)
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text(json.dumps(release, sort_keys=True, indent=2) + '\n')
+    return release
 
 
 def repository_root():
@@ -119,7 +269,13 @@ def main():
     parser.add_argument('--generator', type=pathlib.Path)
     parser.add_argument('--reproduce-v1', action='store_true')
     parser.add_argument('--operations-only', action='store_true')
+    parser.add_argument('--current-release', action='store_true')
     args = parser.parse_args()
+    if args.current_release:
+        if args.major != 1 or any((args.contracts, args.manifest, args.package, args.generator, args.reproduce_v1, args.operations_only)):
+            raise ValueError('--current-release selects the package release inputs')
+        print(json.dumps(emit_current_release(root), sort_keys=True))
+        return
     if args.major < 1:
         raise ValueError('positive schema major required')
     contracts = (args.contracts or default_contracts(args.major)).resolve()
