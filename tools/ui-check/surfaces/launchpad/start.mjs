@@ -26,6 +26,7 @@ const answerNames = [
 const answers = new Map(await Promise.all(answerNames.map(async name =>
   [name, await readFile(new URL(`${name}.json`, directory))])));
 const returning = await readFile(new URL('returning.js', directory));
+const scriptDecoder = await readFile(new URL('./assets/fflate.min.js', import.meta.url), 'utf8');
 const standaloneDirectory = resolve('apps/launchpad/web/.next/standalone/web');
 await cp('apps/launchpad/web/public', resolve(standaloneDirectory, 'public'), { recursive: true });
 const app = spawn(process.execPath, [resolve(standaloneDirectory, 'server.js')], {
@@ -100,7 +101,25 @@ const assetTypes = { '.js': 'text/javascript', '.css': 'text/css', '.svg': 'imag
 
 function cacheAsset(file) {
   if (!compressedAssets.has(file)) {
-    compressedAssets.set(file, readFile(file).then(body => ({ body, gzip: gzipSync(body, { level: 1 }) })));
+    compressedAssets.set(file, readFile(file).then(original => {
+      let body = original;
+      if (file.startsWith(`${nextAssets}/`) && extname(file) === '.js' && original.length > 1024 * 1024) {
+        const packed = gzipSync(original, { level: 9 }).toString('base64');
+        body = Buffer.from(`(() => {
+          const nonce = document.currentScript.nonce;
+          var module = { exports: {} }, exports = module.exports;
+          ${scriptDecoder};
+          const packed = atob('${packed}');
+          const bytes = Uint8Array.from(packed, character => character.charCodeAt(0));
+          const script = document.createElement('script');
+          script.nonce = nonce;
+          script.textContent = new TextDecoder('utf-8', { fatal: true }).decode(module.exports.gunzipSync(bytes));
+          document.head.append(script);
+          script.remove();
+        })();`);
+      }
+      return { body, gzip: gzipSync(body, { level: 1 }) };
+    }));
   }
   return compressedAssets.get(file);
 }
@@ -157,9 +176,13 @@ const server = createServer({ cert: await readFile(certificate), key: await read
   }
   if (/^\/(v[123]\/|users\/|stats\/|metadata\/|explorer\/api\/)/.test(url.pathname)) {
     const state = scenario(incoming);
-    const homeLoading = state === 'loading' && new URL(incoming.headers.referer ?? '/', origin).pathname === '/';
+    const pagePath = new URL(incoming.headers.referer ?? '/', origin).pathname;
+    const homeLoading = state === 'loading' && pagePath === '/';
+    const rewardsLoading = state === 'loading' && ['/holder-rewards', '/leaderboard'].includes(pagePath);
     if (homeLoading && url.pathname === '/v2/discovery/feed') {
       await new Promise(resolve => setTimeout(resolve, 7500));
+    } else if (rewardsLoading && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
+      await new Promise(resolve => setTimeout(resolve, 350));
     } else if (state === 'loading' && !homeLoading && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
       await new Promise(resolve => outgoing.once('close', resolve));
       return;
@@ -251,6 +274,35 @@ server.on('upgrade', (incoming, socket, head) => {
     });
   });
 });
+async function warmPage(path) {
+  const deadline = Date.now() + 15000;
+  while (true) {
+    try {
+      await new Promise((resolve, reject) => {
+        const warming = request({ hostname: '127.0.0.1', port: 4174, path, headers: {
+          host: new URL(origin).host,
+          'x-forwarded-host': new URL(origin).host,
+          'x-forwarded-port': new URL(origin).port,
+          'x-forwarded-proto': 'https',
+        } }, response => {
+          response.resume();
+          response.on('end', () => response.statusCode === 200 ? resolve() : reject(new Error(`Page returned ${response.statusCode}`)));
+          response.on('error', reject);
+        });
+        warming.setTimeout(15000, () => warming.destroy(new Error('Page did not answer')));
+        warming.on('error', reject);
+        warming.end();
+      });
+      return;
+    } catch (error) {
+      if (Date.now() >= deadline) throw error;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+}
+
+await warmPage('/holder-rewards');
+await warmPage('/leaderboard');
 server.listen(4173, '203.0.113.1');
 function close() {
   for (const socket of sockets.clients) socket.terminate();

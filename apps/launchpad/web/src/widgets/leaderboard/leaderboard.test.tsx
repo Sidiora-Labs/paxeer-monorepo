@@ -186,7 +186,7 @@ describe('cup hero and rules', () => {
       { state: 'loading' as const },
     ]) {
       const html = render(<CupHero cup={state} onRetry={() => {}} control={control} />);
-      expect(html).toContain('md:aspect-[16/7]');
+      expect(html).toContain('md:before:aspect-[16/7]');
       expect(html).toContain('aria-label="Ranking period"');
       expect(html).not.toContain('USDL');
       if (state.state !== 'loading') {

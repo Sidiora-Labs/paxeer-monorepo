@@ -42,8 +42,8 @@ function subscribeViewport(onChange: () => void) {
 }
 
 /** True at >= xl where the callouts rail has its own column; below that it becomes a tab. */
-function useWideViewport(): boolean {
-  return useSyncExternalStore(subscribeViewport, () => window.matchMedia(railQuery).matches, () => false);
+function useWideViewport(): boolean | null {
+  return useSyncExternalStore(subscribeViewport, () => window.matchMedia(railQuery).matches, () => null);
 }
 
 function readSearch(): URLSearchParams {
@@ -59,6 +59,8 @@ function writeSearch(values: Record<string, string>) {
 export interface LeaderboardViewProps {
   /** Right-rail content (the callouts rail); below xl it renders inside the Best callouts tab. */
   rail?: ReactNode;
+  initialTab?: string;
+  initialPeriod?: string;
   className?: string;
 }
 
@@ -69,11 +71,11 @@ export interface LeaderboardViewProps {
  * rail is a second column whose heading shares the title row.
  * Tab and period are mirrored into ?tab= and ?period=.
  */
-export function LeaderboardView({ rail, className }: LeaderboardViewProps) {
+export function LeaderboardView({ rail, initialTab, initialPeriod, className }: LeaderboardViewProps) {
   const wide = useWideViewport();
-  const [tab, setTab] = useState<LeaderboardTab>('traders');
-  const [period, setPeriod] = useState<LeaderboardPeriod>('1d');
-  const [explicitPeriod, setExplicitPeriod] = useState(false);
+  const [tab, setTab] = useState<LeaderboardTab>(() => parseTab(initialTab, false));
+  const [period, setPeriod] = useState<LeaderboardPeriod>(() => parsePeriod(initialPeriod));
+  const [explicitPeriod, setExplicitPeriod] = useState(initialPeriod !== undefined);
   const cup = useCurrentCup();
   const retryCup = useCupRetry();
 
@@ -111,7 +113,7 @@ export function LeaderboardView({ rail, className }: LeaderboardViewProps) {
   ], [wide, rail]);
 
   const cupReady = cup.state === 'ready' && cup.data !== null;
-  const cupDisabled = cup.state !== 'loading' && !cupReady;
+  const cupDisabled = !cupReady;
   // A cup period with no cup record falls back to the rolling day board; nothing is ranked without a record.
   const shownPeriod: LeaderboardPeriod = period === 'cup' && cupDisabled ? '1d' : period;
 
@@ -124,8 +126,8 @@ export function LeaderboardView({ rail, className }: LeaderboardViewProps) {
           <h1 className="flex min-h-header-height items-center text-[length:var(--sl-text-page-title)] font-bold text-text">Leaderboard</h1>
           <UnderlineTabs tabs={tabs} active={tab} onChange={changeTab} label="Leaderboard sections" idPrefix={tabIdPrefix} manual className={tabStripClass} />
           <div className="mt-4">
-            {tab === 'traders' ? (
-              <div {...panelProps('traders')} className="flex flex-col gap-4">
+            {tab === 'traders' || (tab === 'callouts' && wide !== false) ? (
+              <div {...panelProps('traders')} className={cn('flex-col gap-4', tab === 'callouts' ? 'hidden xl:flex' : 'flex')}>
                 <CupHero
                   cup={cup}
                   onRetry={retryCup}
@@ -140,10 +142,10 @@ export function LeaderboardView({ rail, className }: LeaderboardViewProps) {
             ) : null}
             {tab === 'squads' ? <div {...panelProps('squads')}><SquadsTab /></div> : null}
             {tab === 'rewards' ? <div {...panelProps('rewards')}><RewardsTab /></div> : null}
-            {tab === 'callouts' && rail ? <div {...panelProps('callouts')}>{rail}</div> : null}
+            {tab === 'callouts' && rail ? <div {...panelProps('callouts')} className="xl:hidden">{rail}</div> : null}
           </div>
         </div>
-        {rail && wide ? <div className={railColumnClass}>{rail}</div> : null}
+        {rail && wide !== false ? <div className={railColumnClass}>{rail}</div> : null}
       </div>
     </div>
   );

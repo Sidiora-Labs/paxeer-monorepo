@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/core/query-keys';
 import { useOperations } from '@/core/market/operations';
@@ -69,10 +70,11 @@ export default function PlatformMetricsFooter() {
 
   // A refetch whose transient retries ran out keeps the last-good figures.
   const data = query.data;
+  let failure: ReactNode = null;
   if (query.error && !(data && isTransientError(query.error))) {
     const marker = toUnsupported(OPERATION, query.error);
     if (marker)
-      return (
+      failure = (
         <UnavailableState
           variant="inline"
           title="Platform activity"
@@ -81,7 +83,7 @@ export default function PlatformMetricsFooter() {
           className="text-2xs"
         />
       );
-    return (
+    else failure = (
       <p role="status" className="truncate text-2xs text-text-faint">
         Couldn't load stats.{' '}
         <button
@@ -97,38 +99,41 @@ export default function PlatformMetricsFooter() {
     );
   }
 
-  if (!data && !query.isPending) return null;
+  if (!data && !query.isPending && !failure) return null;
   const items: FooterMetric[] = data ? platformFooterItems(data) : [
     '24h volume', 'Market cap', '24h trades', '24h traders', 'Coins launched', 'New today',
   ].map(label => ({ label, value: null, operation: null }));
   return (
-    <dl aria-label="Platform activity" aria-busy={query.isPending || undefined} className="grid grid-cols-2 gap-x-4 gap-y-2 md:grid-cols-3 xl:grid-cols-6">
-      {items.map((item) => {
-        const detail = item.value === null ? technicalDetail(item.operation, null) : null;
-        return (
-          <div key={item.label} className="min-w-0 text-2xs">
-            <dt className="text-text-faint">{item.label}</dt>
-            {query.isPending ? (
-              <dd className="min-h-[2lh]"><span className="sr-only">Loading platform activity</span></dd>
-            ) : item.value === null ? (
-              <dd
-                data-unavailable=""
-                title={detail ?? undefined}
-                data-operation={detail ?? undefined}
-                className="min-h-[2lh] text-right text-text-faint"
-              >
-                <span aria-hidden="true">—</span>
-                <span className="sr-only">not available yet</span>
-              </dd>
-            ) : (
+    <div className="grid min-w-0">
+      <dl aria-label="Platform activity" aria-busy={query.isPending || undefined} aria-hidden={failure ? true : undefined} inert={failure ? true : undefined} className={`col-start-1 row-start-1 grid min-w-0 grid-cols-2 gap-x-4 gap-y-2 md:grid-cols-3 xl:grid-cols-6${failure ? ' invisible' : ''}`}>
+        {items.map((item) => {
+          const detail = item.value === null ? technicalDetail(item.operation, null) : null;
+          return (
+            <div key={item.label} className="min-w-0 text-2xs">
+              <dt className="text-text-faint">{item.label}</dt>
+              {query.isPending ? (
+                <dd className="min-h-[2lh]"><span className="sr-only">Loading platform activity</span></dd>
+              ) : item.value === null ? (
+                <dd
+                  data-unavailable=""
+                  title={detail ?? undefined}
+                  data-operation={detail ?? undefined}
+                  className="min-h-[2lh] text-right text-text-faint"
+                >
+                  <span aria-hidden="true">—</span>
+                  <span className="sr-only">not available yet</span>
+                </dd>
+              ) : (
                 <dd data-numeric className="min-h-[2lh] text-right font-bold tabular-nums text-text-muted">
-                {item.value}
-              </dd>
-            )}
-          </div>
-        );
-      })}
-    </dl>
+                  {item.value}
+                </dd>
+              )}
+            </div>
+          );
+        })}
+      </dl>
+      {failure ? <div className="col-start-1 row-start-1 min-w-0 self-start">{failure}</div> : null}
+    </div>
   );
 }
 

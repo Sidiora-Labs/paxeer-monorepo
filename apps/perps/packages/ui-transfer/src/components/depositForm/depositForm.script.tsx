@@ -17,6 +17,7 @@ import { useCollateralValue } from "./hooks/useCollateralValue";
 import { useDepositAction } from "./hooks/useDepositAction";
 import { useDepositFee } from "./hooks/useDepositFee";
 import { useDepositFormQuantities } from "./hooks/useDepositQuantities";
+import { useDepositQuantityInput } from "./hooks/useDepositQuantityInput";
 import { useDepositValidation } from "./hooks/useDepositValidation";
 import { useNativeBalance } from "./hooks/useNativeBalance";
 import { usePaxeerNetworkTokens } from "./hooks/usePaxeerNetworkTokens";
@@ -62,8 +63,7 @@ export const useDepositFormScript = (options: DepositFormScriptOptions) => {
     depositFee,
     balanceRevalidating,
     depositFeeRevalidating,
-    quantity,
-    setQuantity,
+    setQuantity: setDepositQuantity,
     approve,
     deposit,
     fetchBalance,
@@ -78,6 +78,8 @@ export const useDepositFormScript = (options: DepositFormScriptOptions) => {
     dstToken: targetToken?.symbol,
     depositorAddress: enableSwapDeposit ? SWAP_CONTRACT_ADDRESS : undefined,
   });
+
+  const { quantity, setQuantity } = useDepositQuantityInput(setDepositQuantity);
 
   const { balance: nativeBalance, isLoading: nativeBalanceRevalidating } =
     useNativeBalance({
