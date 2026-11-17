@@ -1,4 +1,3 @@
-import styles from "../../../presentation.module.css";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
   modal,
@@ -30,7 +29,7 @@ export const SwapDialog = modal.create<SwapProps>((props) => {
     open: visible,
     onOpenChange,
     classNames: {
-      content: `${styles.surface} oui-font-semibold`,
+      content: "oui-font-semibold",
     },
     children: <Swap {...props} onComplete={onComplete} onCancel={onCancel} />,
   };

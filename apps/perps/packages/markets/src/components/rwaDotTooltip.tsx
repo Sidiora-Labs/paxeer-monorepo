@@ -45,8 +45,8 @@ export const RwaDotTooltip = ({ record }: RwaDotTooltipProps) => {
       >
         <Box
           as="span"
-          width="var(--oui-space-1)"
-          height="var(--oui-space-1)"
+          width={4}
+          height={4}
           r="full"
           className={open ? "oui-bg-success" : "oui-bg-danger"}
         />

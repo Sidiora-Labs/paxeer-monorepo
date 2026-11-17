@@ -1,6 +1,4 @@
-import surface from "../../../../../surface.module.css";
-import { InfoPopover } from "../../../../../components/infoPopover";
-import { FC, ReactNode } from "react";
+import { FC, ReactNode, useCallback, MouseEvent } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
   Tooltip,
@@ -14,14 +12,45 @@ import {
 } from "@paxeer-network/ui";
 import { commifyOptional } from "@paxeer-network/utils";
 
+const dashedUnderline =
+  "oui-cursor-pointer oui-underline oui-decoration-dashed oui-underline-offset-4 oui-decoration-base-contrast-36 oui-tracking-[0.03em]";
+
+const useMobileTooltipModal = (content: ReactNode, title?: ReactNode) => {
+  const { isMobile } = useScreen();
+
+  return useCallback(
+    (e: MouseEvent) => {
+      if (!isMobile) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      modal.dialog({
+        title,
+        closable: true,
+        size: "sm",
+        content: (
+          <div className="oui-text-sm oui-leading-5 oui-text-base-contrast">
+            {content}
+          </div>
+        ),
+      });
+    },
+    [isMobile, content, title],
+  );
+};
+
 export const AddressCell: FC<{
   address: string;
   title?: ReactNode;
 }> = ({ address, title }) => {
+  const onClick = useMobileTooltipModal(address, title);
+  const { isMobile } = useScreen();
   return (
-    <InfoPopover content={address} title={title}>
-      {formatAddress(address)}
-    </InfoPopover>
+    <Tooltip content={address} open={isMobile ? false : undefined}>
+      <Text className={dashedUnderline} onClick={onClick}>
+        {formatAddress(address)}
+      </Text>
+    </Tooltip>
   );
 };
 
@@ -30,10 +59,14 @@ export const TooltipCell: FC<{
   tooltip: string | ReactNode;
   title?: ReactNode;
 }> = ({ text, tooltip, title }) => {
+  const onClick = useMobileTooltipModal(tooltip, title);
+  const { isMobile } = useScreen();
   return (
-    <InfoPopover content={tooltip} title={title}>
-      {text}
-    </InfoPopover>
+    <Tooltip content={tooltip} open={isMobile ? false : undefined}>
+      <Text className={dashedUnderline} onClick={onClick}>
+        {text}
+      </Text>
+    </Tooltip>
   );
 };
 
@@ -73,11 +106,15 @@ export const BreakdownCell: FC<{
       </div>
     </div>
   );
+  const onClick = useMobileTooltipModal(tooltipContent, title);
+  const { isMobile } = useScreen();
 
   return (
-    <InfoPopover content={tooltipContent} title={title}>
-      {format(total)}
-    </InfoPopover>
+    <Tooltip content={tooltipContent} open={isMobile ? false : undefined}>
+      <Text className={dashedUnderline} onClick={onClick}>
+        {format(total)}
+      </Text>
+    </Tooltip>
   );
 };
 
@@ -92,14 +129,14 @@ export const MobileCell: FC<{
       direction="column"
       itemAlign={align}
       className={cn(
-        "oui-gap-1.5 oui-font-medium oui-tracking-normal",
+        "oui-gap-1.5 oui-font-medium oui-tracking-[0.01em]",
         className,
       )}
     >
-      <Text intensity={36} size="2xs" className="oui-leading-normal">
+      <Text intensity={36} size="2xs" className="oui-leading-[15px]">
         {label}
       </Text>
-      <div className="oui-text-sm oui-leading-normal">{children}</div>
+      <div className="oui-text-sm oui-leading-[20px]">{children}</div>
     </Flex>
   );
 };
@@ -114,7 +151,7 @@ export const MobileCard: FC<{
       py={3}
       r="xl"
       width="100%"
-      className={cn(surface.mobileCard, "oui-bg-base-9", className)}
+      className={cn("oui-bg-base-9 oui-gap-x-[6px] oui-gap-y-3", className)}
     >
       {children}
     </Grid>

@@ -10,7 +10,6 @@ export const PinButton = (props: HTMLAttributes<HTMLButtonElement>) => {
     <button
       {...props}
       className={cn("oui-orderEntry-pin-btn", props.className)}
-      type="button"
     >
       <svg
         width={16}

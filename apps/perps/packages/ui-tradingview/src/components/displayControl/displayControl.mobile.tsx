@@ -68,9 +68,7 @@ export const MobileDisplayControl: React.FC<IProps> = (props) => {
   return (
     <DropdownMenuRoot open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={t("common.settings")}
+        <div
           className={cn(
             "oui-flex oui-items-center oui-justify-center oui-gap-0.5 oui-text-base-contrast-36",
             open && "oui-text-base-contrast-8",
@@ -88,7 +86,7 @@ export const MobileDisplayControl: React.FC<IProps> = (props) => {
               open && "oui-rotate-180 oui-text-base-contrast-80",
             )}
           />
-        </button>
+        </div>
       </DropdownMenuTrigger>
       <DropdownMenuPortal>
         <DropdownMenuContent
@@ -105,9 +103,7 @@ export const MobileDisplayControl: React.FC<IProps> = (props) => {
             <div className="oui-flex oui-gap-2" key={id}>
               {row.map((item, index) => {
                 return (
-                  <button
-                    type="button"
-                    aria-pressed={props.displayControlState[item.id] ?? true}
+                  <div
                     className={cn(
                       "oui-flex oui-h-6 oui-w-full oui-items-center oui-justify-between",
                       "oui-rounded oui-px-2 oui-text-2xs",
@@ -137,7 +133,7 @@ export const MobileDisplayControl: React.FC<IProps> = (props) => {
                         )}
                       </>
                     )}
-                  </button>
+                  </div>
                 );
               })}
             </div>

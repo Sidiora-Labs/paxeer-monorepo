@@ -29,26 +29,11 @@ export const DefaultCampaign: FC<{
   // display-style heading.
   const asCard = !!(campaignsProp ?? campaignsFromContext)?.length;
 
-  if (!asCard)
-    return (
-      <h1
-        className={cn(
-          "oui-text-center oui-text-3xl oui-font-semibold",
-          className,
-        )}
-      >
-        {t("tradingLeaderboard.generalLeaderboard")}
-      </h1>
-    );
-
   return (
-    <button
-      type="button"
-      aria-disabled={!asCard}
-      aria-pressed={asCard ? currentCampaignId === "general" : undefined}
+    <div
       className={cn([
         "oui-trading-leaderboard-title",
-        "oui-flex oui-min-h-20 oui-p-3 oui-items-center oui-justify-center oui-font-semibold",
+        "oui-flex oui-h-[78px] oui-items-center oui-justify-center oui-font-semibold",
         asCard
           ? [
               // Only the interactive tile reads as clickable; the plain
@@ -56,16 +41,16 @@ export const DefaultCampaign: FC<{
               "oui-cursor-pointer",
               "oui-rounded-lg oui-border oui-border-solid oui-bg-base-9",
               currentCampaignId === "general"
-                ? "oui-border-primary"
+                ? "oui-border-[rgba(var(--oui-gradient-brand-start))]"
                 : "oui-border-transparent",
             ]
-          : "oui-min-w-0 oui-text-xl oui-leading-normal xl:oui-text-5xl xl:oui-leading-normal",
+          : "oui-min-w-0 oui-text-[20px] oui-leading-[28px] xl:oui-text-[36px] xl:oui-leading-[44px]",
         className,
       ])}
       style={style}
       onClick={asCard ? () => onCampaignChange("general") : undefined}
     >
       {t("tradingLeaderboard.generalLeaderboard")}
-    </button>
+    </div>
   );
 };

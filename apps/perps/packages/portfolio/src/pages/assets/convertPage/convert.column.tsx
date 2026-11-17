@@ -114,12 +114,12 @@ export const ConvertedAssetColumn = ({
       <Flex
         direction="column"
         gap={2}
-        className="oui-w-72 oui-font-semibold oui-text-base-contrast-80"
+        className="oui-w-[275px] oui-font-semibold oui-text-base-contrast-80"
       >
         <Flex
           itemAlign="center"
           justify="between"
-          className="oui-w-full oui-text-2xs oui-text-base-contrast-80"
+          className="oui-w-full oui-text-2xs oui-text-base-contrast-36"
         >
           <div>{t("common.assets")}</div>
           <div>{t("common.qty")}</div>
@@ -152,8 +152,7 @@ export const ConvertedAssetColumn = ({
             key={asset}
             className="oui-relative"
             style={{
-              marginInlineStart:
-                index > 0 ? "calc(-1 * var(--oui-space-2))" : 0,
+              marginLeft: index > 0 ? "-8px" : "0",
               zIndex: assets.length + index,
             }}
           >
@@ -186,7 +185,7 @@ export const useConvertColumns = (options: ConvertColumnsOptions) => {
         title: t("portfolio.overview.column.convert.convertedAsset"),
         dataIndex: "converted_asset",
         align: "left",
-
+        width: 200,
         maxWidth: 200,
         render(
           convertedAssets: Record<string, number> | null | undefined,
@@ -204,7 +203,7 @@ export const useConvertColumns = (options: ConvertColumnsOptions) => {
         title: t("portfolio.overview.column.convert.receivedAmount"),
         dataIndex: "received_qty",
         align: "left",
-
+        width: 150,
         render(qty: number, record: ConvertRecord) {
           return (
             <span>
@@ -220,7 +219,7 @@ export const useConvertColumns = (options: ConvertColumnsOptions) => {
         title: t("common.fee"),
         dataIndex: "details",
         align: "left",
-
+        width: 120,
         render(details: ConvertRecord["details"], record: ConvertRecord) {
           const totalHaircut = details.reduce(
             (sum, detail) => sum + detail.haircut,
@@ -240,7 +239,7 @@ export const useConvertColumns = (options: ConvertColumnsOptions) => {
         title: t("common.type"),
         dataIndex: "type",
         align: "left",
-
+        width: 150,
         render(type: string) {
           return <Text>{type.charAt(0).toUpperCase() + type.slice(1)}</Text>;
         },
@@ -249,7 +248,7 @@ export const useConvertColumns = (options: ConvertColumnsOptions) => {
         title: t("portfolio.overview.column.convert.convertId"),
         dataIndex: "convert_id",
         align: "left",
-
+        width: 150,
         render(convertId: number) {
           return (
             <Text.formatted onCopy={onCopy} copyable>
@@ -262,14 +261,14 @@ export const useConvertColumns = (options: ConvertColumnsOptions) => {
         title: t("common.time"),
         dataIndex: "created_time",
         align: "left",
-
+        width: 160,
         rule: "date",
       },
       {
         title: t("common.status"),
         dataIndex: "status",
         align: "left",
-
+        width: 150,
         render(_status: string, record: ConvertRecord) {
           return (
             <ConvertStatusBadge status={getEffectiveConvertStatus(record)} />
@@ -280,7 +279,7 @@ export const useConvertColumns = (options: ConvertColumnsOptions) => {
         title: "",
         dataIndex: "updated_time",
         align: "center",
-
+        width: 80,
         render(convertId: number, record: ConvertRecord) {
           return (
             <Button
@@ -316,7 +315,7 @@ export const useConvertDetailColumns = (
         title: t("portfolio.overview.column.convert.convertedAsset"),
         dataIndex: "converted_asset",
         align: "left",
-
+        width: 120,
         render(asset: string) {
           return (
             <Flex itemAlign="center" gap={2}>
@@ -330,7 +329,7 @@ export const useConvertDetailColumns = (
         title: t("common.qty"),
         dataIndex: "converted_qty",
         align: "left",
-
+        width: 90,
         render(qty: number) {
           return (
             <Text.numeral dp={6} padding={false}>
@@ -343,7 +342,7 @@ export const useConvertDetailColumns = (
         title: t("portfolio.overview.column.convert.receivedAmount"),
         dataIndex: "received_qty",
         align: "left",
-
+        width: 150,
         render(qty: number, detail: ConvertTransaction) {
           return (
             <span>
@@ -359,7 +358,7 @@ export const useConvertDetailColumns = (
         title: t("common.fee"),
         dataIndex: "haircut",
         align: "left",
-
+        width: 120,
         render(haircut: number, detail: ConvertTransaction) {
           return (
             <span>
@@ -375,9 +374,9 @@ export const useConvertDetailColumns = (
         title: t("common.txId"),
         dataIndex: "tx_id",
         align: "left",
-
+        width: 130,
         render(txId: string, record: ConvertTransaction) {
-          if (!txId) return <Text intensity={80}>-</Text>;
+          if (!txId) return <Text intensity={54}>-</Text>;
           const chainInfo = (options.chainsInfo as any[])?.find(
             (item) => record.chain_id === parseInt(item.chain_id),
           );
@@ -401,7 +400,7 @@ export const useConvertDetailColumns = (
         title: t("transfer.network"),
         dataIndex: "chain_id",
         align: "left",
-
+        width: 130,
         render(venue: string, record: ConvertTransaction) {
           return (
             <Text>
@@ -416,7 +415,7 @@ export const useConvertDetailColumns = (
         title: t("common.result"),
         dataIndex: "result",
         align: "left",
-
+        width: 90,
         render(result: string) {
           return <ConvertStatusBadge status={result} />;
         },

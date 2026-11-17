@@ -305,7 +305,7 @@ function instrument(option?: {
         <Flex gap={2} className="oui-py-1">
           <div
             className={cn(
-              "oui-h-[34px] oui-w-1 oui-shrink-0 oui-rounded-sm",
+              "oui-h-[34px] oui-w-1 oui-shrink-0 oui-rounded-[1px]",
               record.side === OrderSide.BUY
                 ? "oui-bg-trade-profit"
                 : "oui-bg-trade-loss",

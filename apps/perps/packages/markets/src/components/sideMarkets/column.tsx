@@ -22,6 +22,7 @@ export const useSideMarketsColumns = (
   return [
     {
       ...symbolCol,
+      width: 115,
     },
     volOiCol,
     lastPctCol,

@@ -1,4 +1,3 @@
-import styles from "../../../presentation.module.css";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -46,7 +45,7 @@ export const VaultWithdrawForm: FC<VaultWithdrawFormScript> = (props) => {
 
   const { t } = useTranslation();
   return (
-    <div className={styles.surface}>
+    <div>
       <BrokerWallet />
       <Box mt={3} mb={1}>
         <QuantityInput
@@ -77,7 +76,7 @@ export const VaultWithdrawForm: FC<VaultWithdrawFormScript> = (props) => {
         label={t("vaults.withdraw.estReceivingAmount")}
         value={receivingAmount}
         suffix={
-          <span className="oui-ms-1 oui-text-base-contrast-80">USDC</span>
+          <span className="oui-ms-1 oui-text-base-contrast-36">USDC</span>
         }
         className="oui-mb-5"
       />
@@ -123,7 +122,7 @@ const WithdrawKVItem = ({
   return (
     <div
       className={cn(
-        "oui-flex oui-flex-wrap oui-gap-2 oui-items-center oui-justify-between oui-text-sm oui-font-semibold oui-text-base-contrast-80",
+        "oui-flex oui-items-center oui-justify-between oui-text-sm oui-font-semibold oui-text-base-contrast-54",
         className,
       )}
     >
@@ -155,14 +154,14 @@ const WithdrawInitialContent = (props: WithdrawInitialContentProps) => {
         label={t("vaults.withdraw.dialog.withdrawalAmount")}
         value={quantity}
         suffix={
-          <span className="oui-ms-1 oui-text-base-contrast-80">Shares</span>
+          <span className="oui-ms-1 oui-text-base-contrast-36">Shares</span>
         }
       />
       <WithdrawKVItem
         label={t("vaults.withdraw.dialog.estimatedReceiving")}
         value={receivingAmount}
         suffix={
-          <span className="oui-ms-1 oui-text-base-contrast-80">USDC</span>
+          <span className="oui-ms-1 oui-text-base-contrast-36">USDC</span>
         }
         className="oui-mt-1"
       />
@@ -195,7 +194,6 @@ const WithdrawInitialDialog = modal.create(
     const { t } = useTranslation();
     return (
       <SimpleDialog
-        classNames={{ content: styles.surface }}
         title={t("vaults.withdraw.dialog.title")}
         open={visible}
         onOpenChange={onOpenChange}
@@ -221,7 +219,6 @@ const WithdrawInitialSheet = modal.create(
     const { t } = useTranslation();
     return (
       <SimpleSheet
-        classNames={{ content: styles.surface }}
         title={t("vaults.withdraw.dialog.title")}
         open={visible}
         onOpenChange={onOpenChange}

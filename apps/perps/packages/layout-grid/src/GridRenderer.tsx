@@ -186,21 +186,21 @@ export function GridRenderer(
         /** Body height adjusts when a title header is present. */
         const bodyClassName =
           typeof title !== "undefined" && title !== null
-            ? "oui-min-h-0 oui-flex-1"
-            : "oui-h-full oui-min-h-0";
+            ? "oui-h-[calc(100%_-_44px)]"
+            : "oui-h-full";
 
         return (
           <div
             key={panelId}
             className={cn(
-              "oui-layout-grid-item oui-flex oui-flex-col oui-min-w-0 oui-relative oui-size-full oui-overflow-hidden oui-rounded oui-bg-base-9",
+              "oui-layout-grid-item oui-relative oui-size-full oui-overflow-hidden oui-rounded oui-bg-base-9",
               config.className,
             )}
             style={config.style}
           >
             {title && (
               <Flex
-                className="oui-text-base-contrast-80"
+                className="oui-text-base-contrast-36"
                 justify="between"
                 width="100%"
                 px={3}

@@ -1,4 +1,3 @@
-import styles from "../../presentation.module.css";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Box, cn, TabPanel, Tabs, Text } from "@paxeer-network/ui";
 import { createCommunityBrokerFilter } from "../../hooks/useCommunityTabs";
@@ -48,7 +47,7 @@ export const MarketsSheet: React.FC<MarketsSheetProps> = (props) => {
           }}
           className={cn(
             "oui-marketsSheet-rwa-tabs",
-            "oui-h-[calc(100%_-_var(--oui-space-8)-var(--oui-space-1))]",
+            "oui-h-[calc(100%_-_36px)]",
           )}
           showScrollIndicator
           renderPanel={(_, dataFilter) => (
@@ -61,8 +60,8 @@ export const MarketsSheet: React.FC<MarketsSheetProps> = (props) => {
               tableClassNames={{
                 root: cn("oui-marketsSheet-list", "!oui-bg-base-8"),
                 scroll: cn(
-                  "oui-pb-[env(safe-area-inset-bottom,_var(--oui-space-5))]",
-                  "oui-h-[calc(100%_-_var(--oui-space-10))]",
+                  "oui-pb-[env(safe-area-inset-bottom,_20px)]",
+                  "oui-h-[calc(100%_-_40px)]",
                 ),
               }}
             />
@@ -80,10 +79,10 @@ export const MarketsSheet: React.FC<MarketsSheetProps> = (props) => {
         tableClassNames={{
           root: cn("oui-marketsSheet-list", "!oui-bg-base-8"),
           scroll: cn(
-            "oui-pb-[env(safe-area-inset-bottom,_var(--oui-space-5))]",
+            "oui-pb-[env(safe-area-inset-bottom,_20px)]",
             isFavorites
-              ? "oui-h-[calc(100%_-_var(--oui-space-20))]"
-              : "oui-h-[calc(100%_-_var(--oui-space-10))]",
+              ? "oui-h-[calc(100%_-_70px)]"
+              : "oui-h-[calc(100%_-_40px)]",
           ),
         }}
         emptyView={renderEmptyView({
@@ -107,7 +106,7 @@ export const MarketsSheet: React.FC<MarketsSheetProps> = (props) => {
         }}
         className={cn(
           "oui-marketsSheet-community-tabs",
-          "oui-h-[calc(100%_-_var(--oui-space-8)-var(--oui-space-1))]",
+          "oui-h-[calc(100%_-_36px)]",
         )}
         showScrollIndicator
         renderPanel={(selected) => (
@@ -119,8 +118,8 @@ export const MarketsSheet: React.FC<MarketsSheetProps> = (props) => {
             tableClassNames={{
               root: cn("oui-marketsSheet-list", "!oui-bg-base-8"),
               scroll: cn(
-                "oui-pb-[env(safe-area-inset-bottom,_var(--oui-space-5))]",
-                "oui-h-[calc(100%_-_var(--oui-space-10))]",
+                "oui-pb-[env(safe-area-inset-bottom,_20px)]",
+                "oui-h-[calc(100%_-_40px)]",
               ),
             }}
             dataFilter={createCommunityBrokerFilter(selected)}
@@ -141,8 +140,8 @@ export const MarketsSheet: React.FC<MarketsSheetProps> = (props) => {
         tableClassNames={{
           root: cn("oui-marketsSheet-list", "!oui-bg-base-8"),
           scroll: cn(
-            "oui-pb-[env(safe-area-inset-bottom,_var(--oui-space-5))]",
-            "oui-h-[calc(100%_-_var(--oui-space-10))]",
+            "oui-pb-[env(safe-area-inset-bottom,_20px)]",
+            "oui-h-[calc(100%_-_40px)]",
           ),
         }}
       />
@@ -152,18 +151,13 @@ export const MarketsSheet: React.FC<MarketsSheetProps> = (props) => {
   return (
     <Box
       height="100%"
-      className={cn(
-        styles.surface,
-        "oui-markets-marketsSheet",
-        "oui-font-semibold",
-        className,
-      )}
+      className={cn("oui-markets-marketsSheet", "oui-font-semibold", className)}
     >
       <Box className="oui-marketsSheet-header" px={3} mt={3} mb={2}>
         <Text size="base" intensity={80}>
           {t("common.markets")}
         </Text>
-        <div className="oui-mt-4 oui-flex oui-flex-wrap oui-min-w-0 oui-items-center oui-gap-2">
+        <div className="oui-mt-4 oui-flex oui-min-w-0 oui-items-center oui-gap-x-2">
           <SearchInput
             classNames={{
               root: "oui-marketsSheet-search-input oui-min-w-0 oui-flex-1",
@@ -179,14 +173,11 @@ export const MarketsSheet: React.FC<MarketsSheetProps> = (props) => {
         value={props.activeTab}
         onValueChange={props.onTabChange as (tab: string) => void}
         classNames={{
-          tabsList: cn("oui-my-1.5"),
+          tabsList: cn("oui-my-[6px]"),
           tabsContent: "oui-h-full",
           scrollIndicator: "oui-mx-3",
         }}
-        className={cn(
-          "oui-marketsSheet-tabs",
-          "oui-h-[calc(100%_-_var(--oui-space-24))]",
-        )}
+        className={cn("oui-marketsSheet-tabs", "oui-h-[calc(100%_-_92px)]")}
         showScrollIndicator
       >
         {tabs?.map((tab, index) => {
