@@ -34,7 +34,7 @@ const panelTitles: Record<TerminalPanel, string> = {
 };
 
 const { width: PANEL_WIDTH, inset: PANEL_INSET } = launchpadGeometry.statusPanel;
-const toolClass = 'inline-flex min-h-touch-target-min shrink-0 items-center gap-1 rounded-sm px-1.5 text-xs font-semibold text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text [&_svg]:size-icon-sm';
+const toolClass = 'inline-flex min-h-touch-target-min shrink-0 items-center gap-1 rounded-sm px-1.5 text-xs font-semibold text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text focus-visible:bg-surface-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus [&_svg]:size-icon-sm';
 
 function panelBody(id: TerminalPanel, pool: string | null): ReactNode {
   switch (id) {
