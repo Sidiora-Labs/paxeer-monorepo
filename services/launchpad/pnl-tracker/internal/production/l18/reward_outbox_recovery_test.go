@@ -168,6 +168,10 @@ func TestOutboxCrashRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err = f.db.permit("pnl.l18_outbox", "UPDATE", "published_at"); err != nil {
+		t.Fatalf("registered outbox marker grant: %v", err)
+	}
+	delete(f.db.grants["pnl.l18_outbox"], "UPDATE:published_at")
 	if _, err = NewOutboxBridge(ctx, l, store, 32); !errors.Is(err, delivery.ErrAuthorization) {
 		t.Fatalf("missing runtime update right admitted: %v", err)
 	}
