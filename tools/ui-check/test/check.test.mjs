@@ -9,8 +9,9 @@ import { fileURLToPath } from "node:url";
 import test, { after, before } from "node:test";
 import { PNG } from "pngjs";
 import { chromium } from "playwright";
-import { checkSurface } from "../check.mjs";
-import { DEVICES, LIMITS, MODES, REPOSITORY, readSurface, renderMatrix } from "../config.mjs";
+import { checkSurface, FRAME_TAB_PRESSES, FRAME_TRAVERSAL_MS, keyboardFindings, readSurface } from "../check.mjs";
+import { DEVICES, LIMITS, MODES, REPOSITORY, renderMatrix } from "../config.mjs";
+import { observePage } from "../browser.mjs";
 import { serveFiles, startSurface } from "../server.mjs";
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
@@ -1660,3 +1661,162 @@ async function commandValidatesJobsAndKeepsTheDeadlineInternal() {
   }
 }
 test(commandValidatesJobsAndKeepsTheDeadlineInternal);
+
+async function framesPassAsOneStopAndFollowingControlsKeepTheirFocusChecks() {
+  for (const unmarked of [false, true]) {
+    const { result } = await execute("frame-traversal", {
+      views: [{ name: "frame", path: `/frame-traversal.html${unmarked ? "?unmarked" : ""}` }],
+    });
+    assertMatrix(result);
+    assert.equal(result.passed, !unmarked, JSON.stringify(result.findings));
+    assert.equal(result.findings.length, unmarked ? 4 : 0);
+    for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+      assert.deepEqual(render.focused, ["#before", "#frame", "#after"]);
+      assert.equal(render.findings.length, unmarked ? 1 : 0);
+      for (const finding of render.findings) {
+        assert.equal(finding.kind, "focus");
+        assert.equal(finding.selector, "#after");
+        assert.equal(finding.values.visibleChange, false);
+        assert.equal(finding.values.outside, false);
+      }
+    }
+  }
+}
+test(framesPassAsOneStopAndFollowingControlsKeepTheirFocusChecks);
+
+async function trappedFrameEndsTraversalWithOneBoundedFinding() {
+  const { result } = await execute("frame-trap");
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 4);
+  assert.equal(result.retriedCount, 0);
+  assert.equal(FRAME_TAB_PRESSES, 32);
+  assert.equal(FRAME_TRAVERSAL_MS, 2000);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#before", "#frame"]);
+    assert.equal(render.findings.length, 1);
+    const finding = render.findings[0];
+    assert.equal(finding.kind, "focus");
+    assert.equal(finding.selector, "#frame");
+    assert.equal(finding.values.message, "Keyboard traversal did not leave the frame");
+    assert.ok(finding.values.presses > 0 && finding.values.presses <= FRAME_TAB_PRESSES);
+    assert.equal(finding.values.maximumPresses, FRAME_TAB_PRESSES);
+    assert.equal(finding.values.maximumMilliseconds, FRAME_TRAVERSAL_MS);
+  }
+}
+test(trappedFrameEndsTraversalWithOneBoundedFinding);
+
+async function frameFreeTraversalKeepsEveryTabPress() {
+  const browser = await chromium.launch();
+  try {
+    const context = await browser.newContext();
+    await context.addInitScript(observePage);
+    const page = await context.newPage();
+    await page.goto(`${files.address}/frame-traversal.html?without-frame`);
+    const keyboard = await keyboardFindings(page);
+    assert.deepEqual(keyboard, { findings: [], visited: ["#before", "#after"] });
+    assert.equal(await page.evaluate(() => Number(document.body.dataset.tabs)), 4);
+  } finally { await browser.close(); }
+}
+test(frameFreeTraversalKeepsEveryTabPress);
+
+const embeddedMessage = { script: "/embedded/", message: "Embedded script notice" };
+
+async function declaredEmbeddedMessagesStayVisibleWithTheirCounts() {
+  const { result, lines } = await execute("embedded-messages", {
+    embeddedMessages: [embeddedMessage, { script: "/unused/", message: "Unused notice" }],
+    views: [{ name: "embedded", path: "/embedded-messages.html", modes: ["default"] }],
+  });
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 22);
+  assert.deepEqual(result.findings, []);
+  for (const render of result.renders) {
+    assert.equal(render.rendered, true);
+    assert.deepEqual(render.embeddedMessages, [{ ...embeddedMessage, count: 2 }]);
+  }
+  assert.equal(lines[0], "embedded: 22 renders, 0 did not render, 0 showed nothing, 0 findings, 0 retried, 44 declared messages");
+}
+test(declaredEmbeddedMessagesStayVisibleWithTheirCounts);
+
+async function undeclaredLocationsTextsAndUncaughtErrorsKeepLoadFindings() {
+  for (const [variant, source, message, path] of [
+    ["outside", "console", embeddedMessage.message, "/outside/messages.js"],
+    ["different", "console", "Another embedded notice", "/embedded/messages.js"],
+    ["uncaught", "pageerror", embeddedMessage.message, null],
+    ["rejection", "unhandledrejection", embeddedMessage.message, null],
+  ]) {
+    const { result } = await execute("embedded-messages", {
+      embeddedMessages: [embeddedMessage],
+      views: [{ name: variant, path: `/embedded-messages.html?${variant}`, modes: ["default"] }],
+    });
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    for (const render of result.renders) {
+      assert.equal(render.rendered, true);
+      const sources = variant === "rejection" ? ["pageerror", "unhandledrejection"] : [source];
+      assert.equal(render.findings.length, sources.length, JSON.stringify(render.findings));
+      assert.deepEqual(render.findings.map((finding) => finding.values.source), sources);
+      for (const finding of render.findings) {
+        assert.equal(finding.kind, "load");
+        assert.ok(finding.values.message.includes(message));
+        if (path) assert.equal(new URL(finding.values.location.url).pathname, path);
+      }
+      assert.deepEqual(render.embeddedMessages, [{ ...embeddedMessage, count: 2 }]);
+    }
+  }
+}
+test(undeclaredLocationsTextsAndUncaughtErrorsKeepLoadFindings);
+
+async function matchingTextAndPathAtAnotherOriginKeepTheirFinding() {
+  await writeFile(join(root, "external-message.js"), `console.error(${JSON.stringify(embeddedMessage.message)});`);
+  const target = `${externalAddress}/embedded/messages.js`;
+  const outsideRequests = externalRequests;
+  const { result } = await execute("embedded-messages", {
+    embeddedMessages: [embeddedMessage],
+    answers: [{ method: "GET", pattern: target, file: "external-message.js", headers: { "content-type": "text/javascript" } }],
+    views: [{ name: "external", path: `/embedded-messages.html?external=${encodeURIComponent(target)}`, modes: ["default"] }],
+  });
+  assert.equal(result.passed, false);
+  assert.equal(result.renders.length, 22);
+  assert.equal(externalRequests, outsideRequests);
+  for (const render of result.renders) {
+    assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+    assert.equal(render.findings[0].kind, "load");
+    assert.equal(render.findings[0].values.source, "console");
+    assert.equal(render.findings[0].values.message, embeddedMessage.message);
+    assert.equal(render.findings[0].values.location.url, target);
+    assert.deepEqual(render.embeddedMessages, [{ ...embeddedMessage, count: 2 }]);
+  }
+}
+test(matchingTextAndPathAtAnotherOriginKeepTheirFinding);
+
+async function unmatchedEmbeddedMessagesAreOptional() {
+  const { result, lines } = await execute("clean", {
+    embeddedMessages: [embeddedMessage], views: [{ name: "clean", path: "/clean.html", modes: ["default"] }],
+  });
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 22);
+  assert.ok(result.renders.every((render) => render.embeddedMessages.length === 0));
+  assert.equal(lines[0], "clean: 22 renders, 0 did not render, 0 showed nothing, 0 findings, 0 retried");
+}
+test(unmatchedEmbeddedMessagesAreOptional);
+
+async function embeddedMessageEntriesRequireDirectoryPathsAndExactText() {
+  for (const value of [null, false, {}, "messages"]) {
+    await assert.rejects(readSurface(await surfaceFor("clean", { embeddedMessages: value })), /surface\.embeddedMessages must be an array/);
+  }
+  for (const entry of [
+    null, false, [], "message", {}, { message: embeddedMessage.message }, { script: "/embedded/" },
+    ...["/messages.js", "/embedded", "/", "embedded/messages.js", "//embedded/messages.js", "/embedded/../messages.js", "/embedded/?query", "/embedded/#hash", "/embedded/\\messages.js"].map((script) => ({ ...embeddedMessage, script })),
+    ...[null, false, 1, {}, [], "", "  "].map((message) => ({ ...embeddedMessage, message })),
+    { ...embeddedMessage, unknown: true },
+  ]) {
+    await assert.rejects(readSurface(await surfaceFor("clean", { embeddedMessages: [embeddedMessage, entry] })), /surface\.embeddedMessages\[1\]/);
+  }
+  for (const script of ["/embedded/", "/embedded/messages.js", "/vendor/charts/bundle"]) {
+    const entries = [{ ...embeddedMessage, script }];
+    assert.deepEqual((await readSurface(await surfaceFor("clean", { embeddedMessages: entries }))).embeddedMessages, entries);
+  }
+  assert.deepEqual((await readSurface(await surfaceFor("clean", { embeddedMessages: [] }))).embeddedMessages, []);
+}
+test(embeddedMessageEntriesRequireDirectoryPathsAndExactText);

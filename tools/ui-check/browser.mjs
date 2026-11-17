@@ -244,6 +244,7 @@ export function focusedElement() {
   while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
   if (!active || active === document.body || active === document.documentElement) return null;
   const { focusBefore, appearance, selector, focusControl } = window.__uiCheck;
+  if (active.matches("iframe,frame")) return { selector: selector(active), frame: true };
   window.__uiCheck.lastFocused = active;
   const control = focusControl(active);
   const rect = control.getBoundingClientRect();
