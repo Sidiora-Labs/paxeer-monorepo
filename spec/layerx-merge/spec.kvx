@@ -205786,7 +205786,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.821]
 title = "Let the move case of the wallet ceremony take the count of the gateway migrations from their directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205817,7 +205817,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.820]
 title = "Let the store clients of the expiry case of the launchpad security module follow the limit of the case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205879,7 +205879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.818]
 title = "Let the case of the charts measurement command read the commit timestamp setting of its database first"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205909,7 +205909,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.817]
 title = "Let the consumer of the stream contract cases prepare every file the sdk compile script reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -205940,7 +205940,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.816]
 title = "Give the later side of the visibility bound of the launchpad ranking module an allowance between two clocks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -206034,7 +206034,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.813]
 title = "Bring the cases of the live, social and create views of the launchpad web application in line with their views and producers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
