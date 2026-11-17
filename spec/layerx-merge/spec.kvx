@@ -175746,7 +175746,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.786]
 title = "Count the deposited margin of an account in the order entry of the native binding and fund an order from it first"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
