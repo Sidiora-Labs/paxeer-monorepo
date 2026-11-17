@@ -56,6 +56,7 @@ SERVICE_PACKAGES = {
         'github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/internaltest',
         'github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/ranker',
         'github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/rolecheck',
+        'github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/rolecheck/generate',
         'github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/store',
     },
     'stats-workers': {
