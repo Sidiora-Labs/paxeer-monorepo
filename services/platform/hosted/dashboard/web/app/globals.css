@@ -12,7 +12,7 @@
     background: var(--background);
     color: var(--foreground);
     font-family: var(--font-family-sans);
-    font-size: 1rem;
+    font-size: var(--font-size-body);
     line-height: var(--line-height-body);
   }
 }
@@ -674,7 +674,7 @@
   border-width: 0;
   background-color: transparent;
   color: var(--foreground);
-  font-size: 1rem;
+  font-size: var(--font-size-body);
   font-weight: var(--weight-regular);
   line-height: var(--line-height-body);
   text-decoration: underline;
