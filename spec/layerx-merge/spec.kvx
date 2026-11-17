@@ -177799,7 +177799,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.40]
 title = "Close the launchpad on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.22", "22.44.37", "22.44.50", "22.44.52"]
