@@ -250,7 +250,7 @@ fn money_types_carry_an_optional_rung() {
         [
             "submitted:unverified",
             "receipted:receipt-verified",
-            "committed:checkpoint-finalised"
+            "committed:committed"
         ]
     );
     for (file, section) in [

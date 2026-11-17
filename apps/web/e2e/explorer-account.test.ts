@@ -157,7 +157,7 @@ test("a unified account answer decodes both halves of the account", () => {
       amount: "2",
       from: ACCOUNT,
       to: "2".repeat(64),
-      verificationLevel: "checkpoint-finalised",
+      verificationLevel: "committed",
     }],
   });
   assert.equal(account.paxeerActivity.fromBlock, "70");

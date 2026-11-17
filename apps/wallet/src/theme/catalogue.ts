@@ -237,6 +237,7 @@ export const DEFAULT_SELECTION: ThemeSelection = {
 export const themeCatalogue: ThemeData = {
   themes: { dark, light, 'contrast-dark': contrastDark, 'contrast-light': contrastLight },
   accents,
+  accentInks: ACCENT_INKS,
   fonts,
   sizes,
   densities,

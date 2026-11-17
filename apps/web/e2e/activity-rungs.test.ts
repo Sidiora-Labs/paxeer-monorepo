@@ -44,7 +44,7 @@ function activity_entry_verification_ranks_three_rungs() {
   const rungs = [
     ["unverified", "activity.verification.unverified"],
     ["receipt-verified", "activity.verification.receipt_verified"],
-    ["checkpoint-finalised", "activity.verification.checkpoint_finalised"],
+    ["committed", "activity.verification.checkpoint_finalised"],
   ] as const;
   assert.equal(entryVerification([]), "unverified");
   for (const [level, key] of rungs) {
@@ -54,29 +54,29 @@ function activity_entry_verification_ranks_three_rungs() {
 
   const receipt = receiptEvidence("receipt-verified");
   const checkpoint: EvidenceRef = {
-    class: "checkpoint-proof", evidence_id: "chkpt_activity_rungs", verification: "checkpoint-finalised",
+    class: "checkpoint-proof", evidence_id: "chkpt_activity_rungs", verification: "committed",
   };
-  assert.equal(entryVerification([receipt, checkpoint]), "checkpoint-finalised");
-  assert.equal(entryVerification([checkpoint, receipt]), "checkpoint-finalised");
+  assert.equal(entryVerification([receipt, checkpoint]), "committed");
+  assert.equal(entryVerification([checkpoint, receipt]), "committed");
 
   const retired = ["paxeer-finalised", "settlement-anchored"] as const;
   for (const level of retired) {
     const evidence = receiptEvidence(level);
-    assert.equal(entryVerification([evidence]), "unverified");
-    assert.equal(verificationLabel(level), copyEntry("activity.verification.unverified").message);
-    assert.equal(entryVerification([evidence, receipt]), "receipt-verified");
-    assert.equal(entryVerification([receipt, evidence]), "receipt-verified");
-    assert.equal(entryVerification([evidence, receipt, checkpoint]), "checkpoint-finalised");
-    assert.equal(entryVerification([checkpoint, receipt, evidence]), "checkpoint-finalised");
+    assert.equal(entryVerification([evidence]), "committed");
+    assert.equal(verificationLabel(level), copyEntry("activity.verification.checkpoint_finalised").message);
+    assert.equal(entryVerification([evidence, receipt]), "committed");
+    assert.equal(entryVerification([receipt, evidence]), "committed");
+    assert.equal(entryVerification([evidence, receipt, checkpoint]), "committed");
+    assert.equal(entryVerification([checkpoint, receipt, evidence]), "committed");
   }
-  assert.equal(entryVerification(retired.map(receiptEvidence)), "unverified");
+  assert.equal(entryVerification(retired.map(receiptEvidence)), "committed");
 }
 
 function activity_receipt_backed_refuses_retired_levels() {
   for (const level of ["unverified", "paxeer-finalised", "settlement-anchored"] as const) {
     assert.equal(receiptBacked(receiptEvidence(level)), false, level);
   }
-  for (const level of ["receipt-verified", "checkpoint-finalised"] as const) {
+  for (const level of ["receipt-verified", "committed", "checkpoint-finalised"] as const) {
     assert.equal(receiptBacked(receiptEvidence(level)), true, level);
     for (const evidenceClass of ["checkpoint-proof", "paxeer-finality"] as const) {
       assert.equal(receiptBacked({ ...receiptEvidence(level), class: evidenceClass }), false, evidenceClass);

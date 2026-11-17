@@ -58,7 +58,7 @@ function kit_producers_reach_home_consumers_twice() {
   const cases = [
     ["unverified", "verification.unverified", "Not verified yet"],
     ["receipt-verified", "verification.receipt_verified", "Verified against its receipt"],
-    ["checkpoint-finalised", "verification.checkpoint_finalised", "Finalised in a committed Paxeer block"],
+    ["committed", "verification.checkpoint_finalised", "Finalised in a committed Paxeer block"],
   ] as const;
   assert.deepEqual(Object.keys(VERIFICATION_PRESENTATIONS), cases.map(([level]) => level));
 
@@ -122,7 +122,7 @@ function kit_refuses_retired_and_malformed_verification_at_home_boundary() {
   }
 
   const agent = agentInput(verificationRung("receipt-verified"));
-  for (const level of ["receipt-verified", "settlement-anchored", "checkpoint-finalised"] as const) {
+  for (const level of ["receipt-verified", "settlement-anchored", "committed"] as const) {
     balance.verification = level;
     agent.spend.verification = level;
     assert.equal(homeBalance(balance).kind, level === "settlement-anchored" ? "unavailable" : "verified");
