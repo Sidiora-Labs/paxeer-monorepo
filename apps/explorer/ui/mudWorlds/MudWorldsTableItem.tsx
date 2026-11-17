@@ -13,18 +13,18 @@ const MudWorldsTableItem = ({ item, isLoading }: Props) => {
   return (
     <TableRow>
       <TableCell verticalAlign="middle">
-        <AddressEntity address={ item.address } isLoading={ isLoading } fontWeight={ 700 }/>
+        <AddressEntity address={ item.address } isLoading={ isLoading } fontWeight="bold"/>
       </TableCell>
       <TableCell isNumeric>
         <NativeCoinValue
           amount={ item.coin_balance }
           noSymbol
           loading={ isLoading }
-          lineHeight="24px"
+          lineHeight="h2"
         />
       </TableCell>
       <TableCell isNumeric>
-        <Skeleton loading={ isLoading } display="inline-block" lineHeight="24px">
+        <Skeleton loading={ isLoading } display="inline-block" lineHeight="h2">
           { Number(item.transactions_count).toLocaleString() }
         </Skeleton>
       </TableCell>

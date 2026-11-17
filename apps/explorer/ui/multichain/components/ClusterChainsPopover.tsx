@@ -8,7 +8,7 @@ import { route } from 'nextjs/routes';
 import multichainConfig from 'configs/multichain';
 import { Button } from 'toolkit/chakra/button';
 import { Link } from 'toolkit/chakra/link';
-import { PopoverBody, PopoverContent, PopoverRoot, PopoverTrigger } from 'toolkit/chakra/popover';
+import { PopoverBody, PopoverContent, PopoverRoot, PopoverTrigger } from 'ui/marketplace/NativePopover';
 import ChainIcon from 'ui/shared/externalChains/ChainIcon';
 import IconSvg from 'ui/shared/IconSvg';
 
@@ -41,7 +41,7 @@ const ClusterChainsPopover = ({ addressHash, data, isLoading }: Props) => {
             variant="dropdown"
             aria-label="Chains this address has interacted with"
             px={ 2 }
-            fontWeight={ 500 }
+            fontWeight="medium"
             flexShrink={ 0 }
             columnGap={ 1 }
             loadingSkeleton={ isLoading }
@@ -51,7 +51,13 @@ const ClusterChainsPopover = ({ addressHash, data, isLoading }: Props) => {
           </Button>
         </PopoverTrigger>
       </Box>
-      <PopoverContent w="auto" maxH="400px" overflowY="auto">
+      <PopoverContent
+        maxW="calc(100dvw - var(--chakra-spacing-8))"
+        overscrollBehavior="contain"
+        w="auto"
+        maxH="var(--chakra-spacing-100)"
+        overflowY="auto"
+      >
         <PopoverBody >
           <chakra.span color="text.secondary" textStyle="xs">Chains this address has interacted with</chakra.span>
           <VStack gap={ 2 } mt={ 1 } alignItems="flex-start">
@@ -69,7 +75,7 @@ const ClusterChainsPopover = ({ addressHash, data, isLoading }: Props) => {
                 external
                 display="flex"
                 alignItems="center"
-                py="7px"
+                py="calc(var(--chakra-spacing-1) * 1.75)"
               >
                 <ChainIcon data={ chain } mr={ 2 }/>
                 { chain.name }

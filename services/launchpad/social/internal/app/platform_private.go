@@ -22,9 +22,9 @@ import (
 // platformPrivate is the platform runtime's private ingress: a TLS 1.3
 // listener that requires a client certificate issued by the private CA. The
 // social API is served there only to the gateway (its client certificate is
-// pinned), and /internal/v2/social/ranking-visibility only to the service
-// authorities of SOCIAL_AUTHORITY_PEERS (DNS SAN + pinned certificate), as the
-// bound runtime's ingress and authorityHTTP do.
+// pinned), and /internal/v2/social/* only to the service authorities of
+// SOCIAL_AUTHORITY_PEERS (DNS SAN + pinned certificate), as the bound runtime's
+// ingress and authorityHTTP do.
 type platformPrivate struct {
 	address    string
 	tls        *tls.Config
@@ -108,16 +108,7 @@ func (p *platformPrivate) authority(w http.ResponseWriter, r *http.Request, peer
 		sharedhttp.WriteJSON(w, http.StatusForbidden, map[string]string{codeField: "SERVICE_AUTHORITY_REQUIRED"})
 		return
 	}
-	if r.Method != http.MethodGet || r.URL.Path != "/internal/v2/social/ranking-visibility" {
-		sharedhttp.WriteJSON(w, http.StatusNotFound, map[string]string{codeField: notFoundCode})
-		return
-	}
-	value, err := platformRankingVisibility(r.Context(), p.pool)
-	if err != nil {
-		sharedhttp.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{codeField: "SOCIAL_AUTHORITY_UNAVAILABLE"})
-		return
-	}
-	sharedhttp.WriteJSON(w, http.StatusOK, value)
+	(&socialConnectedRuntime{pool: p.pool}).authorityRoutes(w, r)
 }
 
 // platformRankingVisibility is the ranking moderation snapshot of the
@@ -159,7 +150,7 @@ func platformRankingVisibility(ctx context.Context, pool *pgxpool.Pool) (any, er
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	if len(pools) == 0 || len(pools) > 100000 {
+	if len(pools) > 100000 {
 		return nil, safety.ErrUnavailable
 	}
 	return struct {

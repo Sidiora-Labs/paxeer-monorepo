@@ -21,14 +21,14 @@ const TxAdditionalInfoContent = ({ tx }: { tx: Transaction }) => {
   const multichainContext = useMultichainContext();
 
   const sectionProps = {
-    borderBottom: '1px solid',
+    borderBottomWidth: 'var(--chakra-border-widths-1)', borderBottomStyle: 'solid',
     borderColor: 'border.divider',
     paddingBottom: 4,
   };
 
   const sectionTitleProps = {
     color: 'text.secondary',
-    fontWeight: 600,
+    fontWeight: 'semibold',
     marginBottom: 3,
   };
 
@@ -51,7 +51,7 @@ const TxAdditionalInfoContent = ({ tx }: { tx: Transaction }) => {
           <Flex flexDir="column" rowGap={ 3 }>
             { tx.blob_versioned_hashes.slice(0, 3).map((hash, index) => (
               <Flex key={ hash } columnGap={ 2 }>
-                <Box fontWeight={ 500 }>{ index + 1 }</Box>
+                <Box fontWeight="medium">{ index + 1 }</Box>
                 <BlobEntity hash={ hash } noIcon/>
               </Flex>
             )) }
@@ -76,7 +76,7 @@ const TxAdditionalInfoContent = ({ tx }: { tx: Transaction }) => {
       { tx.gas_used !== null && (
         <Box { ...sectionProps } mb={ 4 }>
           <Text { ...sectionTitleProps }>Gas limit & usage by transaction</Text>
-          <Flex>
+          <Flex flexWrap="wrap" alignItems="center" gap={ 2 }>
             <Text>{ BigNumber(tx.gas_used).toFormat() }</Text>
             <TextSeparator/>
             <Text>{ BigNumber(tx.gas_limit).toFormat() }</Text>
@@ -90,37 +90,37 @@ const TxAdditionalInfoContent = ({ tx }: { tx: Transaction }) => {
           <Text { ...sectionTitleProps }>Gas fees ({ currencyUnits.gwei })</Text>
           { tx.base_fee_per_gas !== null && (
             <Box>
-              <Text as="span" fontWeight="500">Base: </Text>
+              <Text as="span" fontWeight="medium">Base: </Text>
               <NativeCoinValue
                 amount={ tx.base_fee_per_gas }
                 units="gwei"
                 unitsTooltip="wei"
                 noSymbol
-                fontWeight="700"
+                fontWeight="bold"
               />
             </Box>
           ) }
           { tx.max_fee_per_gas !== null && (
             <Box mt={ 1 }>
-              <Text as="span" fontWeight="500">Max: </Text>
+              <Text as="span" fontWeight="medium">Max: </Text>
               <NativeCoinValue
                 amount={ tx.max_fee_per_gas }
                 units="gwei"
                 unitsTooltip="wei"
                 noSymbol
-                fontWeight="700"
+                fontWeight="bold"
               />
             </Box>
           ) }
           { tx.max_priority_fee_per_gas !== null && (
             <Box mt={ 1 }>
-              <Text as="span" fontWeight="500">Max priority: </Text>
+              <Text as="span" fontWeight="medium">Max priority: </Text>
               <NativeCoinValue
                 amount={ tx.max_priority_fee_per_gas }
                 units="gwei"
                 unitsTooltip="wei"
                 noSymbol
-                fontWeight="700"
+                fontWeight="bold"
               />
             </Box>
           ) }
@@ -130,17 +130,17 @@ const TxAdditionalInfoContent = ({ tx }: { tx: Transaction }) => {
         <Box { ...sectionProps } mb={ 4 }>
           <Text { ...sectionTitleProps }>Others</Text>
           <Box>
-            <Text as="span" fontWeight="500">Txn type: </Text>
-            <Text fontWeight="600" as="span">{ tx.type }</Text>
-            { tx.type === 2 && <Text fontWeight="400" as="span" ml={ 1 } color="text.secondary">(EIP-1559)</Text> }
+            <Text as="span" fontWeight="medium">Txn type: </Text>
+            <Text fontWeight="semibold" as="span">{ tx.type }</Text>
+            { tx.type === 2 && <Text fontWeight="normal" as="span" ml={ 1 } color="text.secondary">(EIP-1559)</Text> }
           </Box>
           <Box mt={ 1 }>
-            <Text as="span" fontWeight="500">Nonce: </Text>
-            <Text fontWeight="600" as="span">{ tx.nonce }</Text>
+            <Text as="span" fontWeight="medium">Nonce: </Text>
+            <Text fontWeight="semibold" as="span">{ tx.nonce }</Text>
           </Box>
           <Box mt={ 1 }>
-            <Text as="span" fontWeight="500">Position: </Text>
-            <Text fontWeight="600" as="span">{ tx.position }</Text>
+            <Text as="span" fontWeight="medium">Position: </Text>
+            <Text fontWeight="semibold" as="span">{ tx.position }</Text>
           </Box>
         </Box>
       ) }

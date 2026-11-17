@@ -100,6 +100,7 @@ const ContractVerificationFieldMethod = ({ methods }: Props) => {
       <FormFieldSelect<FormFields, 'method'>
         name="method"
         placeholder="Verification method (compiler type)"
+        triggerProps={{ 'aria-label': 'Verification method (compiler type)' }}
         collection={ collection }
         required
         readOnly={ collection.items.length === 1 }

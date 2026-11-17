@@ -23,11 +23,11 @@ const ScrollL2WithdrawalsTableItem = ({ item, isLoading }: Props) => {
 
   return (
     <TableRow>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <BlockEntity
           number={ item.origination_transaction_block_number }
           isLoading={ isLoading }
-          fontWeight={ 600 }
+          fontWeight="semibold"
           noIcon
         />
       </TableCell>

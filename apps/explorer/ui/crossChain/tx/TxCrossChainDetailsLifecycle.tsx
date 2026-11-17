@@ -36,7 +36,7 @@ const TxCrossChainDetailsLifecycle = ({ data, isLoading }: Props) => {
         <ItemContent isLast={ isLast }>
           <ItemBody>
             <ItemRow label="Chain">
-              <ChainLabel data={ data.source_chain } isLoading={ isLoading } py="6px"/>
+              <ChainLabel data={ data.source_chain } isLoading={ isLoading } py="calc(var(--chakra-spacing-1) * 1.5)"/>
             </ItemRow>
             <ItemRow label="Transaction">
               <TxEntityInterchain
@@ -44,11 +44,16 @@ const TxCrossChainDetailsLifecycle = ({ data, isLoading }: Props) => {
                 hash={ data.source_transaction_hash }
                 isLoading={ isLoading }
                 noIcon
-                py="6px"
+                py="calc(var(--chakra-spacing-1) * 1.5)"
               />
             </ItemRow>
             <ItemRow label="Timestamp">
-              <DetailedInfoTimestamp timestamp={ data.send_timestamp } isLoading={ isLoading } flexWrap={{ base: 'wrap', lg: 'nowrap' }} py="6px"/>
+              <DetailedInfoTimestamp
+                timestamp={ data.send_timestamp }
+                isLoading={ isLoading }
+                flexWrap={{ base: 'wrap', lg: 'nowrap' }}
+                py="calc(var(--chakra-spacing-1) * 1.5)"
+              />
             </ItemRow>
           </ItemBody>
         </ItemContent>
@@ -76,7 +81,7 @@ const TxCrossChainDetailsLifecycle = ({ data, isLoading }: Props) => {
         <ItemContent isLast>
           <ItemBody>
             <ItemRow label="Chain">
-              <ChainLabel data={ data.destination_chain } isLoading={ isLoading } py="6px"/>
+              <ChainLabel data={ data.destination_chain } isLoading={ isLoading } py="calc(var(--chakra-spacing-1) * 1.5)"/>
             </ItemRow>
             <ItemRow label="Transaction">
               <TxEntityInterchain
@@ -84,12 +89,17 @@ const TxCrossChainDetailsLifecycle = ({ data, isLoading }: Props) => {
                 hash={ data.destination_transaction_hash }
                 isLoading={ isLoading }
                 noIcon
-                py="6px"
+                py="calc(var(--chakra-spacing-1) * 1.5)"
               />
             </ItemRow>
             { data.receive_timestamp && (
               <ItemRow label="Timestamp">
-                <DetailedInfoTimestamp timestamp={ data.receive_timestamp } isLoading={ isLoading } flexWrap={{ base: 'wrap', lg: 'nowrap' }} py="6px"/>
+                <DetailedInfoTimestamp
+                  timestamp={ data.receive_timestamp }
+                  isLoading={ isLoading }
+                  flexWrap={{ base: 'wrap', lg: 'nowrap' }}
+                  py="calc(var(--chakra-spacing-1) * 1.5)"
+                />
               </ItemRow>
             ) }
           </ItemBody>

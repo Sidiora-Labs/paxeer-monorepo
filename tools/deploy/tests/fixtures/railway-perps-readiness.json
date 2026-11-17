@@ -17,7 +17,7 @@
       "image": "perps-web",
       "order": 6,
       "health": "/api/build-id",
-      "restart": "ALWAYS",
+      "restart": "ON_FAILURE",
       "replicas": 1,
       "status": "CRASHED"
     }

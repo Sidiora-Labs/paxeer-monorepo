@@ -19,10 +19,10 @@ const MetadataAccordion = ({ data, level = 0 }: Props) => {
     }
 
     if (level === 1) {
-      return 126;
+      return 32;
     }
 
-    return 24;
+    return 6;
   })();
 
   const isFlat = Object.entries(data).every(([ , value ]) => typeof value !== 'object');
@@ -90,7 +90,7 @@ const MetadataAccordion = ({ data, level = 0 }: Props) => {
     <AccordionRoot
       multiple
       textStyle="sm"
-      ml={{ base: level === 0 ? 0 : 6, lg: `${ ml }px` }}
+      ml={{ base: level === 0 ? 0 : 6, lg: ml }}
       defaultValue={ level === 0 ? entries.map(([ key ]) => key) : undefined }
     >
       { entries.map(([ key, value ]) => renderItem(key, value)) }

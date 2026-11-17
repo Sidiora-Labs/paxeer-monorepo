@@ -3,8 +3,8 @@ import React from 'react';
 
 import type { GetAvailableBadgesResponse } from '@blockscout/points-types';
 
-import { DialogBody, DialogContent, DialogHeader, DialogRoot } from 'toolkit/chakra/dialog';
 import { Heading } from 'toolkit/chakra/heading';
+import { DialogBody, DialogContent, DialogHeader, DialogRoot } from 'ui/marketplace/NativeDialog';
 
 import BadgeCard from './BadgeCard';
 import ProgressSegment from './ProgressSegment';
@@ -33,7 +33,7 @@ const RewardsStreakModal = ({ open, onOpenChange, currentStreak, badges = EMPTY_
               <Flex
                 direction={{ base: 'column', lg: 'row' }}
                 gap={{ base: 3, lg: 10 }}
-                bgColor={{ _light: 'gray.50', _dark: 'whiteAlpha.100' }}
+                bgColor="surface"
                 p={{ base: 4, lg: 8 }}
                 pl={{ base: 4, lg: 5 }}
                 borderRadius="lg"
@@ -43,7 +43,7 @@ const RewardsStreakModal = ({ open, onOpenChange, currentStreak, badges = EMPTY_
                   <Heading level="1">{ currentStreak }</Heading>
                   <Text textStyle="xs" color="text.secondary">Day streak</Text>
                 </Flex>
-                <Flex flex={ 1 } pl={{ base: 2, lg: 0 }}>
+                <Flex flex={ 1 } minW={ 0 } flexWrap="wrap" rowGap={ 4 } pl={{ base: 2, lg: 0 }}>
                   { badges.map((badge, i) => {
                     const target = Number(badge.requirements?.streak || 0);
                     const prevTarget = i > 0 ? Number(badges[i - 1]?.requirements?.streak || 0) : 0;
@@ -66,9 +66,8 @@ const RewardsStreakModal = ({ open, onOpenChange, currentStreak, badges = EMPTY_
               <Heading level="3">Rewards</Heading>
               <Flex direction={{ base: 'column', lg: 'row' }} gap={{ base: 2, lg: 6 }} justifyContent="space-between">
                 { badges.map((badge, i) => (
-                  <>
+                  <React.Fragment key={ i }>
                     <BadgeCard
-                      key={ i }
                       badge={ badge }
                       currentStreak={ currentStreak }
                       index={ i }
@@ -79,7 +78,7 @@ const RewardsStreakModal = ({ open, onOpenChange, currentStreak, badges = EMPTY_
                         orientation="vertical"
                       />
                     ) }
-                  </>
+                  </React.Fragment>
                 )) }
               </Flex>
             </Flex>

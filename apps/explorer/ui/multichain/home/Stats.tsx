@@ -1,4 +1,4 @@
-import { Flex } from '@chakra-ui/react';
+import { Flex, Grid } from '@chakra-ui/react';
 import React from 'react';
 
 import useApiQuery from 'lib/api/useApiQuery';
@@ -42,7 +42,7 @@ const Stats = () => {
   return (
     <Flex mt={ 6 } gap={ 2 } flexDirection={{ base: 'column', lg: 'row' }}>
       { items.length > 0 && (
-        <Flex gap={ 2 } flexDirection={{ base: 'row', lg: 'column' }} w={{ base: '100%', lg: '270px' }}>
+        <Grid gap={ 2 } minW={ 0 } templateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-40)), 1fr))" flex="1">
           { items.map((item) => (
             <StatsWidget
               key={ item.id }
@@ -51,10 +51,10 @@ const Stats = () => {
               icon={ item.icon }
               isLoading={ statsQuery.isPlaceholderData }
               hint={ item.hint }
-              w={{ base: 'calc((100% - 8px) / 2)', lg: '100%' }}
+              minW={ 0 }
             />
           )) }
-        </Flex>
+        </Grid>
       ) }
       <ChainIndicators/>
     </Flex>

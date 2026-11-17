@@ -28,24 +28,56 @@ REVOKE ALL ON migration_control.migration_attempts FROM PUBLIC;RESET ROLE;`
 
 func OnlineIndexControlDDL() string { return onlineIndexControlDDL }
 
+type OnlineIndexKey struct {
+	Column     string `json:"column"`
+	Numeric    bool   `json:"numeric,omitempty"`
+	Descending bool   `json:"descending,omitempty"`
+}
+
 type OnlineIndexPlan struct {
-	Schema, Table, Name string
-	Columns             []string
-	Unique              bool
+	Schema  string           `json:"schema"`
+	Table   string           `json:"table"`
+	Name    string           `json:"name"`
+	Columns []string         `json:"columns,omitempty"`
+	Unique  bool             `json:"unique,omitempty"`
+	Keys    []OnlineIndexKey `json:"keys,omitempty"`
+}
+
+func (p OnlineIndexPlan) keys() ([]OnlineIndexKey, error) {
+	if len(p.Columns) > 0 && len(p.Keys) > 0 {
+		return nil, fmt.Errorf("one index key representation required")
+	}
+	keys := append([]OnlineIndexKey(nil), p.Keys...)
+	for _, c := range p.Columns {
+		keys = append(keys, OnlineIndexKey{Column: c})
+	}
+	if !identifier.MatchString(p.Schema) || !identifier.MatchString(p.Table) || !identifier.MatchString(p.Name) || len(keys) < 1 || len(keys) > 8 {
+		return nil, fmt.Errorf("invalid concurrent index identity")
+	}
+	seen := map[string]bool{}
+	for _, k := range keys {
+		if !identifier.MatchString(k.Column) || seen[k.Column] {
+			return nil, fmt.Errorf("invalid index column")
+		}
+		seen[k.Column] = true
+	}
+	return keys, nil
 }
 
 func (p OnlineIndexPlan) CreateSQL() (string, error) {
-	if !identifier.MatchString(p.Schema) || !identifier.MatchString(p.Table) || !identifier.MatchString(p.Name) || len(p.Columns) < 1 || len(p.Columns) > 8 {
-		return "", fmt.Errorf("invalid concurrent index identity")
+	keys, err := p.keys()
+	if err != nil {
+		return "", err
 	}
-	columns := make([]string, len(p.Columns))
-	seen := map[string]bool{}
-	for i, c := range p.Columns {
-		if !identifier.MatchString(c) || seen[c] {
-			return "", fmt.Errorf("invalid index column")
+	columns := make([]string, len(keys))
+	for i, k := range keys {
+		columns[i] = pgx.Identifier{k.Column}.Sanitize()
+		if k.Numeric {
+			columns[i] = "(" + columns[i] + "::numeric)"
 		}
-		seen[c] = true
-		columns[i] = pgx.Identifier{c}.Sanitize()
+		if k.Descending {
+			columns[i] += " DESC"
+		}
 	}
 	unique := ""
 	if p.Unique {
@@ -66,7 +98,14 @@ func InspectOnlineIndex(ctx context.Context, conn *pgx.Conn, p OnlineIndexPlan) 
 	if _, err := p.CreateSQL(); err != nil || conn == nil {
 		return state, fmt.Errorf("dedicated session and exact index required")
 	}
-	err := conn.QueryRow(ctx, `SELECT i.indisvalid,i.indisready,i.indisunique,t.relname,tn.nspname,am.amname,ARRAY(SELECT a.attname::text FROM unnest(i.indkey) WITH ORDINALITY k(attnum,ord) JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum=k.attnum ORDER BY k.ord),pg_get_expr(i.indpred,i.indrelid),pg_get_expr(i.indexprs,i.indrelid),pg_get_indexdef(i.indexrelid)=format('CREATE %sINDEX %I ON %I.%I USING btree (%s)',$4::text,$2::text,$1::text,$3::text,(SELECT string_agg(quote_ident(v),', ' ORDER BY ord) FROM unnest($5::text[]) WITH ORDINALITY col(v,ord))) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_index i ON i.indexrelid=c.oid JOIN pg_class t ON t.oid=i.indrelid JOIN pg_namespace tn ON tn.oid=t.relnamespace JOIN pg_am am ON am.oid=c.relam WHERE n.nspname=$1 AND c.relname=$2`, p.Schema, p.Name, p.Table, indexUniquePrefix(p.Unique), p.Columns).Scan(&state.Valid, &state.Ready, &state.Unique, &state.Table, &state.Schema, &state.Method, &state.Columns, &state.Predicate, &state.Expressions, &state.DefinitionMatches)
+	keys, _ := p.keys()
+	keyNames := make([]string, len(keys))
+	numeric := make([]bool, len(keys))
+	descending := make([]bool, len(keys))
+	for i, k := range keys {
+		keyNames[i], numeric[i], descending[i] = k.Column, k.Numeric, k.Descending
+	}
+	err := conn.QueryRow(ctx, `SELECT i.indisvalid,i.indisready,i.indisunique,t.relname,tn.nspname,am.amname,ARRAY(SELECT a.attname::text FROM unnest(i.indkey) WITH ORDINALITY k(attnum,ord) JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum=k.attnum ORDER BY k.ord),pg_get_expr(i.indpred,i.indrelid),pg_get_expr(i.indexprs,i.indrelid),pg_get_indexdef(i.indexrelid)=format('CREATE %sINDEX %I ON %I.%I USING btree (%s)',$4::text,$2::text,$1::text,$3::text,(SELECT string_agg(CASE WHEN num THEN '(('||quote_ident(v)||')::numeric)' ELSE quote_ident(v) END || CASE WHEN desc_key THEN ' DESC' ELSE '' END,', ' ORDER BY ord) FROM unnest($5::text[],$6::boolean[],$7::boolean[]) WITH ORDINALITY col(v,num,desc_key,ord))) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_index i ON i.indexrelid=c.oid JOIN pg_class t ON t.oid=i.indrelid JOIN pg_namespace tn ON tn.oid=t.relnamespace JOIN pg_am am ON am.oid=c.relam WHERE n.nspname=$1 AND c.relname=$2`, p.Schema, p.Name, p.Table, indexUniquePrefix(p.Unique), keyNames, numeric, descending).Scan(&state.Valid, &state.Ready, &state.Unique, &state.Table, &state.Schema, &state.Method, &state.Columns, &state.Predicate, &state.Expressions, &state.DefinitionMatches)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return state, nil
 	}
@@ -83,7 +122,24 @@ func indexUniquePrefix(unique bool) string {
 	return ""
 }
 func (s OnlineIndexState) matches(p OnlineIndexPlan) bool {
-	return s.Exists && s.DefinitionMatches && s.Schema == p.Schema && s.Table == p.Table && s.Unique == p.Unique && s.Method == "btree" && s.Predicate == nil && s.Expressions == nil && reflect.DeepEqual(s.Columns, p.Columns)
+	keys, err := p.keys()
+	if err != nil {
+		return false
+	}
+	columns := []string{}
+	expressions := []string{}
+	for _, k := range keys {
+		if k.Numeric {
+			expressions = append(expressions, "("+k.Column+")::numeric")
+		} else {
+			columns = append(columns, k.Column)
+		}
+	}
+	expressionMatches := s.Expressions == nil && len(expressions) == 0
+	if s.Expressions != nil {
+		expressionMatches = *s.Expressions == strings.Join(expressions, ", ")
+	}
+	return s.Exists && s.DefinitionMatches && s.Schema == p.Schema && s.Table == p.Table && s.Unique == p.Unique && s.Method == "btree" && s.Predicate == nil && expressionMatches && reflect.DeepEqual(s.Columns, columns)
 }
 
 type IndexRepairApproval struct {
@@ -133,12 +189,23 @@ func LoadIndexRepairRegistry(data []byte, expectedSHA256 string) (IndexRepairReg
 var ErrInvalidOnlineIndex = errors.New("invalid_online_index_requires_approved_repair")
 
 func ApplyOnlineIndexMigration(ctx context.Context, conn *pgx.Conn, m MigrationManifest, plan OnlineIndexPlan, registry map[int64]MigrationManifest, interfaceDigest, approvalDigest string, deployedReaderMin int64, repairs *IndexRepairRegistry) (resultErr error) {
+	return ApplyOnlineIndexMigrationAsOwner(ctx, conn, m, plan, m.Schema+"_owner", registry, interfaceDigest, approvalDigest, deployedReaderMin, repairs)
+}
+
+func ApplyOnlineIndexMigrationAsOwner(ctx context.Context, conn *pgx.Conn, m MigrationManifest, plan OnlineIndexPlan, owner string, registry map[int64]MigrationManifest, interfaceDigest, approvalDigest string, deployedReaderMin int64, repairs *IndexRepairRegistry) (resultErr error) {
 	sql, err := plan.CreateSQL()
 	if err != nil {
 		return err
 	}
-	if conn == nil || m.Schema != plan.Schema || m.TransactionMode != "nontransactional" {
+	if conn == nil || !identifier.MatchString(owner) || m.Schema != plan.Schema || m.TransactionMode != "nontransactional" {
 		return fmt.Errorf("dedicated direct nontransactional index migration required")
+	}
+	var owns bool
+	if err = conn.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM pg_namespace n JOIN pg_roles r ON r.oid=n.nspowner WHERE n.nspname=$1 AND r.rolname=$2)", m.Schema, owner).Scan(&owns); err != nil {
+		return err
+	}
+	if !owns {
+		return fmt.Errorf("index migration requires the schema owner")
 	}
 	lockStart := time.Now()
 	var locked bool
@@ -268,7 +335,7 @@ func ApplyOnlineIndexMigration(ctx context.Context, conn *pgx.Conn, m MigrationM
 			}
 		}
 	}()
-	if _, err = conn.Exec(ctx, "SET ROLE "+pgx.Identifier{m.Schema + "_owner"}.Sanitize()); err != nil {
+	if _, err = conn.Exec(ctx, "SET ROLE "+pgx.Identifier{owner}.Sanitize()); err != nil {
 		return err
 	}
 	if state.Exists {

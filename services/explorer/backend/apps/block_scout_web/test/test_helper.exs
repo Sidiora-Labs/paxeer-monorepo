@@ -1,3 +1,6 @@
+Code.require_file("../../utils/test/suite_helper.exs", __DIR__)
+Backend.TestSuite.restore_configuration_after_suite()
+
 # https://github.com/CircleCI-Public/circleci-demo-elixir-phoenix/blob/a89de33a01df67b6773ac90adc74c34367a4a2d6/test/test_helper.exs#L1-L3
 junit_folder = Mix.Project.build_path() <> "/junit/#{Mix.Project.config()[:app]}"
 File.mkdir_p!(junit_folder)
@@ -5,6 +8,7 @@ File.mkdir_p!(junit_folder)
 
 # Counter `test --no-start`.  `--no-start` is needed for `:indexer` compatibility
 {:ok, _} = Application.ensure_all_started(:block_scout_web)
+Backend.TestSuite.stop_background_pollers()
 
 {:ok, _} = Application.ensure_all_started(:wallaby)
 Application.put_env(:wallaby, :base_url, BlockScoutWeb.Endpoint.url())
@@ -20,6 +24,11 @@ Bureaucrat.start(
 # Bureaucrat.start()
 
 ExUnit.configure(formatters: [JUnitFormatter, ExUnit.CLIFormatter, Bureaucrat.Formatter])
+
+if System.get_env("MIX_IN_BUILDER_BROWSER_DRIVER") == "1" do
+  ExUnit.configure(max_cases: 1)
+end
+
 ExUnit.start()
 
 Mox.defmock(Explorer.Market.Source.TestSource, for: Explorer.Market.Source)

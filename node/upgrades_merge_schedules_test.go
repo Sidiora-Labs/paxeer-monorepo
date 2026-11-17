@@ -83,7 +83,8 @@ func TestMergeUpgradeInstallsProgramsSchedules(t *testing.T) {
 	require.Equal(t, uint64(8), binary.BigEndian.Uint64(feeRow[121:129]))
 	require.Equal(t, uint64(1), binary.BigEndian.Uint64(feeRow[129:137]))
 	require.Equal(t, uint64(100), binary.BigEndian.Uint64(feeRow[137:145]))
-	require.Equal(t, uint64(1), binary.BigEndian.Uint64(feeRow[145:153]))
+	require.Equal(t, uint64(mergeHeight), binary.BigEndian.Uint64(feeRow[145:153]))
+	require.Equal(t, uint64(mergeHeight-1), binary.BigEndian.Uint64(feeRow[153:161]))
 	require.Equal(t, uint64(1), binary.BigEndian.Uint64(store.Get(key(names[2]))[81:89]))
 	before := make(map[string][]byte)
 	for _, name := range names {

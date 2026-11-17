@@ -35,29 +35,33 @@ const (
 )
 
 const (
-	envChainID        = "PERPS_CHAIN_ID"
-	envRPCURLs        = "PERPS_RPC_URLS"
-	envCometURLs      = "PERPS_COMET_URLS"
-	envDatabaseURL    = "DATABASE_URL"
-	envNATSURL        = "NATS_URL"
-	envPort           = "PORT"
-	envAuthSecret     = "PERPS_AUTH_SECRET"
-	envExplorerTx     = "PERPS_EXPLORER_TX_BASE"
-	envGatewayURL     = "PERPS_GATEWAY_URL"
-	envStartHeight    = "PERPS_START_HEIGHT"
-	envTrustedProxies = "PERPS_TRUSTED_PROXY_CIDRS"
-	minAuthSecretLen  = 32
-	redacted          = "redacted"
+	envChainID            = "PERPS_CHAIN_ID"
+	envRPCURLs            = "PERPS_RPC_URLS"
+	envCometURLs          = "PERPS_COMET_URLS"
+	envDatabaseURL        = "DATABASE_URL"
+	envNATSURL            = "NATS_URL"
+	envPort               = "PORT"
+	envAuthSecret         = "PERPS_AUTH_SECRET"
+	envExplorerTx         = "PERPS_EXPLORER_TX_BASE"
+	envGatewayURL         = "PERPS_GATEWAY_URL"
+	envAllowedOrigins     = "PERPS_ALLOWED_ORIGINS"
+	envStartHeight        = "PERPS_START_HEIGHT"
+	envPriceRetentionDays = "PERPS_PRICE_RETENTION_DAYS"
+	// DefaultPriceRetentionDays is the full-grain pricefeed history window.
+	DefaultPriceRetentionDays = 7
+	envTrustedProxies         = "PERPS_TRUSTED_PROXY_CIDRS"
+	minAuthSecretLen          = 32
+	redacted                  = "redacted"
 )
 
 type uses struct {
 	rpc, comet, database, nats, port, auth, explorerTx, gatewayURL, startHeight bool
-	trustedProxies                                                              bool
+	trustedProxies, allowedOrigins                                              bool
 }
 
 var services = map[Service]uses{
 	Indexer:  {rpc: true, comet: true, database: true, nats: true, port: true, startHeight: true},
-	Gateway:  {rpc: true, database: true, nats: true, port: true, auth: true, trustedProxies: true},
+	Gateway:  {rpc: true, database: true, nats: true, port: true, auth: true, trustedProxies: true, allowedOrigins: true},
 	Explorer: {database: true, port: true, explorerTx: true, trustedProxies: true},
 	Portal:   {port: true, explorerTx: true, gatewayURL: true},
 	Replay:   {rpc: true, comet: true, database: true},
@@ -67,18 +71,20 @@ var services = map[Service]uses{
 // Config is the environment of one perps data service. Variables the service
 // does not use stay at their zero value.
 type Config struct {
-	Service        Service
-	ChainID        uint64
-	RPCURLs        []string
-	CometURLs      []string
-	DatabaseURL    string `json:"-"`
-	NATSURL        string `json:"-"`
-	Port           uint16
-	AuthSecret     string `json:"-"`
-	ExplorerTxBase string
-	GatewayURL     string
-	StartHeight    int64
-	TrustedProxies []Prefix
+	Service            Service
+	ChainID            uint64
+	RPCURLs            []string
+	CometURLs          []string
+	DatabaseURL        string `json:"-"`
+	NATSURL            string `json:"-"`
+	Port               uint16
+	AuthSecret         string `json:"-"`
+	AllowedOrigins     []string
+	ExplorerTxBase     string
+	GatewayURL         string
+	StartHeight        int64
+	PriceRetentionDays int
+	TrustedProxies     []Prefix
 }
 
 // Load is the command startup boundary. It reads fresh configuration on every
@@ -150,12 +156,29 @@ func Load(service Service) (*Config, error) {
 		}
 		cfg.StartHeight = n
 	}
+	if service == Indexer {
+		cfg.PriceRetentionDays = DefaultPriceRetentionDays
+		if raw, set := os.LookupEnv(envPriceRetentionDays); set {
+			n, err := strconv.Atoi(raw)
+			if err != nil || n < 1 {
+				return nil, errors.New(envPriceRetentionDays + " must be a whole number of days of at least 1")
+			}
+			cfg.PriceRetentionDays = n
+		}
+	}
 	if u.trustedProxies {
 		trusted, err := ratelimit.ParseTrustedProxies(os.Getenv(envTrustedProxies))
 		if err != nil {
 			return nil, err
 		}
 		cfg.TrustedProxies = trusted
+	}
+	if u.allowedOrigins {
+		origins, err := parseAllowedOrigins(os.Getenv(envAllowedOrigins))
+		if err != nil {
+			return nil, err
+		}
+		cfg.AllowedOrigins = origins
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -197,8 +220,10 @@ func (c *Config) Validate() error {
 	if u.auth && len(c.AuthSecret) < minAuthSecretLen {
 		return fmt.Errorf("%s must be at least %d bytes", envAuthSecret, minAuthSecretLen)
 	}
-	if c.Service == Portal && c.ExplorerTxBase == "" {
-		return errors.New(envExplorerTx + " is required for portal")
+	if u.allowedOrigins {
+		if err := validateAllowedOrigins(c.AllowedOrigins); err != nil {
+			return err
+		}
 	}
 	if u.explorerTx && c.ExplorerTxBase != "" && !validURL(c.ExplorerTxBase, "http", "https") {
 		return errors.New(envExplorerTx + " needs http or https")
@@ -217,13 +242,16 @@ func (c *Config) Validate() error {
 	if u.startHeight && c.StartHeight < 1 {
 		return errors.New(envStartHeight + " must be at least 1")
 	}
+	if c.Service == Indexer && c.PriceRetentionDays < 1 {
+		return errors.New(envPriceRetentionDays + " must be a whole number of days of at least 1")
+	}
 	return nil
 }
 
 // String redacts service secrets and endpoint credentials.
 func (c Config) String() string {
 	c = c.safeEndpoints()
-	return fmt.Sprintf("service=%s %s=%d %s=%s %s=%s %s=%s %s=%s %s=%d %s=%s %s=%s %s=%s %s=%d %s=%v",
+	return fmt.Sprintf("service=%s %s=%d %s=%s %s=%s %s=%s %s=%s %s=%d %s=%s %s=%s %s=%s %s=%s %s=%d %s=%v %s=%d",
 		c.Service,
 		envChainID, c.ChainID,
 		envRPCURLs, strings.Join(c.RPCURLs, ","),
@@ -232,11 +260,52 @@ func (c Config) String() string {
 		envNATSURL, redact(c.NATSURL),
 		envPort, c.Port,
 		envAuthSecret, redact(c.AuthSecret),
+		envAllowedOrigins, strings.Join(c.AllowedOrigins, ","),
 		envExplorerTx, c.ExplorerTxBase,
 		envGatewayURL, c.GatewayURL,
 		envStartHeight, c.StartHeight,
 		envTrustedProxies, c.TrustedProxies,
+		envPriceRetentionDays, c.PriceRetentionDays,
 	)
+}
+
+func parseAllowedOrigins(raw string) ([]string, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	parts := strings.Split(raw, ",")
+	origins := make([]string, 0, len(parts))
+	for _, part := range parts {
+		origin := strings.TrimSpace(part)
+		if !validOrigin(origin) {
+			return nil, fmt.Errorf("%s contains invalid origin %q", envAllowedOrigins, origin)
+		}
+		origins = append(origins, origin)
+	}
+	return origins, nil
+}
+
+func validateAllowedOrigins(origins []string) error {
+	for _, origin := range origins {
+		if !validOrigin(origin) {
+			return fmt.Errorf("%s contains invalid origin %q", envAllowedOrigins, origin)
+		}
+	}
+	return nil
+}
+
+func validOrigin(origin string) bool {
+	if origin == "" || strings.ContainsAny(origin, " \t\r\n") {
+		return false
+	}
+	u, err := url.Parse(origin)
+	if err != nil || u.Opaque != "" || u.User != nil || u.Host == "" || u.Hostname() == "" || strings.Contains(origin, "#") {
+		return false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+	return u.Path == "" && u.RawPath == "" && u.RawQuery == "" && !u.ForceQuery && u.Fragment == "" && !strings.HasSuffix(origin, "/")
 }
 
 // GoString keeps %#v redacted.

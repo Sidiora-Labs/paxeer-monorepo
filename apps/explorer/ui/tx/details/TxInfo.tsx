@@ -33,7 +33,6 @@ import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Tooltip } from 'toolkit/chakra/tooltip';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import DetailedInfoNativeCoinValue from 'ui/shared/DetailedInfo/DetailedInfoNativeCoinValue';
 import DetailedInfoSponsoredItem from 'ui/shared/DetailedInfo/DetailedInfoSponsoredItem';
 import DetailedInfoTimestamp from 'ui/shared/DetailedInfo/DetailedInfoTimestamp';
@@ -55,6 +54,8 @@ import Utilization from 'ui/shared/Utilization/Utilization';
 import GasPriceValue from 'ui/shared/value/GasPriceValue';
 import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
 import VerificationSteps from 'ui/shared/verificationSteps/VerificationSteps';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
+import ActivityLoading from 'ui/tx/ActivityLoading';
 import TxDetailsBurntFees from 'ui/tx/details/TxDetailsBurntFees';
 import TxDetailsFeePerGas from 'ui/tx/details/TxDetailsFeePerGas';
 import TxDetailsGasPrice from 'ui/tx/details/TxDetailsGasPrice';
@@ -115,6 +116,14 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus, transfers, balan
     return null;
   }
 
+  if (isLoading) {
+    return (
+      <Box data-tx-info>
+        <ActivityLoading label="Loading transaction details"/>
+      </Box>
+    );
+  }
+
   const addressFromTags = [
     ...data.from.private_tags || [],
     ...data.from.public_tags || [],
@@ -131,7 +140,7 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus, transfers, balan
   const executionSuccessBadge = toAddress?.is_contract && data.result === 'success' ? (
     <Tooltip content="Contract execution completed">
       <chakra.span display="inline-flex" ml={ 2 } mr={ 1 }>
-        <IconSvg name="status/success" boxSize={ 4 } color={{ _light: 'blackAlpha.800', _dark: 'whiteAlpha.800' }} cursor="pointer"/>
+        <IconSvg name="status/success" boxSize={ 4 } color="text.primary" cursor="pointer"/>
       </chakra.span>
     </Tooltip>
   ) : null;
@@ -257,9 +266,9 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus, transfers, balan
               <Flex flexDir="column" rowGap={ 2 }>
                 { data.op_withdrawals.map((withdrawal) => (
                   <Box key={ withdrawal.nonce }>
-                    <Box mb={ 2 } py={{ base: '5px', lg: 1 }}>
+                    <Box mb={ 2 } py={{ base: 'var(--chakra-spacing-1\\.25)', lg: 1 }}>
                       <span>Nonce: </span>
-                      <chakra.span fontWeight={ 600 }>{ withdrawal.nonce }</chakra.span>
+                      <chakra.span fontWeight="semibold">{ withdrawal.nonce }</chakra.span>
                     </Box>
                     <TxDetailsWithdrawalStatusOptimistic data={ withdrawal } txHash={ data.hash } from={ data.from }/>
                   </Box>
@@ -313,7 +322,7 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus, transfers, balan
             >
               Revert reason
             </DetailedInfo.ItemLabel>
-            <DetailedInfo.ItemValue flexWrap="wrap" mt={{ base: '5px', lg: '4px' }}>
+            <DetailedInfo.ItemValue flexWrap="wrap" mt={{ base: 'var(--chakra-spacing-1\\.25)', lg: 'var(--chakra-spacing-1)' }}>
               <TxRevertReason { ...data.revert_reason }/>
             </DetailedInfo.ItemValue>
           </>
@@ -472,7 +481,7 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus, transfers, balan
             />
             { data.from.name && <Text>{ data.from.name }</Text> }
             { addressFromTags.length > 0 && (
-              <Flex columnGap={ 3 }>
+              <Flex gap={ 3 } flexWrap="wrap" minW={ 0 } maxW="full" css={{ '& > *': { minW: 0, maxW: 'full' } }}>
                 { addressFromTags }
               </Flex>
             ) }
@@ -484,11 +493,11 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus, transfers, balan
           hint="Address (external or contract) receiving the transaction"
           isLoading={ isLoading }
         >
-          <Flex flexWrap={{ base: 'wrap', lg: 'nowrap' }} columnGap={ 3 } alignItems="center" w="100%" minW={ 0 }>
+          <Flex flexWrap="wrap" columnGap={ 3 } alignItems="center" w="100%" minW={ 0 }>
             { toAddress ? (
               <>
                 { data.to && data.to.hash ? (
-                  <Flex flexWrap="nowrap" alignItems="center" maxW="100%">
+                  <Flex flexWrap="wrap" alignItems="center" maxW="100%" minW={ 0 }>
                     <AddressEntity
                       address={ toAddress }
                       isLoading={ isLoading }
@@ -498,7 +507,7 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus, transfers, balan
                     { verifiedContractBadge }
                   </Flex>
                 ) : (
-                  <Flex width="100%" whiteSpace="pre" alignItems="center" flexShrink={ 0 }>
+                  <Flex width="100%" whiteSpace="normal" alignItems="center" flexWrap="wrap" minW={ 0 }>
                     <span>[Contract </span>
                     <AddressEntity
                       address={ toAddress }
@@ -512,7 +521,7 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus, transfers, balan
                   </Flex>
                 ) }
                 { addressToTags.length > 0 && (
-                  <Flex columnGap={ 3 }>
+                  <Flex gap={ 3 } flexWrap="wrap" minW={ 0 } maxW="full" css={{ '& > *': { minW: 0, maxW: 'full' } }}>
                     { addressToTags }
                   </Flex>
                 ) }
@@ -948,7 +957,7 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus, transfers, balan
                           unitsTooltip="wei"
                           noSymbol
                           loading={ isLoading }
-                          fontWeight="600"
+                          fontWeight="semibold"
                         />
                       ) }
                       { (data.max_fee_per_blob_gas && data.blob_gas_price) && <TextSeparator/> }
@@ -960,7 +969,7 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus, transfers, balan
                           noSymbol
                           loading={ isLoading }
                           startElement="Max: "
-                          fontWeight="600"
+                          fontWeight="semibold"
                         />
                       ) }
                     </DetailedInfo.ItemValue>
@@ -989,7 +998,7 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus, transfers, balan
                 >
                   Decoded input data
                 </DetailedInfo.ItemLabel>
-                <DetailedInfo.ItemValue flexWrap="wrap" mt={{ base: '5px', lg: '4px' }}>
+                <DetailedInfo.ItemValue flexWrap="wrap" mt={{ base: 'var(--chakra-spacing-1\\.25)', lg: 'var(--chakra-spacing-1)' }}>
                   <LogDecodedInputData data={ data.decoded_input }/>
                 </DetailedInfo.ItemValue>
               </>

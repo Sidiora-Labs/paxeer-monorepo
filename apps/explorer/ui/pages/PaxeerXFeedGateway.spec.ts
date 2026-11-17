@@ -222,11 +222,12 @@ async function feedUpdateGatewayContractAndNativeSubmissionConsumer() {
   }
 }
 
-function feedGatewayDeclaresOnlyTheThreeRequiredReadRoutes() {
+function feedGatewayDeclaresTheFourReadRoutes() {
   expect(routeDeclarations.filter(route => route[2].includes('/feed/')).map(route => [ route[1], route[2], route[3] ]))
     .toEqual([
       [ 'GET', marketPath, 'false' ],
       [ 'GET', `${ marketPath }/{market_id}/updates`, 'false' ],
+      [ 'GET', '/api/v2/paxeer-x/feed/updates', 'false' ],
       [ 'GET', '/api/v2/paxeer-x/feed/updates/{hash}', 'false' ],
     ]);
 }
@@ -234,4 +235,4 @@ function feedGatewayDeclaresOnlyTheThreeRequiredReadRoutes() {
 test(feedOverviewGatewayContractAndConsumer.name, feedOverviewGatewayContractAndConsumer);
 test(feedMarketGatewayContractAndCursorConsumer.name, feedMarketGatewayContractAndCursorConsumer);
 test(feedUpdateGatewayContractAndNativeSubmissionConsumer.name, feedUpdateGatewayContractAndNativeSubmissionConsumer);
-test(feedGatewayDeclaresOnlyTheThreeRequiredReadRoutes.name, feedGatewayDeclaresOnlyTheThreeRequiredReadRoutes);
+test(feedGatewayDeclaresTheFourReadRoutes.name, feedGatewayDeclaresTheFourReadRoutes);

@@ -43,7 +43,7 @@ const TopBar = () => {
   return (
     <HStack data-label="header-utilities" gap={ 2 } flexShrink={ 0 } flexWrap="wrap">
       { !config.features.multichain.isEnabled && (
-        <Box maxW={{ base: '100%', lg: '250px' }}>
+        <Box maxW={{ base: '100%', lg: 'var(--chakra-spacing-62\\.5)' }}>
           <TopBarStats showGasInfo={ false }/>
         </Box>
       ) }

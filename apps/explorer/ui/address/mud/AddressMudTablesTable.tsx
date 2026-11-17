@@ -16,10 +16,10 @@ type Props = {
 //sorry for the naming
 const AddressMudTablesTable = ({ items, isLoading, top, hash }: Props) => {
   return (
-    <TableRoot style={{ tableLayout: 'auto' }}>
+    <TableRoot tableLayout="auto" aria-label="MUD tables" aria-busy={ isLoading }>
       <TableHeaderSticky top={ top }>
         <TableRow>
-          <TableColumnHeader width="24px"></TableColumnHeader>
+          <TableColumnHeader w={ 6 } aria-label="Expand table"></TableColumnHeader>
           <TableColumnHeader>Full name</TableColumnHeader>
           <TableColumnHeader>Table ID</TableColumnHeader>
           <TableColumnHeader>Type</TableColumnHeader>

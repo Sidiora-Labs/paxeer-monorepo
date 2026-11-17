@@ -3,9 +3,7 @@ import React from 'react';
 
 import config from 'configs/app';
 import useIsMobile from 'lib/hooks/useIsMobile';
-import { FilterInput } from 'toolkit/components/filters/FilterInput';
 import ActionBar from 'ui/shared/ActionBar';
-import DataListDisplay from 'ui/shared/DataListDisplay';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import Pagination from 'ui/shared/pagination/Pagination';
 import Sort from 'ui/shared/sort/Sort';
@@ -15,6 +13,9 @@ import VerifiedContractsCounters from 'ui/verifiedContracts/VerifiedContractsCou
 import VerifiedContractsFilter from 'ui/verifiedContracts/VerifiedContractsFilter';
 import VerifiedContractsList from 'ui/verifiedContracts/VerifiedContractsList';
 import VerifiedContractsTable from 'ui/verifiedContracts/VerifiedContractsTable';
+
+import PageDataListDisplay from './PageDataListDisplay';
+import { PageFilterInput } from './PageFilterInput';
 
 const sortCollection = createListCollection({
   items: SORT_OPTIONS,
@@ -35,8 +36,8 @@ const VerifiedContracts = () => {
   );
 
   const filterInput = (
-    <FilterInput
-      w={{ base: '100%', lg: '350px' }}
+    <PageFilterInput
+      w={{ base: '100%', lg: 'var(--chakra-spacing-80)' }}
       size="sm"
       onChange={ onSearchTermChange }
       placeholder="Search by contract name or address"
@@ -56,14 +57,14 @@ const VerifiedContracts = () => {
 
   const actionBar = (
     <>
-      <HStack gap={ 3 } mb={ 6 } display={{ base: 'flex', lg: 'none' }}>
+      <HStack gap={ 3 } mb={ 6 } display={{ base: 'flex', lg: 'none' }} flexWrap="wrap" minW={ 0 }>
         { typeFilter }
         { sortButton }
         { filterInput }
       </HStack>
       { (!isMobile || pagination.isVisible) && (
-        <ActionBar mt={ -6 }>
-          <HStack gap={ 3 } display={{ base: 'none', lg: 'flex' }}>
+        <ActionBar w="100%" mx={ 0 } px={ 0 } mt={ -6 }>
+          <HStack gap={ 3 } display={{ base: 'none', lg: 'flex' }} flexWrap="wrap" minW={ 0 }>
             { typeFilter }
             { filterInput }
           </HStack>
@@ -91,7 +92,7 @@ const VerifiedContracts = () => {
         withTextAd
       />
       <VerifiedContractsCounters/>
-      <DataListDisplay
+      <PageDataListDisplay
         isError={ isError }
         itemsNum={ data?.items.length }
         emptyText="There are no verified contracts."
@@ -102,7 +103,7 @@ const VerifiedContracts = () => {
         actionBar={ actionBar }
       >
         { content }
-      </DataListDisplay>
+      </PageDataListDisplay>
     </Box>
   );
 };

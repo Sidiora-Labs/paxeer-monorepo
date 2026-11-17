@@ -34,6 +34,7 @@ const MetadataItemObject = ({ name, value, level }: Props) => {
       level={ level }
     >
       <AccordionItemTrigger
+        minH="touchTarget"
         px={ 0 }
         py={ 2 }
         _hover={{ bgColor: 'inherit' }}
@@ -41,7 +42,7 @@ const MetadataItemObject = ({ name, value, level }: Props) => {
         textAlign="left"
         _expanded={{
           borderColor: 'border.divider',
-          borderBottomWidth: '1px',
+          borderBottomWidth: '1',
         }}
         indicatorPlacement="start"
       >

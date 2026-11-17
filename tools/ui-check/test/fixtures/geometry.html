@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Named parts</title>
+<link rel="icon" href="data:,">
+<style>
+  html { background: white; color: black; font: 16px/24px sans-serif; }
+  body { margin: 0; }
+  p { position: absolute; margin: 0; width: 120px; height: 48px; }
+  #part { left: 12px; top: 64px; }
+  #other { left: 32px; top: 200px; }
+  @media (prefers-color-scheme: dark) {
+    html { background: black; color: white; }
+    #part { left: 32px; }
+  }
+</style>
+<body>
+<p id="part">Part</p>
+<p id="other">Other</p>
+<script>
+  const query = new URLSearchParams(location.search);
+  const part = document.querySelector("#part");
+  for (const [property, initial] of Object.entries({ left: 32, top: 64, width: 120, height: 48, fontSize: 16, lineHeight: 24 })) {
+    if (query.has(property)) part.style[property] = `${initial + Number(query.get(property))}px`;
+  }
+  if (query.has("normal")) part.style.lineHeight = "normal";
+  if (query.has("missing")) part.remove();
+  if (query.has("missingOther")) document.querySelector("#other").remove();
+  if (query.has("loadError")) console.error("The page reports a loading error");
+</script>
+</body>
+</html>

@@ -15,7 +15,7 @@ const SettingsIdentIcon = () => {
     setActiveId(initialId);
   }, []);
 
-  const handleSelect = React.useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+  const handleSelect = React.useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
 
     const id = event.currentTarget.getAttribute('data-value');
@@ -32,9 +32,9 @@ const SettingsIdentIcon = () => {
 
   return (
     <div>
-      <Box fontWeight={ 600 }>Address settings</Box>
+      <Box fontWeight="semibold">Address settings</Box>
       <Box color="text.secondary" mt={ 1 } mb={ 2 }>{ activeIdenticon?.label }</Box>
-      <Flex>
+      <Flex flexWrap="wrap" gap={ 1 }>
         { IDENTICONS.map((identicon) => (
           <SettingsSample
             key={ identicon.id }

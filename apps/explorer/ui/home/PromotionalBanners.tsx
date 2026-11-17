@@ -19,11 +19,11 @@ const PromotionalBanner = ({ banner }: { banner: HighlightsBannerConfig }) => {
 
   const content = (
     <Box data-promotional-banner p={ 4 } borderRadius="md" h="100%" style={{ background }} display="flex" alignItems="center" gap={ 3 }>
-      <Box flex="1">
-        <Text data-banner-title fontWeight="700" style={{ color: titleColor }}>{ banner.title }</Text>
-        <Text data-banner-description textStyle="sm" style={{ color: descriptionColor }}>{ banner.description }</Text>
+      <Box flex="1" minW={ 0 } overflowWrap="anywhere">
+        <Text data-banner-title fontWeight="bold" style={{ color: titleColor }}>{ banner.title }</Text>
+        <Text data-banner-description textStyle="body" style={{ color: descriptionColor }}>{ banner.description }</Text>
       </Box>
-      { image && <Image src={ image } alt={ banner.title } maxH="96px" maxW="30%" objectFit="contain"/> }
+      { image && <Image src={ image } alt="" boxSize={ 24 } aspectRatio="square" flexShrink={ 0 } maxW="30%" objectFit="contain"/> }
     </Box>
   );
 

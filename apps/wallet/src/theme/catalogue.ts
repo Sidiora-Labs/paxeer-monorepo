@@ -77,7 +77,7 @@ const light: ThemePalette = {
       tertiary: '#57544e',
       disabled: '#9a968f',
     },
-    status: { success: '#1a7f4b', danger: '#c7303b', warning: '#9a5b00', info: '#2560c4' },
+    status: { success: '#136b3c', danger: '#b4232e', warning: '#854b00', info: '#1d50a5' },
     border: {
       subtle: 'rgba(0, 0, 0, 0.1)',
       strong: 'rgba(0, 0, 0, 0.14)',

@@ -1,7 +1,7 @@
 import { Text } from '@chakra-ui/react';
 import React from 'react';
 
-import { DialogBody, DialogContent, DialogRoot, DialogHeader } from 'toolkit/chakra/dialog';
+import { DialogBody, DialogContent, DialogRoot, DialogHeader } from 'ui/marketplace/NativeDialog';
 
 type Props = {
   isOpen: boolean;

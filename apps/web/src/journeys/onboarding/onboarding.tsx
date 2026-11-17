@@ -11,14 +11,29 @@ import {
   type NotificationSummary,
   type Session,
 } from "../../api";
-import { DesktopPrimaryAction, MobilePrimaryAction } from "../../kit/pattern-primary-action";
-import { InlineNotice, ScreenCard, StateSkeleton } from "../../kit/surface";
+import {
+  DesktopPrimaryAction,
+  MobilePrimaryAction,
+} from "../../kit/pattern-primary-action";
+import { InlineNotice, ScreenCard } from "../../kit/surface";
 import { KitButton } from "../../kit/control";
 import { StatusPill } from "../../kit/money";
 import { TextField } from "../../kit/field";
-import { ShellSelector, type PointerCapability, type ShellSelection } from "../../shell/selector";
-import { pendingOnboarding, rememberActivatedAccount, rememberPending } from "./recovery";
-import { CeremonyCancelled, performAssertionCeremony, performRegistrationCeremony } from "./ceremony";
+import {
+  ShellSelector,
+  type PointerCapability,
+  type ShellSelection,
+} from "../../shell/selector";
+import {
+  pendingOnboarding,
+  rememberActivatedAccount,
+  rememberPending,
+} from "./recovery";
+import {
+  CeremonyCancelled,
+  performAssertionCeremony,
+  performRegistrationCeremony,
+} from "./ceremony";
 import {
   ONBOARDING_DECISION_LIMIT,
   accountActive,
@@ -42,8 +57,12 @@ function failureFromError(error: unknown): Failure {
   if (error instanceof HumanApiError) {
     return {
       messageKey: error.detail.copy_key,
-      retriable: error.detail.retry === "retriable" || error.detail.retry === "retriable-after",
-      ...(error.detail.field === undefined ? {} : { field: error.detail.field }),
+      retriable:
+        error.detail.retry === "retriable" ||
+        error.detail.retry === "retriable-after",
+      ...(error.detail.field === undefined
+        ? {}
+        : { field: error.detail.field }),
     };
   }
   if (error instanceof CeremonyCancelled) {
@@ -56,17 +75,54 @@ function failureFromError(error: unknown): Failure {
 }
 
 function sessionEnded(error: unknown): boolean {
-  return error instanceof HumanApiError
-    && (error.detail.code === "unauthenticated" || error.detail.code === "session-expired");
+  return (
+    error instanceof HumanApiError &&
+    (error.detail.code === "unauthenticated" ||
+      error.detail.code === "session-expired")
+  );
 }
 
 function failureMessage(messageKey: string): string {
-  return human_copy_catalog().get(messageKey)?.message ?? copyEntry("state.error.body").message;
+  return (
+    human_copy_catalog().get(messageKey)?.message ??
+    copyEntry("state.error.body").message
+  );
+}
+
+const STAGE_ROW_CLASS = "flex items-center justify-between gap-4 py-3";
+
+function StageListSkeleton() {
+  const stageKeys = [
+    "onboarding.stage.creating-your-account",
+    "onboarding.stage.adding-your-passkey",
+    "onboarding.stage.setting-up-your-protocol-identity",
+    "onboarding.stage.putting-recovery-in-place",
+  ] as const;
+  return (
+    <ul
+      aria-hidden="true"
+      className="flex list-none flex-col divide-y divide-border"
+    >
+      {stageKeys.map((key) => (
+        <li key={key} className={STAGE_ROW_CLASS}>
+          <span className="text-body-sm text-foreground">
+            {copyEntry(key).message}
+          </span>
+          <span className="inline-flex min-h-7 w-16 min-w-0 max-w-full items-center px-3 text-label">
+            <span className="h-[1lh] w-full rounded-full bg-surface-sunken" />
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function StageList({ journey }: Readonly<{ journey: Journey }>) {
   return (
-    <ul data-onboarding-stages="" className="flex list-none flex-col divide-y divide-border">
+    <ul
+      data-onboarding-stages=""
+      className="flex list-none flex-col divide-y divide-border"
+    >
       {journey.stages.map((current) => {
         const presented = stagePresentation(current);
         return (
@@ -74,10 +130,15 @@ function StageList({ journey }: Readonly<{ journey: Journey }>) {
             key={presented.stageId}
             data-stage-key={presented.copyKey}
             data-stage-state={presented.state}
-            className="flex items-center justify-between gap-4 py-3"
+            className={STAGE_ROW_CLASS}
           >
-            <span className="text-body-sm text-foreground">{presented.title}</span>
-            <StatusPill status={presented.status} />
+            <span className="text-body-sm text-foreground">
+              {presented.title}
+            </span>
+            <StatusPill
+              status={presented.status}
+              className="min-w-0 max-w-full whitespace-normal break-words"
+            />
           </li>
         );
       })}
@@ -91,8 +152,13 @@ function FailureNotice({
 }: Readonly<{ failure: Failure; action?: React.ReactNode }>) {
   return (
     <InlineNotice tone="danger" role="alert">
-      <div data-onboarding-failure={failure.messageKey} className="flex flex-col gap-2">
-        <p className="font-semibold">{copyEntry("onboarding.failure.title").message}</p>
+      <div
+        data-onboarding-failure={failure.messageKey}
+        className="flex flex-col gap-2"
+      >
+        <p className="font-semibold">
+          {copyEntry("onboarding.failure.title").message}
+        </p>
         <p>{failureMessage(failure.messageKey)}</p>
         <p>{copyEntry("onboarding.failure.preserved").message}</p>
         {action}
@@ -101,13 +167,28 @@ function FailureNotice({
   );
 }
 
-export function AccountActivationNotice({ journey }: Readonly<{ journey: Journey | undefined }>) {
+export function AccountActivationNotice({
+  journey,
+}: Readonly<{ journey: Journey | undefined }>) {
   const active = journey !== undefined && accountActive(journey);
-  return <InlineNotice tone={active ? "success" : "warning"} role="status">
-    <span data-account-active={active ? "true" : "false"}>
-      {copyEntry(active ? "onboarding.active" : "onboarding.not_active").message}
-    </span>
-  </InlineNotice>;
+  return (
+    <InlineNotice tone={active ? "success" : "warning"} role="status">
+      <span className="grid">
+        <span aria-hidden="true" className="invisible col-start-1 row-start-1">
+          {copyEntry("onboarding.not_active").message}
+        </span>
+        <span
+          data-account-active={active ? "true" : "false"}
+          className="col-start-1 row-start-1"
+        >
+          {
+            copyEntry(active ? "onboarding.active" : "onboarding.not_active")
+              .message
+          }
+        </span>
+      </span>
+    </InlineNotice>
+  );
 }
 
 export function Onboarding({
@@ -122,7 +203,9 @@ export function Onboarding({
   const router = useRouter();
   const api = useMemo(() => humanApi(), []);
   const [selection, setSelection] = useState(initialSelection);
-  const [phase, setPhase] = useState<Phase>(initiallyAuthenticated ? { name: "progress" } : { name: "details" });
+  const [phase, setPhase] = useState<Phase>(
+    initiallyAuthenticated ? { name: "progress" } : { name: "details" },
+  );
   const [journey, setJourney] = useState<Journey | undefined>(undefined);
   const [failure, setFailure] = useState<Failure | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -148,7 +231,8 @@ export function Onboarding({
   }, [initiallyAuthenticated]);
 
   useEffect(() => {
-    const pointer: PointerCapability = window.matchMedia("(pointer: coarse)").matches
+    const pointer: PointerCapability = window.matchMedia("(pointer: coarse)")
+      .matches
       ? "coarse"
       : window.matchMedia("(pointer: fine)").matches
         ? "fine"
@@ -198,7 +282,8 @@ export function Onboarding({
     };
   }, [api, phase.name]);
 
-  const PrimaryAction = selection.shell === "mobile" ? MobilePrimaryAction : DesktopPrimaryAction;
+  const PrimaryAction =
+    selection.shell === "mobile" ? MobilePrimaryAction : DesktopPrimaryAction;
   const busyReason = copyEntry("state.loading").message;
 
   const appDestination = (candidate: string | undefined): string => {
@@ -249,30 +334,50 @@ export function Onboarding({
         passkeyAdded: false,
       });
       setJourney(creation.onboarding);
-      setPhase({ name: "passkey", accountId: creation.account_id, passkeyAdded: false });
+      setPhase({
+        name: "passkey",
+        accountId: creation.account_id,
+        passkeyAdded: false,
+      });
     });
   };
 
-  const openSession = async (assertionEmail: string | undefined): Promise<Session> => {
-    const request = assertionEmail === undefined ? {} : { email: assertionEmail };
+  const openSession = async (
+    assertionEmail: string | undefined,
+  ): Promise<Session> => {
+    const request =
+      assertionEmail === undefined ? {} : { email: assertionEmail };
     const challenge = await api.passkeyAssertBegin(request);
     const credential = await performAssertionCeremony(challenge.ceremony);
-    const completed = await api.passkeyAssertFinish(challenge.assertion_id, { credential });
+    const completed = await api.passkeyAssertFinish(challenge.assertion_id, {
+      credential,
+    });
     return api.sessionOpen(
       {
         assertion_id: completed.assertion_id,
-        device: { label: copyEntry("application.name").message, platform: "web" },
+        device: {
+          label: copyEntry("application.name").message,
+          platform: "web",
+        },
       },
       `session-open:${completed.assertion_id}`,
     );
   };
 
-  const continueSetup = (phaseNow: Extract<Phase, { name: "passkey" }>): void => {
+  const continueSetup = (
+    phaseNow: Extract<Phase, { name: "passkey" }>,
+  ): void => {
     run(async () => {
       if (!phaseNow.passkeyAdded) {
-        const challenge = await api.passkeyRegisterBegin({ account_id: phaseNow.accountId });
-        const credential = await performRegistrationCeremony(challenge.ceremony);
-        await api.passkeyRegisterFinish(challenge.registration_id, { credential });
+        const challenge = await api.passkeyRegisterBegin({
+          account_id: phaseNow.accountId,
+        });
+        const credential = await performRegistrationCeremony(
+          challenge.ceremony,
+        );
+        await api.passkeyRegisterFinish(challenge.registration_id, {
+          credential,
+        });
         const idempotencyKey = creationKey.current ?? crypto.randomUUID();
         creationKey.current = idempotencyKey;
         rememberPending({
@@ -286,7 +391,9 @@ export function Onboarding({
         setPhase({ ...phaseNow, passkeyAdded: true });
       }
       const assertionEmail = email.trim().toLowerCase();
-      await openSession(assertionEmail.length === 0 ? undefined : assertionEmail);
+      await openSession(
+        assertionEmail.length === 0 ? undefined : assertionEmail,
+      );
       setPhase({ name: "progress" });
       const next = await api.onboardingStatus();
       rememberActivatedAccount(next);
@@ -297,19 +404,30 @@ export function Onboarding({
   const signIn = (): void => {
     run(async () => {
       const trimmed = email.trim().toLowerCase();
-      const opened = await openSession(trimmed.length === 0 ? undefined : trimmed);
+      const opened = await openSession(
+        trimmed.length === 0 ? undefined : trimmed,
+      );
       setPhase({ name: "progress" });
-      const [next, page] = await Promise.all([api.onboardingStatus(), api.notificationList()]);
+      const [next, page] = await Promise.all([
+        api.onboardingStatus(),
+        api.notificationList(),
+      ]);
       rememberActivatedAccount(next);
       setJourney(next);
       const openedAt = Date.parse(opened.opened_at);
       const notice = page.groups
         .flatMap((group) => group.notifications)
-        .find((candidate) => candidate.class === "security-new-device"
-          && !candidate.read
-          && Date.parse(candidate.created_at) >= openedAt - 60_000);
+        .find(
+          (candidate) =>
+            candidate.class === "security-new-device" &&
+            !candidate.read &&
+            Date.parse(candidate.created_at) >= openedAt - 60_000,
+        );
       if (accountActive(next)) {
-        setPhase({ name: "signedIn", ...(notice === undefined ? {} : { notice }) });
+        setPhase({
+          name: "signedIn",
+          ...(notice === undefined ? {} : { notice }),
+        });
       }
     });
   };
@@ -339,9 +457,14 @@ export function Onboarding({
     });
   };
 
-  const emailError = failure?.field === "email" ? failureMessage(failure.messageKey) : undefined;
-  const nameError = failure?.field === "display_name" ? failureMessage(failure.messageKey) : undefined;
-  const generalFailure = failure !== undefined && failure.field === undefined ? failure : undefined;
+  const emailError =
+    failure?.field === "email" ? failureMessage(failure.messageKey) : undefined;
+  const nameError =
+    failure?.field === "display_name"
+      ? failureMessage(failure.messageKey)
+      : undefined;
+  const generalFailure =
+    failure !== undefined && failure.field === undefined ? failure : undefined;
 
   const detailsScreen = (
     <ScreenCard
@@ -382,7 +505,9 @@ export function Onboarding({
           }}
           errorMessage={nameError}
         />
-        {generalFailure === undefined ? null : <FailureNotice failure={generalFailure} />}
+        {generalFailure === undefined ? null : (
+          <FailureNotice failure={generalFailure} />
+        )}
         <PrimaryAction
           type="submit"
           {...(busy ? { disabled: true, disabledReason: busyReason } : {})}
@@ -405,22 +530,32 @@ export function Onboarding({
   const passkeyScreen = (phaseNow: Extract<Phase, { name: "passkey" }>) => (
     <ScreenCard
       title={copyEntry("onboarding.passkey.title").message}
-      description={copyEntry(phaseNow.passkeyAdded
-        ? "onboarding.passkey.resume.body"
-        : "onboarding.passkey.body").message}
+      description={
+        copyEntry(
+          phaseNow.passkeyAdded
+            ? "onboarding.passkey.resume.body"
+            : "onboarding.passkey.body",
+        ).message
+      }
     >
       <div data-decision-screen="2" className="flex flex-col gap-4 pt-2">
         {journey === undefined ? null : <StageList journey={journey} />}
-        {generalFailure === undefined ? null : <FailureNotice failure={generalFailure} />}
+        {generalFailure === undefined ? null : (
+          <FailureNotice failure={generalFailure} />
+        )}
         <PrimaryAction
           onClick={() => {
             continueSetup(phaseNow);
           }}
           {...(busy ? { disabled: true, disabledReason: busyReason } : {})}
         >
-          {copyEntry(phaseNow.passkeyAdded
-            ? "onboarding.passkey.resume.action"
-            : "onboarding.passkey.action").message}
+          {
+            copyEntry(
+              phaseNow.passkeyAdded
+                ? "onboarding.passkey.resume.action"
+                : "onboarding.passkey.action",
+            ).message
+          }
         </PrimaryAction>
       </div>
     </ScreenCard>
@@ -428,12 +563,22 @@ export function Onboarding({
 
   const progressScreen = () => {
     const active = journey !== undefined && accountActive(journey);
-    const queued = journey !== undefined && journey.stages.some((current) => current.state === "getting-ready");
-    const refused = journey?.refusal !== undefined
-      ? { messageKey: journey.refusal.copy_key, retriable: true } satisfies Failure
-      : journey?.stages.some((current) => current.state === "refused") === true
-        ? { messageKey: "onboarding.failure.stage", retriable: true } satisfies Failure
-        : undefined;
+    const queued =
+      journey !== undefined &&
+      journey.stages.some((current) => current.state === "getting-ready");
+    const refused =
+      journey?.refusal !== undefined
+        ? ({
+            messageKey: journey.refusal.copy_key,
+            retriable: true,
+          } satisfies Failure)
+        : journey?.stages.some((current) => current.state === "refused") ===
+            true
+          ? ({
+              messageKey: "onboarding.failure.stage",
+              retriable: true,
+            } satisfies Failure)
+          : undefined;
     const progressFailure = generalFailure ?? refused;
     return (
       <ScreenCard
@@ -442,16 +587,27 @@ export function Onboarding({
       >
         <div data-journey-phase="progress" className="flex flex-col gap-4 pt-2">
           <AccountActivationNotice journey={journey} />
-          {journey === undefined ? <StateSkeleton /> : <StageList journey={journey} />}
+          <div>
+            {journey === undefined ? (
+              <StageListSkeleton />
+            ) : (
+              <StageList journey={journey} />
+            )}
+          </div>
           {queued ? (
-            <p data-onboarding-queued="" className="text-sm text-muted-foreground">
+            <p
+              data-onboarding-queued=""
+              className="text-sm text-muted-foreground"
+            >
               {copyEntry("onboarding.pending.body").message}
             </p>
           ) : null}
           <p className="text-sm text-muted-foreground">
             {copyEntry("onboarding.progress.safe_to_close").message}
           </p>
-          {progressFailure === undefined ? null : <FailureNotice failure={progressFailure} />}
+          {progressFailure === undefined ? null : (
+            <FailureNotice failure={progressFailure} />
+          )}
           <div className="flex flex-wrap items-center gap-3">
             <KitButton
               variant="secondary"
@@ -503,7 +659,9 @@ export function Onboarding({
           }}
           errorMessage={emailError}
         />
-        {generalFailure === undefined ? null : <FailureNotice failure={generalFailure} />}
+        {generalFailure === undefined ? null : (
+          <FailureNotice failure={generalFailure} />
+        )}
         <PrimaryAction
           type="submit"
           {...(busy ? { disabled: true, disabledReason: busyReason } : {})}
@@ -511,10 +669,7 @@ export function Onboarding({
           {copyEntry("onboarding.signin.action").message}
         </PrimaryAction>
       </form>
-      <KitButton
-        variant="link"
-        onClick={returnToCreation}
-      >
+      <KitButton variant="link" onClick={returnToCreation}>
         {copyEntry("onboarding.create.switch").message}
       </KitButton>
     </ScreenCard>
@@ -525,8 +680,13 @@ export function Onboarding({
       <div className="flex flex-col gap-4 pt-2">
         {phaseNow.notice === undefined ? null : (
           <InlineNotice tone="warning" role="status">
-            <span data-security-notice={phaseNow.notice.class} className="flex flex-wrap items-center gap-3">
-              <span className="font-semibold">{failureMessage(phaseNow.notice.title_copy_key)}</span>
+            <span
+              data-security-notice={phaseNow.notice.class}
+              className="flex flex-wrap items-center gap-3"
+            >
+              <span className="font-semibold">
+                {failureMessage(phaseNow.notice.title_copy_key)}
+              </span>
               <span>{failureMessage(phaseNow.notice.body_copy_key)}</span>
               <KitButton
                 variant="secondary"
@@ -535,13 +695,18 @@ export function Onboarding({
                   router.push(appDestination(phaseNow.notice?.deep_link));
                 }}
               >
-                {failureMessage(phaseNow.notice.action_copy_key ?? "notification.action.review-devices")}
+                {failureMessage(
+                  phaseNow.notice.action_copy_key ??
+                    "notification.action.review-devices",
+                )}
               </KitButton>
             </span>
           </InlineNotice>
         )}
         {journey === undefined ? null : <StageList journey={journey} />}
-        {generalFailure === undefined ? null : <FailureNotice failure={generalFailure} />}
+        {generalFailure === undefined ? null : (
+          <FailureNotice failure={generalFailure} />
+        )}
         <PrimaryAction
           onClick={() => {
             router.push(appDestination(returnTo));

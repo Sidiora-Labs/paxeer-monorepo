@@ -40,7 +40,7 @@ function FieldControl({ className, ...props }: FieldPrimitive.Control.Props) {
     <FieldPrimitive.Control
       data-slot="field-control"
       className={ cn(
-        'flex min-h-11 w-full min-w-0 rounded-md border border-input bg-transparent px-3.5 py-2 text-body text-foreground transition-[border-color,box-shadow] duration-(--duration-fast) outline-none placeholder:text-muted-foreground hover:border-foreground/30 focus-visible:border-foreground field-focus focus-ring data-invalid:border-destructive data-disabled:opacity-60',
+        'flex min-h-10 w-full min-w-0 rounded-md border border-input bg-transparent px-3.5 py-2 text-sm text-foreground transition-[border-color,box-shadow] duration-(--duration-fast) outline-none placeholder:text-muted-foreground hover:border-foreground/30 focus-visible:border-foreground field-focus focus-ring data-invalid:border-destructive data-disabled:opacity-60',
         className,
       ) }
       { ...props }

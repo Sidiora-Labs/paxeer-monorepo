@@ -28,14 +28,14 @@ const CodeEditorSearchSection = ({ data, onItemClick }: Props) => {
   const themeColors = useThemeColors();
 
   return (
-    <AccordionItem value={ data.file_path } borderWidth="0px" _last={{ borderBottomWidth: '0px' }}>
+    <AccordionItem value={ data.file_path } borderWidth={ 0 } _last={{ borderBottomWidth: 0 }}>
       <AccordionItemTrigger
         py={ 0 }
         px={ 2 }
         _hover={{ bgColor: themeColors['custom.list.hoverBackground'] }}
-        fontSize="13px"
+        textStyle="sm"
+        minH="touchTarget"
         transitionDuration="0"
-        lineHeight="22px"
         alignItems="center"
         noIndicator
       >
@@ -46,14 +46,13 @@ const CodeEditorSearchSection = ({ data, onItemClick }: Props) => {
             transform: 'rotate(0deg)',
           }}
           // transform={ isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }
-          width="20px"
-          height="22px"
-          py="3px"
+          boxSize={ 5 }
+          py={ 0.5 }
           flexShrink={ 0 }
         />
-        <CodeEditorFileIcon mr="4px" fileName={ fileName }/>
+        <CodeEditorFileIcon mr={ 1 } fileName={ fileName }/>
         <Box
-          mr="8px"
+          mr={ 2 }
           whiteSpace="nowrap"
           overflow="hidden"
           textOverflow="ellipsis"

@@ -11,14 +11,17 @@ import { MARKET_ROUTES } from "./_markets/navigation";
 export default async function RootPage({
   searchParams,
 }: Readonly<{
-  searchParams: Promise<Readonly<{ return_to?: string | string[] | undefined }>>;
+  searchParams: Promise<
+    Readonly<{ return_to?: string | string[] | undefined }>
+  >;
 }>) {
   const [parameters, requestHeaders, requestCookies] = await Promise.all([
     searchParams,
     headers(),
     cookies(),
   ]);
-  const returnTo = typeof parameters.return_to === "string" ? parameters.return_to : undefined;
+  const returnTo =
+    typeof parameters.return_to === "string" ? parameters.return_to : undefined;
   const session = await verifiedWebSession(requestHeaders.get("cookie") ?? "");
   return (
     <div className="flex flex-col gap-4">

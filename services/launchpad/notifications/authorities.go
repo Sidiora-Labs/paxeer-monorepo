@@ -112,8 +112,8 @@ func NewRuntimeAuthorities(ctx context.Context, db *sql.DB, config RuntimeConfig
 	// Read the exact owner interfaces up front, including permission and column checks.
 	for _, query := range []string{
 		`SELECT pool,token,creator,height,block_hash,transaction_hash,log_index,block_timestamp FROM indexer.indexer_canonical_creations_v1 LIMIT 0`,
-		`SELECT snapshot_id,wallet,generation,start_at,end_at,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_v3 LIMIT 0`,
-		`SELECT snapshot_id,interval,bucket,payload FROM pnl.inventory_l16_wallet_intervals_v3 LIMIT 0`,
+		`SELECT snapshot_id,wallet,generation,start_at,end_at,input_digest,watermark FROM pnl.inventory_l16_wallet_ranges_read_v3 LIMIT 0`,
+		`SELECT snapshot_id,interval,bucket,payload FROM pnl.inventory_l16_wallet_intervals_read_v3 LIMIT 0`,
 	} {
 		rows, err := db.QueryContext(ctx, query)
 		if err != nil {

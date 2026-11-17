@@ -43,7 +43,7 @@ export const TxApiEntry = () => {
       alignItems="center"
       columnGap={ 1 }
       textStyle="sm"
-      fontWeight="500"
+      fontWeight="medium"
       data-tx-api-entry
     >
       <IconSvg name="API" boxSize={ 4 }/>

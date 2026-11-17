@@ -65,6 +65,7 @@ defmodule Indexer.Fetcher.BlockRewardTest do
   describe "async_fetch/1" do
     setup %{json_rpc_named_arguments: json_rpc_named_arguments} do
       BlockReward.Supervisor.Case.start_supervised!(json_rpc_named_arguments: json_rpc_named_arguments)
+      wait_for_tasks(BlockReward)
 
       block = insert(:block, number: 1)
 
@@ -448,7 +449,8 @@ defmodule Indexer.Fetcher.BlockRewardTest do
     wait_until(:timer.seconds(10), fn ->
       counts = BufferedTask.debug_count(buffered_task, false)
       IO.inspect("wait_for_tasks counts: #{inspect(counts)}")
-      counts.buffer == 0 and counts.tasks == 0
+      state = GenServer.call(buffered_task, :state)
+      state.init_task in [:complete, :delay] and counts.buffer == 0 and counts.tasks == 0
     end)
   end
 
@@ -496,4 +498,3 @@ defmodule Indexer.Fetcher.BlockRewardTest do
     end)
   end
 end
-

@@ -1,6 +1,6 @@
 if Application.compile_env(:explorer, :chain_type) !== :zksync do
   defmodule Explorer.SmartContract.Vyper.PublisherTest do
-    use ExUnit.Case, async: true
+    use ExUnit.Case, async: false
 
     use Explorer.DataCase
 
@@ -13,13 +13,24 @@ if Application.compile_env(:explorer, :chain_type) !== :zksync do
     alias Explorer.SmartContract.Vyper.Publisher
 
     setup do
-      configuration = Application.get_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour)
+      settings =
+        for {application, key} <- [
+              {:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour},
+              {:tesla, :adapter}
+            ] do
+          {application, key, Application.fetch_env(application, key)}
+        end
+
       Application.put_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour, enabled: false)
       Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
 
       on_exit(fn ->
-        Application.put_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour, configuration)
-        Application.put_env(:tesla, :adapter, Explorer.Mock.TeslaAdapter)
+        for {application, key, setting} <- settings do
+          case setting do
+            {:ok, value} -> Application.put_env(application, key, value)
+            :error -> Application.delete_env(application, key)
+          end
+        end
       end)
     end
 

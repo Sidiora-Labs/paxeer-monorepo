@@ -33,7 +33,7 @@ const PaxeerXReceiptDetails = ({ data, isLoading, freshness }: Props) => {
     <Flex flexDir="column" rowGap={{ base: 3, lg: 4 }} data-receipt-details
       data-verification-status={ data.verification_status }>
       { freshness ? (
-        <Box role="status" aria-live="polite" data-receipt-freshness={ freshness.state } color="text.secondary" textStyle="sm">
+        <Box role="status" aria-live="polite" data-receipt-freshness={ freshness.state } color="text.secondary" textStyle="body">
           <Text>{ freshness.message ?? {
             current: 'Latest indexed response received. Checking for updates.',
             refreshing: 'Checking for newer indexed evidence.',
@@ -52,7 +52,7 @@ const PaxeerXReceiptDetails = ({ data, isLoading, freshness }: Props) => {
       <Box
         data-receipt-details-card
         bg="bg.surface"
-        borderWidth="1px"
+        borderWidth="1"
         borderStyle="solid"
         borderColor="border.divider"
         borderRadius="md"

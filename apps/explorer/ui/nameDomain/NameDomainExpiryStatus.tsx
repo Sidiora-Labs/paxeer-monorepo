@@ -15,12 +15,12 @@ const NameDomainExpiryStatus = ({ date }: Props) => {
   const hasExpired = dayjs(date).isBefore(dayjs());
 
   if (hasExpired) {
-    return <chakra.span color="red.600">Expired</chakra.span>;
+    return <chakra.span color="text.error">Expired</chakra.span>;
   }
 
   const diff = dayjs(date).diff(dayjs(), 'day');
   if (diff < 30) {
-    return <chakra.span color="red.600">{ diff } days left</chakra.span>;
+    return <chakra.span color="text.error">{ diff } days left</chakra.span>;
   }
 
   return <chakra.span color="text.secondary">Expires { dayjs(date).fromNow() }</chakra.span>;

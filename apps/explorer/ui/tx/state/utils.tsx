@@ -56,7 +56,7 @@ export function getStateElements(data: TxStateChange, isLoading?: boolean) {
       const beforeBn = BigNumber(data.balance_before || '0').div(10 ** config.chain.currency.decimals);
       const afterBn = BigNumber(data.balance_after || '0').div(10 ** config.chain.currency.decimals);
       const differenceBn = afterBn.minus(beforeBn);
-      const changeColor = beforeBn.lte(afterBn) ? 'green.500' : 'red.500';
+      const changeColor = beforeBn.lte(afterBn) ? 'positive' : 'negative';
       const changeSign = beforeBn.lte(afterBn) ? '+' : '-';
 
       return {
@@ -71,7 +71,7 @@ export function getStateElements(data: TxStateChange, isLoading?: boolean) {
           </Skeleton>
         ),
         change: (
-          <Skeleton loading={ isLoading } display="inline-block" color={ changeColor }>
+          <Skeleton loading={ isLoading } display="inline-block" color={ changeColor } wordBreak="break-all">
             <span>{ changeSign }{ nbsp }{ differenceBn.abs().toFormat() }</span>
           </Skeleton>
         ),
@@ -103,7 +103,7 @@ export function getStateElements(data: TxStateChange, isLoading?: boolean) {
           return null;
         }
 
-        const changeColor = differenceBn.isGreaterThanOrEqualTo(0) ? 'green.500' : 'red.500';
+        const changeColor = differenceBn.isGreaterThanOrEqualTo(0) ? 'positive' : 'negative';
         const changeSign = differenceBn.isGreaterThanOrEqualTo(0) ? '+' : '-';
 
         return (

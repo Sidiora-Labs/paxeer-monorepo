@@ -35,7 +35,7 @@ vi.mock("@paxeer-network/ui", async (importOriginal) => {
   const original = await importOriginal<typeof import("@paxeer-network/ui")>();
   return {
     ...original,
-    modal: { show: mocks.modalShow },
+    modal: { ...original.modal, show: mocks.modalShow },
     useScreen: () => ({ isMobile: mocks.isMobile }),
   };
 });

@@ -1,12 +1,43 @@
 Code.require_file("chain_coverage_cases.exs", __DIR__)
 
 defmodule Explorer.SmartContract.Solidity.CodeCompilerTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   use Utils.CompileTimeEnvHelper, chain_type: [:explorer, :chain_type]
 
   if @chain_type in [:default, :paxeer_x] do
-    doctest Explorer.SmartContract.Solidity.CodeCompiler, tags: [compiler: true]
+    setup tags do
+      settings =
+        for {application, key} <- [
+              {:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour},
+              {:tesla, :adapter}
+            ] do
+          {application, key, Application.fetch_env(application, key)}
+        end
+
+      on_exit(fn ->
+        for {application, key, setting} <- settings do
+          case setting do
+            {:ok, value} -> Application.put_env(application, key, value)
+            :error -> Application.delete_env(application, key)
+          end
+        end
+      end)
+
+      Application.put_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour, enabled: false)
+      Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
+
+      if tags[:compiler_doctest] do
+        path = Explorer.SmartContract.SolcDownloader.ensure_exists("v0.4.24+commit.e67f0147")
+        assert is_binary(path)
+        assert File.regular?(path)
+        Application.put_env(:tesla, :adapter, Explorer.Mock.TeslaAdapter)
+      end
+
+      :ok
+    end
+
+    doctest Explorer.SmartContract.Solidity.CodeCompiler, tags: [compiler: true, compiler_doctest: true]
 
     @moduletag timeout: :infinity
 
@@ -31,15 +62,6 @@ defmodule Explorer.SmartContract.Solidity.CodeCompilerTest do
       @describetag :compiler
 
       setup do
-        configuration = Application.get_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour)
-        Application.put_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour, enabled: false)
-        Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
-
-        on_exit(fn ->
-          Application.put_env(:explorer, Explorer.SmartContract.RustVerifierInterfaceBehaviour, configuration)
-          Application.put_env(:tesla, :adapter, Explorer.Mock.TeslaAdapter)
-        end)
-
         {:ok,
          contract_code_info: Factory.contract_code_info(),
          contract_code_info_modern_compiler: Factory.contract_code_info_modern_compiler()}

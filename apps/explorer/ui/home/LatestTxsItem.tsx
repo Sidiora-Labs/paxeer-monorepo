@@ -44,7 +44,7 @@ export const PriceUpdateWatchListTags = ({ from, isLoading }: {
   return (
     <Flex columnGap={ 2 } rowGap={ 2 } flexWrap="wrap" overflow="hidden" maxW="100%">
       { tags.map((tag) => (
-        <Badge key={ tag.label } loading={ isLoading } truncated maxW={{ base: '115px', lg: '100%' }} colorPalette="gray">
+        <Badge key={ tag.label } loading={ isLoading } truncated maxW={{ base: 'var(--chakra-spacing-30)', lg: '100%' }} colorPalette="gray">
           { tag.display_name }
         </Badge>
       )) }

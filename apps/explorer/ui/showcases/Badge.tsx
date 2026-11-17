@@ -115,7 +115,7 @@ const BadgeShowcase = () => {
         <SectionHeader>Truncate</SectionHeader>
         <SamplesStack>
           <Sample label="truncated: true">
-            <Box maxW="150px">
+            <Box maxW="calc(var(--chakra-spacing-1) * 37.5)">
               <Badge truncated>
                 Very long content that should be truncated
               </Badge>

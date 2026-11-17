@@ -25,7 +25,7 @@ const FlashblocksStats = ({ itemsNum, txsNum, initialTs }: Props) => {
   return (
     <Box
       display="grid"
-      gridTemplateColumns={{ base: '1fr', lg: `repeat(3, calc(${ 100 / 3 }% - 9px))` }}
+      gridTemplateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-62\.5)), 1fr))"
       gap={{ base: 1, lg: 3 }}
       mb={ 6 }
     >

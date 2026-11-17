@@ -76,6 +76,44 @@ func spotUserControlWant(kind, stream, address string) string {
 	return fmt.Sprintf(`{"type":%q,"stream":%q,"address":%q}`, kind, stream, address)
 }
 
+func TestSpotUserOrigin(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		origins []string
+		origin  string
+		status  int
+	}{
+		{name: "listed", origins: []string{"https://app.example"}, origin: "https://app.example", status: http.StatusSwitchingProtocols},
+		{name: "outside", origins: []string{"https://app.example"}, origin: "https://other.example", status: http.StatusForbidden},
+		{name: "without_header", origins: []string{"https://app.example"}, status: http.StatusSwitchingProtocols},
+		{name: "empty_list", origin: "https://other.example", status: http.StatusSwitchingProtocols},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			socket := &SpotUser{AllowedOrigins: tc.origins}
+			ts := httptest.NewServer(socket)
+			defer ts.Close()
+			headers := http.Header{}
+			if tc.origin != "" {
+				headers.Set("Origin", tc.origin)
+			}
+			conn, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(ts.URL, "http"), headers)
+			if tc.status == http.StatusSwitchingProtocols {
+				if err != nil {
+					t.Fatalf("dial: %v", err)
+				}
+				if resp.StatusCode != tc.status {
+					t.Fatalf("status %d, want %d", resp.StatusCode, tc.status)
+				}
+				_ = conn.Close()
+				return
+			}
+			if err == nil || resp == nil || resp.StatusCode != tc.status {
+				t.Fatalf("dial error=%v response=%v, want status %d", err, resp, tc.status)
+			}
+		})
+	}
+}
+
 func spotUserBroker(t *testing.T) (*nats.Conn, jetstream.Stream) {
 	t.Helper()
 	ns, err := server.NewServer(&server.Options{

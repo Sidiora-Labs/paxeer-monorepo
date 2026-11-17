@@ -41,6 +41,62 @@ type FetchOptions struct {
 	Historical  bool
 }
 
+// ParallelBatchRead runs a bounded set of indexed reads. Results retain input
+// order, and a failed read or cancelled context stops queued and in-flight
+// reads through the derived context before the function returns.
+func ParallelBatchRead[T any](ctx context.Context, count, concurrency int, read func(context.Context, int) (T, error)) ([]T, error) {
+	if count < 0 || concurrency < 1 || read == nil {
+		return nil, sourceError(InvalidError, "batch-read", nil)
+	}
+	if count == 0 {
+		return []T{}, nil
+	}
+	if concurrency > count {
+		concurrency = count
+	}
+	readCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	results := make([]T, count)
+	jobs := make(chan int)
+	var wg sync.WaitGroup
+	var first error
+	var firstOnce sync.Once
+	worker := func() {
+		defer wg.Done()
+		for index := range jobs {
+			value, err := read(readCtx, index)
+			if err != nil {
+				firstOnce.Do(func() { first = err; cancel() })
+				continue
+			}
+			results[index] = value
+		}
+	}
+	for range concurrency {
+		wg.Add(1)
+		go worker()
+	}
+	for index := range count {
+		select {
+		case jobs <- index:
+		case <-readCtx.Done():
+			break
+		}
+		if readCtx.Err() != nil {
+			break
+		}
+	}
+	close(jobs)
+	wg.Wait()
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	if first != nil {
+		return nil, first
+	}
+	return results, nil
+}
+
 // FetchResult is the source-agnostic output consumed by the processor.
 type FetchResult struct {
 	// Production completeness metadata; legacy adapters leave Complete false.

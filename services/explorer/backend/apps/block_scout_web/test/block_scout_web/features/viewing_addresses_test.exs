@@ -9,7 +9,7 @@ defmodule BlockScoutWeb.ViewingAddressesTest do
   setup do
     Application.put_env(:block_scout_web, :checksum_address_hashes, false)
 
-    block = insert(:block, number: 42)
+    block = insert(:block, number: 910_000)
 
     lincoln = insert(:address, fetched_coin_balance: 5)
     taft = insert(:address, fetched_coin_balance: 5)
@@ -255,7 +255,7 @@ defmodule BlockScoutWeb.ViewingAddressesTest do
       transaction =
         :transaction
         |> insert(from_address: addresses.lincoln)
-        |> with_block(insert(:block, number: 7000))
+        |> with_block(insert(:block, number: 910_001))
 
       session
       |> AddressPage.visit_page(addresses.lincoln)
@@ -283,7 +283,7 @@ defmodule BlockScoutWeb.ViewingAddressesTest do
       addresses: addresses,
       session: session
     } do
-      block = insert(:block, number: 7000)
+      block = insert(:block, number: 910_001)
 
       from_lincoln =
         :transaction
@@ -315,7 +315,7 @@ defmodule BlockScoutWeb.ViewingAddressesTest do
       addresses: addresses,
       session: session
     } do
-      block = insert(:block, number: 7000)
+      block = insert(:block, number: 910_001)
 
       from_lincoln =
         :transaction
@@ -384,7 +384,7 @@ defmodule BlockScoutWeb.ViewingAddressesTest do
 
   describe "viewing token balances" do
     setup do
-      block = insert(:block)
+      block = insert(:block, number: 910_002)
       lincoln = insert(:address, fetched_coin_balance: 5, fetched_coin_balance_block_number: block.number)
       taft = insert(:address, fetched_coin_balance: 5)
 
@@ -476,8 +476,8 @@ defmodule BlockScoutWeb.ViewingAddressesTest do
     setup do
       address = insert(:address, fetched_coin_balance: 5)
       noon = Timex.now() |> Timex.beginning_of_day() |> Timex.set(hour: 12)
-      block = insert(:block, timestamp: noon)
-      block_one_day_ago = insert(:block, timestamp: Timex.shift(noon, days: -1))
+      block = insert(:block, number: 910_003, timestamp: noon)
+      block_one_day_ago = insert(:block, number: 910_004, timestamp: Timex.shift(noon, days: -1))
       insert(:fetched_balance, address_hash: address.hash, value: 5, block_number: block.number)
       insert(:fetched_balance, address_hash: address.hash, value: 10, block_number: block_one_day_ago.number)
 

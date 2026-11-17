@@ -22620,3 +22620,403 @@ fix = "Decision 3641. Task 22.39.712."
 title = "The hosted gateway binds a service by its network and its version, and two health answers name neither"
 symptom = "A binding of a product service in the hosted gateway reads the health answer of the service through three pointers: one to its ready state, one to its network and one to its version. The health answer of the dashboard API holds the member ready alone, and the health answer of the hosted webhooks service holds its ready state, its role and its components. Neither answer holds a member for the network or for the version, and neither service reads a setting for its network."
 fix = "Decision 3642. Task 22.39.713."
+
+[gotcha.4560]
+title = "The cases of the CA tool on its command issue run where the tools of that command are installed"
+symptom = "The file tools/bringup/tests/ca.test.sh holds cases on the roster and cases on the command issue. The command issue reads the inspection tool of the bring-up and the command line client of the hosting platform before it reads the CA, so its cases run where both are installed. The cases on the roster need neither: the command services prints the rows from the roster and the names file of the CA tool alone."
+fix = "Decision 3643. Task 22.39.711."
+
+[gotcha.4561]
+title = "A page of another origin reads the perps data gateway only where the gateway admits its origin"
+symptom = "The trading workspace reads the perps data gateway from the browser at the origin its build names: the REST routes, the GraphQL route and the sockets. A browser sends such a request with the header Origin, sends a preflight request before a request that carries the header Authorization or a JSON body, and gives the answer to the page only where the answer names the origin of the page. The settings of the gateway hold no list of origins, and the upgrades of its sockets take every origin."
+fix = "Decision 3644. Task 22.39.714."
+
+[gotcha.4562]
+title = "The image of the trading workspace takes its public settings from its build arguments file"
+symptom = "The web application of the trading workspace reads its public settings at build time, and the image plan of tools/deploy/offchain-images.sh builds the image perps-web from the values of apps/perps/deploy/build-args.production.env. The plan builds a row where every setting without a default in the code has a value. The gateway origin NEXT_PUBLIC_PERPS_GATEWAY_URL has no default in the code, so the production image takes it from the file."
+fix = "Decision 3645. Task 22.39.715."
+
+[gotcha.4563]
+title = "The package checks of the repository read the trading workspace as they read every workspace"
+symptom = "The checks under tests/ci and tools/qualification/audit_repairs read the lockfile of each JavaScript workspace: one lockfile of the package manager the root manifest pins, importers equal to the members, no package an advisory names without its repaired release, and the replacements of the repository in their locked forms. The check of the suites reads every package manifest: a test script is run by a workflow or takes a line with its reason in tests/ci/data/js_suite_exclusions.txt. The trading workspace under apps/perps has a root manifest, a web application and its packages, and the render check under tools/ui-check has a test script of its own."
+fix = "Decision 3646. Tasks 22.39.716 and 22.39.717; task 22.39.571."
+
+[gotcha.4564]
+title = "A floor of the trading workspace states one minimum where the lockfile holds a package in several lines"
+symptom = "The file tools/deps/floors/perps-web.json states minimum releases for packages of the lockfile of the trading workspace, and the checker of tools/deps compares every resolved copy with its floor. The workspace holds several packages in more than one line, since the packages that use them admit different lines. An entry of the file is a plain minimum that every copy must meet, or a minimum with the release from which it applies."
+fix = "Decision 3647. Task 22.39.718."
+
+[gotcha.4565]
+title = "The stand-in receipt key of the command applycheck is registered through the check context"
+symptom = "With the flag stand-in-receipt-key the command applycheck registers its key through the check context of the first application copy: the record of the pinned keys, the parameter record and the pins of the key in memory. The admission of a batch reads the record of the pinned keys in the state the block executes on and takes a key only where its range covers the height of the block. The cases of the check in the package node run the forms through an executor of the test, and the cases of the command run on a home made by a test application. No case runs the executor of node/sequencer with the stand-in key on a home opened from its files in which sequencing is active."
+fix = "Decision 3648. Task 22.39.719."
+
+[gotcha.4566]
+title = "The node runs without the engine library and the fast form of the command applycheck refuses without it"
+symptom = "The node loads the engine library of the fast executor where it finds it under the name the package engine/executor/lib gives, and starts and executes without it. The command applycheck opens its fast form with the fast executor enabled and refuses the whole check where the library was not loaded, before any form runs."
+fix = "Decision 3649. Task 22.39.719."
+
+[gotcha.4567]
+title = "The cases of the server of the perps data gateway that read a node run where a node is given"
+symptom = "The function TestGatewayServer of services/platform/perps-data/internal/gateway/server_test.go starts the gateway against a node, a database and a message stream it reads from the environment of the test, and it runs where they are given. The admission of browser origins by the gateway is decided by the handler in front of the routes and by the list of the setting alone, so its cases need none of the three."
+fix = "Decision 3650. Task 22.39.714."
+
+[gotcha.4568]
+title = "The pages of the perps portal admit an absent explorer base and the portal configuration asks for one"
+symptom = "The pages of the perps portal take the base of the transaction links as an optional value: with a base the rows link their transactions, and without one the pages hold no transaction link. The cases of services/platform/perps-data/internal/portal/explorer_links_test.go load the portal configuration without the setting PERPS_EXPLORER_TX_BASE and build the pages from it. The portal configuration in services/platform/perps-data/internal/config/config.go asks for the setting, and the case optional_explorer_requires_consumer_wiring of services/platform/perps-data/internal/config/endpoint_validation_test.go states that form for the configuration and for the pages."
+fix = "Decision 3651. Task 22.39.720."
+
+[gotcha.4569]
+title = "Three cases of the node package read parts of the product that later tasks gave their form"
+symptom = "The function SetSequencerRPC of the application keeps the two options of the sequencer, and where the receipt option holds a forward address and no keeper it gives the option the sequencer keeper of the application, the form of task 22.39.551. The case TestSetSequencerRPCKeepsOptions of node/sequencer_seams_test.go compares the kept receipt option with the option as it was handed in. The case TestMergeUpgradeInstallsProgramsSchedules of node/upgrades_merge_schedules_test.go reads the members of the fee schedule row the merge upgrade installs by their positions in the row. The case TestUpgradesSequencerSwitchAtActivation of node/upgrades_sequencer_test.go commits the first sequenced block of a chain whose merge upgrade installed the schedules of Programs, and the occupancy step of Programs runs at the end of that block."
+fix = "Decision 3652. Task 22.39.721."
+
+[gotcha.4570]
+title = "The function TestPortalPages of the perps portal runs where a node is given"
+symptom = "The function TestPortalPages of services/platform/perps-data/internal/portal/pages_test.go builds a gateway through the helper gatewayServer of services/platform/perps-data/internal/portal/server_test.go, which reads a node from the environment of the test, and it runs where a node is given. The cases of services/platform/perps-data/internal/portal/explorer_links_test.go and the function TestPortalChainMarketPage build their pages without that helper and need no node."
+fix = "Decision 3653. Task 22.39.720."
+
+[gotcha.4571]
+title = "The deployment identity of the launchpad indexer is checked in two forms"
+symptom = "The rule of the deployment manifest in sdk/launchpad/shared/config/deployment/manifest.go admits a deployment version that starts with a letter or a digit and continues with letters, digits, dots, underscores and hyphens, up to 96 characters, and the approved manifest sdk/launchpad/shared/config/deployment/current.json holds a deployment version with dots. The render of the indexer documents in services/launchpad/indexer/internal/app/render.go takes the deployment identity of the delivery document from that deployment version. The durable stager of services/launchpad/indexer/internal/publisher/durable.go and the archive of sdk/launchpad/shared/delivery/archive.go check the deployment identity they are handed against a form of letters, digits, underscores and hyphens, without the dot. The stager and the archive use the identity in hash inputs and in comparisons."
+fix = "Decision 3654. Task 22.39.722."
+
+[gotcha.4572]
+title = "The web compile of the perps image reads the compile file at the root of the workspace"
+symptom = "The compile file apps/perps/apps/web/tsconfig.json of the web application extends the compile file at the root of the workspace, apps/perps/tsconfig.json. The image file apps/perps/Dockerfile copies into its install stage the package file, the lock file, the workspace file, the registry settings file and the directories apps and packages. The cases of tools/containers/test_perps_workspace_image.py read the image file and the members of the workspace."
+fix = "Decision 3655. Task 22.39.723."
+
+[gotcha.4573]
+title = "The launchpad indexer binds every receipt of a block to a listed transaction"
+symptom = "The node gives the receipt of an entry the chain generates outside the EVM the type ShellEVMTxType of modules/evm/types/constants.go, the largest value of the type field, and such an entry is no transaction of the block of the eth namespace. The walk of the function marketAddresses in services/launchpad/indexer/internal/app/markets.go reads the block with its transactions and the receipts of the block, and it holds a block whose count of receipts differs from its count of listed transactions for a binding mismatch. The receipt authority of services/launchpad/indexer/internal/receipt/rpc.go reads the receipts of a block as well. The bloom of the header of the eth view holds the logs of the listed transactions."
+fix = "Decision 3656. Task 22.39.724."
+
+[gotcha.4574]
+title = "The eth namespace of the node reads the transactions and the receipts of a block along two routes"
+symptom = "The block API of rpc/block.go encodes the block of a namespace with the flag includeShellReceipts of the API, which is off for the eth namespace, so the block of the eth namespace lists no entry the chain generates outside the EVM. The function GetBlockReceipts of the same file takes the hashes of the block from the function getTxHashesFromBlock of rpc/utils.go under the flag the function shouldIncludeSynthetic gives for the namespace, which is off for the eth namespace as well, and encodes one receipt for each hash. The case TestBlockTransactionCountMatchesGetBlockByNumber of rpc/block_txcount_parity_test.go holds the count of transactions equal to the list of the block. No case holds the receipts of a block equal to that list."
+fix = "Decision 3657. Task 22.39.725."
+
+[gotcha.4575]
+title = "The read of a batch in the launchpad indexer walks its heights one after the other"
+symptom = "Before the qualified source reads a batch, the function marketAddresses of services/launchpad/indexer/internal/app/markets.go reads for every height of the batch the block with its transactions and then the receipts of that block, one height after the other, and checks the parent link, the identity of the block, the roots, the blooms and the limits on transactions, logs and bytes. The processor of services/launchpad/indexer/internal/processor/processor.go gives the read of a batch 20 seconds and the replay runner of services/launchpad/indexer/internal/processor/replay.go gives it 15 seconds, and both hold a lease with a term of 30 seconds that they renew before and after the read. The settings INDEXER_HISTORICAL_CONCURRENCY, INDEXER_HISTORICAL_READAHEAD and INDEXER_HISTORICAL_ATTEMPT_TIMEOUT_MS of services/launchpad/indexer/internal/config/config.go set the pace of the historical source."
+fix = "Decision 3658. Task 22.39.726."
+
+[gotcha.4576]
+title = "A second instance of the launchpad indexer meets the lease of the first"
+symptom = "The processor of services/launchpad/indexer/internal/processor/processor.go takes the ingestion lease of the stream with the function AcquireLease of services/launchpad/indexer/internal/store/canonical.go under the owner of the delivery document, which services/launchpad/indexer/internal/app/app.go hands on as the canonical owner. While a lease is held and has not expired, the function answers a second instance with the refusal of a fenced or expired lease, and the processor returns that refusal. The readiness answer of the indexer under the path /health/ready reads the state of the processor."
+fix = "Decision 3659. Task 22.39.727."
+
+[gotcha.4577]
+title = "One case of the delivery package runs where an object store is given"
+symptom = "The function TestArchiveCapturesCommittedSourceWithActualObjectStore of sdk/launchpad/shared/delivery/archive_fixture_coverage_test.go reads the endpoint and the two access values of an object store from the environment of the test, makes a bucket there and runs where an object store is given. The other cases of the package run with a database and need no object store."
+fix = "Decision 3660. Task 22.39.722."
+
+[gotcha.4578]
+title = "The outbox relay of the charts service marks the row it published"
+symptom = "The function PublishNextCommitted of services/launchpad/trading-charts/internal/store/transactional.go reads the next row of the table chart_outbox that has no publication time under a row lock, publishes it and sets its publication time. The service runs that function on the pool of its runtime role. The grants document migrations/grants.json gives the runtime role of the charts service the rights to read and to insert on that table, and the registry migrations/registry.json holds the digest of the grants document. The case TestCommittedCandleOutboxPublishesOnce of services/launchpad/trading-charts/internal/store/outbox_relay_coverage_test.go runs the relay on a pool of the role that made the tables. The helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest applies the registered migrations and the grants document to a database and hands out a connection of each runtime role it is asked for."
+fix = "Decision 3661. Task 22.39.728."
+
+[gotcha.4579]
+title = "The expected schema document names the service by its registry name"
+symptom = "The command of the schema under sdk/launchpad/shared/db/production/cmd writes the expected schema document of a service and a runtime role with the name the service holds in the grants document migrations/grants.json, and the readiness check of sdk/launchpad/shared/db/production/migrations.go reads the readiness of the database under that name. The composer of the startup documents reads the expected schema document of a service from the values directory under the name the service holds on the platform, and the function _expected_schema of deploy/launchpad/documents/common.py compares the service member of the document with that platform name. The cases of deploy/launchpad/documents/test_compose.py and the cases named TestPlatformDocuments in the configuration packages of the services under services/launchpad and in sdk/launchpad/shared/db/production write their expected schema documents with the platform name."
+fix = "Decision 3662. Task 22.39.729."
+
+[gotcha.4580]
+title = "The indexer reads its receipt document and its lifecycle document as a file or as a variable"
+symptom = "The configuration of the indexer in services/launchpad/indexer/internal/config/config.go takes the receipt document and the lifecycle document each as a file with a digest or as a document variable with a digest, and services/launchpad/indexer/internal/app/app.go reads a bound file in both places. The command under services/launchpad/indexer/cmd/indexer-runtime-docs renders both documents from the contracts and the approved manifest of the repository. The module deploy/launchpad/documents/indexer.py of the composer composes both documents from the values of the indexer and writes them as document variables, and the composer writes a document variable for every document a module returns. The variables file in the platform directory under deploy/launchpad names for the indexer the two document variables with their digests as required."
+fix = "Decision 3663. Task 22.39.730."
+
+[gotcha.4581]
+title = "The private channels of the launchpad services take certificates and assertion keys the repository issues only for tests"
+symptom = "The gateway of the launchpad reads in services/launchpad/gateway/internal/app/app.go a private authority certificate, a client certificate and a server certificate as files bound by digests, their keys by reference, an assertion key, and a list of identity peers with the digest of a client certificate and a public key each. The services user, metadata, social, livestream and the interface read in their configuration packages a private authority certificate, a client certificate with its key, the digest of the certificate of their peer and an assertion key. The package sdk/launchpad/shared/testpki issues such a set for tests and is imported only by tests."
+fix = "Decision 3664. Task 22.39.731."
+
+[gotcha.4582]
+title = "The launchpad services compare their durables with the broker and the repository makes none outside tests"
+symptom = "The function NewConsumer of sdk/launchpad/shared/delivery/natsdriver/driver.go requires a stream kept in files and compares the durable the broker holds with the form the function BrokerConsumerConfig derives from the configuration of the service, and refuses a difference. The delivery documents the composer writes name for each service the stream, the durable, the subject and the numbers. Streams and durables are made in the repository by helpers of the tests. The file tools/launchpad/delivery/stream-manifest.json describes one stream."
+fix = "Decision 3665. Task 22.39.732."
+
+[gotcha.4583]
+title = "The stats service makes one index of its holders table at start"
+symptom = "The function EnsureHolderBalanceIndex of internal/store/holders.go in the directory of the stats service under services/launchpad, whose binary is statsd, runs a statement that makes the index idx_ph_balance_numeric on the table pool_holders of the schema stats where the index is absent, and internal/app/app.go calls it at start on the pool of the runtime role. PostgreSQL admits a statement that makes an index from the owner of the table. The grants document migrations/grants.json gives the runtime role of the stats service on that table the rights to read, to insert, to update three columns and to delete. The registered migrations of the stats service in migrations/registry.json hold no statement for that index. The schema digest of the expected schema document covers the definition of every index of a schema, as the query in sdk/launchpad/shared/db/production/migrations.go reads it. The file sdk/launchpad/shared/db/production/online_indexes.go holds the plan and the apply function of a migration that makes an index on a table that holds rows."
+fix = "Decision 3666. Task 22.39.733."
+
+[gotcha.4584]
+title = "The render check runs the build of a surface within one fixed time and in the directory as it stands"
+symptom = "The function startSurface of tools/ui-check/server.mjs runs the build command of a surface in the directory of the surface and ends it after the time buildMs of tools/ui-check/config.mjs, which is 120 seconds for every surface. It changes nothing in the directory before the build, so the outputs of an earlier build stay in place. The function readSurface of tools/ui-check/config.mjs admits in a surface file the keys name, directory, build, start, address, readyPath, views, answers and typeScale."
+fix = "Decision 3667. Task 22.44.60."
+
+[gotcha.4585]
+title = "The surface file of the wallet application names the script of the offline files as its build"
+symptom = "The surface file tools/ui-check/surfaces/wallet.json names as its build the script build:pwa of apps/wallet/package.json, which writes the files of the offline form into the directory public, and as its start the command next start, which serves the production build in the directory .next of the application. The script build of the package runs the script of the offline files and then the production compile with the option webpack. The start command of the surface file names the public addresses of the answers the check serves, in variables whose names start with NEXT_PUBLIC, and the production compile reads variables of that kind when it runs."
+fix = "Decision 3668. Task 22.44.61."
+
+[gotcha.4586]
+title = "The builder tool of the explorer backend runs one mix command for each call"
+symptom = "The tool services/explorer/deploy/tools/mix-in-builder.sh reads its own options, such as --reuse-db and --check, before the mix command, starts the builder container beside a database made for the call and ends with the exit code of the one mix command it ran. The test command of mix writes under the build path a record of the cases that did not pass, and its option --failed runs the cases that record names and no other case. The build path and the database of a call belong to the container of that call."
+fix = "Decision 3669. Task 22.39.695."
+
+[gotcha.4587]
+title = "A fixed answer of the render check holds for every view and state of its surface"
+symptom = "The function readSurface of tools/ui-check/config.mjs reads the fixed answers of a surface from the key answers of the surface file, and the first entry whose method and pattern match a request answers it in every view and in every state. A view admits the keys name, path, states, expects and modes, and a state admits the keys name, steps, expects and modes. One address therefore has one answer in a surface, whatever view or state asks."
+fix = "Decision 3670. Task 22.44.62."
+
+[gotcha.4588]
+title = "The surface file of the wallet application holds its views in the form before sign-in"
+symptom = "The surface file tools/ui-check/surfaces/wallet.json holds 14 views and three named states, all three of the view onboarding, and its fixed answers give the sign-in provider one answer for the sent code and one refusal for the entered code. No view of the file runs with a session, so each view renders in the form a person sees before sign-in. The application holds under apps/wallet/src/widgets the parts a signed-in person works with: portfolio, send, receive, swap, tokenDetail, transactions, txDetail, settings, contacts, discover and pns, and under apps/wallet/src/surfaces the views of bridge, exchange, fees, inference, launchpad and web data, each with a connected form."
+fix = "Decision 3671. Task 22.44.63."
+
+[gotcha.4589]
+title = "The analytics part of the stats service uses five tables and the registered migrations make one of them"
+symptom = "The analytics part of the stats service, in internal/analytics of the directory of the stats service under services/launchpad, whose binary is statsd, reads and writes the tables analytics_progress, analytics_trades, analytics_outbox, analytics_risk_inputs and analytics_snapshots in the schema of the service: the projector, the expiry job the service starts in internal/app/app.go, the risk inputs and the read of the outbox. The function ProjectionSQL of projector.go holds the statements that make the first four tables, and the cases call it. The registered migrations make the table analytics_snapshots, in migrations/150001.sql, and the grants document migrations/grants.json names that table for the runtime role of the stats service."
+fix = "Decision 3672. Task 22.39.734."
+
+[gotcha.4590]
+title = "The gateway admits a bound route by its own lists, the approved bucket by a logical name and the recovery schema by the epoch function"
+symptom = "The function allowedConnectedRoute of services/launchpad/gateway/internal/proxy/connected.go admits a route that the runtime document binds to an upstream where the lists of the gateway hold its method and template with the same flags. The app in services/launchpad/gateway/internal/app/app.go reads the approved bucket of the runtime document as the logical name of one of the buckets of its configuration, and it makes its epoch guard on the recovery schema, the schema that holds the function assert_epoch of deploy/launchpad/production/recovery/epoch.sql. The composer module deploy/launchpad/documents/gateway.py writes the routes, the bucket and the schema as its values file gives them. The case TestPlatformDocuments of services/launchpad/gateway/internal/config composes the example values deploy/launchpad/documents/values/gateway.example.json and loads the configuration with the documents."
+fix = "Decision 3673. Task 22.39.735."
+
+[gotcha.4591]
+title = "The statements of the media authority of the gateway name the column initial_visibility and the table inventory_cursors"
+symptom = "The storage package of the gateway, services/launchpad/gateway/internal/storage, reads and writes the column initial_visibility of the table restrictions in the statements of connected.go, reconciliation.go and retention.go, and the app runs the function ReplayTombstones of reconciliation.go when it starts. The inventory of inventory.go reads and writes the table inventory_cursors. A function of connected.go holds the statement that makes the table restrictions with that column, a function of inventory.go holds the statement that makes the table inventory_cursors, and the cases of the package call them. The registered migration migrations/410000.sql makes the table restrictions with the columns hash, revision, state and updated_at. The grants document migrations/grants.json names for the runtime role of the gateway the tables restrictions, tombstones and inventory_reports among others."
+fix = "Decision 3674. Task 22.39.736."
+
+[gotcha.4592]
+title = "The prune of the ranking service reads the snapshots it removes under a row lock"
+symptom = "The function Prune of services/launchpad/ranking-algo/internal/store/publication.go reads the rows it removes from the table snapshots, joined with the table publication_outbox, with a read that ends FOR UPDATE OF s SKIP LOCKED, and the service runs it on the pool of its runtime role. The grants document migrations/grants.json gives the runtime role of the ranking service on the table snapshots the rights to read, to insert and to delete."
+fix = "Decision 3674. Task 22.39.736."
+
+[gotcha.4593]
+title = "A launchpad service runs its statements on a pool of its runtime role"
+symptom = "Each launchpad service opens its pool with the login of its runtime role, and the grants document migrations/grants.json gives that role its rights on the tables, sequences and functions the registered migrations make. The expected schema document of the role lists these rights and the readiness of the service compares them. The statements of a service live in its packages as text, and the schema names are put in when the service starts. The case TestRuntimeRoleOutboxRelay of services/launchpad/trading-charts/internal/store makes a database with the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest from the registered migrations and the grants document and runs a statement with a connection of the runtime role. PostgreSQL gives the plan of a statement with parameters through EXPLAIN with the option GENERIC_PLAN, and it refuses the plan where the statement names a table or a column that is not there or where the role lacks a right the statement needs."
+fix = "Decision 3675. Tasks 22.39.737 to 22.39.746."
+
+[gotcha.4594]
+title = "Four launchpad services serve their main listener with TLS and the definitions read the readiness path"
+symptom = "In their connected form the ranking service, the user service, the metadata service and the social service serve their main listener with TLS, in internal/app/app.go of each, and that listener answers the paths /health/live and /health/ready too. The gateway and the livestream service serve their main listener without TLS and hold a second listener with TLS for their private routes. The definition files in the platform directory under deploy/launchpad name the path /health/ready as the health check of each of these services, and the health check of a definition is a request without TLS to the port of the service."
+fix = "Decision 3676. Task 22.39.747."
+
+[gotcha.4595]
+title = "The api reads its network authority from a document bound by a digest"
+symptom = "The function newNetworkAuthority of services/launchpad/api/internal/app/authority.go reads the document the settings NETWORK_AUTHORITY_CONFIG_FILE or NETWORK_AUTHORITY_CONFIG_DOCUMENT name, with its digest: the schema version, the source schema, the deployment manifest, the reviewed pool runtime, the digest of the serial interface, the expected revision digest, the public endpoints and the addresses of the Go side and of the frontend side. It makes the preflight engine of sdk/launchpad/shared/config/capabilities from the manifest, the reviewed pool runtime and the digest of the serial interface, compares the revision of the engine with the expected revision digest and compares both address maps with the manifest. The command services/launchpad/indexer/cmd/indexer-runtime-docs writes the runtime documents of the indexer from the manifest of sdk/launchpad/shared/config/deployment and prints the digest of each file."
+fix = "Decision 3677. Task 22.39.748."
+
+[gotcha.4596]
+title = "The launchpad indexer compares the bloom of a header with every receipt of the block, the receipts set aside included"
+symptom = "The function SeparateShellReceipts of services/launchpad/indexer/internal/receipt/shell.go sets receipts of the shell type aside and then compares the merged bloom of every receipt of the block, the receipts set aside included, with the bloom of the header, and where the identity of the block is not reported the receipt root over every receipt with the root of the header. The function separateShellReceipts of services/launchpad/indexer/internal/source/shell.go compares in the same way. The walk of services/launchpad/indexer/internal/app/markets.go and the receipt authority in services/launchpad/indexer/internal/receipt/rpc.go and services/launchpad/indexer/internal/receipt/archive.go call the first function with the bloom and the root of the header. The node keeps two blooms for a block in modules/evm/keeper/abci.go, one over every receipt and one that leaves receipts of the shell type out, with their readers in modules/evm/keeper/log.go, and rpc/block.go writes the header of the eth namespace. A header of the eth namespace can therefore carry a bloom that holds no log of a receipt set aside. The cases of services/launchpad/indexer/internal/receipt/shell_test.go make the bloom of their headers from every receipt."
+fix = "Decision 3678. Task 22.39.749."
+
+[gotcha.4597]
+title = "The example values of the launchpad composer name different source streams, projection versions, generations and delivery schemas from service to service"
+symptom = "The example values under deploy/launchpad/documents/values are written per service. The indexer example names the canonical stream id chain125-canonical, the projection version accounting-market-v1, the inventory projection version inventory-v1 and the inventory generation g1. The stats example names the schema stats, the source stream chain125-canonical, the projection version accounting-market-v1 and the generation g1; the ranking example names the same source stream and projection version; the pnl example names the same source stream, the projection version inventory-v1 and the generation g1. The charts example names the schema candles, the source stream canonical, the projection version market-v1 and the generation main. The api example names the delivery schemas charts_delivery and stats_delivery, the projection generation mainnet_beta_125_g1, the projection version v1 and the source stream chain125-canonical. The read model of the api in services/launchpad/api/internal/store/accounting_readmodel.go reads the partition delivery tables of charts and of stats with one generation, one projection version and one source stream, the charts service binds its consumer in services/launchpad/trading-charts/internal/app/app.go with the source stream, the projection version and the generation of its document, and both read the positions of the indexer through sdk/launchpad/shared/accounting/sourcebootstrap by source stream and projection version. No case of deploy/launchpad/documents/test_compose.py compares the example values of one service with those of another."
+fix = "Decision 3679. Task 22.39.750."
+
+[gotcha.4598]
+title = "The readiness of the launchpad api reads three documents that neither the contract nor the composer names"
+symptom = "The api under services/launchpad/api registers in internal/app/app.go, in its rest role, the readiness checks network_authority and stream_relay and, where a discovery runtime document is given, the check discovery_notifications. Without a discovery runtime document it registers the checks discovery_sources and notification_delivery, which answer an error, and without a stream relay document the check stream_relay answers an error. The check network_authority answers the state of the network authority of internal/app/authority.go, which that file builds from the network authority document, its digest and the network RPC address. The configuration in internal/config/config.go reads the three documents under the names NETWORK_AUTHORITY_CONFIG, STREAM_RELAY_CONFIG and DISCOVERY_RUNTIME_CONFIG, each with the endings _FILE, _DOCUMENT and _SHA256, and the network RPC address under NETWORK_RPC_URL. The definition file of the api in the platform directory under deploy/launchpad names the readiness path /health/ready as its health check. The entry of the api in the variables file in the platform directory under deploy/launchpad requires three documents, the accounting read document, the database budget and the expected schema, and names none of the three documents above and not the network RPC address. The composer module deploy/launchpad/documents/api.py writes the accounting read document alone, and the example values of the api hold no member for the three. The command services/launchpad/api/cmd/api-runtime-docs writes the network authority document."
+fix = "Decision 3680. Task 22.39.751."
+
+[gotcha.4599]
+title = "The render check renders every view of a surface file in one run and the launchpad web holds many views"
+symptom = "The render check under tools/ui-check renders every view and every named state of a surface file at every size, in both schemes and in every mode in one run; its option view selects one view and its option jobs sets how many renders run at once. The time of a run grows with the count of the views and states the file names. The launchpad web under apps/launchpad/web serves its routes from more than twenty directories under src/app, and most routes have forms for the empty, the loading and the error case beside the filled one. Task 22.44.40 names one surface file for the whole surface, tools/ui-check/surfaces/launchpad.json, and closes it with one run."
+fix = "Decision 3681. Tasks 22.44.40 and 22.44.64 to 22.44.69."
+
+[gotcha.4600]
+title = "The contract of the launchpad fixes the metadata service to an ingress form whose identity call the gateway of production does not admit"
+symptom = "The metadata service under services/launchpad/metadata reads in internal/config/config.go the selector METADATA_INGRESS with the forms mtls, its default, and edge. In the form mtls it serves its routes on the private listener to a verified client certificate with an assertion signed by the gateway, serves the account authority the user service calls, and reaches the identity authority of the gateway over mutual TLS with its own certificate and its assertion key. In the form edge it authenticates a request by a call of the session introspection of the gateway with the bearer of IDENTITY_SERVICE_TOKEN, and it serves neither the private listener nor the account authority. The gateway under services/launchpad/gateway registers its identity routes in production with the verifiers of its identity peers: the function authenticateIdentityService of internal/auth/identity_chat.go admits the bearer only where no verifier is given, the private identity listener demands a client certificate on every connection, and the main listener answers no path under /internal/ in production. The entry of metadata in the variables file in the platform directory under deploy/launchpad fixes METADATA_INGRESS to edge and requires IDENTITY_SERVICE_URL and IDENTITY_SERVICE_TOKEN. The entry of user requires METADATA_SERVICE_URL and METADATA_CERT_SHA256 for the account authority of metadata, the example values of the gateway name the metadata upstream on the private port 8443, and the entry of metadata fixes METADATA_PRIVATE_LISTEN_ADDRESS. The form mtls reads its certificate, its key and its client authority from files alone, under METADATA_TLS_CERT_FILE, METADATA_TLS_KEY_FILE and METADATA_TLS_CLIENT_CA_FILE, while the user service admits for each of its materials either a file or an inline value."
+fix = "Decision 3682. Task 22.39.752."
+
+[gotcha.4601]
+title = "The composer of the launchpad writes the expected schema document of a service as a document variable alone"
+symptom = "Every service under services/launchpad reads its expected schema document in one of two forms: EXPECTED_SCHEMA_DOCUMENT with the document in standard base64, or EXPECTED_SCHEMA_FILE with the path of a file, each bound by EXPECTED_SCHEMA_SHA256, the digest of the bytes of the document. The configuration of each service admits either form and reads the bound bytes with one function. The composer under deploy/launchpad/documents takes the document of a service from the file expected-schema/NAME.json of the values directory, where NAME is the service, keeps its bytes and writes EXPECTED_SCHEMA_DOCUMENT and the digest; it has no route to the file form. The entry of every service in the variables file in the platform directory under deploy/launchpad requires EXPECTED_SCHEMA_DOCUMENT and EXPECTED_SCHEMA_SHA256. For the receipt document and the lifecycle document of the indexer the contract and the composer hold both forms since task 22.39.730: the member documentSources of the entry maps a document variable to its file variable, the composer hands a rendered file on with its bytes and its path, and the tool under tools/deploy that applies the variables of the launchpad demands exactly one source per document. A deployment that mounts its documents as files, or that keeps its variables small, has no such route for the expected schema document."
+fix = "Decision 3683. Task 22.39.753."
+
+[gotcha.4602]
+title = "The social service of the launchpad names its tables without a schema and sets the search path only outside the container profile"
+symptom = "The stores of services/launchpad/social name most of their tables without a schema, for example safety_outbox in services/launchpad/social/internal/app/app.go, while the registered migrations create these tables in the schema chat. A statement of that kind reaches its table only where the connection resolves the schema chat first. The function RuntimeDSN in services/launchpad/social/internal/devsocial/runtime.go returns a database URL with the schema chat first on the search path and keeps a path the URL already carries after it. The start of the service in services/launchpad/social/internal/app/app.go calls it in two forms only: outside production and in the profile platform. In production with the profile container, the form the contract of the launchpad fixes for social, the URL goes to the pool as it is given. The shared pool under sdk/launchpad/shared/db sets no search path, and the configuration of the service neither states nor checks one. The service in the container profile therefore reads its tables only where the deployment adds the parameter to DATABASE_URL, and no file of the product says so."
+fix = "Decision 3684. Task 22.39.754."
+
+[gotcha.4603]
+title = "No service of the launchpad serves the internal notification routes"
+symptom = "The library under services/launchpad/notifications holds the notification runtime of the launchpad. Its handler for internal callers serves two routes: the removal of the notification data of an account, DELETE /internal/v2/accounts/ID/notification-data, and the chat notification intent, POST /internal/v2/notifications/chat. Its policy admits a request only over a connection with a verified client certificate whose name is the delete peer or the chat peer of the discovery runtime document, with a bearer token. The api in the role rest builds this runtime in services/launchpad/api/internal/app/app.go where its discovery runtime document is bound, and serves the public discovery and notification routes from it. It never serves the handler for internal callers: the api has one plain listener on PORT and no listener that verifies client certificates, and its configuration names no private listen address. The user service calls the removal route through NOTIFICATION_SERVICE_URL when an account is deleted, and the runtime document of the social service names the endpoint for chat notification intents. Ranking, user, metadata and social serve their private routes on a second listener with mutual TLS since task 22.39.747; the api has no such listener, so both callers have no server to reach."
+fix = "Decision 3685. Task 22.39.755."
+
+[gotcha.4604]
+title = "The secrets check of a launchpad service runs under the context of its caller"
+symptom = "Each service under services/launchpad that resolves production secrets builds one check in its configuration package, in the function ResolveProductionSecrets: the check reads every consumed secret again from the provider and compares it with the value consumed at the start. The check keeps a result until the process ends: a required secret that cannot be read, or one whose value changed and needs a restart. The check has two callers. The refresh of the configuration calls it at its interval with a bound of its own. The readiness handler under sdk/launchpad/shared/http calls it with the context of the readiness request, bounded by the readiness deadline of that handler. The provider under sdk/launchpad/shared/secrets answers the error of the context where the context of a call has ended. The eleven services hold the same check: api, gateway, indexer, livestream, metadata, pnl-tracker, ranking-algo, social, trading-charts, user and the directory of the stats service under services/launchpad, whose binary is statsd."
+fix = "Decision 3686. Task 22.39.756."
+
+[gotcha.4605]
+title = "The readiness check of the network authority of the api attests the manifest inside the readiness request"
+symptom = "The api in the role rest registers the readiness check network_authority where its network authority document is bound. The check in services/launchpad/api/internal/app/authority.go builds the whole envelope of the route GET /v2/network/authority: it reads the committed head of the source schema and attests the manifest at that block. The attestation under sdk/launchpad/shared/config/deployment reads from the node named by NETWORK_RPC_URL the chain id, the header and, for every role of the manifest, code and storage, one read after another. The attestation policy bounds this by ten seconds and the route gives the same ten seconds. The readiness handler under sdk/launchpad/shared/http bounds all checks of one readiness request by two seconds. The readiness of the api thus rests on the time of a full attestation over the node, and every readiness request costs the node the reads of a full attestation."
+fix = "Decision 3687. Task 22.39.757."
+
+[gotcha.4606]
+title = "The render check counts every failed request of a page as a load finding"
+symptom = "The render check under tools/ui-check listens to the failed requests of a page and adds one load finding with the source requestfailed for each, whatever reason the browser gives. A page cancels requests of its own in normal use: a read that a newer one replaces, a preload that a navigation ends, a read of a view the visitor has left. The browser reports such a request as failed with the reason aborted. The check also ends requests itself, in tools/ui-check/check.mjs: an address outside the surface without a fixed answer is blocked and reported with the source unanswered-request, and a request to the surface that cannot be fetched is reported and ended. The browser reports each of these as a failed request as well, so one cause yields two findings."
+fix = "Decision 3688. Task 22.44.70."
+
+[gotcha.4607]
+title = "No registered migration and no path of the stats service writes the first search generation"
+symptom = "The migration 200001 makes the tables stats_search.generations_v2 and stats_search.active_v2 and writes no row. In the directory of the stats service under services/launchpad, whose binary is statsd, the functions BeginGeneration and ActivateGeneration of internal/search/generation.go read the one row of stats_search.active_v2 for update before anything else and end where it is not present, and the consume functions of internal/search/projection.go lock and update the same row. The readiness check search of internal/app/app.go answers ready only where that row names a generation with the state active that was validated. The grants document gives the runtime roles SELECT and UPDATE on stats_search.active_v2 and no INSERT. The cases of the search package write their first generation and the one row themselves after they apply the file 200001.sql. A database made by the registered migrations alone therefore holds no generation the functions and the check can start from."
+fix = "Decision 3689. Task 22.39.758."
+
+[gotcha.4608]
+title = "The start of the metadata service gives one reason for every media part that is not available"
+symptom = "In services/launchpad/metadata/internal/app/app.go the start calls the function Ready of the connected media once and answers the reason metadata_media_dependencies_unavailable for any error. That function, in services/launchpad/metadata/internal/metadata/connected.go, checks the raster process, the version answer of the scanner and the objects, and the function Ready of the objects checks in turn its configuration, the access list of the quarantine bucket, the policy status of that bucket, that the bucket refuses a list and a read without credentials, and the head of the approved bucket. Every one of these ends in the same error value, so the start line and the readiness check do not tell which part answered. An object store can answer the read of the access list of a bucket under the right to read the policy of the bucket, so an account needs both rights for that check."
+fix = "Task 22.39.759. Task 22.39.761."
+
+[gotcha.4609]
+title = "The source check of the indexer reads the node inside the readiness request"
+symptom = "In services/launchpad/indexer/internal/app/app.go the readiness check canonical_source reads the head of the node, reads the watermark of the stream from the store and calls verifyCanonicalRuntimeCheckpoint, which reads the block at the watermark from the committed source and compares its hash with the persisted one. The readiness handler of sdk/launchpad/shared/http gives all checks of one request two seconds together. Two reads of a node inside that bound make the answer of the check depend on the answer time of the node at that moment, and every readiness request adds two reads to the node. Decision 3687 took the same kind of read out of the readiness request of the api."
+fix = "Decision 3690. Task 22.39.760."
+
+[gotcha.4610]
+title = "No file states the object rights the service accounts of the launchpad need"
+symptom = "The contract in the platform directory under deploy/launchpad gives three services the keys of an object account: gateway, user and metadata, with the names of their buckets. Their sources call the object store through sdk/launchpad/shared/storage, services/launchpad/gateway/internal/storage, services/launchpad/security/policy and services/launchpad/metadata/internal/metadata: reads, writes, deletes, heads and lists of objects, and for metadata the access list, the policy status and the head of a bucket. services/launchpad/gateway/internal/storage/policies.go gives policies for the object roles of the gateway and says they are deployment input. No file under deploy/launchpad states which actions the account of each service needs on which bucket, and no case holds such a statement against the calls of the sources, so the rights of an account are known only from the store they were made in."
+fix = "Decision 3691. Task 22.39.761."
+
+[gotcha.4611]
+title = "The mobile navigation of the explorer gives its groups as details with a summary"
+symptom = "The mobile navigation in apps/explorer/ui/snippets/navigation/mobile renders each group of the header as a details element whose summary carries the name of the group, and the case of the header navigation in apps/explorer/ui/snippets/header reads a group by its summary and by the open state of the details element. The case of the search results layout in apps/explorer/ui/shared/layout/LayoutSearchResults.spec.tsx opens the mobile navigation below the width 1024 and asks it for a button with the name Explore and the attribute aria-expanded. A case that mounts a layout reads the parts of the header in the form the header gives them."
+fix = "Task 22.44.71."
+
+[gotcha.4612]
+title = "The contract fixes the private listen address to a wildcard of one address family"
+symptom = "The variables file that is the contract in the platform directory under deploy/launchpad fixes RANKING_PRIVATE_LISTEN_ADDRESS, USER_PRIVATE_LISTEN_ADDRESS, SOCIAL_PRIVATE_LISTEN_ADDRESS and METADATA_PRIVATE_LISTEN_ADDRESS to 0.0.0.0:8443, and decision 3685 gives API_PRIVATE_LISTEN_ADDRESS the same value. A listener on that address accepts connections of the IPv4 family only. The configuration of the same services names [::]:8443 in the message of its check of the address: the wildcard that accepts both families on a host that has both. On a private network that gives a service a name with an IPv6 address only, a peer that resolves the name cannot reach a listener in the form the contract fixes."
+fix = "Decision 3692. Task 22.39.762."
+
+[gotcha.4613]
+title = "The social service answers one authority route on the private listener of the container profile"
+symptom = "The notification library under services/launchpad/notifications reads five routes of the social service below /internal/v2/social: graph, visibility, public, callouts:review and callout-authority. The private listener of the container profile of the social service admits a peer of the authority list and then answers one route only, ranking-visibility; every other path below /internal/v2/social is answered with not found. The other runtime of the service answers graph, visibility, callouts:review and callout-authority and has no route public. The library reads not found as a refusal, so a reader of the library gets no graph, no visibility decision and no public resource from a social service in the container profile."
+fix = "Decision 3693. Task 22.39.763."
+
+[gotcha.4614]
+title = "A runtime document of the social service without a voice binding never becomes ready"
+symptom = "The runtime document of the social service holds an optional member voice. Without it the service starts, keeps a voice control without a provider and holds a voice failure that its readiness check social_runtime returns on every call. The composer under deploy/launchpad/documents refuses a values member voice, so a composed runtime document never holds the binding. The check answers failed for six different causes and names none: a failure of the runtime, voice, the notification credentials, the broker, durable work and a changed secret."
+fix = "Decision 3694. Task 22.39.764."
+
+[gotcha.4615]
+title = "The identity check of the metadata service reads a readiness path the private identity listener of the gateway does not serve"
+symptom = "In the form with mutual TLS the readiness check media_identity of the metadata service sends GET to the identity endpoint with the path /health/ready appended, with its client certificate, and takes every status other than 200 as a failure. The identity endpoint is the private identity listener of the gateway, and its handler answers only paths below /internal/v2/identity/ and gives 404 to every other path. The check therefore fails against a gateway in every state."
+fix = "Decision 3695. Task 22.39.765."
+
+[gotcha.4616]
+title = "An empty set of markets makes the ranking visibility of the social service unavailable"
+symptom = "The route ranking-visibility of the social service answers 503 when the set of known markets is empty, in the container profile and in the bound runtime alike. The ranking service reads that route in every refresh and in its readiness check ranking, so on a chain where the factory has created no market yet the ranking service publishes nothing, its check fails and it logs a refresh failure in every cycle. An empty set is the regular state of a launchpad before its first market."
+fix = "Decision 3696. Tasks 22.39.764 and 22.39.766."
+
+[gotcha.4617]
+title = "A composed indexer cannot take the history below its anchor"
+symptom = "The composer of the indexer documents under deploy/launchpad/documents writes a lifecycle document with an empty list of replay requests and without a backfill request, and the contract in the platform directory under deploy/launchpad names neither the mode of the indexer nor the batch settings of its backfill. The service reads heights below its anchor only through such a request, admits a request only with a matching row in its table of replay authorizations, bounds one request to 1000000 heights, and no command of the repository writes a request or that row. An indexer composed with an anchor above the creation height of a market that already exists on the chain therefore never holds that market."
+fix = "Decision 3697. Task 22.39.767."
+
+[gotcha.4618]
+title = "The verification form of the explorer backend subscribes with the address as its field holds it"
+symptom = "The page script pages/verification_form.js under services/explorer/backend/apps/block_scout_web/assets/js reads the address from the field of the form and builds the topic of the address channel from that value as it stands. The notifier under services/explorer/backend/apps/block_scout_web/lib publishes the result of a contract verification on the topic of the address in its lower case form. A form opened with an address written with capitals therefore listens on a topic on which no result is published, and the form shows neither the result nor the messages of the compiler."
+fix = "Decision 3698. Task 22.39.688."
+
+[gotcha.4619]
+title = "The function that appends a ranking head to the public stream reads its head without the category"
+symptom = "The function api_stream.append_ranking of the registered migration 190003 under migrations reads the committed head by the run, by the sequence of its category and by the output digest, and admits one row. The heads of several categories of one run can share that sequence and that digest; every category of a run over an empty set of markets does. The read then finds several rows, the function ends with an error, and the publication of that run does not complete."
+fix = "Decision 3699. Task 22.39.766."
+
+[gotcha.4620]
+title = "The readiness refresh of the canonical source writes through the head reader of the ingestion and keeps no cause"
+symptom = "The refresh behind the readiness of the canonical source in services/launchpad/indexer/internal/app takes the height of the source through the same head reader the ingestion uses. That reader does more than read: it retains the committed head it observed, reports the durable height to the source, and where the observation returns an error it quarantines the committed head of the stream. The refresh keeps an error only where it is a mismatch or an incomplete checkpoint; any other error of the head reader, of the watermark read or of the block read at the watermark is neither kept nor written to the log, so the readiness answer then states only that no refresh succeeded or that the last success is older than one minute, and nothing names the step that did not answer."
+fix = "Decision 3700. Task 22.39.768."
+
+[gotcha.4621]
+title = "Cases of the explorer that render a whole page or the whole layout run under the default time bounds"
+symptom = "The configuration of the test runner of apps/explorer sets no time bound of its own, so a case ends after five seconds and a wait for content after one second. The case of the block details in apps/explorer/ui/shared/Page/entityPageComposition.spec.tsx renders the whole block page and waits for the hash of the block with that wait; the first case of apps/explorer/ui/shared/layout/Layout.spec.tsx renders the whole layout with the header, the navigation and the footer. The time of such a first render grows with the count of files a run holds, since the files share the processor, so a run of the whole directory apps/explorer/ui/shared gives these cases less time than a run of one file. The verification of task 22.44.4 runs the whole directory, while its paths hold twenty of the directories below it and neither apps/explorer/ui/shared/Page nor apps/explorer/ui/shared/layout."
+fix = "Decision 3701. Tasks 22.44.4 and 22.44.72."
+
+[gotcha.4622]
+title = "The render check renders four views at once by default and the documentation site holds many views"
+symptom = "The render check under tools/ui-check renders up to four views at once unless its option jobs names another count, and each render has a bound for the time its page takes to settle. The surface file of the documentation site names more than a hundred views and states, and its pages mount figures and diagrams while they settle. With four renders at once on one machine the time one page needs to settle depends on what the other three renders do at that moment, so a page can settle inside its bound when it is rendered alone and outside it in a run of the whole surface. The verification of task 22.44.48 runs the whole surface with the default count."
+fix = "Decision 3702. Task 22.44.48."
+
+[gotcha.4623]
+title = "A row of the ranking publication that reaches its attempt bound is not tried again"
+symptom = "The ranking service under services/launchpad/ranking-algo commits each pending head of a category to the stream from a row of its publication table. The loop in services/launchpad/ranking-algo/internal/app/app.go tries once a second and ends the round at the first error; services/launchpad/ranking-algo/internal/store/publication.go counts one attempt for each append that returns an error, up to the bound of the runtime document. The selection of the next row takes only a row below that bound, and only a row that has no earlier unpublished row of its category. A row at the bound is therefore not selected again, every later row of its category waits behind it, and the readiness of the service refuses while a row at the bound exists. The service holds no path that tries such a row again after the append answers again."
+fix = "Decision 3703. Task 22.39.769."
+
+[gotcha.4624]
+title = "A ranking run takes its cutoff from the clock of its own process before the reads it bounds"
+symptom = "The loop in services/launchpad/ranking-algo/internal/ranker/coordinator.go gives each run the time of its own process, cut to the second, as cutoff, and only then reads its inputs. The read in services/launchpad/ranking-algo/internal/store/frozen_inputs.go refuses the run where the observation of the visibility, stamped by the clock of the database, or the completion of the block at the watermark, stamped by the writer of that row, lies in a later second than the cutoff; the check of the provenance compares the same seconds once more. The answer of a run therefore depends on the place of its tick inside the second and on the difference between the clocks of the process and of the database: a tick close to the turn of a second, or a process clock a fraction of a second behind, gives refusals of runs whose inputs are complete. The log line of a refused run holds one fixed text for every refusal of the read, so the step that refused cannot be read from it."
+fix = "Decision 3704. Task 22.39.770."
+
+[gotcha.4625]
+title = "The trading workspace is laid out around the fixed sizes of its reference source"
+symptom = "The shell, the grids and the panels of the trading workspace under apps/perps take their tracks, heights and breakpoints from the fixed size scale of the reference source of the workspace: a header of one fixed height, rows of fixed height in the order book and the tables, and tracks that divide the width of the window among the chart, the book and the order entry. Tasks 22.44.12 to 22.44.18 gave the workspace a type scale that grows with the width of the window, other heights of controls and other tracks of the shell and the grids. A change of one of these sizes moves every part that is laid out around it. The render check of decision 3591 measures a view against the rules of decision 3588 and not against the reference source, so it does not read such a move."
+fix = "Decision 3705. Tasks 22.44.73, 22.44.74 and 22.44.39."
+
+[gotcha.4626]
+title = "The render check reads the readiness of a surface with the certificate rules of its own runtime"
+symptom = "The render check starts a surface and asks its ready path from its own runtime before the first render, in tools/ui-check/server.mjs. The launchpad web application holds its identity code to a secure origin, so its surface is served over a secure connection with a certificate made for the run on the local machine. The runtime of the check knows no issuer for such a certificate and the question for readiness has no answer, so the command ends before the first render. The verification commands of tasks 22.44.40 and 22.44.64 to 22.44.69 start the check without a statement on that certificate."
+fix = "Decision 3706. Tasks 22.44.40 and 22.44.64 to 22.44.69."
+
+[gotcha.4627]
+title = "The size tokens of four surfaces grow with the width of the window since the tasks of series 22.44"
+symptom = "The tasks of series 22.44 gave the launchpad web application, the wallet application, the interface package of the human web application and the bridge application size tokens for text whose value grows with the width of the window between a least and a greatest value, in apps/launchpad/web/src/app/tokens.css, apps/wallet/src/theme/tokens.ts, apps/web/packages/layerx-ui/src/styles/tokens.css and apps/bridge/src/app/dx-theme.css; the tokens of the launchpad held fixed values before. Controls of several surfaces took a least height as well. The record of a proof task states the findings of the render check against the rules of decision 3588; it holds no measure of a view against the state of the surface before the series, so a size or a place that moved is not written anywhere."
+fix = "Decision 3707. Tasks 22.44.75 to 22.44.78."
+
+[gotcha.4628]
+title = "The tasks of series 22.44 made the bridge application larger at every width"
+symptom = "The record of task 22.44.78 holds the measures of the bridge application before and after the tasks of series 22.44. The token of small text goes from 14 to 16 pixels, the first heading from 36 to 44 pixels at a width of 1440, the controls of the header from 32 to 44 pixels in height at every width, the header from 57 to 113 pixels in height at a width of 390, and the document is about a quarter higher at both widths. Decision 3588 asks for 44 pixels for a control that takes touch, and the render check measures that at widths up to 834 and holds text to the declared steps of the scale of the surface; neither asks for larger text, for larger controls at the widths above or for a higher header."
+fix = "Decision 3708. Tasks 22.44.78 and 22.44.79."
+
+[gotcha.4629]
+title = "The outbox of the perps data service is read whole at every claim and no row of it or of the price rows per block is ever removed"
+symptom = "The claim statement of the outbox in services/platform/perps-data/internal/delivery/store.go finds the row before which it stops with an aggregate over every open row, and it compares each row with a clock that the database evaluates anew for each row, so no index bounds that read: the time of one claim grows with the count of rows the table holds. The head age read of the same file and the outbox read of the readiness check in services/platform/perps-data/internal/indexer/indexer.go aggregate over every pending row. No statement removes a delivered row, so the table keeps every row that was ever written to it. The price feed of the chain emits one event for each market in each block. The indexer stores each of them as a raw event row, as a row of index prices and as an outbox row, and no statement bounds the age of the first two."
+fix = "Decision 3709. Tasks 22.39.771 and 22.39.772."
+
+[gotcha.4630]
+title = "The tasks of series 22.44 gave the developer dashboard another shell"
+symptom = "The record of task 22.44.77 holds the measures of the developer dashboard before and after the tasks of series 22.44. The size tokens and the type scale are the same in both states. The shell differs: the earlier state has a sidebar of 248 pixels at the desktop widths and a navigation at the lower edge at a width of 390, and its header is one row of 64 pixels at a width of 1440 and of 69 pixels at a width of 390. The present state has neither the sidebar nor the lower navigation, its header measures 78 pixels at a width of 1440 and 134 pixels at a width of 390, the control of the header goes from 38 to 44 pixels in height at a width of 1440 with larger text, the strip of tabs goes from 44 to 63 pixels, and the text of the cards is larger at the desktop widths. The change of task 22.44.32 under services/platform/hosted/dashboard/web is the first of the series there."
+fix = "Decision 3710. Tasks 22.44.77 and 22.44.80."
+
+[gotcha.4631]
+title = "Four files of the root suite of the trading workspace act on a node of a local chain"
+symptom = "The files local-fee-tier, local-market-config, local-order-tick and local-spot-token-state under apps/perps/tests read the address of a node of a local chain from the setting LOCAL_NODE_RPC and send their calls to that chain. The script test of apps/perps/package.json runs every file under tests, these four among them. The verification of task 22.44.73 calls that script, and the task changes presentation only; the tasks 22.44.12 to 22.44.18, whose changes it takes back, verify with the type check and the presentation check."
+fix = "Decision 3711. Task 22.44.73."
+
+[gotcha.4632]
+title = "The tasks of series 22.44 gave the human web application a type scale that grows with the window and higher rows"
+symptom = "The record of task 22.44.76 holds the measures of the human web application in 55 views before and after the tasks of series 22.44. The type scale goes from the fixed steps of 12, 14, 16, 18, 20 and 24 pixels to values that grow with the width of the window: the largest step measures 28 pixels at a width of 390 and 35.68 pixels at a width of 1920, the step of small text measures 13 to 13.6 pixels in place of 14, and the line heights of the steps differ. At a width of 1440 the header goes from 64 to 69 pixels, the first row of a list of the home view from 72 to about 122 pixels and the first card of that view from 338 to about 433 pixels. 544 parts differ at one width or more. The change of task 22.44.28 under apps/web/packages/layerx-ui is the first of the series, and the developer dashboard under services/platform/hosted/dashboard/web builds with that package."
+fix = "Decision 3712. Tasks 22.44.76, 22.44.81 and 22.44.82."
+
+[gotcha.4633]
+title = "The packages of the 16 line of the web framework name three different releases, and the command line of two of them can stop a build once"
+symptom = "Nine package files build with the 16 line of the web framework: the root of the repository, apps/bridge, apps/names, apps/wallet, apps/web, sdk/integrations/next/example, services/platform/examples/samples/paid-route-next, services/platform/hosted/dashboard/web and services/wallet/demo. One names release 16.4.2, seven name release 16.4.1 and one names a range from 16.3.0. The registry names 16.4.6 as the newest release of the line. The command line of the releases 16.4.1 and 16.4.2 stops a build once with a notice in an assisted session when the registry recommends a newer release; the same command started again within five minutes continues, and a build in a plain automated run does not stop. The text of that notice is no instruction of a task. The packages of the 15 line and of the 14 line name one release each and are not part of this."
+fix = "Decision 3713. Task 22.39.773."
+
+[gotcha.4634]
+title = "A render of the render check can end at its deadline while the page is idle"
+symptom = "The render check gives each render a bound and reports a render that ends at it as a load finding with the source deadline. A browser can stop answering a render while the page itself is idle, for example in the step that reads the height of the document and scrolls through it; the render then ends at its bound whatever the page does, and the same view in the same size, scheme and mode renders when it is started again. The check renders each view once, so a single render of that kind decides the outcome of a run over a whole surface."
+fix = "Decision 3714. Task 22.44.83."
+
+[gotcha.4635]
+title = "Two qualification test modules load a module of the human service by a file name the main line does not hold"
+symptom = "The modules tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py and tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py load a module of services/platform/hosted/human by its path and take helpers from it: the loopback RPC server, the binding of an account, the owner client, the writer of a document and the merged environment. Both name the file test_owner_custody.py, which the main line does not hold. The helpers are held by services/platform/hosted/human/test_merged_owner.py. The first module loads the file when it is imported, so the collection of the directory tools/qualification ends there, with the native selection as without it."
+fix = "Decision 3715. Task 22.39.774."
+
+[gotcha.4636]
+title = "The schema of the human API, the human service and the web application name the verification of a committed journey differently"
+symptom = "The type VerificationLevel in services/human/schema/human-api/journeys.kvx declares the variants unverified, receipt-verified, checkpoint-finalised, paxeer-finalised and settlement-anchored, and its mapping of rungs gives committed for the committed rung, a value that is none of the variants. The human service gives the value committed for the committed rung, and when it loads the schema it puts committed in place of the three later labels. The generated client under apps/web/src/api/generated decodes the declared variants alone, and the models of the web application name checkpoint-finalised for that rung. The baseline file of the schema holds the earlier text of three declarations of journeys.kvx, and two cases of the schema tool under services/human/tools/schema-check name the earlier mapping. The golden answers of the schema name checkpoint-finalised and none names committed."
+fix = "Decision 3716. Task 22.39.775."
+
+[gotcha.4637]
+title = "The project file of the perps deployment gives a broker less file store than the stream may keep, and the hub of the gateway keeps a consumer that delivers nothing"
+symptom = "The stream of the perps data service keeps a message for 72 hours, has no bound of bytes and refuses a new message when the file store of its broker is full, as services/platform/perps-data/internal/stream/layout.go declares. The broker takes the bound of its file store from the setting NATS_MAX_FILE_STORE. The project file of the perps deployment under deploy gives each of its three brokers 8G, the cases of the deployment directory of the service use 19327352832 bytes, and docs/release/variables/service-platform.md names the setting without a rule for its size. The price feed of the chain emits one event for each market in each block and each becomes a message of the stream, so the bytes the stream holds follow the count of markets and the pace of blocks, and outbox rows that are published late add their messages for the full 72 hours. The hub under services/platform/perps-data/internal/ws takes the stream through an ordered consumer that one server of the broker keeps in memory. When that consumer delivers nothing for five seconds the hub asks the broker for the stream, and when the stream answers the hub keeps the consumer: nothing compares the last sequence of the stream with the last message the hub applied. Where a consumer that its server no longer holds delivers nothing and gives no error, the hub stays attached to it while the stream goes on."
+fix = "Decision 3717. Tasks 22.39.776 and 22.39.777."
+
+[gotcha.4638]
+title = "The style sheet of the developer dashboard gives its body text a size without the token that the check of its build reads"
+symptom = "The build script of the developer dashboard under services/platform/hosted/dashboard/web runs services/platform/hosted/dashboard/web/tests/built-style.mjs after the build of the framework, and that check reads the built style sheet for the token --font-size-body of the type scale of the UI package under apps/web/packages/layerx-ui. The style sheet of the dashboard, services/platform/hosted/dashboard/web/app/globals.css, gives its body text and one further rule the value 1rem directly and names that token nowhere, while it names the other steps of the scale by their tokens. The package names the token in its tokens file alone, in the declaration of --text-body, and a declaration of the theme reaches the built style sheet only where a class uses it. The package gives the token the fixed value 1rem, the value the dashboard writes."
+fix = "Decision 3718. Task 22.44.84."
+
+[gotcha.4639]
+title = "The library cases of the human service crate start the webhooks binary of the platform workspace"
+symptom = "A case of the library of services/human/crates/layerx-human-service starts the binary layerx-webhooks of the platform workspace through services/platform/hosted/internal/src/producer_test_support.rs, which reads the path of that binary from the setting LAYERX_TEST_WEBHOOKS_BIN. The targets human-test, human-test-unit, human-test-integration and human-test-service of the Makefile build the binary into the target directory of the human workspace and export the setting. The verification of task 22.39.775 calls the library cases of the crate directly and neither builds the binary nor names the setting; the verification of task 22.39.311 does both."
+fix = "Decision 3719. Task 22.39.775."

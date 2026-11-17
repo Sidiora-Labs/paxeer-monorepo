@@ -23,7 +23,7 @@ const TxInternalTableItem = ({ type, from, to, value, success, error, gas_limit:
       <TableCell>
         <Flex rowGap={ 2 } flexWrap="wrap">
           { typeTitle && (
-            <Box w="126px" display="inline-block">
+            <Box w="var(--chakra-spacing-32)" display="inline-block">
               <Badge colorPalette="cyan" mr={ 5 } loading={ isLoading }>{ typeTitle }</Badge>
             </Box>
           ) }

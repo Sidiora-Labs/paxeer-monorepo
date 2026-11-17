@@ -298,7 +298,7 @@ function ThemeToggle({
           if (!e.defaultPrevented) toggle(e);
         } }
         className={ cn(
-          'focus-ring relative inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full p-2.5 transition-transform duration-(--duration-slow) active:scale-95 [&_svg]:size-full',
+          'focus-ring relative inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full p-2.5 transition-transform duration-(--duration-slow) active:scale-95 [&_svg]:size-full',
           appearance === 'ghost' ? 'state-layer text-foreground' : 'bg-foreground text-background',
           className,
         ) }

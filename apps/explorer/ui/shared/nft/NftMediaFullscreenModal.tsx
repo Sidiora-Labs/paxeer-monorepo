@@ -107,6 +107,7 @@ const NftMediaFullscreenViewer = ({ open, onOpenChange, data, allowedTypes, fiel
       <DialogContent w="unset" maxW="100vw" p={ 0 } background="none" boxShadow="none">
         { /* FIXME (maybe): if close trigger is outside of the dialog header, it will not hide backdrop after closing the dialog */ }
         <ChakraDialog.Header>
+          <ChakraDialog.Title srOnly>NFT media preview</ChakraDialog.Title>
           <DialogCloseTrigger
             position="fixed"
             top={ 6 }

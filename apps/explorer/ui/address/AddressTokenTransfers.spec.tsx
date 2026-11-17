@@ -72,8 +72,9 @@ describe('AddressTokenTransfers', () => {
 
     expect(viewAll.getAttribute('href')).toBe('/token-transfers');
     expect(viewAll.textContent).toBe('View all token transfers →');
-    expect(Array.from(container.querySelectorAll('[data-csv-export-label]')).map((item) => item.textContent))
-      .toEqual([ 'Download Page Data', 'CSV Export' ]);
+    expect(Array.from(container.querySelectorAll('[data-scan-table-card] [data-actions] [download], [data-csv-export-label]'))
+      .map((item) => item.textContent?.trim()))
+      .toEqual([ 'Download Page Data', 'Date-range CSV Export' ]);
   });
 
   it('asks for the local list when the address page lands without a tab', async() => {

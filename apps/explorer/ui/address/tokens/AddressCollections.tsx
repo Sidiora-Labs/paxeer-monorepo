@@ -55,14 +55,14 @@ const AddressCollections = ({ collectionsQuery, address, tokenTypes, onTokenType
     const hasOverload = Number(item.amount) > item.token_instances.length;
     return (
       <Box key={ item.token.address_hash + index } mb={ 6 }>
-        <Flex mb={ 3 } flexWrap="wrap" lineHeight="30px">
+        <Flex mb={ 3 } flexWrap="wrap" textStyle="body">
           <TokenEntity
             width="auto"
             noSymbol
             token={ item.token }
             isLoading={ isPlaceholderData }
             noCopy
-            fontWeight="600"
+            fontWeight="semibold"
             chain={ multichainContext?.chain }
           />
           <Skeleton loading={ isPlaceholderData } mr={ 3 }>
@@ -77,7 +77,7 @@ const AddressCollections = ({ collectionsQuery, address, tokenTypes, onTokenType
           mb={ 6 }
           columnGap={{ base: 3, lg: 6 }}
           rowGap={{ base: 3, lg: 6 }}
-          gridTemplateColumns={{ base: 'repeat(2, calc((100% - 12px)/2))', lg: 'repeat(auto-fill, minmax(210px, 1fr))' }}
+          gridTemplateColumns="repeat(auto-fill, minmax(min(100%, calc({spacing.100} / 2 + {spacing.2.5})), 1fr))"
         >
           { item.token_instances.map((instance, index) => {
             const key = item.token.address_hash + '_' + (instance.id && !isPlaceholderData ? `id_${ instance.id }` : `index_${ index }`);
@@ -94,11 +94,17 @@ const AddressCollections = ({ collectionsQuery, address, tokenTypes, onTokenType
           }) }
           { hasOverload && (
             <Link href={ collectionUrl }>
-              <NFTItemContainer display="flex" alignItems="center" justifyContent="center" flexDirection="column" minH="248px">
+              <NFTItemContainer
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                flexDirection="column"
+                minH="calc({spacing.40.5} + {spacing.20} + {spacing.1.5})"
+              >
                 <HStack gap={ 2 } mb={ 3 }>
-                  <NftFallback bgColor={{ _light: 'unset', _dark: 'unset' }} w="30px" h="30px" boxSize="30px" p={ 0 }/>
-                  <NftFallback bgColor={{ _light: 'unset', _dark: 'unset' }} w="30px" h="30px" boxSize="30px" p={ 0 }/>
-                  <NftFallback bgColor={{ _light: 'unset', _dark: 'unset' }} w="30px" h="30px" boxSize="30px" p={ 0 }/>
+                  <NftFallback bgColor={{ _light: 'unset', _dark: 'unset' }} w="{spacing.7.5}" h="{spacing.7.5}" boxSize="30px" p={ 0 }/>
+                  <NftFallback bgColor={{ _light: 'unset', _dark: 'unset' }} w="{spacing.7.5}" h="{spacing.7.5}" boxSize="30px" p={ 0 }/>
+                  <NftFallback bgColor={{ _light: 'unset', _dark: 'unset' }} w="{spacing.7.5}" h="{spacing.7.5}" boxSize="30px" p={ 0 }/>
                 </HStack>
                 View all NFTs
               </NFTItemContainer>

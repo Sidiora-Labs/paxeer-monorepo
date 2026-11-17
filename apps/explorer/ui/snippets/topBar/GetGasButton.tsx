@@ -30,7 +30,7 @@ const GetGasButton = () => {
 
       return (
         <>
-          <Box h="1px" w="8px" bg="border.divider" mx={ 1 }/>
+          <Box h={ 'var(--chakra-spacing-0\\.25)' } w="var(--chakra-spacing-2)" bg="border.divider" mx={ 1 }/>
           <Link
             href={ isInternal ? route({ pathname: '/apps/[id]', query: { id: dappId, url } }) : url }
             external={ !isInternal }
@@ -43,7 +43,7 @@ const GetGasButton = () => {
               <Image
                 src={ getGasFeature.logoUrl }
                 alt={ getGasFeature.name }
-                boxSize="14px"
+                boxSize={ 'var(--chakra-spacing-3\\.5)' }
                 mr={ 1 }
               />
             ) }

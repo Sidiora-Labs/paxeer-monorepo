@@ -95,7 +95,7 @@ func TestEdgeProductionConfigurationFailsClosed(t *testing.T) {
 func TestMTLSProductionConfigurationUnchanged(t *testing.T) {
 	cfg := edgeConfig()
 	cfg.Ingress = config.IngressMTLS
-	if err := cfg.ValidateMediaRuntime(); err == nil || err.Error() != "metadata_mtls_configuration_missing" {
+	if err := cfg.ValidateMediaRuntime(); err == nil || err.Error() != "metadata_mtls_configuration_missing: exactly one of METADATA_TLS_CERT_FILE and METADATA_TLS_CERT_PEM is required" {
 		t.Fatal("mtls ingress without TLS material accepted:", err)
 	}
 	cfg.TLSCertFile, cfg.TLSKeyFile, cfg.TLSClientCAFile = "/run/tls/tls.crt", "/run/tls/tls.key", "/run/tls/ca.crt"

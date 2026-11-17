@@ -77,13 +77,30 @@ const Sol2UmlDiagram = ({ addressHash }: Props) => {
 
   return (
     <Tooltip content="Click on image to zoom" positioning={{ placement: 'top' }}>
-      <chakra.img
-        src={ imgUrl }
-        alt={ `Contract ${ contractQuery.data.name } UML diagram` }
+      <chakra.button
+        type="button"
         onClick={ handleClick }
+        maxW="100%"
+        p={ 0 }
+        bg="transparent"
         cursor="pointer"
-        filter={{ _light: 'invert(0)', _dark: 'invert(1)' }}
-      />
+        _focusVisible={{ outline: 'var(--chakra-border-widths-2) solid', outlineColor: 'focusRing', outlineOffset: 'var(--chakra-border-widths-2)' }}
+      >
+        <chakra.img
+          src={ imgUrl }
+          alt={ `Contract ${ contractQuery.data.name } UML diagram` }
+          width={ 800 }
+          height={ 600 }
+          loading="lazy"
+          decoding="async"
+          display="block"
+          maxW="100%"
+          h="auto"
+          aspectRatio="4 / 3"
+          objectFit="contain"
+          filter={{ _light: 'invert(0)', _dark: 'invert(1)' }}
+        />
+      </chakra.button>
     </Tooltip>
   );
 };

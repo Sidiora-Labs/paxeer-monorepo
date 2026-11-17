@@ -29,7 +29,7 @@ func TestPlatformDocuments(t *testing.T) {
 	copyFile(filepath.Join(repoRoot, "deploy/launchpad/documents/values/common.example.json"), filepath.Join(values, "common.json"))
 	copyFile(filepath.Join(repoRoot, "deploy/launchpad/documents/values/charts.example.json"), filepath.Join(values, "charts.example.json"))
 	expected := map[string]any{
-		"service": "charts", "runtime_role": "chartsd", "registry_digest": strings.Repeat("0", 64),
+		"service": "core/trading-charts", "runtime_role": "chartsd", "registry_digest": strings.Repeat("0", 64),
 		"interface_digest": strings.Repeat("0", 64), "reader_version": 1, "migrations": map[string]string{"1": strings.Repeat("0", 64)},
 		"schemas": map[string]string{"candles": strings.Repeat("0", 64)}, "epoch": 1, "region": "mainnet-beta",
 		"privileges": []map[string]any{{"schema": "candles", "object": "chart_stream", "privileges": []string{"SELECT"}}},
@@ -65,8 +65,25 @@ func TestPlatformDocuments(t *testing.T) {
 		env[key] = value
 	}
 	setEnvironment(t, env)
-	if _, err := Load(); err != nil {
+	cfg, err := Load()
+	if err != nil {
 		t.Fatalf("Load composed documents: %v", err)
+	}
+	var delivery map[string]json.RawMessage
+	if err := ReadBoundDocument(cfg.DeliveryConfigFile, cfg.DeliveryConfigSHA256, &delivery); err != nil {
+		t.Fatal(err)
+	}
+	for key, want := range map[string]string{
+		"schema": "candles", "sourceStream": "chain125-canonical", "consumerId": "charts",
+		"generation": "g1", "projectionVersion": "accounting-market-v1",
+	} {
+		var got string
+		if err := json.Unmarshal(delivery[key], &got); err != nil {
+			t.Fatalf("delivery %s: %v", key, err)
+		}
+		if got != want {
+			t.Fatalf("delivery %s = %q, want %q", key, got, want)
+		}
 	}
 
 	for name, encoded := range documents {

@@ -67,7 +67,7 @@ const BeaconChainDeposits = () => {
     return (
       <Skeleton loading={ countersQuery.isPlaceholderData || isPlaceholderData } display="flex" flexWrap="wrap">
         { countersQuery.data && (
-          <Text lineHeight={{ base: '24px', lg: '32px' }}>
+          <Text lineHeight={{ base: 'h2', lg: 'h1' }}>
             { BigNumber(countersQuery.data.deposits_count).toFormat() } deposits processed
           </Text>
         ) }

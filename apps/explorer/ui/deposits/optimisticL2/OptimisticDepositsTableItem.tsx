@@ -24,11 +24,11 @@ const OptimisticDepositsTableItem = ({ item, isLoading }: Props) => {
 
   return (
     <TableRow>
-      <TableCell verticalAlign="middle">
+      <TableCell verticalAlign="middle" isNumeric>
         <BlockEntityL1
           number={ item.l1_block_number }
           isLoading={ isLoading }
-          fontWeight={ 600 }
+          fontWeight="semibold"
           noIcon
         />
       </TableCell>

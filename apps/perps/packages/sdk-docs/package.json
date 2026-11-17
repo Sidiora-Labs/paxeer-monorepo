@@ -25,7 +25,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@tobilu/qmd": "^2.5.3",
-    "zod": "^4.3.6"
+    "zod": "4.6.7"
   },
   "devDependencies": {},
   "publishConfig": {

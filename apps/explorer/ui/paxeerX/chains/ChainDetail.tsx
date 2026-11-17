@@ -1,4 +1,4 @@
-import { Box, Flex, Grid, Text } from '@chakra-ui/react';
+import { Flex, Grid, Text } from '@chakra-ui/react';
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
 
@@ -9,6 +9,7 @@ import { publicClient } from 'lib/web3/client';
 import { Button } from 'toolkit/chakra/button';
 import { Link } from 'toolkit/chakra/link';
 import { TableBody, TableCell, TableColumnHeader, TableHeader, TableRoot, TableRow } from 'toolkit/chakra/table';
+import TableScrollArea from 'ui/blocks/TableScrollArea';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
 import DataFetchAlert from 'ui/shared/DataFetchAlert';
 import PageTitle from 'ui/shared/Page/PageTitle';
@@ -53,11 +54,11 @@ function ActivityFeed({ id, kind }: { id: number; kind: ActivityKind }) {
       { query.isPending && <Text p={ 4 } role="status">Loading { kind }…</Text> }
       { query.isError && <DataFetchAlert/> }
       { query.isSuccess && (query.data.length === 0 ? <Text p={ 4 }>No { kind } yet.</Text> : (
-        <Box overflowX="auto">
+        <TableScrollArea label={ `Recent ${ kind }` }>
           <TableRoot variant="scan" aria-label={ kind }>
             <TableHeader>
               <TableRow>
-                <TableColumnHeader>Height</TableColumnHeader>
+                <TableColumnHeader isNumeric>Height</TableColumnHeader>
                 <TableColumnHeader>{ kind === 'transfers' ? 'Transfer' : 'Event' }</TableColumnHeader>
                 <TableColumnHeader>Account</TableColumnHeader>
                 <TableColumnHeader>Transaction</TableColumnHeader>
@@ -68,7 +69,7 @@ function ActivityFeed({ id, kind }: { id: number; kind: ActivityKind }) {
                 const transfer = isTransfer(item) ? item : undefined;
                 return (
                   <TableRow key={ item.id }>
-                    <TableCell>{ item.height_or_seq }</TableCell>
+                    <TableCell isNumeric>{ item.height_or_seq }</TableCell>
                     <TableCell>
                       { transfer ? (
                         <>
@@ -85,7 +86,7 @@ function ActivityFeed({ id, kind }: { id: number; kind: ActivityKind }) {
               }) }
             </TableBody>
           </TableRoot>
-        </Box>
+        </TableScrollArea>
       )) }
     </ScanTableCard>
   );
@@ -127,7 +128,7 @@ function ChainRecordCard({ record }: { record: ChainRecord }) {
 
   return (
     <ScanTableCard title={ record.name }>
-      <Grid templateColumns={{ base: '1fr', md: '180px 1fr' }} gap={ 3 } p={ 4 }>
+      <Grid templateColumns={{ base: '1fr', md: 'var(--chakra-spacing-40\\.5) 1fr' }} gap={ 3 } p={ 4 }>
         <ScanKeyValue label="Virtual chain ID">{ record.id }</ScanKeyValue>
         <ScanKeyValue label="Wallet chain ID">{ record.chain_id }</ScanKeyValue>
         <ScanKeyValue label="Status">{ statusLabel(record.status) }</ScanKeyValue>
@@ -160,7 +161,7 @@ function LaunchSections({ launch }: { launch: ChainLaunchView }) {
   return (
     <>
       <ScanTableCard title="Launch asset">
-        <Grid templateColumns={{ base: '1fr', md: '180px 1fr' }} gap={ 3 } p={ 4 }>
+        <Grid templateColumns={{ base: '1fr', md: 'var(--chakra-spacing-40\\.5) 1fr' }} gap={ 3 } p={ 4 }>
           <ScanKeyValue label="Token">
             <Link href={ `/token/${ launch.token }` } wordBreak="break-all">{ launch.tokenSymbol } · { launch.token }</Link>
           </ScanKeyValue>
@@ -171,7 +172,7 @@ function LaunchSections({ launch }: { launch: ChainLaunchView }) {
       </ScanTableCard>
       <ScanTableCard title="Revenue epochs">
         { launch.lastEpoch ? (
-          <Grid templateColumns={{ base: '1fr', md: '180px 1fr' }} gap={ 3 } p={ 4 }>
+          <Grid templateColumns={{ base: '1fr', md: 'var(--chakra-spacing-40\\.5) 1fr' }} gap={ 3 } p={ 4 }>
             <ScanKeyValue label="Last epoch">{ launch.lastEpoch.number.toString() }</ScanKeyValue>
             <ScanKeyValue label="Epoch amount">{ launch.lastEpoch.amountPax } PAX</ScanKeyValue>
             <ScanKeyValue label="Snapshot block">{ launch.lastEpoch.snapshotBlock.toString() }</ScanKeyValue>
@@ -205,7 +206,7 @@ export function ChainDetail({ id }: { id: number }) {
 
   return (
     <>
-      <Link href="/chains">All chains</Link>
+      <Link href="/chains" minH="touchTarget" minW="touchTarget" display="inline-flex" alignItems="center">All chains</Link>
       <PageTitle title={ record.data?.name || `Chain ${ id }` }/>
       { record.isPending && <Text role="status">Loading chain…</Text> }
       { record.isError && (record.error.status === 404 ? <Text role="alert">Unknown virtual chain.</Text> : <DataFetchAlert/>) }
@@ -219,14 +220,14 @@ export function ChainDetail({ id }: { id: number }) {
             { summary.isPending && <Text p={ 4 } role="status">Loading summary…</Text> }
             { summary.isError && <DataFetchAlert/> }
             { summary.isSuccess && (
-              <Grid templateColumns={{ base: '1fr', md: '180px 1fr' }} gap={ 3 } p={ 4 }>
+              <Grid templateColumns={{ base: '1fr', md: 'var(--chakra-spacing-40\\.5) 1fr' }} gap={ 3 } p={ 4 }>
                 <ScanKeyValue label="Transactions">{ summary.data.tx_count.toLocaleString() }</ScanKeyValue>
                 <ScanKeyValue label="Gas used">{ summary.data.gas_used.toLocaleString() }</ScanKeyValue>
                 <ScanKeyValue label="Last height">{ summary.data.last_height }</ScanKeyValue>
               </Grid>
             ) }
           </ScanTableCard>
-          <Text fontSize="lg" fontWeight={ 600 }>Chain activity</Text>
+          <Text fontSize="lg" fontWeight="semibold">Chain activity</Text>
           <ActivityFeed key={ `${ id }:transfers` } id={ id } kind="transfers"/>
           <ActivityFeed key={ `${ id }:events` } id={ id } kind="events"/>
         </Flex>

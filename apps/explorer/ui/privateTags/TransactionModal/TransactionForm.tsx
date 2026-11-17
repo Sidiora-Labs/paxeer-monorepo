@@ -86,7 +86,7 @@ const TransactionForm: React.FC<Props> = ({ data, onOpenChange, onSuccess, setAl
 
   return (
     <FormProvider { ...formApi }>
-      <form noValidate onSubmit={ formApi.handleSubmit(onSubmit) }>
+      <form noValidate autoComplete="off" onSubmit={ formApi.handleSubmit(onSubmit) }>
         <FormFieldText<Inputs>
           name="transaction"
           placeholder="Transaction hash (0x...)"

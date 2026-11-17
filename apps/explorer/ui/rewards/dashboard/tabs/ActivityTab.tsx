@@ -181,11 +181,11 @@ export default function ActivityTab() {
   };
 
   const labelComponents = Object.fromEntries(Object.entries(labels).map(([ key, value ], index) => [ key, (
-    <Flex key={ index } flex={ 1 } alignItems="center" gap={ 1 } _first={{ minW: { base: 'auto', md: '200px' } }}>
+    <Flex key={ index } flex={ 1 } alignItems="center" gap={ 1 } _first={{ minW: { base: 'auto', md: 'calc(var(--chakra-spacing-1) * 50)' } }}>
       <Text
         textStyle={{ base: 'sm', md: 'xs' }}
         color={{ base: 'text.primary', md: 'text.secondary' }}
-        fontWeight="500"
+        fontWeight="medium"
       >
         { value.text }
       </Text>
@@ -208,8 +208,8 @@ export default function ActivityTab() {
     <>
       <Flex
         p={{ base: 1.5, md: 2 }}
-        border="1px solid"
-        borderColor={{ _light: 'gray.200', _dark: 'whiteAlpha.200' }}
+        border="var(--chakra-border-widths-1) solid"
+        borderColor="hairline"
         borderRadius="lg"
         gap={{ base: 4, md: 10 }}
         flexDirection={{ base: 'column', md: 'row' }}
@@ -217,7 +217,7 @@ export default function ActivityTab() {
         <Flex
           display={{ base: 'contents', md: 'flex' }}
           flexDirection="column"
-          w="340px"
+          w="calc(var(--chakra-spacing-1) * 85)"
           p={ 3 }
           pr={ 0 }
         >
@@ -237,7 +237,7 @@ export default function ActivityTab() {
                 external
                 href="https://docs.blockscout.com/using-blockscout/merits/activity-pass"
                 fontSize="md"
-                fontWeight="500"
+                fontWeight="medium"
                 textAlign="center"
               >
                 Learn more
@@ -253,19 +253,19 @@ export default function ActivityTab() {
           >
             <IconSvg name="status/warning" boxSize={ 6 } color="icon.primary"/>
             <Text textStyle="sm">
-              <chakra.span fontWeight="600">Your current Merit count is not final!</chakra.span><br/>
+              <chakra.span fontWeight="semibold">Your current Merit count is not final!</chakra.span><br/>
               Merits are calculated based on the activity of all users and may increase or decrease by the end of the weekly period.
             </Text>
           </Flex>
         </Flex>
-        <Flex display={{ base: 'flex', md: 'none' }} justifyContent="space-between" px={ 3 }>
+        <Flex display={{ base: 'flex', md: 'none' }} justifyContent="space-between" flexWrap="wrap" gap={ 2 } px={ 3 }>
           <Flex alignItems="center" gap={ 1 }>
-            <Text textStyle="sm" fontWeight="500">
+            <Text textStyle="sm" fontWeight="medium">
               Period
             </Text>
             <Hint label={ labels.period.hint }/>
           </Flex>
-          <Text textStyle="sm" fontWeight="500" color="text.secondary">
+          <Text textStyle="sm" fontWeight="medium" color="text.secondary">
             { period }
           </Text>
         </Flex>
@@ -286,8 +286,8 @@ export default function ActivityTab() {
                 px={ 3 }
                 py={ 4 }
                 gap={{ base: 6, md: 8 }}
-                borderRadius={{ base: 'lg', md: '8px' }}
-                backgroundColor={{ _light: 'gray.50', _dark: 'whiteAlpha.50' }}
+                borderRadius={{ base: 'lg', md: 'card' }}
+                backgroundColor="surface"
               >
                 <Flex
                   flex={ 1 }
@@ -295,21 +295,26 @@ export default function ActivityTab() {
                   gap={ 2 }
                   alignItems={{ base: 'center', md: 'flex-start' }}
                   justifyContent={{ base: 'space-between', md: 'flex-start' }}
-                  minW={{ base: 'auto', md: '200px' }}
+                  flexWrap="wrap"
+                  minW={ 0 }
                 >
-                  <Text textStyle="sm" fontWeight={{ base: '700', md: '500' }}>
+                  <Text textStyle="sm" fontWeight={{ base: 'bold', md: 'medium' }}>
                     { item.title }
                   </Text>
-                  <Link
+                  <Button
+                    variant="link"
                     textStyle={{ base: 'sm', md: 'xs' }}
-                    fontWeight={{ base: '400', md: '500' }}
+                    fontWeight={{ base: 'normal', md: 'medium' }}
+                    type="button"
+                    textAlign="start"
+                    whiteSpace="normal"
                     onClick={ openTaskDetails(index) }
                   >
                     Task details
-                  </Link>
+                  </Button>
                 </Flex>
-                <Flex display={{ base: 'flex', md: 'contents' }} gap={ 8 }>
-                  <Flex flex={ 1 } flexDirection="column" gap={ 2 } alignItems="flex-start">
+                <Flex display={{ base: 'flex', md: 'contents' }} gap={ 8 } flexWrap="wrap">
+                  <Flex flex="1 1 var(--chakra-spacing-32)" minW={ 0 } flexDirection="column" gap={ 2 } alignItems="flex-start">
                     <Flex display={{ base: 'flex', md: 'none' }}>
                       { labelComponents.performanceRank }
                     </Flex>
@@ -319,12 +324,12 @@ export default function ActivityTab() {
                       </Heading>
                     </Skeleton>
                     <Skeleton loading={ isActivityDataLoading }>
-                      <Text textStyle={{ base: 'sm', md: 'xs' }} color="text.secondary" fontWeight="500">
+                      <Text textStyle={{ base: 'sm', md: 'xs' }} color="text.secondary" fontWeight="medium">
                         { item.percentileDiff } vs { isMobile ? 'prev.' : 'previous' } week
                       </Text>
                     </Skeleton>
                   </Flex>
-                  <Flex flex={ 1 } flexDirection="column" gap={ 2 } alignItems="flex-start">
+                  <Flex flex="1 1 var(--chakra-spacing-32)" minW={ 0 } flexDirection="column" gap={ 2 } alignItems="flex-start">
                     <Flex display={{ base: 'flex', md: 'none' }}>
                       { labelComponents.meritsEarned }
                     </Flex>
@@ -337,7 +342,7 @@ export default function ActivityTab() {
                       <Heading level="3" mr={{ base: 0, md: 2 }}>
                         { item.amount }
                       </Heading>
-                      <Text textStyle="sm" color="gray.400" fontWeight="500" alignSelf="flex-end" display={{ base: 'none', md: 'inline' }}>
+                      <Text textStyle="sm" color="text.secondary" fontWeight="medium" alignSelf="flex-end" display={{ base: 'none', md: 'inline' }}>
                         /{ item.maxAmount }
                       </Text>
                       <Heading level="3" display={{ base: 'inline', md: 'none' }} color="text.secondary">
@@ -345,7 +350,7 @@ export default function ActivityTab() {
                       </Heading>
                     </Skeleton>
                     <Skeleton loading={ isActivityDataLoading }>
-                      <Text textStyle={{ base: 'sm', md: 'xs' }} color="text.secondary" fontWeight="500">
+                      <Text textStyle={{ base: 'sm', md: 'xs' }} color="text.secondary" fontWeight="medium">
                         { item.amountDiff } vs { isMobile ? 'prev.' : 'previous' } week
                       </Text>
                     </Skeleton>
@@ -358,7 +363,7 @@ export default function ActivityTab() {
             p={{ base: 1.5, md: 3 }}
             order={{ base: 4, md: 'auto' }}
           >
-            <Text textStyle="xs" color="text.secondary" fontWeight="500">
+            <Text textStyle="xs" color="text.secondary" fontWeight="medium">
               Metrics are not updated in real time. Please allow up to one hour for your Performance Rank and earned Merits to reflect recent activity.
               If you experience any issues, feel free to reach out on{ ' ' }
               <Link external href="https://discord.gg/blockscout">

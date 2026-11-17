@@ -1,0 +1,30 @@
+[
+  {
+    "at": 1,
+    "operation": null,
+    "operation_digest": "a8bfbcb346ba166d808bc3956504ff4a55c27c6054af020f599a4a562a93a07d",
+    "outcome": "pending",
+    "verification": "unverified"
+  },
+  {
+    "at": 2,
+    "operation": null,
+    "operation_digest": "e4d0617d9b050a17ed82221bc95f2a786797ef48fed705b9ae3aef918df7fa24",
+    "outcome": "completed",
+    "verification": "unverified"
+  },
+  {
+    "at": 3,
+    "operation": null,
+    "operation_digest": "a8bfbcb346ba166d808bc3956504ff4a55c27c6054af020f599a4a562a93a07d",
+    "outcome": "rate-limited",
+    "verification": "unverified"
+  },
+  {
+    "at": 4,
+    "operation": null,
+    "operation_digest": "e4d0617d9b050a17ed82221bc95f2a786797ef48fed705b9ae3aef918df7fa24",
+    "outcome": "refused",
+    "verification": "unverified"
+  }
+]

@@ -1,13 +1,71 @@
 {
   "ChartsSchema": "candles",
   "StatsSchema": "stats",
-  "ChartsDeliverySchema": "charts_delivery",
-  "StatsDeliverySchema": "stats_delivery",
+  "ChartsDeliverySchema": "candles",
+  "StatsDeliverySchema": "stats",
   "StreamSchema": "api_stream",
   "SourcePartitionSchema": "indexer",
-  "ProjectionGeneration": "mainnet_beta_125_g1",
+  "ProjectionGeneration": "g1",
   "ChartsConsumerID": "charts",
   "StatsConsumerID": "stats",
-  "ProjectionVersion": "v1",
-  "SourceStream": "chain125-canonical"
+  "ProjectionVersion": "accounting-market-v1",
+  "SourceStream": "chain125-canonical",
+  "stream_relay": {
+    "routes": [
+      {
+        "stream": "MAINNET_BETA_125_LIVE",
+        "subjects": [
+          "market.trades.*",
+          "market.candles.*.*",
+          "market.stats.*",
+          "market.price.*",
+          "private.portfolio.*"
+        ]
+      },
+      {
+        "stream": "MAINNET_BETA_125_RANKINGS",
+        "subjects": ["market.rankings.*"]
+      }
+    ],
+    "epoch": 1,
+    "region": "mainnet-beta",
+    "batch": 100,
+    "max_attempts": 10,
+    "lease_duration_ms": 30000,
+    "publish_timeout_ms": 5000,
+    "retry_delay_ms": 2000,
+    "idle_interval_ms": 250,
+    "max_lag_ms": 120000,
+    "concurrency": 1,
+    "events_per_second": 500,
+    "burst": 100
+  },
+  "discovery_runtime": {
+    "quote_token_address": "0x85fcd13735f4309833a503ee804ea32395851479",
+    "d11_base": "https://accounts.kindlelaunch.example",
+    "d11_token_ref": "ACCOUNT_SERVICE_TOKEN",
+    "d12_base": "https://social.kindlelaunch.example",
+    "d12_token_ref": "SOCIAL_SERVICE_TOKEN",
+    "cursor_key_ref": "DISCOVERY_CURSOR_KEY",
+    "internal_token_ref": "DISCOVERY_INTERNAL_TOKEN",
+    "delete_peer_dns": "accounts.kindlelaunch.example",
+    "chat_peer_dns": "social.kindlelaunch.example",
+    "push": {
+      "apns_key": "",
+      "apns_key_id": "",
+      "apns_team_id": "",
+      "apns_topic": "",
+      "fcm_service_account": "",
+      "vapid_key": "",
+      "vapid_subject": "",
+      "owner": "discovery-notifications",
+      "deep_link_origin": "https://app.kindlelaunch.example",
+      "apns_sandbox": false,
+      "enable_apns": false,
+      "enable_fcm": false,
+      "enable_web_push": false
+    }
+  },
+  "network_authority_rendered_file": "network-authority.json",
+  "network_authority_runtime_path": "/run/launchpad/api/network-authority.json"
 }

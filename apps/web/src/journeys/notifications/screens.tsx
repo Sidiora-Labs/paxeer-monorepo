@@ -5,7 +5,10 @@ import { useState } from "react";
 
 import { copyEntry } from "../../../copy/runtime";
 import { formatCopy } from "../../../copy/format";
-import { DesktopNotifications, MobileNotifications } from "../../kit/pattern-notifications";
+import {
+  DesktopNotifications,
+  MobileNotifications,
+} from "../../kit/pattern-notifications";
 import { InlineNotice, ScreenCard } from "../../kit/surface";
 import { KitButton } from "../../kit/control";
 import { useAuthenticatedShell } from "../../shell/app-shell";
@@ -25,24 +28,37 @@ export function NotificationsArchiveScreen() {
     return <LoadingSurface rows={5} />;
   }
   if (center.state.status === "error" && !navigator.onLine) {
-    return <OfflineSurface onRetry={() => { void center.refresh(); }} />;
+    return (
+      <OfflineSurface
+        onRetry={() => {
+          void center.refresh();
+        }}
+      />
+    );
   }
   if (center.state.status === "error") {
     return (
       <ErrorSurface
         error={errorPresentation(center.state.error)}
         route="/app/notifications"
-        onRetry={() => { void center.refresh(); }}
-        onReload={() => { window.location.reload(); }}
+        onRetry={() => {
+          void center.refresh();
+        }}
+        onReload={() => {
+          window.location.reload();
+        }}
       />
     );
   }
 
   const items = notificationItems(center.state.notifications);
   const open = async (item: { id: string }) => {
-    const notification = center.state.status === "ready"
-      ? center.state.notifications.find((candidate) => candidate.source.notification_id === item.id)
-      : undefined;
+    const notification =
+      center.state.status === "ready"
+        ? center.state.notifications.find(
+            (candidate) => candidate.source.notification_id === item.id,
+          )
+        : undefined;
     if (notification === undefined || opening !== undefined) {
       return;
     }
@@ -66,10 +82,20 @@ export function NotificationsArchiveScreen() {
     >
       <div className="flex flex-col gap-4 pt-4">
         <div className="flex items-center justify-between gap-3">
-          <p role="status" className="text-sm font-semibold text-muted-foreground">
-            {formatCopy("notification.unread", { count: center.state.unreadCount })}
+          <p
+            role="status"
+            className="min-w-0 flex-[1_1_var(--space-20)] text-sm font-semibold text-muted-foreground"
+          >
+            {formatCopy("notification.unread", {
+              count: center.state.unreadCount,
+            })}
           </p>
-          <KitButton variant="secondary" onClick={() => { router.push("/app/settings"); }}>
+          <KitButton
+            variant="secondary"
+            onClick={() => {
+              router.push("/app/settings");
+            }}
+          >
             {copyEntry("notification.preferences.title").message}
           </KitButton>
         </div>
@@ -80,20 +106,28 @@ export function NotificationsArchiveScreen() {
           <ErrorSurface
             error={errorPresentation(openError)}
             route="/app/notifications"
-            onReload={() => { window.location.reload(); }}
+            onReload={() => {
+              window.location.reload();
+            }}
           />
         )}
         {shell === "mobile" ? (
           <MobileNotifications
             items={items}
-            onBack={() => { router.back(); }}
-            onItemClick={(item) => { void open(item); }}
+            onBack={() => {
+              router.back();
+            }}
+            onItemClick={(item) => {
+              void open(item);
+            }}
           />
         ) : (
           <DesktopNotifications
             view="archive"
             items={items}
-            onItemClick={(item) => { void open(item); }}
+            onItemClick={(item) => {
+              void open(item);
+            }}
           />
         )}
       </div>
@@ -105,5 +139,7 @@ export function notificationById(
   notifications: readonly PresentedNotification[],
   id: string,
 ): PresentedNotification | undefined {
-  return notifications.find((notification) => notification.source.notification_id === id);
+  return notifications.find(
+    (notification) => notification.source.notification_id === id,
+  );
 }

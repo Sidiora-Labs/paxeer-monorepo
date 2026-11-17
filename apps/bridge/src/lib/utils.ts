@@ -4,7 +4,7 @@ import { extendTailwindMerge } from 'tailwind-merge';
 const mergeSurfaceClasses = extendTailwindMerge({
   extend: {
     classGroups: {
-      'font-size': [ { text: [ 'caption', 'label', 'body-sm', 'body', 'title-sm', 'title', 'display', 'unit', 'icon-2xs', 'icon-xs', 'icon-sm', 'icon-md' ] } ],
+      'font-size': [ { text: [ 'micro', 'card-title', 'caption', 'label', 'body-sm', 'body', 'title-sm', 'title', 'display', 'unit', 'icon-2xs', 'icon-xs', 'icon-sm', 'icon-md' ] } ],
     },
   },
 });

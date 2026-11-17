@@ -10,6 +10,8 @@ import highlightText from 'lib/highlightText';
 import ClusterIcon from 'ui/shared/ClusterIcon';
 import HashStringShortenDynamic from 'ui/shared/HashStringShortenDynamic';
 
+import { resultLayout } from './resultLayout';
+
 const SearchBarSuggestCluster = ({ data, searchTerm, addressFormat }: ItemsProps<SearchResultCluster>) => {
   const hash = data.filecoin_robust_address || (addressFormat === 'bech32' ? toBech32Address(data.address_hash) : data.address_hash);
   const isClickable = isEvmAddress(data.address_hash);
@@ -26,7 +28,7 @@ const SearchBarSuggestCluster = ({ data, searchTerm, addressFormat }: ItemsProps
 
   const name = (
     <Text
-      fontWeight={ 700 }
+      fontWeight="bold"
       overflow="hidden"
       whiteSpace="nowrap"
       textOverflow="ellipsis"
@@ -49,7 +51,7 @@ const SearchBarSuggestCluster = ({ data, searchTerm, addressFormat }: ItemsProps
     <Box { ...containerProps }>
       <Grid
         alignItems="center"
-        gridTemplateColumns={{ base: '1fr', md: '228px 1fr' }}
+        css={ resultLayout }
         gap={ 2 }
       >
         <Flex alignItems="center">
