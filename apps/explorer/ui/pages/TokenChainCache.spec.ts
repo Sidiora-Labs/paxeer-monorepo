@@ -143,17 +143,20 @@ async function tokenChainCacheKeyLiveUpdatesIsolateTwoChainsWithTheSameHash(payl
   const { container } = view;
   await act(async() => {
     sockets[0].send(topic, 'total_supply', tokenSupplyTranscript[0]);
-    await waitFor(() => expect(client.getQueryData<TokenInfo>(tokenKey(chainA))?.total_supply)
-      .toBe(tokenSupplyTranscript[0].total_supply));
   });
-  await waitFor(() => expectSupply(container, chainA, tokenSupplyTranscript[0].total_supply));
+  await waitFor(() => {
+    expect(client.getQueryData<TokenInfo>(tokenKey(chainA))?.total_supply).toBe(tokenSupplyTranscript[0].total_supply);
+    expectSupply(container, chainA, tokenSupplyTranscript[0].total_supply);
+  });
   expect(client.getQueryData(tokenKey(chainB))).toEqual(tokenB);
   expect(client.getQueryData(rootKey)).toEqual(tokenInfo);
   await act(async() => {
     sockets[1].send(topic, 'total_supply', payload);
-    await waitFor(() => expect(client.getQueryData<TokenInfo>(tokenKey(chainB))?.total_supply).toBe(payload.total_supply));
   });
-  await waitFor(() => expectSupply(container, chainB, payload.total_supply));
+  await waitFor(() => {
+    expect(client.getQueryData<TokenInfo>(tokenKey(chainB))?.total_supply).toBe(payload.total_supply);
+    expectSupply(container, chainB, payload.total_supply);
+  });
   expect(client.getQueryData(tokenKey(chainA))).toEqual({ ...tokenA, total_supply: tokenSupplyTranscript[0].total_supply });
   expect(client.getQueryData(rootKey)).toEqual(tokenInfo);
   expect(peer.requests).toContain(`/${ chainA.slug }${ tokenPath }`);

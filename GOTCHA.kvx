@@ -22960,3 +22960,48 @@ fix = "Decision 3706. Tasks 22.44.40 and 22.44.64 to 22.44.69."
 title = "The size tokens of four surfaces grow with the width of the window since the tasks of series 22.44"
 symptom = "The tasks of series 22.44 gave the launchpad web application, the wallet application, the interface package of the human web application and the bridge application size tokens for text whose value grows with the width of the window between a least and a greatest value, in apps/launchpad/web/src/app/tokens.css, apps/wallet/src/theme/tokens.ts, apps/web/packages/layerx-ui/src/styles/tokens.css and apps/bridge/src/app/dx-theme.css; the tokens of the launchpad held fixed values before. Controls of several surfaces took a least height as well. The record of a proof task states the findings of the render check against the rules of decision 3588; it holds no measure of a view against the state of the surface before the series, so a size or a place that moved is not written anywhere."
 fix = "Decision 3707. Tasks 22.44.75 to 22.44.78."
+
+[gotcha.4628]
+title = "The tasks of series 22.44 made the bridge application larger at every width"
+symptom = "The record of task 22.44.78 holds the measures of the bridge application before and after the tasks of series 22.44. The token of small text goes from 14 to 16 pixels, the first heading from 36 to 44 pixels at a width of 1440, the controls of the header from 32 to 44 pixels in height at every width, the header from 57 to 113 pixels in height at a width of 390, and the document is about a quarter higher at both widths. Decision 3588 asks for 44 pixels for a control that takes touch, and the render check measures that at widths up to 834 and holds text to the declared steps of the scale of the surface; neither asks for larger text, for larger controls at the widths above or for a higher header."
+fix = "Decision 3708. Tasks 22.44.78 and 22.44.79."
+
+[gotcha.4629]
+title = "The outbox of the perps data service is read whole at every claim and no row of it or of the price rows per block is ever removed"
+symptom = "The claim statement of the outbox in services/platform/perps-data/internal/delivery/store.go finds the row before which it stops with an aggregate over every open row, and it compares each row with a clock that the database evaluates anew for each row, so no index bounds that read: the time of one claim grows with the count of rows the table holds. The head age read of the same file and the outbox read of the readiness check in services/platform/perps-data/internal/indexer/indexer.go aggregate over every pending row. No statement removes a delivered row, so the table keeps every row that was ever written to it. The price feed of the chain emits one event for each market in each block. The indexer stores each of them as a raw event row, as a row of index prices and as an outbox row, and no statement bounds the age of the first two."
+fix = "Decision 3709. Tasks 22.39.771 and 22.39.772."
+
+[gotcha.4630]
+title = "The tasks of series 22.44 gave the developer dashboard another shell"
+symptom = "The record of task 22.44.77 holds the measures of the developer dashboard before and after the tasks of series 22.44. The size tokens and the type scale are the same in both states. The shell differs: the earlier state has a sidebar of 248 pixels at the desktop widths and a navigation at the lower edge at a width of 390, and its header is one row of 64 pixels at a width of 1440 and of 69 pixels at a width of 390. The present state has neither the sidebar nor the lower navigation, its header measures 78 pixels at a width of 1440 and 134 pixels at a width of 390, the control of the header goes from 38 to 44 pixels in height at a width of 1440 with larger text, the strip of tabs goes from 44 to 63 pixels, and the text of the cards is larger at the desktop widths. The change of task 22.44.32 under services/platform/hosted/dashboard/web is the first of the series there."
+fix = "Decision 3710. Tasks 22.44.77 and 22.44.80."
+
+[gotcha.4631]
+title = "Four files of the root suite of the trading workspace act on a node of a local chain"
+symptom = "The files local-fee-tier, local-market-config, local-order-tick and local-spot-token-state under apps/perps/tests read the address of a node of a local chain from the setting LOCAL_NODE_RPC and send their calls to that chain. The script test of apps/perps/package.json runs every file under tests, these four among them. The verification of task 22.44.73 calls that script, and the task changes presentation only; the tasks 22.44.12 to 22.44.18, whose changes it takes back, verify with the type check and the presentation check."
+fix = "Decision 3711. Task 22.44.73."
+
+[gotcha.4632]
+title = "The tasks of series 22.44 gave the human web application a type scale that grows with the window and higher rows"
+symptom = "The record of task 22.44.76 holds the measures of the human web application in 55 views before and after the tasks of series 22.44. The type scale goes from the fixed steps of 12, 14, 16, 18, 20 and 24 pixels to values that grow with the width of the window: the largest step measures 28 pixels at a width of 390 and 35.68 pixels at a width of 1920, the step of small text measures 13 to 13.6 pixels in place of 14, and the line heights of the steps differ. At a width of 1440 the header goes from 64 to 69 pixels, the first row of a list of the home view from 72 to about 122 pixels and the first card of that view from 338 to about 433 pixels. 544 parts differ at one width or more. The change of task 22.44.28 under apps/web/packages/layerx-ui is the first of the series, and the developer dashboard under services/platform/hosted/dashboard/web builds with that package."
+fix = "Decision 3712. Tasks 22.44.76, 22.44.81 and 22.44.82."
+
+[gotcha.4633]
+title = "The packages of the 16 line of the web framework name three different releases, and the command line of two of them can stop a build once"
+symptom = "Nine package files build with the 16 line of the web framework: the root of the repository, apps/bridge, apps/names, apps/wallet, apps/web, sdk/integrations/next/example, services/platform/examples/samples/paid-route-next, services/platform/hosted/dashboard/web and services/wallet/demo. One names release 16.4.2, seven name release 16.4.1 and one names a range from 16.3.0. The registry names 16.4.6 as the newest release of the line. The command line of the releases 16.4.1 and 16.4.2 stops a build once with a notice in an assisted session when the registry recommends a newer release; the same command started again within five minutes continues, and a build in a plain automated run does not stop. The text of that notice is no instruction of a task. The packages of the 15 line and of the 14 line name one release each and are not part of this."
+fix = "Decision 3713. Task 22.39.773."
+
+[gotcha.4634]
+title = "A render of the render check can end at its deadline while the page is idle"
+symptom = "The render check gives each render a bound and reports a render that ends at it as a load finding with the source deadline. A browser can stop answering a render while the page itself is idle, for example in the step that reads the height of the document and scrolls through it; the render then ends at its bound whatever the page does, and the same view in the same size, scheme and mode renders when it is started again. The check renders each view once, so a single render of that kind decides the outcome of a run over a whole surface."
+fix = "Decision 3714. Task 22.44.83."
+
+[gotcha.4635]
+title = "Two qualification test modules load a module of the human service by a file name the main line does not hold"
+symptom = "The modules tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py and tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py load a module of services/platform/hosted/human by its path and take helpers from it: the loopback RPC server, the binding of an account, the owner client, the writer of a document and the merged environment. Both name the file test_owner_custody.py, which the main line does not hold. The helpers are held by services/platform/hosted/human/test_merged_owner.py. The first module loads the file when it is imported, so the collection of the directory tools/qualification ends there, with the native selection as without it."
+fix = "Decision 3715. Task 22.39.774."
+
+[gotcha.4636]
+title = "The schema of the human API, the human service and the web application name the verification of a committed journey differently"
+symptom = "The type VerificationLevel in services/human/schema/human-api/journeys.kvx declares the variants unverified, receipt-verified, checkpoint-finalised, paxeer-finalised and settlement-anchored, and its mapping of rungs gives committed for the committed rung, a value that is none of the variants. The human service gives the value committed for the committed rung, and when it loads the schema it puts committed in place of the three later labels. The generated client under apps/web/src/api/generated decodes the declared variants alone, and the models of the web application name checkpoint-finalised for that rung. The baseline file of the schema holds the earlier text of three declarations of journeys.kvx, and two cases of the schema tool under services/human/tools/schema-check name the earlier mapping. The golden answers of the schema name checkpoint-finalised and none names committed."
+fix = "Decision 3716. Task 22.39.775."

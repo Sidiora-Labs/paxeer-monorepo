@@ -18,7 +18,7 @@ function surfaceTypographyPreservesControlColorRoles() {
 }
 
 function surfaceTypographyOverridesSizeWithoutChangingInk() {
-  for (const size of [ 'caption', 'label', 'body-sm', 'body', 'title-sm', 'title', 'display', 'unit', 'icon-2xs', 'icon-xs', 'icon-sm', 'icon-md' ]) {
+  for (const size of [ 'micro', 'card-title', 'caption', 'label', 'body-sm', 'body', 'title-sm', 'title', 'display', 'unit', 'icon-2xs', 'icon-xs', 'icon-sm', 'icon-md' ]) {
     const classes = cn('text-primary-foreground text-sm', `text-${ size }`).split(' ');
     expect(classes).toContain('text-primary-foreground');
     expect(classes).toContain(`text-${ size }`);
