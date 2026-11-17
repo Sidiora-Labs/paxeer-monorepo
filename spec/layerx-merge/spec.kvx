@@ -175584,7 +175584,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.781]
 title = "Form the 24 hour change that the trading workspace shows from the price at the start of the window"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.780"]
