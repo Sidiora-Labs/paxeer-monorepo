@@ -9,9 +9,9 @@ import BeaconChainValidatorLink from 'ui/shared/beacon/BeaconChainValidatorLink'
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import BlockEntity from 'ui/shared/entities/block/BlockEntity';
 import TxEntity from 'ui/shared/entities/tx/TxEntity';
-import ListItemMobileGrid from 'ui/shared/ListItemMobile/ListItemMobileGrid';
 import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
 import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
+import ListItemMobileGrid from 'ui/txs/ActivityListItem';
 
 const feature = config.features.beaconChain;
 
@@ -27,7 +27,7 @@ const BeaconChainDepositsListItem = ({ item, isLoading, view }: Props) => {
   }
 
   return (
-    <ListItemMobileGrid.Container gridTemplateColumns="120px auto">
+    <ListItemMobileGrid.Container gridTemplateColumns="minmax(0, 1fr) minmax(0, 2fr)">
 
       <ListItemMobileGrid.Label isLoading={ isLoading }>Transaction hash</ListItemMobileGrid.Label>
       <ListItemMobileGrid.Value>

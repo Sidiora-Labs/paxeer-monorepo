@@ -10,9 +10,9 @@ import { Skeleton } from 'toolkit/chakra/skeleton';
 import BlockEntityL1 from 'ui/shared/entities/block/BlockEntityL1';
 import TxEntity from 'ui/shared/entities/tx/TxEntity';
 import TxEntityL1 from 'ui/shared/entities/tx/TxEntityL1';
-import ListItemMobileGrid from 'ui/shared/ListItemMobile/ListItemMobileGrid';
 import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
 import SimpleValue from 'ui/shared/value/SimpleValue';
+import ListItemMobileGrid from 'ui/txs/ActivityListItem';
 
 const rollupFeature = config.features.rollup;
 
@@ -32,7 +32,7 @@ const ZkEvmL2DepositsListItem = ({ item, isLoading }: Props) => {
           number={ item.block_number }
           isLoading={ isLoading }
           textStyle="sm"
-          fontWeight={ 600 }
+          fontWeight="semibold"
         />
       </ListItemMobileGrid.Value>
 

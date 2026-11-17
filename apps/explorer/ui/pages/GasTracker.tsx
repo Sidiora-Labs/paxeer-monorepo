@@ -39,7 +39,7 @@ const GasTracker = () => {
       alignItems={{ base: 'flex-start', lg: 'center' }}
       fontFamily="heading"
       fontSize="lg"
-      fontWeight={ 500 }
+      fontWeight="medium"
       w="100%"
       columnGap={ 3 }
       rowGap={ 1 }

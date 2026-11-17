@@ -1,0 +1,48 @@
+{
+  "result": {
+    "account": {
+      "evm_address": "0x0000000000000000000000000000000000000001",
+      "pax_address": "pax1surfacetestaccount",
+      "layerx_did": "did:layerx:surface-test",
+      "layerx_account": "0505050505050505050505050505050505050505050505050505050505050505",
+      "bound": true
+    },
+    "accounts": [
+      {
+        "side": "paxeer",
+        "account": "0x0000000000000000000000000000000000000001"
+      }
+    ],
+    "items": [
+      {
+        "id": "1",
+        "height_or_seq": "100",
+        "chain": "paxeer",
+        "side": "paxeer",
+        "kind": "native_transfer",
+        "direction": "out",
+        "account": "0x0000000000000000000000000000000000000001",
+        "counterparty": "0x0000000000000000000000000000000000000002",
+        "asset": "apax",
+        "amount": "1250000000000000000",
+        "tx_id": "0x1111111111111111111111111111111111111111111111111111111111111111",
+        "ordinal": "1",
+        "final": true,
+        "decoded": {},
+        "asset_metadata": {
+          "asset": "apax",
+          "chain": "paxeer",
+          "kind": "native",
+          "address": null,
+          "denom": "apax",
+          "symbol": "PAX",
+          "decimals": 18,
+          "native_id": null,
+          "pointer": null,
+          "metadata": null
+        }
+      }
+    ],
+    "next_cursor": null
+  }
+}

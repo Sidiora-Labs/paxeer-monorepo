@@ -56,7 +56,7 @@ func platformValues(t *testing.T) (string, string, string) {
 	}
 	digest := strings.Repeat("a", 64)
 	schema := dbproduction.ExpectedSchema{
-		Service: "stats", RuntimeRole: "statsd", RegistryDigest: digest, InterfaceDigest: digest,
+		Service: "core/stats-workers", RuntimeRole: "statsd", RegistryDigest: digest, InterfaceDigest: digest,
 		ReaderVersion: 1, Migrations: map[int64]string{1: digest}, Schemas: map[string]string{"stats": digest},
 		Epoch: 1, Region: "mainnet-beta",
 		Privileges: []dbproduction.Grant{{Schema: "stats", Object: "pool_stats", Privileges: []string{"SELECT"}}},
@@ -236,7 +236,7 @@ func TestPlatformDocuments(t *testing.T) {
 			}
 		case "EXPECTED_SCHEMA":
 			schema, err := dbproduction.LoadExpectedSchema(raw, digest)
-			if err != nil || schema.Service != "stats" {
+			if err != nil || schema.Service != "core/stats-workers" {
 				t.Fatalf("stats expected schema: %v", err)
 			}
 		}

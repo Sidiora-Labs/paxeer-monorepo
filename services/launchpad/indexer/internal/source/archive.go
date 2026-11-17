@@ -337,7 +337,8 @@ func (s *CommittedSource) archiveLogs(ctx context.Context, e *committedEndpoint,
 // taken from the block's complete receipt list. Every receipt is bound to the
 // block's reported hash, height and transaction at its index, log indexes run
 // contiguously from zero, and the receipts must reproduce the block's
-// receiptsRoot (keccak identity) or logsBloom (reported identity).
+// listed-receipt logsBloom and, with keccak identity, the listed-receipt trie
+// root. Reported identity carries a Comet block-results root instead.
 func (s *CommittedSource) receiptLogs(ctx context.Context, e *committedEndpoint, b blockWire, record BlockRecord, height uint64, wanted []common.Address, bulk bool) ([]ethtypes.Log, error) {
 	if len(b.Transactions) > 4096 {
 		return nil, sourceError(IncompleteError, e.id, nil)

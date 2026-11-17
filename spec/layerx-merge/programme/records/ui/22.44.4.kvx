@@ -1,0 +1,296 @@
+[manifest]
+task = "22.44.4"
+surface = "Explorer shared entity, transaction, token, chart and supporting components"
+paths = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/TokenTransfer", "apps/explorer/ui/shared/TokenTransferSnippet", "apps/explorer/ui/shared/ad", "apps/explorer/ui/shared/address", "apps/explorer/ui/shared/batch", "apps/explorer/ui/shared/block", "apps/explorer/ui/shared/chart", "apps/explorer/ui/shared/gas", "apps/explorer/ui/shared/logs", "apps/explorer/ui/shared/monaco", "apps/explorer/ui/shared/nft", "apps/explorer/ui/shared/scan", "apps/explorer/ui/shared/solidityscanReport", "apps/explorer/ui/shared/stats", "apps/explorer/ui/shared/tx", "apps/explorer/ui/shared/userOps", "apps/explorer/ui/shared/verificationSteps", "apps/explorer/ui/shared/web3"]
+
+[guide.css]
+id = "css"
+directories = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/TokenTransfer", "apps/explorer/ui/shared/TokenTransferSnippet", "apps/explorer/ui/shared/ad", "apps/explorer/ui/shared/address", "apps/explorer/ui/shared/batch", "apps/explorer/ui/shared/block", "apps/explorer/ui/shared/chart", "apps/explorer/ui/shared/gas", "apps/explorer/ui/shared/logs", "apps/explorer/ui/shared/monaco", "apps/explorer/ui/shared/nft", "apps/explorer/ui/shared/scan", "apps/explorer/ui/shared/solidityscanReport", "apps/explorer/ui/shared/stats", "apps/explorer/ui/shared/tx", "apps/explorer/ui/shared/userOps", "apps/explorer/ui/shared/verificationSteps", "apps/explorer/ui/shared/web3"]
+
+[guide.html]
+id = "html"
+directories = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/TokenTransfer", "apps/explorer/ui/shared/TokenTransferSnippet", "apps/explorer/ui/shared/ad", "apps/explorer/ui/shared/address", "apps/explorer/ui/shared/batch", "apps/explorer/ui/shared/block", "apps/explorer/ui/shared/chart", "apps/explorer/ui/shared/gas", "apps/explorer/ui/shared/logs", "apps/explorer/ui/shared/monaco", "apps/explorer/ui/shared/nft", "apps/explorer/ui/shared/scan", "apps/explorer/ui/shared/solidityscanReport", "apps/explorer/ui/shared/stats", "apps/explorer/ui/shared/tx", "apps/explorer/ui/shared/userOps", "apps/explorer/ui/shared/verificationSteps", "apps/explorer/ui/shared/web3"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/TokenTransfer", "apps/explorer/ui/shared/TokenTransferSnippet", "apps/explorer/ui/shared/ad", "apps/explorer/ui/shared/address", "apps/explorer/ui/shared/batch", "apps/explorer/ui/shared/block", "apps/explorer/ui/shared/chart", "apps/explorer/ui/shared/gas", "apps/explorer/ui/shared/logs", "apps/explorer/ui/shared/monaco", "apps/explorer/ui/shared/nft", "apps/explorer/ui/shared/scan", "apps/explorer/ui/shared/solidityscanReport", "apps/explorer/ui/shared/stats", "apps/explorer/ui/shared/tx", "apps/explorer/ui/shared/userOps", "apps/explorer/ui/shared/verificationSteps", "apps/explorer/ui/shared/web3"]
+
+[guide.color]
+id = "color"
+directories = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/TokenTransfer", "apps/explorer/ui/shared/TokenTransferSnippet", "apps/explorer/ui/shared/ad", "apps/explorer/ui/shared/address", "apps/explorer/ui/shared/batch", "apps/explorer/ui/shared/block", "apps/explorer/ui/shared/chart", "apps/explorer/ui/shared/gas", "apps/explorer/ui/shared/logs", "apps/explorer/ui/shared/monaco", "apps/explorer/ui/shared/nft", "apps/explorer/ui/shared/scan", "apps/explorer/ui/shared/solidityscanReport", "apps/explorer/ui/shared/stats", "apps/explorer/ui/shared/tx", "apps/explorer/ui/shared/userOps", "apps/explorer/ui/shared/verificationSteps", "apps/explorer/ui/shared/web3"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/TokenTransfer", "apps/explorer/ui/shared/TokenTransferSnippet", "apps/explorer/ui/shared/ad", "apps/explorer/ui/shared/address", "apps/explorer/ui/shared/batch", "apps/explorer/ui/shared/block", "apps/explorer/ui/shared/chart", "apps/explorer/ui/shared/gas", "apps/explorer/ui/shared/logs", "apps/explorer/ui/shared/monaco", "apps/explorer/ui/shared/nft", "apps/explorer/ui/shared/scan", "apps/explorer/ui/shared/solidityscanReport", "apps/explorer/ui/shared/stats", "apps/explorer/ui/shared/tx", "apps/explorer/ui/shared/userOps", "apps/explorer/ui/shared/verificationSteps", "apps/explorer/ui/shared/web3"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/TokenTransfer", "apps/explorer/ui/shared/TokenTransferSnippet", "apps/explorer/ui/shared/ad", "apps/explorer/ui/shared/address", "apps/explorer/ui/shared/batch", "apps/explorer/ui/shared/block", "apps/explorer/ui/shared/chart", "apps/explorer/ui/shared/gas", "apps/explorer/ui/shared/logs", "apps/explorer/ui/shared/monaco", "apps/explorer/ui/shared/nft", "apps/explorer/ui/shared/scan", "apps/explorer/ui/shared/solidityscanReport", "apps/explorer/ui/shared/stats", "apps/explorer/ui/shared/tx", "apps/explorer/ui/shared/userOps", "apps/explorer/ui/shared/verificationSteps", "apps/explorer/ui/shared/web3"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/TokenTransfer", "apps/explorer/ui/shared/TokenTransferSnippet", "apps/explorer/ui/shared/ad", "apps/explorer/ui/shared/address", "apps/explorer/ui/shared/batch", "apps/explorer/ui/shared/block", "apps/explorer/ui/shared/chart", "apps/explorer/ui/shared/gas", "apps/explorer/ui/shared/logs", "apps/explorer/ui/shared/monaco", "apps/explorer/ui/shared/nft", "apps/explorer/ui/shared/scan", "apps/explorer/ui/shared/solidityscanReport", "apps/explorer/ui/shared/stats", "apps/explorer/ui/shared/tx", "apps/explorer/ui/shared/userOps", "apps/explorer/ui/shared/verificationSteps", "apps/explorer/ui/shared/web3"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/TokenTransfer", "apps/explorer/ui/shared/TokenTransferSnippet", "apps/explorer/ui/shared/ad", "apps/explorer/ui/shared/address", "apps/explorer/ui/shared/batch", "apps/explorer/ui/shared/block", "apps/explorer/ui/shared/chart", "apps/explorer/ui/shared/gas", "apps/explorer/ui/shared/logs", "apps/explorer/ui/shared/monaco", "apps/explorer/ui/shared/nft", "apps/explorer/ui/shared/scan", "apps/explorer/ui/shared/solidityscanReport", "apps/explorer/ui/shared/stats", "apps/explorer/ui/shared/tx", "apps/explorer/ui/shared/userOps", "apps/explorer/ui/shared/verificationSteps", "apps/explorer/ui/shared/web3"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/TokenTransfer", "apps/explorer/ui/shared/TokenTransferSnippet", "apps/explorer/ui/shared/ad", "apps/explorer/ui/shared/address", "apps/explorer/ui/shared/batch", "apps/explorer/ui/shared/block", "apps/explorer/ui/shared/chart", "apps/explorer/ui/shared/gas", "apps/explorer/ui/shared/logs", "apps/explorer/ui/shared/monaco", "apps/explorer/ui/shared/nft", "apps/explorer/ui/shared/scan", "apps/explorer/ui/shared/solidityscanReport", "apps/explorer/ui/shared/stats", "apps/explorer/ui/shared/tx", "apps/explorer/ui/shared/userOps", "apps/explorer/ui/shared/verificationSteps", "apps/explorer/ui/shared/web3"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/explorer/ui/shared/TokenTransfer", "apps/explorer/ui/shared/logs", "apps/explorer/ui/shared/scan"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/shared/scan"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/explorer/ui/shared/TokenTransfer", "apps/explorer/ui/shared/nft", "apps/explorer/ui/shared/solidityscanReport"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/explorer/ui/shared/chart", "apps/explorer/ui/shared/monaco", "apps/explorer/ui/shared/scan"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/explorer/ui/shared/monaco"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/ad", "apps/explorer/ui/shared/chart", "apps/explorer/ui/shared/logs", "apps/explorer/ui/shared/nft", "apps/explorer/ui/shared/stats"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/shared/address", "apps/explorer/ui/shared/monaco", "apps/explorer/ui/shared/nft", "apps/explorer/ui/shared/scan", "apps/explorer/ui/shared/solidityscanReport", "apps/explorer/ui/shared/verificationSteps", "apps/explorer/ui/shared/web3"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/explorer/ui/shared/TokenTransfer", "apps/explorer/ui/shared/chart", "apps/explorer/ui/shared/logs", "apps/explorer/ui/shared/scan"]
+
+[guide.respect_os_text_scale]
+id = "respect-os-text-scale"
+directories = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/TokenTransfer", "apps/explorer/ui/shared/TokenTransferSnippet", "apps/explorer/ui/shared/ad", "apps/explorer/ui/shared/address", "apps/explorer/ui/shared/batch", "apps/explorer/ui/shared/block", "apps/explorer/ui/shared/chart", "apps/explorer/ui/shared/gas", "apps/explorer/ui/shared/logs", "apps/explorer/ui/shared/monaco", "apps/explorer/ui/shared/nft", "apps/explorer/ui/shared/scan", "apps/explorer/ui/shared/solidityscanReport", "apps/explorer/ui/shared/stats", "apps/explorer/ui/shared/tx", "apps/explorer/ui/shared/userOps", "apps/explorer/ui/shared/verificationSteps", "apps/explorer/ui/shared/web3"]
+
+[guide.css_layout]
+id = "css-layout"
+directories = ["apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/TokenTransfer", "apps/explorer/ui/shared/monaco", "apps/explorer/ui/shared/scan", "apps/explorer/ui/shared/stats"]
+
+[guide.form_factor_adaptation]
+id = "form-factor-adaptation"
+directories = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/shared/address", "apps/explorer/ui/shared/monaco", "apps/explorer/ui/shared/scan"]
+
+[guide.interest_triggered_tooltips]
+id = "interest-triggered-tooltips"
+directories = ["apps/explorer/ui/shared/AccountActionsMenu", "apps/explorer/ui/shared/DetailedInfo", "apps/explorer/ui/shared/gas", "apps/explorer/ui/shared/scan"]
+
+[patterns]
+layout = "Detail grids follow their container; editor columns use intrinsic flex sizing; linked statistics cards fill their grid cells, and labels and values wrap within their cards."
+tables = "Token transfers retain column headers and numeric alignment inside a named keyboard-accessible scroll region; headers remain sticky when the container fits the table. Scan cards delegate horizontal scrolling to the transfer region, and embedded filter bars follow the count without overlapping it."
+controls = "Editor file selection, closing, collapsing and search options use buttons with focus and disabled or pressed states. The sidebar toggle precedes its panel in keyboard order; Escape closes the panel and restores focus."
+selects = "Chart intervals and row counts expose named combobox triggers; chart intervals follow the selected value. Desktop intervals use keyboard-accessible buttons with a pressed state and semantic text colours."
+media = "NFT media reserves a square area and provides a named preview button and dialog; HTML media has a frame title. Advertising images reserve their aspect ratio and link to their destination."
+theme = "Shared components read the explorer spacing, typography, border, radius and semantic colour roles. Verification states use positive and warning roles in both schemes."
+
+[guide.select_menu_interaction]
+id = "select-menu-interaction"
+directories = ["apps/explorer/ui/shared/chart", "apps/explorer/ui/shared/scan"]
+
+[patterns.overlays]
+security_score = "The security score opens an interactive popover with Escape dismissal and focus restoration."
+token_filters = "Token transfer filters use a named trigger and popover, a labeled transfer-direction group, and focus moves into the open popover."
+editor = "The editor tab list contains its tabs; folder actions sit beside the list."
+wallet = "The token wallet action uses a named button with a visible focus indicator."
+
+[view.home]
+route = "/explorer"
+content = "Network statistics and transaction lists"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.detailed-info]
+route = "/explorer/address/[hash]"
+content = "Address information"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.token-transfer]
+route = "/explorer/address/[hash]?tab=token_transfers"
+content = "Token transfer table and list"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.tx-overview]
+route = "/explorer/tx/[hash]"
+content = "Transaction fee, address pairs, token snippets and verification steps"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.tx-transfers]
+route = "/explorer/tx/[hash]?tab=token_transfers"
+content = "Transaction token transfers"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.logs]
+route = "/explorer/tx/[hash]?tab=logs"
+content = "Decoded logs, topics and raw data"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.contract]
+route = "/explorer/address/[hash]?tab=contract"
+content = "Source editor and security score popover"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.nft-media]
+route = "/explorer/token/[hash]/instance/[id]"
+content = "NFT image and preview dialog"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.nft-html]
+route = "/explorer/token/[hash]/instance/[id]"
+content = "NFT HTML media and preview dialog"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.block-transactions]
+route = "/explorer/block/[height_or_hash]"
+content = "Block transaction list"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.block-gas]
+route = "/explorer/block/[height_or_hash]?tab=index"
+content = "Block details and gas use"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.stats]
+route = "/explorer/stats"
+content = "Statistics widgets and charts"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.chart]
+route = "/explorer/stats/[id]"
+content = "Individual chart and interval selection"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.token]
+route = "/explorer/token/[hash]"
+content = "Fungible token market statistics"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.token-nft]
+route = "/explorer/token/[hash]"
+content = "NFT collection statistics"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.gas]
+route = "/explorer/gas-tracker"
+content = "Gas estimates and history"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.batch-celestia]
+route = "/explorer/batches/[number]"
+content = "Celestia batch data availability"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.batch-anytrust]
+route = "/explorer/batches/[number]"
+content = "AnyTrust batch data availability"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"
+
+[view.user-ops]
+route = "/explorer/op/[hash]"
+content = "User operation details and status"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+accessibility_widths = [360]
+motion = "reduced"
+text_scale = 2
+interaction = "keyboard"

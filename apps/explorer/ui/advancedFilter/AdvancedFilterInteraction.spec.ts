@@ -20,9 +20,9 @@ import { Provider } from 'toolkit/chakra/provider';
 import 'ui/shared/layout/testWrapper';
 import { afterAll, afterEach, beforeAll, expect, test, vi } from 'vitest';
 
+import { AdvancedFilterInteractionFixture } from './AdvancedFilterInteraction.fixture';
 import { getNativeToken } from './constants';
 import ItemByColumn from './ItemByColumn';
-import { AdvancedFilterInteractionFixture } from './AdvancedFilterInteraction.fixture';
 
 vi.hoisted(async() => {
   const { 'default': dotenv } = await import('dotenv');
@@ -152,7 +152,7 @@ function appliedFilters(): AdvancedFilterParams {
 }
 
 function filterButton() {
-  const button = screen.getByRole('button', { name: /^close$/ });
+  const button = screen.getByRole('button', { name: /^Filter$/ });
   expect(button.textContent).toBe('Filter');
   return button;
 }

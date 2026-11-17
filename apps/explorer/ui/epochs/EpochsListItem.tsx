@@ -20,37 +20,41 @@ interface Props {
 
 const EpochsListItem = ({ item, isLoading }: Props) => {
   return (
-    <ListItemMobile rowGap={ 1 } py={ 3 } borderColor="hairline" w="full" textStyle="sm" fontWeight={ 500 } alignItems="stretch">
-      <HStack minH="30px" gap={ 3 }>
+    <ListItemMobile fontSize="small" lineHeight="small"
+      rowGap={ 1 } py={ 3 } borderColor="hairline" w="full" textStyle="body" fontWeight="medium"
+      alignItems="stretch"
+      css={{ '& a': { display: 'inline-flex', alignItems: 'center' },
+        '& a, & button': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } } }}>
+      <HStack minH="var(--chakra-spacing-7\.5)" gap={ 3 }>
         <EpochEntity number={ String(item.number) } isLoading={ isLoading }/>
-        <Skeleton loading={ isLoading } color="text.secondary" fontWeight={ 400 } ml="auto"><span>{ item.type }</span></Skeleton>
+        <Skeleton loading={ isLoading } color="text.secondary" fontWeight="normal" ml="auto"><span>{ item.type }</span></Skeleton>
         <CeloEpochStatus isFinalized={ item.is_finalized } loading={ isLoading }/>
       </HStack>
       { item.timestamp && (
-        <Skeleton loading={ isLoading } display="flex" alignItems="center" minH="30px" color="text.secondary">
+        <Skeleton loading={ isLoading } display="flex" alignItems="center" minH="var(--chakra-spacing-7\.5)" color="text.secondary">
           <div>{ dayjs(item.timestamp).fromNow() }</div>
           <TextSeparator/>
           <Time timestamp={ item.timestamp } format="lll_s"/>
         </Skeleton>
       ) }
-      <HStack minH="30px">
+      <HStack minH="var(--chakra-spacing-7\.5)">
         <Skeleton loading={ isLoading } textStyle="label" color="text.muted">Started</Skeleton>
         <Skeleton loading={ isLoading } color="text.muted">—</Skeleton>
       </HStack>
-      <HStack minH="30px">
+      <HStack minH="var(--chakra-spacing-7\.5)">
         <Skeleton loading={ isLoading } textStyle="label" color="text.muted">First block</Skeleton>
         <BlockEntity number={ item.start_block_number } noIcon isLoading={ isLoading } textStyle="number"/>
       </HStack>
-      <HStack minH="30px">
+      <HStack minH="var(--chakra-spacing-7\.5)">
         <Skeleton loading={ isLoading } textStyle="label" color="text.muted">Last block</Skeleton>
         { item.end_block_number !== null ? <BlockEntity number={ item.end_block_number } noIcon isLoading={ isLoading } textStyle="number"/> : '—' }
       </HStack>
-      <HStack minH="30px">
+      <HStack minH="var(--chakra-spacing-7\.5)">
         <Skeleton loading={ isLoading } textStyle="label" color="text.muted">Duration</Skeleton>
         <Skeleton loading={ isLoading } color="text.muted">—</Skeleton>
       </HStack>
       { item.distribution?.community_transfer ? (
-        <HStack minH="30px">
+        <HStack minH="var(--chakra-spacing-7\.5)">
           <Skeleton loading={ isLoading }>Community</Skeleton>
           <NativeCoinValue
             amount={ item.distribution?.community_transfer.value }
@@ -60,7 +64,7 @@ const EpochsListItem = ({ item, isLoading }: Props) => {
         </HStack>
       ) : null }
       { item.distribution?.carbon_offsetting_transfer ? (
-        <HStack minH="30px">
+        <HStack minH="var(--chakra-spacing-7\.5)">
           <Skeleton loading={ isLoading }>Carbon offset</Skeleton>
           <NativeCoinValue
             amount={ item.distribution?.carbon_offsetting_transfer.value }
@@ -70,7 +74,7 @@ const EpochsListItem = ({ item, isLoading }: Props) => {
         </HStack>
       ) : null }
       { item.distribution?.transfers_total ? (
-        <HStack minH="30px">
+        <HStack minH="var(--chakra-spacing-7\.5)">
           <Skeleton loading={ isLoading }>Total</Skeleton>
           <NativeCoinValue
             amount={ item.distribution?.transfers_total.value }

@@ -119,10 +119,11 @@ async function cleanPagePassesWholeDeviceList() {
   assertMatrix(result);
   assert.equal(result.passed, true, JSON.stringify(result.findings));
   assert.ok(result.renders.every((render) => render.hasContent));
+  assert.ok(result.renders.every((render) => render.cancelled === 0));
   assert.deepEqual(result.findings, []);
   assert.equal(lines.length, 2);
   assert.match(lines[0], /^clean: 34 renders, 0 did not render, 0 showed nothing, 0 findings$/);
-  assert.match(lines[1], /^Total: 34 renders, 0 showed nothing, 0 findings, pass, 0 views and states with fewer than all modes$/);
+  assert.match(lines[1], /^Total: 34 renders, 0 showed nothing, 0 findings, 0 cancelled, pass, 0 views and states with fewer than all modes$/);
   assert.equal((await readdir(out)).filter((file) => file.endsWith(".png")).length, 34);
   const png = await readFile(join(out, result.renders[0].screenshot));
   assert.equal(png.readUInt32BE(16), 360);
@@ -144,7 +145,7 @@ async function emptyBodyReportsLoadAtEverySize() {
   }
   assert.deepEqual(lines, [
     "blank: 34 renders, 0 did not render, 34 showed nothing, 68 findings",
-    "Total: 34 renders, 34 showed nothing, 68 findings, fail, 0 views and states with fewer than all modes",
+    "Total: 34 renders, 34 showed nothing, 68 findings, 0 cancelled, fail, 0 views and states with fewer than all modes",
   ]);
 }
 test(emptyBodyReportsLoadAtEverySize);
@@ -186,7 +187,7 @@ async function coveredTextReportsTheViewportMeasurement() {
   assert.ok(png.readUInt32BE(20) > 900, "Viewport content is measured separately from the full-page screenshot");
   assert.deepEqual(lines, [
     "covered: 68 renders, 0 did not render, 34 showed nothing, 34 findings",
-    "Total: 68 renders, 34 showed nothing, 34 findings, fail, 0 views and states with fewer than all modes",
+    "Total: 68 renders, 34 showed nothing, 34 findings, 0 cancelled, fail, 0 views and states with fewer than all modes",
   ]);
 }
 test(coveredTextReportsTheViewportMeasurement);
@@ -244,7 +245,7 @@ async function parallelRendersPreserveContentFindingsAndCounts() {
       "blank: 34 renders, 0 did not render, 34 showed nothing, 68 findings",
       "covered: 68 renders, 0 did not render, 34 showed nothing, 34 findings",
       "text: 34 renders, 0 did not render, 0 showed nothing, 0 findings",
-      "Total: 136 renders, 68 showed nothing, 102 findings, fail, 0 views and states with fewer than all modes",
+      "Total: 136 renders, 68 showed nothing, 102 findings, 0 cancelled, fail, 0 views and states with fewer than all modes",
     ]);
     results.push({ result, lines });
   }
@@ -272,7 +273,7 @@ async function eachPageReportsOnlyItsFindingKind() {
     }
     if (kind === "load") {
       const sources = new Set(result.findings.map((finding) => finding.values.source));
-      for (const source of ["console", "pageerror", "unhandledrejection", "response", "requestfailed", "unanswered-request"]) assert.ok(sources.has(source), source);
+      for (const source of ["console", "pageerror", "unhandledrejection", "response", "unanswered-request"]) assert.ok(sources.has(source), source);
       for (const resource of ["stylesheet", "script"]) assert.ok(result.findings.some((finding) => finding.values.resource === resource));
     }
   }
@@ -288,7 +289,7 @@ async function controlsUseThreeToOneContrast() {
   const surface = await surfaceFor("control-contrast");
   const command = await runCli(["--surface", surface, "--out", join(root, "control-status")]);
   assert.notEqual(command.code, 0);
-  assert.match(command.stdout, /findings, fail/);
+  assert.match(command.stdout, /findings, 0 cancelled, fail/);
 }
 test(controlsUseThreeToOneContrast);
 
@@ -415,6 +416,66 @@ async function fixedAnswersStayInTheBrowser() {
 }
 test(fixedAnswersStayInTheBrowser);
 
+async function fixedAnswersUseStateViewAndSurfaceOrder() {
+  const pattern = `${externalAddress}/ordered`;
+  const filesByLevel = {
+    surface: join(root, "surface-answer.json"),
+    view: join(root, "view-answer.json"),
+    state: join(root, "state-answer.json"),
+  };
+  for (const [level, filename] of Object.entries(filesByLevel)) {
+    await writeFile(filename, JSON.stringify({ message: `${level} answer` }));
+  }
+  const answer = (file) => ({ method: "GET", pattern, file: file.slice(root.length + 1), headers: { "content-type": "application/json" } });
+  const page = `/answers.html?address=${encodeURIComponent(pattern)}`;
+  const surface = await surfaceFor("ordered", {
+    answers: [answer(filesByLevel.surface)],
+    views: [
+      { name: "surface", path: page, modes: ["default"], states: [{ name: "surface", modes: ["default"], steps: [{ action: "wait", text: "surface answer" }] }] },
+      { name: "view", path: page, modes: ["default"], answers: [answer(filesByLevel.view)], states: [{ name: "view", modes: ["default"], steps: [{ action: "wait", text: "view answer" }] }] },
+      { name: "state", path: page, modes: ["default"], states: [{ name: "state", modes: ["default"], steps: [{ action: "wait", text: "state answer" }], answers: [answer(filesByLevel.state)] }] },
+    ],
+  });
+  const result = await checkSurface({ surface, out: join(root, "ordered") }, () => {});
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 132);
+  assert.deepEqual(result.views, [
+    { name: "surface", modes: ["default"], answers: 0, states: [{ name: "surface", modes: ["default"], answers: 0 }] },
+    { name: "view", modes: ["default"], answers: 1, states: [{ name: "view", modes: ["default"], answers: 0 }] },
+    { name: "state", modes: ["default"], answers: 0, states: [{ name: "state", modes: ["default"], answers: 1 }] },
+  ]);
+  assert.equal(externalRequests, 0);
+}
+test(fixedAnswersUseStateViewAndSurfaceOrder);
+
+async function fixedAnswersStayWithinTheirStateAndView() {
+  const pattern = `${externalAddress}/isolated`;
+  const stateFile = join(root, "isolated-state-answer.json");
+  const viewFile = join(root, "isolated-view-answer.json");
+  await writeFile(stateFile, JSON.stringify({ message: "state only" }));
+  await writeFile(viewFile, JSON.stringify({ message: "view only" }));
+  const entry = (file) => ({ method: "GET", pattern, file: file.slice(root.length + 1), headers: { "content-type": "application/json" } });
+  const path = `/answers.html?address=${encodeURIComponent(pattern)}`;
+  const surface = await surfaceFor("isolated", {
+    views: [
+      { name: "states", path, modes: ["default"], states: [
+        { name: "first", modes: ["default"], steps: [{ action: "wait", text: "state only" }], answers: [entry(stateFile)] },
+        { name: "second", modes: ["default"], steps: [{ action: "wait", text: "state only" }] },
+      ] },
+      { name: "scoped", path, modes: ["default"], answers: [entry(viewFile)] },
+      { name: "other", path, modes: ["default"], answers: [] },
+    ],
+  });
+  const result = await checkSurface({ surface, out: join(root, "isolated") }, () => {});
+  assert.equal(result.renders.filter((render) => render.view === "states" && render.state === "first").every((render) => render.findings.length === 0), true);
+  assert.ok(result.renders.filter((render) => render.view === "states" && render.state === "second").every((render) => render.findings.some((finding) => finding.values.source === "unanswered-request")));
+  assert.ok(result.renders.filter((render) => render.view === "scoped").every((render) => render.findings.length === 0));
+  assert.ok(result.renders.filter((render) => render.view === "other").every((render) => render.findings.some((finding) => finding.values.source === "unanswered-request")));
+  assert.equal(result.passed, false);
+  assert.equal(externalRequests, 0);
+}
+test(fixedAnswersStayWithinTheirStateAndView);
+
 async function lateRequestsKeepReportsAndExitStatus() {
   assert.ok(lateResponseMs > LIMITS.settleMs);
   await writeFile(join(root, "late-answer.txt"), "Fixed answer");
@@ -452,7 +513,7 @@ async function lateRequestsKeepReportsAndExitStatus() {
       assert.deepEqual(command.stdout.trim().split("\n"), [
         "late: 22 renders, 0 did not render, 0 showed nothing, 0 findings",
         `following: 22 renders, 0 did not render, 0 showed nothing, ${withFinding ? 22 : 0} findings`,
-        `Total: 44 renders, 0 showed nothing, ${withFinding ? 22 : 0} findings, ${withFinding ? "fail" : "pass"}, 2 views and states with fewer than all modes`,
+        `Total: 44 renders, 0 showed nothing, ${withFinding ? 22 : 0} findings, 0 cancelled, ${withFinding ? "fail" : "pass"}, 2 views and states with fewer than all modes`,
       ]);
       for (const kind of ["response", "answer"]) {
         assert.equal(lateRequests[kind] - started[kind], 44);
@@ -475,7 +536,7 @@ async function activeSurfaceRequestFailuresRemainLoadFindings() {
   assert.equal(result.renders.length, 22);
   for (const render of result.renders) {
     assert.equal(render.rendered, true);
-    assert.ok(render.findings.length > 0);
+    assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
     assert.ok(render.findings.every((finding) => finding.kind === "load"));
     assert.ok(render.findings.some((finding) => finding.values.source === "requestfailed"
       && finding.values.address === `${address}/network-failure`
@@ -484,6 +545,175 @@ async function activeSurfaceRequestFailuresRemainLoadFindings() {
 }
 test(activeSurfaceRequestFailuresRemainLoadFindings);
 
+async function requestSurface(script, { refuse = false } = {}) {
+  const directory = await mkdtemp(join(root, "request-surface-"));
+  const css = await readFile(join(fixtures, "base.css"), "utf8");
+  await writeFile(join(directory, "index.html"), `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Requests</title><link rel="icon" href="data:,"><style>${css}</style><body><p>Reading</p><script>${script}</script></body></html>`);
+  const pending = new Map();
+  const instance = createServer((request, response) => {
+    const url = new URL(request.url, "http://localhost");
+    if (url.pathname === "/ready") {
+      response.writeHead(200, { connection: "close" });
+      response.end("Ready");
+      if (refuse) instance.close();
+    } else if (url.pathname === "/pending") {
+      const id = url.searchParams.get("id");
+      pending.set(id, (pending.get(id) ?? 0) + 1);
+    } else if (url.pathname === "/started") {
+      response.end(String(pending.get(url.searchParams.get("id")) ?? 0));
+    } else if (url.pathname === "/network-failure") response.destroy();
+    else if (url.pathname === "/redirect") {
+      response.writeHead(302, { location: `${externalAddress}/unanswered` });
+      response.end();
+    } else {
+      readFile(join(directory, "index.html")).then((body) => {
+        response.writeHead(200, { "content-type": "text/html" });
+        response.end(body);
+      }, () => response.destroy());
+    }
+  });
+  await new Promise((resolve) => instance.listen(0, "localhost", resolve));
+  const origin = `http://localhost:${instance.address().port}`;
+  return {
+    options: { directory, address: origin, readyPath: "/ready", views: [{ name: "requests", path: "/index.html", modes: ["default"] }] },
+    async close() {
+      await new Promise((resolve) => { instance.close(resolve); instance.closeAllConnections(); });
+    },
+  };
+}
+
+async function cancelledReads(count, context) {
+  const surface = await requestSurface(`
+    (async () => {
+      const id = crypto.randomUUID();
+      const controllers = Array.from({ length: ${count} }, () => new AbortController());
+      const reads = controllers.map((controller) => fetch('/pending?id=' + id, { signal: controller.signal }).catch((error) => {
+        if (error.name !== 'AbortError') throw error;
+      }));
+      while (Number(await (await fetch('/started?id=' + id)).text()) !== controllers.length) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      for (const controller of controllers) controller.abort();
+      await Promise.all(reads);
+      document.querySelector('p').textContent = 'Cancelled ${count} reads';
+    })();
+  `);
+  try {
+    const { result, lines } = await execute("requests", surface.options);
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.equal(result.renders.length, 22);
+    assert.deepEqual(result.findings, []);
+    for (const render of result.renders) {
+      assert.equal(render.rendered, true);
+      assert.equal(render.cancelled, count);
+      assert.deepEqual(render.findings, []);
+    }
+    assert.equal(lines.at(-1), `Total: 22 renders, 0 showed nothing, 0 findings, ${22 * count} cancelled, pass, 1 views and states with fewer than all modes`);
+    context.diagnostic(`${count} page-cancelled reads per render, ${22 * count} cancelled in total, no findings`);
+  } finally { await surface.close(); }
+}
+
+async function onePageCancelledReadHasNoFinding(context) {
+  await cancelledReads(1, context);
+}
+test(onePageCancelledReadHasNoFinding);
+
+async function threePageCancelledReadsHaveNoFindings(context) {
+  await cancelledReads(3, context);
+}
+test(threePageCancelledReadsHaveNoFindings);
+
+async function unansweredRequestsProduceOneFinding(context) {
+  const outsideRequests = externalRequests;
+  for (const target of [`${externalAddress}/unanswered`, "/redirect"]) {
+    const surface = await requestSurface(`fetch(${JSON.stringify(target)}).catch(() => {});`);
+    try {
+      const { result } = await execute("requests", surface.options);
+      assert.equal(result.passed, false);
+      assert.equal(result.renders.length, 22);
+      for (const render of result.renders) {
+        assert.equal(render.rendered, true);
+        assert.equal(render.cancelled, 0);
+        assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+        assert.equal(render.findings[0].kind, "load");
+        assert.equal(render.findings[0].values.source, "unanswered-request");
+        assert.equal(render.findings[0].values.address, `${externalAddress}/unanswered`);
+      }
+      context.diagnostic(`${target.startsWith("/") ? "Redirected" : "Direct"} unanswered request produces one load finding per render`);
+    } finally { await surface.close(); }
+  }
+  assert.equal(externalRequests, outsideRequests);
+}
+test(unansweredRequestsProduceOneFinding);
+
+async function unfetchableSurfaceRequestsProduceOneFinding(context) {
+  const surface = await requestSurface('fetch("/network-failure").catch(() => {});');
+  try {
+    const { result } = await execute("requests", surface.options);
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    for (const render of result.renders) {
+      assert.equal(render.rendered, true);
+      assert.equal(render.cancelled, 0);
+      assert.equal(render.findings.length, 1, JSON.stringify(render.findings));
+      const finding = render.findings[0];
+      assert.equal(finding.kind, "load");
+      assert.equal(finding.values.source, "requestfailed");
+      assert.equal(finding.values.address, `${surface.options.address}/network-failure`);
+      assert.match(finding.values.message, /socket hang up|ECONNRESET/);
+    }
+    context.diagnostic("Unfetchable surface request produces one load finding per render");
+  } finally { await surface.close(); }
+}
+test(unfetchableSurfaceRequestsProduceOneFinding);
+
+async function refusedConnectionsRemainRequestFailures(context) {
+  const surface = await requestSurface("", { refuse: true });
+  try {
+    const { result } = await execute("requests", surface.options);
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    for (const render of result.renders) {
+      assert.equal(render.rendered, false);
+      assert.equal(render.cancelled, 0);
+      const failures = render.findings.filter((finding) => finding.values.source === "requestfailed");
+      assert.equal(failures.length, 1, JSON.stringify(render.findings));
+      assert.equal(failures[0].kind, "load");
+      assert.match(failures[0].values.message, /ECONNREFUSED/);
+    }
+    context.diagnostic("Refused connections remain requestfailed load findings");
+  } finally { await surface.close(); }
+}
+test(refusedConnectionsRemainRequestFailures);
+
+async function cancelledDocumentNavigationRemainsAFinding(context) {
+  const surface = await requestSurface(`
+    addEventListener('load', async () => {
+      const id = crypto.randomUUID();
+      location.href = '/pending?id=' + id;
+      while (Number(await (await fetch('/started?id=' + id)).text()) !== 1) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      window.stop();
+    });
+  `);
+  try {
+    const { result } = await execute("requests", surface.options);
+    assert.equal(result.passed, false);
+    assert.equal(result.renders.length, 22);
+    for (const render of result.renders) {
+      assert.equal(render.cancelled, 0);
+      const failures = render.findings.filter((finding) => finding.values.source === "requestfailed");
+      assert.equal(failures.length, 1, JSON.stringify(render.findings));
+      assert.equal(failures[0].kind, "load");
+      assert.equal(failures[0].values.resource, "document");
+      assert.equal(failures[0].values.message, "net::ERR_ABORTED");
+    }
+    context.diagnostic("Cancelled document navigation remains a requestfailed load finding with net::ERR_ABORTED");
+  } finally { await surface.close(); }
+}
+test(cancelledDocumentNavigationRemainsAFinding);
+
 async function commandBuildsAndServesFiles() {
   const surface = await surfaceFor("clean", {
     build: `${JSON.stringify(process.execPath)} -e "process.stdout.write('Surface ready')"`,
@@ -491,7 +721,7 @@ async function commandBuildsAndServesFiles() {
   });
   const result = await runCli(["--surface", surface, "--out", join(root, "self-served"), "--jobs", "1"]);
   assert.equal(result.code, 0, result.stderr + result.stdout);
-  assert.match(result.stdout, /34 renders, 0 showed nothing, 0 findings, pass/);
+  assert.match(result.stdout, /34 renders, 0 showed nothing, 0 findings, 0 cancelled, pass/);
 }
 test(commandBuildsAndServesFiles);
 
@@ -957,6 +1187,35 @@ async function expectationFieldsAreStrict() {
 }
 test(expectationFieldsAreStrict);
 
+async function viewAndStateAnswersUseTheSurfaceValidationRules() {
+  const answer = join(root, "validation-answer.json");
+  await writeFile(answer, JSON.stringify({ message: "Answer" }));
+  const valid = { method: "GET", pattern: `${externalAddress}/validation`, file: "validation-answer.json" };
+  const invalid = [
+    { ...valid, unknown: true },
+    { ...valid, method: "get" },
+    { ...valid, pattern: "/validation" },
+    { ...valid, file: "../" },
+    ...[199, 600, 404.5, "404"].map((status) => ({ ...valid, status })),
+    { ...valid, headers: { "content-type": 4 } },
+  ];
+  const emptyView = await surfaceFor("clean", { views: [{ name: "view-answers", path: "/clean.html", answers: [] }] });
+  assert.deepEqual((await readSurface(emptyView)).views[0].answers, []);
+  const emptyState = await surfaceFor("clean", { views: [{ name: "view-answers", path: "/clean.html", states: [{ name: "state-answers", steps: [{ action: "wait", text: "Surface" }], answers: [] }] }] });
+  assert.deepEqual((await readSurface(emptyState)).views[0].states[0].answers, []);
+  for (const level of ["view", "state"]) {
+    for (const entry of invalid) {
+      const view = level === "view"
+        ? { name: "view-answers", path: "/clean.html", answers: [entry] }
+        : { name: "view-answers", path: "/clean.html", states: [{ name: "state-answers", steps: [{ action: "wait", text: "Surface" }], answers: [entry] }] };
+      const surface = await surfaceFor("clean", { views: [view] });
+      const label = level === "view" ? "View view-answers answers" : "View view-answers state state-answers answers";
+      await assert.rejects(readSurface(surface), new RegExp(`${label}.*(?:unknown field|must|Answer files)`));
+    }
+  }
+}
+test(viewAndStateAnswersUseTheSurfaceValidationRules);
+
 async function clipboardWritesSucceedWithoutReadPermission() {
   const { result } = await execute("clipboard", { views: [{
     name: "clipboard", path: "/clipboard.html", states: [{ name: "copied", steps: [
@@ -1035,9 +1294,9 @@ async function modesRestrictTheMatrixAndStatesInheritThem() {
     assert.ok(renders.every((render) => render.mode === "default" && render.rendered));
     assert.deepEqual(renders.map(({ size, scheme, mode }) => ({ ...size, scheme, mode })), renderMatrix(["default"]));
   }
-  assert.deepEqual(result.views, [{ name: "states", modes: ["default"], states: [{ name: "waiting", modes: ["default"] }] }]);
+  assert.deepEqual(result.views, [{ name: "states", modes: ["default"], answers: 0, states: [{ name: "waiting", modes: ["default"], answers: 0 }] }]);
   assert.equal(result.reducedModeCount, 2);
-  assert.equal(lines.at(-1), "Total: 44 renders, 0 showed nothing, 0 findings, pass, 2 views and states with fewer than all modes");
+  assert.equal(lines.at(-1), "Total: 44 renders, 0 showed nothing, 0 findings, 0 cancelled, pass, 2 views and states with fewer than all modes");
   const surface = await surfaceFor("states", { views: [{
     name: "states", path: "/states.html", modes: ["default"], states: [
       { name: "all", modes: [...MODES].reverse(), steps: [{ action: "wait", text: "Waiting" }] },

@@ -64,7 +64,7 @@ export function PriceChart({
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={points}
-              margin={{ top: 8, right: 0, bottom: 0, left: 0 }}
+              margin={{ top: 8, right: 8, bottom: 0, left: 8 }}
               onMouseMove={handleMove}
               onMouseLeave={onScrubLeave}
             >
@@ -106,7 +106,7 @@ export function PriceChart({
         )}
       </div>
 
-      <div className="flex items-center justify-center gap-1 px-5 mt-3">
+      <div className="flex flex-wrap items-center justify-center gap-1 px-5 mt-3">
         {TIME_PERIODS.map((tp) => (
           <button
             type="button"

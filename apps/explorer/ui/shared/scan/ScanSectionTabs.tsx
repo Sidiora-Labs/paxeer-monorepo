@@ -35,9 +35,20 @@ const ScanSectionTabs = ({ items, value, onValueChange, rightSlot, className }: 
       w="100%"
     >
       <TabsRoot variant="pill" size="sm" value={ value } onValueChange={ handleValueChange } w="auto" maxW="100%" minW={ 0 }>
-        <TabsList>
+        <TabsList flexWrap="wrap" overflowX="visible">
           { items.map((item) => (
-            <TabsTrigger key={ item.id } value={ item.id } disabled={ item.disabled } data-tab={ item.id } maxW="100%" minW={ 0 }>
+            <TabsTrigger
+              key={ item.id }
+              value={ item.id }
+              disabled={ item.disabled }
+              data-tab={ item.id }
+              maxW="100%"
+              minW={ 0 }
+              borderWidth="var(--chakra-border-widths-1)"
+              borderStyle="solid"
+              borderColor="border.divider"
+              borderRadius="full"
+            >
               <chakra.span data-tab-title overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap" minW={ 0 }>
                 { item.title }
               </chakra.span>

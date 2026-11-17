@@ -180,8 +180,8 @@ async function searchResultsRoutesKeepOneHeaderAndLiveSearch() {
           const mobileHeaders = mounted.container.querySelectorAll<HTMLElement>('[data-label="mobile-header"]');
           expect(desktopHeaders).toHaveLength(1);
           expect(mobileHeaders).toHaveLength(1);
-          const desktop = desktopHeaders[0];
-          const mobile = mobileHeaders[0];
+          let desktop = desktopHeaders[0];
+          let mobile = mobileHeaders[0];
           expect(banners[0]).toBe(width >= 1024 ? desktop : mobile);
           expect(responsiveDisplay(desktop)).toBe(width >= 1024 ? 'block' : 'none');
           expect(responsiveDisplay(mobile)).toBe(width >= 1024 ? 'none' : 'block');
@@ -204,6 +204,7 @@ async function searchResultsRoutesKeepOneHeaderAndLiveSearch() {
             await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Search' })).toBeNull());
           }
           await waitFor(() => expect(router.query.q).toBe(term));
+          desktop = mounted.container.querySelector<HTMLElement>('[data-label="desktop-header"]')!;
           expect(new URLSearchParams(window.location.search).get('q')).toBe(term);
           expect((within(desktop).getByLabelText('Search', { selector: 'input' }) as HTMLInputElement).value).toBe(term);
           await waitFor(() => {
@@ -242,12 +243,15 @@ async function searchResultsRoutesKeepOneHeaderAndLiveSearch() {
           } else {
             await screen.findByText(term, { exact: true });
           }
+          mobile = mounted.container.querySelector<HTMLElement>('[data-label="mobile-header"]')!;
           if (width < 1024) {
             fireEvent.click(within(mobile).getByRole('button', { name: 'Menu button' }));
             const navigation = await screen.findByRole('navigation', { name: 'Mobile navigation' });
-            const explore = within(navigation).getByRole('button', { name: 'Explore' });
+            const explore = within(navigation).getByText('Explore', { selector: 'summary' });
+            const explorePanel = explore.parentElement as HTMLDetailsElement;
+            expect(explorePanel.open).toBe(false);
             fireEvent.click(explore);
-            expect(explore.getAttribute('aria-expanded')).toBe('true');
+            expect(explorePanel.open).toBe(true);
             expect(within(navigation).getByRole('link', { name: /Browse the latest blocks/ }).getAttribute('href')).toBe('/blocks');
           }
           expect(mounted.container.querySelectorAll('[data-label="desktop-header"]')).toHaveLength(1);

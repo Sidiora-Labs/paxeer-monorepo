@@ -6,7 +6,9 @@ import InternalTxsTable from 'ui/internalTxs/InternalTxsTable';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import Pagination from 'ui/shared/pagination/Pagination';
 import type { QueryWithPagesResult } from 'ui/shared/pagination/useQueryWithPages';
-import { formatScanTableCount, ScanTableCard } from 'ui/shared/scan';
+import { formatScanTableCount } from 'ui/shared/scan';
+
+import BlockListCard from './BlockListCard';
 
 interface Props {
   query: QueryWithPagesResult<'general:block_internal_txs'>;
@@ -37,7 +39,7 @@ const BlockInternalTxs = ({ query, itemsCount, top }: Props) => {
   const pagination = query.pagination.isVisible ? <Pagination { ...query.pagination }/> : undefined;
 
   return (
-    <ScanTableCard title={ title } pagination={ pagination }>
+    <BlockListCard title={ title } pagination={ pagination }>
       <DataListDisplay
         isError={ isError }
         itemsNum={ data?.items.length }
@@ -45,7 +47,7 @@ const BlockInternalTxs = ({ query, itemsCount, top }: Props) => {
       >
         { content }
       </DataListDisplay>
-    </ScanTableCard>
+    </BlockListCard>
   );
 };
 

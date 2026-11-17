@@ -104,7 +104,7 @@ export function HistoryView({ account, pageSize = 20 }: { account: string; pageS
               </div>
               <Button
                 variant="quiet"
-                className="min-h-0 px-0 py-0 text-xs"
+                className="px-0 py-0 text-xs"
                 aria-expanded={selected === item.id}
                 onClick={() => setSelected((prev) => (prev === item.id ? null : item.id))}
               >

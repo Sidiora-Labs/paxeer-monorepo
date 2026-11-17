@@ -5,12 +5,12 @@ import React from 'react';
 import type { ScanTableCardProps } from 'ui/shared/scan/ScanTableCard';
 
 export const LIST_TABLE_STYLES: SystemStyleObject = {
-  '& thead, & thead tr': { height: '36px', bg: 'canvas' },
-  '& th': { height: '36px', py: 0, textStyle: 'label', bg: 'canvas', borderColor: 'hairline' },
-  '& tbody tr': { height: '44px', bg: 'canvas', _hover: { bg: 'raised' } },
-  '& td': { height: '44px', py: '2px', textStyle: 'small', borderColor: 'hairline', verticalAlign: 'middle' },
+  '& thead, & thead tr': { height: 'var(--chakra-spacing-9)', bg: 'canvas' },
+  '& th': { height: 'var(--chakra-spacing-9)', py: 0, textStyle: 'label', bg: 'canvas', borderColor: 'hairline' },
+  '& tbody tr': { height: 'var(--chakra-spacing-11)', bg: 'canvas', _hover: { bg: 'raised' } },
+  '& td': { height: 'var(--chakra-spacing-11)', py: 0.5, textStyle: 'small', borderColor: 'hairline', verticalAlign: 'middle' },
   '& td[data-is-numeric]': { textStyle: 'number', textAlign: 'right' },
-  '& td[data-is-numeric] *': { fontFamily: 'mono', fontVariantNumeric: 'tabular-nums', lineHeight: '18px' },
+  '& td[data-is-numeric] *': { textStyle: 'number' },
   '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'inherit', zIndex: 1 },
   '& tbody tr:last-of-type td': { borderBottomWidth: '1px' },
   '& [data-entity-kind=address], & [data-entity-kind=tx], & [data-entity-kind=block]': { fontFamily: 'mono', fontVariantNumeric: 'tabular-nums' },

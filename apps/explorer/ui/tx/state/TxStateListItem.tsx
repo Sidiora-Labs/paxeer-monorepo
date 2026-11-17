@@ -3,7 +3,7 @@ import React from 'react';
 import type { TxStateChange } from 'types/api/txStateChanges';
 
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
-import ListItemMobileGrid from 'ui/shared/ListItemMobile/ListItemMobileGrid';
+import ListItemMobileGrid from 'ui/txs/ActivityListItem';
 
 import { getStateElements } from './utils';
 
@@ -20,7 +20,7 @@ const TxStateListItem = ({ data, isLoading }: Props) => {
     <ListItemMobileGrid.Container>
 
       <ListItemMobileGrid.Label isLoading={ isLoading }>Address</ListItemMobileGrid.Label>
-      <ListItemMobileGrid.Value py="3px" display="flex" flexWrap="nowrap" columnGap={ 3 }>
+      <ListItemMobileGrid.Value py="var(--chakra-spacing-0\.5)" display="flex" flexWrap="wrap" gap={ 3 }>
         <AddressEntity
           address={ data.address }
           isLoading={ isLoading }

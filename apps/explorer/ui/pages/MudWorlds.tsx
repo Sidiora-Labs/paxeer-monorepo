@@ -46,7 +46,7 @@ const MudWorlds = () => {
   ) : null;
 
   const actionBar = pagination.isVisible ? (
-    <ActionBar mt={ -6 }>
+    <ActionBar w="100%" mx={ 0 } px={ 0 } mt={ -6 }>
       <Pagination ml="auto" { ...pagination }/>
     </ActionBar>
   ) : null;

@@ -81,14 +81,15 @@ func separateShellReceipts(receipts ethtypes.Receipts, txHashes []common.Hash, b
 		}
 		regular[i] = r
 	}
-	if reportedIdentity {
-		bloomBytes, err := hex.DecodeString(strings.TrimPrefix(logsBloom, "0x"))
-		if err != nil || len(bloomBytes) != ethtypes.BloomByteLength || ethtypes.MergeBloom(receipts) != ethtypes.BytesToBloom(bloomBytes) {
-			return nil, sourceError(IntegrityError, "receipts", nil)
-		}
+	// The eth header bloom covers listed receipts only; shell logs are absent.
+	// Ethereum identity commits the trie of those same listed receipts. Reported
+	// identity carries the Comet block-results root, not an Ethereum receipt trie.
+	bloomBytes, err := hex.DecodeString(strings.TrimPrefix(logsBloom, "0x"))
+	if err != nil || len(bloomBytes) != ethtypes.BloomByteLength || ethtypes.MergeBloom(regular) != ethtypes.BytesToBloom(bloomBytes) {
+		return nil, sourceError(IntegrityError, "receipts", nil)
 	}
 	if !reportedIdentity {
-		if !validHash(receiptsRoot) || ethtypes.DeriveSha(receipts, trie.NewStackTrie(nil)) != common.HexToHash(receiptsRoot) {
+		if !validHash(receiptsRoot) || ethtypes.DeriveSha(regular, trie.NewStackTrie(nil)) != common.HexToHash(receiptsRoot) {
 			return nil, sourceError(IntegrityError, "receipts", nil)
 		}
 	}

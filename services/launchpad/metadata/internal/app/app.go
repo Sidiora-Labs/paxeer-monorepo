@@ -21,6 +21,7 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
+	"net"
 	"net/http"
 	"net/netip"
 	"os"
@@ -247,7 +248,7 @@ func newRuntime(ctx context.Context, cfg config.Config, logger *slog.Logger, sec
 		}
 		instance := metadata.ConnectedMedia{Metadata: v2, Identity: identity, Objects: metadata.S3AssetObjects{Client: client, QuarantineBucket: cfg.QuarantineBucket, PublicBucket: cfg.ApprovedBucket, PublicOrigin: cfg.PublicURL, Endpoint: cfg.S3Endpoint}, Scanner: sharedhttp.ScanOptions{Host: cfg.ClamAVHost, Port: cfg.ClamAVPort, Timeout: 2 * time.Second}, Worker: worker, Moderation: moderation}
 		if e = instance.Ready(startup); e != nil {
-			return nil, fmt.Errorf("metadata_media_dependencies_unavailable")
+			return nil, mediaStartupError(e)
 		}
 		var probe bytes.Buffer
 		if e = png.Encode(&probe, image.NewNRGBA(image.Rect(0, 0, 1, 1))); e != nil {
@@ -273,14 +274,9 @@ func newRuntime(ctx context.Context, cfg config.Config, logger *slog.Logger, sec
 				return nil, fmt.Errorf("metadata_moderation_identity_unavailable")
 			}
 		}
-		checks["media_objects"] = instance.Objects.Ready
-		checks["media_scanner"] = func(c context.Context) error { _, e := sharedhttp.ScannerVersion(c, instance.Scanner); return e }
-		checks["media_worker"] = func(c context.Context) error {
-			if e := c.Err(); e != nil {
-				return e
-			}
-			return worker.Ready()
-		}
+		checks["media_objects"] = mediaReadinessCheck(logger, "media_objects", instance.Objects.Ready)
+		checks["media_scanner"] = mediaReadinessCheck(logger, "media_scanner", mediaScannerReady(instance.Scanner))
+		checks["media_worker"] = mediaReadinessCheck(logger, "media_worker", mediaRasterReady(worker))
 		checks["media_identity"] = func(c context.Context) error { return probeServiceReady(c, identityEndpoint, identityClient) }
 		checks["media_moderation"] = moderationReady
 		checks["media_rpc"] = func(c context.Context) error {
@@ -552,6 +548,58 @@ func probeServiceReady(ctx context.Context, endpoint string, configured *http.Cl
 	}
 	return nil
 }
+
+func mediaScannerReady(scanner sharedhttp.ScanOptions) sharedhttp.Check {
+	return func(ctx context.Context) error {
+		if _, err := sharedhttp.ScannerVersion(ctx, scanner); err != nil {
+			return &metadata.MediaReadinessError{Part: metadata.MediaPartScanner, Err: err}
+		}
+		return nil
+	}
+}
+
+func mediaRasterReady(worker metadata.MediaWorker) sharedhttp.Check {
+	return func(ctx context.Context) error {
+		if err := ctx.Err(); err != nil {
+			return &metadata.MediaReadinessError{Part: metadata.MediaPartRaster, Err: err}
+		}
+		if err := worker.Ready(); err != nil {
+			return &metadata.MediaReadinessError{Part: metadata.MediaPartRaster, Err: err}
+		}
+		return nil
+	}
+}
+
+func mediaReadinessCheck(logger *slog.Logger, name string, check sharedhttp.Check) sharedhttp.Check {
+	return func(ctx context.Context) error {
+		err := check(ctx)
+		if err == nil || logger == nil {
+			return err
+		}
+		var mediaErr *metadata.MediaReadinessError
+		if errors.As(err, &mediaErr) {
+			logger.Error("metadata readiness check failed", slog.String("check", name), slog.String("part", mediaErr.Part), slog.String("step", mediaErr.Step))
+		}
+		return err
+	}
+}
+
+func mediaStartupError(err error) error {
+	var mediaErr *metadata.MediaReadinessError
+	if !errors.As(err, &mediaErr) {
+		return fmt.Errorf("metadata_media_dependencies_unavailable")
+	}
+	switch mediaErr.Part {
+	case metadata.MediaPartRaster:
+		return fmt.Errorf("metadata_media_raster_unavailable: %w", err)
+	case metadata.MediaPartScanner:
+		return fmt.Errorf("metadata_media_scanner_unavailable: %w", err)
+	case metadata.MediaPartObjects:
+		return fmt.Errorf("metadata_media_objects_unavailable: %w", err)
+	default:
+		return fmt.Errorf("metadata_media_dependencies_unavailable")
+	}
+}
 func runMediaMaintenance(ctx context.Context, pool *pgxpool.Pool, schema string, media metadata.ConnectedMedia, publication metadata.PublicationService, expire bool) error {
 	connection, e := pool.Acquire(ctx)
 	if e != nil {
@@ -657,33 +705,49 @@ func Run(parent context.Context) error {
 	}
 	defer app.Close()
 
-	srv := &http.Server{
-		Addr:              fmt.Sprintf("%s:%d", cfg.BindAddress, cfg.Port),
-		Handler:           app.Router,
-		TLSConfig:         app.tlsConfig,
-		ConnState:         app.tracker.ConnState,
-		ReadHeaderTimeout: 10 * time.Second,
+	serveErr := make(chan error, 2)
+	var healthSrv, tlsSrv *http.Server
+	if app.tlsConfig != nil {
+		healthSrv = &http.Server{Addr: fmt.Sprintf("%s:%d", cfg.BindAddress, cfg.Port), Handler: healthOnlyHandler(app.Router), ConnState: app.tracker.ConnState, ReadHeaderTimeout: 10 * time.Second}
+		tlsSrv = &http.Server{Addr: cfg.PrivateListenAddress, Handler: app.Router, TLSConfig: app.tlsConfig.Clone(), ConnState: app.tracker.ConnState, ReadHeaderTimeout: 10 * time.Second}
+		go func() {
+			logger.Info("http health listener", slog.Int("port", cfg.Port))
+			if err := healthSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				serveErr <- startupStage("http_health_listen", err)
+				cancel()
+			}
+		}()
+		go func() {
+			logger.Info("http TLS listener", slog.String("address", cfg.PrivateListenAddress))
+			listener, err := net.Listen("tcp", tlsSrv.Addr)
+			if err == nil {
+				err = tlsSrv.Serve(tls.NewListener(listener, tlsSrv.TLSConfig))
+			}
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				serveErr <- startupStage("http_tls_listen", err)
+				cancel()
+			}
+		}()
+	} else {
+		srv := &http.Server{Addr: fmt.Sprintf("%s:%d", cfg.BindAddress, cfg.Port), Handler: app.Router, ConnState: app.tracker.ConnState, ReadHeaderTimeout: 10 * time.Second}
+		go func() {
+			logger.Info("http server listening", slog.Int("port", cfg.Port))
+			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				serveErr <- startupStage("http_listen", err)
+				cancel()
+			}
+		}()
+		healthSrv = srv
 	}
-
-	serveErr := make(chan error, 1)
-	go func() {
-		logger.Info("http server listening", slog.Int("port", cfg.Port))
-		var err error
-		if app.tlsConfig != nil {
-			err = srv.ListenAndServeTLS(app.tlsCertFile, app.tlsKeyFile)
-		} else {
-			err = srv.ListenAndServe()
-		}
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serveErr <- startupStage("http_listen", err)
-			cancel()
-		}
-	}()
 
 	shutErr := process.Run(ctx, process.Options{Tracker: app.tracker,
 		Logger: logger,
 		OnShutdown: func(sctx context.Context) error {
-			return errors.Join(app.stopMediaWorkers(sctx), srv.Shutdown(sctx))
+			cancel()
+			if tlsSrv != nil {
+				return errors.Join(app.stopMediaWorkers(sctx), tlsSrv.Shutdown(sctx), healthSrv.Shutdown(sctx))
+			}
+			return errors.Join(app.stopMediaWorkers(sctx), healthSrv.Shutdown(sctx))
 		},
 	})
 
@@ -693,6 +757,16 @@ func Run(parent context.Context) error {
 	default:
 		return shutErr
 	}
+}
+
+func healthOnlyHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/health/live" && r.URL.Path != "/health/ready" {
+			http.NotFound(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func runtimeHandler(tracker *process.Tracker, next http.Handler, metrics *telemetry.Metrics) http.Handler {
@@ -728,15 +802,28 @@ func runtimeHandler(tracker *process.Tracker, next http.Handler, metrics *teleme
 }
 
 func metadataServerTLS(cfg config.Config) (*tls.Config, error) {
-	info, e := os.Stat(cfg.TLSKeyFile)
-	if e != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
-		return nil, fmt.Errorf("metadata_tls_key_authority_unavailable")
+	if err := cfg.ValidateTLSMaterials(); err != nil {
+		return nil, err
 	}
-	pair, e := tls.LoadX509KeyPair(cfg.TLSCertFile, cfg.TLSKeyFile)
+	if cfg.TLSKeyFile != "" {
+		info, e := os.Stat(cfg.TLSKeyFile)
+		if e != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+			return nil, fmt.Errorf("metadata_tls_key_authority_unavailable")
+		}
+	}
+	cert, e := metadataTLSMaterial(cfg.TLSCertFile, cfg.TLSCertPEM)
 	if e != nil {
 		return nil, fmt.Errorf("metadata_tls_keypair_unavailable")
 	}
-	roots, e := os.ReadFile(cfg.TLSClientCAFile)
+	key, e := metadataTLSMaterial(cfg.TLSKeyFile, cfg.TLSKeyPEM)
+	if e != nil {
+		return nil, fmt.Errorf("metadata_tls_keypair_unavailable")
+	}
+	pair, e := tls.X509KeyPair(cert, key)
+	if e != nil {
+		return nil, fmt.Errorf("metadata_tls_keypair_unavailable")
+	}
+	roots, e := metadataTLSMaterial(cfg.TLSClientCAFile, cfg.TLSClientCAPEM)
 	if e != nil || len(roots) > 1048576 {
 		return nil, fmt.Errorf("metadata_tls_client_authority_unavailable")
 	}
@@ -746,6 +833,14 @@ func metadataServerTLS(cfg config.Config) (*tls.Config, error) {
 	}
 	return &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{pair}, ClientCAs: ca, ClientAuth: tls.RequireAndVerifyClientCert}, nil
 }
+
+func metadataTLSMaterial(path, inline string) ([]byte, error) {
+	if inline != "" {
+		return []byte(inline), nil
+	}
+	return os.ReadFile(path)
+}
+
 func metadataPrivateChannel(cfg config.Config, identity metadata.RequestIdentityAuthority) func(http.Handler) http.Handler {
 	key, _ := hex.DecodeString(cfg.GatewayPublicKeyHex)
 	return func(next http.Handler) http.Handler {
@@ -1129,6 +1224,10 @@ func StartupFailure(err error) (op, code string) {
 // LogStartupFailure logs the operation and stable code of a Run failure.
 func LogStartupFailure(logger *slog.Logger, err error) {
 	op, code := StartupFailure(err)
-	logger.Error("metadata service exited with error", slog.String("op", op), slog.String("reason", code),
-		slog.String("variables", strings.Join(StartupVariables(err), ",")))
+	attrs := []any{slog.String("op", op), slog.String("reason", code), slog.String("variables", strings.Join(StartupVariables(err), ","))}
+	var mediaErr *metadata.MediaReadinessError
+	if errors.As(err, &mediaErr) {
+		attrs = append(attrs, slog.String("part", mediaErr.Part), slog.String("step", mediaErr.Step))
+	}
+	logger.Error("metadata service exited with error", attrs...)
 }

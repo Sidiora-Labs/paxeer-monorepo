@@ -3,8 +3,8 @@ import React from 'react';
 
 import config from 'configs/app';
 import useApiQuery from 'lib/api/useApiQuery';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import StatusLadderBadge from 'ui/shared/statusLadder/StatusLadderBadge';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 const feature = config.features.paxeerXLists;
 

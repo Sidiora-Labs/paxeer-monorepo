@@ -3,11 +3,11 @@ import React from 'react';
 
 import type { Transaction } from 'types/api/transaction';
 
-import { DialogContent, DialogHeader, DialogRoot, DialogTrigger, DialogBody } from 'toolkit/chakra/dialog';
 import { Heading } from 'toolkit/chakra/heading';
 import { PopoverBody, PopoverContent, PopoverRoot, PopoverTrigger } from 'toolkit/chakra/popover';
 import AdditionalInfoButton from 'ui/shared/AdditionalInfoButton';
 
+import ActivityDialog from './ActivityDialog';
 import TxAdditionalInfoContainer from './TxAdditionalInfoContainer';
 import TxAdditionalInfoContent from './TxAdditionalInfoContent';
 
@@ -30,27 +30,28 @@ const TxAdditionalInfo = ({ hash, tx, isMobile, isLoading, className }: Props) =
 
   if (isMobile) {
     return (
-      <DialogRoot size="full">
-        <DialogTrigger asChild>
-          <AdditionalInfoButton loading={ isLoading } className={ className }/>
-        </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
-            Additional info
-          </DialogHeader>
-          <DialogBody>
-            { content }
-          </DialogBody>
-        </DialogContent>
-      </DialogRoot>
+      <ActivityDialog
+        title="Additional info"
+        trigger={ <AdditionalInfoButton loading={ isLoading } className={ className } minW="touchTarget" minH="touchTarget"/> }
+      >
+        { content }
+      </ActivityDialog>
     );
   }
   return (
-    <PopoverRoot positioning={{ placement: 'right-start' }}>
+    <PopoverRoot autoFocus positioning={{ placement: 'right-start' }}>
       <PopoverTrigger>
-        <AdditionalInfoButton loading={ isLoading } className={ className }/>
+        <AdditionalInfoButton loading={ isLoading } className={ className } minW="touchTarget" minH="touchTarget"/>
       </PopoverTrigger>
-      <PopoverContent w="330px">
+      <PopoverContent
+        aria-label="Additional info"
+        css={{ '& button': { minW: 'touchTarget', minH: 'touchTarget' } }}
+        maxH="min(var(--available-height, 100dvh), calc(100dvh - var(--chakra-spacing-8)))"
+        overflowY="auto"
+        overscrollBehavior="contain"
+        w="var(--chakra-spacing-80)"
+        maxW="calc(100dvw - var(--chakra-spacing-8))"
+      >
         <PopoverBody>
           <Heading level="3" mb={ 4 }>Additional info </Heading>
           { content }

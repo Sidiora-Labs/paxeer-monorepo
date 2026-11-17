@@ -13,8 +13,8 @@ import { Select } from 'toolkit/chakra/select';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { downloadBlob } from 'toolkit/utils/file';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import RawDataSnippet from 'ui/shared/RawDataSnippet';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 import BlobDataImage from './BlobDataImage';
 
@@ -123,13 +123,17 @@ const BlobData = ({ data, isLoading, hash }: Props) => {
         Blob data
       </DetailedInfo.ItemLabel>
       <DetailedInfo.ItemValue flexWrap="wrap">
-        <Flex alignItems="center" w="100%" mb={{ base: 1, lg: 3 }} mt={{ base: 1, lg: 0 }}>
+        <Flex alignItems="center" flexWrap="wrap" gap={ 2 } w="100%" mb={{ base: 1, lg: 3 }} mt={{ base: 1, lg: 0 }}>
           <Select
+            flexShrink={ 0 }
+            maxW="full"
+            name="blob_format"
+            triggerProps={{ 'aria-label': 'Blob data format', minW: 'touchTarget', minH: 'touchTarget' }}
             collection={ collection }
             placeholder="Select type"
             value={ [ reconciledFormat ] }
             onValueChange={ handleFormatChange }
-            w="100px"
+            w="var(--chakra-spacing-24)"
             loading={ isLoading }
           />
           <Skeleton ml="auto" mr={ 2 } loading={ isLoading }>

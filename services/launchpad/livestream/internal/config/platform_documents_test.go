@@ -107,7 +107,7 @@ func writeLivestreamComposerInputs(t *testing.T) (string, string) {
 			t.Fatalf("write test value %s: %v", name, err)
 		}
 	}
-	schema := []byte(`{"service":"livestream","runtime_role":"livestream_runtime","reader_version":1}`)
+	schema := []byte(`{"service":"media/livestream","runtime_role":"livestream_runtime","reader_version":1}`)
 	if err := os.WriteFile(filepath.Join(valuesDir, "expected-schema", "livestream.json"), schema, 0600); err != nil {
 		t.Fatal(err)
 	}

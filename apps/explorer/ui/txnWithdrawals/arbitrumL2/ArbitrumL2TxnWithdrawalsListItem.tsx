@@ -5,8 +5,8 @@ import type { ArbitrumL2TxnWithdrawalsItem } from 'types/api/arbitrumL2';
 import config from 'configs/app';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import AddressEntityL1 from 'ui/shared/entities/address/AddressEntityL1';
-import ListItemMobileGrid from 'ui/shared/ListItemMobile/ListItemMobileGrid';
 import ArbitrumL2MessageStatus from 'ui/shared/statusTag/ArbitrumL2MessageStatus';
+import ListItemMobileGrid from 'ui/txs/ActivityListItem';
 
 import ArbitrumL2TxnWithdrawalsClaimButton from './ArbitrumL2TxnWithdrawalsClaimButton';
 import ArbitrumL2TxnWithdrawalsValue from './ArbitrumL2TxnWithdrawalsValue';
@@ -25,7 +25,7 @@ const ArbitrumL2TxnWithdrawalsListItem = ({ data, isLoading, txHash }: Props) =>
   }
 
   return (
-    <ListItemMobileGrid.Container gridTemplateColumns="110px auto">
+    <ListItemMobileGrid.Container gridTemplateColumns="minmax(0, 1fr) minmax(0, 2fr)">
 
       <ListItemMobileGrid.Label isLoading={ isLoading }>Message #</ListItemMobileGrid.Label>
       <ListItemMobileGrid.Value>

@@ -32,7 +32,7 @@ const ContainerWithScrollY = ({ gradientHeight, children, onScrollVisibilityChan
         content: '""',
         bottom: 0,
         left: 0,
-        right: '20px',
+        right: 'var(--chakra-spacing-5)',
         height: `${ gradientHeight }px`,
         bg: `linear-gradient(to bottom, transparent, ${ gradientStopColor })`,
       } : undefined }

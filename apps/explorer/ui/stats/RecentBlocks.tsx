@@ -14,13 +14,17 @@ const RecentBlocks = () => {
   const { data, isPending, isError } = useApiQuery('general:homepage_blocks');
 
   return (
-    <Box mb={ 8 } data-network-recent-blocks>
+    <Box mb={ 8 } data-network-recent-blocks
+      css={{ '& a': { minWidth: 'touchTarget',
+        minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } } }}>
       <DetailedInfo.Section label="Recent blocks">
         <Flex justifyContent="flex-end" mb={ 2 }><Link href="/blocks" textStyle="small">View all</Link></Flex>
         { isError ? <DataFetchAlert/> : (
-          <Skeleton loading={ isPending } minH={ isPending ? '44px' : undefined }>
-            <Box overflowX="auto">
-              <TableRoot variant="scan" css={{ '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'canvas' } }} minW="480px">
+          <Skeleton loading={ isPending } minH={ isPending ? 'var(--chakra-spacing-11)' : undefined }>
+            <Box overflowX="auto" role="region" aria-label="Recent blocks" tabIndex={ 0 }>
+              <TableRoot variant="scan"
+                css={{ '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'canvas' } }}
+                minW="var(--chakra-spacing-100)">
                 <TableHeader><TableRow>
                   <TableColumnHeader>Block</TableColumnHeader>
                   <TableColumnHeader>Age</TableColumnHeader>

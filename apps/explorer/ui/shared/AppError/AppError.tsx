@@ -100,6 +100,8 @@ const AppError = ({ error, className }: Props) => {
               <Button
                 mt={ 8 }
                 variant="outline"
+                minW="touchTarget"
+                minH="touchTarget"
               >
                 Back to home
               </Button>
@@ -112,7 +114,7 @@ const AppError = ({ error, className }: Props) => {
   })();
 
   return (
-    <Box className={ className } mt={{ base: '52px', lg: '104px' }} maxW="800px">
+    <Box className={ className } mt={{ base: 12, lg: 24 }} maxW="var(--chakra-spacing-200)">
       { content }
     </Box>
   );

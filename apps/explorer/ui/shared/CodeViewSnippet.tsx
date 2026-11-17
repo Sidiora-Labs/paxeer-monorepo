@@ -25,7 +25,7 @@ const CodeViewSnippet = ({ data, copyData, language, title, className, rightSlot
     <Box className={ className } as="section" title={ title }>
       { (title || rightSlot) && (
         <Flex justifyContent={ title ? 'space-between' : 'flex-end' } alignItems="center" mb={ 3 }>
-          { title && <Skeleton loading={ isLoading } fontWeight={ 500 }>{ title }</Skeleton> }
+          { title && <Skeleton loading={ isLoading } fontWeight="medium">{ title }</Skeleton> }
           { rightSlot }
           <CopyToClipboard text={ copyData ?? data } isLoading={ isLoading }/>
         </Flex>

@@ -24,7 +24,7 @@ const ChainIndicatorsList = ({ indicators, isLoading, selectedId, onItemClick }:
       flexDir="column"
       as="ul"
       borderRadius="lg"
-      rowGap="6px"
+      rowGap="var(--chakra-spacing-1\.5)"
       m={{ base: 'auto 0', lg: 0 }}
     >
       { indicators.map((indicator) => {

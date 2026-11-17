@@ -22,9 +22,12 @@ const CodeEditorTabs = ({ tabs, activeTab, mainFile, onTabSelect, onTabClose }: 
   return (
     <Flex
       borderTopLeftRadius="md"
-      overflow="hidden"
+      overflowX="auto"
+      minW={ 0 }
+      role="group"
+      aria-label="Open files"
       bgColor={ themeColors['sideBar.background'] }
-      flexWrap="wrap"
+      flexWrap="nowrap"
     >
       { tabs.map((tab) => (
         <CodeEditorTab

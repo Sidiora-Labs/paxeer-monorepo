@@ -15,9 +15,9 @@ defmodule BlockScoutWeb.ChainPage do
     css("[data-selector='chain-block']", count: count)
   end
 
-  def contract_creation(%Transaction{created_contract_address_hash: hash}) do
+  def contract_creation(%Transaction{hash: transaction_hash, created_contract_address_hash: hash}) do
     checksum = Address.checksum(hash)
-    css("[data-test='contract-creation'] [data-address-hash='#{checksum}']")
+    css("[data-identifier-hash='#{transaction_hash}'] .contract-address[data-address-hash='#{checksum}']")
   end
 
   def place_holder_blocks(count) do

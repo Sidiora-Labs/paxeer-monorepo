@@ -7,8 +7,9 @@ import type { WithdrawalsItem } from 'types/api/withdrawals';
 import config from 'configs/app';
 import { AddressHighlightProvider } from 'lib/contexts/addressHighlight';
 import useLazyRenderedList from 'lib/hooks/useLazyRenderedList';
-import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { TableBody, TableColumnHeader, TableRow } from 'toolkit/chakra/table';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
+import ActivityTable, { ActivityTableHeader as TableHeaderSticky } from 'ui/txs/ActivityTable';
 
 import BeaconChainWithdrawalsTableItem from './BeaconChainWithdrawalsTableItem';
 
@@ -37,15 +38,15 @@ const BeaconChainWithdrawalsTable = ({ items, isLoading, top, view }: Props) => 
 
   return (
     <AddressHighlightProvider>
-      <TableRoot style={{ tableLayout: 'auto' }} minW="950px">
+      <ActivityTable label="Withdrawals" style={{ tableLayout: 'auto' }} minW="var(--chakra-sizes-4xl)">
         <TableHeaderSticky top={ top }>
           <TableRow>
-            <TableColumnHeader>Index</TableColumnHeader>
-            <TableColumnHeader>Validator index</TableColumnHeader>
-            { view !== 'block' && <TableColumnHeader>Block</TableColumnHeader> }
+            <TableColumnHeader isNumeric>Index</TableColumnHeader>
+            <TableColumnHeader isNumeric>Validator index</TableColumnHeader>
+            { view !== 'block' && <TableColumnHeader isNumeric>Block</TableColumnHeader> }
             { view !== 'address' && <TableColumnHeader>To</TableColumnHeader> }
             { view !== 'block' && <TableColumnHeader>Timestamp<TimeFormatToggle/></TableColumnHeader> }
-            <TableColumnHeader>{ `Value ${ feature.currency.symbol }` }</TableColumnHeader>
+            <TableColumnHeader isNumeric>{ `Value ${ feature.currency.symbol }` }</TableColumnHeader>
           </TableRow>
         </TableHeaderSticky>
         <TableBody>
@@ -60,7 +61,7 @@ const BeaconChainWithdrawalsTable = ({ items, isLoading, top, view }: Props) => 
           )) }
           <TableRow ref={ cutRef }/>
         </TableBody>
-      </TableRoot>
+      </ActivityTable>
     </AddressHighlightProvider>
   );
 };
