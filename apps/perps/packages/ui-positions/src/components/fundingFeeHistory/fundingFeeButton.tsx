@@ -52,12 +52,7 @@ export const FundingFeeButton: FC<FundingFeeButtonProps> = ({
 
   return (
     <>
-      <button
-        onClick={openFundingFeeHistory}
-        type="button"
-        aria-label={t("positions.fundingFee.title")}
-        className="oui-touch-target"
-      >
+      <button onClick={openFundingFeeHistory}>
         <Text.numeral
           rule="price"
           coloring

@@ -1,4 +1,3 @@
-import surface from "../../../surface.module.css";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
   Flex,
@@ -45,12 +44,12 @@ export const MultiLevelAffiliatePage = () => {
         gap={6}
         cols={1}
         rows={1}
-        className={surface.columns}
+        className="md:oui-grid-cols-2"
       >
-        <div className="oui-multiLevel-affiliate-summary-container">
+        <div className="oui-multiLevel-affiliate-summary-container oui-order-2 md:oui-order-1">
           <SummaryWidget />
         </div>
-        <div className="oui-min-w-0">
+        <div className="oui-order-1 md:oui-order-2">
           {multiLevelRebateInfo?.referral_code ? (
             <ReferralInfoWidget />
           ) : (
@@ -61,7 +60,7 @@ export const MultiLevelAffiliatePage = () => {
 
       <CommissionChartWidget />
 
-      <div className="oui-multiLevel-affiliate-referrerTables-container oui-w-full">
+      <div className="oui-multiLevel-affiliate-referrerTables-container">
         <ReferrerTableWidget />
       </div>
     </Flex>
@@ -70,27 +69,23 @@ export const MultiLevelAffiliatePage = () => {
   return (
     <Flex
       className={cn(
-        surface.surface,
         "oui-multiLevel-affiliate-page",
-        "oui-min-w-0",
+        "oui-h-lvw",
         "oui-font-semibold",
         "oui-pb-24 oui-pt-16",
       )}
       direction={"column"}
       gap={4}
     >
-      <div className="oui-w-full oui-px-5 md:oui-mx-auto md:oui-max-w-screen-xl">
+      <div className="oui-w-full oui-px-5 md:oui-mx-auto md:oui-max-w-[1040px]">
         <Flex
           width={"100%"}
           direction={"column"}
           className="oui-gap-8 md:oui-gap-10"
         >
           <Flex width={"100%"} direction={"column"} itemAlign={"start"} gap={4}>
-            <Text
-              asChild
-              className="oui-text-4xl oui-leading-normal md:oui-text-6xl md:oui-leading-normal"
-            >
-              <h1>{t("affiliate.referralRewards")}</h1>
+            <Text className="oui-text-[32px] oui-leading-[40px] md:oui-text-6xl md:oui-leading-[72px]">
+              {t("affiliate.referralRewards")}
             </Text>
             <Text size="sm" intensity={54}>
               {t("affiliate.referralRewards.description")}
@@ -105,14 +100,14 @@ export const MultiLevelAffiliatePage = () => {
             >
               <TabsList
                 variant="text"
-                className="oui-flex oui-h-11 oui-w-full oui-items-end oui-justify-center oui-gap-0 oui-rounded-xl oui-border oui-border-line-6 oui-bg-base-9 oui-px-4 oui-pt-2"
+                className="oui-flex oui-h-11 oui-w-full oui-items-end oui-justify-center oui-gap-0 oui-rounded-xl oui-border oui-border-line-6 oui-bg-base-9 oui-px-4 oui-pt-[9px]"
               >
                 {/* Affiliate manages referrals and the commissions they earn. */}
                 <TabsTrigger
                   value={TabTypes.affiliate}
                   variant="text"
                   size="xl"
-                  className="oui-h-6 oui-px-3 oui-pb-2"
+                  className="oui-h-[26px] oui-px-3 oui-pb-[9px]"
                 >
                   <span className="oui-flex oui-items-center oui-gap-1">
                     <AffiliateIcon size={16} />
@@ -124,7 +119,7 @@ export const MultiLevelAffiliatePage = () => {
                   value={TabTypes.trader}
                   variant="text"
                   size="xl"
-                  className="oui-h-6 oui-px-3 oui-pb-2"
+                  className="oui-h-[26px] oui-px-3 oui-pb-[9px]"
                 >
                   <span className="oui-flex oui-items-center oui-gap-1">
                     <TraderIcon size={16} />

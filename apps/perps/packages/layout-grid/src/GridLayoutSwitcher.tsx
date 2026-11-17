@@ -18,8 +18,7 @@ export function GridLayoutSwitcher({
 
   return (
     <select
-      name="grid-layout-preset"
-      className={`oui-shell-select ${className ?? ""}`}
+      className={className}
       style={style}
       aria-label={ariaLabel}
       value={ctx.selectedPresetId}

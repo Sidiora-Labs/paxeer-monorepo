@@ -1,4 +1,3 @@
-import styles from "../../presentation.module.css";
 import React, { FC, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import type { RouterAdapter } from "@paxeer-network/types";
@@ -51,11 +50,7 @@ export const MarketsHomePage: FC<MarketsHomePageProps> = (props) => {
     >
       <div
         id="oui-markets-home-page"
-        className={cn(
-          styles.surface,
-          "oui-font-semibold oui-min-w-0",
-          props.className,
-        )}
+        className={cn("oui-font-semibold", props.className)}
       >
         {isMobile ? (
           <MarketsMobileContent
@@ -141,8 +136,8 @@ const MarketsMobileContent: React.FC<MarketsContentProps> = (props) => {
       value={props.activeTab}
       onValueChange={props.onTabChange as (value: string) => void}
       classNames={{
-        tabsListContainer: "oui-flex-wrap oui-border-0",
-        tabsList: "oui-min-w-0 oui-mx-3 oui-my-2",
+        tabsListContainer: "oui-border-0",
+        tabsList: "oui-mx-6 oui-my-2",
         tabsContent: "oui-px-3",
       }}
       leading={

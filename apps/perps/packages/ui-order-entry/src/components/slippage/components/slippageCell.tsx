@@ -99,7 +99,6 @@ export const SlippageCell = (props: {
             <button
               className="oui-slippage-edit-btn oui-shrink-0 oui-text-2xs"
               onClick={() => setOpen()}
-              type="button"
             >
               <Flex
                 itemAlign="center"

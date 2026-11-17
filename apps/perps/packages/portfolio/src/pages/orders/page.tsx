@@ -36,13 +36,13 @@ export const OrdersPage: React.FC<{ sharePnLConfig?: SharePnLConfig }> = (
             onClick={onDownload}
           >
             {t("common.download")}
-            <TooltipIcon className="oui-text-base-contrast-80 oui-ms-1" />
+            <TooltipIcon className="oui-text-base-contrast-36 oui-ms-[5px]" />
           </Button>
         </Tooltip>
       </Flex>
       <Divider className="oui-w-full" />
       {/* 26(title height) + 1(divider) + 32 (padding) */}
-      <Box width="100%" className="oui-h-[calc(100%_-_var(--oui-space-16))]">
+      <Box width="100%" className="oui-h-[calc(100%_-_59px)]">
         <OrdersWidget ref={ordersRef} sharePnLConfig={sharePnLConfig} />
       </Box>
     </Flex>

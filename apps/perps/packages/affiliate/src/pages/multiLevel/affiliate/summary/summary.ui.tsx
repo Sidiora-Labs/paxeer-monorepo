@@ -1,5 +1,3 @@
-import surface from "../../../../surface.module.css";
-import { PeriodSelect } from "../../../../components/periodSelect";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { cn, Flex, Select, Text } from "@paxeer-network/ui";
@@ -19,12 +17,12 @@ export const Summary: FC<SummaryReturns> = (props) => {
       gap={6}
       direction={"column"}
       intensity={900}
-      className={`${surface.surface} oui-affiliate-summary oui-border oui-border-line-6`}
+      className="oui-affiliate-summary oui-border oui-border-line-6"
     >
       <Flex direction={"row"} justify={"between"} width={"100%"}>
         <Text className="oui-text-lg">{t("affiliate.summary")}</Text>
         <div className={"oui-min-w-14"}>
-          <PeriodSelect
+          <Select.options
             size={"xs"}
             value={props.period}
             onValueChange={props.onPeriodChange}
@@ -110,7 +108,7 @@ const SummaryItem: FC<SummaryItemProps> = (props) => {
       itemAlign="start"
       gap={2}
       className={cn(
-        "oui-bg-base-contrast-4 oui-p-5 md:oui-py-10",
+        "oui-bg-base-contrast-4 oui-p-5 md:oui-py-[38px]",
         "oui-text-sm oui-text-base-contrast-54",
         props.classNames?.root,
       )}

@@ -33,7 +33,7 @@ export const VaultsHistoryUI: React.FC<Readonly<HistoryProps>> = (props) => {
         dataSource={dataSource}
         loading={isLoading}
         className="oui-font-semibold"
-        classNames={{ root: "oui-h-[calc(100%_-_var(--oui-space-12))]" }}
+        classNames={{ root: "oui-h-[calc(100%_-_49px)]" }}
         pagination={props.pagination}
         generatedRowKey={(row) => row.id}
       />

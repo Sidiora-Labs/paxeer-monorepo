@@ -1,4 +1,4 @@
-import React, { useId, type FC, type SVGProps } from "react";
+import React, { useMemo, type FC, type SVGProps } from "react";
 import { cn } from "@paxeer-network/ui";
 import { Flex, Text } from "@paxeer-network/ui";
 
@@ -74,7 +74,9 @@ export const CollapsiblePanel: React.FC<CollapsiblePanelProps> = ({
       : {},
   );
 
-  const contentId = useId();
+  const bodyClassName = useMemo(() => {
+    return typeof !!title ? "oui-h-[calc(100%_-_40px)]" : "oui-h-full";
+  }, [title]);
 
   const renderCollapsibleHeader = () => {
     // if (typeof collapsible !== "undefined" && !collapsible) return null;
@@ -82,7 +84,7 @@ export const CollapsiblePanel: React.FC<CollapsiblePanelProps> = ({
     return (
       <Flex
         className={cn(
-          "oui-text-base-contrast-80",
+          "oui-text-base-contrast-36",
           // collapsed ? "oui-absolute oui-end-[-20px] oui-z-50" : "oui-relative",
         )}
         justify={collapsed ? "center" : "between"}
@@ -95,22 +97,16 @@ export const CollapsiblePanel: React.FC<CollapsiblePanelProps> = ({
             {title}
           </Text>
         )}
-        {collapsible && (
-          <button
-            type="button"
-            aria-label={collapsed ? "Expand panel" : "Collapse panel"}
-            aria-expanded={!collapsed}
-            aria-controls={contentId}
-            onClick={onToggle}
-            className="oui-shell-icon-button"
-          >
-            {collapsed ? (
-              <ExpandIcon className="oui-text-base-contrast-80" />
-            ) : (
-              <CollapseIcon className="oui-text-base-contrast-80" />
-            )}
-          </button>
-        )}
+        <button
+          onClick={onToggle}
+          className={cn("oui-cursor-pointer hover:oui-text-base-contrast-80")}
+        >
+          {collapsed ? (
+            <ExpandIcon className="oui-text-base-contrast-36" />
+          ) : (
+            <CollapseIcon className="oui-text-base-contrast-36" />
+          )}
+        </button>
       </Flex>
     );
   };
@@ -125,10 +121,7 @@ export const CollapsiblePanel: React.FC<CollapsiblePanelProps> = ({
     >
       {renderCollapsibleHeader()}
 
-      <div
-        id={contentId}
-        className="oui-collapsible-content oui-min-h-0 oui-min-w-0 oui-flex-1"
-      >
+      <div className={cn("oui-collapsible-content", bodyClassName)}>
         {React.cloneElement(children as React.ReactElement, {
           collapsed,
           // panelSize: "small",

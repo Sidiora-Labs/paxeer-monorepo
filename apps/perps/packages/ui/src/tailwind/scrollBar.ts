@@ -4,17 +4,18 @@ export const scrollBarPlugin = () =>
   plugin(function ({ addComponents }) {
     const customVerticalScrollbar = {
       ".custom-scrollbar::-webkit-scrollbar": {
-        width: "var(--oui-scrollbar-size, 6px)",
-        height: "var(--oui-scrollbar-size, 6px)",
+        width: "6px",
+        height: "6px",
       },
 
       ".custom-scrollbar::-webkit-scrollbar-track": {
         backgroundColor: "transparent",
-        borderRadius: "var(--oui-radius-md)",
+        borderRadius: "4px",
+        paddingTop: "20px",
       },
 
       ".custom-scrollbar::-webkit-scrollbar-thumb": {
-        borderRadius: "var(--oui-radius-md)",
+        borderRadius: "3px",
         borderStyle: "dashed",
         borderColor: "transparent",
         borderWidth: "1px",
@@ -23,8 +24,8 @@ export const scrollBarPlugin = () =>
       },
 
       ".custom-scrollbar::-webkit-scrollbar-thumb:hover": {
-        backgroundColor: "rgb(var(--oui-color-base-5))",
-        borderRadius: "var(--oui-radius-md)",
+        background: "rgb(var(--oui-color-base-5))",
+        borderRadius: "3px",
       },
 
       ".custom-scrollbar::-webkit-scrollbar-corner": {

@@ -20,8 +20,8 @@ export function getSymbolColumn(
   return {
     title: i18n.t("common.symbol"),
     dataIndex: "symbol",
-    width: options?.symbolColumnWidth,
-    className: "oui-z-10",
+    width: options?.symbolColumnWidth ?? 150,
+    className: "oui-z-[1]",
     onSort: true,
     render: (value, record) => {
       let favoritesIcon: ReactNode;
@@ -29,8 +29,8 @@ export function getSymbolColumn(
         favoritesIcon = (
           <FavoritesDropdownMenuWidget row={record} favorite={favorite}>
             <Flex
-              width="100%"
-              height="100%"
+              width={12}
+              height={12}
               justify="center"
               itemAlign="center"
               className="oui-me-1 oui-cursor-pointer"
@@ -61,7 +61,7 @@ export function getSymbolColumn(
             gapX={stackLeverageInSecondRow ? undefined : 1}
           >
             <Flex gapX={1} itemAlign="center">
-              <TokenIcon symbol={value} className="oui-size-4" />
+              <TokenIcon symbol={value} className="oui-size-[18px]" />
               <SymbolDisplay
                 formatString="base"
                 size="2xs"
@@ -102,7 +102,7 @@ export function getLastColumn() {
     dataIndex: "24h_close",
     align: "right",
     onSort: true,
-
+    width: 100,
     render: (value, record) => {
       return (
         <Text.numeral dp={record.quote_dp || 2} size="2xs">
@@ -119,7 +119,7 @@ export function getMarkColumn() {
     dataIndex: "mark_price",
     align: "right",
     onSort: true,
-
+    width: 100,
     render: (value, record) => {
       return (
         <Text.numeral dp={record.quote_dp || 2} size="2xs">
@@ -136,7 +136,7 @@ export function getIndexColumn() {
     dataIndex: "index_price",
     align: "right",
     onSort: true,
-
+    width: 100,
     render: (value, record) => {
       return (
         <Text.numeral dp={record.quote_dp || 2} size="2xs">
@@ -153,7 +153,7 @@ export function get24hPercentageColumn() {
     dataIndex: "change",
     align: "right",
     onSort: true,
-
+    width: 80,
     render: (value) => {
       return (
         <Text.numeral
@@ -175,8 +175,8 @@ export function get24hVolOIColumn() {
     title: i18n.t("markets.column.24hVol"),
     dataIndex: "24h_amount",
     align: "right",
-    className: "oui-h-9",
-
+    className: "oui-h-[36px]",
+    width: 100,
     multiSort: {
       fields: [
         {
@@ -199,7 +199,7 @@ export function get24hVolOIColumn() {
           dp={2}
           rm={Decimal.ROUND_DOWN}
           size="2xs"
-          intensity={80}
+          intensity={54}
         >
           {record.openInterest}
         </Text.numeral>
@@ -217,8 +217,8 @@ export function getLastAnd24hPercentageColumn(
     dataIndex: "change",
     align: "right",
     onSort: true,
-    className: "oui-h-9",
-
+    className: "oui-h-[36px]",
+    width: 100,
     render: (value, record) => {
       const onDelSymbol: React.MouseEventHandler = (e) => {
         favorite.updateSymbolFavoriteState(
@@ -230,45 +230,34 @@ export function getLastAnd24hPercentageColumn(
       };
 
       const iconCls =
-        "oui-w-4 oui-h-4 oui-text-base-contrast-80 hover:oui-text-base-contrast";
+        "oui-w-4 oui-h-4 oui-text-base-contrast-54 hover:oui-text-base-contrast";
 
       const actions = (
         <div
           className={cn(
-            "oui-absolute oui-end-0 oui-top-1.5",
-            "oui-hidden group-hover:oui-block group-focus-within:oui-block",
+            "oui-absolute oui-end-0 oui-top-[6.5px]",
+            "oui-hidden group-hover:oui-block",
           )}
         >
           <Flex
             className={cn(
               "oui-inline-flex",
-              "oui-bg-primary-darken oui-py-1.5",
+              "oui-bg-primary-darken oui-py-[6px]",
             )}
             r="base"
-            width="var(--oui-space-12)"
+            width={52}
             justify="center"
             itemAlign="end"
             gapX={2}
           >
-            <button
-              type="button"
+            <TopIcon
+              className={iconCls}
               onClick={(e) => {
                 e.stopPropagation();
                 favorite.pinToTop(record);
               }}
-              aria-label="Pin market"
-              className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
-            >
-              <TopIcon className={iconCls} />
-            </button>
-            <button
-              type="button"
-              onClick={onDelSymbol}
-              aria-label="Delete"
-              className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
-            >
-              <DeleteIcon className={iconCls} />
-            </button>
+            />
+            <DeleteIcon className={iconCls} onClick={onDelSymbol} />
           </Flex>
         </div>
       );
@@ -282,10 +271,7 @@ export function getLastAnd24hPercentageColumn(
             justify="end"
             itemAlign="end"
             gapY={1}
-            className={cn(
-              isFavoriteList &&
-                "group-hover:oui-invisible group-focus-within:oui-invisible",
-            )}
+            className={cn(isFavoriteList && "group-hover:oui-invisible")}
           >
             <Text.numeral dp={record.quote_dp || 2} size="2xs">
               {record["24h_close"]}
@@ -311,8 +297,8 @@ export function getMarkIndexColumn() {
     title: i18n.t("markets.column.mark&Index"),
     dataIndex: "mark_price",
     align: "right",
-    className: "oui-h-9",
-
+    className: "oui-h-[36px]",
+    width: 100,
     multiSort: {
       fields: [
         {
@@ -330,7 +316,7 @@ export function getMarkIndexColumn() {
         <Text.numeral dp={record.quote_dp || 2} size="2xs">
           {value}
         </Text.numeral>
-        <Text.numeral dp={record.quote_dp || 2} size="2xs" intensity={80}>
+        <Text.numeral dp={record.quote_dp || 2} size="2xs" intensity={54}>
           {record.index_price}
         </Text.numeral>
       </Flex>

@@ -39,7 +39,7 @@ export const Funding: React.FC<FundingScriptReturn> = (props) => {
         onValueChange={props.onTabChange as (value: string) => void}
         trailing={
           <React.Suspense fallback={null}>
-            <LazySearchInput classNames={{ root: "oui-my-1 oui-w-60" }} />
+            <LazySearchInput classNames={{ root: "oui-my-1 oui-w-[240px]" }} />
           </React.Suspense>
         }
       >

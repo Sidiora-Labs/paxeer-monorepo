@@ -1,4 +1,3 @@
-import styles from "../presentation.module.css";
 import { FC, PropsWithChildren } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import type { RouterAdapter } from "@paxeer-network/types";
@@ -36,11 +35,7 @@ export const PortfolioLayout: FC<PropsWithChildren<PortfolioLayoutProps>> = (
       routerAdapter={props.routerAdapter}
       classNames={{
         ...classNames,
-        content: cn(
-          styles.surface,
-          "oui-my-6 oui-px-3 oui-min-w-0",
-          classNames?.content,
-        ),
+        content: cn("oui-my-6 oui-px-3", classNames?.content),
         topNavbar: cn("oui-bg-base-9", classNames?.topNavbar),
         leftSidebar: cn(
           "oui-rounded-xl oui-bg-base-9",

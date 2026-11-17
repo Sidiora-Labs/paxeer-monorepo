@@ -10,7 +10,7 @@ export function useFavoritesProps() {
   const { searchValue } = useMarketsContext();
   const renderHeader = useCallback((favorite: FavoriteInstance) => {
     return (
-      <Box px={3} className="oui-my-1.5">
+      <Box px={3} className="oui-my-[6px]">
         <FavoritesTabWidget favorite={favorite} size="sm" />
       </Box>
     );

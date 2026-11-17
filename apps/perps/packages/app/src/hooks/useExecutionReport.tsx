@@ -91,7 +91,9 @@ export const useExecutionReport = () => {
           <div>
             {title}
             <br />
-            <div className="oui-text-base-contrast-80 oui-text-xs">{msg}</div>
+            <div className="paxeer-network-text-white/[0.54] paxeer-network-text-xs">
+              {msg}
+            </div>
           </div>,
           { id: orderType },
         );

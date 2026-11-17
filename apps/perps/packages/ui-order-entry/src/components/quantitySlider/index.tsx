@@ -138,7 +138,6 @@ export const QuantitySlider = memo((props: QuantitySliderProps) => {
             })}
             onClick={onMax}
             data-testid="oui-testid-orderEntry-maxQty-value-button"
-            type="button"
           >
             {maxLabel}
           </button>
