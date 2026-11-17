@@ -176075,7 +176075,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.75]
 title = "Measure the wallet application against its state before the tasks of series 22.44"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.74", "22.44.63"]
