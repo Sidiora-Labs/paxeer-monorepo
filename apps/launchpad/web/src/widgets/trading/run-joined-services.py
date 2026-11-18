@@ -201,6 +201,47 @@ def stream_ready(owner, child, origin, pool, browser_origin, timeout=90):
     raise owner.readiness_error(child, 'stream readiness timed out: ' + url)
 
 
+def community_interfaces(owner, root, database):
+    """Install the registered owner interfaces read by the social schema."""
+    directory = root / 'migrations'
+    registry = json.loads((directory / 'registry.json').read_text())
+    catalog = {entry['migration_id']: entry for entry in registry['registrations']}
+    needed = set()
+
+    def include(version):
+        if version in needed:
+            return
+        needed.add(version)
+        for predecessor in catalog[version]['predecessor_ids']:
+            include(predecessor)
+
+    for version in (190001, 390001, 350001, 330001):
+        include(version)
+    roles = json.loads((directory / 'grants.json').read_text())['roles']
+    names = {name for role in roles for name in (role['owner_role'], role['runtime_role'])}
+    statements = ['CREATE ROLE "' + name.replace('"', '""') + '" NOLOGIN;'
+                  for name in sorted(names)]
+    histories = json.loads((directory / 'legacy-history-aliases.json').read_text())['histories']
+    for history in histories:
+        if history['service'] not in ('media/user', 'media/metadata'):
+            continue
+        for source in history['sources']:
+            path = root / source['path']
+            if digest(path) != source['source_sha256']:
+                raise ValueError('Community owner migration source differs from its registry')
+            statements.append('BEGIN;\n' + path.read_text().split('-- +goose Down')[0] + '\nCOMMIT;')
+    for version in registry['application_order']:
+        if version not in needed:
+            continue
+        migration = catalog[version]
+        path = root / migration['path']
+        if digest(path) != migration['sha256']:
+            raise ValueError('Community interface migration source differs from its registry')
+        statements.append('BEGIN;\n' + path.read_text() + '\nCOMMIT;')
+    owner.run(['psql', database, '-v', 'ON_ERROR_STOP=1'], 'joined-community-interfaces',
+              input='\n'.join(statements))
+
+
 def prepare_fixture(owner):
     web = Path(__file__).resolve().parents[3]
     root = web.parents[2]
@@ -272,7 +313,7 @@ def prepare_fixture(owner):
         'deployment': fixture['authorityDeployment'], 'rpcUrl': fixture['rpcUrl'],
         'genesisHash': fixture['genesisHash'], 'creationTransactions': fixture['creationTransactions']}) + '\n')
     signing_key = secrets.token_hex(32)
-    ports = ports_for(['browser', 'gateway', 'api', 'trading-charts', 'indexer', 'stats', 'ranking'])
+    ports = ports_for(['browser', 'gateway', 'api', 'trading-charts', 'indexer', 'stats', 'social', 'ranking'])
     origins = {role: f'http://127.0.0.1:{value}' for role, value in ports.items()}
     # The identity loader uses URL.Host as the schema's hostname-only domain.
     # Reuse the owned TLS issuer's standard HTTPS origin, without a port.
@@ -286,8 +327,8 @@ def prepare_fixture(owner):
         'WEBHOOK_HMAC_SECRET': secrets.token_hex(32), 'STREAM_SIGNING_KEY': signing_key,
         'IDENTITY_SIGNING_SECRET': secrets.token_hex(32), 'IDENTITY_LIMITER_KEY': secrets.token_hex(32),
         'IDENTITY_SERVICE_TOKEN': secrets.token_hex(32), 'GATEWAY_JWT_SECRET': secrets.token_hex(32),
-        'PUBLIC_URL': public, 'SOCIAL_HTTP_URL': origins['browser'],
-        'SOCIAL_WS_URL': origins['browser'].replace('http:', 'ws:'), 'METADATA_UPLOAD_URL': origins['browser'],
+        'PUBLIC_URL': public, 'SOCIAL_HTTP_URL': origins['social'],
+        'SOCIAL_WS_URL': origins['social'].replace('http:', 'ws:'), 'METADATA_UPLOAD_URL': origins['browser'],
         'S3_ENDPOINT': origins['browser'], 'S3_ACCESS_KEY_ID': secrets.token_hex(16),
         'S3_SECRET_ACCESS_KEY': secrets.token_hex(32), 'METADATA_BUCKET': 'qualification',
         'IDENTITY_SERVICE_URL': origins['gateway'], 'INDEXER_START_BLOCK': '0',
@@ -311,10 +352,16 @@ def prepare_fixture(owner):
                                   ('stats', 'stats-workers', 'statsd'),
                                   ('indexer', 'indexer', 'indexerd'),
                                   ('ranking', 'ranking-algo', 'rankingd'),
+                                  ('social', 'social', 'sociald'),
                                   ('gateway', 'gateway', 'mediagatewayd'), ('api', 'api', 'apid')]:
         binary = output / role
         build_go(owner, binary, entry, 'joined-build-' + role, services / service, common)
         env = {**common, 'PORT': str(ports[role])}
+        if role == 'social':
+            community_interfaces(owner, root, database)
+            owner.run(['psql', database, '-v', 'ON_ERROR_STOP=1', '-c',
+                       'CREATE SCHEMA social_migrations'], 'joined-social-migration-schema')
+            env['DATABASE_URL'] = database + '&search_path=social_migrations'
         if role == 'trading-charts':
             owner.run(['psql', database, '-v', 'ON_ERROR_STOP=1', '-c',
                        'CREATE SCHEMA charts_migrations'], 'joined-charts-migration-schema')
