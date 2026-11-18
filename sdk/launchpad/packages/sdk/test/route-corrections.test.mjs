@@ -47,7 +47,7 @@ async function rewardClaimUsesServedRoute() {
         contentType: req.headers['content-type'],
         body: receivedBody,
       });
-      if (req.method !== 'POST' || req.url !== '/v2/me/rewards/claim') {
+      if (req.method !== 'POST' || req.url !== '/v2/me/rewards:prepare-claim') {
         res.writeHead(404);
         res.end();
         return;
@@ -74,11 +74,11 @@ async function rewardClaimUsesServedRoute() {
       headers: { 'Idempotency-Key': idempotencyKey },
     });
 
-    assert.equal(ROUTE_CORRECTIONS.IF_REWARD_CLAIM, '/v2/me/rewards/claim');
+    assert.equal(ROUTE_CORRECTIONS.IF_REWARD_CLAIM, '/v2/me/rewards:prepare-claim');
     assert.equal(routeStatus('IF_REWARD_CLAIM'), 'served');
     assert.deepEqual(seen, [{
       method: 'POST',
-      path: '/v2/me/rewards/claim',
+      path: '/v2/me/rewards:prepare-claim',
       authorization: 'Bearer test-session',
       idempotencyKey,
       contentType: 'application/json',

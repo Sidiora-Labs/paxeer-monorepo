@@ -29,15 +29,14 @@ async function unroutedOperationRefusedBeforeNetwork() {
   const operations = new Operations(client);
 
   await assert.rejects(
-    operations.call('IF_VOICE_END', {
-      path: { roomId: randomUUID() },
-      body: { expectedRevision: '1' },
+    operations.call('IF_AUTOMATION_STATUS', {
+      path: { campaignId: randomUUID() },
     }),
     error => {
       assert.ok(error instanceof CapabilityUnavailableError);
       assert.equal(error.code, 'capability_unavailable');
       assert.equal(error.status, 501);
-      assert.equal(error.message, 'Operation IF_VOICE_END has no served route');
+      assert.equal(error.message, 'Operation IF_AUTOMATION_STATUS has no served route');
       return true;
     },
   );
