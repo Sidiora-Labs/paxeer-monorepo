@@ -2,7 +2,9 @@
 
 The indexer exposes `/health`, `/health/live`, and `/health/ready`. The first
 two paths report process liveness. The platform reads `/health/ready`, which
-checks the database, Redis, lifecycle state, and the ingestion component.
+checks the database, Redis, the event broker connection, lifecycle state, and
+the ingestion component. A disconnected broker makes readiness unavailable
+until its connection recovers.
 
 The ingestion check is `ok` while this instance holds the canonical lease. An
 instance that is waiting for another holder reports `standby` for ingestion

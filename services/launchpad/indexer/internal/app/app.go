@@ -17,6 +17,7 @@ import (
 	"io"
 	"log/slog"
 	"math"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -341,7 +342,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		status.CanonicalStreamID = d.CanonicalStreamID
 		status.MaxDeliveryLag = time.Duration(d.MaxDeliveryLagMS) * time.Millisecond
 		if policy := d.DeadLetters; policy != nil {
-			status.DeadLetters = httpapi.AuditedDeadLetters{DB: pool, DeliverySchema: d.Schema, SecuritySchema: policy.SecuritySchema, Audience: policy.Audience, PolicyVersion: policy.PolicyVersion, Verifier: policy.verifier()}
+			status.DeadLetters = httpapi.AuditedDeadLetters{Logger: logger, DB: pool, DeliverySchema: d.Schema, SecuritySchema: policy.SecuritySchema, Audience: policy.Audience, PolicyVersion: policy.PolicyVersion, Verifier: policy.verifier()}
 		}
 		partitions, e := delivery.NewPartitionStore(pool, d.Schema)
 		if e != nil {
@@ -506,6 +507,15 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				nc.Close()
 			}
 		}()
+		secretChecks["broker"] = func(c context.Context) error {
+			if err := c.Err(); err != nil {
+				return err
+			}
+			if !nc.IsConnected() {
+				return errors.New("indexer: durable broker disconnected")
+			}
+			return nil
+		}
 		brokerPublisher, e := natsdriver.NewPublisher(nc, d.Stream)
 		if e != nil {
 			return nil, e
@@ -640,10 +650,11 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		},
 	})
 	status.Store, status.ChainID, status.Publisher, status.StartTime = st, cfgChainIDInt32, pub, time.Now()
+	status.Logger = logger
 	httpapi.RegisterStatus(router, status)
 
 	if selectionAuthority != nil {
-		router.Handle("/internal/source-selection", selectionAuthority.Handler(history.RPC))
+		router.Handle("/internal/source-selection", selectionAuthority.HandlerWithLogger(history.RPC, logger))
 	}
 	if metrics != nil {
 		router.Handle("/metrics", metrics)
@@ -741,10 +752,16 @@ func Run(parent context.Context) error {
 		ConnState:         app.tracker.ConnState,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	serveErr := make(chan error, 1)
+	listener, err := net.Listen("tcp", srv.Addr)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+	defer srv.Close()
+	serveErr := make(chan error, 2)
 	go func() {
 		logger.Info("http server listening", slog.Int("port", cfg.Port))
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := srv.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serveErr <- err
 			cancel()
 		}
@@ -769,6 +786,7 @@ func Run(parent context.Context) error {
 				case <-ticker.C:
 					if e := app.relay.RunOnce(ctx); e != nil && !errors.Is(e, context.Canceled) {
 						logger.Error("durable relay failed", slog.Any("err", e))
+						serveErr <- fmt.Errorf("indexer: durable relay: %w", e)
 						app.tracker.BeginDrain()
 						cancel()
 						return
