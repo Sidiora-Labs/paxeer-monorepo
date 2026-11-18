@@ -15,6 +15,12 @@ export interface LaunchDeployment extends Deployment { protocolConfig: string; p
 export interface AccountScope { creator: string; chainId: number; epoch: number }
 export interface FundingRead { cost: ReturnType<typeof verifyCost>; balances: { usdl: string; pax: string; allowance: string }; blockHeight: string; blockHash: string; gasStage: 'approval' | 'creation'; observedAt: number }
 export interface FirstPurchaseQuote { pool: string; creator: string; amountInRaw: string; amountOutRaw: string; expiresAt: number; chainId: 125; priceImpactBps: number; blockHeight: string; blockHash: string; deploymentRevision: string; opticalRevision: string; slippageBps: number; minOutRaw: string; deadline: number; quoteId: string; accountEpoch: number }
+export class KnownPurchaseNotSubmittedError extends Error {
+ constructor(message:string,readonly cause:unknown){super(message);this.name='KnownPurchaseNotSubmittedError';}
+}
+export function purchaseSubmissionError(error:unknown):unknown {
+ let cause:unknown=error;for(let depth=0;depth<8&&cause&&typeof cause==='object';depth++){const known=cause as {code?:unknown;name?:unknown;cause?:unknown};if(known.code===4001||known.name==='UserRejectedRequestError')return new KnownPurchaseNotSubmittedError('Wallet rejected purchase. No transaction was submitted.',error);cause=known.cause;}return error;
+}
 export function creationFunding(read:FundingRead) {
  if(!read||!read.balances)return {state:'balance_loading',approvalTargetRaw:undefined};
  if(read.cost.protocolFeeRaw!=='1000000'||!Number.isSafeInteger(read.observedAt)||read.observedAt>Date.now()||Date.now()-read.observedAt>30000)return {state:'funding_unavailable',approvalTargetRaw:undefined};
@@ -174,6 +180,7 @@ export class ChainCreationAdapter {
   return {pool:address(pool),creator:address(expected.creator),amountInRaw,amountOutRaw:String(quoted.outputRaw),expiresAt:Math.min(quoted.expiresAt,simulation.expiresAt),chainId:125,priceImpactBps:quoted.impactBps,blockHeight:String(quoted.blockHeight),blockHash:quoteBlock.hash,deploymentRevision:this.deployment.revision,opticalRevision:info.opticalRevision,slippageBps,minOutRaw:String(minOut),deadline,quoteId:quoted.quoteId,accountEpoch:expected.epoch};
  }
  async sendPurchase(quote:FirstPurchaseQuote,expected:AccountScope) {
+  const request=await (async()=>{try{
   this.scope(expected);
   if(quote.chainId!==125||!Number.isSafeInteger(quote.expiresAt)||!Number.isSafeInteger(quote.deadline)||quote.deadline<Date.now()+30000||quote.deadline>Date.now()+600000||raw(quote.minOutRaw)!==minimumOutput(raw(quote.amountOutRaw),quote.slippageBps)||raw(quote.minOutRaw)===0n)throw new Error('Purchase quote protections changed.');
   if(quote.expiresAt<=Date.now()||quote.accountEpoch!==expected.epoch||quote.deploymentRevision!==this.deployment.revision||address(quote.creator)!==address(expected.creator))throw new Error('Purchase quote expired. Request a new quote.');
@@ -182,7 +189,9 @@ export class ChainCreationAdapter {
   if(fresh.opticalRevision!==quote.opticalRevision||fresh.pool!==quote.pool||fresh.creator!==quote.creator)throw new Error('Purchase pool context changed. Review a fresh quote.');
   if(raw(fresh.amountOutRaw)<raw(quote.minOutRaw))throw new Error('Pool reserves changed beyond your minimum. Review a new quote.');
   const simulation=await this.client.simulateContract({address:this.deployment.router as Address,abi:routerAbi,functionName:'buy',args:[quote.pool as Address,raw(quote.amountInRaw),raw(quote.minOutRaw),BigInt(Math.floor(quote.deadline/1000))],account:expected.creator as Address});
-  await this.verifyPurchasePool(quote.pool,expected.creator);await this.assertWallet(expected);if(quote.expiresAt<=Date.now())throw new Error('Purchase review expired. Request a new quote.');return this.wallet.writeContract({...simulation.request,chain:this.wallet.chain,account:expected.creator as Address});
+  await this.verifyPurchasePool(quote.pool,expected.creator);await this.assertWallet(expected);if(quote.expiresAt<=Date.now())throw new Error('Purchase review expired. Request a new quote.');return {...simulation.request,chain:this.wallet.chain,account:expected.creator as Address};
+  }catch(error){throw new KnownPurchaseNotSubmittedError(error instanceof Error?error.message:'Purchase was blocked before submission.',error);}})();
+  try{return await this.wallet.writeContract(request)}catch(error){throw purchaseSubmissionError(error);}
  }
  async purchaseReceipt(txHash:string,quote:FirstPurchaseQuote) {
   const receipt=await this.client.waitForTransactionReceipt({hash:hash(txHash) as Hex,timeout:30000});
