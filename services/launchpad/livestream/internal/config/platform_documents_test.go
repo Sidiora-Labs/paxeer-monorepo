@@ -1,13 +1,16 @@
 package config
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -23,13 +26,89 @@ func TestPlatformDocumentsComposeAndLoad(t *testing.T) {
 	composeLivestream(t, valuesDir, outputDir)
 	composed := readComposedLivestream(t, outputDir)
 
-	if len(composed) != 4 {
-		t.Fatalf("livestream composer wrote %d variables, want budget and expected schema pairs", len(composed))
+	if len(composed) != 48 {
+		t.Fatalf("livestream composer wrote %d variables, want 48 runtime settings and document bindings", len(composed))
 	}
-	for _, name := range []string{"DB_BUDGET_DOCUMENT", "DB_BUDGET_SHA256", "EXPECTED_SCHEMA_DOCUMENT", "EXPECTED_SCHEMA_SHA256"} {
-		if composed[name] == "" {
-			t.Fatalf("composer omitted %s", name)
+	raw, err := os.ReadFile(filepath.Join(valuesDir, "livestream.example.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var values struct {
+		Environment map[string]string `json:"environment"`
+		Network     struct {
+			RPC string `json:"rpc_url"`
+		} `json:"network"`
+		Addresses struct {
+			Bind string `json:"bind"`
+			Port int    `json:"port"`
+		} `json:"addresses"`
+		Names struct {
+			Zone string `json:"zone"`
+		} `json:"names"`
+		Limits struct {
+			Wallet int `json:"max_streams_per_wallet"`
+			Global int `json:"max_global_streams"`
+		} `json:"limits"`
+		Periods struct {
+			Refresh   int    `json:"secrets_refresh_seconds"`
+			Timestamp string `json:"webhook_timestamp_unit"`
+		} `json:"periods"`
+		Endpoints struct {
+			API string `json:"livepeer_api_url"`
+		} `json:"endpoints"`
+		Credentials struct {
+			Key string `json:"livepeer_api_key"`
+		} `json:"credentials"`
+		BudgetPolicy json.RawMessage `json:"budget_policy"`
+	}
+	if err := json.Unmarshal(raw, &values); err != nil {
+		t.Fatal(err)
+	}
+	expected := map[string]string{}
+	for name, value := range contract.Fixed {
+		expected[name] = value
+	}
+	for name, value := range values.Environment {
+		expected[name] = value
+	}
+	for name, value := range map[string]string{
+		"BIND_ADDRESS": values.Addresses.Bind, "PORT": strconv.Itoa(values.Addresses.Port),
+		"RPC_URL": values.Network.RPC, "ZONE": values.Names.Zone,
+		"MAX_STREAMS_PER_WALLET": strconv.Itoa(values.Limits.Wallet), "MAX_GLOBAL_STREAMS": strconv.Itoa(values.Limits.Global),
+		"SECRETS_REFRESH_SECONDS": strconv.Itoa(values.Periods.Refresh), "LIVEPEER_WEBHOOK_TIMESTAMP_UNIT": values.Periods.Timestamp,
+		"LIVEPEER_API_URL": values.Endpoints.API, "LIVEPEER_API_KEY": values.Credentials.Key,
+	} {
+		expected[name] = value
+	}
+	budget, err := os.ReadFile(filepath.Join(valuesDir, "common.example.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema, err := os.ReadFile(filepath.Join(valuesDir, "expected-schema", "livestream.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, document := range map[string][]byte{"DB_BUDGET": budget, "EXPECTED_SCHEMA": schema, "LIVESTREAM_BUDGET_POLICY": values.BudgetPolicy} {
+		if name != "EXPECTED_SCHEMA" {
+			var value any
+			if err := json.Unmarshal(document, &value); err != nil {
+				t.Fatal(err)
+			}
+			document, err = json.Marshal(value)
+			if err != nil {
+				t.Fatal(err)
+			}
 		}
+		expected[name+"_DOCUMENT"] = base64.StdEncoding.EncodeToString(document)
+		expected[name+"_SHA256"] = fmt.Sprintf("%x", sha256.Sum256(document))
+	}
+	if !reflect.DeepEqual(composed, expected) {
+		for name, value := range expected {
+			if actual, ok := composed[name]; !ok || actual != value {
+				t.Errorf("composed variable %s differs from its deployment value", name)
+			}
+		}
+		t.Fatal("composed environment differs from deployment values")
 	}
 
 	setLivestreamEnvironment(t, contract, composed)
@@ -144,19 +223,23 @@ func readComposedLivestream(t *testing.T, outputDir string) map[string]string {
 
 func setLivestreamEnvironment(t *testing.T, contract launchpadServiceContract, composed map[string]string) {
 	t.Helper()
+	configuration := reflect.TypeOf(Config{})
+	for i := 0; i < configuration.NumField(); i++ {
+		name, _, _ := strings.Cut(configuration.Field(i).Tag.Get("env"), ",")
+		t.Setenv(name, "")
+	}
 	for name, value := range contract.Fixed {
 		t.Setenv(name, value)
 	}
+	for name, value := range composed {
+		t.Setenv(name, value)
+	}
 	testValues := map[string]string{
-		"DATABASE_URL":            "postgres://fixture:fixture@localhost:5432/livestream?sslmode=disable",
-		"DB_POOL_ID":              "livestreamd_pool",
-		"IDENTITY_SERVICE_TOKEN":  "test-identity-token",
-		"INSTANCE_ID":             "livestream-test-1",
-		"LIVEPEER_API_KEY":        "test-livepeer-api-key",
-		"LIVEPEER_API_URL":        "https://livepeer.studio/api",
-		"LIVEPEER_WEBHOOK_SECRET": strings.Repeat("w", 32),
-		"REDIS_URL":               "redis://localhost:6379/0",
-		"ZONE":                    "mainnet-beta-a",
+		"DATABASE_URL":           os.Getenv("L40_TEST_POSTGRES_DSN"),
+		"DB_POOL_ID":             "livestreamd_pool",
+		"IDENTITY_SERVICE_TOKEN": "test-identity-token",
+		"INSTANCE_ID":            "livestream-test-1",
+		"REDIS_URL":              os.Getenv("L40_TEST_REDIS_URL"),
 	}
 	for _, name := range contract.Required {
 		if value, ok := composed[name]; ok {
@@ -164,14 +247,12 @@ func setLivestreamEnvironment(t *testing.T, contract launchpadServiceContract, c
 			continue
 		}
 		value, ok := testValues[name]
-		if !ok {
+		if !ok || value == "" {
 			t.Fatalf("no test value for required variable %s", name)
 		}
 		t.Setenv(name, value)
 	}
-	t.Setenv("LIVEPEER_PROVIDER_MODE", "available")
 	t.Setenv("LOG_LEVEL", "info")
-	t.Setenv("MAX_STREAMS_PER_WALLET", "3")
 	if composed["DB_BUDGET_DOCUMENT"] == "" || composed["EXPECTED_SCHEMA_DOCUMENT"] == "" {
 		t.Fatal(fmt.Sprintf("composed startup documents are incomplete: %v", composed))
 	}
