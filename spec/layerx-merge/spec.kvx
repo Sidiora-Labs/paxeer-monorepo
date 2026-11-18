@@ -208250,7 +208250,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.920]
 title = "Give the chain launch view of the launchpad web application the presentation of the coin creation view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.890"]
