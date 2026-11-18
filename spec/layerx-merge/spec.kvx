@@ -176685,7 +176685,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.853]
 title = "Give the action column of the transactions table the room of the label of a price update"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176748,7 +176748,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.851]
 title = "Keep the hint of a detail row out of the height of the row and on the centre line of its label"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
