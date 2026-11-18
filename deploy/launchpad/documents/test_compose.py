@@ -922,6 +922,12 @@ def test_livestream_example_emits_runtime_environment(tmp_path: Path) -> None:
         "LIVEPEER_API_URL": "https://livepeer.studio/api", "LIVEPEER_API_KEY": "test",
         "MAX_STREAMS_PER_WALLET": "3", "MAX_GLOBAL_STREAMS": "100",
         "SECRETS_REFRESH_SECONDS": "30", "LIVEPEER_WEBHOOK_TIMESTAMP_UNIT": "seconds",
+    } | {name: value for name, value in json.loads((values / "livestream.example.json").read_bytes())["environment"].items() if not name.endswith("_SHA256")} | {
+        "NODE_ENV": "production", "SECRETS_PROVIDER": "env",
+        "LIVESTREAM_PRIVATE_LISTEN_ADDRESS": "",
+        "LIVESTREAM_TLS_CERT_FILE": "", "LIVESTREAM_TLS_CERT_PEM": "",
+        "LIVESTREAM_TLS_KEY_FILE": "", "LIVESTREAM_TLS_KEY_PEM": "",
+        "LIVESTREAM_TLS_CLIENT_CA_FILE": "", "LIVESTREAM_TLS_CLIENT_CA_PEM": "",
     }
     assert "PUBLIC_URL" not in record
     assert record["LIVEPEER_API_KEY"] not in result.stdout.split()
@@ -1008,3 +1014,117 @@ def test_indexer_values_keep_reviewed_deployment_identity(tmp_path: Path, member
 def test_contract_key_representations(service: str, name: str, form: str) -> None:
     contracts = json.loads((ROOT.parent / "railway/variables.json").read_bytes())
     assert contracts[service]["forms"][name] == form
+
+
+def _livestream_form(values: Path, profile: str) -> dict:
+    name = "livestream.platform.example.json" if profile == "platform" else "livestream.example.json"
+    selected = json.loads((ROOT / "values" / name).read_bytes())
+    (values / "livestream.json").write_text(json.dumps(selected))
+    if profile == "platform":
+        (values / "gateway.json").write_bytes((ROOT / "values/gateway.platform.example.json").read_bytes())
+    return selected
+
+
+@pytest.mark.parametrize("profile", ["container", "platform"])
+def test_livestream_forms_compose_config_reader_settings(tmp_path: Path, profile: str) -> None:
+    from urllib.parse import urlparse
+
+    values, out = _values(tmp_path), tmp_path / "out"
+    selected = _livestream_form(values, profile)
+    result = _run(values, out, "livestream", "gateway", "web")
+    assert result.returncode == 0, result.stderr
+    record = json.loads((out / "livestream.json").read_bytes())
+    web = json.loads((out / "web.json").read_bytes())
+    assert record["RUNTIME_PROFILE"] == profile
+    assert record["NODE_ENV"] == "production"
+    assert record["BIND_ADDRESS"] == "0.0.0.0"
+    assert record["PORT"] == "8080"
+    assert len(record["LIVESTREAM_VIEWER_TOKEN_KEY"].encode()) >= 32
+    assert 0 < int(record["MAX_STREAMS_PER_WALLET"]) <= int(record["MAX_GLOBAL_STREAMS"]) <= 100000
+    assert 1 <= int(record["SECRETS_REFRESH_SECONDS"]) <= 60
+    for name in ("DB_BUDGET", "EXPECTED_SCHEMA"):
+        data = base64.b64decode(record[name + "_DOCUMENT"], validate=True)
+        assert hashlib.sha256(data).hexdigest() == record[name + "_SHA256"]
+    if profile == "platform":
+        assert record["LIVEPEER_PROVIDER_MODE"] == "unavailable"
+        assert record["LIVESTREAM_CONNECTED_ENABLED"] == "false"
+        assert record["LIVESTREAM_PRIVATE_LISTEN_ADDRESS"] == "[::]:8443"
+        assert 1 <= int(record["DB_MAX_CONNS"]) <= 200
+        assert re.fullmatch(r"[0-9a-f]{64}", record["GATEWAY_PEER_CERT_SHA256"])
+        for part in ("CERT", "KEY", "CLIENT_CA"):
+            assert bool(record[f"LIVESTREAM_TLS_{part}_PEM"]) != bool(record[f"LIVESTREAM_TLS_{part}_FILE"])
+            assert record[f"LIVESTREAM_TLS_{part}_PEM"] == selected["environment"][f"LIVESTREAM_TLS_{part}_PEM"]
+        for name in ("LIVEPEER_API_KEY", "LIVEPEER_WEBHOOK_SECRET", "LIVEPEER_PLAYBACK_WEBHOOK_SECRET", "LIVESTREAM_BUDGET_POLICY_DOCUMENT", "LIVESTREAM_BUDGET_POLICY_FILE", "LIVESTREAM_BUDGET_POLICY_SHA256", "IDENTITY_SERVICE_TOKEN", "LIVESTREAM_VAULT_TRANSIT_TOKEN"):
+            assert record[name] == ""
+        assert record["LIVEPEER_API_URL"] == "https://livepeer.studio/api"
+        assert record["CORS_ALLOWED_ORIGINS"] == "https://sidiora.fun"
+        assert web["NEXT_PUBLIC_LIVESTREAM_API_URL"] == web["NEXT_PUBLIC_GATEWAY_URL"]
+        gateway = json.loads((out / "gateway.json").read_bytes())
+        runtime = json.loads(base64.b64decode(gateway["GATEWAY_RUNTIME_DOCUMENT"]))
+        upstream = next(item for item in runtime["upstreams"] if item["name"] == "livestream")
+        assert upstream["url"] == "https://livestream.kindlelaunch.example:8443"
+        assert str(urlparse(upstream["url"]).port) != record["PORT"]
+    else:
+        assert record["LIVEPEER_PROVIDER_MODE"] == "available"
+        assert record["LIVESTREAM_CONNECTED_ENABLED"] == "true"
+        assert record["LIVEPEER_API_URL"] == "https://livepeer.studio/api"
+        assert record["LIVEPEER_API_KEY"] == "test"
+        for name in ("LIVEPEER_WEBHOOK_SECRET", "ACTION_AUDIT_KEY", "LIVEPEER_PLAYBACK_WEBHOOK_SECRET", "LIVESTREAM_BUDGET_ALERT_KEY"):
+            assert len(record[name].encode()) >= 32
+        assert len(record["LIVESTREAM_VAULT_TRANSIT_TOKEN"]) >= 16
+        for name in ("LIVESTREAM_VAULT_TRANSIT_URL", "IDENTITY_SERVICE_URL"):
+            parsed = urlparse(record[name])
+            assert parsed.scheme == "https" and parsed.netloc and not parsed.path
+            assert not parsed.username and not parsed.query and not parsed.fragment
+        for name in ("LIVEPEER_PLAYBACK_WEBHOOK_URL", "LIVESTREAM_BUDGET_ALERT_URL"):
+            assert urlparse(record[name]).scheme == "https"
+        assert urlparse(record["LIVESTREAM_INGEST_ENDPOINT"]).scheme in {"https", "rtmps"}
+        assert record["LIVEPEER_WEBHOOK_TIMESTAMP_UNIT"] in {"seconds", "milliseconds"}
+        for name in ("LIVESTREAM_PRIVATE_LISTEN_ADDRESS", "LIVESTREAM_TLS_CERT_FILE", "LIVESTREAM_TLS_CERT_PEM", "LIVESTREAM_TLS_KEY_FILE", "LIVESTREAM_TLS_KEY_PEM", "LIVESTREAM_TLS_CLIENT_CA_FILE", "LIVESTREAM_TLS_CLIENT_CA_PEM", "GATEWAY_PEER_CERT_SHA256"):
+            assert record[name] == ""
+        budget = base64.b64decode(record["LIVESTREAM_BUDGET_POLICY_DOCUMENT"], validate=True)
+        assert hashlib.sha256(budget).hexdigest() == record["LIVESTREAM_BUDGET_POLICY_SHA256"]
+        assert json.loads(budget) == selected["budget_policy"]
+        assert web["NEXT_PUBLIC_LIVESTREAM_API_URL"] == "https://live.sidiora.fun"
+
+
+@pytest.mark.parametrize("profile, member, value, message", [
+    ("platform", "NEXT_PUBLIC_LIVESTREAM_API_URL", "https://live.sidiora.fun", "NEXT_PUBLIC_LIVESTREAM_API_URL must equal NEXT_PUBLIC_GATEWAY_URL"),
+    ("container", "LIVESTREAM_CONNECTED_ENABLED", "false", "LIVEPEER_PROVIDER_MODE=available requires LIVESTREAM_CONNECTED_ENABLED=true"),
+    ("container", "LIVESTREAM_CONNECTED_ENABLED", None, "LIVEPEER_PROVIDER_MODE=available requires LIVESTREAM_CONNECTED_ENABLED=true"),
+    ("platform", "LIVESTREAM_CONNECTED_ENABLED", "true", "RUNTIME_PROFILE=platform requires LIVEPEER_PROVIDER_MODE=unavailable and LIVESTREAM_CONNECTED_ENABLED=false"),
+    ("platform", "LIVEPEER_PROVIDER_MODE", "available", "RUNTIME_PROFILE=platform requires LIVEPEER_PROVIDER_MODE=unavailable and LIVESTREAM_CONNECTED_ENABLED=false"),
+    ("platform", "LIVESTREAM_PRIVATE_LISTEN_ADDRESS", "[::]:8080", "LIVESTREAM_PRIVATE_LISTEN_ADDRESS must be distinct from PORT"),
+    ("platform", "LIVESTREAM_PRIVATE_LISTEN_ADDRESS", "livestream:8443", "LIVESTREAM_PRIVATE_LISTEN_ADDRESS must be an IP:port"),
+    ("platform", "LIVESTREAM_TLS_KEY_PEM", "", "exactly one of LIVESTREAM_TLS_KEY_FILE and LIVESTREAM_TLS_KEY_PEM"),
+    ("platform", "LIVESTREAM_TLS_CERT_FILE", "/run/launchpad/livestream/cert.pem", "exactly one of LIVESTREAM_TLS_CERT_FILE and LIVESTREAM_TLS_CERT_PEM"),
+    ("platform", "GATEWAY_PEER_CERT_SHA256", "A" * 64, "GATEWAY_PEER_CERT_SHA256 must be lowercase hex sha256"),
+    ("platform", "LIVESTREAM_VIEWER_TOKEN_KEY", "short", "LIVESTREAM_VIEWER_TOKEN_KEY must be at least 32 bytes"),
+    ("platform", "DB_MAX_CONNS", "201", "DB_MAX_CONNS must be in 1..200"),
+    ("platform", "CORS_ALLOWED_ORIGINS", "http://sidiora.fun", "invalid value origin"),
+])
+def test_livestream_forms_refuse_invalid_settings(tmp_path: Path, profile: str, member: str, value: object, message: str) -> None:
+    values = _values(tmp_path)
+    selected = _livestream_form(values, profile)
+    target = selected["web"] if member.startswith("NEXT_PUBLIC_") else selected["environment"]
+    if value is None:
+        del target[member]
+    else:
+        target[member] = value
+    (values / "livestream.json").write_text(json.dumps(selected))
+    result = _run(values, tmp_path / "out", "livestream", "gateway", "web")
+    assert result.returncode == 2
+    assert message in result.stderr
+    assert not (tmp_path / "out").exists()
+
+
+def test_platform_gateway_refuses_plain_livestream_upstream(tmp_path: Path) -> None:
+    values = _values(tmp_path)
+    _livestream_form(values, "platform")
+    path = values / "gateway.json"
+    gateway = json.loads(path.read_bytes())
+    next(item for item in gateway["runtime"]["upstreams"] if item["name"] == "livestream")["url"] = "https://livestream.kindlelaunch.example:8080"
+    path.write_text(json.dumps(gateway))
+    result = _run(values, tmp_path / "out", "gateway")
+    assert result.returncode == 2
+    assert "livestream upstream must use LIVESTREAM_PRIVATE_LISTEN_ADDRESS port" in result.stderr

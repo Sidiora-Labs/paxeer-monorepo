@@ -29,5 +29,45 @@
   "credentials": {
     "livepeer_api_key": "test",
     "is_test": true
+  },
+  "environment": {
+    "RUNTIME_PROFILE": "container",
+    "LIVEPEER_PROVIDER_MODE": "available",
+    "LIVESTREAM_CONNECTED_ENABLED": "true",
+    "LIVEPEER_WEBHOOK_SECRET": "example-livepeer-webhook-secret-32-bytes",
+    "LIVESTREAM_VIEWER_TOKEN_KEY": "example-viewer-token-key-32-bytes-long",
+    "ACTION_ENVIRONMENT": "production",
+    "ACTION_AUDIT_KEY": "example-action-audit-key-32-bytes-long",
+    "LIVESTREAM_VAULT_TRANSIT_URL": "https://vault.kindlelaunch.example",
+    "LIVESTREAM_VAULT_TRANSIT_TOKEN": "example-vault-transit-token",
+    "LIVESTREAM_VAULT_TRANSIT_KEY": "livestream",
+    "LIVESTREAM_INGEST_ENDPOINT": "rtmps://ingest.kindlelaunch.example/live",
+    "IDENTITY_SERVICE_URL": "https://identity.kindlelaunch.example",
+    "IDENTITY_ASSERTION_SIGNING_KEY": "U7nN/eOx/N9ascuESTmy88oV8iRhVLn7j7KQHVCoAI1rOa/H0Lfoz3T5AJ9rakSgExjkkNAF8R7jzUc7kmhoNw==",
+    "IDENTITY_MTLS_CA_FILE": "/run/launchpad/livestream/identity-ca.pem",
+    "IDENTITY_MTLS_CLIENT_CERT_FILE": "/run/launchpad/livestream/identity-client.pem",
+    "IDENTITY_MTLS_CLIENT_KEY_FILE": "/run/launchpad/livestream/identity-client-key.pem",
+    "IDENTITY_MTLS_PEER_CERT_SHA256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "LIVEPEER_PLAYBACK_WEBHOOK_ID": "livestream-playback",
+    "LIVEPEER_PLAYBACK_WEBHOOK_URL": "https://live.sidiora.fun/v2/provider-webhooks/livepeer",
+    "LIVEPEER_PLAYBACK_WEBHOOK_SECRET": "example-playback-webhook-secret-32-bytes",
+    "LIVESTREAM_BUDGET_ALERT_URL": "https://live.sidiora.fun/budget-alerts",
+    "LIVESTREAM_BUDGET_ALERT_KEY": "example-budget-alert-key-32-bytes-long"
+  },
+  "budget_policy": {
+    "vendorUserId": "example-livepeer-account",
+    "deliveryPricePerMinute": "0.01",
+    "transcodePricePerMinute": "0.01",
+    "storagePricePerMinute": "0.01",
+    "monthlyUnits": "100",
+    "broadcastReserveUnits": "1",
+    "currency": "USD",
+    "peakDurationSeconds": 3600,
+    "approvalReference": "example-budget",
+    "deliveryPricePerTB": "1"
+  },
+  "web": {
+    "NEXT_PUBLIC_GATEWAY_URL": "https://gateway.sidiora.fun",
+    "NEXT_PUBLIC_LIVESTREAM_API_URL": "https://live.sidiora.fun"
   }
 }

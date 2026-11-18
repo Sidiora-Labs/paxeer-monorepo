@@ -1,0 +1,45 @@
+{
+  "$comment": "Paxeer mainnet-beta livestream reads through the gateway, without a broadcast provider.",
+  "network": {
+    "name": "paxeer-mainnet-beta",
+    "evm_chain_id": 125,
+    "rpc_url": "https://api5.mainnet-beta.paxeer.network/"
+  },
+  "endpoints": {
+    "public_url": "https://live.sidiora.fun"
+  },
+  "addresses": {
+    "bind": "0.0.0.0",
+    "port": 8080
+  },
+  "names": {
+    "service": "livestream",
+    "runtime": "livestreamd",
+    "zone": "mainnet-beta-a"
+  },
+  "limits": {
+    "max_streams_per_wallet": 3,
+    "max_global_streams": 100
+  },
+  "periods": {
+    "secrets_refresh_seconds": 30,
+    "webhook_timestamp_unit": "seconds"
+  },
+  "environment": {
+    "RUNTIME_PROFILE": "platform",
+    "LIVEPEER_PROVIDER_MODE": "unavailable",
+    "LIVESTREAM_CONNECTED_ENABLED": "false",
+    "LIVESTREAM_PRIVATE_LISTEN_ADDRESS": "[::]:8443",
+    "LIVESTREAM_TLS_CERT_PEM": "-----BEGIN CERTIFICATE-----\nMIIBaTCCARugAwIBAgIUBwJgnSbF9RTZLSy7XzsVT3DCEtcwBQYDK2VwMCoxKDAm\nBgNVBAMMH2xpdmVzdHJlYW0ua2luZGxlbGF1bmNoLmV4YW1wbGUwHhcNMjYxMTE4\nMTE1MDQ1WhcNMzYxMTE1MTE1MDQ1WjAqMSgwJgYDVQQDDB9saXZlc3RyZWFtLmtp\nbmRsZWxhdW5jaC5leGFtcGxlMCowBQYDK2VwAyEAazmvx9C36M90+QCfa2pEoBMY\n5JDQBfEe481HO5JoaDejUzBRMB0GA1UdDgQWBBTIsTRpX3NG5Z95yu120U9OETFp\nrTAfBgNVHSMEGDAWgBTIsTRpX3NG5Z95yu120U9OETFprTAPBgNVHRMBAf8EBTAD\nAQH/MAUGAytlcANBAGWh1O+fx+nUDTExX4GG2tQkES0qpifksscXEhBwt5j7qwhZ\ntSnwfpqTYV9csBzfJFN5Bg5RzWKHqtVpr/44/Qo=\n-----END CERTIFICATE-----\n",
+    "LIVESTREAM_TLS_KEY_PEM": "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIFO5zf3jsfzfWrHLhEk5svPKFfIkYVS5+4+ykB1QqACN\n-----END PRIVATE KEY-----\n",
+    "LIVESTREAM_TLS_CLIENT_CA_PEM": "-----BEGIN CERTIFICATE-----\nMIIBaTCCARugAwIBAgIUBwJgnSbF9RTZLSy7XzsVT3DCEtcwBQYDK2VwMCoxKDAm\nBgNVBAMMH2xpdmVzdHJlYW0ua2luZGxlbGF1bmNoLmV4YW1wbGUwHhcNMjYxMTE4\nMTE1MDQ1WhcNMzYxMTE1MTE1MDQ1WjAqMSgwJgYDVQQDDB9saXZlc3RyZWFtLmtp\nbmRsZWxhdW5jaC5leGFtcGxlMCowBQYDK2VwAyEAazmvx9C36M90+QCfa2pEoBMY\n5JDQBfEe481HO5JoaDejUzBRMB0GA1UdDgQWBBTIsTRpX3NG5Z95yu120U9OETFp\nrTAfBgNVHSMEGDAWgBTIsTRpX3NG5Z95yu120U9OETFprTAPBgNVHRMBAf8EBTAD\nAQH/MAUGAytlcANBAGWh1O+fx+nUDTExX4GG2tQkES0qpifksscXEhBwt5j7qwhZ\ntSnwfpqTYV9csBzfJFN5Bg5RzWKHqtVpr/44/Qo=\n-----END CERTIFICATE-----\n",
+    "GATEWAY_PEER_CERT_SHA256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "LIVESTREAM_VIEWER_TOKEN_KEY": "example-viewer-token-key-32-bytes-long",
+    "CORS_ALLOWED_ORIGINS": "https://sidiora.fun",
+    "DB_MAX_CONNS": "20"
+  },
+  "web": {
+    "NEXT_PUBLIC_GATEWAY_URL": "https://gateway.sidiora.fun",
+    "NEXT_PUBLIC_LIVESTREAM_API_URL": "https://gateway.sidiora.fun"
+  }
+}
