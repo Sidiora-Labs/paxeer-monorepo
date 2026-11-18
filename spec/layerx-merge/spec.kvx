@@ -208044,7 +208044,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.907]
 title = "Let the tool that applies the variables of a deployment contract read every kind of entry the contract holds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.904"]
@@ -209086,7 +209086,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.874]
 title = "Close the metadata module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
