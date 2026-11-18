@@ -130,6 +130,23 @@ def stats_row_ready(owner, stats, forwarder, database, pool, timeout=90):
     raise owner.readiness_error(stats, 'indexed pool statistics row timed out: ' + str(log))
 
 
+def pool_inventory_ready(owner, child, origin, pool, timeout=90):
+    url = origin + '/v2/pools?sort=trending&limit=100'
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if child.poll() is not None:
+            raise owner.readiness_error(child, 'exited before the ranked pool inventory was available')
+        try:
+            with urllib.request.urlopen(url, timeout=5) as response:
+                items = json.load(response)['data']['items']
+                if any(item['poolAddress'].lower() == pool.lower() for item in items):
+                    return
+        except OSError:
+            pass
+        time.sleep(.1)
+    raise owner.readiness_error(child, 'ranked pool inventory timed out: ' + url)
+
+
 def pool_state_ready(owner, indexer, database, pool, timeout=90):
     log = owner.output / 'joined-pool-state-readiness.ndjson'
     deadline = time.monotonic() + timeout
@@ -355,6 +372,8 @@ def prepare_fixture(owner):
                                   ('ranking', 'ranking-algo', 'rankingd'),
                                   ('social', 'social', 'sociald'),
                                   ('gateway', 'gateway', 'mediagatewayd'), ('api', 'api', 'apid')]:
+        if role == 'ranking':
+            stats_row_ready(owner, stats, forwarder, database, fixture['pool'])
         binary = output / role
         build_go(owner, binary, entry, 'joined-build-' + role, services / service, common)
         env = {**common, 'PORT': str(ports[role])}
@@ -417,6 +436,7 @@ def prepare_fixture(owner):
             projection_ready(owner, child, database, fixture['pool'])
             stream_ready(owner, child, origins[role], fixture['pool'], public)
             ready(owner, child, origins[role] + '/v2/pools/' + fixture['pool'].lower())
+            pool_inventory_ready(owner, child, origins[role], fixture['pool'])
         processes.append({'role': role, 'ready_url': url, 'pid': child.pid,
                           'executable_sha256': digest(binary), 'env': env})
     browser_env = {**common, 'NODE_ENV': 'development',

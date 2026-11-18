@@ -29,6 +29,7 @@ import { contextKey, minimumOutput, type TradeContext } from './domain';
 import { TransactionStatus } from './transaction-status';
 import { useTransactionAttempt } from '@/hooks/tx/use-transaction-attempt';
 import { AmountInput } from '../trade-panel-parts';
+import { confirmHomeTransaction, homeTradeFill } from '@/widgets/trade/home-chain';
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 async function until(check: () => boolean, timeout = 30000) {
   const deadline = Date.now() + timeout;
@@ -244,6 +245,12 @@ it('funded real chain125 quote, zero-reset approvals, receipt recovery, actual s
       )
     );
     expect(provider.fills.get(submitted.txHash.toLowerCase())?.inputRaw).toBe(base.inputRaw);
+    const actualReceipt = await publicClient.getTransactionReceipt({ hash: submitted.txHash as Hash });
+    const actualFill = provider.fills.get(submitted.txHash.toLowerCase())!;
+    const confirmedFill = homeTradeFill(actualReceipt, { emitter: provider.deployment.emitter, pool: getAddress(base.pool), account, isBuy: true, amount: base.inputRaw, minimum: 1n });
+    expect(confirmedFill.amountOut).toBe(actualFill.outputRaw);
+    expect(confirmedFill.fee).toBe(actualFill.feeRaw);
+    expect(() => homeTradeFill(actualReceipt, { emitter: provider.deployment.emitter, pool: getAddress(base.pool), account, isBuy: false, amount: base.inputRaw, minimum: 1n })).toThrow('Confirmed trade amounts do not match this trade.');
     expect(tradeCompleted).toBe(1);
     const once = completed;
     journey.retry(submitted.txHash);
@@ -434,6 +441,54 @@ it('funded real chain125 quote, zero-reset approvals, receipt recovery, actual s
         restored.state.attempts.find((update) => update.attempt.txHash === original)?.state
       ).toBe('cancelled');
       expect(restored.state.replacement?.changed?.to.toLowerCase()).toBe(account.toLowerCase());
+      for (const replacementKind of ['cancelled', 'changed_action', 'repriced'] as const) {
+        const approvalDom = new JSDOM('', { url: dom.window.location.href });
+        const activeApproval = new TradeJourney(provider, account, approvalDom.window.localStorage);
+        try {
+          const target = base.inputRaw + BigInt(['cancelled', 'changed_action', 'repriced'].indexOf(replacementKind) + 1) * 100n;
+          activeApproval.setContext({ ...base, inputRaw: target });
+          const outcome = activeApproval.approve(session.capture()).then(
+            () => ({ error: null }),
+            (error: unknown) => ({ error }),
+          );
+          await until(() => activeApproval.state.attempts.some(update => update.attempt.action === 'approve'));
+          const originalApproval = activeApproval.state.attempts.find(update => update.attempt.action === 'approve')!.attempt;
+          await until(() => activeApproval.page().records.some(record => record.txHash === originalApproval.txHash && record.nonce !== undefined));
+          expect(activeApproval.state.signing).toBe(true);
+          const transaction = await publicClient.getTransaction({ hash: originalApproval.txHash as Hash });
+          const replacement = await wallet.sendTransaction({
+            account,
+            to: replacementKind === 'cancelled' ? account : transaction.to!,
+            data: replacementKind === 'cancelled' ? '0x' : replacementKind === 'changed_action'
+              ? encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [provider.deployment.router, target + 1n] })
+              : transaction.input,
+            value: 0n,
+            nonce: transaction.nonce,
+            gas: 100000n,
+            gasPrice: (await publicClient.getGasPrice()) * 4n + (transaction.gasPrice ?? transaction.maxFeePerGas ?? 0n) * 2n + 1n,
+          });
+          await test.mine({ blocks: 1 });
+          await activeApproval.inspectReplacement(originalApproval.txHash, replacement);
+          activeApproval.retry(replacement);
+          const result = await outcome;
+          expect(activeApproval.state.signing).toBe(false);
+          if (replacementKind === 'repriced') {
+            expect(result.error).toBeNull();
+            expect((await confirmHomeTransaction(publicClient, replacement, { account, target: transaction.to!, data: transaction.input })).transactionHash).toBe(replacement);
+            expect(await provider.readAllowance({ ...base, inputRaw: target })).toBe(target);
+            expect(activeApproval.state.attempts.find(update => update.attempt.txHash === replacement)?.state).toBe('confirmed_success');
+          } else {
+            await expect(confirmHomeTransaction(publicClient, replacement, { account, target: transaction.to!, data: transaction.input })).rejects.toThrow('Transaction cancelled or changed in your wallet. Review the trade again.');
+            expect(result.error).toBeInstanceOf(Error);
+            expect((result.error as Error).message).toBe('Approval cancelled or changed in your wallet; review again');
+            expect(activeApproval.state.replacement?.state).toBe(replacementKind);
+          }
+        } finally {
+          activeApproval.close();
+          approvalDom.window.close();
+        }
+      }
+
     } finally {
       await test.setAutomine(true);
     }
