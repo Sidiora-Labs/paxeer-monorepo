@@ -321,8 +321,13 @@ func TestStudioRecoveryStudioRestart(t *testing.T) {
 	}
 	idle := studioRecoveryStudioBody(t, "webhook_test_42", "streamid", "stream.idle", now, now)
 	studioRecoveryPost(t, server, "/webhooks/livepeer", idle, map[string]string{"Livepeer-Signature": studioRecoveryStudioSignature(idle, secret, now)}, 200)
-	if outcome != "applied" || reopened.operation.State != "ENDED" || reopened.operation.Revision != 3 {
+	if outcome != "applied" || reopened.operation.State != "READY" || reopened.operation.Revision != 3 {
 		t.Fatalf("idle producer not consumed: %s %+v", outcome, reopened.operation)
+	}
+	reconnect := studioRecoveryStudioBody(t, "webhook_reconnected", "streamid", "stream.started", now.Add(time.Millisecond), now.Add(time.Millisecond))
+	studioRecoveryPost(t, server, "/webhooks/livepeer", reconnect, map[string]string{"Livepeer-Signature": studioRecoveryStudioSignature(reconnect, secret, now.Add(time.Millisecond))}, 200)
+	if outcome != "applied" || reopened.operation.State != "LIVE" || reopened.operation.Revision != 4 || len(reopened.events) != 3 {
+		t.Fatalf("reconnect producer not consumed: %s %+v", outcome, reopened.operation)
 	}
 }
 
@@ -877,7 +882,7 @@ func TestStudioRecoveryRejectNonDecimalBeforeStorage(t *testing.T) {
 func TestStudioRecoveryPinnedProducerFrames(t *testing.T) {
 	for _, frame := range []struct{ kind, hash, state string }{
 		{"stream.started", "f7ea5b5a9c0ae4a74273801d407eb9f810a4b5a798c789d9b94a8e6327da6883", "LIVE"},
-		{"stream.idle", "3225d15f23fe929d833ce87f57c29d4803e3d7ff7b064d8a1110b03a26b86deb", "ENDED"},
+		{"stream.idle", "3225d15f23fe929d833ce87f57c29d4803e3d7ff7b064d8a1110b03a26b86deb", "READY"},
 	} {
 		raw, err := os.ReadFile(filepath.Join("testdata", "studio-72187", frame.kind+".json"))
 		if err != nil {

@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/url"
 	"strconv"
@@ -142,7 +143,11 @@ func New(d Deps) *Handlers {
 
 // RegisterRoutes mounts the stream endpoints onto r.
 func (h *Handlers) RegisterRoutes(r chi.Router) {
-	legacy := func(w http.ResponseWriter, r *http.Request) { h.lifecycleError(w, ErrUnavailable) }
+	legacy := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Link", "</v2"+r.URL.EscapedPath()+">; rel=\"successor-version\"")
+		h.lifecycleError(w, fmt.Errorf("%w: unversioned livestream API unavailable; use /v2/streams", ErrUnavailable))
+	}
 	r.Post("/streams", legacy)
 	r.Post("/streams/{id}/go-live", legacy)
 	r.Post("/streams/{id}/end", legacy)
@@ -197,6 +202,7 @@ var ErrInvalidRequest = errors.New("invalid livestream request")
 // lifecycleError writes every lifecycle failure as the v2 Error envelope.
 // Provisioned (connected), platform and development runtimes share this writer.
 func (h *Handlers) lifecycleError(w http.ResponseWriter, err error) {
+	h.logErr("lifecycle", err)
 	if errors.Is(err, ErrInvalidRequest) {
 		writeContractError(w, http.StatusBadRequest, "INVALID_REQUEST", "Invalid livestream request", false, nil, nil)
 		return
@@ -340,14 +346,14 @@ func (h *Handlers) public(ctx context.Context, o Operation) (V2Stream, error) {
 	}
 	allowed, err := h.restrictions.Allowed(ctx, o.Wallet, o.Pool)
 	if err != nil {
-		return V2Stream{}, ErrUnavailable
+		return V2Stream{}, fmt.Errorf("%w: moderation read: %v", ErrUnavailable, err)
 	}
 	if !allowed {
 		o.State = stateSuspended
 	}
 	private, _, err := h.lifecycle.PlaybackPrivacy(ctx, o.ID)
 	if err != nil {
-		return V2Stream{}, ErrUnavailable
+		return V2Stream{}, fmt.Errorf("%w: playback privacy: %v", ErrUnavailable, err)
 	}
 	if private {
 		o.State = stateSuspended
@@ -366,7 +372,7 @@ func (h *Handlers) public(ctx context.Context, o Operation) (V2Stream, error) {
 		var err error
 		sources, err = h.playback(ctx, o)
 		if err != nil {
-			return V2Stream{}, ErrUnavailable
+			return V2Stream{}, fmt.Errorf("%w: playback source: %v", ErrUnavailable, err)
 		}
 	}
 	var count *int64
@@ -378,6 +384,8 @@ func (h *Handlers) public(ctx context.Context, o Operation) (V2Stream, error) {
 			if estimate.Stale {
 				quality = qualityStale
 			}
+		} else {
+			h.logErr("viewer estimate", err)
 		}
 	}
 	view, err := AdaptV2Stream(o, sources.URL, count, quality)
