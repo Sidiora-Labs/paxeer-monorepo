@@ -156,8 +156,12 @@ def _compose_service(service: str, values: Path, entry: dict[str, Any]) -> tuple
             environment = module.environment(service, values)
         except ValueError as exc:
             raise ComposeError(str(exc)) from exc
-        if not isinstance(environment, dict) or any(name not in entry.get("optional", []) or not isinstance(value, str) for name, value in environment.items()):
-            raise ComposeError(f"{service}: environment must use optional contract variables")
+        names = set(entry.get("optional", {})) | set(entry.get("required", [])) | set(entry.get("fixed", {}))
+        if not isinstance(environment, dict) or any(name not in names or not isinstance(value, str) for name, value in environment.items()):
+            raise ComposeError(f"{service}: environment must use contract variables")
+        for name, value in environment.items():
+            if name in entry.get("fixed", {}) and value != entry["fixed"][name]:
+                raise ComposeError(f"{service}: {name} differs from the fixed contract value")
         values_out.update(environment)
     return values_out, digests
 
