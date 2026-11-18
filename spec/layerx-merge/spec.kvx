@@ -15814,6 +15814,12 @@ value = "One. A periodic step of the connected runtime of the launchpad gateway 
 basis = "Gotcha 4710. Decision 3780. Decision 3782."
 affects = []
 
+[decision.3784]
+title = "The counted check of the transactions part of the explorer runs with two renders at a time"
+value = "The verification command of task 22.44.86 calls the check of the part file tools/ui-check/surfaces/explorer/parts/transactions.json with the option --jobs 2, under decision 3783 part three. Every limit of a view, every time bound of a render and the whole matrix of devices, schemes and modes stay as they are. The steps of the task stay as they are."
+basis = "Gotcha 4711. Decision 3783."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -179480,7 +179486,7 @@ touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.86.kvx"]
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.86.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/transactions.json --out /tmp/ui-check/explorer-transactions && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.86.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/transactions.json --out /tmp/ui-check/explorer-transactions && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
