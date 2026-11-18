@@ -176535,7 +176535,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.844]
 title = "Name no type family in the tracked presets of the explorer and add the view settings of the addresses, the wallets and the transaction fees"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.837"]
@@ -176598,7 +176598,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.842]
 title = "Hold the labels and the values of a row of tiles and the head of the age column of the explorer on one line each"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176630,7 +176630,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.841]
 title = "Print the prices of the ticker of the home view with the fraction digits of the top bar"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
