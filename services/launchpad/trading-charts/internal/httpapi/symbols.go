@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -108,14 +110,17 @@ func boundedChartJSON(ctx context.Context, client *http.Client, endpoint string,
 		return ErrUnknownPool
 	}
 	if response.StatusCode != http.StatusOK {
-		return errors.New("chart upstream unavailable")
+		return fmt.Errorf("chart upstream unavailable: HTTP %d", response.StatusCode)
 	}
 	raw, err := io.ReadAll(io.LimitReader(response.Body, 16*1024*1024+1))
-	if err != nil || len(raw) > 16*1024*1024 {
+	if err != nil {
+		return fmt.Errorf("chart upstream read failed: %w", err)
+	}
+	if len(raw) > 16*1024*1024 {
 		return errors.New("chart upstream response too large")
 	}
-	if interfaces.ValidateJSON(schema, raw) != nil {
-		return errors.New("invalid frozen chart upstream response")
+	if err := interfaces.ValidateJSON(schema, raw); err != nil {
+		return fmt.Errorf("invalid frozen chart upstream response: %w", err)
 	}
 	return json.Unmarshal(raw, dst)
 }
@@ -170,6 +175,7 @@ func (h SymbolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil || ctx.Err() != nil {
+		slog.ErrorContext(ctx, "chart metadata resolution failed", "err", errors.Join(err, ctx.Err()))
 		historyError(w, 503, "DEPENDENCY_UNAVAILABLE", "verified metadata unavailable", true)
 		return
 	}
@@ -265,7 +271,10 @@ func (s CanonicalPoolMetadataSource) Resolve(ctx context.Context, pool string) (
 	blockHash := strings.ToLower(fact.Position.BlockHash)
 	address := common.HexToAddress(fact.Token)
 	values, err := s.Chain.CallAt(ctx, int64(height), blockHash, []ethereum.CallMsg{{To: &address, Data: []byte{0x06, 0xfd, 0xde, 0x03}}, {To: &address, Data: []byte{0x95, 0xd8, 0x9b, 0x41}}, {To: &address, Data: []byte{0x31, 0x3c, 0xe5, 0x67}}, {To: &address, Data: []byte{0x18, 0x16, 0x0d, 0xdd}}})
-	if err != nil || len(values) != 4 || len(values[2]) != 32 || len(values[3]) != 32 {
+	if err != nil {
+		return token, fmt.Errorf("pinned token metadata unavailable: %w", err)
+	}
+	if len(values) != 4 || len(values[2]) != 32 || len(values[3]) != 32 {
 		return token, errors.New("pinned token metadata unavailable")
 	}
 	name, err := decodeMetadataString(values[0], 160)

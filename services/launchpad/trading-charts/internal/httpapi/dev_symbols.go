@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -98,7 +99,10 @@ func (s *DevelopmentPoolMetadataSource) creationPosition(ctx context.Context, po
 		return p, nil
 	}
 	var receipt *developmentReceipt
-	if err := s.Chain.CallContext(ctx, &receipt, "eth_getTransactionReceipt", txHash); err != nil || receipt == nil {
+	if err := s.Chain.CallContext(ctx, &receipt, "eth_getTransactionReceipt", txHash); err != nil {
+		return interfaces.ChainPosition{}, fmt.Errorf("creation receipt unavailable: %w", err)
+	}
+	if receipt == nil {
 		return interfaces.ChainPosition{}, errors.New("creation receipt unavailable")
 	}
 	number, errNumber := hexutil.DecodeUint64(receipt.BlockNumber)
@@ -152,7 +156,10 @@ func (s *DevelopmentPoolMetadataSource) Resolve(ctx context.Context, pool string
 		Number string `json:"number"`
 		Hash   string `json:"hash"`
 	}
-	if err = s.Chain.CallContext(ctx, &head, "eth_getBlockByNumber", "latest", false); err != nil || head == nil || !validHash(head.Hash) {
+	if err = s.Chain.CallContext(ctx, &head, "eth_getBlockByNumber", "latest", false); err != nil {
+		return token, fmt.Errorf("chain head unavailable: %w", err)
+	}
+	if head == nil || !validHash(head.Hash) {
 		return token, errors.New("chain head unavailable")
 	}
 	if _, err = hexutil.DecodeUint64(head.Number); err != nil {
@@ -164,11 +171,11 @@ func (s *DevelopmentPoolMetadataSource) Resolve(ctx context.Context, pool string
 		batch[i] = rpc.BatchElem{Method: "eth_call", Args: []any{map[string]any{"to": common.HexToAddress(tokenAddress), "data": selector}, head.Number}, Result: &results[i]}
 	}
 	if err = s.Chain.BatchCallContext(ctx, batch); err != nil {
-		return token, errors.New("token metadata unavailable")
+		return token, fmt.Errorf("token metadata unavailable: %w", err)
 	}
 	for _, b := range batch {
 		if b.Error != nil {
-			return token, errors.New("token metadata unavailable")
+			return token, fmt.Errorf("token metadata unavailable: %w", b.Error)
 		}
 	}
 	if len(results[2]) != 32 || len(results[3]) != 32 {
