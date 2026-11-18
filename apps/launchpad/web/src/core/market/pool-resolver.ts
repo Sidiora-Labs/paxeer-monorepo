@@ -1,6 +1,7 @@
 import { HttpError, type Operations, type V2ContractTypes } from '@kindle/sdk';
 import { marketAddress } from '@/page-modules/token/market-session';
 import { toUnsupported, type Unsupported } from './unsupported';
+import { userFacingMessage } from '@/core/user-facing-error';
 import type { PoolStats } from './use-stats-batch';
 
 export type { PoolStats };
@@ -14,6 +15,7 @@ export interface PoolSnapshot {
   pool: PoolIdentity;
   token: Token | null;
   metadata: MetadataGetData | null;
+  metadataError?: string;
   stats: PoolStats | null;
   /** Pool creator and creation time from the IF_POOL_DETAIL registry row; null when the detail is not served. */
   creator: string | null;
@@ -113,7 +115,8 @@ async function optionalMetadata(token: string, deps: ResolverDeps, signal?: Abor
     response = await deps.operations.call('IF_METADATA_GET', { path: { tokenAddress: token } }, { signal });
   } catch (error) {
     if (signal?.aborted) throw error;
-    return { value: null, unavailable: toUnsupported('IF_METADATA_GET', error) };
+    const unavailable = toUnsupported('IF_METADATA_GET', error);
+    return { value: null, unavailable, error: unavailable ? undefined : userFacingMessage(error) };
   }
   if (response.quality === 'quarantined' || response.watermark?.integrity === 'quarantined' || marketAddress(response.data.token.address) !== token) throw new Error('Metadata identity disagreement or integrity quarantine');
   return { value: response, unavailable: null };
@@ -144,6 +147,7 @@ export async function resolvePoolSnapshot(input: string, deps: ResolverDeps, sig
     pool: resolved.identity,
     token: metadata.value?.data.token ?? detail?.data.token ?? null,
     metadata: metadata.value?.data ?? null,
+    ...(metadata.error ? { metadataError: metadata.error } : {}),
     stats: (stats.value?.data.stats as PoolStats | undefined) ?? null,
     creator: registry ? marketAddress(registry.creator) : null,
     createdAt: registry?.createdAt ?? null,
