@@ -245,6 +245,7 @@ services:
       args: { SERVICE: livestream, BIN: livestreamd }
     env_file: ["${LIVESTREAM_ENV_FILE:?reviewed service environment required}"]
     environment:
+      LIVESTREAM_PRIVATE_LISTEN_ADDRESS: ""
       NODE_ENV: production
       RUNTIME_PROFILE: container
       BIND_ADDRESS: 0.0.0.0

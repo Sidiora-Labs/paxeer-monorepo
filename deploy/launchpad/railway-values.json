@@ -3,7 +3,10 @@
   "RPC_URL": "https://api5.mainnet-beta.paxeer.network",
   "NETWORK_RPC_URL": "https://api5.mainnet-beta.paxeer.network",
   "livestream": {
-    "LIVEPEER_API_URL": "https://livepeer.studio/api"
+    "LIVEPEER_API_URL": "https://livepeer.studio/api",
+    "RUNTIME_PROFILE": "container",
+    "LIVEPEER_PROVIDER_MODE": "available",
+    "LIVESTREAM_CONNECTED_ENABLED": "true"
   },
   "web": {
     "NEXT_PUBLIC_ACTION_ENVIRONMENT": "production",
