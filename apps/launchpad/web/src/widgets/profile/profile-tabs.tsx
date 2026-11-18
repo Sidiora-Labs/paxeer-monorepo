@@ -68,6 +68,7 @@ export default function ProfileTabs({ isOwner, panels, idPrefix = 'profile-tabs'
 
   return (
     <section className={className}>
+      <h2 className="sr-only">{profileTabLabel[active]}</h2>
       <div className="px-2 md:px-3">
         <TabStrip
           label="Profile sections"

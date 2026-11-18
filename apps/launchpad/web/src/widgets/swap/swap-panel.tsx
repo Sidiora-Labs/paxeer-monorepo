@@ -752,7 +752,7 @@ export default function SwapPanel() {
       <div className="rounded-2xl bg-surface-1 overflow-hidden">
         {/* Header */}
         <div className="px-5 pt-5 pb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="shrink-0 text-md font-bold text-text">Swap</h2>
+          <h1 className="shrink-0 text-md font-bold text-text">Swap</h1>
           <div className="flex max-w-full flex-wrap items-center gap-2">
             <SlippageSelector bps={slippageBps} onChange={setSlippageBps} />
           <div className="flex items-center gap-1.5 text-2xs text-text-faint">
