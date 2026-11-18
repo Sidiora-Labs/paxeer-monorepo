@@ -7,14 +7,17 @@ import {
   ErrorNotice,
   ListPage,
   ResourceStatus,
+  PageControls,
+  usePagination,
   useResource,
   useRetainedInput,
   useSurface,
   type Runtime,
 } from '../navigation.tsx';
-const NativeVideo = requireNativeComponent<ViewProps & { source: string }>(
-  'SidioraVideoView',
-);
+import { pageResourceKey } from '../runtime/flow-state.ts';
+const NativeVideo = requireNativeComponent<
+  ViewProps & { source: string }
+>('SidioraVideoView');
 function managedURL(runtime: Runtime, value: string) {
   const url = new URL(value);
   if (
@@ -28,18 +31,27 @@ function managedURL(runtime: Runtime, value: string) {
 }
 export function Live({ runtime }: { runtime: Runtime }) {
   const { ui } = useSurface();
-  const state = useResource(runtime, 'live', (s) =>
-      runtime.services.streams(s),
+  const page = usePagination('live');
+  const state = useResource(
+      runtime,
+      pageResourceKey('live', page.cursor),
+      (s) => runtime.services.streams(s, page.cursor),
     ),
-    [playback, setPlayback] = useRetainedInput(runtime, 'live', 'playback'),
+    [playback, setPlayback] = useRetainedInput(
+      runtime,
+      'live',
+      'playback',
+    ),
     [error, setError] = useState<string>();
   const items =
-    state.data?.data.items.map(({ streamId, title, status, playbackUrl }) => ({
-      streamId,
-      title,
-      status,
-      playbackUrl,
-    })) ?? [];
+    state.data?.data.items.map(
+      ({ streamId, title, status, playbackUrl }) => ({
+        streamId,
+        title,
+        status,
+        playbackUrl,
+      }),
+    ) ?? [];
   return (
     <ListPage
       runtime={runtime}
@@ -50,6 +62,12 @@ export function Live({ runtime }: { runtime: Runtime }) {
       header={
         <>
           <ResourceStatus {...state} />
+          <PageControls
+            page={page}
+            nextCursor={state.data?.nextCursor}
+            loading={state.loading}
+            offline={state.offline}
+          />
           {error && <ErrorNotice message={error} />}
           {playback && (
             <Card>
@@ -58,7 +76,10 @@ export function Live({ runtime }: { runtime: Runtime }) {
                 style={ui.video}
                 accessibilityLabel="Managed livestream player"
               />
-              <Button label="Close playback" onPress={() => setPlayback('')} />
+              <Button
+                label="Close playback"
+                onPress={() => setPlayback('')}
+              />
             </Card>
           )}
         </>

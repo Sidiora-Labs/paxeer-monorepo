@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -1287,10 +1288,19 @@ func (r *envelopeRunner) playback(ctx context.Context) error {
 	if e = process.Start(); e != nil {
 		return errors.New("cdn_playback_player_unavailable")
 	}
-	scanner := bufio.NewScanner(io.LimitReader(stdout, 1<<20))
+	frames, mediaMicros, ended, parseErr := parseEnvelopePlaybackProgress(stdout, int64(r.config.PlaybackSeconds)*1000000)
+	e = process.Wait()
+	r.event(map[string]any{eventTypeField: "cdn_decoded_playback", "targetId": target.ID, "binarySha256": r.config.PlaybackBinary.SHA256, "startedAt": started, "endedAt": time.Now().UTC(), "frames": frames, "mediaMicros": mediaMicros, "cleanEnd": ended && e == nil})
+	if e != nil || parseErr != nil || !ended || frames < 1 || mediaMicros < int64(r.config.PlaybackSeconds)*1000000 {
+		return errors.New("cdn_decoded_playback_incomplete")
+	}
+	return nil
+}
+
+func parseEnvelopePlaybackProgress(reader io.Reader, boundMicros int64) (frames, mediaMicros int64, ended bool, err error) {
+	scanner := bufio.NewScanner(io.LimitReader(reader, 1<<20))
 	scanner.Buffer(make([]byte, 4096), 1<<20)
-	var frames, mediaMicros int64
-	ended := false
+	var frameRate float64
 	for scanner.Scan() {
 		parts := strings.SplitN(scanner.Text(), "=", 2)
 		if len(parts) != 2 {
@@ -1307,18 +1317,31 @@ func (r *envelopeRunner) playback(ctx context.Context) error {
 			if e == nil && value > mediaMicros {
 				mediaMicros = value
 			}
+		case "fps":
+			value, e := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+			if e == nil && value > 0 && !math.IsInf(value, 0) {
+				frameRate = value
+			}
 		case "progress":
 			ended = parts[1] == "end"
 		}
 	}
-	e = process.Wait()
-	r.event(map[string]any{eventTypeField: "cdn_decoded_playback", "targetId": target.ID, "binarySha256": r.config.PlaybackBinary.SHA256, "startedAt": started, "endedAt": time.Now().UTC(), "frames": frames, "mediaMicros": mediaMicros, "cleanEnd": ended && e == nil})
-	if e != nil || scanner.Err() != nil || !ended || frames < 1 || mediaMicros < int64(r.config.PlaybackSeconds)*1000000 {
-		return errors.New("cdn_decoded_playback_incomplete")
+	if err = scanner.Err(); err != nil {
+		return
 	}
-	return nil
+	if ended && frames > 0 && mediaMicros < boundMicros {
+		var frameMicros float64
+		if frameRate > 0 {
+			frameMicros = 1000000 / frameRate
+		} else if frames > 1 {
+			frameMicros = float64(mediaMicros) / float64(frames-1)
+		}
+		if float64(boundMicros-mediaMicros) <= math.Ceil(frameMicros) {
+			mediaMicros = boundMicros
+		}
+	}
+	return
 }
-
 func licensedEnvelopePrefix(c EnvelopeConfig, path string) ([]byte, int64, error) {
 	for _, fixture := range c.Release.Fixtures {
 		if fixture.Path != path {
