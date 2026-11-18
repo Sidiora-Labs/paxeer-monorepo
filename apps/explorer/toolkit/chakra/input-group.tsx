@@ -71,7 +71,7 @@ export const InputGroup = React.forwardRef<HTMLDivElement, InputGroupProps>(
       };
     }, [ calculateInlinePaddings ]);
 
-    React.useEffect(() => {
+    React.useLayoutEffect(() => {
       calculateInlinePaddings();
 
       const resizeHandler = debounce(calculateInlinePaddings, 300);

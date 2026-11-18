@@ -31,7 +31,6 @@ const HeaderDesktop = ({ renderSearchBar }: Props) => {
         minH="var(--chakra-spacing-14)"
         py={ 1 }
         flexWrap="wrap"
-        css={{ '@media (min-width: 1280px)': { flexWrap: 'nowrap' } }}
         maxW={ config.UI.maxContentWidth ? 'calc(var(--chakra-spacing-80) * 4)' : 'none' }
         mx="auto"
         px={ 4 }

@@ -4,7 +4,6 @@ import React from 'react';
 import type { TokenInfo, TokenInstance } from 'types/api/token';
 
 import config from 'configs/app';
-import useIsMounted from 'lib/hooks/useIsMounted';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import AppActionButton from 'ui/shared/AppActionButton/AppActionButton';
 import useAppActionData from 'ui/shared/AppActionButton/useAppActionData';
@@ -64,7 +63,6 @@ interface Props {
 
 const TokenInstanceDetails = ({ data, token, scrollRef, isLoading }: Props) => {
   const appActionData = useAppActionData(token?.address_hash, !isLoading);
-  const isMounted = useIsMounted();
 
   const handleCounterItemClick = React.useCallback(() => {
     window.setTimeout(() => {
@@ -73,7 +71,7 @@ const TokenInstanceDetails = ({ data, token, scrollRef, isLoading }: Props) => {
     }, 500);
   }, [ scrollRef ]);
 
-  if (!data || !token || !isMounted) {
+  if (!data || !token) {
     return null;
   }
 

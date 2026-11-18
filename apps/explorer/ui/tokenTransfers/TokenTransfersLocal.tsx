@@ -2,11 +2,13 @@ import React from 'react';
 
 import type { TokenType } from 'types/api/token';
 
+import { ContentLoader } from 'toolkit/components/loaders/ContentLoader';
 import ActionBar, { ACTION_BAR_HEIGHT_DESKTOP } from 'ui/shared/ActionBar';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import PopoverFilter from 'ui/shared/filters/PopoverFilter';
 import TokenTypeFilter from 'ui/shared/filters/TokenTypeFilter';
 import Pagination from 'ui/shared/pagination/Pagination';
+import useInitialLoadingReady from 'ui/shared/useInitialLoadingReady';
 import ActivityViews from 'ui/txs/ActivityViews';
 
 import TokenTransfersListItem from './TokenTransfersListItem';
@@ -15,6 +17,7 @@ import useTokenTransfersQuery from './useTokenTransfersQuery';
 
 const TokenTransfersLocal = () => {
   const { query, typeFilter, onTokenTypesChange } = useTokenTransfersQuery({ enabled: true });
+  const isInitialContentReady = useInitialLoadingReady(query.isPlaceholderData);
 
   const content = (
     <ActivityViews
@@ -51,6 +54,10 @@ const TokenTransfersLocal = () => {
       <Pagination { ...query.pagination }/>
     </ActionBar>
   );
+
+  if (!isInitialContentReady) {
+    return <ContentLoader/>;
+  }
 
   return (
     <DataListDisplay

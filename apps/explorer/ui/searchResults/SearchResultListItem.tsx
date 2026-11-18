@@ -59,6 +59,22 @@ const SearchResultListItem = ({ data, searchTerm, isLoading, addressFormat }: Pr
 
   const { colorMode } = useColorMode();
 
+  if (isLoading) {
+    return (
+      <ListItemMobile py={ 3 } textStyle="sm" rowGap={ 2 } aria-busy="true">
+        <Flex w="100%" alignItems="center" minH="1lh" css={{ '@media (max-width: 834px)': { minH: 'touchTarget' } }}>
+          <Skeleton loading boxSize="20px" mr={ 2 } flexShrink={ 0 }/>
+          <Skeleton loading h="1lh" flex={ 1 } minW={ 0 }/>
+          <Skeleton loading h="1lh" w={ 10 } ml={ 8 } flexShrink={ 0 }/>
+        </Flex>
+        <Flex w="100%" gap={ 2 } alignItems="center">
+          <Skeleton loading h="1lh" flex={ 1 } minW={ 0 }/>
+          <Skeleton loading h="1lh" w={ 12 }/>
+        </Flex>
+      </ListItemMobile>
+    );
+  }
+
   const firstRow = (() => {
     switch (data.type) {
       case 'token': {

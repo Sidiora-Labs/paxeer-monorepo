@@ -24,7 +24,7 @@ export function ResponsiveTableRegion({ children, label, minWidth }: Props) {
       overflow="auto"
       containerType="inline-size"
       css={{ '& thead': { position: 'sticky', top: 0, zIndex: 'sticky' } }}
-      _focusVisible={{ outline: 'var(--chakra-border-widths-2) solid', outlineColor: 'focusRing', outlineOffset: 'var(--chakra-border-widths-2)' }}
+      _focusVisible={{ outline: 'var(--chakra-border-widths-2) solid', outlineColor: 'focusRing', outlineOffset: 'calc(-1 * var(--chakra-border-widths-2))' }}
     >
       <Box minW={ minWidth }>{ children }</Box>
     </Box>

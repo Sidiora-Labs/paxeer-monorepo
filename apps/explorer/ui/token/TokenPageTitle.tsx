@@ -134,7 +134,7 @@ const TokenPageTitle = ({ tokenQuery, addressQuery, verifiedInfoQuery, hash }: P
           />
         ) }
         { implementation && (
-          <Tag variant="outlined" label="Implementation" loading={ addressQuery.isPlaceholderData } data-token-implementation>
+          <Tag variant="outlined" borderRadius="base" label="Implementation" loading={ addressQuery.isPlaceholderData } data-token-implementation>
             <AddressEntity
               address={{ hash: implementation.address_hash, name: implementation.name ?? null }}
               isLoading={ addressQuery.isPlaceholderData }
