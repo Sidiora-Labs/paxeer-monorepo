@@ -60,7 +60,9 @@ const PaxeerXFeedMarketsTable = ({ items, top = 0, isLoading }: Props) => {
                       { market.symbol }
                     </Link>
                   </Skeleton>
-                  <Skeleton loading={ isLoading } color="text.secondary" textStyle="text.xs">{ market.chainflow_symbol }</Skeleton>
+                  { !isLoading && market.symbol.toLowerCase() !== market.chainflow_symbol.toLowerCase() && (
+                    <Skeleton loading={ false } color="text.secondary" textStyle="text.xs">{ market.chainflow_symbol }</Skeleton>
+                  ) }
                 </TableCell>
                 <TableCell verticalAlign="middle" isNumeric>
                   { latest ? <PriceValue value={ latest.index_price } isLoading={ isLoading }/> : dash }
