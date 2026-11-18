@@ -206143,7 +206143,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.826]
 title = "Let the share comparison of the ceremony test nodes read the share of a record as the attestor reads it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
