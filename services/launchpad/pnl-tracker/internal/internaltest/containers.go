@@ -76,6 +76,8 @@ CREATE TABLE IF NOT EXISTS metadata.token_metadata (
 	pool_address  varchar(42),
 	name          text,
 	symbol        text,
+	description   text,
+	created_by    varchar(42),
 	created_at    bigint
 );`
 
@@ -176,7 +178,7 @@ func migratedPool(t *testing.T, ctx context.Context, dsn string) *pgxpool.Pool {
 // resolution + reconciler source). Call from tests that fold swaps.
 func EnsureIndexerSchema(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	if _, err := pool.Exec(context.Background(), indexerSchemaDDL); err != nil {
+	if _, err := pool.Exec(context.Background(), indexerSchemaDDL+RegisteredObjectSQL(t, 60003, "VIEW", "indexer.swap_progress_v1")); err != nil {
 		t.Fatalf("create indexer schema: %v", err)
 	}
 }
@@ -185,7 +187,7 @@ func EnsureIndexerSchema(t *testing.T, pool *pgxpool.Pool) {
 // context (cards / portfolio).
 func EnsureStatsSchema(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	if _, err := pool.Exec(context.Background(), statsSchemaDDL); err != nil {
+	if _, err := pool.Exec(context.Background(), statsSchemaDDL+RegisteredObjectSQL(t, 150009, "VIEW", "stats.pool_market_context_v1")); err != nil {
 		t.Fatalf("create stats schema: %v", err)
 	}
 }
@@ -194,7 +196,7 @@ func EnsureStatsSchema(t *testing.T, pool *pgxpool.Pool) {
 // token name/symbol.
 func EnsureMetadataSchema(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
-	if _, err := pool.Exec(context.Background(), metadataSchemaDDL); err != nil {
+	if _, err := pool.Exec(context.Background(), metadataSchemaDDL+RegisteredObjectSQL(t, 390002, "VIEW", "metadata.token_search_v1")); err != nil {
 		t.Fatalf("create metadata schema: %v", err)
 	}
 }

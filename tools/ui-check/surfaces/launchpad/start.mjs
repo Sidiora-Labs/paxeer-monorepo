@@ -109,6 +109,7 @@ const chartAssets = await realpath('apps/launchpad/web/public/charting_library')
 const nextAssets = await realpath('apps/launchpad/web/.next/static');
 const fontAssets = await realpath('apps/launchpad/web/public/fonts');
 const compressedAssets = new Map();
+let pagesReady = false;
 const assetTypes = { '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff': 'font/woff', '.woff2': 'font/woff2', '.otf': 'font/otf', '.ttf': 'font/ttf', '.png': 'image/png', '.html': 'text/html' };
 
 function cacheAsset(file) {
@@ -141,8 +142,13 @@ for (const root of [nextAssets, chartAssets, fontAssets]) {
   await Promise.all(entries.filter(entry => entry.isFile()).map(entry => cacheAsset(resolve(entry.parentPath, entry.name))));
 }
 
-const server = createServer({ cert: await readFile(certificate), key: await readFile(privateKey) }, async (incoming, outgoing) => {
+const server = createServer({ cert: await readFile(certificate), key: await readFile(privateKey), keepAliveTimeout: 60_000, headersTimeout: 65_000 }, async (incoming, outgoing) => {
   const url = new URL(incoming.url, origin);
+  if (url.pathname === '/' && incoming.method === 'GET' && !pagesReady) {
+    outgoing.writeHead(503, { 'retry-after': '1' });
+    outgoing.end();
+    return;
+  }
   const assets = [
     ['/_next/static/', nextAssets],
     ['/charting_library/', chartAssets],
@@ -195,13 +201,20 @@ const server = createServer({ cert: await readFile(certificate), key: await read
     const state = scenario(incoming);
     const pagePath = new URL(incoming.headers.referer ?? '/', origin).pathname;
     const homeLoading = state === 'loading' && pagePath === '/';
+    const coinLoading = state === 'loading' && /^\/coin\/0x[0-9a-f]{40}$/.test(pagePath);
     const rewardsLoading = state === 'loading' && ['/holder-rewards', '/leaderboard'].includes(pagePath);
     const liveLoading = state === 'loading' && (['/live', '/live/all'].includes(pagePath) || /^\/profile\/0x[0-9a-f]{40}$/i.test(pagePath));
+    const bountyLoading = state === 'loading' && pagePath === '/bounties';
+    const bountyProbe = url.pathname === '/v2/bounties' && url.searchParams.get('limit') === '1';
     if (homeLoading && url.pathname === '/v2/discovery/feed') {
       await new Promise(resolve => setTimeout(resolve, 7500));
+    } else if (coinLoading && /^\/v2\/pools\/0x[0-9a-f]{40}$/.test(url.pathname)) {
+      await new Promise(resolve => setTimeout(resolve, 750));
     } else if ((rewardsLoading || liveLoading) && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
       await new Promise(resolve => setTimeout(resolve, 350));
-    } else if (state === 'loading' && !homeLoading && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
+    } else if (bountyLoading && bountyProbe) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } else if (state === 'loading' && !homeLoading && !coinLoading && !bountyLoading && !url.pathname.startsWith('/v2/network/') && url.pathname !== '/v2/snapshots') {
       await new Promise(resolve => outgoing.once('close', resolve));
       return;
     }
@@ -246,6 +259,7 @@ const server = createServer({ cert: await readFile(certificate), key: await read
     hostname: '127.0.0.1', port: 4174, method: incoming.method, path: incoming.url,
     headers: {
       ...incoming.headers,
+      connection: 'close',
       host: new URL(origin).host,
       'x-forwarded-host': new URL(origin).host,
       'x-forwarded-port': new URL(origin).port,
@@ -277,6 +291,7 @@ const server = createServer({ cert: await readFile(certificate), key: await read
   });
   incoming.pipe(upstream);
 });
+server.keepAliveTimeout = 30_000;
 const sockets = new WebSocketServer({ noServer: true, handleProtocols: protocols => protocols.has('sidiora.v2') ? 'sidiora.v2' : false });
 const control = JSON.parse(answers.get('stream-control'));
 server.on('upgrade', (incoming, socket, head) => {
@@ -304,7 +319,14 @@ async function warmPage(path) {
           'x-forwarded-proto': 'https',
         } }, response => {
           response.resume();
-          response.on('end', () => response.statusCode === 200 ? resolve() : reject(new Error(`Page returned ${response.statusCode}`)));
+          response.on('end', () => {
+            if (response.statusCode === 200) resolve();
+            else if ([307, 308].includes(response.statusCode) && response.headers.location) {
+              const destination = new URL(response.headers.location.replace('https://localhost:4174', origin), origin);
+              if (destination.origin === origin) warmPage(destination.pathname + destination.search).then(resolve, reject);
+              else reject(new Error('Page redirected outside the surface'));
+            } else reject(new Error(`Page returned ${response.statusCode}`));
+          });
           response.on('error', reject);
         });
         warming.setTimeout(15000, () => warming.destroy(new Error('Page did not answer')));
@@ -321,6 +343,7 @@ async function warmPage(path) {
 
 server.keepAliveTimeoutBuffer = 5000;
 
+server.listen(4173, '203.0.113.1');
 await warmPage('/holder-rewards');
 await warmPage('/leaderboard');
 await warmPage('/meta-ag/orders');
@@ -337,7 +360,7 @@ const warmDirectory = new URL('./warm/', import.meta.url);
 for (const file of (await readdir(warmDirectory)).sort()) {
   for (const path of JSON.parse(await readFile(new URL(file, warmDirectory), 'utf8'))) await warmPage(path);
 }
-server.listen(4173, '203.0.113.1');
+pagesReady = true;
 function close() {
   for (const socket of sockets.clients) socket.terminate();
   sockets.close(); server.close(); app.kill('SIGTERM');

@@ -83,6 +83,8 @@ func (s *FrozenInputs) freeze(ctx context.Context, runID string, cutoffs []time.
 	return in, nil
 }
 
+const RankingVisibilityClockAllowance = 5 * time.Second
+
 type RankingVisibility struct {
 	Revision   string          `json:"revision"`
 	ObservedAt time.Time       `json:"observedAt"`
@@ -277,6 +279,7 @@ var _ FrozenProjectionReader = (*CanonicalInputReader)(nil)
 type HTTPRankingVisibility struct {
 	endpoint string
 	client   *http.Client
+	now      func() time.Time
 }
 
 func NewHTTPRankingVisibility(endpoint string, client *http.Client) (*HTTPRankingVisibility, error) {
@@ -284,7 +287,7 @@ func NewHTTPRankingVisibility(endpoint string, client *http.Client) (*HTTPRankin
 	if err != nil || client == nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.Fragment != "" {
 		return nil, ranker.ErrUnavailable
 	}
-	return &HTTPRankingVisibility{endpoint: endpoint, client: client}, nil
+	return &HTTPRankingVisibility{endpoint: endpoint, client: client, now: time.Now}, nil
 }
 
 func (c *HTTPRankingVisibility) ReadRankingVisibility(ctx context.Context) (RankingVisibility, error) {
@@ -312,6 +315,10 @@ func (c *HTTPRankingVisibility) ReadRankingVisibility(ctx context.Context) (Rank
 		return out, ranker.ErrUnavailable
 	}
 	if json.Unmarshal(raw, &out) != nil || !out.Complete || len(out.Revision) != 64 || out.Pools == nil || len(out.Pools) > 1000000 || out.ObservedAt.IsZero() {
+		return out, ranker.ErrUnavailable
+	}
+	now := c.now()
+	if out.ObservedAt.After(now.Add(RankingVisibilityClockAllowance)) || now.Sub(out.ObservedAt) > 60*time.Second {
 		return out, ranker.ErrUnavailable
 	}
 	return out, nil

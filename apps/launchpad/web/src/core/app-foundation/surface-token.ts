@@ -4,7 +4,7 @@ export function surfaceToken(
   element: Element = document.documentElement
 ): number {
   const value = getComputedStyle(element).getPropertyValue(name).trim();
-  if (CSS.supports('width', value) && /^(calc|min|max|clamp)\(/.test(value)) {
+  if (/^(calc|min|max|clamp)\(/.test(value) && CSS.supports('width', value)) {
     const measure = document.createElement('span');
     measure.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding:0;border:0';
     measure.style.fontSize = getComputedStyle(element).fontSize;

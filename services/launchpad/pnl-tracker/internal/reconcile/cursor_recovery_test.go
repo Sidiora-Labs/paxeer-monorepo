@@ -106,6 +106,8 @@ func cursorRecoveryOIDs(q string) []uint32 {
 		return []uint32{25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 20, 20, 23, 25, 25, 25, 25}
 	case strings.Contains(q, "FROM pnl.user_positions"):
 		return []uint32{25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 20, 20, 23}
+	case strings.HasPrefix(q, "SELECT id, token_address, is_buy, usdl_amount, token_amount, block_number, block_timestamp FROM pnl.user_trades"):
+		return []uint32{25, 25, 16, 25, 25, 20, 20}
 	case strings.Contains(q, "FROM pnl.user_trades"):
 		return []uint32{25, 25, 25, 25, 16, 25, 25, 25, 25, 20, 20, 25}
 	default:
@@ -323,7 +325,12 @@ func (db *cursorRecoveryDB) query(q string, a [][]byte, tx *cursorRecoveryState)
 	case strings.Contains(q, "FROM pnl.user_trades"):
 		var rows [][][]byte
 		for _, trade := range s.Trades {
-			if string(trade[1]) == val(0) {
+			if string(trade[1]) != val(0) || strings.Contains(q, "pool_address = $2") && string(trade[2]) != val(1) {
+				continue
+			}
+			if strings.HasPrefix(q, "SELECT id, token_address, is_buy, usdl_amount, token_amount, block_number, block_timestamp FROM pnl.user_trades") {
+				rows = append(rows, [][]byte{trade[0], trade[3], trade[4], trade[5], trade[6], trade[9], trade[10]})
+			} else {
 				rows = append(rows, trade)
 			}
 		}

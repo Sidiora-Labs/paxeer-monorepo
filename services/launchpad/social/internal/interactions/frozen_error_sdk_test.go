@@ -34,7 +34,7 @@ func frozenErrorSDK(t *testing.T) string {
 	sdk := filepath.Join(scratch, "sdk")
 	for _, relative := range []string{
 		"sdk/package.json", "sdk/src/transport.ts", "sdk/src/validate.ts",
-		"sdk/src/schemas.gen.json", "sdk/src/operations.gen.ts",
+		"sdk/src/schemas.gen.json", "sdk/src/schemas-v2.gen.json", "sdk/src/operations.gen.ts",
 		"sdk/scripts/compile-validators.mjs", "sdk-v2/src/schemas.gen.json",
 	} {
 		raw, err := os.ReadFile(filepath.Join(root, relative))

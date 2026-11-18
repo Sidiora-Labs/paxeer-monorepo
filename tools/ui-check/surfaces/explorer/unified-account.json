@@ -1,0 +1,68 @@
+{
+  "next_page_params": null,
+  "page_cursor": "fixture-page",
+  "first_page_cursor": "fixture-page",
+  "page_number": 1,
+  "activity_total": 2,
+  "identities": {
+    "evm": "0x000000000000000000000000000000000000000b",
+    "pax": "pax1005qwm6w5jj26zq8tsjs3eyp6my5d5fthrlqk3",
+    "did": "did:layerx:9f2c1b4d5e6a7b8c9d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e"
+  },
+  "balances": [
+    {
+      "asset": {
+        "id": "0x000000000000000000000000000000000000000c",
+        "denom": "USDX",
+        "symbol": "USDX",
+        "decimals": 6
+      },
+      "total": "2500000"
+    },
+    {
+      "asset": {
+        "id": "native",
+        "denom": "HPX",
+        "symbol": "HPX",
+        "decimals": 18
+      },
+      "total": "1000000000000000000"
+    }
+  ],
+  "activity": [
+    {
+      "kind": "transaction",
+      "hash": "0x000000000000000000000000000000000000000000000000000000000000000d",
+      "block_number": 1284912,
+      "ordinal": 0,
+      "status": "committed",
+      "result": "error",
+      "timestamp": "2024-04-02T11:03:11.000000Z",
+      "asset": {
+        "id": "native",
+        "denom": "HPX",
+        "symbol": "HPX",
+        "decimals": 18
+      },
+      "amount": "0",
+      "counterparty": "0x000000000000000000000000000000000000000e"
+    },
+    {
+      "kind": "transaction",
+      "hash": "0x000000000000000000000000000000000000000000000000000000000000000f",
+      "block_number": 1284017,
+      "ordinal": 0,
+      "status": "committed",
+      "result": "ok",
+      "timestamp": "2024-04-02T10:12:35.000000Z",
+      "asset": {
+        "id": "native",
+        "denom": "HPX",
+        "symbol": "HPX",
+        "decimals": 18
+      },
+      "amount": "1500000000000000000",
+      "counterparty": null
+    }
+  ]
+}

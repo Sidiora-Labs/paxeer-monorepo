@@ -81,7 +81,7 @@ function unmount(root: Root, container: HTMLDivElement) {
   container.remove();
 }
 
-describe('primitives render in several states without border utilities', () => {
+describe('primitives render in several states with control edges and no decorative borders', () => {
   const cases: Array<[string, React.ReactElement[]]> = [
     [
       'Avatar',

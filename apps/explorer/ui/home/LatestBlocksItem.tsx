@@ -55,9 +55,6 @@ const LatestBlocksItem = ({ block, duration, isLoading, view = 'mobile' }: Props
               text={ block.hash }
               isLoading={ isLoading }
               boxSize={ 4 }
-              opacity={ 0 }
-              _groupHover={{ opacity: 1 }}
-              _focusVisible={{ opacity: 1 }}
             />
           </Flex>
           <Skeleton loading={ isLoading } textStyle="number" color="text.secondary">

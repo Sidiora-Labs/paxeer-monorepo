@@ -284,6 +284,27 @@ func TestNotificationIdentityNotificationWalletBoundary(t *testing.T) {
 	}
 }
 
+func notificationWalletRangeViews(t *testing.T, db *sql.DB) {
+	t.Helper()
+	migration, err := os.ReadFile("../../../migrations/160004.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	views := 0
+	for _, statement := range strings.Split(string(migration), ";") {
+		statement = strings.TrimSpace(statement)
+		if strings.HasPrefix(statement, `CREATE VIEW "pnl".`) {
+			if _, err := db.Exec(statement); err != nil {
+				t.Fatal(err)
+			}
+			views++
+		}
+	}
+	if views != 2 {
+		t.Fatalf("wallet range migration defines %d read views, want 2", views)
+	}
+}
+
 func TestNotificationIdentityRuntimeAuthorities(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -300,10 +321,11 @@ func TestNotificationIdentityRuntimeAuthorities(t *testing.T) {
  CREATE TABLE indexer.indexer_canonical_creations(pool text PRIMARY KEY,token text,creator text,height bigint,block_hash text,transaction_hash text,log_index bigint,block_timestamp bigint);
  CREATE VIEW indexer.indexer_canonical_creations_v1 AS SELECT * FROM indexer.indexer_canonical_creations;
  CREATE SCHEMA pnl;
- CREATE TABLE pnl.inventory_l16_wallet_ranges_v3(snapshot_id uuid PRIMARY KEY,wallet text,generation text,start_at timestamptz,end_at timestamptz,input_digest text,watermark jsonb);
- CREATE TABLE pnl.inventory_l16_wallet_intervals_v3(snapshot_id uuid REFERENCES pnl.inventory_l16_wallet_ranges_v3,interval text,bucket timestamptz,payload jsonb);`); err != nil {
+ CREATE TABLE pnl.inventory_l16_wallet_ranges_v3(snapshot_id uuid PRIMARY KEY,wallet text NOT NULL,generation text NOT NULL,start_at timestamptz NOT NULL,end_at timestamptz NOT NULL,release_digest text NOT NULL,input_digest text NOT NULL,watermark jsonb NOT NULL);
+ CREATE TABLE pnl.inventory_l16_wallet_intervals_v3(snapshot_id uuid NOT NULL REFERENCES pnl.inventory_l16_wallet_ranges_v3(snapshot_id),interval text NOT NULL CHECK(interval IN ('1h','1d')),bucket timestamptz NOT NULL,payload jsonb NOT NULL,PRIMARY KEY(snapshot_id,interval,bucket));`); err != nil {
 		t.Fatal(err)
 	}
+	notificationWalletRangeViews(t, db)
 	if _, err := db.ExecContext(ctx, `INSERT INTO indexer.indexer_canonical_creations VALUES($1,$2,$3,10,$4,$5,0,$6)`, pool, quote, "0x3333333333333333333333333333333333333333", "0x"+strings.Repeat("a", 64), "0x"+strings.Repeat("b", 64), time.Now().Add(-time.Minute).Unix()); err != nil {
 		t.Fatal(err)
 	}

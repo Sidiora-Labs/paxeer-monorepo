@@ -508,7 +508,6 @@ func (e *identityE2E) startLivestream() livestreamProcess {
 	binary := buildService(t, "livestream", "livestreamd")
 	database := coordinatortest.Bootstrap(t, e.adminDSN, "livestream_runtime")
 	dsn := database.Runtimes["livestream_runtime"].DSN
-	expectedSchemaFile, expectedSchemaSHA256 := database.ExpectedSchemaFile(t, "livestream_runtime")
 	server := e.pki.Leaf("livestream-server", "livestream.railway.internal")
 	ports := internaltest.FreePorts(t, 2)
 	plainPort, privatePort := ports[0], ports[1]
@@ -518,8 +517,6 @@ func (e *identityE2E) startLivestream() livestreamProcess {
 		"SECRETS_PROVIDER=env", "SECRETS_REFRESH_SECONDS=30", "DB_MAX_CONNS=5",
 		fmt.Sprintf("PORT=%d", plainPort), "BIND_ADDRESS=0.0.0.0",
 		"DATABASE_URL=" + dsn,
-		"EXPECTED_SCHEMA_FILE=" + expectedSchemaFile,
-		"EXPECTED_SCHEMA_SHA256=" + expectedSchemaSHA256,
 		"REDIS_URL=" + e2eFixture("GATEWAY_E2E_REDIS_URL", "redis://:kindle_fixture_password@127.0.0.1:26379/12"),
 		"LIVEPEER_PROVIDER_MODE=unavailable", "MAX_STREAMS_PER_WALLET=3", "MAX_GLOBAL_STREAMS=100",
 		"LIVESTREAM_VIEWER_TOKEN_KEY=" + strings.Repeat("v7", 20),
@@ -530,6 +527,7 @@ func (e *identityE2E) startLivestream() livestreamProcess {
 		"LIVESTREAM_TLS_CLIENT_CA_FILE=" + e.pki.CAFile,
 		"GATEWAY_PEER_CERT_SHA256=" + e.gatewayClient.SHA256,
 	}
+	env = append(env, internaltest.LivestreamDocuments(t, database.Runtimes["livestream_runtime"])...)
 	runService(t, "livestreamd", binary, env, lp.plainURL)
 	return lp
 }

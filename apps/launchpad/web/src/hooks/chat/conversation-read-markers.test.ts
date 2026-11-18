@@ -201,7 +201,7 @@ async function startServer() {
       for await (const chunk of request) body += String(chunk);
       const marker: { conversation_id: string; through_sequence: string } = JSON.parse(body);
       reads.push({ token, ...marker });
-      response.end('{}');
+      response.end(JSON.stringify({ success: true }));
     } else if (url.pathname === '/v2/stream/tickets') {
       response
         .writeHead(403)

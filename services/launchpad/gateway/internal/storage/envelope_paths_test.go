@@ -507,7 +507,7 @@ func TestEnvelopePreparesLicensedMeasurementTopology(t *testing.T) {
 	videoSHA := measurementHashForEnvelope(video)
 	c.Release.Fixtures = append(c.Release.Fixtures, LicensedFixture{Path: "owned-playback.mp4", SHA256: videoSHA, Ownership: "owned"})
 	var receivedUploads, reads, resources atomic.Int64
-	load := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	load, caPath := envelopePlaybackServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/upload":
 			prefix := make([]byte, 32768)
@@ -528,10 +528,6 @@ func TestEnvelopePreparesLicensedMeasurementTopology(t *testing.T) {
 		}
 	}))
 	defer load.Close()
-	caPath := filepath.Join(t.TempDir(), "load-root.pem")
-	if err := os.WriteFile(caPath, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: load.Certificate().Raw}), 0600); err != nil {
-		t.Fatal(err)
-	}
 	player, err := os.ReadFile("/usr/bin/ffmpeg")
 	if err != nil {
 		t.Fatal(err)
