@@ -10,6 +10,7 @@ const compileCache = enableCompileCache();
 if (!compileCache.directory) throw new Error(compileCache.message);
 const require = createRequire(directory + 'package.json');
 const environment = JSON.parse(await readFile(new URL('./environment.json', import.meta.url), 'utf8'));
+const zetaChainCCTX = await readFile(new URL('./zeta-chain.json', import.meta.url));
 Object.assign(process.env, environment, { NODE_ENV: 'production', DISABLE_TRACKING: 'true', NEXT_TELEMETRY_DISABLED: '1' });
 const next = require('next');
 const { WebSocketServer } = require('ws');
@@ -58,6 +59,11 @@ const server = createServer(async (request, response) => {
       return;
     }
     if (url.pathname === '/__surface_pending') return;
+    if (url.pathname === '/api/v1/CctxInfo:get' || url.pathname === '/explorer/node-api/proxy/api/v1/CctxInfo:get') {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(zetaChainCCTX);
+      return;
+    }
     if (url.pathname === '/explorer/icons/sprite.svg') {
       response.writeHead(200, { 'content-type': 'image/svg+xml' });
       response.end(await readFile('/tmp/explorer-icons/sprite.svg'));

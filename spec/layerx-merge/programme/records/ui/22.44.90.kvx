@@ -1,0 +1,118 @@
+[manifest]
+task = "22.44.90"
+surface = "Paxscan explorer chains and cross-chain transactions"
+views = 15
+named_states = 0
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default"]
+device_renders = 330
+
+[presentation]
+numbers = "Numeric table cells use tabular figures; chain allowances align with their column heading."
+identifiers = "Invalid virtual-chain identifiers use the page text style and wrap within the available width."
+cross_chain = "Cross-chain transaction details use the package transaction fixture."
+loading = "Cross-chain transaction data arrives with the page and seeds the client query; service errors use the existing resource error presentation."
+timestamps = "Transaction timestamps wrap within their available width while the format control remains visible."
+rendering = "Transaction details load with the page component and retain the data supplied with the document."
+
+[coverage]
+chain_specific = 11
+virtual_chain = 2
+cross_chain = 2
+combinations = 330
+transaction_details = 1
+not_found_documents = 12
+application_errors = 2
+content = "Cross-chain transaction details, route-specific not-found documents and virtual-chain application errors."
+
+[visual_review]
+images = 150
+widths = [360, 768, 1440, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+layout = "Transaction labels, values and lifecycle steps use the existing spacing and type scales; identifiers retain access to their full values and timestamps wrap within their containers."
+numbers = "Numeric columns align at the right with tabular figures."
+colours = "Light and dark schemes retain their surface, border, text and status roles."
+
+[guidance]
+ids = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "css-layout", "single-line-overflow"]
+
+[view.2]
+route = "/chain/[chain_slug]/accounts/label/[slug]"
+presentation = "Not-found document"
+document_status = 404
+data_status = 404
+
+[view.3]
+route = "/chain/[chain_slug]/advanced-filter"
+presentation = "Not-found document"
+document_status = 404
+data_status = 404
+
+[view.4]
+route = "/chain/[chain_slug]/block/[height_or_hash]"
+presentation = "Not-found document"
+document_status = 404
+data_status = 404
+
+[view.5]
+route = "/chain/[chain_slug]/block/countdown/[height]"
+presentation = "Not-found document"
+document_status = 404
+data_status = 404
+
+[view.6]
+route = "/chain/[chain_slug]/block/countdown"
+presentation = "Not-found document"
+document_status = 404
+data_status = 404
+
+[view.7]
+route = "/chain/[chain_slug]/csv-export"
+presentation = "Not-found document"
+document_status = 404
+data_status = 404
+
+[view.8]
+route = "/chain/[chain_slug]/op/[hash]"
+presentation = "Not-found document"
+document_status = 404
+data_status = 404
+
+[view.9]
+route = "/chain/[chain_slug]/token/[hash]"
+presentation = "Not-found document"
+document_status = 404
+data_status = 404
+
+[view.10]
+route = "/chain/[chain_slug]/token/[hash]/instance/[id]"
+presentation = "Not-found document"
+document_status = 404
+data_status = 404
+
+[view.11]
+route = "/chain/[chain_slug]/tx/[hash]"
+presentation = "Not-found document"
+document_status = 404
+data_status = 404
+
+[view.12]
+route = "/chain/[chain_slug]/visualize/sol2uml"
+presentation = "Not-found document"
+document_status = 404
+data_status = 404
+
+[view.15]
+route = "/cross-chain-tx/[id]"
+presentation = "Not-found document"
+document_status = 404
+data_status = 404
+
+[virtual_chains]
+routes = ["/chains", "/chains/[id]"]
+presentation = "Application error presentation"
+configuration = "Virtual-chain reads name the paxeerXIndexer API configuration, which is unavailable in this build."
