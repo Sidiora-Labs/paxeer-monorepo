@@ -140,12 +140,21 @@ for preset in missing nested/name; do
   check "preset '$preset' exits before subsequent commands" test ! -s "$tmp/stdout"
 done
 
+check 'Paxeer X production preset names no application port' \
+  test "$(grep -c '^NEXT_PUBLIC_APP_PORT' "$repo/apps/explorer/configs/envs/paxeer-x.env")" -eq 0
+check 'Paxeer X development preset names application port 3000' \
+  grep -qFx 'NEXT_PUBLIC_APP_PORT=3000' "$repo/apps/explorer/configs/envs/paxeer-x-dev.env"
+
 cp "$repo/apps/explorer/configs/envs/paxeer-x.env" "$tmp/paxeer/configs/envs/paxeer-x.env"
 run_preset "$tmp/paxeer" paxeer-x
 check 'tracked Paxeer X preset loads successfully' test "$status" -eq 0
+check 'Paxeer X exports no application port without a process value' not_exported NEXT_PUBLIC_APP_PORT
 check 'Paxeer X network ID is 125' exported_value_is NEXT_PUBLIC_NETWORK_ID 125
 check 'Paxeer X assistant defaults to false' exported_value_is NEXT_PUBLIC_ASSISTANT_ENABLED false
 check 'Paxeer X private assistant settings are not exported' not_exported EXPLORER_ASSISTANT_MODEL
+run_preset "$tmp/paxeer" paxeer-x NEXT_PUBLIC_APP_PORT=8443
+check 'Paxeer X preset loads with a deployment application port' test "$status" -eq 0
+check 'Paxeer X application port keeps the deployment value' exported_value_is NEXT_PUBLIC_APP_PORT 8443
 run_preset "$tmp/paxeer" paxeer-x NEXT_PUBLIC_ASSISTANT_ENABLED=true NEXT_PUBLIC_API_HOST=localhost
 check 'Paxeer X preset loads with deployment overrides' test "$status" -eq 0
 check 'Paxeer X assistant keeps a deployment opt-in' exported_value_is NEXT_PUBLIC_ASSISTANT_ENABLED true
