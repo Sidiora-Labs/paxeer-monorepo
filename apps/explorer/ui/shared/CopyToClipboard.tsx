@@ -51,6 +51,7 @@ const CopyToClipboard = (props: Props) => {
       loadingSkeleton={ isLoading }
       variant="icon_secondary"
       size="2xs"
+      _focusVisible={{ outlineOffset: 'calc(-1 * var(--chakra-border-widths-2))' }}
       { ...rest }
     >
       <IconSvg name={ iconName }/>
@@ -76,6 +77,7 @@ const CopyToClipboard = (props: Props) => {
   return (
     <Tooltip
       content={ tooltipContent }
+      disabled={ isLoading }
       contentProps={{ zIndex: 'tooltip2' }}
       open={ disclosure.open }
       onOpenChange={ disclosure.onOpenChange }
