@@ -15724,6 +15724,12 @@ value = "One. The fee sum tile of the transactions view shows a sum of zero as 0
 basis = "Gotcha 4695. Decisions 2587, 3592 and 3766."
 affects = []
 
+[decision.3769]
+title = "Every file the builder image of the explorer backend copies from the build context stands in its build context list"
+value = "The list in docker/explorer-elixir-builder/Dockerfile.dockerignore names every source that docker/explorer-elixir-builder/Dockerfile copies from the build context, and nothing the Dockerfile does not copy is added to it. A case under tests/ci reads both files and fails for a copy from the context whose source no line of the list brings back; copies from another build stage are not its matter. Task 22.39.856."
+basis = "Gotcha 4696. Decision 3764."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45384,6 +45390,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.856]
+title = "Name every file the builder image of the explorer backend copies in its build context list"
+reqs = ["22998.1"]
+touches = ["docker/explorer-elixir-builder/Dockerfile.dockerignore"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_explorer_builder_build_context.py"
+do_1 = "do_1 Gotcha 4696 and decision 3769. Read docker/explorer-elixir-builder/Dockerfile, docker/explorer-elixir-builder/Dockerfile.dockerignore and tests/ci/test_explorer_frontend_build_context.py in full."
+symbols = []
 
 [capability.22.39.855]
 title = "Keep the rows of the recent blocks at the height of the touch target and set the link to all blocks on the line of the label"
@@ -392679,6 +392694,37 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.856]
+title = "Name every file the builder image of the explorer backend copies in its build context list"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.856"]
+interfaces = []
+do_1 = "do_1 Gotcha 4696 and decision 3769. Read docker/explorer-elixir-builder/Dockerfile, docker/explorer-elixir-builder/Dockerfile.dockerignore and tests/ci/test_explorer_frontend_build_context.py in full."
+do_2 = "do_2 docker/explorer-elixir-builder/Dockerfile.dockerignore: add one line for compilers.tsv and one for install-compilers.sh of the directory docker/explorer-elixir-builder in the form of the line for the script of the web assets. No other line changes and nothing else is brought into the context. The Dockerfile does not change."
+do_3 = "do_3 New file tests/ci/test_explorer_builder_build_context.py after the model of tests/ci/test_explorer_frontend_build_context.py: it reads the Dockerfile and the list of the builder, collects every source of a copy that names no other build stage, joined lines included, and fails with the name of the source for each one that no line of the list brings back. A second case fails when the list brings back a file of the directory docker/explorer-elixir-builder that the Dockerfile does not copy. The cases read files only and start no build."
+do_4 = "do_4 Before the counted verification run the new file once by hand, once on your revision and once with the two new lines of the list taken out for the moment, and read that it passes the first time and names both files the second time; then restore the two lines. Where the build tool of the environment reads the list beside a Dockerfile, build the image once by hand with docker build -f docker/explorer-elixir-builder/Dockerfile . from the root and say in the final message whether it was built; where it is not at hand, say so. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files named above are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No other file changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/explorer-elixir-builder/Dockerfile.dockerignore"]
+tests = []
+planned_paths = ["tests/ci/test_explorer_builder_build_context.py"]
+build_cmd = "python3 -m py_compile tests/ci/test_explorer_builder_build_context.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_explorer_builder_build_context.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.839]
 title = "Name the server settings of the inference view and the assistant in the definition of the explorer frontend"
