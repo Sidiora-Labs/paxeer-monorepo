@@ -15826,6 +15826,18 @@ value = "One. The heap bound of the build of the launchpad web image is stated i
 basis = "Gotcha 4712. Decision 3779. Decision 3783."
 affects = []
 
+[decision.3786]
+title = "The chain launch view takes the presentation of the coin creation view, and the profile, reward and swap views hold one heading of level one in every state"
+value = "One. The chain launch view of the launchpad web application takes the presentation of the coin creation view: its fields come through the field component of the primitives with a placeholder and, where a bound in bytes holds, a counter; the column of the form is bounded as in the coin creation view; the list of steps marks the current step and the steps behind it for the eye; and a summary of what is about to be launched stands beside the form from the width at which the coin creation view shows its preview, and below the form at lesser widths. No step, no condition of a control, no rule of a field, no text of a rule, of an error or of a notice, no request and no transaction changes, and the identifiers and names of the fields stay. Task 22.39.920. Two. The view has no earlier state, so it takes the size tokens the coin creation view uses; decision 3708 holds for it in that form. Three. The profile, reward and swap views hold exactly one heading of level one in every state. A title the view shows becomes that heading with its size and weight as they are; where a state shows no title of the view, a heading that is not shown to the eye names the view. No size, no distance and no colour changes. Task 22.39.921."
+basis = "Gotcha 4713. Decision 3708. Decision 3752."
+affects = []
+
+[decision.3787]
+title = "A view of the render check takes ready steps that every state applies before a mode begins, and the launchpad parts wait for the content their views show after the load"
+value = "Part one. A view of a surface file takes an optional list named ready. Its entries have the form of the steps of a state. The check applies them after the navigation in every state of that view, the default state among them, before the steps of the state and before any mode begins, and movement of the page during them counts as movement during the steps of a state. A view without the list renders as before, so no other surface changes by this. This corrects the order of the check and adds no rule to it. Part two. Task 22.44.106 adds the list to tools/ui-check/check.mjs with cases in tools/ui-check/test/check.test.mjs and a paragraph in tools/ui-check/README.md, and gives each of the eight views of the home part its ready steps in tools/ui-check/surfaces/launchpad.json and in tools/ui-check/surfaces/launchpad/parts/home.json alike; those five files join its paths for this purpose only. Its verification runs the cases of the check whose names hold the word ready before the counted check of the part. Part three. Tasks 22.44.107 to 22.44.112 give the views of their parts ready steps in the same way, inside the paths they hold. Part four. No part of the web application detects the check and none delays or withholds its content for it; a wait stands in the surface file, never in the product."
+basis = "Gotcha 4714. Decisions 3587, 3681 and 3708."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45486,6 +45498,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.921]
+title = "Give the profile, reward and swap views of the launchpad web application one heading of level one in every state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4713 part three and decision 3786 part three. Read the modules of the routes /profile, /rewards, /swap and /watchlist under apps/launchpad/web/src/page-modules, the signed-out state and the wallet gate under apps/launchpad/web/src/ui/shared, the empty state in apps/launchpad/web/src/ui/primitives/states.tsx, the title of apps/launchpad/web/src/widgets/swap/swap-panel.tsx, apps/launchpad/web/src/widgets/rewards/rewards-view.tsx and apps/launchpad/web/src/widgets/profile/profile-header.tsx."
+symbols = []
+
+[capability.22.39.920]
+title = "Give the chain launch view of the launchpad web application the presentation of the coin creation view"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4713 parts one and two and decision 3786 parts one and two. Read apps/launchpad/web/src/widgets/create-chain/chain-wizard.tsx whole, its cases apps/launchpad/web/src/widgets/create-chain/chain-wizard.test.tsx and apps/launchpad/web/src/widgets/create-chain/chain-wizard.hydration.test.tsx, the module and the flow case under apps/launchpad/web/src/page-modules/create-chain, apps/launchpad/web/src/widgets/create/create-form-fields.tsx, the container, the column of the form and the aside in apps/launchpad/web/src/widgets/create/create-wizard.tsx, the preview card and the launch progress beside it, the component FormField of the primitives, and the entries of the path /create/chain in tools/ui-check/surfaces/launchpad/parts/coin.json with the selectors and states they read."
+symbols = []
 
 [capability.22.39.919]
 title = "Load the lint of the launchpad web application under the minimatch floor of its workspace and run it as a script of its own"
@@ -178342,6 +178372,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3787, gotcha 4714. Since task 22.44.106 a view of the render check takes an optional list named ready, whose steps every state of the view applies after the navigation and before any mode begins. Each view of this part whose content shows after the load of the page takes ready steps, in tools/ui-check/surfaces/launchpad.json and in tools/ui-check/surfaces/launchpad/parts/terminal.json alike, that wait for that content in the form the view holds, so that no mode begins before the content stands. No part of the web application detects the check, and none delays or withholds its content for it."
 
 [task.22.44.111]
 title = "Close the leaderboard and reward views of the launchpad again at the sizes of its earlier state"
@@ -178374,6 +178405,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3787, gotcha 4714. Since task 22.44.106 a view of the render check takes an optional list named ready, whose steps every state of the view applies after the navigation and before any mode begins. Each view of this part whose content shows after the load of the page takes ready steps, in tools/ui-check/surfaces/launchpad.json and in tools/ui-check/surfaces/launchpad/parts/rewards.json alike, that wait for that content in the form the view holds, so that no mode begins before the content stands. No part of the web application detects the check, and none delays or withholds its content for it."
 
 [task.22.44.110]
 title = "Close the live, profit card and profile views of the launchpad again at the sizes of its earlier state"
@@ -178406,6 +178438,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3787, gotcha 4714. Since task 22.44.106 a view of the render check takes an optional list named ready, whose steps every state of the view applies after the navigation and before any mode begins. Each view of this part whose content shows after the load of the page takes ready steps, in tools/ui-check/surfaces/launchpad.json and in tools/ui-check/surfaces/launchpad/parts/live.json alike, that wait for that content in the form the view holds, so that no mode begins before the content stands. No part of the web application detects the check, and none delays or withholds its content for it."
 
 [task.22.44.109]
 title = "Close the explore, search and watchlist views of the launchpad again at the sizes of its earlier state"
@@ -178438,6 +178471,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3787, gotcha 4714. Since task 22.44.106 a view of the render check takes an optional list named ready, whose steps every state of the view applies after the navigation and before any mode begins. Each view of this part whose content shows after the load of the page takes ready steps, in tools/ui-check/surfaces/launchpad.json and in tools/ui-check/surfaces/launchpad/parts/explore.json alike, that wait for that content in the form the view holds, so that no mode begins before the content stands. No part of the web application detects the check, and none delays or withholds its content for it."
 
 [task.22.44.108]
 title = "Close the bounty, chat and document views of the launchpad again at the sizes of its earlier state"
@@ -178470,6 +178504,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3787, gotcha 4714. Since task 22.44.106 a view of the render check takes an optional list named ready, whose steps every state of the view applies after the navigation and before any mode begins. Each view of this part whose content shows after the load of the page takes ready steps, in tools/ui-check/surfaces/launchpad.json and in tools/ui-check/surfaces/launchpad/parts/community.json alike, that wait for that content in the form the view holds, so that no mode begins before the content stands. No part of the web application detects the check, and none delays or withholds its content for it."
 
 [task.22.44.107]
 title = "Close the coin, token and creation views of the launchpad again at the sizes of its earlier state"
@@ -178502,6 +178537,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "do_6 Decision 3787, gotcha 4714. Since task 22.44.106 a view of the render check takes an optional list named ready, whose steps every state of the view applies after the navigation and before any mode begins. Each view of this part whose content shows after the load of the page takes ready steps, in tools/ui-check/surfaces/launchpad.json and in tools/ui-check/surfaces/launchpad/parts/coin.json alike, that wait for that content in the form the view holds, so that no mode begins before the content stands. No part of the web application detects the check, and none delays or withholds its content for it."
 
 [task.22.39.825]
 title = "Give the configuration of the explorer the entry of the chain indexer that the chain resources name"
@@ -208180,6 +208216,72 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.921]
+title = "Give the profile, reward and swap views of the launchpad web application one heading of level one in every state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.890"]
+reqs = ["22998.1"]
+capabilities = ["22.39.921"]
+interfaces = []
+do_1 = "do_1 Gotcha 4713 part three and decision 3786 part three. Read the modules of the routes /profile, /rewards, /swap and /watchlist under apps/launchpad/web/src/page-modules, the signed-out state and the wallet gate under apps/launchpad/web/src/ui/shared, the empty state in apps/launchpad/web/src/ui/primitives/states.tsx, the title of apps/launchpad/web/src/widgets/swap/swap-panel.tsx, apps/launchpad/web/src/widgets/rewards/rewards-view.tsx and apps/launchpad/web/src/widgets/profile/profile-header.tsx."
+do_2 = "do_2 Each of the three views holds exactly one heading of level one in every state it has: without an account, with an account, while it loads, empty and after an error. On the route /swap the title Swap of the panel is that heading and keeps the classes it has. On the route /profile the header of a connected account keeps its heading, and the state without an account takes one. On the route /rewards the state without a wallet and the view behind the gate each hold one."
+do_3 = "do_3 Where a state shows a title of the view, that title becomes the heading with its size and weight as they are. Where it shows none, a heading that is not shown to the eye names the view with the title of the route. A shared component that renders a title takes the level from its caller and keeps its present level where the caller gives none, so no other view changes. Below the heading of level one no level is passed over in these three views. Name the form chosen for each state in the final message."
+do_4 = "do_4 No size, no weight, no distance and no colour changes, no text a visitor reads changes, and no behaviour changes. Other tasks change files under apps/launchpad/web/src at the same time, among them tasks that bring sizes of views back to an earlier state: change only what this task needs, and where the main line holds a change of the same file take it and keep both. "
+do_5 = "do_5 Add cases, in the case files the three views have or in one new file beside each module: for each view and each of its states the rendered tree holds exactly one heading of level one with the expected text, and the shared component renders its present level where no level is given. A case that pins the level of a title changes with it, and no assertion on behaviour is weakened or removed. Run the type check and then the script test of the web application once by hand and read its summary. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.920]
+title = "Give the chain launch view of the launchpad web application the presentation of the coin creation view"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.890"]
+reqs = ["22998.1"]
+capabilities = ["22.39.920"]
+interfaces = []
+do_1 = "do_1 Gotcha 4713 parts one and two and decision 3786 parts one and two. Read apps/launchpad/web/src/widgets/create-chain/chain-wizard.tsx whole, its cases apps/launchpad/web/src/widgets/create-chain/chain-wizard.test.tsx and apps/launchpad/web/src/widgets/create-chain/chain-wizard.hydration.test.tsx, the module and the flow case under apps/launchpad/web/src/page-modules/create-chain, apps/launchpad/web/src/widgets/create/create-form-fields.tsx, the container, the column of the form and the aside in apps/launchpad/web/src/widgets/create/create-wizard.tsx, the preview card and the launch progress beside it, the component FormField of the primitives, and the entries of the path /create/chain in tools/ui-check/surfaces/launchpad/parts/coin.json with the selectors and states they read."
+do_2 = "do_2 The chain name, the coin name and the ticker come through the component FormField. The labels stay, the identifiers chain-name, chain-token-name and chain-token-symbol and the names of the inputs stay, and every attribute an input holds today stays. Each field takes a placeholder: Name your chain for the chain name, and for the coin name and the ticker the placeholders of the coin creation view. The coin name and the ticker take the counter of bytes of the coin creation view against the bounds they hold, and stand side by side where the width allows, as there. The rule of the chain name and the status of the name check stay with their identifiers, their role and their relation to the input, and the texts of the rules of the coin name and the ticker stay."
+do_3 = "do_3 The view takes the container and the bound of the form column of the coin creation view. The heading and the sentence below it stay. The list of steps stays an ordered list with its label and with aria-current on the current step. Each step shows its number in a round mark: the current step in the accent of the surface, a step behind it marked as done, a step ahead muted. The state of a step is not told by colour alone."
+do_4 = "do_4 A summary stands in an aside beside the form from the width at which the coin creation view shows its preview, where it stays in view, and below the form at lesser widths. It shows the chain name, the size with gas and bytes for each block, the coin name with the ticker, the way the fees go and, once the costs are read, the cost of the launch. A value that is not given yet shows a short muted text in its place. The summary reads the state the wizard holds and makes no request of its own. It has a heading of level two and is reachable as a region with a label."
+do_5 = "do_5 The sizes stay a radio group with the inputs it holds. The chosen size is marked on its card beyond the mark of the input, and a size that is not available is muted with its reason as today. The rows of the review step stand as a list of terms and values with the texts they hold today. The order and the variants of the controls follow the coin creation view: one primary control for each step, the way back as the quiet one."
+do_6 = "do_6 What stays as it is: every step and its order, every condition under which a control is disabled, every text of a rule, of an error and of a notice, every request, every transaction, the stored draft and the recovery of a launch. No dependency is added. The view takes only size tokens the coin creation view uses, a control that takes touch measures at least 44 pixels at the widths up to 834, both colour schemes hold the contrast rule, and nothing moves under reduced motion. No view scrolls sideways at a width of 390. Other tasks change files under apps/launchpad/web/src at the same time, among them tasks that bring sizes of views back to an earlier state: change only what this task needs, and where the main line holds a change of the same file take it and keep both. "
+do_7 = "do_7 A case that pins markup changes with the markup it pins, and no assertion on behaviour is weakened or removed. Add cases to apps/launchpad/web/src/widgets/create-chain/chain-wizard.test.tsx: the three fields keep their identifiers and names and hold their placeholders; the counters follow what is typed; the current step carries aria-current and the steps behind it are marked as done after a step forward; the summary shows the chain name, the coin name and the ticker that were typed and the chosen size; the summary makes no request. Run the type check and then the script test of the web application once by hand and read its summary. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.919]
 title = "Load the lint of the launchpad web application under the minimatch floor of its workspace and run it as a script of its own"
 status = "pending"
@@ -208214,7 +208316,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.918]
 title = "State the heap bound of the build of the launchpad web image in one place and bring the shell case of its arguments in line with the image definition"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208405,7 +208507,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.912]
 title = "Answer the leaderboard read of the launchpad API as empty where the accounting holds no committed fill"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208847,7 +208949,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.897]
 title = "Close the community flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208975,7 +209077,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.893]
 title = "Close the terminal and orders flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209909,11 +210011,11 @@ do_4 = "do_4 What stays as it is: the marks of focus, the labels, roles and land
 do_5 = "do_5 Run the check by hand with tools/ui-check/surfaces/launchpad/measure.json, which names tools/ui-check/surfaces/launchpad/earlier-geometry.json, at most twice, and read every finding of the kind geometry. Correct a difference of more than one pixel in a part of the shell or in a size of text. Write the record spec/layerx-merge/programme/records/ui/22.44.106.kvx in present tense: the tokens brought back with their values, for each width the count of parts that still differ from the earlier state, and for each such part its cause, content the earlier state does not hold, the touch rule at the widths up to 834, the track of the scroll bar, or a view of another part of the surface that its own task closes. The files tools/ui-check/surfaces/launchpad/measure.json and tools/ui-check/surfaces/launchpad/earlier-geometry.json stay as they are."
 do_6 = "do_6 Run the render check of the home part by hand once over the whole device list and read the summary per view; correct a finding inside the rule of do_2 and do_3. Then run the test script of the package once by hand. Start the build and the counted verification early and keep time for them. The files of apps/launchpad/web are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["apps/launchpad/web"]
+touches = ["apps/launchpad/web", "tools/ui-check/check.mjs", "tools/ui-check/test/check.test.mjs", "tools/ui-check/README.md", "tools/ui-check/surfaces/launchpad.json", "tools/ui-check/surfaces/launchpad/parts/home.json"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.106.kvx"]
 build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.106.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+verify_cmd = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.106.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (cd tools/ui-check && node --test --test-name-pattern ready test/check.test.mjs) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"
@@ -209925,6 +210027,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "do_7 Decision 3787, gotcha 4714. The work done so far under do_1 to do_6 stays as it is. The files tools/ui-check/check.mjs, tools/ui-check/test/check.test.mjs, tools/ui-check/README.md, tools/ui-check/surfaces/launchpad.json and tools/ui-check/surfaces/launchpad/parts/home.json are now inside the paths of this task for one purpose. The render check takes for a view an optional list named ready whose entries have the form of the steps of a state. The check applies them after the navigation in every state of that view, the default state among them, before the steps of the state and before any mode begins, and movement of the page during them counts as movement during the steps of a state. A view without the list renders as before, an unknown key of a view is still refused, and no other surface file changes. New cases in tools/ui-check/test/check.test.mjs carry the words ready steps in their names and prove on a page that shows a text after its load: without the list the mode that doubles the text gives a finding of the kind scale for that text, and with a ready step that waits for the text it gives none; a further case proves that a named state applies the ready steps of its view before its own steps. The file tools/ui-check/README.md states the list beside the steps of a state. Each of the eight views of the home part takes ready steps, in tools/ui-check/surfaces/launchpad.json and in tools/ui-check/surfaces/launchpad/parts/home.json alike so that the script tools/ui-check/surfaces/launchpad/parts.mjs keeps passing, that wait for the content the view shows after its load in the form that view holds: the entries of the ticker, the figures of the footer, the filled, empty, failed or waiting form of the columns of the home view, and the rows of the table of new coins. With that no mode begins before the content of a view stands, and the counted check of the home part passes without a finding. No behaviour of the web application changes for this: no part detects the check, and none delays or withholds its content."
 
 [task.22.39.826]
 title = "Let the share comparison of the ceremony test nodes read the share of a record as the attestor reads it"

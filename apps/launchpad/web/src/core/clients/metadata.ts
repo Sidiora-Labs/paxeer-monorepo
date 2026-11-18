@@ -244,6 +244,7 @@ export async function fetchTokenMetadataBatch(
 export type MetadataV2Data = import('@kindle/sdk').V2ContractTypes['MetadataGetData'];
 export type MetadataV2Patch = import('@kindle/sdk').V2ContractTypes['MetadataPatchBody'];
 export type MetadataV2Operation = {wallet:string;operationId:string;nonce:string;expiresAt:string;audience:string;path:string;body:string;bodyHash:string;statement:string};
+function metadataSignal(signal?:AbortSignal):AbortSignal{return signal?AbortSignal.any([signal,AbortSignal.timeout(15000)]):AbortSignal.timeout(15000)}
 async function metadataV2Decode(response:Response):Promise<MetadataV2Data>{
  const {decodeV2Contract}=await import('@kindle/sdk');
  const envelope=decodeV2Contract('MetadataGetResponse',await boundedJSON(response));
@@ -252,7 +253,7 @@ async function metadataV2Decode(response:Response):Promise<MetadataV2Data>{
 }
 export async function fetchMetadataV2(tokenAddress:string,signal?:AbortSignal):Promise<MetadataV2Data|null>{
  const token=tokenAddress.toLowerCase();if(!/^0x[a-f0-9]{40}$/.test(token))throw new TypeError('Invalid token address');
- const response=await fetch(metadataApiUrl(`/v2/tokens/${token}/metadata`),{signal,cache:'no-store'});
+ const response=await fetch(metadataApiUrl(`/v2/tokens/${token}/metadata`),{signal:metadataSignal(signal),cache:'no-store',redirect:'error'});
  if(response.status===404)return null;if(!response.ok)throw new MetadataUnavailable();const data=await metadataV2Decode(response);if(data.token.address.toLowerCase()!==token)throw new MetadataUnavailable();return data;
 }
 export async function prepareMetadataV2Operation(tokenAddress:string,wallet:string,audience:string,patch:MetadataV2Patch):Promise<MetadataV2Operation>{
@@ -268,7 +269,7 @@ export async function prepareMetadataV2Operation(tokenAddress:string,wallet:stri
 }
 export async function sendMetadataV2Operation(operation:MetadataV2Operation,signature:string,signal?:AbortSignal,authenticationHeaders:Record<string,string>={}):Promise<MetadataV2Data>{
  if(!/^0x[0-9a-fA-F]+$/.test(signature))throw new TypeError('Invalid wallet signature');
- const response=await fetch(metadataApiUrl(operation.path),{method:'PATCH',signal,credentials:'include',redirect:'error',body:operation.body,headers:{...authenticationHeaders,'Content-Type':'application/json','X-Action-Wallet':operation.wallet,'Idempotency-Key':operation.operationId,'X-Action-Signature':signature,'X-Action-Nonce':operation.nonce,'X-Action-Expires':operation.expiresAt,'X-Action-Audience':operation.audience}});
+ const response=await fetch(metadataApiUrl(operation.path),{method:'PATCH',signal:metadataSignal(signal),credentials:'omit',redirect:'error',body:operation.body,headers:{...authenticationHeaders,'Content-Type':'application/json','X-Action-Wallet':operation.wallet,'Idempotency-Key':operation.operationId,'X-Action-Signature':signature,'X-Action-Nonce':operation.nonce,'X-Action-Expires':operation.expiresAt,'X-Action-Audience':operation.audience}});
  if(response.status===403)throw new Error('Wallet authorization was rejected.');
  if(response.status===409)throw new Error('Metadata revision changed. Reload the page before editing again.');
  if(response.status===422)throw new Error('Check the metadata field lengths and links.');
@@ -279,7 +280,7 @@ export type MetadataMediaImage={assetId:string;sha256:string;mime:'image/png'|'i
 export type MetadataMediaProjection={metadata:{chainId:125;poolAddress:string;tokenAddress:string;revision:string;updatedAt:string|null;source:string;moderationStatus:'allowed'|'blocked';logoAssetId:string|null;display:{name:string|null;symbol:string|null;description:string;tags:string[];socials:Array<{label:string;url:string}>}};image:MetadataMediaImage|null};
 export async function fetchMetadataMedia(tokenAddress:string,signal?:AbortSignal):Promise<MetadataMediaProjection>{
  const token=tokenAddress.toLowerCase();if(!/^0x[a-f0-9]{40}$/.test(token))throw new TypeError('Invalid token address');
- const response=await fetch(metadataApiUrl(`/v2/tokens/${token}/media`),{signal,cache:'no-store',redirect:'error'});if(!response.ok)throw new MetadataUnavailable();
+ const response=await fetch(metadataApiUrl(`/v2/tokens/${token}/media`),{signal:metadataSignal(signal),cache:'no-store',redirect:'error'});if(!response.ok)throw new MetadataUnavailable();
  const raw=await boundedJSON(response);if(!raw||typeof raw!=='object')throw new MetadataUnavailable();const outer=raw as Record<string,unknown>;
  const body=outer.data;if(!body||typeof body!=='object')throw new MetadataUnavailable();const data=body as MetadataMediaProjection;
  const m=data.metadata;

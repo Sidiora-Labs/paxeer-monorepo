@@ -66,7 +66,7 @@ export default function TerminalRightRail({ poolAddress }: { poolAddress: string
       </AccordionCard>
 
       <AccordionCard id="similar" title="Similar coins" trailing={<SimilarSortMenu sort={sort} onChange={setSort} />}>
-        <SimilarTokensList poolAddress={pool} symbol={symbol} sort={sort} />
+        <SimilarTokensList poolAddress={pool} symbol={symbol} sort={sort} symbolPending={snapshot.isPending} symbolError={snapshot.error} onRetrySymbol={() => { void snapshot.refetch(); }} />
       </AccordionCard>
 
       <PresetEditor open={editorOpen} onClose={() => setEditorOpen(false)} presets={presets} initial={active} onSave={(id, preset) => { updatePreset(id, preset); }} />

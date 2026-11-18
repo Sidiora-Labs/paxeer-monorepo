@@ -6,6 +6,7 @@ import {
   createPublicClient,
   createWalletClient,
   defineChain,
+  http,
   parseAbi,
   erc20Abi,
   keccak256,
@@ -333,6 +334,57 @@ test('advanced deployment and funded lifecycle use real chain125 contracts', asy
     receipt: await client.getTransactionReceipt({ hash: cancellation.txHash as Hex }),
     balance: await snapshot(),
   });
+  const lostReplyOrder = await provider.placeOrder(await provider.prepareOrder(
+    {
+      kind: 'limit-buy', owner, token: fixture.token, settlementAsset: manifest.usdl,
+      amount: fixture.buyAmount, limitPrice: fixture.limitPrice,
+      expiresAt: (await client.getBlock()).timestamp + 1800n,
+    },
+    exactUnits(fixture.minimumOutput, outputDecimals)
+  ));
+  const lostReplyActive = await provider.order(
+    lostReplyOrder.orderId, lostReplyOrder.family, lostReplyOrder.creationBlock
+  );
+  let cancellationSends = 0;
+  let lostReplyHash: Hex | undefined;
+  const lostReplyWallet = createWalletClient({
+    account, chain,
+    transport: http(fixture.rpcUrl, {
+      retryCount: 0,
+      fetchFn: async (input, init) => {
+        const response = await fetch(input, init);
+        const request = JSON.parse(String(init?.body));
+        if (request.method === 'eth_sendTransaction' || request.method === 'eth_sendRawTransaction') {
+          cancellationSends++;
+          const answer = await response.clone().json() as { result?: Hex };
+          lostReplyHash = answer.result;
+          await response.body?.cancel();
+          throw new Error('Wallet transaction reply interrupted');
+        }
+        return response;
+      },
+    }),
+  });
+  const lostReplyProvider = await createAdvancedProvider({
+    publicClient: client, walletClient: lostReplyWallet, manifestJson,
+    manifestSha256: fixture.manifestSha256, attempts: storage,
+  });
+  const beforeLostReply = await snapshot();
+  await expect(lostReplyProvider.cancel(lostReplyActive)).rejects.toThrow();
+  expect(lostReplyHash).toMatch(/^0x[0-9a-f]{64}$/);
+  expect(cancellationSends).toBe(1);
+  expect((await client.getTransactionReceipt({ hash: lostReplyHash! })).status).toBe('success');
+  expect((await provider.order(lostReplyOrder.orderId, lostReplyOrder.family, lostReplyOrder.creationBlock)).state).toBe('cancelled');
+  lostReplyProvider.close();
+  const reopenedLostReply = await createAdvancedProvider({
+    publicClient: client, walletClient: lostReplyWallet, manifestJson,
+    manifestSha256: fixture.manifestSha256, attempts: storage,
+  });
+  await expect(reopenedLostReply.pendingCancel(lostReplyActive)).rejects.toThrow('Cancellation signature outcome is unresolved');
+  await expect(reopenedLostReply.cancel(lostReplyActive)).rejects.toThrow('Cancellation signature outcome is unresolved');
+  expect(cancellationSends).toBe(1);
+  expect((await snapshot()).nonce).toBe(beforeLostReply.nonce + 1);
+  reopenedLostReply.close();
   const deterministicFill = await provider.placeOrder(
     await provider.prepareOrder(
       {

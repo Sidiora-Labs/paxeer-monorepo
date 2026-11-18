@@ -20,9 +20,11 @@ expect 'OTHER_SET=keep'
 
 ! grep -qE '^ENV .*(NEXT_PUBLIC|WEB)_' "$dockerfile" || fail "Dockerfile.web must not ENV NEXT_PUBLIC_/WEB_ args"
 ! grep -qE '^[[:space:]]+(NEXT_PUBLIC|WEB)_[A-Z0-9_]*=' "$dockerfile" || fail "Dockerfile.web must not ENV NEXT_PUBLIC_/WEB_ args"
-grep -qxF 'COPY deploy/web-build-env.sh /src/web-build-env.sh' "$dockerfile" || fail "web-build-env.sh not copied"
+grep -qxF 'COPY deploy/launchpad/web-build-env.sh /src/web-build-env.sh' "$dockerfile" || fail "web-build-env.sh not copied"
 grep -qxF 'RUN . /src/web-build-env.sh && pnpm --filter @sidiora/web build' "$dockerfile" || fail "web build does not source web-build-env.sh"
-[ "$(grep -cE '^ARG (NEXT_PUBLIC|WEB)_' "$dockerfile")" -eq 37 ] || fail "NEXT_PUBLIC_/WEB_ ARG count changed"
+[ "$(grep -cE '^ARG (NEXT_PUBLIC|WEB)_' "$dockerfile")" -eq 35 ] || fail "NEXT_PUBLIC_/WEB_ ARG count changed"
+! grep -qF 'NODE_OPTIONS' "$script" || fail "web-build-env.sh must not set NODE_OPTIONS"
+[ "$(grep -cE '^ENV .*NODE_OPTIONS=--max-old-space-size=4096([[:space:]]|$)' "$dockerfile")" -eq 1 ] || fail "Dockerfile.web must set the 4096 MB NODE_OPTIONS heap bound on exactly one line"
 
 grep -qE '^ARG NODE_IMAGE=[^[:space:]@]+@sha256:[0-9a-f]{64}$' "$dockerfile" || fail "NODE_IMAGE base is not digest-pinned"
 while read -r _ image _; do

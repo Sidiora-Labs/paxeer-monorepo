@@ -1,13 +1,13 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { useAccount, usePublicClient } from 'wagmi';
 import { parseUnits, type Hex } from 'viem';
 import type { V2ContractTypes } from '@kindle/sdk';
 import { useGatewaySessionOperations } from '@/core/market/operations';
 import { useRuntimeAuthority } from '@/core/runtime-authority';
 import { connectorProvider, isWalletProvider, PaxeerWallet } from '@/core/wallet-sdk/client';
-import { accountSession, readAccountAsset, subscribeAccount, uploadAccountAsset, type AccountAsset } from '@/widgets/profile/account-transport';
+import { accountSession, assertAccount, readAccountAsset, subscribeAccount, uploadAccountAsset, type AccountAsset } from '@/widgets/profile/account-transport';
 import { queryKeys } from '@/core/query-keys';
 import { bountiesContract, type Bounty, type BountyFailure } from './bounties-contract';
 import { validateSubmission, type BountySubmission } from './use-bounty';
@@ -86,35 +86,50 @@ function failureOf(operation: string, error: unknown): BountyFailure {
   return bountiesContract.mapError(operation, error);
 }
 
+function bountyMutationForScope<T, V>(mutation: UseMutationResult<T, BountyFailure, V>, current: boolean): UseMutationResult<T, BountyFailure, V> {
+  if (current) return mutation;
+  return { ...mutation, status: 'idle', isIdle: true, isPending: false, isError: false, isSuccess: false, data: undefined, error: null, variables: undefined, context: undefined, submittedAt: 0, failureCount: 0, failureReason: null, isPaused: false };
+}
+
 /** IF_BOUNTY_CREATE `POST /v2/bounties`; answers the created bounty plus its funding transaction. */
 export function useCreateBounty() {
   const operations = useGatewaySessionOperations();
   const wallet = useSessionWallet();
+  const scope = useSyncExternalStore(subscribeAccount, accountSession, noSession);
+  const mutationScope = useRef(scope);
   const client = useQueryClient();
   const mutation = useMutation<BountyCreateResponse, BountyFailure, BountyCreateBody>({
     mutationFn: async body => {
-      if (!operations || !wallet) throw failureOf(MUTATION_OPERATIONS.create, new SignedOutError());
+      mutationScope.current = scope;
+      if (!operations || !wallet || !scope || accountSession() !== scope) throw failureOf(MUTATION_OPERATIONS.create, new SignedOutError());
       try {
-        return validateCreated(await operations.call('IF_BOUNTY_CREATE', { body }), body, wallet);
+        const response = await operations.call('IF_BOUNTY_CREATE', { body }, { signal: scope.signal });
+        assertAccount(scope);
+        return validateCreated(response, body, wallet);
       } catch (error) {
         throw failureOf(MUTATION_OPERATIONS.create, error);
       }
     },
     onSuccess: () => { void client.invalidateQueries({ queryKey: queryKeys.bounties('', null).slice(0, 2) }); },
   });
-  return { signedIn: operations !== null && wallet !== null, wallet, mutation };
+  useEffect(() => { mutation.reset(); }, [scope, mutation.reset]);
+  return { signedIn: operations !== null && wallet !== null, wallet, mutation: bountyMutationForScope(mutation, mutationScope.current === scope) };
 }
 
 /** IF_BOUNTY_SUBMIT `POST /v2/bounties/{bountyId}/submissions` with a client id stable across retries of one draft. */
 export function useSubmitBounty(bountyId: string) {
   const operations = useGatewaySessionOperations();
   const wallet = useSessionWallet();
+  const scope = useSyncExternalStore(subscribeAccount, accountSession, noSession);
+  const mutationScope = useRef(scope);
   const client = useQueryClient();
   const mutation = useMutation<BountySubmission, BountyFailure, BountySubmitBody>({
     mutationFn: async body => {
-      if (!operations || !wallet) throw failureOf(MUTATION_OPERATIONS.submit, new SignedOutError());
+      mutationScope.current = scope;
+      if (!operations || !wallet || !scope || accountSession() !== scope) throw failureOf(MUTATION_OPERATIONS.submit, new SignedOutError());
       try {
-        const response = await operations.call('IF_BOUNTY_SUBMIT', { path: { bountyId }, body });
+        const response = await operations.call('IF_BOUNTY_SUBMIT', { path: { bountyId }, body }, { signal: scope.signal });
+        assertAccount(scope);
         if (quarantined(response)) throw new Error('Submission integrity quarantined');
         const submission = validateSubmission(response.data.submission, bountyId);
         if (submission.authorWallet.toLowerCase() !== wallet.toLowerCase()) throw new Error('Submission belongs to another wallet');
@@ -125,7 +140,8 @@ export function useSubmitBounty(bountyId: string) {
     },
     onSuccess: () => { void client.invalidateQueries({ queryKey: queryKeys.bounty(bountyId) }); },
   });
-  return { signedIn: operations !== null && wallet !== null, wallet, mutation };
+  useEffect(() => { mutation.reset(); }, [scope, mutation.reset]);
+  return { signedIn: operations !== null && wallet !== null, wallet, mutation: bountyMutationForScope(mutation, mutationScope.current === scope) };
 }
 
 export interface AcceptInput { submissionId: string; winnerWallet: string; awardRaw: string; expectedBountyRevision: string }
@@ -134,16 +150,20 @@ export interface AcceptInput { submissionId: string; winnerWallet: string; award
 export function useAcceptSubmission(bounty: Bounty) {
   const operations = useGatewaySessionOperations();
   const wallet = useSessionWallet();
+  const scope = useSyncExternalStore(subscribeAccount, accountSession, noSession);
+  const mutationScope = useRef(scope);
   const client = useQueryClient();
   const mutation = useMutation<BountyAcceptResponse, BountyFailure, AcceptInput>({
     mutationFn: async input => {
-      if (!operations || !wallet) throw failureOf(MUTATION_OPERATIONS.accept, new SignedOutError());
+      mutationScope.current = scope;
+      if (!operations || !wallet || !scope || accountSession() !== scope) throw failureOf(MUTATION_OPERATIONS.accept, new SignedOutError());
       if (!bountiesContract.isCreator(bounty, wallet)) throw failureOf(MUTATION_OPERATIONS.accept, new Error('Only the bounty creator can pick winners'));
       try {
         const response = await operations.call('IF_BOUNTY_ACCEPT', {
           path: { bountyId: bounty.bountyId, submissionId: input.submissionId },
           body: { awardRaw: input.awardRaw, expectedBountyRevision: input.expectedBountyRevision },
-        });
+        }, { signal: scope.signal });
+        assertAccount(scope);
         if (response.data.submission.authorWallet.toLowerCase() !== input.winnerWallet.toLowerCase()) throw new Error('Accepted winner differs from the reviewed submission');
         return validateAccepted(response, bounty.bountyId, input.submissionId, input.awardRaw);
       } catch (error) {
@@ -152,7 +172,8 @@ export function useAcceptSubmission(bounty: Bounty) {
     },
     onSuccess: () => { void client.invalidateQueries({ queryKey: queryKeys.bounty(bounty.bountyId) }); },
   });
-  return { signedIn: operations !== null && wallet !== null, wallet, mutation };
+  useEffect(() => { mutation.reset(); }, [scope, mutation.reset]);
+  return { signedIn: operations !== null && wallet !== null, wallet, mutation: bountyMutationForScope(mutation, mutationScope.current === scope) };
 }
 
 /* ------------------------------------------------------------ evidence */

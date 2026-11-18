@@ -30,32 +30,6 @@ async function developmentOperationsRenderUnsupportedInProduction() {
     const id = '00000000-0000-4000-8000-000000000001';
     const poolAddress = '0x1111111111111111111111111111111111111111';
     const calls = [
-      {
-        operation: 'IF_ALERT_CREATE',
-        call: () => operations.call('IF_ALERT_CREATE', {
-          body: {
-            poolAddress,
-            direction: 'crosses_above',
-            cooldownSeconds: 300,
-            threshold: {
-              baseAsset: { kind: 'erc20', chainId: '125', address: '0x2222222222222222222222222222222222222222', decimals: 18, currencyCode: null },
-              quoteAsset: { kind: 'erc20', chainId: '125', address: '0x3333333333333333333333333333333333333333', decimals: 18, currencyCode: null },
-              numerator: '1',
-              denominator: '1',
-              source: {
-                kind: 'external_display',
-                amountBasis: 'provider_display',
-                observedAt: '2026-01-01T00:00:00.000Z',
-                position: null,
-                providerId: null,
-                sourceEventId: null,
-                sourceReference: null,
-              },
-            },
-          },
-        }, { headers: { 'Idempotency-Key': id } }),
-      },
-      { operation: 'IF_ALERT_DELETE', call: () => operations.call('IF_ALERT_DELETE', { path: { alertId: id } }) },
       { operation: 'IF_ORDER_LIST', call: () => operations.call('IF_ORDER_LIST', { query: { status: 'active', limit: 100 } }) },
       { operation: 'IF_ORDER_CANCEL', call: () => operations.call('IF_ORDER_CANCEL', { path: { orderId: id } }, { headers: { 'Idempotency-Key': id } }) },
       { operation: 'IF_CUP_CURRENT', call: () => operations.call('IF_CUP_CURRENT', {}) },
@@ -65,7 +39,7 @@ async function developmentOperationsRenderUnsupportedInProduction() {
     ];
 
     expect(client.config.production).toBe(true);
-    expect(calls).toHaveLength(8);
+    expect(calls).toHaveLength(6);
     for (const { operation, call } of calls) {
       const error = await call().then(
         () => { throw new Error(`${operation} unexpectedly succeeded in production`); },
