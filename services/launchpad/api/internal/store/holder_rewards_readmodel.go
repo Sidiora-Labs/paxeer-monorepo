@@ -51,7 +51,7 @@ type HolderRewardPoolsSnapshot struct {
 func committedWatermark(ctx context.Context, tx pgx.Tx) (ChainWatermark, error) {
 	var height, blockHash, integrity string
 	var observed time.Time
-	err := tx.QueryRow(ctx, `SELECT height::text, block_hash, integrity, transaction_timestamp() FROM indexer.indexer_committed_heads_v2 WHERE chain_id=125 ORDER BY height DESC LIMIT 1`).Scan(&height, &blockHash, &integrity, &observed)
+	err := tx.QueryRow(ctx, `SELECT height::text, block_hash, integrity, transaction_timestamp() FROM indexer.indexer_committed_heads_v2 AS heads WHERE chain_id=125 ORDER BY heads.height DESC LIMIT 1`).Scan(&height, &blockHash, &integrity, &observed)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return ChainWatermark{}, ErrAccountingNotReady

@@ -17,6 +17,7 @@ type Statement struct {
 	Call     int
 	Kind     string
 	Role     string
+	SQL      string
 	Objects  []Object
 	Bindings map[string]string
 }
@@ -293,6 +294,7 @@ var RuntimeStatements = []Statement{
 		},
 	},
 	{ID: "CommittedBlock", Package: "shared/auth", File: "sdk/launchpad/shared/auth/contract.go", Function: "CommittedBlock", Call: 0, Kind: "SELECT", Role: runtimeRole,
+		SQL: "SELECT height::text,block_hash,integrity FROM auth_committed_blocks AS heads WHERE chain_id=125 ORDER BY heads.height DESC LIMIT 1",
 		Objects: []Object{
 			object("relation", "metadata.auth_committed_blocks", "block_hash chain_id height integrity", "SELECT"),
 		},
