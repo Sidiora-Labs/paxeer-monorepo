@@ -15736,6 +15736,12 @@ value = "One. The system text of the assistant route holds a short part with fac
 basis = "Gotcha 4697. Decisions 2652 and 3765."
 affects = []
 
+[decision.3771]
+title = "The blocks view lists the blocks only, the column From / To shows its addresses in their shortened form in full, and the label of a tile is never cut"
+value = "One. The blocks view draws the list of blocks only. It draws no tab strip for one entry; the line with the use of the network and the link to the block countdown that stood beside the tabs stays in its place above the list at the widths it was drawn at, and the pagination stays. No query for blocks of the kinds reorg and uncle is made. A link with the tab value of one of the two lists shows the list of blocks, and the paths uncles, reorgs and blocks_forked lead to the blocks view without a tab value. The view of several chains and the tab of the optional kind of block that a setting turns on are not the matter of this decision. Task 22.39.859. Two. At the widths from 1280 px on, as a least value of care, the column From / To of the transactions table shows in a row of a price update the address of the sender in its shortened form with the first and the last characters, the arrow and the link Price feed in full, and in an ordinary row both addresses in that form with the arrow. The width comes from the columns of the hash, Amount and Txn fee, which hold free room; the column Action keeps the width of decision 3767, and the table gains no horizontal overflow at 1280 px. Task 22.39.860. Three. The label of a tile of the shared card stands on one line where the tile is wide enough for it. Where the tile is narrower than the label, the label takes a second line and is not cut, at the widths from 320 px on, and the values of the tiles of one row stand on one line, because each tile sets its value at its end. A label that does not fit two lines is cut on the second line and carries its full text as its title. Task 22.39.861. No view gains a horizontal overflow, no touch target shrinks and no size of a text grows."
+basis = "Gotcha 4698. Decisions 2587, 3592 and 3767."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45396,6 +45402,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.861]
+title = "Let the label of a tile take a second line instead of being cut and keep the values of a row of tiles on one line"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/shared/scan/ScanStatCard.tsx", "apps/explorer/ui/shared/scan/ScanStatCard.spec.tsx"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/shared/scan/ScanStatCard.tsx ui/shared/scan/ScanStatCard.spec.tsx && yarn vitest run ui/shared/scan/ScanStatCard.spec.tsx"
+do_1 = "do_1 Gotcha 4698 and decision 3771, point three. Read apps/explorer/ui/shared/scan/ScanStatCard.tsx and apps/explorer/ui/shared/scan/ScanStatCard.spec.tsx in full, the scan variant of the recipe of the stat under toolkit, and two views that draw rows of the card: the head of the statistics view and the tiles of the transactions view."
+symbols = []
+
+[capability.22.39.860]
+title = "Show the addresses of the column From / To of the transactions table in their shortened form in full"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/txs"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/txs/TxsTable.tsx ui/txs/TxsTable.spec.tsx ui/txs/TxsTableItem.tsx ui/txs/TxPriceUpdate.tsx && yarn vitest run ui/txs"
+do_1 = "do_1 Gotcha 4698 and decision 3771, point two. Read apps/explorer/ui/txs/TxsTable.tsx and apps/explorer/ui/txs/TxsTable.spec.tsx in full, the row component of the table, PriceUpdateFromTo in apps/explorer/ui/txs/TxPriceUpdate.tsx and the long form of apps/explorer/ui/shared/address/AddressFromTo.tsx."
+symbols = []
+
+[capability.22.39.859]
+title = "List the blocks of the network in the blocks view without the tabs of forked blocks and uncles"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/pages/Blocks.tsx", "apps/explorer/ui/pages/Blocks.spec.tsx", "apps/explorer/nextjs/redirects.js"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/pages/Blocks.tsx ui/pages/Blocks.spec.tsx nextjs/redirects.js && yarn vitest run ui/pages/Blocks.spec.tsx"
+do_1 = "do_1 Gotcha 4698 and decision 3771, point one. Read apps/explorer/ui/pages/Blocks.tsx and apps/explorer/ui/pages/Blocks.spec.tsx in full, the component of the routed tabs it uses, the slot component it draws beside the tabs and the three entries of apps/explorer/nextjs/redirects.js that lead to the two tabs."
+symbols = []
 
 [capability.22.39.858]
 title = "Draw the answer of the assistant in the search panel as one readable block without the line of no results"
@@ -176644,6 +176677,102 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.861]
+title = "Let the label of a tile take a second line instead of being cut and keep the values of a row of tiles on one line"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.89"]
+reqs = ["22998.1"]
+capabilities = ["22.39.861"]
+interfaces = []
+do_1 = "do_1 Gotcha 4698 and decision 3771, point three. Read apps/explorer/ui/shared/scan/ScanStatCard.tsx and apps/explorer/ui/shared/scan/ScanStatCard.spec.tsx in full, the scan variant of the recipe of the stat under toolkit, and two views that draw rows of the card: the head of the statistics view and the tiles of the transactions view."
+do_2 = "do_2 apps/explorer/ui/shared/scan/ScanStatCard.tsx: the label stands on one line where the tile is wide enough for it. Where the tile is narrower than the label, the label takes a second line and is not cut; a label that does not fit two lines is cut on the second line. The label keeps its full text as its title, its text style, its icon and its hint, and the hint stays on the first line of the label. The value stands at the end of the tile, so that the values of the tiles of one row stand on one line whether a label of the row takes one line or two. A tile whose label takes one line in a row of labels of one line keeps the height it has today. The form is set in the card itself; the recipe of the stat under toolkit does not change."
+do_3 = "do_3 Cases in apps/explorer/ui/shared/scan/ScanStatCard.spec.tsx in the form the file holds: the label is not held on one line by a rule that cuts it; the label is bound to two lines; the label carries its full text as its title; the value is set at the end of the tile. Every case the file holds stays and passes. A new case is registered in the form the lint rules of the application accept: a title in lower case that begins with a letter, a named function as the body and at least one expectation in it. The lint run over the changed files is part of the verification. Before the counted verification run the new cases once by hand and read for each expectation of a style the form the element holds, a token or a plain value, and write the expectation in that form. "
+do_4 = "do_4 The form is chosen so that every case of the views that draw the card passes unchanged: run the cases under ui/txs, ui/stats, ui/home and ui/shared/scan once by hand before the change and once after it and give in the final message every case whose result differs. A case that differs through the change is brought back by the form of the change, never by the case. No case outside apps/explorer/ui/shared/scan/ScanStatCard.spec.tsx changes. Read the statistics view and the transactions view once by hand in the browser of the render check at 320, 390 and 1440 px and give in the final message, for each width, the labels that take two lines and whether the values of each row stand on one line. Install the browser of the check first."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. No size of a text or a control grows. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The two files named above are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No other file changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/shared/scan/ScanStatCard.tsx", "apps/explorer/ui/shared/scan/ScanStatCard.spec.tsx"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/shared/scan/ScanStatCard.tsx ui/shared/scan/ScanStatCard.spec.tsx && yarn vitest run ui/shared/scan/ScanStatCard.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.860]
+title = "Show the addresses of the column From / To of the transactions table in their shortened form in full"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.860"]
+interfaces = []
+do_1 = "do_1 Gotcha 4698 and decision 3771, point two. Read apps/explorer/ui/txs/TxsTable.tsx and apps/explorer/ui/txs/TxsTable.spec.tsx in full, the row component of the table, PriceUpdateFromTo in apps/explorer/ui/txs/TxPriceUpdate.tsx and the long form of apps/explorer/ui/shared/address/AddressFromTo.tsx."
+do_2 = "do_2 apps/explorer/ui/txs/TxsTable.tsx: at the widths from 1280 px on the column From / To is wide enough for a row of a price update, with the address of the sender in its shortened form with the first and the last characters, its icon, the arrow and the link Price feed in full, and for an ordinary row with both addresses in that form, their icons and the arrow. The width comes from the columns of the hash, Amount and Txn fee, which hold free room: the hash keeps the room of its shortened form with the marker of a failed or pending transaction, and the columns Amount and Txn fee keep the room of their heads and of a value of twelve characters. The column Action keeps its width and the other columns keep theirs. The table gains no horizontal overflow at 1280 px, and the form with fewer columns that the file holds keeps a rule of the same kind. Change the row component or apps/explorer/ui/txs/TxPriceUpdate.tsx only where a gap or a margin of the cell needs it, and say so in the final message. apps/explorer/ui/shared/address/AddressFromTo.tsx does not change."
+do_3 = "do_3 Cases in apps/explorer/ui/txs/TxsTable.spec.tsx in the form the file holds: the width of the column From / To and of each column that gave room. The two cases of the widths that the file holds follow the new widths; the width of the column Action stays as it is expected today. Every other case the file holds stays and passes. A new case is registered in the form the lint rules of the application accept: a title in lower case that begins with a letter, a named function as the body and at least one expectation in it. The lint run over the changed files is part of the verification. Before the counted verification run the new cases once by hand and read for each expectation of a style the form the element holds, a token or a plain value, and write the expectation in that form. "
+do_4 = "do_4 Read the transactions view once by hand in the browser of the render check at 1280 and 1440 px with a row of a price update and an ordinary row with two addresses, a value and a fee from the fixtures of the case files, and give in the final message for each width the text the address of the sender shows, the width of the column From / To and whether the table scrolls sideways. Install the browser of the check first."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. No size of a text or a control grows. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under ui/txs are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No file outside ui/txs changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/txs"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/txs/TxsTable.tsx ui/txs/TxsTable.spec.tsx ui/txs/TxsTableItem.tsx ui/txs/TxPriceUpdate.tsx && yarn vitest run ui/txs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.859]
+title = "List the blocks of the network in the blocks view without the tabs of forked blocks and uncles"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.859"]
+interfaces = []
+do_1 = "do_1 Gotcha 4698 and decision 3771, point one. Read apps/explorer/ui/pages/Blocks.tsx and apps/explorer/ui/pages/Blocks.spec.tsx in full, the component of the routed tabs it uses, the slot component it draws beside the tabs and the three entries of apps/explorer/nextjs/redirects.js that lead to the two tabs."
+do_2 = "do_2 apps/explorer/ui/pages/Blocks.tsx: the tabs Forked and Uncles and their two queries go. Where the optional kind of block of the settings is off, the view draws the list of blocks without a tab strip, and the slot with the use of the network and the link to the block countdown stands above the list at the widths it was drawn at before, in the place the strip held. Where that optional kind is on, the strip holds the list of blocks and that kind as today. A tab value of one of the two lists in the address shows the list of blocks. The title of the view, the count in the card header, the pagination and the notice of new blocks stay."
+do_3 = "do_3 apps/explorer/nextjs/redirects.js: the three entries for the paths uncles, reorgs and blocks_forked lead to the blocks view without a tab value. No other entry changes."
+do_4 = "do_4 Cases in apps/explorer/ui/pages/Blocks.spec.tsx in the form the file holds: the view draws no tab with the name Forked and none with the name Uncles; no request for blocks of the kinds reorg and uncle is made, also with the tab value of one of them in the address; the list of blocks is drawn with such a tab value; the link to the block countdown is drawn. Every case the file holds stays and passes. A new case is registered in the form the lint rules of the application accept: a title in lower case that begins with a letter, a named function as the body and at least one expectation in it. The lint run over the changed files is part of the verification. "
+do_5 = "do_5 Before the counted verification run the cases of the file once by hand and read that each passes. Run the case files under apps/explorer that read the redirects once by hand and name in the final message each that expects one of the three old destinations; such a file is not inside the paths of this task. No assertion is weakened or removed, and no case is removed, skipped or tagged out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The three files named above are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No other file changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/pages/Blocks.tsx", "apps/explorer/ui/pages/Blocks.spec.tsx", "apps/explorer/nextjs/redirects.js"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/pages/Blocks.tsx ui/pages/Blocks.spec.tsx nextjs/redirects.js && yarn vitest run ui/pages/Blocks.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.858]
 title = "Draw the answer of the assistant in the search panel as one readable block without the line of no results"
 status = "pending"
@@ -176744,7 +176873,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.854]
 title = "Show a fee sum above zero with the digits it needs in the transactions view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176935,7 +177064,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.848]
 title = "Show the 24 hour change of a token in the tokens views and the ticker strip only where the read serves one"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
