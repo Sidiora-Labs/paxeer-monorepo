@@ -12,6 +12,7 @@ import ListPage from 'ui/shared/Page/ListPage';
 import type { QueryWithPagesResult } from 'ui/shared/pagination/useQueryWithPages';
 import { formatScanTableCount } from 'ui/shared/scan';
 
+import { hasTokenChanges } from './tokenChange';
 import TokensListItem from './TokensListItem';
 import TokensTable from './TokensTable';
 
@@ -54,6 +55,7 @@ const Tokens = ({
 
   const allItems = data?.items ?? [];
   const items = rowsCount === undefined ? allItems : allItems.slice(0, rowsCount);
+  const showChange = !isPlaceholderData && hasTokenChanges(items);
 
   const title = formatScanTableCount({
     kind: paginationParams.hasNextPage ? 'more_than' : 'total',
@@ -79,6 +81,7 @@ const Tokens = ({
               index={ index }
               page={ paginationParams.page }
               isLoading={ isPlaceholderData }
+              showChange={ showChange }
               coinPrice={ coinPrice }
             />
           );
