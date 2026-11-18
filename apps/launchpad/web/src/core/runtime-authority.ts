@@ -180,7 +180,10 @@ async function readAuthority(signal: AbortSignal, fixture?: PrivateFixtureAuthor
       if (identity.runtimeHash.toLowerCase() !== expected.runtimeHash || expected.kind === 'direct' && (identity.implementationAddress !== undefined || identity.implementationHash !== undefined) || expected.kind !== 'direct' && (typeof identity.implementationAddress !== 'string' || getAddress(identity.implementationAddress) !== expected.implementationAddress || typeof identity.implementationHash !== 'string' || identity.implementationHash.toLowerCase() !== expected.implementationHash)) throw new Error(`Reviewed network identity differs for ${role}`);
     } else {
       const expected = CORE_DEPLOYMENT.roleIdentity[field];
-      if (identity.runtimeHash.toLowerCase() !== expected.runtimeHash) throw new Error(`Reviewed network runtime differs for ${role}`);
+      const runtimeHash = identity.runtimeHash.toLowerCase();
+      const reviewedRuntime = runtimeHash === expected.runtimeHash ||
+        expected.kind === 'surface' && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,95}$/.test(expected.stagedUpgrade) && runtimeHash === expected.stagedRuntimeHash;
+      if (!reviewedRuntime) throw new Error(`Reviewed network runtime differs for ${role}`);
       if (expected.kind === 'surface' || expected.kind === 'direct') {
         if (identity.implementationAddress !== undefined || identity.implementationHash !== undefined || identity.beaconAddress !== undefined) throw new Error(`Reviewed network identity differs for ${role}`);
       } else if (typeof identity.implementationAddress !== 'string' || getAddress(identity.implementationAddress) !== getAddress(expected.implementationAddress) || typeof identity.implementationHash !== 'string' || identity.implementationHash.toLowerCase() !== expected.implementationHash) throw new Error(`Reviewed network implementation differs for ${role}`);

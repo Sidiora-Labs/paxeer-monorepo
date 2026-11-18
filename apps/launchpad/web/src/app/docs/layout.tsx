@@ -10,7 +10,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
           <Link
             prefetch={false}
             href="/"
-            className="inline-flex min-h-touch-target-min items-center gap-1.5 text-xs text-text-faint transition-colors duration-fast hover:text-text focus-visible:outline-2 focus-visible:outline-focus"
+            className="inline-flex h-touch-target-min items-center gap-1.5 text-xs text-text-faint transition-colors duration-fast hover:text-text focus-visible:outline-2 focus-visible:outline-focus"
           >
             <svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path
