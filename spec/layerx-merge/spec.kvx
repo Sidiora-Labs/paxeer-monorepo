@@ -208541,7 +208541,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.887]
 title = "Bring the client package ranking-algo-sdk of the launchpad in line with the routes it calls and hold each call with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208634,7 +208634,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.884]
 title = "Bring the client package candles-sdk of the launchpad in line with the routes it calls and hold each call with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209176,7 +209176,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.867]
 title = "Refuse a name outside the source root in the source manifest of the chat cases by its form"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
