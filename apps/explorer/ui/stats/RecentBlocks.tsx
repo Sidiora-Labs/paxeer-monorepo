@@ -23,12 +23,17 @@ const RecentBlocks = () => {
           <Skeleton loading={ isPending } minH={ isPending ? 'var(--chakra-spacing-11)' : undefined }>
             <Box overflowX="auto" role="region" aria-label="Recent blocks" tabIndex={ 0 }>
               <TableRoot variant="scan"
-                css={{ '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'canvas' } }}
-                minW="var(--chakra-spacing-100)">
+                css={{
+                  '& th': { whiteSpace: 'nowrap', wordBreak: 'normal', overflowWrap: 'normal' },
+                  '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'canvas' },
+                }}
+                tableLayout="auto"
+                w="100%"
+                minW={ 0 }>
                 <TableHeader><TableRow>
                   <TableColumnHeader>Block</TableColumnHeader>
                   <TableColumnHeader>Age</TableColumnHeader>
-                  <TableColumnHeader isNumeric>Transactions</TableColumnHeader>
+                  <TableColumnHeader isNumeric>Txn</TableColumnHeader>
                   <TableColumnHeader isNumeric>Gas used</TableColumnHeader>
                 </TableRow></TableHeader>
                 <TableBody>

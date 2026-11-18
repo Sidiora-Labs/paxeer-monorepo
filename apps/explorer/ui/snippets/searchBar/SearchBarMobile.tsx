@@ -153,11 +153,12 @@ const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
       borderColor="border.strong"
       borderRadius={ isHeroBanner ? 'control' : 'pill' }
       textAlign="start"
-      whiteSpace="normal"
+      whiteSpace="nowrap"
+      overflow="visible"
       height="auto"
     >
       <IconSvg aria-hidden={ true } name="search" boxSize={ 6 } flexShrink={ 0 }/>
-      { isHeroBanner && <Box as="span" textStyle="small" color="text.muted">Search or ask: a transaction, address, block or token</Box> }
+      { isHeroBanner && <Box as="span" textStyle="small" color="text.muted">Search or ask…</Box> }
     </Button>
   );
 
