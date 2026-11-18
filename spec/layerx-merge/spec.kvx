@@ -178652,7 +178652,7 @@ do_6 = "do_6 Decision 3787, gotcha 4714. Since task 22.44.106 a view of the rend
 
 [task.22.44.111]
 title = "Close the leaderboard and reward views of the launchpad again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.106"]
