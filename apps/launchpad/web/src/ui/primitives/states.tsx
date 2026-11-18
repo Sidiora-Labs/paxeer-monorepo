@@ -126,7 +126,7 @@ export interface EmptyStateProps {
   /** Announce when the state appears after a user action (filter). */
   announce?: boolean;
   colSpan?: number;
-  headingLevel?: 2 | 3 | 4;
+  headingLevel?: 1 | 2 | 3 | 4;
   className?: string;
 }
 
@@ -487,6 +487,7 @@ export interface ErrorStateProps {
   wrap?: boolean;
   /** Move focus to the heading when the panel replaces content. */
   autoFocus?: boolean;
+  headingLevel?: 2 | 3 | 4;
   className?: string;
 }
 
@@ -499,6 +500,7 @@ export function ErrorState({
   variant = 'panel',
   wrap = false,
   autoFocus = false,
+  headingLevel = 3,
   className,
 }: ErrorStateProps) {
   // Callers often pass `error.message`; transport codes ("Failed to fetch", HTTP 503, NETWORK_INTERRUPTED) are reworded here so none reaches the screen.
@@ -512,6 +514,7 @@ export function ErrorState({
         : rawMessage;
   const title =
     typeof rawTitle === 'string' ? humanErrorText(rawTitle, 'Something went wrong') : rawTitle;
+  const Heading = `h${headingLevel}` as const;
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   useEffect(() => {
     if (autoFocus) headingRef.current?.focus();
@@ -552,13 +555,13 @@ export function ErrorState({
     >
       <TriangleAlert aria-hidden="true" className="size-8 text-danger" />
       <div className="flex flex-col gap-1">
-        <h3
+        <Heading
           ref={headingRef}
           tabIndex={autoFocus ? -1 : undefined}
           className="text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-bold text-text outline-none"
         >
           {title}
-        </h3>
+        </Heading>
         <p className="max-w-sm text-sm text-text-muted">{message}</p>
       </div>
       {onRetry ? (
@@ -859,6 +862,7 @@ export interface SectionHeaderProps {
   description?: ReactNode;
   action?: ReactNode;
   level?: 1 | 2 | 3;
+  titleClassName?: string;
   loading?: boolean;
   className?: string;
 }
@@ -869,6 +873,7 @@ export function SectionHeader({
   description,
   action,
   level = 2,
+  titleClassName,
   loading = false,
   className,
 }: SectionHeaderProps) {
@@ -879,7 +884,8 @@ export function SectionHeader({
         <Heading
           className={cn(
             'flex items-center gap-2 font-bold text-text',
-            level === 1 ? 'text-xl' : level === 2 ? 'text-md' : 'text-base'
+            level === 1 ? 'text-xl' : level === 2 ? 'text-md' : 'text-base',
+            titleClassName
           )}
         >
           <span className="min-w-0">{title}</span>
