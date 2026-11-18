@@ -209417,7 +209417,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.868]
 title = "Close the api module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
