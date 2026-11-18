@@ -208975,7 +208975,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.893]
 title = "Close the terminal and orders flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
