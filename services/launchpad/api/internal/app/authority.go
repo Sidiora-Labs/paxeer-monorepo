@@ -272,7 +272,7 @@ func (a *networkAuthority) head(ctx context.Context) (committedHead, error) {
 	var integrity string
 	bounded, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
 	defer cancel()
-	err := a.pool.QueryRow(bounded, "SELECT height::text,block_hash,integrity FROM "+pgx.Identifier{a.config.SourceSchema, "indexer_committed_heads_v2"}.Sanitize()+" WHERE chain_id=125 ORDER BY height DESC LIMIT 1").Scan(&h.Number, &h.Hash, &integrity)
+	err := a.pool.QueryRow(bounded, "SELECT height::text,block_hash,integrity FROM "+pgx.Identifier{a.config.SourceSchema, "indexer_committed_heads_v2"}.Sanitize()+" AS heads WHERE chain_id=125 ORDER BY heads.height DESC LIMIT 1").Scan(&h.Number, &h.Hash, &integrity)
 	if err != nil {
 		return committedHead{}, fmt.Errorf("read committed network head: %w", err)
 	}
