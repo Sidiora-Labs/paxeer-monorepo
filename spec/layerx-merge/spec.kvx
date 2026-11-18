@@ -176744,7 +176744,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.854]
 title = "Show a fee sum above zero with the digits it needs in the transactions view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
