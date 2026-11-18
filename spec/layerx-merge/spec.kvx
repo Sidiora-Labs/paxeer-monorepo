@@ -15688,6 +15688,12 @@ value = "One. The head of the statistics view shows a tile only where its source
 basis = "Gotcha 4689. Decision 3761."
 affects = []
 
+[decision.3763]
+title = "The tracked presets of the explorer name no type family and carry the view settings of the product"
+value = "One. The presets name no type family. The application takes its default family for body and headings, as the design brief states; a deployment that wants another family sets it by its own value. Two. The preset of the public explorer names: the address formats base16 and bech32 in this order and the prefix pax; the identicon type gradient_avatar; the node root https://api5.mainnet-beta.paxeer.network as NEXT_PUBLIC_NETWORK_RPC_URL; the wallets metamask, rabby, coinbase, trust, okx and token_pocket; the additional transaction field fee_per_gas and grouped fees; the extra verification methods solidity-hardhat and solidity-foundry. The preset for a development deployment names the address formats, the prefix and the identicon type in the same way; its other lines stay. Three. services/explorer/deploy/tests/preset-check.sh asserts these lines. Task 22.39.844."
+basis = "Gotcha 4690. Decision 3761."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45348,6 +45354,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.844]
+title = "Name no type family in the tracked presets of the explorer and add the view settings of the addresses, the wallets and the transaction fees"
+reqs = ["22998.1"]
+touches = ["apps/explorer/configs/envs", "services/explorer/deploy/tests"]
+tests = []
+verification_contract = "bash services/explorer/deploy/tests/config-check.sh && bash services/explorer/deploy/tests/preset-check.sh"
+do_1 = "do_1 Gotcha 4690 and decision 3763. Read apps/explorer/configs/envs/paxeer-x.env, apps/explorer/configs/envs/paxeer-x-dev.env, services/explorer/deploy/tests/preset-check.sh in full, the lines of apps/explorer/toolkit/theme/foundations/typography.ts that choose the families, apps/explorer/configs/app/ui/views/address.ts, and the files under apps/explorer/configs/app that read the names of do_3, with the values each accepts."
+symbols = []
 
 [capability.22.39.843]
 title = "Draw the labels of the value axis of the home charts of the explorer inside the inner room of the tile"
@@ -176457,6 +176472,38 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.844]
+title = "Name no type family in the tracked presets of the explorer and add the view settings of the addresses, the wallets and the transaction fees"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.837"]
+reqs = ["22998.1"]
+capabilities = ["22.39.844"]
+interfaces = []
+do_1 = "do_1 Gotcha 4690 and decision 3763. Read apps/explorer/configs/envs/paxeer-x.env, apps/explorer/configs/envs/paxeer-x-dev.env, services/explorer/deploy/tests/preset-check.sh in full, the lines of apps/explorer/toolkit/theme/foundations/typography.ts that choose the families, apps/explorer/configs/app/ui/views/address.ts, and the files under apps/explorer/configs/app that read the names of do_3, with the values each accepts."
+do_2 = "do_2 Both presets: remove the lines NEXT_PUBLIC_FONT_FAMILY_HEADING and NEXT_PUBLIC_FONT_FAMILY_BODY. Add one comment line in the Branding group that says the preset names no type family and the application takes its default family."
+do_3 = "do_3 apps/explorer/configs/envs/paxeer-x.env gains a group with the comment Views and these lines, each list in the list form the preset uses for the home charts: NEXT_PUBLIC_VIEWS_ADDRESS_FORMAT with base16 and bech32 in this order; NEXT_PUBLIC_VIEWS_ADDRESS_BECH_32_PREFIX=pax; NEXT_PUBLIC_VIEWS_ADDRESS_IDENTICON_TYPE=gradient_avatar; NEXT_PUBLIC_VIEWS_TX_ADDITIONAL_FIELDS with fee_per_gas; NEXT_PUBLIC_VIEWS_TX_GROUPED_FEES=true; NEXT_PUBLIC_VIEWS_CONTRACT_EXTRA_VERIFICATION_METHODS with solidity-hardhat and solidity-foundry. The Chain group gains NEXT_PUBLIC_NETWORK_RPC_URL=https://api5.mainnet-beta.paxeer.network. A group with the comment Wallets gains NEXT_PUBLIC_WEB3_WALLETS with metamask, rabby, coinbase, trust, okx and token_pocket in this order. A value the application does not accept for its name is left out and named with its cause in the final message. apps/explorer/configs/envs/paxeer-x-dev.env gains the three address lines of the Views group in the same way; no other line of it changes."
+do_4 = "do_4 services/explorer/deploy/tests/preset-check.sh gains these assertions in the manner of the ones it holds: no preset holds a line that begins with NEXT_PUBLIC_FONT_FAMILY; apps/explorer/configs/envs/paxeer-x.env holds each line of do_3 once; apps/explorer/configs/envs/paxeer-x-dev.env holds the three address lines once. Every other assertion stays as it is."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/explorer/configs/envs and services/explorer/deploy/tests named above are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No file under docker, deploy, docs or .github changes and no file of the application outside apps/explorer/configs/envs changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/configs/envs", "services/explorer/deploy/tests"]
+tests = []
+planned_paths = []
+build_cmd = "bash -n services/explorer/deploy/tests/preset-check.sh && bash -n services/explorer/deploy/tests/config-check.sh"
+verify_cmd = "bash services/explorer/deploy/tests/config-check.sh && bash services/explorer/deploy/tests/preset-check.sh"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
