@@ -41,10 +41,10 @@ const TopBar = () => {
   }, [ ]);
 
   return (
-    <HStack data-label="header-utilities" gap={ 2 } minW={ 0 } maxW="100%" flexShrink={ 1 } flexWrap="wrap">
+    <HStack data-label="header-utilities" gap={ 2 } flexShrink={ 0 } flexWrap="nowrap">
       { !config.features.multichain.isEnabled && (
-        <Box minW={ 0 } maxW={{ base: '100%', lg: 'var(--chakra-spacing-62\\.5)' }}>
-          <TopBarStats showGasInfo={ false }/>
+        <Box flexShrink={ 0 }>
+          <TopBarStats showGasInfo={ false } noWrap/>
         </Box>
       ) }
       <Settings>

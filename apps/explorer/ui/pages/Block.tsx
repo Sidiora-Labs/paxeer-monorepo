@@ -169,6 +169,7 @@ const BlockPageContent = () => {
           loading={ blockQuery.isPlaceholderData }
           fontFamily="heading"
           display="flex"
+          alignItems="center"
           minW={ 0 }
           columnGap={ 2 }
           fontWeight="medium"

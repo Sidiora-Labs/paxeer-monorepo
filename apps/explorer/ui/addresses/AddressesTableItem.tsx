@@ -8,6 +8,7 @@ import config from 'configs/app';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { TableCell, TableRow } from 'toolkit/chakra/table';
 import { Tag } from 'toolkit/chakra/tag';
+import { ZERO } from 'toolkit/utils/consts';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import SimpleValue from 'ui/shared/value/SimpleValue';
 
@@ -84,7 +85,7 @@ const AddressesTableItem = ({
       { hasPercentage && (
         <TableCell isNumeric>
           <SimpleValue
-            value={ addressBalance.div(totalSupply).multipliedBy(100) }
+            value={ totalSupply.eq(ZERO) ? ZERO : addressBalance.div(totalSupply).multipliedBy(100) }
             loading={ isLoading }
             postfix="%"
             textStyle="number"

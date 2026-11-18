@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/react';
 import PageLoader from 'next/dist/client/page-loader';
 import { RouterContext } from 'next/dist/shared/lib/router-context.shared-runtime';
+import type { AppProps } from 'next/dist/shared/lib/router/router';
 import Router from 'next/dist/shared/lib/router/router';
 import { makePublicRouterInstance } from 'next/router';
 import { once } from 'node:events';
@@ -21,7 +22,6 @@ const originalEnvs = window.__envs;
 const requests: Array<URL> = [];
 const responses = new Map<string, unknown>();
 const failures = new Set<string>();
-let endpoint: string;
 let client: QueryClient;
 let router: Router;
 const server = createServer((request, response) => {
@@ -42,7 +42,7 @@ fetchMock.disableMocks();
 server.listen(0, '127.0.0.1');
 await once(server, 'listening');
 const port = String((server.address() as AddressInfo).port);
-endpoint = `http://127.0.0.1:${ port }`;
+const endpoint = `http://127.0.0.1:${ port }`;
 window.__envs = {
   ...originalEnvs,
   NEXT_PUBLIC_API_HOST: '127.0.0.1',
@@ -190,12 +190,16 @@ function StatsNavigation() {
   );
 }
 
+function StatisticsApp({ Component, pageProps }: AppProps) {
+  return <Component { ...pageProps }/>;
+}
+
 function renderStatistics(mode: 'light' | 'dark' = 'light', statsService = false) {
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0, refetchOnWindowFocus: false } } });
   router = new Router('/stats', {}, '/stats', {
     initialProps: { pageProps: {} },
     pageLoader: new PageLoader('statistics', ''),
-    App: ({ Component, pageProps }) => <Component { ...pageProps }/>,
+    App: StatisticsApp,
     Component: StatsPageContent,
     wrapApp: App => App,
     isFallback: false,
@@ -265,10 +269,10 @@ async function assertExplorerStatistics(mode: 'light' | 'dark') {
   const { container } = renderStatistics(mode);
   await waitFor(() => {
     for (const [ label, value ] of Object.entries(counterValues)) {
-      expect(counterValue(container, label), label).toBe(value);
+      expect(counterValue(container, label)).toBe(value);
     }
     for (const [ id, value ] of Object.entries(chartValues)) {
-      expect(chartValue(container, id), id).toBe(value);
+      expect(chartValue(container, id)).toBe(value);
     }
   }, { timeout: 15_000 });
   expect(container.querySelector('[data-stats-source="explorer"]')).not.toBeNull();
@@ -278,7 +282,7 @@ async function assertExplorerStatistics(mode: 'light' | 'dark') {
     'Daily transactions (1M)', 'PAX price (1M)', 'PAX market value (1M)', 'SID price (1M)', 'SID market value (1M)',
   ]);
   for (const id of Object.keys(chartValues)) {
-    expect(container.querySelector(`[data-chart-card="${ id }"] [data-chart-surface] svg`), id).not.toBeNull();
+    expect(container.querySelector(`[data-chart-card="${ id }"] [data-chart-surface] svg`)).not.toBeNull();
   }
   expect(Array.from(container.querySelectorAll('[data-stats-section]')).map(node => node.getAttribute('data-stats-section')))
     .toEqual([ 'overview', 'transactions', 'market' ]);
@@ -286,33 +290,62 @@ async function assertExplorerStatistics(mode: 'light' | 'dark') {
     .toEqual([ 'Overview stats', 'Transactions', 'Market' ]);
   expect(container.querySelector('[data-stats-filters]')).not.toBeNull();
   expect(container.querySelectorAll('[data-network-stats-hero] [data-value]')).toHaveLength(4);
-  for (const node of container.querySelectorAll('[data-network-stats-hero] [data-value]')) {
-    expect(node.textContent).toBe('—');
-  }
+  expect(Array.from(container.querySelectorAll('[data-network-stats-hero] [data-scan-stat]')).map(node => [
+    node.getAttribute('data-scan-stat'), node.querySelector('[data-value]')?.textContent,
+  ])).toEqual([
+    [ 'Latest block', '1,234,567' ],
+    [ 'Average block time', '5.3s' ],
+    [ 'Transactions (24h)', '1,234' ],
+    [ 'Wallet addresses', '7,654,321' ],
+  ]);
   const nav = within(within(container).getByRole('navigation', { name: 'Explorer navigation' }));
   expect(nav.getByRole('link', { name: 'Network stats' }).getAttribute('href')).toBe('/stats');
   expect(nav.getByRole('link', { name: 'Charts' }).getAttribute('href')).toBe('/stats');
   const paths = requests.map(url => url.pathname);
   for (const path of responses.keys()) {
     if (path !== '/api/v2/paxeer-x/capabilities') {
-      expect(paths, path).toContain(path);
+      expect(paths).toContain(path);
     }
   }
   expect(paths.some(path => path.startsWith('/api/v1/'))).toBe(false);
   expect(container.textContent).not.toContain('NaN');
+  return container;
 }
 
-async function explorerStatisticsRenderInLightMode() {
-  await assertExplorerStatistics('light');
+function atPath(root: unknown, path: string): unknown {
+  return path.split('.').reduce<unknown>((node, key) => node !== null && typeof node === 'object' ? Reflect.get(node, key) : undefined, root);
 }
 
-async function explorerStatisticsRenderInDarkMode() {
-  await assertExplorerStatistics('dark');
+function resolveColour(path: string, mode: '_light' | '_dark', seen = new Set<string>()): string {
+  expect(seen.has(path)).toBe(false);
+  seen.add(path);
+  const node = atPath(semanticTokens, path) ?? atPath({ colors }, path);
+  const value = atPath(atPath(node, 'DEFAULT') ?? node, 'value');
+  const resolved = typeof value === 'string' ? value : atPath(value, mode);
+  expect(resolved).toBeTypeOf('string');
+  if (typeof resolved !== 'string') {
+    throw new Error(`Missing colour ${ path } in ${ mode }`);
+  }
+  const reference = resolved.match(/^\{(.+)\}$/);
+  return reference ? resolveColour(reference[1], mode, seen) : resolved;
 }
 
-async function absentStatisticsRenderDashesAndPreserveZero() {
-  const { secondary_coin_market_cap, ...withoutSidCap } = statistics;
-  const { total_price_updates_count, price_updates_count_24h, total_transactions_count, ...withoutTotals } = transactions;
+test('explorer statistics render in light mode', async function explorerStatisticsRenderInLightMode() {
+  const container = await assertExplorerStatistics('light');
+  expect(container.querySelector('[data-network-stats-hero]')?.textContent).not.toContain('—');
+}, 30_000);
+test('explorer statistics render in dark mode', async function explorerStatisticsRenderInDarkMode() {
+  const container = await assertExplorerStatistics('dark');
+  expect(container.querySelector('[data-network-stats-hero]')?.textContent).not.toContain('—');
+}, 30_000);
+test('absent statistics render dashes and preserve zero', async function absentStatisticsRenderDashesAndPreserveZero() {
+  const { secondary_coin_market_cap: secondaryCoinMarketCap, ...withoutSidCap } = statistics;
+  const {
+    total_price_updates_count: totalPriceUpdatesCount,
+    price_updates_count_24h: priceUpdatesCount24h,
+    total_transactions_count: totalTransactionsCount,
+    ...withoutTotals
+  } = transactions;
   responses.set('/api/v2/stats', { ...withoutSidCap, coin_price: null, transactions_today: null, gas_prices: null });
   responses.set('/api/v2/transactions/stats', { ...withoutTotals, pending_transactions_count: '0', transaction_fees_avg_24h: '0' });
   responses.set('/api/v2/paxeer-x/feed/markets', { items: [], chain_head: 1234566 });
@@ -329,7 +362,7 @@ async function absentStatisticsRenderDashesAndPreserveZero() {
     'SID market value', 'PAX price', 'Transactions today', 'Gas price (slow)', 'Gas price (average)', 'Gas price (fast)',
     'Total price updates', 'Price updates (24h)', 'Total transactions (transaction statistics)',
   ]) {
-    expect(counterValue(container, label), label).toBe('—');
+    expect(counterValue(container, label)).toBe('—');
   }
   expect(counterValue(container, 'Average transaction fee (24h)')).toBe('0 PAX');
   await waitFor(() => {
@@ -341,9 +374,8 @@ async function absentStatisticsRenderDashesAndPreserveZero() {
   expect(container.querySelector('[data-chart-card="secondaryCoinMarketCap"] [data-chart-surface] svg')).toBeNull();
   expect(chartValue(container, 'secondaryCoinPrice')).toBe('4 USD');
   expect(container.textContent).not.toMatch(/NaN|undefined/);
-}
-
-async function failedTransactionStatisticsStayInTheirSection() {
+}, 30_000);
+test('failed transaction statistics stay in their section', async function failedTransactionStatisticsStayInTheirSection() {
   failures.add('/api/v2/transactions/stats');
   const { container } = renderStatistics();
   const transactionSection = container.querySelector('[data-stats-counter-source="transactions"]') as HTMLElement;
@@ -354,9 +386,8 @@ async function failedTransactionStatisticsStayInTheirSection() {
   expect(container.querySelectorAll('[role="alert"]')).toHaveLength(1);
   expect(container.querySelector('[data-stats-counter-source="stats"] [role="alert"]')).toBeNull();
   expect(container.querySelector('[data-stats-counter-source="markets"] [role="alert"]')).toBeNull();
-}
-
-async function failedMarketChartsKeepOtherChartsAndCounters() {
+}, 30_000);
+test('failed market charts keep other charts and counters', async function failedMarketChartsKeepOtherChartsAndCounters() {
   failures.add('/api/v2/stats/charts/secondary-coin-market');
   const { container } = renderStatistics();
   await waitFor(() => {
@@ -372,9 +403,8 @@ async function failedMarketChartsKeepOtherChartsAndCounters() {
   expect(counterValue(container, 'SID price')).toBe('2.75 USD');
   expect(container.querySelector('[data-charts-error]')).toBeNull();
   expect(container.querySelectorAll('[role="alert"]')).toHaveLength(0);
-}
-
-async function statisticsFiltersSelectSectionsNamesAndIntervals() {
+}, 30_000);
+test('statistics filters select sections names and intervals', async function statisticsFiltersSelectSectionsNamesAndIntervals() {
   responses.set('/api/v2/stats/charts/transactions', { chart_data: [
     { date: dateDaysAgo(400), transactions_count: 9999 },
     { date: dateDaysAgo(401), transactions_count: 8888 },
@@ -395,12 +425,12 @@ async function statisticsFiltersSelectSectionsNamesAndIntervals() {
   const nativeSelect = chooser.querySelector('select') as HTMLSelectElement;
   expect(nativeSelect).not.toBeNull();
   fireEvent.change(nativeSelect, { target: { value: 'transactions' } });
-  await waitFor(() => expect(Array.from(container.querySelectorAll('[data-chart-card]')).map(node => node.getAttribute('data-chart-card'))).toEqual([ 'newTxns' ]));
+  await waitFor(() => expect(Array.from(container.querySelectorAll('[data-chart-card]')).map(node => node.getAttribute('data-chart-card')))
+    .toEqual([ 'newTxns' ]));
   expect(within(chooser).getByRole('combobox').textContent).toContain('Transactions');
   expect(counterValue(container, 'Total price updates')).toBe('750K');
-}
-
-async function configuredStatisticsServiceKeepsItsCountersAndCharts() {
+}, 30_000);
+test('configured statistics service keeps its counters and charts', async function configuredStatisticsServiceKeepsItsCountersAndCharts() {
   const info = { id: 'averageGasPrice', title: 'Average gas price', description: 'Daily average gas price', units: 'Gwei', resolutions: [ 'DAY' ] };
   responses.set('/api/v1/counters', { counters: [ { id: 'totalBlocks', title: 'Total blocks', value: '9876543', description: 'Indexed blocks' } ] });
   responses.set('/api/v1/lines', { sections: [ { id: 'gas', title: 'Gas', charts: [ info ] } ] });
@@ -426,27 +456,8 @@ async function configuredStatisticsServiceKeepsItsCountersAndCharts() {
   expect(paths).not.toContain('/api/v2/transactions/stats');
   expect(paths).not.toContain('/api/v2/paxeer-x/feed/markets');
   expect(paths.some(path => path.startsWith('/api/v2/stats/charts/'))).toBe(false);
-}
-
-function atPath(root: unknown, path: string): unknown {
-  return path.split('.').reduce<unknown>((node, key) => node !== null && typeof node === 'object' ? Reflect.get(node, key) : undefined, root);
-}
-
-function resolveColour(path: string, mode: '_light' | '_dark', seen = new Set<string>()): string {
-  expect(seen.has(path), path).toBe(false);
-  seen.add(path);
-  const node = atPath(semanticTokens, path) ?? atPath({ colors }, path);
-  const value = atPath(atPath(node, 'DEFAULT') ?? node, 'value');
-  const resolved = typeof value === 'string' ? value : atPath(value, mode);
-  expect(resolved, `${ path } ${ mode }`).toBeTypeOf('string');
-  if (typeof resolved !== 'string') {
-    throw new Error(`Missing colour ${ path } in ${ mode }`);
-  }
-  const reference = resolved.match(/^\{(.+)\}$/);
-  return reference ? resolveColour(reference[1], mode, seen) : resolved;
-}
-
-function statisticsColoursResolveInBothModes() {
+}, 30_000);
+test('statistics colours resolve in both modes', function statisticsColoursResolveInBothModes() {
   for (const mode of [ '_light', '_dark' ] as const) {
     for (const token of [ 'canvas', 'surface', 'hairline', 'text.primary', 'text.secondary', 'text.muted', 'bg.surface', 'border.divider' ]) {
       expect(resolveColour(`colors.${ token }`, mode)).toMatch(/^#|^rgba?\(/);
@@ -455,13 +466,52 @@ function statisticsColoursResolveInBothModes() {
       expect(resolveColour(`colors.${ mode === '_light' ? tokens.light : tokens.dark }`, mode)).toMatch(/^#|^rgba?\(/);
     }
   }
-}
+});
 
-test(explorerStatisticsRenderInLightMode.name, explorerStatisticsRenderInLightMode, 30_000);
-test(explorerStatisticsRenderInDarkMode.name, explorerStatisticsRenderInDarkMode, 30_000);
-test(absentStatisticsRenderDashesAndPreserveZero.name, absentStatisticsRenderDashesAndPreserveZero, 30_000);
-test(failedTransactionStatisticsStayInTheirSection.name, failedTransactionStatisticsStayInTheirSection, 30_000);
-test(failedMarketChartsKeepOtherChartsAndCounters.name, failedMarketChartsKeepOtherChartsAndCounters, 30_000);
-test(statisticsFiltersSelectSectionsNamesAndIntervals.name, statisticsFiltersSelectSectionsNamesAndIntervals, 30_000);
-test(configuredStatisticsServiceKeepsItsCountersAndCharts.name, configuredStatisticsServiceKeepsItsCountersAndCharts, 30_000);
-test(statisticsColoursResolveInBothModes.name, statisticsColoursResolveInBothModes);
+test('statistics head omits sources without values', async function statisticsHeadOmitsSourcesWithoutValues() {
+  responses.set('/api/v2/stats', {});
+  responses.set('/api/v1/counters', { counters: [] });
+  responses.set('/api/v1/lines', { sections: [] });
+  const { container } = renderStatistics('light', true);
+  await waitFor(() => expect(container.querySelector('[data-network-stats-hero]')).toBeNull());
+  expect(requests.map(url => url.pathname)).toContain('/api/v2/stats');
+  expect(requests.map(url => url.pathname)).toContain('/api/v1/counters');
+});
+
+test('statistics head adds an available service counter', async function statisticsHeadAddsAnAvailableServiceCounter() {
+  responses.set('/api/v2/stats', {});
+  responses.set('/api/v1/counters', { counters: [
+    { id: 'tps', title: 'Transactions per second', value: '12.345', description: 'Transaction rate' },
+    { id: 'epoch', title: 'Current epoch', value: '99', description: 'Epoch counter' },
+  ] });
+  responses.set('/api/v1/lines', { sections: [] });
+  const { container } = renderStatistics('light', true);
+  await waitFor(() => {
+    expect(container.querySelector('[data-network-stats-hero] [data-value]')?.textContent).toBe('12.345');
+    expect(container.querySelectorAll('[data-network-stats-hero] [data-scan-stat]')).toHaveLength(1);
+  });
+  expect(container.querySelector('[data-network-stats-hero] [data-scan-stat="Current epoch"]')).toBeNull();
+  expect(container.querySelector('[data-network-stats-hero]')?.textContent).not.toContain('—');
+});
+
+test('statistics head preserves zero values and precise block counts', async function statisticsHeadPreservesZeroValuesAndPreciseBlockCounts() {
+  responses.set('/api/v2/stats', {
+    ...statistics, total_blocks: '9007199254740993', average_block_time: 0, transactions_today: '0', total_addresses: '0', celo: { epoch_number: 0 },
+  });
+  const { container } = renderStatistics();
+  await waitFor(() => expect(container.querySelector('[data-network-stats-hero] [data-scan-stat="Current epoch"] [data-value]')?.textContent).toBe('0'));
+  expect(Array.from(container.querySelectorAll('[data-network-stats-hero] [data-value]')).map(node => node.textContent))
+    .toEqual([ '9,007,199,254,740,993', '0.0s', '0', '0', '0' ]);
+  expect(requests.some(url => url.pathname.startsWith('/api/v1/'))).toBe(false);
+});
+
+test('statistics head shows loading tiles until their source resolves', async function statisticsHeadShowsLoadingTilesUntilTheirSourceResolves() {
+  const { container } = renderStatistics();
+  expect(container.querySelectorAll('[data-network-stats-hero] [data-value][data-loading]')).toHaveLength(5);
+  expect(container.querySelector('[data-network-stats-hero] [data-scan-stat="Transactions per second"]')).toBeNull();
+  await waitFor(() => {
+    expect(container.querySelectorAll('[data-network-stats-hero] [data-value]')).toHaveLength(4);
+    expect(container.querySelectorAll('[data-network-stats-hero] [data-value][data-loading]')).toHaveLength(0);
+  });
+  expect(container.querySelector('[data-network-stats-hero] [data-scan-stat="Average block time"] [data-value]')?.textContent).toBe('5.3s');
+});

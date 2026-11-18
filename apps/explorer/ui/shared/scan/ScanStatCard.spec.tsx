@@ -27,7 +27,50 @@ beforeAll(() => {
 // the suite runs without vitest globals, so the testing library cannot register its own teardown
 afterEach(cleanup);
 
+const declarationsOf = (element: Element): string => {
+  const css = Array.from(document.styleSheets)
+    .flatMap((sheet) => Array.from(sheet.cssRules).map((rule) => rule.cssText))
+    .join('').replace(/\s+/g, '');
+
+  return Array.from(element.classList)
+    .flatMap((name) => Array.from(css.matchAll(new RegExp(`\\.${ name }\\{([^}]*)\\}`, 'g'))).map((match) => match[1]))
+    .join(';');
+};
+
 describe('ScanStatCard', () => {
+  it.each([ false, true ])('keeps labels and values aligned with and without a hint when loading is %s', function statLabelsShareLineHeight(isLoading) {
+    const { container } = render(
+      <Provider>
+        <ScanStatCard label="Transactions over the last day" value="1,234" hint="Daily transactions" isLoading={ isLoading } secondary="12 TPS"/>
+        <ScanStatCard label="Total transactions" value="5,678" isLoading={ isLoading }/>
+      </Provider>,
+    );
+
+    const labels = Array.from(container.querySelectorAll('[data-label]')).map((label) => label.parentElement as HTMLElement);
+    const heightSettings = labels.map((label) => declarationsOf(label).match(/(?:^|;)height:([^;]+)/)?.[1]);
+
+    expect(labels).toHaveLength(2);
+    expect(heightSettings).toEqual([ 'var(--chakra-sizes-4)', 'var(--chakra-sizes-4)' ]);
+    for (const label of labels) {
+      expect(declarationsOf(label)).toContain('flex-wrap:nowrap');
+      expect(declarationsOf(label)).toContain('white-space:nowrap');
+      expect(declarationsOf(label)).toContain('flex-shrink:0');
+      expect(declarationsOf(label.querySelector('[data-label]') as Element)).toContain('text-overflow:ellipsis');
+    }
+
+    const hint = container.querySelector('button[aria-label="hint"]') as HTMLButtonElement;
+
+    expect(declarationsOf(hint)).toContain('position:absolute');
+    expect(declarationsOf(hint)).toContain('top:50%');
+    expect(declarationsOf(hint)).toContain('transform:translateY(-50%)');
+    expect(hint.hasAttribute('data-loading-skeleton')).toBe(isLoading);
+    for (const value of container.querySelectorAll('[data-value]')) {
+      expect(declarationsOf(value)).toContain('white-space:nowrap');
+    }
+    expect(container.querySelector('[data-secondary]')?.textContent).toBe('(12 TPS)');
+    expect(declarationsOf(container.querySelector('[data-secondary]')?.parentElement as Element)).toContain('flex-wrap:wrap');
+  });
+
   it('puts the label above the value', () => {
     const { container } = render(
       <Provider>

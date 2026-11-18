@@ -69,4 +69,8 @@ RUN cd deps/siwe/native/siwe_native && \
 
 COPY docker/explorer-elixir-builder/build-web-assets.sh /usr/local/bin/build-web-assets
 
+COPY docker/explorer-elixir-builder/compilers.tsv /opt/explorer-compilers/compilers.tsv
+COPY docker/explorer-elixir-builder/install-compilers.sh /usr/local/bin/install-compilers
+RUN sh /usr/local/bin/install-compilers /opt/explorer-compilers/compilers.tsv /opt/explorer-compilers
+
 CMD ["/bin/sh"]

@@ -1,5 +1,58 @@
 {
-  "compilers": [],
-  "evm_versions": [],
-  "verification_options": []
+  "is_rust_verifier_microservice_enabled": true,
+  "solidity_compiler_versions": [
+    "v0.8.17+commit.8df45f5f",
+    "v0.8.16+commit.07a7930e",
+    "v0.8.15+commit.e14f2714",
+    "v0.8.18-nightly.2022.11.23+commit.eb2f874e",
+    "v0.8.17-nightly.2022.8.24+commit.22a0c46e",
+    "v0.8.16-nightly.2022.7.6+commit.b6f11b33"
+  ],
+  "solidity_evm_versions": [
+    "default",
+    "london",
+    "berlin"
+  ],
+  "verification_options": [
+    "flattened-code",
+    "standard-input",
+    "sourcify",
+    "multi-part",
+    "vyper-code",
+    "vyper-multi-part",
+    "vyper-standard-input",
+    "solidity-hardhat",
+    "solidity-foundry"
+  ],
+  "vyper_compiler_versions": [
+    "v0.3.7+commit.6020b8bb",
+    "v0.3.1+commit.0463ea4c",
+    "v0.3.0+commit.8a23feb",
+    "v0.2.16+commit.59e1bdd",
+    "v0.2.3+commit.006968f",
+    "v0.2.2+commit.337c2ef",
+    "v0.1.0-beta.17+commit.0671b7b"
+  ],
+  "vyper_evm_versions": [
+    "byzantium",
+    "constantinople",
+    "petersburg",
+    "istanbul"
+  ],
+  "license_types": {
+    "apache_2_0": 12,
+    "bsd_2_clause": 8,
+    "bsd_3_clause": 9,
+    "bsl_1_1": 14,
+    "gnu_agpl_v3": 13,
+    "gnu_gpl_v2": 4,
+    "gnu_gpl_v3": 5,
+    "gnu_lgpl_v2_1": 6,
+    "gnu_lgpl_v3": 7,
+    "mit": 3,
+    "mpl_2_0": 10,
+    "none": 1,
+    "osl_3_0": 11,
+    "unlicense": 2
+  }
 }
