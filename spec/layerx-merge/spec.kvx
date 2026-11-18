@@ -176758,7 +176758,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.863]
 title = "Let the column From / To of the transactions table take the room the other columns leave"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
