@@ -22,4 +22,5 @@ solc	v0.8.14-nightly.2022.4.13+commit.25923c1f	https://binaries.soliditylang.org
 solc	v0.8.2+commit.661d1103	https://binaries.soliditylang.org/bin/soljson-v0.8.2+commit.661d1103.js	015e83fb0b72ccdafb0c217961b21a0321adb2d3f2ad992f5e79635c2086e6dd
 solc	v0.8.4+commit.c7e474f2	https://binaries.soliditylang.org/bin/soljson-v0.8.4+commit.c7e474f2.js	4a14c7bcaf0d988a829db2174b8f7731898aa8633216490603ad74bff64eca3c
 solc	v0.8.8+commit.dddeac2f	https://binaries.soliditylang.org/bin/soljson-v0.8.8+commit.dddeac2f.js	534b7d4079d13bb4cd10b7559dc105c2adec625df4105f20ebce47e6da60bfda
+vyper	v0.2.12	https://github.com/vyperlang/vyper/releases/download/v0.2.12/vyper.0.2.12%2Bcommit.2c6842c.linux	ee5b828e65546b43907cb3ddb0a1e12b9a146f8fc921825f12a3deea5c2da643
 vyper	v0.3.10	https://github.com/vyperlang/vyper/releases/download/v0.3.10/vyper.0.3.10%2Bcommit.91361694.linux	df50fe2d8f5c305abbefb589bcea14019dd3f1012ed1baa717035167a6ddc1c5

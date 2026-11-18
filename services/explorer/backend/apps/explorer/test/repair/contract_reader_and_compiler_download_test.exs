@@ -21,9 +21,9 @@ defmodule Explorer.Repair.ContractReaderAndCompilerDownloadTest do
   alias Explorer.SmartContract.{CompilerVersion, Reader, SolcDownloader, VyperDownloader}
 
   @solc_version "v0.8.21+commit.d9974bed"
-  @vyper_version "v0.3.10"
+  @vyper_version "v0.3.9"
   @solc_body "var Module = {version: '0.8.21+commit.d9974bed'};\n"
-  @vyper_body <<0x7F, "ELF", 2, 1, 1, 0, "vyper-0.3.10-release-transcript">>
+  @vyper_body <<0x7F, "ELF", 2, 1, 1, 0, "vyper-0.3.9-release-transcript">>
   @abi [
     %{
       "type" => "function",
@@ -50,11 +50,12 @@ defmodule Explorer.Repair.ContractReaderAndCompilerDownloadTest do
 
         cached =
           case File.stat(path) do
-            {:ok, stat} -> {File.read!(path), Bitwise.band(stat.mode, 0o777)}
+            {:ok, %{type: :regular} = stat} -> {File.read!(path), Bitwise.band(stat.mode, 0o777)}
+            {:ok, _stat} -> nil
             {:error, :enoent} -> nil
           end
 
-        for file <- [path, path <> ".download", legacy_path(module)], do: File.rm(file)
+        for file <- [path, path <> ".download", legacy_path(module)], do: File.rm_rf!(file)
         {:ok, _} = Supervisor.restart_child(Explorer.Supervisor, module)
         {module, path, cached}
       end
@@ -62,7 +63,7 @@ defmodule Explorer.Repair.ContractReaderAndCompilerDownloadTest do
     on_exit(fn ->
       for {module, path, cached} <- compilers do
         Supervisor.terminate_child(Explorer.Supervisor, module)
-        for file <- [path, path <> ".download", legacy_path(module)], do: File.rm(file)
+        for file <- [path, path <> ".download", legacy_path(module)], do: File.rm_rf!(file)
 
         if cached do
           {contents, mode} = cached
