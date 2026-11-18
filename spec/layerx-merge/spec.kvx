@@ -15778,6 +15778,12 @@ value = "One. Each module of the launchpad under services/launchpad and sdk/laun
 basis = "Gotcha 4704."
 affects = []
 
+[decision.3778]
+title = "The views of the launchpad web and mobile applications are closed flow by flow against the services they call"
+value = "One. Each flow of the launchpad web application gets one task. A flow runs from the first read of its views to the last answer a user sees, with the routes, the streams and the chain calls on the way. Two. Such a task repairs inside the application source what a user can meet: a call whose path, parameters, body or answer shape differs from what the service writes at this revision, a state that never ends, an error without a message and a way back, an action whose result the view does not show, a value shown from a fixed sample in place of a read, a link or a control that leads nowhere, a wallet step that leaves the view in a state the next step cannot leave. It leaves sizes, spacing, tokens and class names as they are, since the size tasks of the application hold them, does not restyle, rename or restructure code that works and adds no rules or checks of form. A defect whose repair lies in a service or a client package is named in the final message and becomes a task of its own. Three. Each flow is held by one case file under the source of the application that reads answers written in the form the services write at this revision. Where the flow has a joined case against started services, the task extends that case with what it repaired. Four. The mobile application gets one task of the same form over all its screens. Five. The deployment contract and the composer under deploy/launchpad are read once whole against what every launchpad image reads at build and at start: every setting and build argument an image reads is carried by the contract with a value form, and nothing the contract carries stays unread. The values the contract holds stay as they are. Six. The protocol module and the two contract packages get one task each of the form of decision 3777, point one."
+basis = "Gotcha 4705. Decision 3777."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45438,6 +45444,141 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.904]
+title = "Read the deployment contract and the composer of the launchpad against what every launchpad image reads at build and at start"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py"
+do_1 = "do_1 Decision 3778, point five. Read deploy/launchpad whole: the contract with its entry for every service and for the web application, the composer under documents with its example values, the image definitions, the object store documents and the production documents. Read beside it, for every entry, what the image reads: the configuration reads of the module under services/launchpad, the documents it loads at start, and for the web application the build arguments of its image definition and the settings the source under apps/launchpad/web reads."
+symbols = []
+
+[capability.22.39.903]
+title = "Bring the contract package sidiora-launchpad-v3 of the launchpad in line with the interfaces and the deployment it names and hold each entry with a case"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/sidiora-launchpad-v3"]
+tests = []
+verification_contract = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/sidiora-launchpad-v3 --fail-if-no-match run test)"
+do_1 = "do_1 Decision 3778, point six, and decision 3777, points one and two. Read sdk/launchpad/packages/sidiora-launchpad-v3 whole, the interface files under precompiles/launchpad/abi, the deployment document sdk/launchpad/shared/config/deployment/current.json and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+symbols = []
+
+[capability.22.39.902]
+title = "Bring the contract package production-contracts of the launchpad in line with the interfaces and the deployment it names and hold each entry with a case"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/production-contracts"]
+tests = []
+verification_contract = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/production-contracts --fail-if-no-match run test)"
+do_1 = "do_1 Decision 3778, point six, and decision 3777, points one and two. Read sdk/launchpad/packages/production-contracts whole, the interface files under precompiles/launchpad/abi, the deployment document sdk/launchpad/shared/config/deployment/current.json and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+symbols = []
+
+[capability.22.39.901]
+title = "Close the protocol module of the launchpad against the contracts and the services that read it"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/protocol"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd sdk/launchpad/protocol && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Decision 3778, point six, and decision 3777, points one and two. Read sdk/launchpad/protocol whole, test files aside: its bindings, its catalog, its contract documents and its event registry. Read beside it the interface files under precompiles/launchpad/abi, the deployment document sdk/launchpad/shared/config/deployment/current.json and the places under services/launchpad that import the module."
+symbols = []
+
+[capability.22.39.900]
+title = "Close the flows of the launchpad mobile application against the services they call"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/mobile"]
+tests = []
+verification_contract = "pnpm --dir apps/launchpad/mobile run test"
+do_1 = "do_1 Decision 3778, points two to four. Read apps/launchpad/mobile whole, test files aside: its screens, its navigation, its client calls, its wallet steps and its settings. Read beside it the services under services/launchpad its calls reach and the client packages under sdk/launchpad/packages on the way."
+symbols = []
+
+[capability.22.39.899]
+title = "Close the server routes and the rewrite table of the launchpad web application against the services behind them"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "apps/launchpad/web/next.config.ts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Read the route files under apps/launchpad/web/src/app/api, the file apps/launchpad/web/next.config.ts with the rewrite table it builds toward the services and the module that table comes from, the instrumentation files of the application and the document views under app/docs. Read beside them the web entry of the deployment contract under deploy/launchpad and the image definition of the web application there."
+symbols = []
+
+[capability.22.39.898]
+title = "Close the live flow of the launchpad web application against the services it calls"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the views live and live/all, with the directories page-modules/live, widgets/live and widgets/voice-rooms, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the livestream and social modules under services/launchpad with the start, the join, the playback address and the end of a stream and of a voice room, and the client packages under sdk/launchpad/packages on the way."
+symbols = []
+
+[capability.22.39.897]
+title = "Close the community flow of the launchpad web application against the services it calls"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the views chat and bounties, with the directories page-modules/chat, page-modules/bounties, widgets/chat, widgets/bounties, widgets/social, widgets/community-interactions and widgets/community-safety, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the social and user modules under services/launchpad with the stream of a conversation, read markers, reports and blocks, and the client packages under sdk/launchpad/packages on the way."
+symbols = []
+
+[capability.22.39.896]
+title = "Close the rewards flow of the launchpad web application against the services it calls"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the views rewards, holder-rewards, leaderboard and the short code view, with the directories page-modules/rewards, page-modules/holder-rewards, page-modules/leaderboard, widgets/rewards, widgets/holder-rewards and widgets/leaderboard, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the pnl, stats and api modules under services/launchpad and the chain calls of a claim, and the client packages under sdk/launchpad/packages on the way."
+symbols = []
+
+[capability.22.39.895]
+title = "Close the profile and account flow of the launchpad web application against the services it calls"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the views profile, the profit card view and auth/callback, with the directories page-modules/profile, widgets/profile, widgets/pnl, widgets/funding and widgets/wallet-recovery, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the user, pnl and gateway modules under services/launchpad, the sign-in exchange and the wallet steps of a connection, a funding and a recovery, and the client packages under sdk/launchpad/packages on the way."
+symbols = []
+
+[capability.22.39.894]
+title = "Close the discovery flow of the launchpad web application against the services it calls"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the home view and the views explore, search and watchlist, with the directories page-modules/home, page-modules/explore, page-modules/search, page-modules/watchlist, widgets/home and widgets/explore, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the api, ranking, stats and discovery modules under services/launchpad with their paging, sorting and filters, and the client packages under sdk/launchpad/packages on the way."
+symbols = []
+
+[capability.22.39.893]
+title = "Close the terminal and orders flow of the launchpad web application against the services it calls"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the views terminal, meta-ag/swap and meta-ag/orders, with the directories page-modules/terminal, page-modules/meta-ag, widgets/terminal and widgets/meta-ag, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the api, charts and stats modules under services/launchpad, the stream the terminal reads and the chain calls of an order and its cancellation, and the client packages under sdk/launchpad/packages on the way."
+symbols = []
+
+[capability.22.39.892]
+title = "Close the token and trade flow of the launchpad web application against the services it calls"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the views token, coin and swap, with the directories page-modules/token, page-modules/swap, widgets/coin, widgets/trade, widgets/trading and widgets/swap, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the api, charts, stats and indexer modules under services/launchpad, the stream of trades and candles and the chain calls of a quote, a buy, a sell and a graduation, and the client packages under sdk/launchpad/packages on the way."
+symbols = []
+
+[capability.22.39.891]
+title = "Close the chain launch flow of the launchpad web application against the services it calls"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the view create/chain, with the directories page-modules/create-chain and widgets/create-chain, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the api module under services/launchpad, the launchpad precompile entries under precompiles/launchpad/abi and the chain calls that launch a virtual chain with its token in one flow, gas paid in the native asset, and the client packages under sdk/launchpad/packages on the way."
+symbols = []
+
+[capability.22.39.890]
+title = "Close the creation flow of the launchpad web application against the services it calls"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the views create, new and the metadata view of a token, with the directories page-modules/create, page-modules/new, widgets/create, widgets/my-token and features/metadata-media, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the api, metadata and gateway modules under services/launchpad and the chain calls of a market creation with its first buy, and the client packages under sdk/launchpad/packages on the way."
+symbols = []
 
 [capability.22.39.889]
 title = "Bring the client package users-sdk of the launchpad in line with the routes it calls and hold each call with a case"
@@ -207858,6 +207999,480 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.904]
+title = "Read the deployment contract and the composer of the launchpad against what every launchpad image reads at build and at start"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.904"]
+interfaces = []
+do_1 = "do_1 Decision 3778, point five. Read deploy/launchpad whole: the contract with its entry for every service and for the web application, the composer under documents with its example values, the image definitions, the object store documents and the production documents. Read beside it, for every entry, what the image reads: the configuration reads of the module under services/launchpad, the documents it loads at start, and for the web application the build arguments of its image definition and the settings the source under apps/launchpad/web reads."
+do_2 = "do_2 Establish for every setting, document and build argument an image reads that the contract carries it with a value form and that the composer writes it from the example values in the shape the module parses, and for every name the contract or the composer carries that an image reads it. Establish that the composed documents of every module pass the validation the module runs at start, by the validation code of the module where the composer cases can call it and by reading where they cannot."
+do_3 = "do_3 Repair every disagreement inside deploy/launchpad by the smallest change, each with a case in documents/test_compose.py. The values the contract holds stay as they are: only names, forms and what the composer writes change. A disagreement whose repair lies in a module or in the application source stays as it is and is named in the final message with file, line, what was observed and what is expected. Add no rules or checks of form beyond the cases of the repairs."
+do_4 = "do_4 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every entry of the contract with the count of names read, the names repaired and the defects left outside. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/documents/compose.py"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.903]
+title = "Bring the contract package sidiora-launchpad-v3 of the launchpad in line with the interfaces and the deployment it names and hold each entry with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.903"]
+interfaces = []
+do_1 = "do_1 Decision 3778, point six, and decision 3777, points one and two. Read sdk/launchpad/packages/sidiora-launchpad-v3 whole, the interface files under precompiles/launchpad/abi, the deployment document sdk/launchpad/shared/config/deployment/current.json and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+do_2 = "do_2 Establish for every interface the package exports that functions, events, argument order, types and indexed fields agree with the interface files at this revision, for every address and identifier that it agrees with the deployment document, and for every helper of the package that amounts, addresses and hashes are encoded the way the chain entries read them."
+do_3 = "do_3 Repair every disagreement inside sdk/launchpad/packages/sidiora-launchpad-v3 by the smallest change, each with a case in the existing case directory of the package. Where a caller under apps/launchpad uses an entry the interface files do not hold, name caller, file and entry in the final message and change nothing there. A disagreement whose repair lies in the interface files or in the deployment document stays as it is and is named in the final message with file, line, what was observed and what is expected."
+do_4 = "do_4 Do not restyle, rename or restructure code that works, add no rules or checks of form, and remove no export a caller under apps/launchpad uses. No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every interface and every address of the package with its verdict in one line each. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/sidiora-launchpad-v3"]
+tests = []
+planned_paths = []
+build_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+verify_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/sidiora-launchpad-v3 --fail-if-no-match run test)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.902]
+title = "Bring the contract package production-contracts of the launchpad in line with the interfaces and the deployment it names and hold each entry with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.902"]
+interfaces = []
+do_1 = "do_1 Decision 3778, point six, and decision 3777, points one and two. Read sdk/launchpad/packages/production-contracts whole, the interface files under precompiles/launchpad/abi, the deployment document sdk/launchpad/shared/config/deployment/current.json and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+do_2 = "do_2 Establish for every interface the package exports that functions, events, argument order, types and indexed fields agree with the interface files at this revision, for every address and identifier that it agrees with the deployment document, and for every helper of the package that amounts, addresses and hashes are encoded the way the chain entries read them."
+do_3 = "do_3 Repair every disagreement inside sdk/launchpad/packages/production-contracts by the smallest change, each with a case in the existing case directory of the package. Where a caller under apps/launchpad uses an entry the interface files do not hold, name caller, file and entry in the final message and change nothing there. A disagreement whose repair lies in the interface files or in the deployment document stays as it is and is named in the final message with file, line, what was observed and what is expected."
+do_4 = "do_4 Do not restyle, rename or restructure code that works, add no rules or checks of form, and remove no export a caller under apps/launchpad uses. No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every interface and every address of the package with its verdict in one line each. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/production-contracts"]
+tests = []
+planned_paths = []
+build_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+verify_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/production-contracts --fail-if-no-match run test)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.901]
+title = "Close the protocol module of the launchpad against the contracts and the services that read it"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.901"]
+interfaces = []
+do_1 = "do_1 Decision 3778, point six, and decision 3777, points one and two. Read sdk/launchpad/protocol whole, test files aside: its bindings, its catalog, its contract documents and its event registry. Read beside it the interface files under precompiles/launchpad/abi, the deployment document sdk/launchpad/shared/config/deployment/current.json and the places under services/launchpad that import the module."
+do_2 = "do_2 Establish for every binding, every event and every catalog entry that names, argument order, types, indexed fields and selectors agree with the interface files at this revision, that every address and identifier the module carries agrees with the deployment document, and that every entry a service under services/launchpad imports from the module exists in the form the service uses."
+do_3 = "do_3 Repair every disagreement inside sdk/launchpad/protocol by the smallest change, each with a case in an existing package directory of the module, so that the inventory tests/ci/data/launchpad_go_tests.py stays as it is. A disagreement whose repair lies in a service, in the interface files or in the deployment document stays as it is and is named in the final message with file, line, what was observed and what is expected. Do not regenerate a binding file whole where a few lines repair it, do not restyle, rename or restructure code that works and add no rules or checks of form."
+do_4 = "do_4 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every binding and every event with its verdict in one line each. The verification runs the suite of the module by the inventory command. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/protocol"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/protocol && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/protocol && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.900]
+title = "Close the flows of the launchpad mobile application against the services they call"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.900"]
+interfaces = []
+do_1 = "do_1 Decision 3778, points two to four. Read apps/launchpad/mobile whole, test files aside: its screens, its navigation, its client calls, its wallet steps and its settings. Read beside it the services under services/launchpad its calls reach and the client packages under sdk/launchpad/packages on the way."
+do_2 = "do_2 Walk every screen from its first read to its last answer and establish for every call that path, method, parameters, body, answer shape, error codes, paging and stream frames agree with what the service writes at this revision, and for every state of every screen that it ends: loading ends in content, an empty state or an error with a message and a way back, an action shows its result, a wallet step that is refused or dropped returns the screen to a state the user can act in."
+do_3 = "do_3 Repair every defect inside apps/launchpad/mobile by the smallest change, each with a case in the existing case directories of the application. Leave sizes, spacing, tokens and styles as they are, do not restyle, rename or restructure code that works and add no rules or checks of form. A defect whose repair lies in a service or a client package stays as it is and is named in the final message with file, line, what was observed and what is expected."
+do_4 = "do_4 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every screen with its calls and their verdicts in one line each, every repair with file and cause and every defect left outside. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/mobile"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "pnpm --dir apps/launchpad/mobile run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.899]
+title = "Close the server routes and the rewrite table of the launchpad web application against the services behind them"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.899"]
+interfaces = []
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Read the route files under apps/launchpad/web/src/app/api, the file apps/launchpad/web/next.config.ts with the rewrite table it builds toward the services and the module that table comes from, the instrumentation files of the application and the document views under app/docs. Read beside them the web entry of the deployment contract under deploy/launchpad and the image definition of the web application there."
+do_2 = "do_2 Establish for every server route that it answers in a finished form for a good request, a bad request and an upstream that does not answer, and for every entry of the rewrite table that its source pattern meets what the views call and its destination meets a route the service behind it serves at this revision. Establish that every build argument the image definition declares is read by the application and that every setting the application reads at build or at start is declared there."
+do_3 = "do_3 Repair every defect inside apps/launchpad/web/src and apps/launchpad/web/next.config.ts by the smallest change. Leave sizes, spacing, tokens and class names as they are and do not restyle or restructure code that works. A defect whose repair lies under deploy/launchpad, in a service or in a client package stays as it is and is named in the final message with file, line, what was observed and what is expected."
+do_4 = "do_4 Hold the routes and the table with the case file apps/launchpad/web/src/app/api/flow-server-routes.test.ts: one case for each server route in its three answers and one case that reads the rewrite table entry by entry. No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every server route and every entry of the table with its verdict in one line each. The verification runs the whole suite of the application under its prepared environment. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "apps/launchpad/web/next.config.ts"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/app/api/flow-server-routes.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.898]
+title = "Close the live flow of the launchpad web application against the services it calls"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.898"]
+interfaces = []
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the views live and live/all, with the directories page-modules/live, widgets/live and widgets/voice-rooms, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the livestream and social modules under services/launchpad with the start, the join, the playback address and the end of a stream and of a voice room, and the client packages under sdk/launchpad/packages on the way."
+do_2 = "do_2 Walk the flow from its first read to its last answer and establish for every call that path, method, parameters, body, answer shape, error codes, paging and stream frames agree with what the service writes at this revision, and for every state of every view that it ends: loading ends in content, an empty state or an error with a message and a way back, an action shows its result, a wallet step that is refused or dropped returns the view to a state the user can act in. Establish that no value is shown from a fixed sample in place of a read and that every link and control of the views leads somewhere."
+do_3 = "do_3 Repair every defect inside apps/launchpad/web/src by the smallest change. Leave sizes, spacing, tokens and class names as they are, do not restyle, rename or restructure code that works and add no rules or checks of form. A defect whose repair lies in a service or a client package stays as it is and is named in the final message with file, line, what was observed and what is expected."
+do_4 = "do_4 Hold the flow with the case file apps/launchpad/web/src/page-modules/live/flow-live.test.ts: its cases read answers written in the form the services write at this revision and walk the flow through its states, each repair with a case of its own. Where the flow already has a joined case against started services, extend that case with what was repaired and keep the new file for the states the joined case does not reach."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every call of the flow with its route and its verdict in one line each, every repair with file and cause and every defect left outside. The verification runs the whole suite of the application under its prepared environment. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/page-modules/live/flow-live.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.897]
+title = "Close the community flow of the launchpad web application against the services it calls"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.897"]
+interfaces = []
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the views chat and bounties, with the directories page-modules/chat, page-modules/bounties, widgets/chat, widgets/bounties, widgets/social, widgets/community-interactions and widgets/community-safety, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the social and user modules under services/launchpad with the stream of a conversation, read markers, reports and blocks, and the client packages under sdk/launchpad/packages on the way."
+do_2 = "do_2 Walk the flow from its first read to its last answer and establish for every call that path, method, parameters, body, answer shape, error codes, paging and stream frames agree with what the service writes at this revision, and for every state of every view that it ends: loading ends in content, an empty state or an error with a message and a way back, an action shows its result, a wallet step that is refused or dropped returns the view to a state the user can act in. Establish that no value is shown from a fixed sample in place of a read and that every link and control of the views leads somewhere."
+do_3 = "do_3 Repair every defect inside apps/launchpad/web/src by the smallest change. Leave sizes, spacing, tokens and class names as they are, do not restyle, rename or restructure code that works and add no rules or checks of form. A defect whose repair lies in a service or a client package stays as it is and is named in the final message with file, line, what was observed and what is expected."
+do_4 = "do_4 Hold the flow with the case file apps/launchpad/web/src/page-modules/chat/flow-community.test.ts: its cases read answers written in the form the services write at this revision and walk the flow through its states, each repair with a case of its own. Where the flow already has a joined case against started services, extend that case with what was repaired and keep the new file for the states the joined case does not reach."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every call of the flow with its route and its verdict in one line each, every repair with file and cause and every defect left outside. The verification runs the whole suite of the application under its prepared environment. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/page-modules/chat/flow-community.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.896]
+title = "Close the rewards flow of the launchpad web application against the services it calls"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.896"]
+interfaces = []
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the views rewards, holder-rewards, leaderboard and the short code view, with the directories page-modules/rewards, page-modules/holder-rewards, page-modules/leaderboard, widgets/rewards, widgets/holder-rewards and widgets/leaderboard, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the pnl, stats and api modules under services/launchpad and the chain calls of a claim, and the client packages under sdk/launchpad/packages on the way."
+do_2 = "do_2 Walk the flow from its first read to its last answer and establish for every call that path, method, parameters, body, answer shape, error codes, paging and stream frames agree with what the service writes at this revision, and for every state of every view that it ends: loading ends in content, an empty state or an error with a message and a way back, an action shows its result, a wallet step that is refused or dropped returns the view to a state the user can act in. Establish that no value is shown from a fixed sample in place of a read and that every link and control of the views leads somewhere."
+do_3 = "do_3 Repair every defect inside apps/launchpad/web/src by the smallest change. Leave sizes, spacing, tokens and class names as they are, do not restyle, rename or restructure code that works and add no rules or checks of form. A defect whose repair lies in a service or a client package stays as it is and is named in the final message with file, line, what was observed and what is expected."
+do_4 = "do_4 Hold the flow with the case file apps/launchpad/web/src/page-modules/rewards/flow-rewards.test.ts: its cases read answers written in the form the services write at this revision and walk the flow through its states, each repair with a case of its own. Where the flow already has a joined case against started services, extend that case with what was repaired and keep the new file for the states the joined case does not reach."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every call of the flow with its route and its verdict in one line each, every repair with file and cause and every defect left outside. The verification runs the whole suite of the application under its prepared environment. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/page-modules/rewards/flow-rewards.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.895]
+title = "Close the profile and account flow of the launchpad web application against the services it calls"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.895"]
+interfaces = []
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the views profile, the profit card view and auth/callback, with the directories page-modules/profile, widgets/profile, widgets/pnl, widgets/funding and widgets/wallet-recovery, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the user, pnl and gateway modules under services/launchpad, the sign-in exchange and the wallet steps of a connection, a funding and a recovery, and the client packages under sdk/launchpad/packages on the way."
+do_2 = "do_2 Walk the flow from its first read to its last answer and establish for every call that path, method, parameters, body, answer shape, error codes, paging and stream frames agree with what the service writes at this revision, and for every state of every view that it ends: loading ends in content, an empty state or an error with a message and a way back, an action shows its result, a wallet step that is refused or dropped returns the view to a state the user can act in. Establish that no value is shown from a fixed sample in place of a read and that every link and control of the views leads somewhere."
+do_3 = "do_3 Repair every defect inside apps/launchpad/web/src by the smallest change. Leave sizes, spacing, tokens and class names as they are, do not restyle, rename or restructure code that works and add no rules or checks of form. A defect whose repair lies in a service or a client package stays as it is and is named in the final message with file, line, what was observed and what is expected."
+do_4 = "do_4 Hold the flow with the case file apps/launchpad/web/src/page-modules/profile/flow-profile.test.ts: its cases read answers written in the form the services write at this revision and walk the flow through its states, each repair with a case of its own. Where the flow already has a joined case against started services, extend that case with what was repaired and keep the new file for the states the joined case does not reach."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every call of the flow with its route and its verdict in one line each, every repair with file and cause and every defect left outside. The verification runs the whole suite of the application under its prepared environment. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/page-modules/profile/flow-profile.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.894]
+title = "Close the discovery flow of the launchpad web application against the services it calls"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.894"]
+interfaces = []
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the home view and the views explore, search and watchlist, with the directories page-modules/home, page-modules/explore, page-modules/search, page-modules/watchlist, widgets/home and widgets/explore, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the api, ranking, stats and discovery modules under services/launchpad with their paging, sorting and filters, and the client packages under sdk/launchpad/packages on the way."
+do_2 = "do_2 Walk the flow from its first read to its last answer and establish for every call that path, method, parameters, body, answer shape, error codes, paging and stream frames agree with what the service writes at this revision, and for every state of every view that it ends: loading ends in content, an empty state or an error with a message and a way back, an action shows its result, a wallet step that is refused or dropped returns the view to a state the user can act in. Establish that no value is shown from a fixed sample in place of a read and that every link and control of the views leads somewhere."
+do_3 = "do_3 Repair every defect inside apps/launchpad/web/src by the smallest change. Leave sizes, spacing, tokens and class names as they are, do not restyle, rename or restructure code that works and add no rules or checks of form. A defect whose repair lies in a service or a client package stays as it is and is named in the final message with file, line, what was observed and what is expected."
+do_4 = "do_4 Hold the flow with the case file apps/launchpad/web/src/page-modules/explore/flow-discovery.test.ts: its cases read answers written in the form the services write at this revision and walk the flow through its states, each repair with a case of its own. Where the flow already has a joined case against started services, extend that case with what was repaired and keep the new file for the states the joined case does not reach."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every call of the flow with its route and its verdict in one line each, every repair with file and cause and every defect left outside. The verification runs the whole suite of the application under its prepared environment. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/page-modules/explore/flow-discovery.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.893]
+title = "Close the terminal and orders flow of the launchpad web application against the services it calls"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.893"]
+interfaces = []
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the views terminal, meta-ag/swap and meta-ag/orders, with the directories page-modules/terminal, page-modules/meta-ag, widgets/terminal and widgets/meta-ag, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the api, charts and stats modules under services/launchpad, the stream the terminal reads and the chain calls of an order and its cancellation, and the client packages under sdk/launchpad/packages on the way."
+do_2 = "do_2 Walk the flow from its first read to its last answer and establish for every call that path, method, parameters, body, answer shape, error codes, paging and stream frames agree with what the service writes at this revision, and for every state of every view that it ends: loading ends in content, an empty state or an error with a message and a way back, an action shows its result, a wallet step that is refused or dropped returns the view to a state the user can act in. Establish that no value is shown from a fixed sample in place of a read and that every link and control of the views leads somewhere."
+do_3 = "do_3 Repair every defect inside apps/launchpad/web/src by the smallest change. Leave sizes, spacing, tokens and class names as they are, do not restyle, rename or restructure code that works and add no rules or checks of form. A defect whose repair lies in a service or a client package stays as it is and is named in the final message with file, line, what was observed and what is expected."
+do_4 = "do_4 Hold the flow with the case file apps/launchpad/web/src/page-modules/terminal/flow-terminal.test.ts: its cases read answers written in the form the services write at this revision and walk the flow through its states, each repair with a case of its own. Where the flow already has a joined case against started services, extend that case with what was repaired and keep the new file for the states the joined case does not reach."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every call of the flow with its route and its verdict in one line each, every repair with file and cause and every defect left outside. The verification runs the whole suite of the application under its prepared environment. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/page-modules/terminal/flow-terminal.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.892]
+title = "Close the token and trade flow of the launchpad web application against the services it calls"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.892"]
+interfaces = []
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the views token, coin and swap, with the directories page-modules/token, page-modules/swap, widgets/coin, widgets/trade, widgets/trading and widgets/swap, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the api, charts, stats and indexer modules under services/launchpad, the stream of trades and candles and the chain calls of a quote, a buy, a sell and a graduation, and the client packages under sdk/launchpad/packages on the way."
+do_2 = "do_2 Walk the flow from its first read to its last answer and establish for every call that path, method, parameters, body, answer shape, error codes, paging and stream frames agree with what the service writes at this revision, and for every state of every view that it ends: loading ends in content, an empty state or an error with a message and a way back, an action shows its result, a wallet step that is refused or dropped returns the view to a state the user can act in. Establish that no value is shown from a fixed sample in place of a read and that every link and control of the views leads somewhere."
+do_3 = "do_3 Repair every defect inside apps/launchpad/web/src by the smallest change. Leave sizes, spacing, tokens and class names as they are, do not restyle, rename or restructure code that works and add no rules or checks of form. A defect whose repair lies in a service or a client package stays as it is and is named in the final message with file, line, what was observed and what is expected."
+do_4 = "do_4 Hold the flow with the case file apps/launchpad/web/src/page-modules/token/flow-token-trade.test.ts: its cases read answers written in the form the services write at this revision and walk the flow through its states, each repair with a case of its own. Where the flow already has a joined case against started services, extend that case with what was repaired and keep the new file for the states the joined case does not reach."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every call of the flow with its route and its verdict in one line each, every repair with file and cause and every defect left outside. The verification runs the whole suite of the application under its prepared environment. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/page-modules/token/flow-token-trade.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.891]
+title = "Close the chain launch flow of the launchpad web application against the services it calls"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.891"]
+interfaces = []
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the view create/chain, with the directories page-modules/create-chain and widgets/create-chain, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the api module under services/launchpad, the launchpad precompile entries under precompiles/launchpad/abi and the chain calls that launch a virtual chain with its token in one flow, gas paid in the native asset, and the client packages under sdk/launchpad/packages on the way."
+do_2 = "do_2 Walk the flow from its first read to its last answer and establish for every call that path, method, parameters, body, answer shape, error codes, paging and stream frames agree with what the service writes at this revision, and for every state of every view that it ends: loading ends in content, an empty state or an error with a message and a way back, an action shows its result, a wallet step that is refused or dropped returns the view to a state the user can act in. Establish that no value is shown from a fixed sample in place of a read and that every link and control of the views leads somewhere."
+do_3 = "do_3 Repair every defect inside apps/launchpad/web/src by the smallest change. Leave sizes, spacing, tokens and class names as they are, do not restyle, rename or restructure code that works and add no rules or checks of form. A defect whose repair lies in a service or a client package stays as it is and is named in the final message with file, line, what was observed and what is expected."
+do_4 = "do_4 Hold the flow with the case file apps/launchpad/web/src/page-modules/create-chain/flow-chain-launch.test.ts: its cases read answers written in the form the services write at this revision and walk the flow through its states, each repair with a case of its own. Where the flow already has a joined case against started services, extend that case with what was repaired and keep the new file for the states the joined case does not reach."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every call of the flow with its route and its verdict in one line each, every repair with file and cause and every defect left outside. The verification runs the whole suite of the application under its prepared environment. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/page-modules/create-chain/flow-chain-launch.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.890]
+title = "Close the creation flow of the launchpad web application against the services it calls"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.890"]
+interfaces = []
+do_1 = "do_1 Gotcha 4705 and decision 3778, points one to three. Under apps/launchpad/web/src read the views create, new and the metadata view of a token, with the directories page-modules/create, page-modules/new, widgets/create, widgets/my-token and features/metadata-media, with the route files under app that mount them and the shared modules under core they call. Read beside them what the flow calls: the api, metadata and gateway modules under services/launchpad and the chain calls of a market creation with its first buy, and the client packages under sdk/launchpad/packages on the way."
+do_2 = "do_2 Walk the flow from its first read to its last answer and establish for every call that path, method, parameters, body, answer shape, error codes, paging and stream frames agree with what the service writes at this revision, and for every state of every view that it ends: loading ends in content, an empty state or an error with a message and a way back, an action shows its result, a wallet step that is refused or dropped returns the view to a state the user can act in. Establish that no value is shown from a fixed sample in place of a read and that every link and control of the views leads somewhere."
+do_3 = "do_3 Repair every defect inside apps/launchpad/web/src by the smallest change. Leave sizes, spacing, tokens and class names as they are, do not restyle, rename or restructure code that works and add no rules or checks of form. A defect whose repair lies in a service or a client package stays as it is and is named in the final message with file, line, what was observed and what is expected."
+do_4 = "do_4 Hold the flow with the case file apps/launchpad/web/src/page-modules/create/flow-creation.test.ts: its cases read answers written in the form the services write at this revision and walk the flow through its states, each repair with a case of its own. Where the flow already has a joined case against started services, extend that case with what was repaired and keep the new file for the states the joined case does not reach."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every call of the flow with its route and its verdict in one line each, every repair with file and cause and every defect left outside. The verification runs the whole suite of the application under its prepared environment. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/page-modules/create/flow-creation.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
