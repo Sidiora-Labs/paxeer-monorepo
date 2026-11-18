@@ -201,16 +201,65 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/accounts/label/example",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/accounts/label/example.json",
+          "status": 404
         }
       ]
     },
     {
       "name": "/address/[hash]/contract-verification",
-      "path": "/explorer/address/0x0000000000000000000000000000000000000002/contract-verification"
+      "path": "/explorer/address/0x0000000000000000000000000000000000000002/contract-verification",
+      "answers": [
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/smart-contracts/0x0000000000000000000000000000000000000002",
+          "file": "answers/contract-unverified.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/smart-contracts/0x0000000000000000000000000000000000000002?*",
+          "file": "answers/contract-unverified.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        }
+      ]
     },
     {
       "name": "/address/[hash]",
-      "path": "/explorer/address/0x0000000000000000000000000000000000000002"
+      "path": "/explorer/address/0x0000000000000000000000000000000000000002",
+      "answers": [
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/smart-contracts/0x0000000000000000000000000000000000000002",
+          "file": "answers/contract-unverified.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/smart-contracts/0x0000000000000000000000000000000000000002?*",
+          "file": "answers/contract-unverified.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        }
+      ]
     },
     {
       "name": "/contract-verification",
@@ -226,6 +275,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/hot-contracts",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/hot-contracts.json",
           "status": 404
         }
       ]
@@ -256,6 +310,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/public-tags/submit",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/public-tags/submit.json",
+          "status": 404
         }
       ]
     },
@@ -264,6 +323,48 @@
       "path": "/explorer/verified-contracts",
       "modes": [
         "default"
+      ],
+      "answers": [
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/smart-contracts/counters",
+          "file": "answers/contract-counters.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/smart-contracts/counters?*",
+          "file": "answers/contract-counters.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/config/smart-contracts/languages",
+          "file": "answers/contract-languages.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/config/smart-contracts/languages?*",
+          "file": "answers/contract-languages.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        }
       ]
     }
   ],

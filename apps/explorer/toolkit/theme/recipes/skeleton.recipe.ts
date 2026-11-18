@@ -51,10 +51,10 @@ export const recipe = defineRecipe({
           left: '0',
           width: '100%',
           pointerEvents: 'none',
-          willChange: 'transform',
-          transform: 'translateX(-100%)',
+          backgroundSize: '300% 100%',
+          backgroundPosition: '100% 0',
           backgroundImage:
-            'linear-gradient(90deg, transparent 0%, transparent 32%, var(--end-color) 46%, var(--end-color) 54%, transparent 68%, transparent 100%)',
+            'linear-gradient(90deg, transparent 0%, transparent 44%, var(--end-color) 48.6667%, var(--end-color) 51.3333%, transparent 56%, transparent 100%)',
           _motionSafe: { animation: 'skeletonShimmer var(--duration, var(--chakra-durations-shimmer)) linear infinite' },
         },
         _motionReduce: {

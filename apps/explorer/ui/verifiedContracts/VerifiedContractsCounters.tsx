@@ -11,7 +11,7 @@ const VerifiedContractsCounters = () => {
   const multichainContext = useMultichainContext();
 
   const chainConfig = multichainContext?.chain.app_config || config;
-  const isStatsFeatureEnabled = chainConfig.features.stats.isEnabled;
+  const isStatsFeatureEnabled = chainConfig.features.stats.isEnabled && Boolean(chainConfig.apis.stats);
 
   const countersStatsQuery = useApiQuery('stats:pages_contracts', {
     queryOptions: {
