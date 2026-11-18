@@ -176856,7 +176856,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.855]
 title = "Keep the rows of the recent blocks at the height of the touch target and set the link to all blocks on the line of the label"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.850"]
