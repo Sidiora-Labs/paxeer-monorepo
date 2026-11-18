@@ -208602,7 +208602,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.899]
 title = "Close the server routes and the rewrite table of the launchpad web application against the services behind them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
