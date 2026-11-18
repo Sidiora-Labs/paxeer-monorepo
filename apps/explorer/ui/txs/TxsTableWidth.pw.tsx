@@ -17,6 +17,9 @@ async function expectColumnsToFillTable(table: Locator) {
   const geometry = await table.evaluate((element) => ({
     viewport: window.innerWidth,
     width: element.getBoundingClientRect().width,
+    notice: (element.querySelector('tbody tr td[colspan]') as HTMLTableCellElement).getBoundingClientRect().width,
+    noticeCells: element.querySelector('tbody tr')!.children.length,
+    noticeSpan: (element.querySelector('tbody tr td[colspan]') as HTMLTableCellElement).colSpan,
     layout: getComputedStyle(element).tableLayout,
     rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
     columns: Array.from(element.querySelectorAll('thead th')).map((header) => {
@@ -26,6 +29,9 @@ async function expectColumnsToFillTable(table: Locator) {
   }));
 
   expect(geometry.layout).toBe('fixed');
+  expect(geometry.noticeCells).toBe(1);
+  expect(geometry.noticeSpan).toBe(geometry.columns.length);
+  expect(geometry.notice).toBe(geometry.width);
   expect(Math.abs(geometry.columns.reduce((sum, column) => sum + column.width, 0) - geometry.width)).toBeLessThanOrEqual(1);
   expect(geometry.columns[5].width).toBeGreaterThanOrEqual(19.5 * geometry.rem);
   expect(geometry.columns[5].width).toBe(geometry.width - 904);
@@ -36,7 +42,10 @@ async function expectColumnsToFillTable(table: Locator) {
       expect(geometry.columns[index - 1].right).toBeLessThanOrEqual(column.left);
     }
   }
-  await test.info().attach('column widths', { body: JSON.stringify(geometry), contentType: 'application/json' });
+  await test.info().attach('column widths', {
+    body: JSON.stringify({ ...geometry, browser: table.page().context().browser()?.version() }),
+    contentType: 'application/json',
+  });
 }
 
 async function transactionCounterpartiesFit({ render, page }: TestFnArgs, testInfo: TestInfo) {
@@ -49,6 +58,7 @@ async function transactionCounterpartiesFit({ render, page }: TestFnArgs, testIn
         top={ 0 }
         showBlockInfo
         stickyHeader={ false }
+        socketType="txs_validated"
       />
     </MainColumn>,
   );
@@ -56,7 +66,7 @@ async function transactionCounterpartiesFit({ render, page }: TestFnArgs, testIn
 
   const table = component.locator('table');
   const region = component.getByRole('region', { name: 'Transactions' });
-  const rows = table.locator('tbody tr');
+  const rows = table.locator('tbody tr').filter({ has: page.locator('td:not([colspan])') });
   const sender = rows.nth(0).locator('td').nth(5).locator('[data-entity-content]');
   const addresses = rows.nth(1).locator('td').nth(5).locator('[data-entity-content]');
 
@@ -66,7 +76,7 @@ async function transactionCounterpartiesFit({ render, page }: TestFnArgs, testIn
   expect(await region.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
 
   const shortenedContent = [
-    'tbody tr:nth-child(-n+2) [data-entity-kind=address] [data-entity-content]',
+    'tbody tr:nth-child(n+2):nth-child(-n+3) [data-entity-kind=address] [data-entity-content]',
     '[data-entity-kind=tx] [data-entity-content]',
   ].join(', ');
   for (const content of await table.locator(shortenedContent).all()) {
@@ -113,6 +123,7 @@ async function priceUpdateColumnsFit({ render, page }: TestFnArgs, testInfo: Tes
         top={ 0 }
         showBlockInfo
         stickyHeader={ false }
+        socketType="txs_validated"
       />
     </MainColumn>,
   );
@@ -135,7 +146,7 @@ async function transactionTableScrollsInRegion({ render, page }: TestFnArgs, tes
   for (const txs of [ [ ordinary, failed, pending ], [ txMock.priceUpdate ] ]) {
     const component = await render(
       <MainColumn>
-        <TxsTable txs={ txs } sort="default" onSortToggle={ noop } top={ 0 } showBlockInfo stickyHeader={ false }/>
+        <TxsTable txs={ txs } sort="default" onSortToggle={ noop } top={ 0 } showBlockInfo stickyHeader={ false } socketType="txs_validated"/>
       </MainColumn>,
     );
     await page.evaluate(() => document.fonts.ready);

@@ -2,6 +2,8 @@
 
 import React from 'react';
 
+import type { TxsSocketType } from './socket/types';
+
 import config from 'configs/app';
 import { MultichainContext } from 'lib/contexts/multichain';
 import { SettingsContextProvider } from 'lib/contexts/settings';
@@ -9,11 +11,17 @@ import { chainA } from 'mocks/multichain/chains';
 import * as txMock from 'mocks/txs/tx';
 import { TableBody, TableCell, TableRoot, TableRow } from 'toolkit/chakra/table';
 import { render } from 'ui/shared/layout/testWrapper';
+import { Desktop } from 'ui/shared/SocketNewItemsNotice';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, waitFor } from 'vitest/lib';
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
+vi.mock('./socket/useTxsSocketTypeAll', () => ({ 'default': vi.fn() }));
+vi.mock('./socket/useTxsSocketTypeAddress', () => ({ 'default': vi.fn() }));
+
+import useTxsSocketTypeAddress from './socket/useTxsSocketTypeAddress';
+import useNewTxsSocketTypeAll from './socket/useTxsSocketTypeAll';
 import TxsTable from './TxsTable';
 
 const noop = () => undefined;
@@ -59,6 +67,8 @@ function tableStyleValues(table: HTMLTableElement, property = 'min-width') {
 
 describe('TxsTable', () => {
   beforeEach(() => {
+    vi.mocked(useNewTxsSocketTypeAll).mockReturnValue({ num: 3, showErrorAlert: false });
+    vi.mocked(useTxsSocketTypeAddress).mockReturnValue({ num: 3, showErrorAlert: false });
     fetchMock.resetMocks();
     fetchMock.mockResponse(JSON.stringify({}), { headers: { 'Content-Type': 'application/json' } });
   });
@@ -186,6 +196,97 @@ describe('TxsTable', () => {
       }
     } finally {
       Object.assign(hiddenFields, previous);
+    }
+  });
+
+  it.each([
+    { block: true, value: true, fee: true },
+    { block: false, value: true, fee: true },
+    { block: true, value: false, fee: true },
+    { block: true, value: true, fee: false },
+    { block: false, value: false, fee: true },
+    { block: false, value: true, fee: false },
+    { block: true, value: false, fee: false },
+    { block: false, value: false, fee: false },
+  ])('spans exactly the visible columns with a single notice cell for %j', function noticeSpansVisibleColumns({ block, value, fee }) {
+    const hiddenFields = config.UI.views.tx.hiddenFields!;
+    const previous = { ...hiddenFields };
+    const socketTypes: Array<TxsSocketType> = [ 'txs_home', 'txs_validated', 'txs_pending', 'address_txs' ];
+
+    try {
+      hiddenFields.value = !value;
+      hiddenFields.tx_fee = !fee;
+
+      for (const chain of [ undefined, chainA ]) {
+        for (const sortable of [ false, true ]) {
+          for (const socketType of socketTypes) {
+            const { container, unmount } = render(
+              <MultichainContext.Provider value={ chain ? { chain } : null }>
+                <TxsTable
+                  txs={ [ txMock.priceUpdate ] }
+                  sort="default"
+                  onSortToggle={ sortable ? noop : undefined }
+                  top={ 0 }
+                  showBlockInfo={ block }
+                  stickyHeader={ false }
+                  socketType={ socketType }
+                />
+              </MultichainContext.Provider>,
+            );
+            const headers = container.querySelectorAll('thead th');
+            const rows = container.querySelectorAll('tbody tr');
+            const notice = rows[0] as HTMLTableRowElement;
+
+            expect(headers).toHaveLength(5 + Number(Boolean(chain)) + Number(block) + Number(value) + Number(fee));
+            expect(rows).toHaveLength(2);
+            expect(notice.cells).toHaveLength(1);
+            expect(notice.cells[0].colSpan).toBe(headers.length);
+            expect(notice.textContent).toContain('3 more transactions');
+            expect(rows[1].textContent).toContain('Price update');
+            expect(getComputedStyle(notice.cells[0]).padding).toBe('var(--chakra-spacing-0)');
+            if (chain && socketType === 'txs_home') {
+              expect(notice.querySelector('a')?.getAttribute('href')).toBe(`/txs?tab=txs_local&chain_id=${ chain.id }`);
+            }
+            unmount();
+          }
+        }
+      }
+    } finally {
+      Object.assign(hiddenFields, previous);
+    }
+  });
+
+  it.each([
+    { num: 0, showErrorAlert: false, isLoading: false },
+    { num: 3, showErrorAlert: false, isLoading: false },
+    { num: 3, showErrorAlert: true, isLoading: false },
+    { num: 0, showErrorAlert: false, isLoading: true },
+  ])('preserves the desktop notice appearance and span in state %j', function noticePreservesDesktopAppearance(state) {
+    vi.mocked(useNewTxsSocketTypeAll).mockReturnValue(state);
+    vi.mocked(useTxsSocketTypeAddress).mockReturnValue(state);
+
+    for (const socketType of [ 'txs_home', 'txs_validated', 'txs_pending', 'address_txs' ] as const) {
+      const { container, unmount } = render(
+        <TxsTable txs={ [] } sort="default" top={ 0 } showBlockInfo stickyHeader={ false } socketType={ socketType } isLoading={ state.isLoading }/>,
+      );
+      const { container: reference, unmount: unmountReference } = render(
+        <TableRoot><TableBody><Desktop { ...state }/></TableBody></TableRoot>,
+      );
+      const row = container.querySelector('tbody tr') as HTMLTableRowElement;
+      const cell = row.cells[0];
+      const content = cell.firstElementChild!;
+      const referenceContent = reference.querySelector('td')!.firstElementChild!;
+      const properties = [ 'border-radius', 'height', 'max-width', 'width', 'margin-inline', 'margin-block' ];
+
+      expect(row.cells).toHaveLength(1);
+      expect(cell.colSpan).toBe(container.querySelectorAll('thead th').length);
+      expect(getComputedStyle(cell).padding).toBe('var(--chakra-spacing-0)');
+      expect(content.className).toBe(referenceContent.className);
+      expect(properties.map((property) => getComputedStyle(content).getPropertyValue(property)))
+        .toEqual(properties.map((property) => getComputedStyle(referenceContent).getPropertyValue(property)));
+      expect(content.textContent).toBe(referenceContent.textContent);
+      unmountReference();
+      unmount();
     }
   });
 

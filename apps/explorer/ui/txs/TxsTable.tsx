@@ -67,6 +67,8 @@ const TxsTable = ({
   const showValue = !config.UI.views.tx.hiddenFields?.value;
   const showFee = !config.UI.views.tx.hiddenFields?.tx_fee;
 
+  const columnCount = 5 + Number(Boolean(chainData)) + Number(showBlockInfo) + Number(showValue) + Number(showFee);
+
   const fixedColumnsWidth = 3 + 10 + 14 + 8 + (chainData ? 2 : 0) + (showBlockInfo ? 7 : 0) + (showValue ? 7 : 0) + (showFee ? 7.5 : 0);
   const minTableWidth = `${ fixedColumnsWidth + 19.5 }rem`;
 
@@ -145,7 +147,7 @@ const TxsTable = ({
           </TableRow>
         </TableHeaderComponent>
         <TableBody>
-          { socketType && <TxsSocketNotice type={ socketType } place="table" isLoading={ isLoading }/> }
+          { socketType && <TxsSocketNotice type={ socketType } place="table" isLoading={ isLoading } columnCount={ columnCount }/> }
           { txs.slice(0, renderedItemsNum).map((item, index) => {
             return (
               <TxsTableItem
