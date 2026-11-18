@@ -15808,6 +15808,12 @@ value = "One. A computed read of the API over a system that holds no committed f
 basis = "Gotcha 4709. Decision 3781."
 affects = []
 
+[decision.3783]
+title = "A step of the gateway that can pass again is tried again, annotation names of a values file are no variables, and a counted check may render two at a time"
+value = "One. A periodic step of the connected runtime of the launchpad gateway that returns an error is tried again with a delay that grows to a bound, and the readiness of the gateway follows the state of its steps: it answers the error while a step fails and ok when every step passed its last try. An error at the start of the runtime and an error the code can tell will not end by itself stay kept as today. The runtime writes one line at each change of the state of a step. Task 22.39.917. Two. A member of a values file whose name begins with the dollar character is an annotation. The tool under tools/deploy that applies the variables of a deployment contract passes over it at the top level and inside the mapping of a service: it is no variable, it is never applied and never shown, and it is not refused. Every other name the contract holds in no kind stays refused. Task 22.39.916. Three. The counted check of a part of a surface may run with two renders at a time where the machine of the qualification environment does not carry four. Every limit of a view, every time bound of a render and the whole matrix of devices, schemes and modes stay as they are. The check of the blocks part of the explorer in task 22.44.85 runs in that form."
+basis = "Gotcha 4710. Decision 3780. Decision 3782."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45468,6 +45474,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.917]
+title = "Try a periodic step of the connected runtime of the launchpad gateway again after an error and write a line at each change of its state"
+reqs = ["22998.1"]
+touches = ["services/launchpad/gateway"]
+tests = []
+verification_contract = "cd services/launchpad/gateway && go test -count=1 -timeout 20m -run ^TestRuntimeStepRecovery ./internal/app/"
+do_1 = "do_1 Gotcha 4710 and decision 3783 part one. Read services/launchpad/gateway/internal/app/app.go: the type gatewayConnectedRuntime, its functions fail, ready, start and close and every place that calls fail; sdk/launchpad/shared/delivery/relay.go, sdk/launchpad/shared/auth/audit_delivery.go and sdk/launchpad/shared/delivery/natsdriver/driver.go for the errors one pass of a relay, one stage of the audit and the run of a consumer return; and services/launchpad/gateway/internal/app/connected_runtime_paths_test.go for the cases the package holds on the runtime."
+symbols = []
+
+[capability.22.39.916]
+title = "Pass over the annotation names of a values file in the tool that applies the variables of a deployment contract"
+reqs = ["22998.1"]
+touches = ["tools/deploy"]
+tests = []
+verification_contract = "bash tools/deploy/tests/*-apply-variables.test.sh && bash deploy/launchpad/tests/*-values.test.sh && python3 -m pytest -q deploy/launchpad/documents/test_compose.py"
+do_1 = "do_1 Decision 3783 part two. Read under tools/deploy the tool whose name ends in apply-variables.py with its function validate_values and its function desired, its case file under tools/deploy/tests whose name ends in apply-variables.test.sh, and under deploy/launchpad the two values files, whose first member is an annotation with the word comment behind the dollar character, and the shell case of the values under deploy/launchpad/tests. The case tests/ci/test_no_deployment_hosts_in_source.py reads the text of that annotation in the first lines of both values files, so the annotation stays where it is."
+symbols = []
 
 [capability.22.39.915]
 title = "Name in the gateway examples of the launchpad deployment only schemas the registry of migrations holds"
@@ -179489,7 +179513,7 @@ touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.85.kvx"]
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.85.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/blocks.json --out /tmp/ui-check/explorer-blocks && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.85.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/blocks.json --out /tmp/ui-check/explorer-blocks && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -208122,6 +208146,70 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.917]
+title = "Try a periodic step of the connected runtime of the launchpad gateway again after an error and write a line at each change of its state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.917"]
+interfaces = []
+do_1 = "do_1 Gotcha 4710 and decision 3783 part one. Read services/launchpad/gateway/internal/app/app.go: the type gatewayConnectedRuntime, its functions fail, ready, start and close and every place that calls fail; sdk/launchpad/shared/delivery/relay.go, sdk/launchpad/shared/auth/audit_delivery.go and sdk/launchpad/shared/delivery/natsdriver/driver.go for the errors one pass of a relay, one stage of the audit and the run of a consumer return; and services/launchpad/gateway/internal/app/connected_runtime_paths_test.go for the cases the package holds on the runtime."
+do_2 = "do_2 Give each periodic step of the runtime a state of its own: the stage of the audit, the relay of the audit, the relay of the identity revisions and the run of each of the two consumers. A step that returns an error while the context of the runtime lives is recorded as failing with that error and is tried again; the delay between two tries begins at the period of the step, doubles with each failing try and never passes thirty seconds. After one try without an error the step is recorded as passing and returns to its period. A consumer whose run returns is started again under the same rule. No loop of a step ends before the context of the runtime ends."
+do_3 = "do_3 The function ready answers, in this order, the kept error of the function fail, the error of the first failing step in a fixed order of the steps, and then what it reads today. The function fail keeps its form and its meaning for an error at the start of the runtime: the registration of the connected routes and the capability of the socket. Where the packages give an error a type or a value that states it cannot end by itself, such as a refused permission of the broker or a binding or generation that does not match, the step calls fail as today; name each such class with file and line in the final message. An error of no such class is tried again. The run of the control runtime keeps the handling it has unless its package states the same distinction."
+do_4 = "do_4 The runtime writes one line through its logger at the first failing try of a step after the start or after a passing try, and one line at the first passing try after a failing one. The line holds the name of the step and a class of the error from a fixed list of words, and nothing else of the error: no address, no credential, no subject, no statement and no value of a row. Further failing tries of the same step write nothing. A runtime without a logger writes nothing and behaves the same."
+do_5 = "do_5 Add cases whose names begin with TestRuntimeStepRecovery to the package services/launchpad/gateway/internal/app, in a file of that directory. They drive the steps through doubles and need no store, no broker and no file of a deployment: a step that fails twice and then passes makes ready answer its error and then nil; the delay grows and holds its bound, read through a clock the case controls; an error of a kept class stays kept after a later passing try; each change of state writes exactly one line and the line holds none of the text of the error; a consumer whose run returns is started again. Where the steps need a seam for a double, add the smallest one and keep the wiring of the runtime as it is. The case TestConnectedRuntimeMetricsAndFailureState keeps every statement it holds. No assertion is weakened or removed, and no case is removed, skipped or tagged out. "
+do_6 = "do_6 Change nothing outside services/launchpad/gateway. A fact of a shared package that stands against this task is named in the final message with file and line. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/gateway"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/gateway && go vet ./...)"
+verify_cmd = "cd services/launchpad/gateway && go test -count=1 -timeout 20m -run ^TestRuntimeStepRecovery ./internal/app/"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.916]
+title = "Pass over the annotation names of a values file in the tool that applies the variables of a deployment contract"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.916"]
+interfaces = []
+do_1 = "do_1 Decision 3783 part two. Read under tools/deploy the tool whose name ends in apply-variables.py with its function validate_values and its function desired, its case file under tools/deploy/tests whose name ends in apply-variables.test.sh, and under deploy/launchpad the two values files, whose first member is an annotation with the word comment behind the dollar character, and the shell case of the values under deploy/launchpad/tests. The case tests/ci/test_no_deployment_hosts_in_source.py reads the text of that annotation in the first lines of both values files, so the annotation stays where it is."
+do_2 = "do_2 In validate_values a name that begins with the dollar character is an annotation, at the top level of the values file and inside the mapping of a service. The tool passes over it: it is not looked up in the contract, it takes no part in the plan, it is never applied, shown or counted, and its value may be of any JSON kind. Every other name stays under the rules the function holds: an unknown service, an unknown variable of a service and an unknown shared variable are refused with the messages they have today, and a value that is no string is refused."
+do_3 = "do_3 Add cases to the case file of the tool: a values file with an annotation at the top level plans as the same file without it; an annotation inside the mapping of a service does the same; the output of the plan holds neither the name nor the value of an annotation; a name without the dollar character that no entry holds stays refused beside an annotation. No assertion is weakened or removed, and no case is removed, skipped or tagged out. "
+do_4 = "do_4 Run the case file of the tool, then the shell case of the values under deploy/launchpad/tests, then the composer cases under deploy/launchpad/documents once by hand and read their whole output before the counted verification. Nothing under deploy/launchpad changes in this task. What does not pass for a cause inside tools/deploy is repaired there. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/deploy"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/*-apply-variables.py"
+verify_cmd = "bash tools/deploy/tests/*-apply-variables.test.sh && bash deploy/launchpad/tests/*-values.test.sh && python3 -m pytest -q deploy/launchpad/documents/test_compose.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
