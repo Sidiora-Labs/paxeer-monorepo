@@ -253,6 +253,9 @@ func canonicalDistribution(st *store.Store, schema string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		out, status, err := readOwnership(r.Context(), st, schema, chi.URLParam(r, valuePoolAddress), r, false)
 		if err != nil {
+			if status >= 500 {
+				logReadError(r, err)
+			}
 			sharedhttp.WriteError(w, status, http.StatusText(status), "canonical distribution unavailable")
 			return
 		}
@@ -264,6 +267,9 @@ func canonicalWhales(st *store.Store, schema string) http.HandlerFunc {
 		pool := chi.URLParam(r, valuePoolAddress)
 		out, status, err := readOwnership(r.Context(), st, schema, pool, r, true)
 		if err != nil {
+			if status >= 500 {
+				logReadError(r, err)
+			}
 			sharedhttp.WriteError(w, status, http.StatusText(status), "canonical whales unavailable")
 			return
 		}

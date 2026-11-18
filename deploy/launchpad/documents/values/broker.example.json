@@ -70,7 +70,11 @@
     {
       "name": "MAINNET_BETA_125_LIVE",
       "subjects": [
-        "market.stats.0xce20da50f92d21d8bee497910c782e9aa25b6263"
+        "market.trades.*",
+        "market.candles.*.*",
+        "market.stats.*",
+        "market.price.*",
+        "private.portfolio.*"
       ],
       "limits": {
         "maxMessages": 1000000,
@@ -133,6 +137,22 @@
         "maxMessageBytes": 2097152,
         "maxConsumers": 128,
         "replicas": 1,
+        "duplicateWindow": 120000000000,
+        "discard": "new"
+      }
+    },
+    {
+      "name": "MAINNET_BETA_125_RANKINGS",
+      "subjects": [
+        "market.rankings.*"
+      ],
+      "limits": {
+        "maxMessages": 1000000,
+        "maxBytes": 1073741824,
+        "maxAge": 259200000000000,
+        "maxMessageBytes": 2097152,
+        "maxConsumers": 128,
+        "replicas": 3,
         "duplicateWindow": 120000000000,
         "discard": "new"
       }

@@ -39,6 +39,7 @@ func poolTransactions(st *store.Store) http.HandlerFunc {
 
 		txs, err := st.ListTransactions(r.Context(), poolAddress, limit, offset, txType)
 		if err != nil {
+			logReadError(r, err)
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "transactions lookup failed")
 			return
 		}
