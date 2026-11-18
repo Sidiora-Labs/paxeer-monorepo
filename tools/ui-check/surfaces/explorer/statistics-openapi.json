@@ -1,0 +1,708 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Statistics API",
+    "version": "2.11.1"
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/api/v1/lines": {
+      "get": {
+        "summary": "List chart sections",
+        "responses": {
+          "200": {
+            "description": "Statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lines"
+                },
+                "example": {
+                  "sections": [
+                    {
+                      "id": "accounts",
+                      "title": "Accounts",
+                      "charts": [
+                        {
+                          "id": "accountsGrowth",
+                          "title": "Accounts growth",
+                          "description": "Cumulative accounts number per period",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        },
+                        {
+                          "id": "activeAccounts",
+                          "title": "Active accounts",
+                          "description": "Active accounts number per period",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        },
+                        {
+                          "id": "newAccounts",
+                          "title": "New accounts",
+                          "description": "New accounts number per day",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "id": "transactions",
+                      "title": "Transactions",
+                      "charts": [
+                        {
+                          "id": "averageTxnFee",
+                          "title": "Average transaction fee",
+                          "description": "The average amount in ETH spent per transaction",
+                          "units": "ETH",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        },
+                        {
+                          "id": "newTxns",
+                          "title": "New transactions",
+                          "description": "New transactions number",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        },
+                        {
+                          "id": "txnsFee",
+                          "title": "Transactions fees",
+                          "description": "Amount of tokens paid as fees",
+                          "units": "ETH",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        },
+                        {
+                          "id": "txnsGrowth",
+                          "title": "Transactions growth",
+                          "description": "Cumulative transactions number",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        },
+                        {
+                          "id": "txnsSuccessRate",
+                          "title": "Transactions success rate",
+                          "description": "Successful transactions rate per day",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "id": "blocks",
+                      "title": "Blocks",
+                      "charts": [
+                        {
+                          "id": "averageBlockRewards",
+                          "title": "Average block rewards",
+                          "description": "Average amount of distributed reward in tokens per day",
+                          "units": "ETH",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        },
+                        {
+                          "id": "averageBlockSize",
+                          "title": "Average block size",
+                          "description": "Average size of blocks in bytes",
+                          "units": "Bytes",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        },
+                        {
+                          "id": "newBlocks",
+                          "title": "New blocks",
+                          "description": "New blocks number",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "id": "tokens",
+                      "title": "Tokens",
+                      "charts": [
+                        {
+                          "id": "newNativeCoinTransfers",
+                          "title": "New ETH transfers",
+                          "description": "New token transfers number for the period",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "id": "gas",
+                      "title": "Gas",
+                      "charts": [
+                        {
+                          "id": "averageGasLimit",
+                          "title": "Average gas limit",
+                          "description": "Average gas limit per block for the period",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        },
+                        {
+                          "id": "averageGasPrice",
+                          "title": "Average gas price",
+                          "description": "Average gas price for the period (Gwei)",
+                          "units": "Gwei",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        },
+                        {
+                          "id": "gasUsedGrowth",
+                          "title": "Gas used growth",
+                          "description": "Cumulative gas used for the period",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "id": "contracts",
+                      "title": "Contracts",
+                      "charts": [
+                        {
+                          "id": "newVerifiedContracts",
+                          "title": "New verified contracts",
+                          "description": "New verified contracts number for the period",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        },
+                        {
+                          "id": "verifiedContractsGrowth",
+                          "title": "Verified contracts growth",
+                          "description": "Cumulative number verified contracts for the period",
+                          "resolutions": [
+                            "DAY",
+                            "MONTH"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/counters": {
+      "get": {
+        "summary": "Get statistics counters",
+        "responses": {
+          "200": {
+            "description": "Statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Counters"
+                },
+                "example": {
+                  "counters": [
+                    {
+                      "id": "averageBlockTime",
+                      "value": "14.909090909090908",
+                      "title": "Average block time",
+                      "units": "s",
+                      "description": "Average time taken in seconds for a block to be included in the blockchain"
+                    },
+                    {
+                      "id": "totalAddresses",
+                      "value": "113606435",
+                      "title": "Total addresses",
+                      "description": "Number of addresses that participated in the blockchain"
+                    },
+                    {
+                      "id": "totalBlocks",
+                      "value": "7660515",
+                      "title": "Total blocks",
+                      "description": "Number of blocks over all time"
+                    },
+                    {
+                      "id": "totalTxns",
+                      "value": "411264599",
+                      "title": "Total txns",
+                      "description": "All transactions including pending, dropped, replaced, failed transactions"
+                    },
+                    {
+                      "id": "yesterdayTxns",
+                      "value": "213019",
+                      "title": "Yesterday txns",
+                      "description": "Number of transactions yesterday (0:00 - 23:59 UTC)"
+                    },
+                    {
+                      "id": "totalOperationalTxns",
+                      "value": "403598877",
+                      "title": "Total operational txns",
+                      "description": "'Total txns' without block creation transactions"
+                    },
+                    {
+                      "id": "yesterdayOperationalTxns",
+                      "value": "210852",
+                      "title": "Yesterday operational txns",
+                      "description": "Number of transactions yesterday (0:00 - 23:59 UTC) without block creation transactions"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/lines/{id}": {
+      "get": {
+        "summary": "Get chart data",
+        "responses": {
+          "200": {
+            "description": "Statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineChart"
+                },
+                "example": {
+                  "info": {
+                    "id": "averageGasPrice",
+                    "title": "Average gas price",
+                    "description": "Average gas price for the period (Gwei)",
+                    "units": "Gwei",
+                    "resolutions": [
+                      "DAY",
+                      "MONTH"
+                    ]
+                  },
+                  "chart": [
+                    {
+                      "date": "2023-12-22",
+                      "date_to": "2023-12-22",
+                      "value": "37.7804422597599",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2023-12-23",
+                      "date_to": "2023-12-23",
+                      "value": "25.84889883009387",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2023-12-24",
+                      "date_to": "2023-12-24",
+                      "value": "25.818463227198574",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2023-12-25",
+                      "date_to": "2023-12-25",
+                      "value": "26.045513050051298",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2023-12-26",
+                      "date_to": "2023-12-26",
+                      "value": "21.42600692652399",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2023-12-27",
+                      "date_to": "2023-12-27",
+                      "value": "31.066730409846656",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2023-12-28",
+                      "date_to": "2023-12-28",
+                      "value": "33.63955781902089",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2023-12-29",
+                      "date_to": "2023-12-29",
+                      "value": "28.064736756058384",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2023-12-30",
+                      "date_to": "2023-12-30",
+                      "value": "23.074500869678175",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2023-12-31",
+                      "date_to": "2023-12-31",
+                      "value": "17.651005734615133",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-01",
+                      "date_to": "2023-01-01",
+                      "value": "14.906085174476441",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-02",
+                      "date_to": "2023-01-02",
+                      "value": "22.28459059038656",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-03",
+                      "date_to": "2023-01-03",
+                      "value": "39.8311646806592",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-04",
+                      "date_to": "2023-01-04",
+                      "value": "26.09989322256083",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-05",
+                      "date_to": "2023-01-05",
+                      "value": "22.821996688111998",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-06",
+                      "date_to": "2023-01-06",
+                      "value": "20.32680041262083",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-07",
+                      "date_to": "2023-01-07",
+                      "value": "32.535045831809704",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-08",
+                      "date_to": "2023-01-08",
+                      "value": "27.443477102139482",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-09",
+                      "date_to": "2023-01-09",
+                      "value": "20.7911332558055",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-10",
+                      "date_to": "2023-01-10",
+                      "value": "42.10740192523919",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-11",
+                      "date_to": "2023-01-11",
+                      "value": "35.75215680343582",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-12",
+                      "date_to": "2023-01-12",
+                      "value": "27.430414798093253",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-13",
+                      "date_to": "2023-01-13",
+                      "value": "20.170934096589875",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-14",
+                      "date_to": "2023-01-14",
+                      "value": "38.79660984371034",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-15",
+                      "date_to": "2023-01-15",
+                      "value": "26.140740484554204",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-16",
+                      "date_to": "2023-01-16",
+                      "value": "36.708543184194156",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-17",
+                      "date_to": "2023-01-17",
+                      "value": "40.325438794298876",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-18",
+                      "date_to": "2023-01-18",
+                      "value": "37.55145309930694",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-19",
+                      "date_to": "2023-01-19",
+                      "value": "33.271450114434664",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-20",
+                      "date_to": "2023-01-20",
+                      "value": "19.303304377685638",
+                      "is_approximate": false
+                    },
+                    {
+                      "date": "2024-01-21",
+                      "date_to": "2023-01-21",
+                      "value": "14.375908594704976",
+                      "is_approximate": false
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Chart not found"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "resolution",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DAY",
+                "WEEK",
+                "MONTH",
+                "YEAR"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Counter": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "units": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "value",
+          "title",
+          "description"
+        ]
+      },
+      "LineChartInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "units": {
+            "type": "string"
+          },
+          "resolutions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "DAY",
+                "WEEK",
+                "MONTH",
+                "YEAR"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "resolutions"
+        ]
+      },
+      "LineChartPoint": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "date_to": {
+            "type": "string",
+            "format": "date"
+          },
+          "value": {
+            "type": "string"
+          },
+          "is_approximate": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "date",
+          "value"
+        ]
+      },
+      "LineChart": {
+        "type": "object",
+        "properties": {
+          "info": {
+            "$ref": "#/components/schemas/LineChartInfo"
+          },
+          "chart": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LineChartPoint"
+            }
+          }
+        },
+        "required": [
+          "info",
+          "chart"
+        ]
+      },
+      "LineChartSection": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "charts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LineChartInfo"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "charts"
+        ]
+      },
+      "Lines": {
+        "type": "object",
+        "properties": {
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LineChartSection"
+            }
+          }
+        },
+        "required": [
+          "sections"
+        ]
+      },
+      "Counters": {
+        "type": "object",
+        "properties": {
+          "counters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Counter"
+            }
+          }
+        },
+        "required": [
+          "counters"
+        ]
+      }
+    }
+  }
+}

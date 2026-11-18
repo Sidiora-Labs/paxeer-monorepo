@@ -60,7 +60,7 @@ func (p CanonicalPools) ResolvePublic(ctx context.Context, kind, id string) (dis
 		return out, sql.ErrNoRows
 	}
 	if err != nil {
-		return out, ErrUnavailable
+		return out, fmt.Errorf("%w: read canonical pool: %w", ErrUnavailable, err)
 	}
 	for _, address := range []string{pool, token, creator} {
 		if !notificationWalletPattern.MatchString(address) || strings.ToLower(address) != address {
@@ -80,7 +80,7 @@ func (p CanonicalPools) PublicSources(ctx context.Context) ([]discovery.SourceRe
 	}
 	rows, err := p.DB.QueryContext(ctx, `SELECT pool FROM indexer.indexer_canonical_creations_v1 ORDER BY block_timestamp DESC,transaction_hash,log_index LIMIT 2000`)
 	if err != nil {
-		return nil, ErrUnavailable
+		return nil, fmt.Errorf("%w: list canonical pools: %w", ErrUnavailable, err)
 	}
 	ids := []string{}
 	for rows.Next() {

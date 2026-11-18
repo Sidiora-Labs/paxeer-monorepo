@@ -1,4 +1,12 @@
+'use client';
+
+import { usePathname } from 'next/navigation';
+import { ExplorePageLoading } from '@/widgets/explore/explore-loading';
+
 export default function Loading() {
+  const pathname = usePathname();
+  if (pathname === '/new' || pathname === '/explore') return <ExplorePageLoading />;
+
   return (
     <div className="flex min-h-[var(--sl-page-min-height)] items-center justify-center">
       <div role="status" className="flex flex-col items-center gap-4">

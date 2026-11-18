@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 	"strconv"
@@ -55,7 +56,9 @@ func DecodeStudioWebhook(raw []byte) (ProviderEvent, error) {
 	case "stream.started":
 		state = stateLive
 	case "stream.idle":
-		state = stateEnded
+		// An idle Studio stream retains its ingest key and can reconnect.
+		// Only reconciliation with termination intent may certify ENDED.
+		state = stateReady
 	default:
 		return ProviderEvent{}, ErrInvalid
 	}
@@ -92,7 +95,7 @@ func marshalNormalizedWebhook(event ProviderEvent) ([]byte, error) {
 	switch event.State {
 	case stateLive:
 		state = "active"
-	case stateEnded:
+	case stateReady:
 		state = "inactive"
 	default:
 		return nil, ErrInvalid
@@ -122,11 +125,12 @@ type ProviderWebhookAdapter struct {
 	Secret         string
 	Clock          func() time.Time
 	ObserveOutcome func(string)
+	Logger         *slog.Logger
 }
 
 func (a ProviderWebhookAdapter) Studio(w http.ResponseWriter, r *http.Request) {
 	if a.Observer == nil || a.Clock == nil {
-		new(Handlers).lifecycleError(w, ErrUnavailable)
+		(&Handlers{logger: a.Logger}).lifecycleError(w, ErrUnavailable)
 		return
 	}
 	wire, ok := NormalizeStudioWebhook(w, r, a.Secret, a.Clock())
@@ -144,7 +148,7 @@ func (a ProviderWebhookAdapter) Studio(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a ProviderWebhookAdapter) Normalized(w http.ResponseWriter, r *http.Request) {
-	fail := func(err error) { new(Handlers).lifecycleError(w, err) }
+	fail := func(err error) { (&Handlers{logger: a.Logger}).lifecycleError(w, err) }
 	if a.Observer == nil || a.Clock == nil || len(a.Secret) < 32 {
 		fail(ErrUnavailable)
 		return
@@ -180,7 +184,7 @@ func (h *Handlers) providerWebhookAdapter() ProviderWebhookAdapter {
 	if h.lifecycle != nil {
 		observer = h.lifecycle
 	}
-	return ProviderWebhookAdapter{Observer: observer, Secret: h.webhookSecret, Clock: h.clock, ObserveOutcome: h.observeOutcome}
+	return ProviderWebhookAdapter{Observer: observer, Secret: h.webhookSecret, Clock: h.clock, ObserveOutcome: h.observeOutcome, Logger: h.logger}
 }
 
 func (h *Handlers) normalizedWebhook(w http.ResponseWriter, r *http.Request) {
@@ -233,7 +237,7 @@ func VerifyNormalizedProviderWebhook(w http.ResponseWriter, r *http.Request, sec
 	}
 	state := stateLive
 	if body.Event == "inactive" {
-		state = stateEnded
+		state = stateReady
 	}
 	return ProviderEvent{EventID: body.EventId, ProviderID: body.StreamId, State: state, ObservedAt: observedAt}, true
 }

@@ -37,13 +37,13 @@ export const recipe = defineSlotRecipe({
       fontWeight: 'medium',
       cursor: 'pointer',
       focusVisibleRing: 'none',
+      _focusVisible: {
+        outline: 'var(--chakra-border-widths-2) solid',
+        outlineColor: 'focusRing',
+        outlineOffset: 'var(--chakra-spacing-0\\.5)',
+      },
       _disabled: {
         opacity: 'control.disabled',
-      },
-      _placeholderShown: {
-        '& [data-part=value-text]': {
-          display: '-webkit-box',
-        },
       },
     },
     indicatorGroup: {
@@ -134,11 +134,12 @@ export const recipe = defineSlotRecipe({
       },
     },
     valueText: {
-      display: 'flex',
-      flexDirection: 'column',
-      lineClamp: '1',
+      display: 'block',
+      minW: 0,
       maxW: '100%',
-      wordBreak: 'break-all',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
     },
   },
 

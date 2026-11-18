@@ -46,3 +46,28 @@ function explorerEveryPageHasADeviceView() {
 }
 
 test(explorerEveryPageHasADeviceView);
+
+function explorerNftInstanceAnswersUseOneStandard() {
+  const view = surface.views.find((entry) => entry.name === '/token/[hash]/instance/[id]');
+  const readAnswer = (pattern) => {
+    const answer = view.answers.find((entry) => entry.pattern === pattern);
+    assert.ok(answer, pattern);
+    return JSON.parse(fs.readFileSync(path.join(repository, 'tools/ui-check/surfaces', answer.file), 'utf8'));
+  };
+  const hash = view.path.split('/')[3];
+  const id = view.path.split('/')[5];
+  const token = readAnswer(`https://explorer.example.test/api/v2/tokens/${hash}`);
+  const transfers = readAnswer(`https://explorer.example.test/api/v2/tokens/${hash}/instances/${id}/transfers`);
+  const instance = JSON.parse(fs.readFileSync(new URL('./token-instance.json', import.meta.url), 'utf8'));
+  assert.equal(token.type, 'ERC-721');
+  assert.deepEqual(token, instance.token);
+  assert.ok(transfers.items.length > 0);
+  for (const transfer of transfers.items) {
+    assert.deepEqual(transfer.token, token);
+    assert.equal(transfer.total.token_id, instance.id);
+    assert.equal(transfer.total.token_instance, null);
+    assert.equal('value' in transfer.total, false);
+  }
+}
+
+test(explorerNftInstanceAnswersUseOneStandard);

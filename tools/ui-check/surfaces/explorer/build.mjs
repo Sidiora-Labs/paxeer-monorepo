@@ -7,7 +7,13 @@ import { fileURLToPath } from 'node:url';
 const environment = JSON.parse(await readFile(new URL('./environment.json', import.meta.url), 'utf8'));
 const options = {
   stdio: 'inherit',
-  env: { ...process.env, ...environment, DISABLE_TRACKING: 'true', NEXT_TELEMETRY_DISABLED: '1' },
+  env: {
+    ...process.env,
+    ...environment,
+    DISABLE_TRACKING: 'true',
+    NEXT_TELEMETRY_DISABLED: '1',
+    NEXT_PRIVATE_OUTPUT_TRACE_ROOT: process.cwd(),
+  },
 };
 async function run(command, args) {
   const child = spawn(command, args, options);
@@ -40,5 +46,8 @@ await run(process.execPath, ['--test', fileURLToPath(new URL('./routes.test.mjs'
 await run('bash', ['-c', 'corepack enable && yarn install --frozen-lockfile --ignore-scripts']);
 await run(process.execPath, ['node_modules/svg-icons-cli/index.js', 'build', '-i', './icons', '-o', relative(process.cwd(), '/tmp/explorer-icons'), '--optimize']);
 await writeFile('/tmp/explorer-icons/registry.json', JSON.stringify(await icons('./icons')));
-await run(process.execPath, ['--no-async-stack-traces', 'node_modules/next/dist/bin/next', 'build']);
+await run(process.execPath, [
+  '--no-async-stack-traces', '--import', fileURLToPath(new URL('./build-config.mjs', import.meta.url)),
+  'node_modules/next/dist/bin/next', 'build',
+]);
 await run(process.execPath, [fileURLToPath(new URL('./start.mjs', import.meta.url)), '--prepare']);

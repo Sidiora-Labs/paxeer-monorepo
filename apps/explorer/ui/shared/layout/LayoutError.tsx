@@ -8,7 +8,11 @@ import HeaderMobile from 'ui/snippets/header/HeaderMobile';
 
 import * as Layout from './components';
 
-const LayoutError = ({ children }: Props) => {
+interface ErrorLayoutProps extends Props {
+  mainLabel?: string;
+}
+
+const LayoutError = ({ children, mainLabel }: ErrorLayoutProps) => {
   return (
     <Layout.Root content={ children }>
       <Layout.Container>
@@ -18,7 +22,7 @@ const LayoutError = ({ children }: Props) => {
           <Layout.MainColumn>
             <HeaderAlert/>
             <AppErrorBoundary>
-              <main>
+              <main aria-label={ mainLabel }>
                 { children }
               </main>
             </AppErrorBoundary>

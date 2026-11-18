@@ -3,6 +3,7 @@ package rest
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -134,6 +135,7 @@ func PoolAddresses(raw string) ([]string, error) {
 
 // WriteReadError preserves stable domain causes through every market handler.
 func WriteReadError(w http.ResponseWriter, r *http.Request, err error) {
+	slog.ErrorContext(r.Context(), "API read unavailable", "path", r.URL.Path, "reason", err.Error(), "request_id", responseRequestID(w))
 	switch {
 	case errors.Is(err, ErrCacheFillSaturated):
 		WriteAPIError(w, r, 503, "CACHE_FILL_SATURATED")

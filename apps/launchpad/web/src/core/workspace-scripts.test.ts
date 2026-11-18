@@ -47,4 +47,4 @@ function workspaceScriptFiltersResolve() {
   expect(filterCount).toBeGreaterThan(0);
 }
 
-test(workspaceScriptFiltersResolve);
+test(workspaceScriptFiltersResolve.name, workspaceScriptFiltersResolve);

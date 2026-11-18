@@ -36,7 +36,8 @@ const TokenCategoryFilter = ({ value, onChange, withBridged }: Props) => {
           disabled={ category.value === 'bridged' && !withBridged }
           variant="outline"
           borderRadius="full"
-          borderColor={ value === category.value ? 'accent' : 'hairline' }
+          borderColor={ value === category.value ? 'accent' : 'border.strong' }
+          _disabled={{ borderColor: value === category.value ? 'accent' : 'hairline' }}
           bg={ value === category.value ? 'accent.soft' : 'canvas' }
           color={ value === category.value ? 'accent' : 'text.secondary' }
           aria-pressed={ value === category.value }

@@ -78,6 +78,9 @@ func (s Store) Apply(ctx context.Context, consumer, event string, next SourceRef
 	})
 }
 func (s Store) Sources(ctx context.Context, now time.Time) (out []SourceRef, err error) {
+	if s.DB == nil {
+		return nil, ErrUnavailable
+	}
 	rows, e := s.DB.QueryContext(ctx, `SELECT document FROM narrative_discovery.sources WHERE observed_at>=$1 AND observed_at<=$2 ORDER BY published_at DESC,event_id LIMIT 2000`, now.Add(-60*time.Second), now)
 	if e != nil {
 		return nil, e
@@ -99,6 +102,9 @@ func (s Store) Sources(ctx context.Context, now time.Time) (out []SourceRef, err
 }
 func (s Store) Source(ctx context.Context, id string) (SourceRef, error) {
 	var ref SourceRef
+	if s.DB == nil {
+		return ref, ErrUnavailable
+	}
 	var b []byte
 	e := s.DB.QueryRowContext(ctx, `SELECT document FROM narrative_discovery.sources WHERE id=$1`, id).Scan(&b)
 	if e == nil {

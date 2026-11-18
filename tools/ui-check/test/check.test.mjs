@@ -409,6 +409,84 @@ async function unavailableSurfaceReturnsNonzero() {
 }
 test(unavailableSurfaceReturnsNonzero);
 
+async function delayedContentSurface() {
+  const directory = await mkdtemp(join(root, "ready-steps-"));
+  await writeFile(join(directory, "index.html"), `<!doctype html><html lang="en">
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Content readiness</title><link rel="icon" href="data:,">
+    <style>
+      html { font: 16px/1.5 sans-serif; background: white; color: black; }
+      body { margin: 16px; } p { font-size: 16px; }
+      button { font: inherit; min-width: 64px; min-height: 48px; color: black; background: white; }
+      :focus-visible { outline: 3px solid blue; outline-offset: 2px; }
+    </style>
+    <body><p>Content arrives after loading.</p><div id="content"></div>
+    <button id="show" onclick="document.querySelector('#status').textContent = document.querySelector('#late') ? 'State follows content' : 'Content is pending'">Show state</button>
+    <p id="status"></p>
+    <script>
+      addEventListener('load', () => setTimeout(() => {
+        const text = document.createElement('p');
+        text.id = 'late'; text.textContent = 'Content is ready';
+        document.querySelector('#content').append(text);
+      }, 250));
+    </script></body></html>`);
+  const serving = await serveFiles(directory, "http://localhost:0");
+  return { directory, address: serving.address, readyPath: "/index.html", close: serving.close };
+}
+
+async function readyStepsWaitBeforeTextEnlargement() {
+  const serving = await delayedContentSurface();
+  try {
+    for (const ready of [undefined, [{ action: "wait", text: "Content is ready" }]]) {
+      const { result } = await execute("ready", {
+        directory: serving.directory, address: serving.address, readyPath: serving.readyPath,
+        views: [{ name: "ready", path: "/index.html", modes: ["default", "double-text"], ...(ready ? { ready } : {}) }],
+      });
+      assert.ok(result.renders.every((render) => render.rendered && render.hasContent), JSON.stringify(result.findings));
+      const enlarged = result.renders.filter((render) => render.mode === "double-text");
+      assert.equal(enlarged.length, 4);
+      if (ready) {
+        assert.equal(result.passed, true, JSON.stringify(result.findings));
+        assert.deepEqual(result.findings, []);
+      } else {
+        assert.equal(result.passed, false);
+        for (const render of enlarged) {
+          assert.ok(render.findings.some((finding) => finding.kind === "scale" && finding.selector === "#late"), JSON.stringify(render.findings));
+        }
+      }
+    }
+  } finally { await serving.close(); }
+}
+test(readyStepsWaitBeforeTextEnlargement);
+
+async function readyStepsPrecedeNamedStateSteps() {
+  const serving = await delayedContentSurface();
+  try {
+    const { result } = await execute("ready", {
+      directory: serving.directory, address: serving.address, readyPath: serving.readyPath,
+      views: [{ name: "ready", path: "/index.html", ready: [{ action: "wait", text: "Content is ready" }], states: [{
+        name: "shown", steps: [{ action: "click", selector: "#show" }, { action: "wait", text: "State follows content" }],
+      }] }],
+    });
+    assert.equal(result.passed, true, JSON.stringify(result.findings));
+    assert.deepEqual(result.findings, []);
+    for (const state of ["default", "shown"]) assertMatrix({ renders: result.renders.filter((render) => render.state === state) });
+  } finally { await serving.close(); }
+}
+test(readyStepsPrecedeNamedStateSteps);
+
+async function readyStepsUseStateStepValidation() {
+  for (const ready of [null, {}, [{ action: "pause" }], [{ action: "wait", text: "" }], [{ action: "wait", text: "Content", timeout: 1 }]]) {
+    const surface = await surfaceFor("clean", { views: [{ name: "clean", path: "/clean.html", ready }] });
+    await assert.rejects(readSurface(surface), /must be an array|State action|nonempty string|unknown field/);
+  }
+  const unknown = await surfaceFor("clean", { views: [{ name: "clean", path: "/clean.html", ready: [], other: [] }] });
+  await assert.rejects(readSurface(unknown), /view: unknown field other/);
+  const empty = await surfaceFor("clean", { views: [{ name: "clean", path: "/clean.html", ready: [] }] });
+  assert.deepEqual((await readSurface(empty)).views[0].ready, []);
+}
+test(readyStepsUseStateStepValidation);
+
 async function stateStepsAndViewSelectionRender() {
   const surface = await surfaceFor("states", { views: [
     { name: "states", path: "/states.html", states: [{ name: "filled", steps: [
@@ -1090,6 +1168,56 @@ async function tallFocusKeepsItsStartingEdgeVisible() {
   }
 }
 test(tallFocusKeepsItsStartingEdgeVisible);
+
+async function transparentControlRevealsItsKeyboardFocus() {
+  const { result } = await execute("transparent-focus");
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.deepEqual(result.findings, []);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#control"]);
+    assert.deepEqual(render.findings, []);
+  }
+}
+test(transparentControlRevealsItsKeyboardFocus);
+
+async function transparentControlWithoutVisibleFocusKeepsOneFinding() {
+  const { result } = await execute("transparent-focus", {
+    views: [{ name: "unmarked", path: "/transparent-focus.html?unmarked" }],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 4);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#control"]);
+    assert.equal(render.findings.length, 1);
+    const finding = render.findings[0];
+    assert.equal(finding.kind, "focus");
+    assert.equal(finding.selector, "#control");
+    assert.equal(finding.values.visibleChange, false);
+    assert.equal(finding.values.outside, false);
+  }
+}
+test(transparentControlWithoutVisibleFocusKeepsOneFinding);
+
+async function visibleControlWithoutFocusMarkKeepsOneFinding() {
+  const { result } = await execute("transparent-focus", {
+    views: [{ name: "visible", path: "/transparent-focus.html?visible&unmarked" }],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 4);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#control"]);
+    assert.equal(render.findings.length, 1);
+    const finding = render.findings[0];
+    assert.equal(finding.kind, "focus");
+    assert.equal(finding.selector, "#control");
+    assert.equal(finding.values.visibleChange, false);
+    assert.equal(finding.values.outside, false);
+  }
+}
+test(visibleControlWithoutFocusMarkKeepsOneFinding);
 
 async function clippedInputUsesItsVisibleControlFocusMark() {
   const { result } = await execute("clipped-focus");

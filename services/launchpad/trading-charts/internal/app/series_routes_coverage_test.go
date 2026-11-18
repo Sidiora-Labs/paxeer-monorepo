@@ -1,7 +1,9 @@
 package app
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,6 +15,10 @@ import (
 )
 
 func TestSeriesRuntimeRoutesAndOperatorAdmission(t *testing.T) {
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
 	ctx := context.Background()
 	pool := internaltest.OpenPool(t, internaltest.NewDatabase(t))
 	for _, schema := range []func(string) (string, error){store.ExactSchemaDDL, store.SeriesSchemaDDL, store.RebuildSchemaDDL} {
@@ -69,6 +75,9 @@ func TestSeriesRuntimeRoutesAndOperatorAdmission(t *testing.T) {
 	if unavailable.Code != http.StatusServiceUnavailable || !strings.Contains(unavailable.Body.String(), "canonical series unavailable") {
 		t.Fatalf("unavailable series: %d %s", unavailable.Code, unavailable.Body.String())
 	}
+	if !strings.Contains(logs.String(), "chart_exact") || !strings.Contains(logs.String(), "does not exist") {
+		t.Fatalf("series dependency cause: %s", logs.String())
+	}
 	if _, err = pool.Exec(ctx, `ALTER TABLE candles.chart_exact_held RENAME TO chart_exact`); err != nil {
 		t.Fatal(err)
 	}
@@ -93,6 +102,9 @@ func TestSeriesRuntimeRoutesAndOperatorAdmission(t *testing.T) {
 		if rec.Code != tc.status || rec.Body.Len() == 0 {
 			t.Fatalf("operator request %q: %d, %s", tc.path, rec.Code, rec.Body.String())
 		}
+	}
+	if !strings.Contains(logs.String(), "chart retention rejected") || !strings.Contains(logs.String(), "chart archive reconstruction failed") {
+		t.Fatalf("operator dependency causes: %s", logs.String())
 	}
 	if _, err := pool.Exec(ctx, `INSERT INTO candles.chart_archive_checkpoints(pool,from_time,to_time,manifest_digest) VALUES($1,0,60,$2)`, address, strings.Repeat("a", 64)); err != nil {
 		t.Fatal(err)

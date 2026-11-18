@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { V2ContractTypes } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
-import { useGatewayOperations } from '@/core/market/operations';
+import { useBountyReader } from './use-bounty-reader';
 import { toUnsupported, type Loadable } from '@/core/market/unsupported';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import { bountiesContract, type Bounty } from './bounties-contract';
@@ -44,16 +44,13 @@ export interface BountySubmissionsResult {
 
 /** IF_BOUNTY_SUBMISSIONS `GET /v2/bounties/{bountyId}/submissions` paged by the server cursor. */
 export function useBountySubmissions(bountyId: string | null): BountySubmissionsResult {
-  const operations = useGatewayOperations();
+  const reader = useBountyReader();
   const query = useInfiniteQuery({
-    queryKey: queryKeys.bountySubmissions(bountyId ?? ''),
+    queryKey: [...queryKeys.bountySubmissions(bountyId ?? ''), reader.scope],
+    meta: reader.meta,
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam, signal }) => validateSubmissions(
-      await operations.call(
-        'IF_BOUNTY_SUBMISSIONS',
-        { path: { bountyId: bountyId as string }, query: pageParam ? { limit: SUBMISSIONS_LIMIT, cursor: pageParam } : { limit: SUBMISSIONS_LIMIT } },
-        { signal },
-      ),
+      await reader.submissions(bountyId as string, pageParam, SUBMISSIONS_LIMIT, signal),
       bountyId as string,
     ),
     getNextPageParam: (last: BountySubmissionsResponse) => last.nextCursor,

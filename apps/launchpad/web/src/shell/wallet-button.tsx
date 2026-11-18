@@ -84,7 +84,12 @@ export default function WalletButton() {
 
   return (
     <div className="inline-flex max-w-full flex-wrap items-center gap-2">
-      <Button variant="secondary" size="sm" className="py-0" onClick={() => openAccountMenu('receive')}>
+      <Button
+        variant="secondary"
+        size="sm"
+        className="py-0"
+        onClick={() => openAccountMenu('receive')}
+      >
         Deposit
       </Button>
       <button
@@ -107,7 +112,7 @@ export default function WalletButton() {
         type="button"
         onClick={() => openAccountMenu('account')}
         aria-label={`Account ${displayName ?? shortAddress(wallet)}; open account menu`}
-        className="inline-flex min-h-touch-target-min min-w-touch-target-min items-center justify-center rounded-pill transition-opacity duration-fast hover:opacity-90"
+        className="inline-flex size-8 items-center justify-center rounded-pill transition-opacity duration-fast hover:opacity-90"
       >
         <Avatar
           src={profile.data?.avatarUrl ?? null}

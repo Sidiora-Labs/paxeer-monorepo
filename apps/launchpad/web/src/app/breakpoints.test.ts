@@ -72,7 +72,8 @@ describe('breakpoint cascade order', () => {
     expect(xl).toBeGreaterThan(-1);
     expect(twoXl).toBeGreaterThan(xl);
     // At 1440 both media queries match, so the later rule (2xl, 20 spacing units = 80px) wins.
+    expect(css).toMatch(/--sl-space: 0\.25rem;/);
     const block = css.slice(twoXl);
-    expect(block).toMatch(/@media \(width >= 90rem\)\s*\{\s*width: calc\(var\(--spacing\) \* 20\)/);
+    expect(block).toMatch(/@media \(width >= 90rem\)\s*\{\s*width: calc\(var\(--sl-space\) \* 20\)/);
   });
 });

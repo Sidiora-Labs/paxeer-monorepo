@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
+import { useAccount, usePublicClient, useSwitchChain, useWalletClient } from 'wagmi';
 import { useOptimisticReceipt } from '@/hooks/tx/use-optimistic-receipt';
 import {
   useWriteRouterSwapTokenForToken,
@@ -11,13 +11,13 @@ import {
   useReadErc20Decimals,
   useReadQuoterQuoteMultihop,
   ROUTER_ADDRESS,
+  erc20ApprovalRequest,
 } from '@/core/network/contracts';
-import { parseUnits, formatUnits, zeroAddress, erc20Abi, parseAbi, type Address, type Hash, type TransactionReceipt } from 'viem';
+import { formatUnits, zeroAddress, erc20Abi, parseAbi, encodeFunctionData, type Address, type Hash, type TransactionReceipt } from 'viem';
 import { getPaxeerRpcUrl } from '@/core/rpc';
 import { homeChainOfPool, ensureHomeChain, homeChainClient, homeChainMessage, type HomeChain } from '../trade/home-chain';
-import { CORE_DEPLOYMENT } from '@/core/network/deployment';
 import { formatNumber, formatCurrency, safeFixed } from '@/utils/format';
-import type { Operations } from '@kindle/sdk';
+import type { Operations, V2ContractTypes } from '@kindle/sdk';
 import { useOperations } from '@/core/market/operations';
 import { reportUserFacingError } from '@/core/user-facing-error';
 import { fetchStatsBatch } from '@/core/market/use-stats-batch';
@@ -29,18 +29,23 @@ import { ModalDialog } from '@/core/app-foundation/modal-dialog';
 import type { TokenMetadata } from '@/widgets/home/types';
 import { SlippageSelector, HighImpactWarning, computeMinOut, DEFAULT_SLIPPAGE_BPS } from '@/widgets/trade/slippage-selector';
 import { useDebouncedValue } from '@/hooks/ui/use-debounced-value';
+import { parseAmount } from '../trading/transaction-controls/domain';
+import { transactionFingerprint } from '../trading/transaction-controls/providers';
+import { amountErrorText } from '../trading/trade-panel-parts';
+import { plainTradeError } from '../trading/trade-copy';
+import { statsSpotPrice, statsMarketCap } from '@/core/market/pool-stats-display';
+import { openAuthModal } from '@/shell/auth-modal-store';
 
-const LAUNCHPAD_DEFAULT_DECIMALS = 6; // Safe fallback for Sidiora launchpad tokens only
 const homeSwapAbi = parseAbi(['function swapTokenForToken(address tokenIn,address tokenOut,uint256 amountIn,uint256 minAmountOut,uint256 deadline) returns (uint256 amountOut,uint256 intermediateUsdl)']);
 
-interface TokenInfo {
+export interface TokenInfo {
   tokenAddress: string;
   poolAddress: string;
   name: string;
   symbol: string;
   logo: string | null;
-  price: number;
-  marketCap: number;
+  price: number | null;
+  marketCap: number | null;
 }
 
 const SWAP_POOL_LIMIT = 100;
@@ -57,38 +62,46 @@ function scaledNumber(raw: string | null, decimals: number): number {
  * Swappable tokens from v2 routes: IF_POOL_LIST `GET /v2/pools?sort=trending`
  * (pools in trending-ranking order with their token address and reserves) and
  * IF_STATS_BATCH `POST /v2/pools/stats:batch` for market caps. The spot price is
- * the pool's pricing reserve ratio (USDL per token, both 6-decimal raw); a
- * failed stats batch only hides market caps.
+ * the verified statistics price in USDL per token.
  */
-async function loadSwapTokens(operations: Operations, signal: AbortSignal): Promise<TokenInfo[]> {
-  const listed = await operations.call('IF_POOL_LIST', { query: { sort: 'trending', limit: SWAP_POOL_LIMIT } }, { signal });
-  if (listed.quality === 'quarantined') throw new Error('Pool list integrity quarantined');
-  const pools = listed.data.items;
+export async function loadSwapTokens(operations: Operations, signal: AbortSignal): Promise<TokenInfo[]> {
+  const pools: V2ContractTypes['Pool'][] = [];
+  const cursors = new Set<string>();
+  let cursor: string | null = null;
+  do {
+    const listed: V2ContractTypes['PoolListResponse'] = await operations.call('IF_POOL_LIST', { query: { sort: 'trending', limit: SWAP_POOL_LIMIT, ...(cursor ? { cursor } : {}) } }, { signal });
+    if (listed.quality === 'quarantined' || listed.watermark?.integrity === 'quarantined') throw new Error('Pool list integrity quarantined');
+    pools.push(...listed.data.items);
+    cursor = listed.nextCursor;
+    if (cursor && cursors.has(cursor)) throw new Error('Pool list cursor repeated');
+    if (cursor) cursors.add(cursor);
+  } while (cursor);
   if (pools.length === 0) return [];
-  const caps = new Map<string, number>();
+  const stats = new Map<string, { price: number | null; marketCap: number | null }>();
   const addresses = pools.map(pool => pool.poolAddress.toLowerCase());
   for (let start = 0; start < addresses.length; start += STATS_BATCH_LIMIT) {
-    try {
-      const batch = await fetchStatsBatch(operations, addresses.slice(start, start + STATS_BATCH_LIMIT), signal);
-      for (const row of batch.data.items) caps.set(row.poolAddress.toLowerCase(), scaledNumber(row.totalSupplyValuationUsdlRaw, 6));
-    } catch (error) {
-      if (signal.aborted) throw error;
+    const batch = await fetchStatsBatch(operations, addresses.slice(start, start + STATS_BATCH_LIMIT), signal);
+    for (const row of batch.data.items) {
+      const spot = statsSpotPrice(row).value;
+      stats.set(row.poolAddress.toLowerCase(), {
+        price: spot === null ? null : Number(spot),
+        marketCap: statsMarketCap(row).value === null ? null : scaledNumber(statsMarketCap(row).value, 6),
+      });
     }
   }
-  const metaByToken = await fetchTokenMetadataBatch(pools.map(pool => pool.tokenAddress.toLowerCase()));
+  const metaByToken = await fetchTokenMetadataBatch(pools.map(pool => pool.tokenAddress.toLowerCase()), signal);
   return pools.map(pool => {
     const poolAddress = pool.poolAddress.toLowerCase();
     const tokenAddress = pool.tokenAddress.toLowerCase();
     const meta: TokenMetadata | null = metaByToken[tokenAddress] ?? null;
-    const tokenReserve = scaledNumber(pool.tokenReserveRaw, LAUNCHPAD_DEFAULT_DECIMALS);
     return {
       tokenAddress,
       poolAddress,
       name: meta?.name || `Token ${poolAddress.slice(0, 6)}`,
       symbol: meta?.symbol || '???',
       logo: meta?.images?.logo || null,
-      price: tokenReserve > 0 ? scaledNumber(pool.effectivePricingUsdlReserveRaw, pool.quoteAssetDecimals) / tokenReserve : 0,
-      marketCap: caps.get(poolAddress) ?? 0,
+      price: stats.get(poolAddress)?.price ?? null,
+      marketCap: stats.get(poolAddress)?.marketCap ?? null,
     };
   });
 }
@@ -111,7 +124,7 @@ function TokenSelectorModal({
   loading: boolean;
   error: string | null;
   onRetry: () => void;
-  balances: Record<string, bigint>;
+  balances: Record<string, { raw: bigint; decimals: number }>;
   onSelect: (t: TokenInfo) => void;
   onClose: () => void;
   excludeAddress?: string;
@@ -170,7 +183,7 @@ function TokenSelectorModal({
         )}
         {filtered.map((token) => {
           const bal = balances[token.tokenAddress.toLowerCase()];
-          const balFmt = bal !== undefined ? parseFloat(formatUnits(bal, LAUNCHPAD_DEFAULT_DECIMALS)) : 0;
+          const balFmt = bal !== undefined ? Number(formatUnits(bal.raw, bal.decimals)) : null;
           return (
             <button
               key={token.tokenAddress}
@@ -192,11 +205,11 @@ function TokenSelectorModal({
                   <span className="text-sm font-bold text-text truncate">{token.name}</span>
                   <span className="text-2xs text-text-faint uppercase">{token.symbol}</span>
                 </div>
-                {token.marketCap > 0 && (
+                {token.marketCap !== null && token.marketCap > 0 && (
                   <span className="text-2xs text-text-faint">MC: {formatCurrency(token.marketCap)}</span>
                 )}
               </div>
-              {balFmt > 0 && (
+              {balFmt !== null && balFmt > 0 && (
                 <span className="text-2xs text-text font-bold flex-shrink-0">
                   {formatNumber(balFmt, 2)}
                 </span>
@@ -211,12 +224,13 @@ function TokenSelectorModal({
 
 // ── Token Input Box ─────────────────────────────────────────────
 
-function TokenInputBox({
+export function TokenInputBox({
   label,
   token,
   amount,
   onAmountChange,
   balance,
+  decimals,
   readOnly,
   onSelectClick,
   onMaxClick,
@@ -226,12 +240,13 @@ function TokenInputBox({
   amount: string;
   onAmountChange?: (v: string) => void;
   balance: bigint | null;
+  decimals: number | undefined;
   readOnly?: boolean;
   onSelectClick: () => void;
   onMaxClick?: () => void;
 }) {
-  const balFmt = balance !== null ? parseFloat(formatUnits(balance, LAUNCHPAD_DEFAULT_DECIMALS)) : 0;
-  const usdValue = token && amount && parseFloat(amount) > 0
+  const balFmt = balance !== null && decimals !== undefined ? Number(formatUnits(balance, decimals)) : null;
+  const usdValue = token && token.price !== null && amount && parseFloat(amount) > 0
     ? parseFloat(amount) * token.price
     : 0;
 
@@ -239,7 +254,7 @@ function TokenInputBox({
     <div className="bg-surface-2 rounded-xl p-3.5 transition-all duration-base">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
         <span className="text-2xs text-text-faint uppercase tracking-wide">{label}</span>
-        {balance !== null && (
+        {balFmt !== null && (
           <div className="flex items-center gap-1.5">
             <span className="text-2xs text-text-faint">Balance: {formatNumber(balFmt, 4)}</span>
             {onMaxClick && !readOnly && (
@@ -261,7 +276,8 @@ function TokenInputBox({
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-24 flex-1">
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             aria-label={`${label} amount`}
             value={amount}
             onChange={onAmountChange ? (e) => onAmountChange(e.target.value) : undefined}
@@ -312,6 +328,16 @@ function TokenInputBox({
 
 // ── Main Swap Panel ─────────────────────────────────────────────
 
+export function readSwapQuote(raw: unknown) {
+  if (!raw || typeof raw !== 'object') return null;
+  const fields = ['amountOut', 'intermediateUsdl', 'sellFeeAmount', 'buyFeeAmount', 'sellPriceImpactBps', 'buyPriceImpactBps', 'combinedPriceImpactBps', 'poolA', 'poolB'] as const;
+  const values = Array.isArray(raw) ? raw : fields.map(field => (raw as Record<string, unknown>)[field]);
+  const [amountOut, intermediateUsdl, sellFeeAmount, buyFeeAmount, sellPriceImpactBps, buyPriceImpactBps, combinedPriceImpactBps, poolA, poolB] = values as unknown[];
+  if (typeof amountOut !== 'bigint' || amountOut <= 0n || typeof intermediateUsdl !== 'bigint' || intermediateUsdl <= 0n || typeof sellFeeAmount !== 'bigint' || sellFeeAmount < 0n || typeof buyFeeAmount !== 'bigint' || buyFeeAmount < 0n || typeof sellPriceImpactBps !== 'bigint' || typeof buyPriceImpactBps !== 'bigint' || typeof combinedPriceImpactBps !== 'bigint' || typeof poolA !== 'string' || typeof poolB !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(poolA) || !/^0x[0-9a-fA-F]{40}$/.test(poolB) || poolA === zeroAddress || poolB === zeroAddress) return null;
+  if ([sellPriceImpactBps, buyPriceImpactBps, combinedPriceImpactBps].some(value => value < 0n || value > 10000n)) return null;
+  return { amountOut, intermediateUsdl, sellFeeAmount, buyFeeAmount, sellPriceImpactBps: Number(sellPriceImpactBps), buyPriceImpactBps: Number(buyPriceImpactBps), combinedPriceImpactBps: Number(combinedPriceImpactBps), poolA, poolB };
+}
+
 export function useSwapQuoteExecution({ tokenIn, tokenOut, poolIn, poolOut, amountIn, enabled, slippageBps }: {
   tokenIn: `0x${string}`;
   tokenOut: `0x${string}`;
@@ -322,69 +348,56 @@ export function useSwapQuoteExecution({ tokenIn, tokenOut, poolIn, poolOut, amou
   slippageBps: number;
 }) {
   const { address, chainId, isConnected } = useAccount();
+  const { switchChainAsync } = useSwitchChain();
   const root = usePublicClient({ chainId: 125 });
   const { data: wallet } = useWalletClient();
   const [homeError, setHomeError] = useState<string | null>(null);
   const [homePending, setHomePending] = useState(false);
+  const [home, setHome] = useState<HomeChain | null>(null);
+  const [homeLoading, setHomeLoading] = useState(false);
+  const [homeAttempt, setHomeAttempt] = useState(0);
   const [homeTxHash, setHomeTxHash] = useState<Hash>();
   const [homeReceipt, setHomeReceipt] = useState<TransactionReceipt>();
   const [homeApprovalReceipt, setHomeApprovalReceipt] = useState<TransactionReceipt>();
+  type HomeAttempt = { home: HomeChain; hash: Hash; sender: Address; target: Address; data: `0x${string}`; action: 'approve' | 'swap' };
+  const [homeRecovery, setHomeRecovery] = useState<HomeAttempt | null>(null);
+  const homeChecking = useRef(false);
+
+  const [clock, setClock] = useState(Date.now());
+  const submitting = useRef(false);
+  useEffect(() => {
+    if (!enabled) return;
+    const timer = setInterval(() => setClock(Date.now()), 500);
+    return () => clearInterval(timer);
+  }, [enabled]);
   const debouncedAmountIn = useDebouncedValue(amountIn, 250);
-  const { data: quoteRaw, isSuccess: quoteSuccess, isFetching: quoteFetching, dataUpdatedAt: quoteUpdatedAt } = useReadQuoterQuoteMultihop(
+  const { data: quoteRaw, error: readQuoteError, refetch: refreshQuote, isSuccess: quoteSuccess, isFetching: quoteFetching, dataUpdatedAt: quoteUpdatedAt } = useReadQuoterQuoteMultihop(
     { tokenIn, tokenOut, amountIn: debouncedAmountIn },
     enabled && debouncedAmountIn > 0n,
   );
   const quote = useMemo(() => {
     if (!enabled || !isConnected ||
-        amountIn !== debouncedAmountIn || !quoteSuccess || quoteFetching || !quoteRaw) return null;
-    const q = quoteRaw as any;
-    try {
-      // MultihopQuoteResult tuple or struct
-      if (Array.isArray(q)) {
-        return {
-          identity: { chainId, tokenIn, tokenOut, amountIn: debouncedAmountIn },
-          amountOut: BigInt(q[0]),
-          intermediateUsdl: BigInt(q[1]),
-          sellFeeAmount: BigInt(q[2]),
-          buyFeeAmount: BigInt(q[3]),
-          sellPriceImpactBps: Number(q[4]),
-          buyPriceImpactBps: Number(q[5]),
-          combinedPriceImpactBps: Number(q[6]),
-          poolA: String(q[7]),
-          poolB: String(q[8]),
-        };
-      }
-      return {
-        identity: { chainId, tokenIn, tokenOut, amountIn: debouncedAmountIn },
-        amountOut: BigInt(q.amountOut ?? 0),
-        intermediateUsdl: BigInt(q.intermediateUsdl ?? 0),
-        sellFeeAmount: BigInt(q.sellFeeAmount ?? 0),
-        buyFeeAmount: BigInt(q.buyFeeAmount ?? 0),
-        sellPriceImpactBps: Number(q.sellPriceImpactBps ?? 0),
-        buyPriceImpactBps: Number(q.buyPriceImpactBps ?? 0),
-        combinedPriceImpactBps: Number(q.combinedPriceImpactBps ?? 0),
-        poolA: String(q.poolA ?? ''),
-        poolB: String(q.poolB ?? ''),
-      };
-    } catch {
-      return null;
-    }
-  }, [quoteRaw, quoteSuccess, quoteFetching, quoteUpdatedAt, enabled, isConnected, chainId, tokenIn, tokenOut, amountIn, debouncedAmountIn]);
+        amountIn !== debouncedAmountIn || !quoteSuccess || quoteFetching || !quoteRaw || Math.max(clock, Date.now()) - quoteUpdatedAt >= 30000) return null;
+    const result = readSwapQuote(quoteRaw);
+    if (!result || (poolIn && result.poolA.toLowerCase() !== poolIn.toLowerCase()) || (poolOut && result.poolB.toLowerCase() !== poolOut.toLowerCase())) return null;
+    return { identity: { chainId, tokenIn, tokenOut, amountIn: debouncedAmountIn }, ...result };
+  }, [quoteRaw, quoteSuccess, quoteFetching, quoteUpdatedAt, enabled, isConnected, chainId, tokenIn, tokenOut, poolIn, poolOut, amountIn, debouncedAmountIn, clock >= quoteUpdatedAt + 30000]);
 
   const minAmountOut = quote ? computeMinOut(quote.amountOut, slippageBps) : 0n;
-  const approval = useMemo(() => quote ? { quote, minAmountOut, address } : null,
+  const approval = useMemo(() => quote && minAmountOut > 0n ? { quote, minAmountOut, address, slippageBps } : null,
     [quote, minAmountOut, slippageBps, address]);
   const [review, setReview] = useState<typeof approval>(null);
-  const { write, isPending, data: txHash } = useWriteRouterSwapTokenForToken();
-  const latest = useRef({ approval, isConnected, isPending });
-  latest.current = { approval, isConnected, isPending };
+  const { writeContractAsync, error: writeError, reset: resetSwap, isPending, data: txHash } = useWriteRouterSwapTokenForToken();
+  const latest = useRef({ approval, isConnected, isPending: isPending || homePending || !!homeRecovery, address, tokenIn, tokenOut, amountIn });
+  latest.current = { approval, isConnected, isPending: isPending || homePending || !!homeRecovery, address, tokenIn, tokenOut, amountIn };
 
   useEffect(() => {
     if (review && review !== approval) setReview(null);
   }, [review, approval]);
 
   const resolveHome = async (): Promise<HomeChain | null> => {
-    if (!poolIn || !poolOut || !root) return null;
+    if (!poolIn || !poolOut) return null;
+    if (!root) throw new Error('The market chain could not be read. Try again.');
     const rpc = getPaxeerRpcUrl();
     const explorer = 'https://paxscan.paxeer.app';
     const [left, right] = await Promise.all([
@@ -395,30 +408,89 @@ export function useSwapQuoteExecution({ tokenIn, tokenOut, poolIn, poolOut, amou
     return left;
   };
 
-  const approveHome = async (amount: bigint) => {
-    if (!wallet || !address) return;
+  useEffect(() => {
+    let active = true;
+    setHome(null);
+    setHomeError(null);
+    if (!poolIn || !poolOut) { setHomeLoading(false); return; }
+    setHomeLoading(true);
+    void resolveHome().then(value => { if (active) setHome(value); })
+      .catch(error => { if (active) setHomeError(homeChainMessage(error)); })
+      .finally(() => { if (active) setHomeLoading(false); });
+    return () => { active = false; };
+  }, [poolIn, poolOut, root, homeAttempt]);
+
+  const switchToHome = async () => {
+    if (submitting.current || !home) return;
+    setHomeError(null);
+    setHomePending(true);
+    try {
+      if (home.registryNumber === 0) await switchChainAsync({ chainId: 125 });
+      else {
+        if (!wallet) throw new Error('Connect your wallet to trade.');
+        await ensureHomeChain(wallet, home);
+      }
+    } catch (error) { setHomeError(homeChainMessage(error)); }
+    finally { setHomePending(false); }
+  };
+
+  const checkHomeReceipt = async (attempt: HomeAttempt) => {
+    if (homeChecking.current) return;
+    homeChecking.current = true;
     setHomeError(null);
     try {
+      const client = homeChainClient(attempt.home);
+      const receipt = await client.waitForTransactionReceipt({ hash: attempt.hash });
+      const transaction = await client.getTransaction({ hash: receipt.transactionHash });
+      const block = await client.getBlock({ blockNumber: receipt.blockNumber });
+      if (await client.getChainId() !== attempt.home.chainId || block.hash !== receipt.blockHash || transaction.from.toLowerCase() !== attempt.sender.toLowerCase()) throw new Error('Transaction confirmation does not match this wallet or chain.');
+      if (transactionFingerprint(transaction.to ?? transaction.from, transaction.input, transaction.value) !== transactionFingerprint(attempt.target, attempt.data)) {
+        setHomeRecovery(null);
+        throw new Error('Transaction cancelled or changed in your wallet. Review the trade again.');
+      }
+      if (attempt.action === 'approve') setHomeApprovalReceipt(receipt);
+      else setHomeReceipt(receipt);
+      setHomeRecovery(null);
+      if (receipt.status !== 'success') throw new Error(attempt.action === 'approve' ? 'Approval was not confirmed.' : 'Swap was not confirmed.');
+    } catch (error) { setHomeError(homeChainMessage(error)); }
+    finally { homeChecking.current = false; }
+  };
+
+  const approveHome = async (amount: bigint) => {
+    if (!wallet || !address || submitting.current || latest.current.isPending) return true;
+    submitting.current = true;
+    setHomePending(true);
+    setHomeError(null);
+    setHomeApprovalReceipt(undefined);
+    try {
       const home = await resolveHome();
+      if (latest.current.address !== address || latest.current.tokenIn !== tokenIn || latest.current.amountIn !== amountIn || !latest.current.isConnected) throw new Error('Wallet, coin or amount changed. Review again.');
       if (!home || home.registryNumber === 0) return false;
-      setHomePending(true);
+      const approvedAddress = address;
+      const approvedToken = tokenIn;
       setHomeApprovalReceipt(undefined);
       await ensureHomeChain(wallet, home);
+      if (!(await wallet.getAddresses()).some(value => value.toLowerCase() === approvedAddress.toLowerCase()) || latest.current.tokenIn !== approvedToken || latest.current.address !== approvedAddress || latest.current.amountIn !== amountIn) throw new Error('Wallet or coin changed. Review again.');
       const client = homeChainClient(home);
       const hash = await wallet.writeContract({ chain: client.chain, account: address, address: tokenIn, abi: erc20Abi, functionName: 'approve', args: [ROUTER_ADDRESS, amount] });
-      const receipt = await client.waitForTransactionReceipt({ hash });
-      if (receipt.status !== 'success') throw new Error('Approval was not confirmed.');
-      setHomeApprovalReceipt(receipt);
+      const attempt: HomeAttempt = { home, hash, sender: address, target: tokenIn, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [ROUTER_ADDRESS, amount] }), action: 'approve' };
+      setHomeRecovery(attempt);
+      await checkHomeReceipt(attempt);
       return true;
     } catch (error) {
       setHomeError(homeChainMessage(error));
       return true;
-    } finally { setHomePending(false); }
+    } finally { submitting.current = false; setHomePending(false); }
   };
 
   const executeSwap = async (approved: NonNullable<typeof approval>) => {
     const current = latest.current;
-    if (!current.isConnected || current.isPending || current.approval !== approved) return;
+    if (!current.isConnected || current.isPending || submitting.current || current.approval !== approved || Date.now() - quoteUpdatedAt >= 30000) return;
+    submitting.current = true;
+    setHomePending(true);
+    resetSwap();
+    setHomeReceipt(undefined);
+    setHomeTxHash(undefined);
     const { identity } = approved.quote;
     const request = {
       tokenIn: identity.tokenIn,
@@ -430,11 +502,17 @@ export function useSwapQuoteExecution({ tokenIn, tokenOut, poolIn, poolOut, amou
     setHomeError(null);
     try {
       const home = await resolveHome();
-      if (!home || home.registryNumber === 0) { write(request); return; }
+      if (latest.current.approval !== approved || !latest.current.isConnected || Date.now() - quoteUpdatedAt >= 30000) throw new Error('Trade quote changed. Review again.');
+      if ((!home || home.registryNumber === 0) && chainId !== 125) throw new Error('Switch to Paxeer in your wallet to trade.');
+      if (!home || home.registryNumber === 0) {
+        await writeContractAsync({ chainId: 125, address: ROUTER_ADDRESS, abi: homeSwapAbi, functionName: 'swapTokenForToken', args: [request.tokenIn, request.tokenOut, request.amountIn, request.minAmountOut, request.deadline] });
+        return;
+      }
       if (!wallet || !address) throw new Error('Connect your wallet to trade.');
-      setHomePending(true);
       setHomeReceipt(undefined);
+      setHomeTxHash(undefined);
       await ensureHomeChain(wallet, home);
+      if (latest.current.approval !== approved || !latest.current.isConnected || Date.now() - quoteUpdatedAt >= 30000) throw new Error('Trade quote changed. Review again.');
       const client = homeChainClient(home);
       const hash = await wallet.writeContract({
         account: address, chain: client.chain, address: ROUTER_ADDRESS,
@@ -442,17 +520,17 @@ export function useSwapQuoteExecution({ tokenIn, tokenOut, poolIn, poolOut, amou
         args: [request.tokenIn, request.tokenOut, request.amountIn, request.minAmountOut, request.deadline],
       });
       setHomeTxHash(hash);
-      const receipt = await client.waitForTransactionReceipt({ hash });
-      if (receipt.status !== 'success') throw new Error('Swap was not confirmed.');
-      setHomeReceipt(receipt);
+      const attempt: HomeAttempt = { home, hash, sender: address, target: ROUTER_ADDRESS, data: encodeFunctionData({ abi: homeSwapAbi, functionName: 'swapTokenForToken', args: [request.tokenIn, request.tokenOut, request.amountIn, request.minAmountOut, request.deadline] }), action: 'swap' };
+      setHomeRecovery(attempt);
+      await checkHomeReceipt(attempt);
     } catch (error) { setHomeError(homeChainMessage(error)); }
-    finally { setHomePending(false); }
+    finally { submitting.current = false; setHomePending(false); }
   };
 
   const requestSwap = () => {
     const approved = latest.current.approval;
-    if (!approved || latest.current.isPending) return;
-    if (approved.quote.combinedPriceImpactBps > 500) setReview(approved);
+    if (!approved || latest.current.isPending || submitting.current) return;
+    if (approved.quote.combinedPriceImpactBps > 500 || approved.slippageBps > 500) setReview(approved);
     else void executeSwap(approved);
   };
   const confirmSwap = () => {
@@ -461,17 +539,34 @@ export function useSwapQuoteExecution({ tokenIn, tokenOut, poolIn, poolOut, amou
   };
 
   return {
-    quote, minAmountOut,
+    quote, minAmountOut, home, homeLoading, switchToHome, retryHome: () => setHomeAttempt(value => value + 1),
     quoteLoading: enabled && !quote && (quoteFetching || amountIn !== debouncedAmountIn),
+    quoteError: enabled && quote && minAmountOut === 0n ? 'This amount is too small to protect against price changes. Increase it and try again.' : enabled && !quote && !quoteFetching && amountIn === debouncedAmountIn ? (readQuoteError ? plainTradeError(readQuoteError.message) : quoteSuccess ? 'The price expired or could not be read. Refresh and try again.' : null) : null,
+    refreshQuote: () => { setHomeError(null); resetSwap(); void refreshQuote(); },
     review: review === approval ? review : null,
     cancelReview: () => setReview(null),
-    requestSwap, confirmSwap, approveHome, homeTxHash, homeReceipt, homeApprovalReceipt, homeError,
-    isPending: isPending || homePending, txHash: homeTxHash ?? txHash,
+    requestSwap, confirmSwap, approveHome, homeTxHash, homeReceipt, homeApprovalReceipt, homeError: homeError ?? (writeError ? plainTradeError(writeError.message) : null),
+    homeRecovery, retryHomeReceipt: () => { if (homeRecovery) void checkHomeReceipt(homeRecovery); },
+    isPending: isPending || homePending || !!homeRecovery, txHash: homeTxHash ?? txHash,
   };
 }
 
+function SwapReceiptRecovery({ recovery }: { recovery: ReturnType<typeof useOptimisticReceipt> }) {
+  const [replacementHash, setReplacementHash] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  if (recovery.state === 'cancelled' || recovery.state === 'changed_action') return <p role="alert">{recovery.state === 'cancelled' ? 'Transaction cancelled in your wallet. You can try again.' : 'Transaction replaced with a different action. Review the trade again.'}</p>;
+  if (recovery.state !== 'delayed' && recovery.state !== 'quarantined' && !recovery.error) return null;
+  return <div>
+    <ErrorState variant="chip" wrap message="This transaction is taking longer than usual. Check its status before trading again." onRetry={recovery.retry} />
+    <label>Replacement transaction ID<input value={replacementHash} onChange={event => setReplacementHash(event.target.value)} /></label>
+    <Button size="sm" variant="secondary" onClick={() => { setError(null); void recovery.inspectReplacement(replacementHash as Hash).catch(caught => setError(plainTradeError(homeChainMessage(caught)))); }}>Check replacement</Button>
+    {error ? <p role="alert">{error}</p> : null}
+  </div>;
+}
+
 export default function SwapPanel() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chainId } = useAccount();
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [tokensLoading, setTokensLoading] = useState(true);
@@ -504,30 +599,30 @@ export default function SwapPanel() {
   const tokenOutAddr = (tokenOut?.tokenAddress || zeroAddress) as `0x${string}`;
   const userAddr = (address || zeroAddress) as `0x${string}`;
 
-  // On-chain decimals reads (fallback to launchpad default)
-  const { data: tokenInDecRaw } = useReadErc20Decimals({ token: tokenInAddr });
-  const { data: tokenOutDecRaw } = useReadErc20Decimals({ token: tokenOutAddr });
+  // Amounts use the decimals the selected token reports on chain.
+  const { data: tokenInDecRaw, error: tokenInDecError, refetch: refetchInDecimals } = useReadErc20Decimals({ token: tokenInAddr });
+  const { data: tokenOutDecRaw, error: tokenOutDecError, refetch: refetchOutDecimals } = useReadErc20Decimals({ token: tokenOutAddr });
   const tokenInDec = tokenInDecRaw !== undefined && tokenInDecRaw !== null
-    ? Number(tokenInDecRaw) : LAUNCHPAD_DEFAULT_DECIMALS;
+    ? Number(tokenInDecRaw) : undefined;
   const tokenOutDec = tokenOutDecRaw !== undefined && tokenOutDecRaw !== null
-    ? Number(tokenOutDecRaw) : LAUNCHPAD_DEFAULT_DECIMALS;
+    ? Number(tokenOutDecRaw) : undefined;
 
-  const { data: balInRaw, refetch: refetchBalIn } = useReadErc20Balance({ token: tokenInAddr, account: userAddr });
-  const { data: balOutRaw, refetch: refetchBalOut } = useReadErc20Balance({ token: tokenOutAddr, account: userAddr });
+  const { data: balInRaw, error: balInError, refetch: refetchBalIn } = useReadErc20Balance({ token: tokenInAddr, account: userAddr });
+  const { data: balOutRaw, error: balOutError, refetch: refetchBalOut } = useReadErc20Balance({ token: tokenOutAddr, account: userAddr });
 
   const balIn = balInRaw !== undefined && balInRaw !== null ? BigInt(String(balInRaw)) : null;
   const balOut = balOutRaw !== undefined && balOutRaw !== null ? BigInt(String(balOutRaw)) : null;
 
   // Build balances map for the selector (lazy — just what we know)
   const balances = useMemo(() => {
-    const map: Record<string, bigint> = {};
-    if (tokenIn && balIn !== null) map[tokenIn.tokenAddress.toLowerCase()] = balIn;
-    if (tokenOut && balOut !== null) map[tokenOut.tokenAddress.toLowerCase()] = balOut;
+    const map: Record<string, { raw: bigint; decimals: number }> = {};
+    if (tokenIn && balIn !== null && tokenInDec !== undefined) map[tokenIn.tokenAddress.toLowerCase()] = { raw: balIn, decimals: tokenInDec };
+    if (tokenOut && balOut !== null && tokenOutDec !== undefined) map[tokenOut.tokenAddress.toLowerCase()] = { raw: balOut, decimals: tokenOutDec };
     return map;
-  }, [tokenIn, tokenOut, balIn, balOut]);
+  }, [tokenIn, tokenOut, balIn, balOut, tokenInDec, tokenOutDec]);
 
   // ── Allowance ─────────────────────────────────────────────────
-  const { data: allowanceRaw, refetch: refetchAllowance } = useReadErc20Allowance({
+  const { data: allowanceRaw, error: allowanceError, refetch: refetchAllowance } = useReadErc20Allowance({
     token: tokenInAddr,
     owner: userAddr,
     spender: ROUTER_ADDRESS,
@@ -535,17 +630,18 @@ export default function SwapPanel() {
   const allowance = allowanceRaw !== undefined && allowanceRaw !== null ? BigInt(String(allowanceRaw)) : null;
 
   // ── Quote ─────────────────────────────────────────────────────
-  const hasAmount = amountIn !== '' && parseFloat(amountIn) > 0;
-  const parsedAmountIn = hasAmount ? parseUnits(amountIn, tokenInDec) : 0n;
-  const canQuote = !!tokenIn && !!tokenOut && hasAmount && tokenIn.tokenAddress !== tokenOut.tokenAddress;
-  const { quote, minAmountOut, quoteLoading, review, cancelReview, requestSwap, confirmSwap,
-    approveHome, homeTxHash, homeReceipt, homeApprovalReceipt, homeError, isPending: swapPending, txHash: swapTxHash } = useSwapQuoteExecution({
+  const amount = parseAmount(amountIn, tokenInDec, balIn ?? undefined);
+  const parsedAmountIn = amount.parsedRaw ?? 0n;
+  const hasAmount = !amount.errorCode && parsedAmountIn > 0n;
+  const canQuote = isConnected && !!tokenIn && !!tokenOut && hasAmount && tokenOutDec !== undefined && tokenIn.tokenAddress !== tokenOut.tokenAddress;
+  const { quote, minAmountOut, quoteLoading, quoteError, refreshQuote, review, cancelReview, requestSwap, confirmSwap,
+    home, homeLoading, switchToHome, retryHome, approveHome, homeTxHash, homeReceipt, homeApprovalReceipt, homeError, homeRecovery, retryHomeReceipt, isPending: swapPending, txHash: swapTxHash } = useSwapQuoteExecution({
     tokenIn: tokenInAddr, tokenOut: tokenOutAddr, amountIn: parsedAmountIn,
     poolIn: tokenIn?.poolAddress as Address | undefined, poolOut: tokenOut?.poolAddress as Address | undefined,
     enabled: canQuote, slippageBps,
   });
 
-  const estOut = quote ? parseFloat(formatUnits(quote.amountOut, tokenOutDec)) : null;
+  const estOut = quote && tokenOutDec !== undefined ? Number(formatUnits(quote.amountOut, tokenOutDec)) : null;
   const intermediateUsdl = quote ? parseFloat(formatUnits(quote.intermediateUsdl, 6)) : null; // USDL is always 6
   const totalFee = quote
     ? parseFloat(formatUnits(quote.sellFeeAmount + quote.buyFeeAmount, 6)) // fees in USDL
@@ -554,10 +650,11 @@ export default function SwapPanel() {
 
   // ── Approval state ────────────────────────────────────────────
   const needsApproval = hasAmount && allowance !== null && allowance < parsedAmountIn;
-  const { write: writeApprove, isPending: approvePending, data: approveTxHash } = useWriteErc20Approve();
-  const { receipt: rootApproveReceipt } = useOptimisticReceipt(approveTxHash);
+  const { writeContractAsync: writeApprove, error: approveError, reset: resetApproval, isPending: approvePending, data: approveTxHash } = useWriteErc20Approve();
+  const approvalRecovery = useOptimisticReceipt(approveTxHash);
+  const { receipt: rootApproveReceipt } = approvalRecovery;
   const approveReceipt = homeApprovalReceipt ?? rootApproveReceipt;
-  const approveConfirming = approvePending || (!!approveTxHash && !approveReceipt);
+  const approveConfirming = approvePending || approvalRecovery.isPending;
 
   useEffect(() => {
     if (approveReceipt?.status === 'success') refetchAllowance();
@@ -565,11 +662,14 @@ export default function SwapPanel() {
 
   // ── Swap execution ────────────────────────────────────────────
   // The swap trades on both legs' pools; their market.trades topics wake the receipt check.
-  const { receipt: rootSwapReceipt } = useOptimisticReceipt(homeTxHash ? undefined : swapTxHash, { poolAddresses: [tokenIn?.poolAddress, tokenOut?.poolAddress] });
+  const swapRecovery = useOptimisticReceipt(homeTxHash ? undefined : swapTxHash, { poolAddresses: [tokenIn?.poolAddress, tokenOut?.poolAddress] });
+  const { receipt: rootSwapReceipt } = swapRecovery;
   const swapReceipt = homeReceipt ?? rootSwapReceipt;
 
+  const completedSwap = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (swapReceipt?.status === 'success') {
+    if (swapReceipt?.status === 'success' && completedSwap.current !== swapReceipt.transactionHash) {
+      completedSwap.current = swapReceipt.transactionHash;
       setAmountIn('');
       refetchBalIn();
       refetchBalOut();
@@ -577,19 +677,30 @@ export default function SwapPanel() {
     }
   }, [swapReceipt, refetchBalIn, refetchBalOut, refetchAllowance]);
 
-  const insufficientBalance = hasAmount && balIn !== null && balIn < parsedAmountIn;
-  const isPending = swapPending || (!!swapTxHash && !swapReceipt) || approveConfirming;
+  const insufficientBalance = amount.errorCode === 'insufficient_balance';
+  const isPending = swapPending || swapRecovery.isPending || approveConfirming;
 
-  const quoteUnavailable = canQuote && !quote;
+  const quoteUnavailable = canQuote && (!quote || minAmountOut === 0n);
 
+  const actionInFlight = useRef(false);
   const handleSwap = async () => {
-    if (!canQuote || !isConnected || isPending || insufficientBalance) return;
-    if (needsApproval) {
-      if (await approveHome(parsedAmountIn)) return;
-      writeApprove({ token: tokenInAddr, spender: ROUTER_ADDRESS, amount: parsedAmountIn });
-      return;
-    }
-    requestSwap();
+    if (!isConnected) { openAuthModal('trade'); return; }
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
+    setActionError(null);
+    try {
+      if (!home || homeLoading) return;
+      if (chainId !== home.chainId) { await switchToHome(); return; }
+      if (!canQuote || isPending || insufficientBalance || allowance === null || balIn === null || allowanceError || balInError || tokenInDecError || tokenOutDecError) return;
+      if (needsApproval) {
+        resetApproval();
+        if (await approveHome(parsedAmountIn)) return;
+        await writeApprove(erc20ApprovalRequest({ token: tokenInAddr, spender: ROUTER_ADDRESS, amount: parsedAmountIn }));
+        return;
+      }
+      requestSwap();
+    } catch (error) { setActionError(plainTradeError(homeChainMessage(error))); }
+    finally { actionInFlight.current = false; }
   };
 
   // ── Side switcher ─────────────────────────────────────────────
@@ -600,25 +711,36 @@ export default function SwapPanel() {
   }, [tokenIn, tokenOut]);
 
   const handleMaxIn = () => {
-    if (balIn !== null) setAmountIn(formatUnits(balIn, tokenInDec));
+    if (balIn !== null && tokenInDec !== undefined) setAmountIn(formatUnits(balIn, tokenInDec));
   };
 
   // ── Button label ──────────────────────────────────────────────
   const buttonLabel = (() => {
     if (!isConnected) return 'Connect wallet';
+    if (homeLoading) return 'Reading market chain...';
+    if (home && chainId !== home.chainId) return swapPending ? 'Switching...' : 'Switch to market chain';
     if (!tokenIn) return 'Select a coin to pay with';
     if (!tokenOut) return 'Select a coin to receive';
     if (tokenIn.tokenAddress === tokenOut.tokenAddress) return 'Pick two different coins';
-    if (!hasAmount) return 'Enter an amount';
     if (insufficientBalance) return `Not enough ${tokenIn.symbol}`;
+    if (amount.errorCode) return amountErrorText(amount.errorCode, tokenInDec ?? 0);
+    if (!hasAmount) return 'Enter an amount';
     if (approveConfirming) return `Approving...`;
-    if (swapPending) return 'Confirming...';
+    if (swapPending || swapRecovery.isPending) return 'Confirming...';
+    if (allowance === null || balIn === null) return 'Loading balance and allowance...';
     if (needsApproval) return `Approve ${tokenIn.symbol}`;
+    if (quoteLoading) return 'Getting price...';
     return 'Swap';
   })();
 
-  const buttonDisabled =
-    !isConnected || !canQuote || !hasAmount || isPending || insufficientBalance || quoteUnavailable;
+  const buttonDisabled = isConnected && (!home || homeLoading || (chainId !== home.chainId ? swapPending :
+    !canQuote || !hasAmount || isPending || insufficientBalance || allowance === null || balIn === null || !!allowanceError || !!balInError || !!tokenInDecError || !!tokenOutDecError || (quoteUnavailable && !needsApproval)));
+
+  const readError = (tokenIn && (tokenInDecError || balInError || allowanceError)) || (tokenOut && (tokenOutDecError || balOutError));
+  const retryReads = () => {
+    void refetchInDecimals(); void refetchOutDecimals();
+    void refetchBalIn(); void refetchBalOut(); void refetchAllowance();
+  };
 
   const effectiveRate =
     estOut !== null && parseFloat(amountIn) > 0
@@ -630,7 +752,7 @@ export default function SwapPanel() {
       <div className="rounded-2xl bg-surface-1 overflow-hidden">
         {/* Header */}
         <div className="px-5 pt-5 pb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="shrink-0 text-md font-bold text-text">Swap</h2>
+          <h1 className="shrink-0 text-md font-bold text-text">Swap</h1>
           <div className="flex max-w-full flex-wrap items-center gap-2">
             <SlippageSelector bps={slippageBps} onChange={setSlippageBps} />
           <div className="flex items-center gap-1.5 text-2xs text-text-faint">
@@ -648,6 +770,7 @@ export default function SwapPanel() {
             amount={amountIn}
             onAmountChange={setAmountIn}
             balance={isConnected ? balIn : null}
+            decimals={tokenInDec}
             onSelectClick={() => setSelectorFor('in')}
             onMaxClick={handleMaxIn}
           />
@@ -676,8 +799,9 @@ export default function SwapPanel() {
           <TokenInputBox
             label="You receive"
             token={tokenOut}
-            amount={estOut !== null ? safeFixed(estOut, 4) : ''}
+            amount={quote && tokenOutDec !== undefined ? formatUnits(quote.amountOut, tokenOutDec) : ''}
             balance={isConnected ? balOut : null}
+            decimals={tokenOutDec}
             readOnly
             onSelectClick={() => setSelectorFor('out')}
           />
@@ -741,7 +865,7 @@ export default function SwapPanel() {
                   <div className="flex justify-between text-2xs">
                     <span className="text-text-faint">Minimum received ({safeFixed(Number(slippageBps) / 100, 1)}% slippage)</span>
                     <span className="text-text font-bold">
-                      {quote ? `${formatNumber(parseFloat(formatUnits(minAmountOut, tokenOutDec)), 4)} ${tokenOut?.symbol}` : '...'}
+                      {quote && tokenOutDec !== undefined ? `${formatNumber(Number(formatUnits(minAmountOut, tokenOutDec)), 4)} ${tokenOut?.symbol}` : '...'}
                     </span>
                   </div>
                 </>
@@ -756,7 +880,11 @@ export default function SwapPanel() {
             </div>
           )}
 
-          {homeError ? <p role="alert" className="text-xs text-danger">{homeError}</p> : null}
+          {amount.errorCode && amount.errorCode !== 'insufficient_balance' ? <p role="alert" className="text-xs text-danger">{amountErrorText(amount.errorCode, tokenInDec ?? 0)}</p> : null}
+          {readError ? <ErrorState variant="chip" wrap message="Coin balances or details can't load right now." onRetry={retryReads} /> : null}
+          {quoteError ? <ErrorState variant="chip" wrap message={quoteError} onRetry={refreshQuote} /> : null}
+          {homeError && homeRecovery ? <ErrorState variant="chip" wrap message={plainTradeError(homeError)} onRetry={retryHomeReceipt} /> : homeError && !home ? <ErrorState variant="chip" wrap message={plainTradeError(homeError)} onRetry={retryHome} /> : homeError || actionError || approveError ? <p role="alert" className="text-xs text-danger">{homeError ? plainTradeError(homeError) : actionError ?? plainTradeError(approveError?.message)}</p> : null}
+          {[approvalRecovery, swapRecovery].map((recovery, index) => <SwapReceiptRecovery key={index} recovery={recovery} />)}
           {/* Swap / Approve button */}
           <button
             type="button"
@@ -796,6 +924,7 @@ export default function SwapPanel() {
       {review && (
         <HighImpactWarning
           priceImpactBps={review.quote.combinedPriceImpactBps}
+          slippageBps={slippageBps}
           onConfirm={confirmSwap}
           onCancel={cancelReview}
         />

@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import React, { act } from 'react';
-import { afterEach, beforeAll, expect, test } from 'vitest';
+import { afterAll, afterEach, beforeAll, expect, test } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { connect, disconnect } from 'wagmi/actions';
 import { PathnameContext } from 'next/dist/shared/lib/hooks-client-context.shared-runtime';
+import { applyBrowserSurface } from '@/core/app-foundation/browser-surface.test-support';
 import { routeForPath } from '@/core/app-foundation/navigation';
 import { accountSession, clearAccountSession } from '@/widgets/profile/account-transport';
 import MobileBottomNav, { BOTTOM_NAV_IDS, moreSheetGroups } from './mobile-bottom-nav';
@@ -14,10 +15,17 @@ import { addressFromText, coinPath } from './paste-address';
 import { clearNavigationSession, installNavigationSession, makeNavigationConfig } from './navigation-session.fixture';
 
 const mounted: Array<{ root: Root; queries: QueryClient }> = [];
-
+let restoreBrowserSurface: (() => Promise<void>) | undefined;
+const originalWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth');
 beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-  window.matchMedia = (query: string) => ({ matches: false, media: query, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false }) as MediaQueryList;
+  Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
+  restoreBrowserSurface = applyBrowserSurface();
+});
+
+afterAll(async () => {
+  await restoreBrowserSurface?.();
+  if (originalWidth) Object.defineProperty(window, 'innerWidth', originalWidth);
 });
 
 afterEach(() => {
@@ -43,7 +51,7 @@ async function openNavigation() {
   });
   const more = container.querySelector<HTMLButtonElement>('button[aria-label="More"]')!;
   await act(async () => { more.click(); });
-  const sheet = container.querySelector<HTMLElement>('[role="dialog"][aria-label="More"]')!;
+  const sheet = document.querySelector<HTMLElement>('[role="dialog"][aria-label="More"]')!;
   expect(sheet).not.toBeNull();
   return { config, sheet, more };
 }

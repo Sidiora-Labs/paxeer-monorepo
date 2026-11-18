@@ -12,6 +12,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
@@ -242,4 +243,25 @@ func (s *streamRelay) Ready(ctx context.Context) error {
 		return errors.New("stream relay pass failing")
 	}
 	return s.relay.Ready(ctx, s.doc.MaxLag)
+}
+
+// readyStreamConsumers checks the persistence and bound durable of every
+// assigned topic without creating or changing broker resources.
+func readyStreamConsumers(ctx context.Context, nc *nats.Conn, consumers []natsdriver.ConsumerConfig) error {
+	if nc == nil || !nc.IsConnected() || len(consumers) == 0 {
+		return errors.New("stream consumer broker unavailable")
+	}
+	for _, cfg := range consumers {
+		if err := verifyRelayStreams(ctx, nc, []delivery.StreamRoute{{Stream: cfg.Stream, Subjects: []string{cfg.Subject}}}); err != nil {
+			return err
+		}
+		bounded, cancel := context.WithTimeout(ctx, time.Second)
+		consumer, err := natsdriver.NewConsumer(bounded, nc, cfg)
+		cancel()
+		if err != nil {
+			return fmt.Errorf("stream consumer %s/%s unavailable: %w", cfg.Stream, cfg.Durable, err)
+		}
+		consumer.Close()
+	}
+	return nil
 }

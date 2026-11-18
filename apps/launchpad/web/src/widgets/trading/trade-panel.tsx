@@ -10,7 +10,7 @@ import { statsSpotPrice } from '@/core/market/pool-stats-display';
 import { openAuthModal } from '@/shell/auth-modal-store';
 import { Button, NoticeBar } from '@/ui/primitives';
 import { shortAddress } from '@/utils/format';
-import { quoteFingerprint } from './transaction-controls/domain';
+import { quoteFingerprint, type QuoteEnvelope } from './transaction-controls/domain';
 import { TransactionStatus } from './transaction-controls/transaction-status';
 import { TradeSettingsPopover } from './trade-settings-popover';
 import { useTradePanel } from './use-trade-panel';
@@ -44,6 +44,13 @@ export function useAlternateTradeAmount(toNative: (text: string) => string | nul
     setAmount(text === '' ? '' : (toNative(text) ?? 'invalid alternate amount'));
   };
   return { altText, setAltText, invalid, change };
+}
+
+export function tradePreviewState({ validAmount, tradeReady, quote, staleQuote, approvalError, signedIn, deploymentUnavailable }: {
+  validAmount: boolean; tradeReady: boolean; quote: QuoteEnvelope | undefined; staleQuote: QuoteEnvelope | undefined;
+  approvalError: string | null | undefined; signedIn: boolean; deploymentUnavailable: boolean;
+}) {
+  return { loading: validAmount && !quote && !staleQuote && !approvalError && tradeReady, showError: !!approvalError && (signedIn || !deploymentUnavailable) };
 }
 
 export default function TradePanel({ poolAddress }: TradePanelProps) {
@@ -145,7 +152,8 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
   const tradeReady = t.isConnected && t.signedIn;
   const showSteps = tradeReady && validAmount;
   const minOutRaw = t.minOut ? BigInt(t.minOut) : null;
-  const quoteLoading = validAmount && !t.quote && !t.staleQuote && tradeReady;
+  const preview = tradePreviewState({ ...t, validAmount, tradeReady });
+  const quoteLoading = preview.loading;
 
   return (
     <>
@@ -227,7 +235,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
             </NoticeBar>
           ) : null}
           {/* A missing trading deployment is already the action button's state once the viewer can trade; before that it is noise in the rail. */}
-          {t.approvalError && (tradeReady || !t.deploymentUnavailable) ? (
+          {preview.showError ? (
             <NoticeBar tone="danger" surface={1} wrap action={<Button size="sm" variant="secondary" onClick={t.retryQuote} aria-label="Refresh">Refresh</Button>}>
               {plainTradeError(t.approvalError)}
             </NoticeBar>

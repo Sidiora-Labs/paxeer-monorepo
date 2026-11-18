@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -86,6 +87,7 @@ func rankingByCategory(rdb *goredis.Client) http.HandlerFunc {
 		ctx := r.Context()
 		entries, err := rdb.ZRevRangeWithScores(ctx, key, start, end).Result()
 		if err != nil {
+			slog.Error("ranking query failed", "category", category, "error", err)
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "ranking query failed")
 			return
 		}
@@ -104,12 +106,14 @@ func rankingByCategory(rdb *goredis.Client) http.HandlerFunc {
 		}
 
 		if err := enrichWithStats(ctx, rdb, items); err != nil {
+			slog.Error("ranking enrichment failed", "category", category, "error", err)
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "ranking enrich failed")
 			return
 		}
 
 		total, err := rdb.ZCard(ctx, key).Result()
 		if err != nil {
+			slog.Error("ranking count failed", "category", category, "error", err)
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "ranking count failed")
 			return
 		}
@@ -176,6 +180,7 @@ func poolAppearances(rdb *goredis.Client) http.HandlerFunc {
 				continue
 			}
 			if err != nil {
+				slog.Error("ranking rank lookup failed", "category", cat, "error", err)
 				sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "rank lookup failed")
 				return
 			}
@@ -186,6 +191,7 @@ func poolAppearances(rdb *goredis.Client) http.HandlerFunc {
 				continue
 			}
 			if err != nil {
+				slog.Error("ranking score lookup failed", "category", cat, "error", err)
 				sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "score lookup failed")
 				return
 			}

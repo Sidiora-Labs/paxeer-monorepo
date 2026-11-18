@@ -109,10 +109,19 @@ func status1695Broker(t *testing.T) (string, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	claims, _ := json.Marshal(map[string]any{"sub": pub, "iss": pub, "iat": time.Now().Unix(), "nats": map[string]any{"type": "user", "version": 2}})
+	account, err := nkeys.CreateAccount()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer account.Wipe()
+	issuer, err := account.PublicKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, _ := json.Marshal(map[string]any{"sub": pub, "iss": issuer, "iat": time.Now().Unix(), "nats": map[string]any{"type": "user", "version": 2}})
 	header := base64.RawURLEncoding.EncodeToString([]byte(`{"typ":"JWT","alg":"ed25519-nkey"}`))
 	token := header + "." + base64.RawURLEncoding.EncodeToString(claims)
-	sig, err := user.Sign([]byte(token))
+	sig, err := account.Sign([]byte(token))
 	if err != nil {
 		t.Fatal(err)
 	}

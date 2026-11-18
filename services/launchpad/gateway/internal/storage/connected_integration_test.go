@@ -19,7 +19,7 @@ func connectedAuthority(t *testing.T) (*Authority, context.Context) {
 	t.Cleanup(cancel)
 	dsn := os.Getenv("L41_POSTGRES_URL")
 	if dsn == "" {
-		dsn = "postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable"
+		t.Fatal("L41_POSTGRES_URL is required")
 	}
 	pool, e := pgxpool.New(ctx, dsn)
 	if e != nil {

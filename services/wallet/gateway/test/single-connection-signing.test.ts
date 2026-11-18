@@ -1,11 +1,12 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import { keccak256, recoverMessageAddress, recoverTransactionAddress, type Hex } from 'viem';
 import { RateLimiter } from '../src/audit.js';
 import { PGlite, pgcrypto, PGLiteSocketServer } from '../src/db/testDatabase.js';
 import { TestChain } from './support/chain.js';
 import { startIdentityProvider, type IdentityProvider } from './support/identity.js';
+import { waitForRateLimitWindow } from './support/rate-limit-window.js';
 
 const recipient = '0x0000000000000000000000000000000000000517';
 const chain = new TestChain(125);
@@ -485,7 +486,12 @@ async function humanSendRecoveryReopensOnOneConnection(): Promise<void> {
 
 // A pool acquisition timeout is 5 seconds. Every route proof must finish before it.
 test(walletSendCompletesWithOneConnection, 4_000);
-test(walletSendKeepsClientAccountPolicyRefusalOrder, 4_000);
+describe('rate limit refusal order', () => {
+  beforeEach(async () => {
+    await waitForRateLimitWindow(database.getPool());
+  }, 20_000);
+  test(walletSendKeepsClientAccountPolicyRefusalOrder, 4_000);
+});
 test(walletSendKeepsMissingArchivedDisabledResponses, 4_000);
 test(messageSigningCommitsAccountingOnOneConnection, 4_000);
 test(lxApprovalLimiterAndRecoveryCompleteWithOneConnection, 4_000);

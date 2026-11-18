@@ -1,9 +1,12 @@
-import { decodeFunctionData, parseAbi } from 'viem';
+import { BaseError, UserRejectedRequestError, decodeFunctionData, parseAbi } from 'viem';
 import type { TransactionRequest } from '../../../../../../sdk/launchpad/packages/production-contracts/src/types.gen';
 import { rawInteger, normalizeAddress } from '../profile/account-disclosure';
 import type { Address, Hash, TransactionReceipt } from 'viem';
 export interface ClaimIdentity { wallet: Address; chainId: 125; hash: Hash; nftId: bigint }
 export type ClaimOutcome = 'pending' | 'account_changed' | 'confirmed' | 'reverted';
+export function isRewardClaimRejected(error: unknown): boolean {
+  return error instanceof BaseError && error.walk(cause => cause instanceof UserRejectedRequestError) instanceof UserRejectedRequestError;
+}
 export function claimReceiptOutcome(identity: ClaimIdentity, wallet: string | undefined, receipt: TransactionReceipt | undefined): ClaimOutcome {
   if (!wallet || wallet.toLowerCase() !== identity.wallet.toLowerCase()) return 'account_changed';
   if (!receipt || receipt.transactionHash.toLowerCase() !== identity.hash.toLowerCase()) return 'pending';

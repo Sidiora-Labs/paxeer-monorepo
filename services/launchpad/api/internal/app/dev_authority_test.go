@@ -148,7 +148,7 @@ func TestDevelopmentPreflightOrigin(t *testing.T) {
 		{"cross-origin api host without proxy", request("203.0.113.9:4000", "api-production-e4bd.up.railway.app", webOrigin, nil), false},
 	}
 	for _, c := range cases {
-		if got := developmentPreflightOrigin(c.r, origins, proxies); got != c.want {
+		if got := preflightOrigin(c.r, origins, proxies); got != c.want {
 			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
 		}
 	}

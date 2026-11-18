@@ -68,8 +68,8 @@ const MultichainEcosystemsTableItem = ({ data, isLoading, chainInfo }: Props) =>
           </HStack>
         </HStack>
       </TableCell>
-      <TableCell verticalAlign="middle">
-        <HStack>
+      <TableCell isNumeric verticalAlign="middle">
+        <HStack flexDirection="row-reverse" justifyContent="flex-start">
           <Skeleton loading={ isLoading }>
             <span>{ activeAddresses.value.toLocaleString() }</span>
           </Skeleton>
@@ -85,8 +85,8 @@ const MultichainEcosystemsTableItem = ({ data, isLoading, chainInfo }: Props) =>
           ) : null }
         </HStack>
       </TableCell>
-      <TableCell verticalAlign="middle">
-        <HStack>
+      <TableCell isNumeric verticalAlign="middle">
+        <HStack flexDirection="row-reverse" justifyContent="flex-start">
           <Skeleton loading={ isLoading }>
             <span>{ newAddresses.value.toLocaleString() }</span>
           </Skeleton>
@@ -102,8 +102,8 @@ const MultichainEcosystemsTableItem = ({ data, isLoading, chainInfo }: Props) =>
           ) : null }
         </HStack>
       </TableCell>
-      <TableCell verticalAlign="middle">
-        <HStack>
+      <TableCell isNumeric verticalAlign="middle">
+        <HStack flexDirection="row-reverse" justifyContent="flex-start">
           <Skeleton loading={ isLoading }>
             <span>{ dailyTransactions.value.toLocaleString() }</span>
           </Skeleton>
@@ -119,8 +119,8 @@ const MultichainEcosystemsTableItem = ({ data, isLoading, chainInfo }: Props) =>
           ) : null }
         </HStack>
       </TableCell>
-      <TableCell verticalAlign="middle">
-        <HStack justifyContent="space-between">
+      <TableCell isNumeric verticalAlign="middle">
+        <HStack flexDirection="row-reverse" justifyContent="flex-start">
           <Skeleton loading={ isLoading }>
             <span>{ Number(data.tps ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) }</span>
           </Skeleton>

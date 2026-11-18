@@ -1,3 +1,4 @@
+import { withinDeadline } from './flow-state.ts';
 import {
   signAccountOperation,
   sameOperationIdentity,
@@ -11,7 +12,14 @@ import * as accountRoutes from './routes/account.ts';
 import * as notificationsRoutes from './routes/notifications.ts';
 import * as chatRoutes from './routes/chat.ts';
 import * as activityRoutes from './routes/activity.ts';
-import { validateDeviceProof, type DeviceProofInput } from './device-proof.ts';
+import {
+  conversationHistory,
+  sendDirectMessage,
+} from './chat-session.ts';
+import {
+  validateDeviceProof,
+  type DeviceProofInput,
+} from './device-proof.ts';
 import {
   SdkClient,
   decodeContract,
@@ -221,7 +229,12 @@ export class MobileServices {
       },
     );
   }
-  async currentSession(signal: AbortSignal) {
+  currentSession(signal: AbortSignal) {
+    return withinDeadline(signal, (bounded) =>
+      this.readCurrentSession(bounded),
+    );
+  }
+  private async readCurrentSession(signal: AbortSignal) {
     const generation = this.identityGeneration;
     const read = () =>
       this.cookieFetch(`${this.config.canonicalOrigin}/v2/auth/session`, {
@@ -272,7 +285,10 @@ export class MobileServices {
     signal.throwIfAborted();
     if (generation !== this.identityGeneration)
       throw new Error('Identity changed during session validation');
-    if (this.identity && !sameOperationIdentity(this.identity, principal)) {
+    if (
+      this.identity &&
+      !sameOperationIdentity(this.identity, principal)
+    ) {
       this.identityGeneration++;
       this.pendingWrites.clear();
     }
@@ -382,8 +398,8 @@ export class MobileServices {
     }
   }
 
-  pools(signal: AbortSignal) {
-    return marketRoutes.pools(this.sdk, signal);
+  pools(signal: AbortSignal, cursor?: string) {
+    return marketRoutes.pools(this.sdk, signal, cursor);
   }
   pool(address: string, signal: AbortSignal) {
     return marketRoutes.pool(this.sdk, address, signal);
@@ -391,12 +407,12 @@ export class MobileServices {
   search(query: string, signal: AbortSignal) {
     return marketRoutes.search(this.sdk, query, signal);
   }
-  portfolio(signal: AbortSignal) {
-    return accountRoutes.portfolio(this.sdk, signal);
+  portfolio(signal: AbortSignal, cursor?: string) {
+    return accountRoutes.portfolio(this.sdk, signal, cursor);
   }
-  watchlist(signal: AbortSignal) {
+  watchlist(signal: AbortSignal, cursor?: string) {
     return this.sdk.request(
-      '/v1/me/watchlist?limit=50',
+      `/v1/me/watchlist?limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
       'WatchlistGetResponse',
       { signal, authenticated: true, idempotentRead: true },
     );
@@ -648,25 +664,39 @@ export class MobileServices {
   conversations(signal: AbortSignal) {
     return chatRoutes.conversations(this.sdk, signal);
   }
-  messages(room: string, signal: AbortSignal) {
-    return chatRoutes.messages(this.sdk, room, signal);
+  messages(room: string, signal: AbortSignal, cursor?: string) {
+    return conversationHistory(this.sdk, room, signal, cursor);
   }
-  sendMessage(
+  async sendMessage(
     room: string,
     body: string,
     clientMessageId: string,
     signal: AbortSignal,
   ) {
-    return chatRoutes.sendMessage(
+    const identity = await this.currentSession(signal);
+    const generation = this.identityGeneration;
+    const conversations = await this.conversations(signal);
+    const conversation = conversations.data.items.find(
+      (item) => item.conversationId === room,
+    );
+    if (!conversation)
+      throw new Error('Current conversation membership required');
+    const result = await sendDirectMessage(
       this.sdk,
+      identity.wallet,
       room,
+      conversation.peer,
       body,
       clientMessageId,
       signal,
     );
+    signal.throwIfAborted();
+    if (generation !== this.identityGeneration)
+      throw new Error('Conversation authorization changed');
+    return result;
   }
-  streams(signal: AbortSignal) {
-    return activityRoutes.streams(this.sdk, signal);
+  streams(signal: AbortSignal, cursor?: string) {
+    return activityRoutes.streams(this.sdk, signal, cursor);
   }
   quote(
     body: Omit<Parameters<typeof activityRoutes.quote>[1], 'slippageBps'>,
@@ -712,9 +742,9 @@ export class MobileServices {
       }),
     });
   }
-  sessions(signal: AbortSignal) {
+  sessions(signal: AbortSignal, cursor?: string) {
     return this.sdk.requestV2(
-      '/v2/auth/sessions?limit=50',
+      `/v2/auth/sessions?limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
       'SessionsResponse',
       {
         signal,
@@ -730,7 +760,12 @@ export class MobileServices {
       { signal, method: 'DELETE', authenticated: true, service: 'identity' },
     );
   }
-  async manifest(signal: AbortSignal) {
+  manifest(signal: AbortSignal) {
+    return withinDeadline(signal, (bounded) =>
+      this.readManifest(bounded),
+    );
+  }
+  private async readManifest(signal: AbortSignal) {
     const result = await fetch(this.config.manifestURL, {
       signal,
       redirect: 'error',

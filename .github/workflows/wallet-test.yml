@@ -4,6 +4,9 @@ on:
   pull_request:
   push:
     branches: [main]
+    paths-ignore:
+      - spec/**
+      - GOTCHA.kvx
   workflow_dispatch:
 
 permissions:

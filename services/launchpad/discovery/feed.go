@@ -31,11 +31,14 @@ type feedSnapshot struct{ Refs []SourceRef }
 
 func (f Feed) Page(ctx context.Context, account, order, token string, limit int, now time.Time) (FeedPage, error) {
 	page := FeedPage{Entries: []FeedCard{}}
-	if f.Sources == nil || f.Graph == nil || limit < 1 || limit > 50 {
+	if limit < 1 || limit > 50 {
 		return page, ErrInvalid
 	}
 	if order != "chronological" && order != orderRelevance {
 		return page, ErrInvalid
+	}
+	if f.Store.DB == nil || f.Sources == nil || f.Graph == nil {
+		return page, ErrUnavailable
 	}
 	page.Algorithm = "chronological-v1"
 	if order == orderRelevance {
@@ -162,6 +165,9 @@ func (f Feed) resolve(ctx context.Context, account string, ref SourceRef, now ti
 	}
 	if !current.Public || !current.Authorized {
 		return card, ErrForbidden
+	}
+	if f.Graph == nil || f.Sources == nil {
+		return card, ErrUnavailable
 	}
 	decision, e := f.Graph.ResolveVisibility(ctx, current.ID, account)
 	if e != nil || !decision.Visible || decision.ResourceID != current.ID || decision.Revision < current.VisibilityRevision || decision.ObservedAt.After(now) || now.Sub(decision.ObservedAt) > 60*time.Second {

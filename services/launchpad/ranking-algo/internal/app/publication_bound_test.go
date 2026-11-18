@@ -96,7 +96,7 @@ func TestApplicationPublicationBoundLogsOnlyTransitions(t *testing.T) {
 	ctx := context.Background()
 	publicationBoundProduce(t, f)
 	runtime := f.app.native
-	pace := 100 * time.Millisecond
+	pace := 30 * time.Second
 	if err := runtime.publication.SetRetryInterval(pace); err != nil {
 		t.Fatal(err)
 	}
@@ -105,17 +105,27 @@ func TestApplicationPublicationBoundLogsOnlyTransitions(t *testing.T) {
 	if _, err := f.app.pool.Exec(ctx, `ALTER TABLE api_stream.stream_delivery_outbox ADD CONSTRAINT publication_available CHECK(convert_from(frame,'UTF8')::jsonb->>'topic'<>'market.rankings.breakout')`); err != nil {
 		t.Fatal(err)
 	}
+	var boundStarted, boundAt time.Time
 	for i := 0; i < runtime.binding.MaxAttempts; i++ {
+		boundStarted = time.Now()
 		runtime.publishRound()
+		boundAt = time.Now()
 	}
-	boundAt := time.Now()
 	if strings.Count(output.String(), `"msg":"ranking publication attempt bound reached"`) != 1 {
 		t.Fatalf("bound transition: %s", output.String())
 	}
 	runtime.publishRound()
 	runtime.publishRound()
+	if time.Since(boundStarted) >= pace {
+		t.Fatal("initial rounds exceeded the retry interval")
+	}
+	var pending int
+	if err := f.app.pool.QueryRow(ctx, `SELECT count(*) FROM ranking.publication_outbox WHERE published_at IS NULL AND category='breakout'`).Scan(&pending); err != nil || pending != 1 {
+		t.Fatalf("bounded retry ran early: pending=%d %v", pending, err)
+	}
 	before := output.String()
 	time.Sleep(time.Until(boundAt.Add(pace)))
+	repeatedStarted := time.Now()
 	runtime.publishRound()
 	if output.String() != before {
 		t.Fatalf("repeated bounded failure wrote another line: %s", output.String())
@@ -125,11 +135,12 @@ func TestApplicationPublicationBoundLogsOnlyTransitions(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.publishRound()
-	var pending int
+	if time.Since(repeatedStarted) >= pace {
+		t.Fatal("availability update and early round exceeded the retry interval")
+	}
 	if err := f.app.pool.QueryRow(ctx, `SELECT count(*) FROM ranking.publication_outbox WHERE published_at IS NULL`).Scan(&pending); err != nil || pending != 1 {
 		t.Fatalf("bounded retry ran early: pending=%d %v", pending, err)
 	}
-	repeatedAt = time.Now()
 	time.Sleep(time.Until(repeatedAt.Add(pace)))
 	runtime.publishRound()
 	runtime.publishRound()

@@ -1,6 +1,13 @@
 'use client';
 import { launchpadMedia } from '@/app/presentation-tokens';
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 import { cn } from '@/lib/utils';
 import { UnderlineTabs } from '@/ui/primitives';
 import { CupHero } from './cups/cup-hero';
@@ -16,13 +23,15 @@ export type LeaderboardTab = 'traders' | 'squads' | 'rewards' | 'callouts';
 const tabIdPrefix = 'leaderboard';
 
 /** Tabs sit flush with the title, labels unpadded with a 20px gap and the underline spanning the label (pump.fun anatomy). */
-const tabStripClass = '[&_[role=tablist]]:gap-5 [&_[role=tab]]:px-0 [&_[role=tab]>span[aria-hidden=true]]:inset-x-0';
+const tabStripClass =
+  '[&_[role=tablist]]:gap-5 [&_[role=tab]]:px-0 [&_[role=tab]>span[aria-hidden=true]]:inset-x-0';
 
 /**
  * Wide-desktop rail column. Its first row lines up with the page title: the
  * rail's own heading is lifted to the H1 scale and centred on the 56px title row.
  */
-const railColumnClass = 'hidden min-w-0 self-start xl:block pt-3 xl:sticky xl:top-[calc(var(--shell-top)+var(--sl-space-4))] [&>aside>div:first-child_h2]:text-xl';
+const railColumnClass =
+  'hidden min-w-0 self-start xl:block pt-3 xl:sticky xl:top-[calc(var(--shell-top)+var(--sl-space-4))] [&>aside>div:first-child_h2]:text-xl';
 /** pump.fun keeps Best callouts as its own column only on wide desktops; below xl it is a fourth tab. */
 const railQuery = launchpadMedia.extraLarge;
 
@@ -43,7 +52,11 @@ function subscribeViewport(onChange: () => void) {
 
 /** True at >= xl where the callouts rail has its own column; below that it becomes a tab. */
 function useWideViewport(): boolean | null {
-  return useSyncExternalStore(subscribeViewport, () => window.matchMedia(railQuery).matches, () => null);
+  return useSyncExternalStore(
+    subscribeViewport,
+    () => window.matchMedia(railQuery).matches,
+    () => null
+  );
 }
 
 function readSearch(): URLSearchParams {
@@ -71,7 +84,12 @@ export interface LeaderboardViewProps {
  * rail is a second column whose heading shares the title row.
  * Tab and period are mirrored into ?tab= and ?period=.
  */
-export function LeaderboardView({ rail, initialTab, initialPeriod, className }: LeaderboardViewProps) {
+export function LeaderboardView({
+  rail,
+  initialTab,
+  initialPeriod,
+  className,
+}: LeaderboardViewProps) {
   const wide = useWideViewport();
   const [tab, setTab] = useState<LeaderboardTab>(() => parseTab(initialTab, false));
   const [period, setPeriod] = useState<LeaderboardPeriod>(() => parsePeriod(initialPeriod));
@@ -90,7 +108,10 @@ export function LeaderboardView({ rail, initialTab, initialPeriod, className }: 
     restore();
     window.addEventListener('popstate', restore);
     window.addEventListener('kindle:restore-navigation', restore);
-    return () => { window.removeEventListener('popstate', restore); window.removeEventListener('kindle:restore-navigation', restore); };
+    return () => {
+      window.removeEventListener('popstate', restore);
+      window.removeEventListener('kindle:restore-navigation', restore);
+    };
   }, []);
 
   useEffect(() => {
@@ -102,47 +123,105 @@ export function LeaderboardView({ rail, initialTab, initialPeriod, className }: 
     if (wide && tab === 'callouts') setTab('traders');
   }, [wide, tab]);
 
-  const changeTab = useCallback((next: LeaderboardTab) => { setTab(next); writeSearch({ tab: next }); }, []);
-  const changePeriod = useCallback((next: LeaderboardPeriod) => { setPeriod(next); setExplicitPeriod(true); writeSearch({ period: next }); }, []);
+  const changeTab = useCallback((next: LeaderboardTab) => {
+    setTab(next);
+    writeSearch({ tab: next });
+  }, []);
+  const changePeriod = useCallback((next: LeaderboardPeriod) => {
+    setPeriod(next);
+    setExplicitPeriod(true);
+    writeSearch({ period: next });
+  }, []);
 
-  const tabs = useMemo(() => [
-    { id: 'traders' as const, label: 'Traders' },
-    { id: 'squads' as const, label: 'Squads' },
-    { id: 'rewards' as const, label: 'Rewards' },
-    ...(wide || !rail ? [] : [{ id: 'callouts' as const, label: 'Best callouts' }]),
-  ], [wide, rail]);
+  const tabs = useMemo(
+    () => [
+      { id: 'traders' as const, label: 'Traders' },
+      { id: 'squads' as const, label: 'Squads' },
+      { id: 'rewards' as const, label: 'Rewards' },
+      ...(wide || !rail ? [] : [{ id: 'callouts' as const, label: 'Best callouts' }]),
+    ],
+    [wide, rail]
+  );
 
   const cupReady = cup.state === 'ready' && cup.data !== null;
   const cupDisabled = !cupReady;
   // A cup period with no cup record falls back to the rolling day board; nothing is ranked without a record.
   const shownPeriod: LeaderboardPeriod = period === 'cup' && cupDisabled ? '1d' : period;
 
-  const panelProps = (id: LeaderboardTab) => ({ id: `${tabIdPrefix}-panel-${id}`, role: 'tabpanel' as const, 'aria-labelledby': `${tabIdPrefix}-tab-${id}`, tabIndex: 0 });
+  const panelProps = (id: LeaderboardTab) => ({
+    id: `${tabIdPrefix}-panel-${id}`,
+    role: 'tabpanel' as const,
+    'aria-labelledby': `${tabIdPrefix}-tab-${id}`,
+    tabIndex: 0,
+  });
 
   return (
-    <div className={cn('@container/leaderboard mx-auto w-full max-w-content-narrow-max-width px-4 pb-16 pt-4 sm:px-6', className)}>
-      <div className={cn('grid gap-6', rail && 'xl:grid-cols-[minmax(0,1fr)_var(--spacing-right-rail-width-wide)]')}>
+    <div
+      className={cn(
+        '@container/leaderboard mx-auto w-full max-w-content-narrow-max-width px-4 pb-16 pt-4 sm:px-6',
+        className
+      )}
+    >
+      <div
+        className={cn(
+          'grid gap-6',
+          rail && 'xl:grid-cols-[minmax(0,1fr)_var(--spacing-right-rail-width-wide)]'
+        )}
+      >
         <div className="min-w-0">
-          <h1 className="flex min-h-header-height items-center text-[length:var(--sl-text-page-title)] font-bold text-text">Leaderboard</h1>
-          <UnderlineTabs tabs={tabs} active={tab} onChange={changeTab} label="Leaderboard sections" idPrefix={tabIdPrefix} manual className={tabStripClass} />
+          <h1 className="flex min-h-14 items-center text-[22px] leading-[56px] sm:text-xl sm:leading-[56px] font-bold text-text">
+            Leaderboard
+          </h1>
+          <UnderlineTabs
+            tabs={tabs}
+            active={tab}
+            onChange={changeTab}
+            label="Leaderboard sections"
+            idPrefix={tabIdPrefix}
+            manual
+            className={tabStripClass}
+          />
           <div className="mt-4">
             {tab === 'traders' || (tab === 'callouts' && wide !== false) ? (
-              <div {...panelProps('traders')} className={cn('flex-col gap-4', tab === 'callouts' ? 'hidden xl:flex' : 'flex')}>
+              <div
+                {...panelProps('traders')}
+                className={cn('flex-col gap-4', tab === 'callouts' ? 'hidden xl:flex' : 'flex')}
+              >
                 <CupHero
                   cup={cup}
                   onRetry={retryCup}
-                  control={<PeriodControl value={shownPeriod} onChange={changePeriod} cupDisabled={cupDisabled} />}
+                  control={
+                    <PeriodControl
+                      value={shownPeriod}
+                      onChange={changePeriod}
+                      cupDisabled={cupDisabled}
+                    />
+                  }
                 />
                 {shownPeriod === 'cup' ? (
-                  cup.state === 'ready' && cup.data !== null ? <CupResultsList cup={cup.data} /> : null
+                  cup.state === 'ready' && cup.data !== null ? (
+                    <CupResultsList cup={cup.data} />
+                  ) : null
                 ) : (
-                  <TradersBoard period={shownPeriod} />
+                  <TradersBoard key={shownPeriod} period={shownPeriod} />
                 )}
               </div>
             ) : null}
-            {tab === 'squads' ? <div {...panelProps('squads')}><SquadsTab /></div> : null}
-            {tab === 'rewards' ? <div {...panelProps('rewards')}><RewardsTab /></div> : null}
-            {tab === 'callouts' && rail ? <div {...panelProps('callouts')} className="xl:hidden">{rail}</div> : null}
+            {tab === 'squads' ? (
+              <div {...panelProps('squads')}>
+                <SquadsTab />
+              </div>
+            ) : null}
+            {tab === 'rewards' ? (
+              <div {...panelProps('rewards')}>
+                <RewardsTab />
+              </div>
+            ) : null}
+            {tab === 'callouts' && rail ? (
+              <div {...panelProps('callouts')} className="xl:hidden">
+                {rail}
+              </div>
+            ) : null}
           </div>
         </div>
         {rail && wide !== false ? <div className={railColumnClass}>{rail}</div> : null}

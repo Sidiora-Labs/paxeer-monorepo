@@ -48,7 +48,7 @@ function useInAppHistory(pathname: string): boolean {
 }
 
 const squareLink =
-  'inline-flex size-touch-target-min shrink-0 items-center justify-center rounded-sm bg-surface-1 text-text transition-colors duration-fast hover:bg-surface-hover active:bg-surface-active [&_svg]:size-icon-md';
+  'inline-flex size-8 shrink-0 items-center justify-center rounded-sm bg-surface-1 text-text transition-colors duration-fast hover:bg-surface-hover active:bg-surface-active [&_svg]:size-icon-md';
 
 /**
  * Search trigger density. Desktop gets the reference's 32px field on a subtle
@@ -56,9 +56,9 @@ const squareLink =
  * same palette, which carries its own input.
  */
 const searchField =
-  '[&>button]:min-h-control-height-md [&>button]:py-0 [&>button]:bg-surface-1 [&>button]:hover:bg-surface-hover';
+  '[&>button]:h-8 [&>button]:min-h-8 [&>button]:py-0 [&>button]:bg-surface-1 [&>button]:hover:bg-surface-hover';
 const searchIcon =
-  '[&>button]:size-touch-target-min [&>button]:py-0 [&>button]:bg-transparent [&>button]:text-text [&>button]:hover:bg-surface-hover';
+  '[&>button]:size-9 [&>button]:py-0 [&>button]:bg-transparent [&>button]:text-text [&>button]:hover:bg-surface-hover';
 
 /**
  * Top bar anatomy, following the reference at each width:
@@ -81,8 +81,9 @@ export default function TopBar() {
   };
 
   return (
-    <header className="sl-top-bar flex min-h-header-height flex-wrap items-center py-1 gap-1 bg-canvas px-3 sm:px-4 lg:gap-2">
-      <Link prefetch={false}
+    <header className="sl-top-bar flex min-h-header-height flex-wrap items-center gap-1 bg-canvas px-3 sm:px-4 lg:gap-2">
+      <Link
+        prefetch={false}
         href="/"
         aria-label="Sidiora Launch home"
         className="flex shrink-0 items-center min-h-touch-target-min min-w-touch-target-min justify-center rounded-sm p-1 md:hidden"
@@ -121,7 +122,8 @@ export default function TopBar() {
         </ErrorBoundary>
       </div>
       <div className="hidden flex-1 lg:block" />
-      <Link prefetch={false}
+      <Link
+        prefetch={false}
         href="/create"
         aria-label="Create coin"
         title="Create coin"

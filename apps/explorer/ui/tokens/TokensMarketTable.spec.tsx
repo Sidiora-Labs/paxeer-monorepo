@@ -17,6 +17,7 @@ import { fireEvent, screen, waitFor, within } from 'vitest/lib';
 
 import colors from '../../toolkit/theme/foundations/colors';
 import semanticTokens from '../../toolkit/theme/foundations/semanticTokens';
+import spacing from '../../toolkit/theme/foundations/spacing';
 import TokensListItem from './TokensListItem';
 import TokensTable from './TokensTable';
 import { TokenChangePercent, TOKEN_VALUE_PLACEHOLDER } from './TokensTableItem';
@@ -87,17 +88,17 @@ async function renderTokensPage() {
   return result;
 }
 
-async function marketsPageHasSevenColumnsAndOnlyReportedValues() {
+test('markets page shows reported columns and values', async function marketsPageHasSevenColumnsAndOnlyReportedValues() {
   const { container } = await renderTokensPage();
   expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Tokens');
   expect(Array.from(container.querySelectorAll('thead th')).map((cell) => cell.textContent)).toEqual([
-    '#', 'Token', 'Price', 'Change 24h', 'Market cap', 'Volume 24h', 'Holders',
+    '#', 'Token', 'Price', 'Market cap', 'Volume 24h', 'Holders',
   ]);
   expect(container.querySelector('[data-list-page] table')).toBeTruthy();
   expect(container.querySelector('[data-scan-table-card]')).toBeNull();
   const rows = container.querySelectorAll('[data-token-row]');
   expect(rows[0].querySelector('[data-market-field="price"]')?.textContent).toBe('—');
-  expect(rows[0].querySelector('[data-market-field="change"]')?.textContent).toBe('—');
+  expect(rows[0].querySelector('[data-market-field="change"]')).toBeNull();
   expect(rows[0].querySelector('[data-market-field="volume"]')?.textContent).toBe('—');
   expect(rows[1].querySelector('[data-market-field="price"]')?.textContent).toBe('$2.0101');
   expect(rows[1].querySelector('[data-market-field="market-cap"]')?.textContent).toBe('$117,629,601.62');
@@ -106,11 +107,9 @@ async function marketsPageHasSevenColumnsAndOnlyReportedValues() {
   expect(rows[2].querySelector('[data-market-field="market-cap"]')?.textContent).toBe('—');
   expect(container.querySelector('[data-token-native-price]')).toBeNull();
   expect(rows[1].querySelector('[data-entity] button[aria-label="copy"]')).toBeTruthy();
-}
+}, 60_000);
 
-test(marketsPageHasSevenColumnsAndOnlyReportedValues, marketsPageHasSevenColumnsAndOnlyReportedValues, 60_000);
-
-async function categoryChipsUseTheExistingApiFilters() {
+test('category chips use the existing api filters', async function categoryChipsUseTheExistingApiFilters() {
   await renderTokensPage();
   const chips = within(screen.getByRole('group', { name: 'Token category' }));
   expect(chips.getAllByRole('button').map((chip) => chip.textContent)).toEqual([ 'All', 'Fungible', 'NFT', 'Bridged' ]);
@@ -126,11 +125,9 @@ async function categoryChipsUseTheExistingApiFilters() {
   fireEvent.click(chips.getByRole('button', { name: 'All' }));
   await waitFor(() => expect(requestedUrls.slice(beforeReset).some((url) => url.pathname.endsWith('/tokens') && !url.searchParams.has('type'))).toBe(true));
   expect(chips.getByRole('button', { name: 'All' }).getAttribute('aria-pressed')).toBe('true');
-}
+}, 60_000);
 
-test(categoryChipsUseTheExistingApiFilters, categoryChipsUseTheExistingApiFilters, 60_000);
-
-async function numericSortsReachTheExistingApiSortHooks() {
+test('numeric sorts reach the existing api sort hooks', async function numericSortsReachTheExistingApiSortHooks() {
   const { container } = await renderTokensPage();
   for (const [ label, field ] of [ [ 'Price', 'fiat_value' ], [ 'Market cap', 'circulating_market_cap' ], [ 'Holders', 'holders_count' ] ]) {
     const header = within(container).getByRole('columnheader', { name: label });
@@ -139,11 +136,9 @@ async function numericSortsReachTheExistingApiSortHooks() {
     fireEvent.click(within(header).getByRole('button'));
     await waitFor(() => expect(requestedUrls.some((url) => url.searchParams.get('sort') === field && url.searchParams.get('order') === 'asc')).toBe(true));
   }
-  expect(within(container).getByRole('columnheader', { name: 'Change 24h' }).querySelector('button')).toBeNull();
+  expect(within(container).queryByRole('columnheader', { name: 'Change 24h' })).toBeNull();
   expect(within(container).getByRole('columnheader', { name: 'Volume 24h' }).querySelector('button')).toBeNull();
-}
-
-test(numericSortsReachTheExistingApiSortHooks, numericSortsReachTheExistingApiSortHooks, 60_000);
+}, 60_000);
 
 function atPath(source: unknown, path: string): unknown {
   return path.split('.').reduce<unknown>((node, key) => typeof node === 'object' && node !== null ? (node as Record<string, unknown>)[key] : undefined, source);
@@ -173,7 +168,7 @@ function resolveColour(path: string, mode: string, visited = new Set<string>()):
   return result;
 }
 
-function percentageColoursUseSemanticTokensInBothModes() {
+test('percentage colours use semantic tokens in both modes', function percentageColoursUseSemanticTokensInBothModes() {
   for (const mode of [ 'light', 'dark' ]) {
     document.documentElement.classList.add(mode);
     const { container, unmount } = render(<><TokenChangePercent value={ 2.5 }/><TokenChangePercent value={ -1.25 }/></>);
@@ -195,35 +190,31 @@ function percentageColoursUseSemanticTokensInBothModes() {
     unmount();
     document.documentElement.classList.remove(mode);
   }
-}
+});
 
-test(percentageColoursUseSemanticTokensInBothModes, percentageColoursUseSemanticTokensInBothModes);
-
-function mobileMarketsKeepTheFieldsAndMissingValuePolicy() {
+test('mobile markets keep the fields and missing value policy', function mobileMarketsKeepTheFieldsAndMissingValuePolicy() {
   const { container } = render(<TokensListItem token={ tokenInfoERC20a } page={ 1 } index={ 0 }/>);
   expect(container.querySelector('[data-list-item-mobile]')).toBeTruthy();
   expect(Array.from(container.querySelectorAll('[data-token-field]')).map((row) => row.getAttribute('data-token-field')))
-    .toEqual([ 'Price', 'Change 24h', 'Market cap', 'Volume 24h', 'Holders' ]);
+    .toEqual([ 'Price', 'Market cap', 'Volume 24h', 'Holders' ]);
   expect(container.querySelector('[data-token-field="Price"]')?.textContent).toBe(`Price${ TOKEN_VALUE_PLACEHOLDER }`);
-  expect(container.querySelector('[data-token-field="Change 24h"]')?.textContent).toBe(`Change 24h${ TOKEN_VALUE_PLACEHOLDER }`);
+  expect(container.querySelector('[data-token-field="Change 24h"]')).toBeNull();
   expect(container.querySelector('[data-token-native-price]')).toBeNull();
-}
+});
 
-test(mobileMarketsKeepTheFieldsAndMissingValuePolicy, mobileMarketsKeepTheFieldsAndMissingValuePolicy);
-
-function tablesUseDenseRowsAndAccessibleHoverCopy() {
+test('tables use dense rows and accessible hover copy', function tablesUseDenseRowsAndAccessibleHoverCopy() {
   const { container } = render(<TokensTable items={ [ tokenInfo ] } page={ 1 }/>);
-  expect(LIST_TABLE_STYLES['& thead, & thead tr']).toMatchObject({ height: '36px' });
-  expect(LIST_TABLE_STYLES['& tbody tr']).toMatchObject({ height: '44px', bg: 'canvas', _hover: { bg: 'raised' } });
+  expect(LIST_TABLE_STYLES['& thead, & thead tr']).toMatchObject({ height: 'var(--chakra-spacing-9)' });
+  expect(LIST_TABLE_STYLES['& tbody tr']).toMatchObject({ height: 'var(--chakra-spacing-11)', bg: 'canvas', _hover: { bg: 'raised' } });
   expect(LIST_TABLE_STYLES['& td[data-is-numeric]']).toMatchObject({ textStyle: 'number', textAlign: 'right' });
   expect(LIST_TABLE_STYLES['& th:first-of-type, & td:first-of-type']).toMatchObject({ position: 'sticky', left: 0 });
   expect(LIST_TABLE_STYLES['& tr:hover button[aria-label=copy], & tr:focus-within button[aria-label=copy]']).toMatchObject({ opacity: 1 });
-  expect(container.querySelectorAll('[data-token-row] td[data-is-numeric]')).toHaveLength(6);
+  expect(container.querySelectorAll('[data-token-row] td[data-is-numeric]')).toHaveLength(5);
   expect(container.querySelector('[data-token-row] button[aria-label="copy"]')).toBeTruthy();
   const styles = Array.from(document.styleSheets).flatMap((sheet) => Array.from(sheet.cssRules).map((rule) => rule.cssText)).join('\n');
-  expect(styles).toContain('height: 44px');
+  expect(styles).toContain('height: var(--chakra-spacing-11)');
+  expect(spacing['9'].value).toBe('2.25rem');
+  expect(spacing['11'].value).toBe('2.75rem');
   expect(styles).toContain('text-transform: uppercase');
   expect(styles).toContain('var(--chakra-fonts-mono)');
-}
-
-test(tablesUseDenseRowsAndAccessibleHoverCopy, tablesUseDenseRowsAndAccessibleHoverCopy);
+});

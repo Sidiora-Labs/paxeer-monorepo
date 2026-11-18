@@ -87,16 +87,16 @@ const ChartWidgetPanel = ({
       css={{ '& button, & a': { minWidth: 'touchTarget',
         minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } }, '& .tick text': { color: 'text.muted' } }}
     >
-      <Flex data-chart-card-header alignItems="flex-start" justifyContent="space-between" columnGap={ 3 }>
-        <Flex alignItems="center" columnGap={ 1.5 } minW={ 0 }>
-          <Skeleton loading={ isLoading } textStyle="label" color="text.muted">
+      <Flex data-chart-card-header alignItems="flex-start" justifyContent="space-between" columnGap={ 3 } flexWrap="wrap">
+        <Flex alignItems="center" columnGap={ 1.5 } minW={ 0 } flex="1 1 18ch">
+          <Skeleton loading={ isLoading } textStyle="label" color="text.muted" minW={ 0 } overflowWrap="anywhere">
             <chakra.span data-chart-title>
               { title } ({ STATS_INTERVALS[interval].shortTitle })
             </chakra.span>
           </Skeleton>
-          { description && <Hint label={ description } isLoading={ isLoading } boxSize={ 4 }/> }
+          { description && <Hint label={ description } isLoading={ isLoading } boxSize={ 4 } flexShrink={ 0 }/> }
         </Flex>
-        <Flex alignItems="center" columnGap={ 2 } flexShrink={ 0 }>
+        <Flex alignItems="center" columnGap={ 2 } flexShrink={ 0 } marginInlineStart="auto">
           { zoomRange && (
             <Tooltip content="Reset zoom">
               <IconButton
@@ -118,9 +118,9 @@ const ChartWidgetPanel = ({
         </Flex>
       </Flex>
 
-      { (currentValue !== undefined || showMissingValue) && (
-        <Skeleton loading={ isLoading } mt={ 1 } textStyle="statValue" fontWeight="semibold" color="text.primary" w="fit-content">
-          <chakra.span data-chart-value color={ currentValue === undefined ? 'text.muted' : undefined }>{ currentValue ?? '—' }</chakra.span>
+      { (currentValue !== undefined || showMissingValue || isLoading) && (
+        <Skeleton loading={ isLoading } mt={ 1 } textStyle="statValue" fontWeight="semibold" color="text.primary" w="fit-content" minH="1lh" flexShrink={ 0 }>
+          <chakra.span data-chart-value color={ currentValue === undefined ? 'text.muted' : undefined }>{ !isLoading && (currentValue ?? '—') }</chakra.span>
         </Skeleton>
       ) }
 

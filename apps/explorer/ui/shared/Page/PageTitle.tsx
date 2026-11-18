@@ -37,7 +37,6 @@ const PageTitle = ({
         alignItems="center"
       >
         <Flex
-          h={{ base: 'auto', lg: isLoading ? 10 : 'auto' }}
           maxW="100%"
           minW={ 0 }
           alignItems="center"
@@ -91,7 +90,7 @@ const PageTitle = ({
           loading={ isLoading }
           alignItems="center"
           minH={ 10 }
-          overflow="hidden"
+          overflow={ isLoading ? 'hidden' : 'visible' }
           display="flex"
           flexWrap={{ base: 'wrap', lg: 'nowrap' }}
           rowGap={ 2 }

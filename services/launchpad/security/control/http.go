@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -75,6 +76,7 @@ func credential(r *http.Request) (string, error) {
 func (s *HTTPService) cap(w http.ResponseWriter, r *http.Request) {
 	d, err := s.store.Admission(r.Context(), r.PathValue("capability"), 1)
 	if err != nil {
+		slog.ErrorContext(r.Context(), "control capability unavailable", "error", err)
 		d = CapDecision{Capability: r.PathValue("capability"), Stale: true, Reason: "cap_unavailable"}
 	}
 	respond(w, d.Warning(time.Now()), nil)
@@ -86,6 +88,10 @@ func (s *HTTPService) mutate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err = s.store.identity.Resolve(r.Context(), cred); err != nil {
+		if errors.Is(err, Unavailable) {
+			respond(w, nil, err)
+			return
+		}
 		unauthenticated(w)
 		return
 	}
@@ -252,6 +258,10 @@ func (s *HTTPService) campaign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err = s.store.identity.Resolve(r.Context(), cred); err != nil {
+		if errors.Is(err, Unavailable) {
+			respond(w, nil, err)
+			return
+		}
 		unauthenticated(w)
 		return
 	}
@@ -332,6 +342,10 @@ func (s *HTTPService) recommendation(w http.ResponseWriter, r *http.Request) {
 	}
 	actor, err := s.store.identity.Resolve(r.Context(), cred)
 	if err != nil {
+		if errors.Is(err, Unavailable) {
+			respond(w, nil, err)
+			return
+		}
 		unauthenticated(w)
 		return
 	}

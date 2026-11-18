@@ -24,7 +24,7 @@ func RegisterUDF(r chi.Router, st *store.Store) {
 
 func udfConfig(w http.ResponseWriter, _ *http.Request) {
 	sharedhttp.WriteJSON(w, 200, map[string]interface{}{
-		"supports_search":          true,
+		"supports_search":          false,
 		"supports_group_request":   false,
 		"supports_marks":           false,
 		"supports_timescale_marks": false,
@@ -41,6 +41,7 @@ func udfTime(w http.ResponseWriter, _ *http.Request) {
 }
 
 func RegisterProductionUDF(r chi.Router, symbols SymbolsHandler, history ProductionHistoryHandler) {
+	r.Get("/symbols", symbols.ServeHTTP)
 	r.Get("/v2/udf/config", udfConfig)
 	r.Get("/v2/udf/symbols", symbols.ServeHTTP)
 	r.Get("/v2/udf/history", history.ServeHTTP)

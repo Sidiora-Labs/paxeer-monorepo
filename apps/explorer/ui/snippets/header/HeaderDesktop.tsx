@@ -27,30 +27,45 @@ const HeaderDesktop = ({ renderSearchBar }: Props) => {
       borderColor="hairline"
     >
       <Flex
+        data-label="header-row"
         minH="var(--chakra-spacing-14)"
         py={ 1 }
         flexWrap="wrap"
         maxW={ config.UI.maxContentWidth ? 'calc(var(--chakra-spacing-80) * 4)' : 'none' }
         mx="auto"
-        px={ 6 }
+        px={ 4 }
         align="center"
-        gap={ 3 }
+        gap={ 2 }
       >
         <Flex data-label="header-brand" align="center" gap={ 2 } flexShrink={ 0 }>
           <NetworkIcon/>
           <Text
             textStyle="body"
             fontWeight="semibold"
-            maxW={{ lg: 'var(--chakra-spacing-20)', xl: 'calc(var(--chakra-spacing-30) + var(--chakra-spacing-5))' }}
-            overflowWrap="anywhere"
+            maxW="var(--chakra-spacing-20)"
             textWrap="balance"
           >{ config.chain.name }</Text>
         </Flex>
-        <Box mx="auto" minW={ 0 }><NavigationDesktop/></Box>
-        <Flex data-label="header-controls" align="center" gap={ 2 } flex="1 1 var(--chakra-spacing-80)" minW={ 0 } flexWrap="wrap" justify="flex-end">
-          <Box data-label="header-search" w="var(--chakra-spacing-80)" maxW="100%" minW={ 0 }>
-            { renderSearchBar ? renderSearchBar() : <SearchBar compact/> }
-          </Box>
+        <Box data-label="header-menu" flexShrink={ 0 }><NavigationDesktop/></Box>
+        <Box
+          data-label="header-search"
+          flex="1 1 100%"
+          minW={ 0 }
+          maxW="100%"
+          order={ 1 }
+          css={{
+            '& form': { width: '100%' },
+            '@media (min-width: 1280px)': {
+              order: 0,
+              flexBasis: 'var(--chakra-spacing-80)',
+              minWidth: 'var(--chakra-spacing-62\\.5)',
+              maxWidth: 'var(--chakra-spacing-80)',
+            },
+          }}
+        >
+          { renderSearchBar ? renderSearchBar() : <SearchBar compact/> }
+        </Box>
+        <Flex data-label="header-controls" align="center" gap={ 2 } flexShrink={ 0 } ml="auto" flexWrap="nowrap">
           <TopBar/>
           <UserProfileDesktop buttonSize="sm" buttonVariant="header"/>
         </Flex>

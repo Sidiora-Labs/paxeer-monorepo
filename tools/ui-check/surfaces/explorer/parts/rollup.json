@@ -18,6 +18,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/batches/1",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/batches/1.json",
+          "status": 404
         }
       ]
     },
@@ -31,6 +36,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/batches/celestia/9000000/0x1111111111111111111111111111111111111111111111111111111111111111",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/batches/celestia/9000000/0x1111111111111111111111111111111111111111111111111111111111111111.json",
           "status": 404
         }
       ]
@@ -46,6 +56,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/batches",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/batches.json",
+          "status": 404
         }
       ]
     },
@@ -59,6 +74,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/blobs/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/blobs/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2.json",
           "status": 404
         }
       ]
@@ -74,6 +94,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/deposits",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/deposits.json",
+          "status": 404
         }
       ]
     },
@@ -87,6 +112,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/dispute-games",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/dispute-games.json",
           "status": 404
         }
       ]
@@ -102,6 +132,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/epochs/1",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/epochs/1.json",
+          "status": 404
         }
       ]
     },
@@ -115,6 +150,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/epochs",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/epochs.json",
           "status": 404
         }
       ]
@@ -130,6 +170,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/interop-messages",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/interop-messages.json",
+          "status": 404
         }
       ]
     },
@@ -143,6 +188,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/op/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/op/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2.json",
           "status": 404
         }
       ]
@@ -158,6 +208,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/ops",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/ops.json",
+          "status": 404
         }
       ]
     },
@@ -171,6 +226,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/output-roots",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/output-roots.json",
           "status": 404
         }
       ]
@@ -186,6 +246,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/txn-withdrawals",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/txn-withdrawals.json",
+          "status": 404
         }
       ]
     },
@@ -199,6 +264,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/withdrawals",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/withdrawals.json",
           "status": 404
         }
       ]

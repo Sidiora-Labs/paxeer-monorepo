@@ -1,10 +1,11 @@
 'use client';
+import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { OperationInput, V2ContractTypes } from '@kindle/sdk';
+import { OPERATION_READ_TIMEOUT_FLOOR_MS, type OperationInput, type V2ContractTypes } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
-import { useOperations } from './operations';
-import { loadable, type Loadable } from './unsupported';
+import { useMarketClient } from './client';
+import { loadable, toUnsupported, type Loadable } from './unsupported';
 
 export type LeaderboardsResponse = V2ContractTypes['LeaderboardsResponse'];
 export type LeaderboardCategory = OperationInput<'IF_LEADERBOARDS'>['path']['category'];
@@ -24,17 +25,32 @@ export function validateLeaderboard(response: LeaderboardsResponse, category: Le
 }
 
 /**
- * IF_LEADERBOARDS `GET /v2/leaderboards/{category}` has no serving handler in
- * core/api today; the SDK turns the 404 into CapabilityUnavailableError and
- * this hook returns it as an Unsupported marker rather than synthetic rows.
+ * IF_LEADERBOARDS shows the first unavailable answer while the cache retries
+ * in the background. The cache owns retries so each attempt is one request.
  */
-export function useLeaderboard(category: LeaderboardCategory, window: LeaderboardWindow, limit: number = leaderboardLimit): Loadable<LeaderboardsResponse> {
-  const operations = useOperations();
+export function useLeaderboard(category: LeaderboardCategory, window: LeaderboardWindow, limit: number = leaderboardLimit, cursor?: string): Loadable<LeaderboardsResponse> {
+  const client = useMarketClient();
+  const queryKey = [...queryKeys.leaderboard(category, window, limit), ...(cursor ? [cursor] : [])];
+  const key = JSON.stringify(queryKey);
+  const settled = useRef<{ client: typeof client; key: string; value: Loadable<LeaderboardsResponse> } | null>(null);
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > leaderboardLimit) throw new RangeError('Invalid leaderboard page bound');
   const query = useQuery({
-    queryKey: queryKeys.leaderboard(category, window, limit),
-    queryFn: async ({ signal }) => validateLeaderboard(await operations.call('IF_LEADERBOARDS', { path: { category }, query: { window, limit } }, { signal }), category, window, limit),
+    queryKey,
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams({ window, limit: String(limit), ...(cursor ? { cursor } : {}) });
+      const response = await client.requestV2(`/v2/leaderboards/${category}?${params}`, 'LeaderboardsResponse', {
+        signal, idempotentRead: false, timeoutMs: OPERATION_READ_TIMEOUT_FLOOR_MS,
+      });
+      return validateLeaderboard(response, category, window, limit);
+    },
     ...marketCachePolicy.leaderboard,
   });
-  return loadable(query, 'IF_LEADERBOARDS');
+  const previous = settled.current?.client === client && settled.current.key === key ? settled.current.value : null;
+  const unavailable = query.status === 'pending' ? toUnsupported('IF_LEADERBOARDS', query.failureReason) : null;
+  const current = unavailable ?? loadable(query, 'IF_LEADERBOARDS');
+  const shown = current.state === 'loading' && previous ? previous : current;
+  useEffect(() => {
+    settled.current = shown.state === 'loading' ? null : { client, key, value: shown };
+  }, [client, key, shown]);
+  return shown;
 }

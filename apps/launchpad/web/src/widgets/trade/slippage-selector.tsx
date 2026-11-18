@@ -17,7 +17,7 @@ export function computeMinOut(quotedOut: bigint, slippageBps: number): bigint {
   return minimumOutput(quotedOut, slippageBps);
 }
 
-export function HighImpactWarning({ priceImpactBps, onConfirm, onCancel }: { priceImpactBps: number; onConfirm: () => void; onCancel: () => void }) {
+export function HighImpactWarning({ priceImpactBps, slippageBps = DEFAULT_SLIPPAGE_BPS, onConfirm, onCancel }: { priceImpactBps: number; slippageBps?: number; onConfirm: () => void; onCancel: () => void }) {
   const pct = safeFixed(Number(priceImpactBps) / 100, 2);
   return (
     <ModalFrame
@@ -25,7 +25,7 @@ export function HighImpactWarning({ priceImpactBps, onConfirm, onCancel }: { pri
       onClose={onCancel}
       size="sm"
       closeOnScrim={false}
-      title="High price impact"
+      title={priceImpactBps > 500 ? 'High price impact' : 'High slippage'}
       footer={(
         <>
           <Button variant="secondary" onClick={onCancel}>Cancel</Button>
@@ -37,6 +37,7 @@ export function HighImpactWarning({ priceImpactBps, onConfirm, onCancel }: { pri
         <TriangleAlert aria-hidden="true" className="mt-0.5 size-icon-md shrink-0 text-danger" />
         <p className="text-sm text-text">
           This trade moves the price by <span className="font-bold text-danger tabular-nums">{pct}%</span>. You may receive far less than the quoted amount.
+          {slippageBps > 500 ? ` Your slippage allows up to ${safeFixed(slippageBps / 100, 2)}% less than the quoted amount.` : null}
         </p>
       </div>
     </ModalFrame>

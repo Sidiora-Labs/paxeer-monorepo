@@ -15,14 +15,14 @@ export default function MetaAgSwapModule() {
           </Link>
         </div>
         <p className="text-xs text-text-faint mb-5">
-          Finds the best price across Sidiora coins and the vault
+          Best-route swaps are not available yet. Use classic swap to trade Sidiora coins.
         </p>
       </div>
       <BestRouteSwapPanel />
       <div className="w-full max-w-lg space-y-1 text-2xs text-text-faint">
         <div className="flex flex-wrap justify-between gap-2">
           <span>Swap contract</span>
-          <span className="font-bold text-text">0x732A…6449</span>
+          <span className="font-bold text-text">Not available yet</span>
         </div>
       </div>
     </main>

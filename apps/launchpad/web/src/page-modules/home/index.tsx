@@ -14,9 +14,17 @@ export default function HomeModule() {
   return (
     <>
       <h1 className="sr-only">Sidiora dashboard</h1>
-      <div data-home-view className="min-w-0">
-        {!ready || compact ? <div className="lg:hidden"><HomeFeed /></div> : null}
-        {!ready || !compact ? <div className="hidden lg:block"><DashboardBoard /></div> : null}
+      <div data-home-view className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {!ready || compact ? (
+          <div className="flex min-h-0 flex-1 flex-col lg:hidden">
+            <HomeFeed />
+          </div>
+        ) : null}
+        {!ready || !compact ? (
+          <div className="hidden min-h-0 flex-1 flex-col lg:flex">
+            <DashboardBoard />
+          </div>
+        ) : null}
       </div>
     </>
   );

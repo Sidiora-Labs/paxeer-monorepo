@@ -16,7 +16,7 @@ export const profileTopTradesRows = 12;
 export function profileBlocks({ wallet, isOwner, issueNotice }: { wallet: string; isOwner: boolean; issueNotice?: ReactNode }): ProfileBlocks {
   return {
     placesIssueNotice: true,
-    left: <LeaderboardPanel className="rounded-none bg-transparent px-2 pb-4 pt-2" />,
+    left: <><h2 className="sr-only">Leaderboard</h2><LeaderboardPanel className="rounded-none bg-transparent px-2 pb-4 pt-2" /></>,
     centerExtra: (
       <>
         <PortfolioBlock wallet={wallet} isOwner={isOwner} notice={issueNotice} className="rounded-none bg-transparent px-4 pb-2 pt-5 md:px-5" />

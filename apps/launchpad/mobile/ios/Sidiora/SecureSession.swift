@@ -7,10 +7,16 @@ import UIKit
 import React
 @objc(SecureSession)
 class SecureSession: NSObject {
+ static var pendingNotificationLink: String?
+ @objc(consumeNotificationLink:rejecter:)
+ func consumeNotificationLink(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+  DispatchQueue.main.async { let link = Self.pendingNotificationLink; Self.pendingNotificationLink = nil; resolve(link) }
+ }
  private let service = "ag.sidiora.mobile.session"
  private let cookieQueue = DispatchQueue(label: "ag.sidiora.mobile.cookie-http")
  private let cookieTasks = NSLock()
- private var activeCookieTasks: [URLSessionTask] = []
+ private var activeCookieTasks: [String: URLSessionTask] = [:]
+ private var cancelledCookieRequests = Set<String>()
  private var cookieRevision = 0
  private let keys: Set<String> = ["session", "pushToken", "pending", "installation", "privacy", "walletconnect", "cookies", "approval"]
  @objc static func requiresMainQueueSetup() -> Bool { false }
@@ -43,7 +49,7 @@ class SecureSession: NSObject {
  }
  @objc(clear:rejecter:)
  func clear(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
-  cookieTasks.lock(); defer { cookieTasks.unlock() }; cookieRevision += 1; for task in activeCookieTasks { task.cancel() }; activeCookieTasks.removeAll()
+  cookieTasks.lock(); defer { cookieTasks.unlock() }; cookieRevision += 1; for task in activeCookieTasks.values { task.cancel() }; activeCookieTasks.removeAll()
   let status = SecItemDelete([kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service] as CFDictionary)
   if status == errSecSuccess || status == errSecItemNotFound { resolve(nil) } else { reject("SECURE_PURGE_FAILED", "Protected purge failed", nil) }
  }
@@ -115,27 +121,27 @@ extension SecureSession {
   if status == errSecItemNotFound { query[kSecValueData as String] = data; query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly; guard SecItemAdd(query as CFDictionary, nil) == errSecSuccess else { throw NSError(domain: service, code: 52) } }
   else if status != errSecSuccess { throw NSError(domain: service, code: 53) }
  }
- @objc(cancelCookieRequests:rejecter:)
- func cancelCookieRequests(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) { cookieTasks.lock(); cookieRevision += 1; for task in activeCookieTasks { task.cancel() }; activeCookieTasks.removeAll(); cookieTasks.unlock(); resolve(nil) }
- @objc(cookieRequest:method:headers:body:resolver:rejecter:)
- func cookieRequest(_ rawURL: String, method: String, headers: [String: String], body: String?, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+ @objc(cancelCookieRequest:resolver:rejecter:)
+ func cancelCookieRequest(_ id: String, resolver resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) { cookieTasks.lock(); cancelledCookieRequests.insert(id); let task = activeCookieTasks.removeValue(forKey: id); cookieTasks.unlock(); task?.cancel(); resolve(nil) }
+ @objc(cookieRequest:url:method:headers:body:resolver:rejecter:)
+ func cookieRequest(_ id: String, url rawURL: String, method: String, headers: [String: String], body: String?, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
   cookieTasks.lock(); let requestedRevision = cookieRevision; cookieTasks.unlock()
   cookieQueue.async {
    do {
     guard let text = Bundle.main.object(forInfoDictionaryKey: "SidioraPublicConfiguration") as? String, let configuration = try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any], let origin = configuration["canonicalOrigin"] as? String, let approved = URLComponents(string: origin), let url = URL(string: rawURL), let target = URLComponents(url: url, resolvingAgainstBaseURL: false), target.scheme == "https", target.host == approved.host, target.port == approved.port, target.user == nil, target.password == nil, target.fragment == nil, ["GET","POST","PUT","PATCH","DELETE"].contains(method), rawURL.count <= 8192, (body?.utf8.count ?? 0) <= 1048576 else { throw NSError(domain: self.service, code: 54) }
     var request = URLRequest(url: url); request.httpMethod = method; request.timeoutInterval = 30; request.httpBody = body.map { Data($0.utf8) }
     for (name, value) in headers { guard name.lowercased() != "cookie", name.lowercased() != "authorization", !value.contains("\r"), !value.contains("\n") else { throw NSError(domain: self.service, code: 55) }; request.setValue(value, forHTTPHeaderField: name) }
-    let (revision, initialCookies) = try { () throws -> (Int, [String: String]) in self.cookieTasks.lock(); defer { self.cookieTasks.unlock() }; guard requestedRevision == self.cookieRevision else { throw NSError(domain: self.service, code: 58) }; return (requestedRevision, try self.readCookieVault()) }(); var cookies = initialCookies; if cookies["_origin"] != origin { cookies = ["_origin": origin] }; request.setValue(cookies.keys.filter { $0.hasPrefix("__Host-kindle_") }.sorted().map { "\($0)=\(cookies[$0]!)" }.joined(separator: "; "), forHTTPHeaderField: "Cookie")
+    let (revision, initialCookies) = try { () throws -> (Int, [String: String]) in self.cookieTasks.lock(); defer { self.cookieTasks.unlock() }; guard requestedRevision == self.cookieRevision, !self.cancelledCookieRequests.contains(id) else { throw NSError(domain: self.service, code: 58) }; return (requestedRevision, try self.readCookieVault()) }(); var cookies = initialCookies; if cookies["_origin"] != origin { cookies = ["_origin": origin] }; request.setValue(cookies.keys.filter { $0.hasPrefix("__Host-kindle_") }.sorted().map { "\($0)=\(cookies[$0]!)" }.joined(separator: "; "), forHTTPHeaderField: "Cookie")
     let sessionConfiguration = URLSessionConfiguration.ephemeral; sessionConfiguration.httpCookieStorage = nil; sessionConfiguration.httpShouldSetCookies = false; sessionConfiguration.urlCache = nil
     if method != "GET", request.value(forHTTPHeaderField: "X-CSRF-Token") == nil, let csrf = cookies["__Host-kindle_csrf"] { request.setValue(csrf, forHTTPHeaderField: "X-CSRF-Token") }
     let session = URLSession(configuration: sessionConfiguration, delegate: CookieRedirectGuard(), delegateQueue: nil)
     let task = session.dataTask(with: request) { data, response, error in
      self.cookieQueue.async {
-      defer { session.finishTasksAndInvalidate() }
+      defer { session.finishTasksAndInvalidate(); self.cookieTasks.lock(); self.activeCookieTasks.removeValue(forKey: id); self.cancelledCookieRequests.remove(id); self.cookieTasks.unlock() }
       do {
        if let error = error { throw error }; guard let response = response as? HTTPURLResponse, let data = data, data.count <= 8388608, let text = String(data: data, encoding: .utf8), !(300...399).contains(response.statusCode) else { throw NSError(domain: self.service, code: 56) }
        let fields = response.allHeaderFields.reduce(into: [String: String]()) { result, item in if let key = item.key as? String, let value = item.value as? String { result[key] = value } }
-       self.cookieTasks.lock(); defer { self.cookieTasks.unlock() }; guard revision == self.cookieRevision else { throw NSError(domain: self.service, code: 58) }; cookies = try self.readCookieVault(); if cookies["_origin"] != origin { cookies = ["_origin": origin] }
+       self.cookieTasks.lock(); defer { self.cookieTasks.unlock() }; guard revision == self.cookieRevision, !self.cancelledCookieRequests.contains(id) else { throw NSError(domain: self.service, code: 58) }; cookies = try self.readCookieVault(); if cookies["_origin"] != origin { cookies = ["_origin": origin] }
        for cookie in HTTPCookie.cookies(withResponseHeaderFields: fields, for: url) {
         guard ["__Host-kindle_access","__Host-kindle_refresh","__Host-kindle_csrf"].contains(cookie.name) else { continue }
         guard cookie.isSecure, cookie.path == "/", cookie.domain == url.host, cookie.value.count <= 8192, cookie.properties?[.init(rawValue: "HttpOnly")] != nil || cookie.name == "__Host-kindle_csrf" else { throw NSError(domain: self.service, code: 57) }
@@ -146,8 +152,8 @@ extension SecureSession {
       } catch { reject("COOKIE_HTTP_FAILED", "Protected cookie request failed", nil) }
      }
     }
-    self.cookieTasks.lock(); self.activeCookieTasks.removeAll { $0.state == .completed }; guard revision == self.cookieRevision else { self.cookieTasks.unlock(); task.cancel(); session.invalidateAndCancel(); throw NSError(domain: self.service, code: 58) }; self.activeCookieTasks.append(task); self.cookieTasks.unlock(); task.resume()
-   } catch { reject("COOKIE_HTTP_FAILED", "Protected cookie request unavailable", nil) }
+    self.cookieTasks.lock(); self.activeCookieTasks = self.activeCookieTasks.filter { $0.value.state != .completed }; guard revision == self.cookieRevision, !self.cancelledCookieRequests.contains(id) else { self.cookieTasks.unlock(); task.cancel(); session.invalidateAndCancel(); throw NSError(domain: self.service, code: 58) }; self.activeCookieTasks[id] = task; self.cookieTasks.unlock(); task.resume()
+   } catch { self.cookieTasks.lock(); self.cancelledCookieRequests.remove(id); self.cookieTasks.unlock(); reject("COOKIE_HTTP_FAILED", "Protected cookie request unavailable", nil) }
   }
  }
 }

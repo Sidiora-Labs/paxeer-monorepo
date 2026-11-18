@@ -44,6 +44,7 @@ func statsByPool(st *store.Store, rdb *goredis.Client) http.HandlerFunc {
 
 		row, err := st.GetPoolStats(ctx, poolAddress)
 		if err != nil {
+			logReadError(r, err)
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "stats lookup failed")
 			return
 		}
@@ -89,6 +90,7 @@ func statsBatch(st *store.Store, rdb *goredis.Client) http.HandlerFunc {
 		if len(missed) > 0 {
 			rows, err := st.GetPoolStatsBatch(ctx, missed)
 			if err != nil {
+				logReadError(r, err)
 				sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "stats batch failed")
 				return
 			}

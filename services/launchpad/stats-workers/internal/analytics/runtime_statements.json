@@ -1006,7 +1006,7 @@
       ],
       "sequences": [],
       "id": "app_app_newWithRuntimePool_1",
-      "source_sha256": "5a5f318f6f5699b803e2d61455f577dbd6b86807878a3b669c6a50bee5458a4c"
+      "source_sha256": "702f14f312294e1cade5a753391094cc8e6f06cf78f5f33aa38949ce944dc49e"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/readiness.go",
@@ -1059,7 +1059,7 @@
       ],
       "sequences": [],
       "id": "app_app_catchUpStatsHolders_1",
-      "source_sha256": "5a5f318f6f5699b803e2d61455f577dbd6b86807878a3b669c6a50bee5458a4c"
+      "source_sha256": "702f14f312294e1cade5a753391094cc8e6f06cf78f5f33aa38949ce944dc49e"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/app.go",
@@ -1088,7 +1088,7 @@
       "functions": [],
       "sequences": [],
       "id": "app_app_catchUpStatsHolders_2",
-      "source_sha256": "5a5f318f6f5699b803e2d61455f577dbd6b86807878a3b669c6a50bee5458a4c"
+      "source_sha256": "702f14f312294e1cade5a753391094cc8e6f06cf78f5f33aa38949ce944dc49e"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/canonical_multihop.go",
@@ -1551,26 +1551,26 @@
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/canonical_legacy.go",
-      "function": "CanonicalLegacyBridge.RunOnce",
+      "function": "CanonicalLegacyBridge.beginProjection",
       "call": 1,
-      "expression": "\"SELECT pg_try_advisory_xact_lock(hashtextextended($1,0))\"",
+      "expression": "\"SELECT pg_advisory_xact_lock(hashtextextended($1,0))\"",
       "line": 88,
-      "sql": "SELECT pg_try_advisory_xact_lock(hashtextextended($1,0))",
+      "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
       "kind": "SELECT",
       "tables": [],
       "columns": [],
       "functions": [
         "hashtextextended",
-        "pg_try_advisory_xact_lock"
+        "pg_advisory_xact_lock"
       ],
       "sequences": [],
-      "id": "consumer_canonical_legacy_CanonicalLegacyBridge.RunOnce_1",
-      "source_sha256": "910d8753eea5525ba6d94b6349a3da913079abde30da53ceca518f3bd2c6bff5"
+      "id": "consumer_canonical_legacy_CanonicalLegacyBridge.beginProjection_1",
+      "source_sha256": "dd98331ae8092997007080a2454c2efd85a27f6adbfedd6929caa9ad950d05a5"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/canonical_legacy.go",
       "function": "CanonicalLegacyBridge.RunOnce",
-      "call": 2,
+      "call": 1,
       "expression": "\"SELECT w.raw_complete_height,w.typed_complete_height,l.expires_at>clock_timestamp() FROM \"+b.source(\"indexer_ingest_watermarks_v1\")+\" w JOIN \"+b.source(\"indexer_ingest_leases_v1\")+\" l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1\"",
       "line": 93,
       "sql": "SELECT w.raw_complete_height,w.typed_complete_height,l.expires_at>clock_timestamp() FROM \"indexer\".\"indexer_ingest_watermarks_v1\" w JOIN \"indexer\".\"indexer_ingest_leases_v1\" l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1",
@@ -1592,8 +1592,8 @@
         "clock_timestamp"
       ],
       "sequences": [],
-      "id": "consumer_canonical_legacy_CanonicalLegacyBridge.RunOnce_2",
-      "source_sha256": "910d8753eea5525ba6d94b6349a3da913079abde30da53ceca518f3bd2c6bff5"
+      "id": "consumer_canonical_legacy_CanonicalLegacyBridge.RunOnce_1",
+      "source_sha256": "dd98331ae8092997007080a2454c2efd85a27f6adbfedd6929caa9ad950d05a5"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/canonical_legacy.go",
@@ -1620,7 +1620,7 @@
       "functions": [],
       "sequences": [],
       "id": "consumer_canonical_legacy_CanonicalLegacyBridge.creations_1",
-      "source_sha256": "910d8753eea5525ba6d94b6349a3da913079abde30da53ceca518f3bd2c6bff5"
+      "source_sha256": "dd98331ae8092997007080a2454c2efd85a27f6adbfedd6929caa9ad950d05a5"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/canonical_legacy.go",
@@ -1653,7 +1653,7 @@
       "functions": [],
       "sequences": [],
       "id": "consumer_canonical_legacy_CanonicalLegacyBridge.swaps_1",
-      "source_sha256": "910d8753eea5525ba6d94b6349a3da913079abde30da53ceca518f3bd2c6bff5"
+      "source_sha256": "dd98331ae8092997007080a2454c2efd85a27f6adbfedd6929caa9ad950d05a5"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/canonical_multihop.go",
@@ -1696,7 +1696,7 @@
       ],
       "sequences": [],
       "id": "consumer_canonical_multihop_CanonicalLegacyBridge.multihops_1",
-      "source_sha256": "030290ffbd648d7489378cc464ed8f3ef719de8ef7b606424cfcc3a90df42967"
+      "source_sha256": "a1c8c9c2cbf8d6ad442e65691b3723a47f3c64a928c78f73d3f71b31871865bc"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/canonical_multihop.go",
@@ -1737,7 +1737,7 @@
       "functions": [],
       "sequences": [],
       "id": "consumer_canonical_multihop_CanonicalLegacyBridge.routeLegs_1",
-      "source_sha256": "030290ffbd648d7489378cc464ed8f3ef719de8ef7b606424cfcc3a90df42967"
+      "source_sha256": "a1c8c9c2cbf8d6ad442e65691b3723a47f3c64a928c78f73d3f71b31871865bc"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/canonical_multihop.go",
@@ -1761,7 +1761,7 @@
       "functions": [],
       "sequences": [],
       "id": "consumer_canonical_multihop_CanonicalLegacyBridge.projectMultihop_1",
-      "source_sha256": "030290ffbd648d7489378cc464ed8f3ef719de8ef7b606424cfcc3a90df42967"
+      "source_sha256": "a1c8c9c2cbf8d6ad442e65691b3723a47f3c64a928c78f73d3f71b31871865bc"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/canonical_multihop.go",
@@ -1782,7 +1782,7 @@
       "functions": [],
       "sequences": [],
       "id": "consumer_canonical_multihop_CanonicalLegacyBridge.projectMultihop_2",
-      "source_sha256": "030290ffbd648d7489378cc464ed8f3ef719de8ef7b606424cfcc3a90df42967"
+      "source_sha256": "a1c8c9c2cbf8d6ad442e65691b3723a47f3c64a928c78f73d3f71b31871865bc"
     },
     {
       "file": "services/launchpad/stats-workers/internal/consumer/multihop.go",
@@ -3374,7 +3374,7 @@
       "functions": [],
       "sequences": [],
       "id": "httpapi_canonical_ownership_readOwnership_1",
-      "source_sha256": "cacd083169fa8eb6cf414916ef1eb74c94a31a26d488033a6591f50e4f576d16"
+      "source_sha256": "31c6a79edea11eec73fea9678a9fac086694235fe0adbbf51600063811b680f4"
     },
     {
       "file": "services/launchpad/stats-workers/internal/httpapi/canonical_ownership.go",
@@ -3397,7 +3397,7 @@
       "functions": [],
       "sequences": [],
       "id": "httpapi_canonical_ownership_readOwnership_2",
-      "source_sha256": "cacd083169fa8eb6cf414916ef1eb74c94a31a26d488033a6591f50e4f576d16"
+      "source_sha256": "31c6a79edea11eec73fea9678a9fac086694235fe0adbbf51600063811b680f4"
     },
     {
       "file": "services/launchpad/stats-workers/internal/httpapi/canonical_ownership.go",
@@ -3420,7 +3420,7 @@
       ],
       "sequences": [],
       "id": "httpapi_canonical_ownership_readOwnership_3",
-      "source_sha256": "cacd083169fa8eb6cf414916ef1eb74c94a31a26d488033a6591f50e4f576d16"
+      "source_sha256": "31c6a79edea11eec73fea9678a9fac086694235fe0adbbf51600063811b680f4"
     },
     {
       "file": "services/launchpad/stats-workers/internal/httpapi/canonical_ownership.go",
@@ -3444,7 +3444,7 @@
       ],
       "sequences": [],
       "id": "httpapi_canonical_ownership_readOwnership_4",
-      "source_sha256": "cacd083169fa8eb6cf414916ef1eb74c94a31a26d488033a6591f50e4f576d16"
+      "source_sha256": "31c6a79edea11eec73fea9678a9fac086694235fe0adbbf51600063811b680f4"
     },
     {
       "file": "services/launchpad/stats-workers/internal/httpapi/canonical_ownership.go",
@@ -3466,7 +3466,7 @@
       "functions": [],
       "sequences": [],
       "id": "httpapi_canonical_ownership_readOwnership_5",
-      "source_sha256": "cacd083169fa8eb6cf414916ef1eb74c94a31a26d488033a6591f50e4f576d16"
+      "source_sha256": "31c6a79edea11eec73fea9678a9fac086694235fe0adbbf51600063811b680f4"
     },
     {
       "file": "services/launchpad/stats-workers/internal/httpapi/canonical_ownership.go",
@@ -3487,7 +3487,7 @@
       "functions": [],
       "sequences": [],
       "id": "httpapi_canonical_ownership_readOwnership_6",
-      "source_sha256": "cacd083169fa8eb6cf414916ef1eb74c94a31a26d488033a6591f50e4f576d16"
+      "source_sha256": "31c6a79edea11eec73fea9678a9fac086694235fe0adbbf51600063811b680f4"
     },
     {
       "file": "services/launchpad/stats-workers/internal/httpapi/reactions.go",
@@ -3502,7 +3502,7 @@
       "functions": [],
       "sequences": [],
       "id": "httpapi_reactions_DurableReactionDeps.executeValidated_1",
-      "source_sha256": "c6ffee64f0a15bc4b9022e75fd1829008be605ae6aa24e66dfc3ec11055d3722"
+      "source_sha256": "cbe25ab2d7339f0bb765e5c9b561c3e043b534f9398fa861738185a5bb12549f"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/authority.go",
@@ -3667,7 +3667,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_expiry_ExpiryScheduler.Refresh_1",
-      "source_sha256": "10aa391e90d7c883a6fabc27541f509ca176e949015ef05c80ff66c231951d71"
+      "source_sha256": "99dbf8443c5b3d4f51c8871ca3f959120436d2ffa97089d8ecc622a17e9dd96c"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/postgres.go",
@@ -4631,7 +4631,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_query_Repository.Page_1",
-      "source_sha256": "45846b6bacc787239a35690f5e28c13233152553a3d5a1a6500e58ec67cef116"
+      "source_sha256": "771cf7064b7bd28e492245a64c67bbff64c8da5678e6ecc64e98f6b149b27507"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/query.go",
@@ -4657,7 +4657,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_query_Repository.AggregateWindow_1",
-      "source_sha256": "45846b6bacc787239a35690f5e28c13233152553a3d5a1a6500e58ec67cef116"
+      "source_sha256": "771cf7064b7bd28e492245a64c67bbff64c8da5678e6ecc64e98f6b149b27507"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/query.go",
@@ -4684,11 +4684,11 @@
       ],
       "sequences": [],
       "id": "projectionstats_query_Repository.AggregateWindow_2",
-      "source_sha256": "45846b6bacc787239a35690f5e28c13233152553a3d5a1a6500e58ec67cef116"
+      "source_sha256": "771cf7064b7bd28e492245a64c67bbff64c8da5678e6ecc64e98f6b149b27507"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/query.go",
-      "function": "Repository.PublishPending",
+      "function": "Repository.publishPending",
       "call": 1,
       "expression": "fmt.Sprintf(`SELECT event_id,projection_version,revision,payload FROM %s.outbox WHERE NOT published ORDER BY event_id LIMIT $1 FOR UPDATE SKIP LOCKED`, r.schema)",
       "line": 218,
@@ -4706,12 +4706,12 @@
       ],
       "functions": [],
       "sequences": [],
-      "id": "projectionstats_query_Repository.PublishPending_1",
-      "source_sha256": "45846b6bacc787239a35690f5e28c13233152553a3d5a1a6500e58ec67cef116"
+      "id": "projectionstats_query_Repository.publishPending_1",
+      "source_sha256": "771cf7064b7bd28e492245a64c67bbff64c8da5678e6ecc64e98f6b149b27507"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/query.go",
-      "function": "Repository.PublishPending",
+      "function": "Repository.publishPending",
       "call": 2,
       "expression": "fmt.Sprintf(`UPDATE %s.outbox SET published=true,attempts=attempts+1 WHERE event_id=$1 AND projection_version=$2`, r.schema)",
       "line": 239,
@@ -4727,8 +4727,8 @@
       ],
       "functions": [],
       "sequences": [],
-      "id": "projectionstats_query_Repository.PublishPending_2",
-      "source_sha256": "45846b6bacc787239a35690f5e28c13233152553a3d5a1a6500e58ec67cef116"
+      "id": "projectionstats_query_Repository.publishPending_2",
+      "source_sha256": "771cf7064b7bd28e492245a64c67bbff64c8da5678e6ecc64e98f6b149b27507"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/query.go",
@@ -4750,7 +4750,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_query_Repository.PublishDurable_1",
-      "source_sha256": "45846b6bacc787239a35690f5e28c13233152553a3d5a1a6500e58ec67cef116"
+      "source_sha256": "771cf7064b7bd28e492245a64c67bbff64c8da5678e6ecc64e98f6b149b27507"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/service.go",
@@ -5279,7 +5279,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_cache_Service.state_1",
-      "source_sha256": "a763ef2b77f95ac163e3ea95fcb39c3ee17c12c0478c0b2ad8f14529929862f3"
+      "source_sha256": "a00be63588a5e0d37e83d42e26e4efda1fa123041e912c2d0a52f3de4c748979"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/cache.go",
@@ -5299,7 +5299,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_cache_Service.Personalize_1",
-      "source_sha256": "a763ef2b77f95ac163e3ea95fcb39c3ee17c12c0478c0b2ad8f14529929862f3"
+      "source_sha256": "a00be63588a5e0d37e83d42e26e4efda1fa123041e912c2d0a52f3de4c748979"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/generation.go",
@@ -5580,7 +5580,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_integrated_Store.SearchIntegrated_1",
-      "source_sha256": "70b9d3cf11440b5cece09e46b7ab92d582c44c30593de9890f0a8fb5bd85599b"
+      "source_sha256": "cae2d93059822057aaf705d995d23133d6936ee50ad15b511937be00d4515790"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/integrated.go",
@@ -5602,7 +5602,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_integrated_Store.SearchIntegrated_2",
-      "source_sha256": "70b9d3cf11440b5cece09e46b7ab92d582c44c30593de9890f0a8fb5bd85599b"
+      "source_sha256": "cae2d93059822057aaf705d995d23133d6936ee50ad15b511937be00d4515790"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/integrated.go",
@@ -5642,7 +5642,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_integrated_Store.SearchIntegrated_3_0",
-      "source_sha256": "70b9d3cf11440b5cece09e46b7ab92d582c44c30593de9890f0a8fb5bd85599b"
+      "source_sha256": "cae2d93059822057aaf705d995d23133d6936ee50ad15b511937be00d4515790"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/integrated.go",
@@ -5682,7 +5682,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_integrated_Store.SearchIntegrated_3_1",
-      "source_sha256": "70b9d3cf11440b5cece09e46b7ab92d582c44c30593de9890f0a8fb5bd85599b"
+      "source_sha256": "cae2d93059822057aaf705d995d23133d6936ee50ad15b511937be00d4515790"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/integrated.go",
@@ -5723,7 +5723,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_integrated_Store.SearchIntegrated_3_2",
-      "source_sha256": "70b9d3cf11440b5cece09e46b7ab92d582c44c30593de9890f0a8fb5bd85599b"
+      "source_sha256": "cae2d93059822057aaf705d995d23133d6936ee50ad15b511937be00d4515790"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/integrated.go",
@@ -5738,7 +5738,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_integrated_Store.searchProfiles_1",
-      "source_sha256": "70b9d3cf11440b5cece09e46b7ab92d582c44c30593de9890f0a8fb5bd85599b"
+      "source_sha256": "cae2d93059822057aaf705d995d23133d6936ee50ad15b511937be00d4515790"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/integrated.go",
@@ -5760,7 +5760,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_integrated_Store.searchProfiles_2",
-      "source_sha256": "70b9d3cf11440b5cece09e46b7ab92d582c44c30593de9890f0a8fb5bd85599b"
+      "source_sha256": "cae2d93059822057aaf705d995d23133d6936ee50ad15b511937be00d4515790"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/integrated.go",
@@ -5791,7 +5791,7 @@
       ],
       "sequences": [],
       "id": "search_integrated_Store.searchProfiles_3",
-      "source_sha256": "70b9d3cf11440b5cece09e46b7ab92d582c44c30593de9890f0a8fb5bd85599b"
+      "source_sha256": "cae2d93059822057aaf705d995d23133d6936ee50ad15b511937be00d4515790"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/postgres.go",
@@ -5806,7 +5806,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_postgres_Store.Search_1",
-      "source_sha256": "91bd4209b4a7b259c0546161c140b2d662778b1a43ee507116e6f05b841e0648"
+      "source_sha256": "ebd4336bf2e12d2570626b0e3e345617a7a96fc22645d1b906d95b9fd57bfe90"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/postgres.go",
@@ -5827,7 +5827,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_postgres_Store.Search_2",
-      "source_sha256": "91bd4209b4a7b259c0546161c140b2d662778b1a43ee507116e6f05b841e0648"
+      "source_sha256": "ebd4336bf2e12d2570626b0e3e345617a7a96fc22645d1b906d95b9fd57bfe90"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/postgres.go",
@@ -5859,7 +5859,7 @@
       ],
       "sequences": [],
       "id": "search_postgres_Store.Search_3",
-      "source_sha256": "91bd4209b4a7b259c0546161c140b2d662778b1a43ee507116e6f05b841e0648"
+      "source_sha256": "ebd4336bf2e12d2570626b0e3e345617a7a96fc22645d1b906d95b9fd57bfe90"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -8624,7 +8624,7 @@
       "functions": [],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_ordered_batch_Store.ConsumeOrderedBatch_1",
-      "source_sha256": "1b63e608a4b56363683af900afc7d0674076e0bd9ec0edc33176d3dbdb506328"
+      "source_sha256": "ca701f039d44269fb11a03c1bd04d6d3b6637dccf454ec3ecd5c53e5e6dffaef"
     },
     {
       "file": "sdk/launchpad/shared/delivery/ordered_batch.go",
@@ -8646,20 +8646,21 @@
       "functions": [],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_ordered_batch_Store.ConsumeOrderedBatch_2",
-      "source_sha256": "1b63e608a4b56363683af900afc7d0674076e0bd9ec0edc33176d3dbdb506328"
+      "source_sha256": "ca701f039d44269fb11a03c1bd04d6d3b6637dccf454ec3ecd5c53e5e6dffaef"
     },
     {
       "file": "sdk/launchpad/shared/delivery/ordered_batch.go",
       "function": "Store.ConsumeOrderedBatch",
       "call": 3,
-      "expression": "\"INSERT INTO \"+s.table(\"delivery_consumer_watermarks\")+`(consumer_id,generation,partition_kind,partition_key,broker_stream,broker_sequence,source_order,position_sequence,event_id,envelope_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(consumer_id,generation,partition_kind,partition_key) DO UPDATE SET broker_sequence=EXCLUDED.broker_sequence,source_order=EXCLUDED.source_order,position_sequence=EXCLUDED.position_sequence,event_id=EXCLUDED.event_id,envelope_hash=EXCLUDED.envelope_hash,committed_at=clock_timestamp() WHERE delivery_consumer_watermarks.broker_stream=EXCLUDED.broker_stream AND delivery_consumer_watermarks.position_sequence=EXCLUDED.position_sequence-1`",
+      "expression": "\"INSERT INTO \"+s.table(\"delivery_consumer_watermarks\")+`(consumer_id,generation,partition_kind,partition_key,broker_stream,broker_sequence,source_order,position_sequence,event_id,envelope_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(consumer_id,generation,partition_kind,partition_key) DO UPDATE SET broker_sequence=EXCLUDED.broker_sequence,source_order=EXCLUDED.source_order,position_sequence=EXCLUDED.position_sequence,event_id=EXCLUDED.event_id,envelope_hash=EXCLUDED.envelope_hash,committed_at=clock_timestamp() WHERE delivery_consumer_watermarks.broker_stream=EXCLUDED.broker_stream AND delivery_consumer_watermarks.broker_sequence<EXCLUDED.broker_sequence AND delivery_consumer_watermarks.position_sequence=EXCLUDED.position_sequence-1`",
       "line": 162,
-      "sql": "INSERT INTO \"stats\".\"delivery_consumer_watermarks\"(consumer_id,generation,partition_kind,partition_key,broker_stream,broker_sequence,source_order,position_sequence,event_id,envelope_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(consumer_id,generation,partition_kind,partition_key) DO UPDATE SET broker_sequence=EXCLUDED.broker_sequence,source_order=EXCLUDED.source_order,position_sequence=EXCLUDED.position_sequence,event_id=EXCLUDED.event_id,envelope_hash=EXCLUDED.envelope_hash,committed_at=clock_timestamp() WHERE delivery_consumer_watermarks.broker_stream=EXCLUDED.broker_stream AND delivery_consumer_watermarks.position_sequence=EXCLUDED.position_sequence-1",
+      "sql": "INSERT INTO \"stats\".\"delivery_consumer_watermarks\"(consumer_id,generation,partition_kind,partition_key,broker_stream,broker_sequence,source_order,position_sequence,event_id,envelope_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(consumer_id,generation,partition_kind,partition_key) DO UPDATE SET broker_sequence=EXCLUDED.broker_sequence,source_order=EXCLUDED.source_order,position_sequence=EXCLUDED.position_sequence,event_id=EXCLUDED.event_id,envelope_hash=EXCLUDED.envelope_hash,committed_at=clock_timestamp() WHERE delivery_consumer_watermarks.broker_stream=EXCLUDED.broker_stream AND delivery_consumer_watermarks.broker_sequence<EXCLUDED.broker_sequence AND delivery_consumer_watermarks.position_sequence=EXCLUDED.position_sequence-1",
       "kind": "INSERT",
       "tables": [
         "stats.delivery_consumer_watermarks"
       ],
       "columns": [
+        "delivery_consumer_watermarks.broker_sequence",
         "delivery_consumer_watermarks.broker_stream",
         "delivery_consumer_watermarks.position_sequence",
         "excluded.broker_sequence",
@@ -8674,7 +8675,7 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_ordered_batch_Store.ConsumeOrderedBatch_3",
-      "source_sha256": "1b63e608a4b56363683af900afc7d0674076e0bd9ec0edc33176d3dbdb506328"
+      "source_sha256": "ca701f039d44269fb11a03c1bd04d6d3b6637dccf454ec3ecd5c53e5e6dffaef"
     },
     {
       "file": "sdk/launchpad/shared/delivery/stream_market.go",
@@ -8715,7 +8716,7 @@
       "function": "WithTransaction",
       "call": 1,
       "expression": "\"SELECT set_config('statement_timeout', $1, true), set_config('lock_timeout', $2, true)\"",
-      "line": 329,
+      "line": 334,
       "sql": "SELECT set_config('statement_timeout', $1, true), set_config('lock_timeout', $2, true)",
       "kind": "SELECT",
       "tables": [],
@@ -8725,7 +8726,7 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_db_client_WithTransaction_1",
-      "source_sha256": "3d8cbb514f6984d62095854872f577a5d494cd6a2addabe4c30ca07a7e1a705e"
+      "source_sha256": "5742a65faccc515dc5fbd4679fb738ae10536b83b3b465819a36b85d5dd71458"
     },
     {
       "file": "sdk/launchpad/shared/db/production/migrations.go",

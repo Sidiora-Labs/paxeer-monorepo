@@ -37,6 +37,40 @@ describe('PaxeerXFeedMarketsTable', () => {
     expect(cells[2]?.textContent).toBe('67,020.25');
   });
 
+  it.each([ 'BTC-USD', 'btc-usd' ])('shows a matching feed symbol once for %s', function showsMatchingSymbolOnce(chainflowSymbol) {
+    const market = { ...feedMock.markets.items[0], chainflow_symbol: chainflowSymbol };
+    const { container } = render(<PaxeerXFeedMarketsTable items={ [ market ] }/>);
+
+    const cell = container.querySelector('[data-market="0"] td') as HTMLElement;
+
+    expect(cell.textContent).toBe('BTC-USD');
+    expect(cell.querySelector('a[href="/feed/market/0"]')?.textContent).toBe('BTC-USD');
+    expect(cell.querySelectorAll(':scope > div')).toHaveLength(1);
+  });
+
+  it('shows both lines when the feed symbol differs', function showsDifferentSymbols() {
+    const { container } = renderTable();
+
+    const cell = container.querySelector('[data-market="0"] td') as HTMLElement;
+    const lines = Array.from(cell.querySelectorAll(':scope > div'));
+
+    expect(lines.map((line) => line.textContent)).toEqual([ 'BTC-USD', 'BTCUSDT' ]);
+    expect(cell.querySelector('a[href="/feed/market/0"]')?.textContent).toBe('BTC-USD');
+  });
+
+  it('shows one line while loading', function showsOneLoadingLine() {
+    const { container } = render(<PaxeerXFeedMarketsTable items={ feedMock.markets.items } isLoading/>);
+
+    const cells = container.querySelectorAll('[data-market] td:first-child');
+
+    expect(cells).toHaveLength(2);
+    cells.forEach((cell, index) => {
+      expect(cell.textContent).toBe(feedMock.markets.items[index].symbol);
+      expect(cell.querySelectorAll(':scope > div')).toHaveLength(1);
+      expect(cell.querySelectorAll('[data-loading]')).toHaveLength(1);
+    });
+  });
+
   it('links the market to its history, the last update to its page and the block to the block page', () => {
     const { container } = renderTable();
 

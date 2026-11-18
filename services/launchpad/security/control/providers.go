@@ -8,7 +8,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -18,6 +20,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+func providerUnavailable(ctx context.Context, operation string, cause error) Fault {
+	slog.ErrorContext(ctx, "control provider unavailable", "operation", operation, "error", cause)
+	return Unavailable
+}
 
 type PostgresIdentity struct {
 	pool                   *pgxpool.Pool
@@ -63,6 +70,7 @@ func (i *PostgresIdentity) resolve(ctx context.Context, hash []byte, credentialI
 		return Principal{}, Denied
 	}
 	if err != nil {
+		slog.ErrorContext(ctx, "control identity unavailable", "error", err)
 		return Principal{}, Unavailable
 	}
 	if !uuidPattern.MatchString(p.ID) || !uuidPattern.MatchString(p.CredentialID) {
@@ -138,38 +146,41 @@ func (p *PayoutProvider) call(ctx context.Context, method, key string, body any)
 	req.Header.Set("Idempotency-Key", key)
 	res, err := p.client.Do(req)
 	if err != nil {
-		return PayoutResult{}, Unavailable
+		return PayoutResult{}, providerUnavailable(ctx, "payout request", err)
 	}
 	defer func() { resultErr = errors.Join(resultErr, res.Body.Close()) }()
 	if method == http.MethodGet && res.StatusCode == 404 {
 		return PayoutResult{State: controlAbsent}, nil
 	}
 	if res.StatusCode != 200 && res.StatusCode != 202 {
-		return PayoutResult{}, Unavailable
+		return PayoutResult{}, providerUnavailable(ctx, "payout response", fmt.Errorf("unexpected HTTP status %d", res.StatusCode))
 	}
 	raw, err := io.ReadAll(io.LimitReader(res.Body, 65537))
-	if err != nil || len(raw) > 65536 {
-		return PayoutResult{}, Unavailable
+	if err != nil {
+		return PayoutResult{}, providerUnavailable(ctx, "payout response read", err)
+	}
+	if len(raw) > 65536 {
+		return PayoutResult{}, providerUnavailable(ctx, "payout response", errors.New("response exceeds 65536 bytes"))
 	}
 	var out PayoutResult
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if rejectDuplicateFields(raw) != nil || decoder.Decode(&out) != nil || decoder.Decode(new(any)) != io.EOF {
-		return PayoutResult{}, Unavailable
+		return PayoutResult{}, providerUnavailable(ctx, "payout response", errors.New("invalid settlement response document"))
 	}
 	switch out.State {
 	case controlPending, controlUnknown, controlConfirmed:
 	default:
-		return PayoutResult{}, Unavailable
+		return PayoutResult{}, providerUnavailable(ctx, "payout response", errors.New("unrecognized settlement state"))
 	}
 	if out.Reference != "" {
 		b, err := hex.DecodeString(strings.TrimPrefix(out.Reference, "0x"))
 		if err != nil || len(b) != 32 || !strings.HasPrefix(out.Reference, "0x") {
-			return PayoutResult{}, Unavailable
+			return PayoutResult{}, providerUnavailable(ctx, "payout response", errors.New("invalid settlement transaction reference"))
 		}
 	}
 	if out.State == controlConfirmed && out.Reference == "" {
-		return PayoutResult{}, Unavailable
+		return PayoutResult{}, providerUnavailable(ctx, "payout response", errors.New("confirmed settlement requires a transaction reference"))
 	}
 	return out, nil
 }
@@ -242,23 +253,26 @@ func (p *RevocationProvider) Revoke(ctx context.Context, i Incident) (_ Revocati
 	req.Header.Set("Idempotency-Key", i.ID)
 	res, err := p.client.Do(req)
 	if err != nil {
-		return out, Unavailable
+		return out, providerUnavailable(ctx, "identity revocation request", err)
 	}
 	defer func() { resultErr = errors.Join(resultErr, res.Body.Close()) }()
 	if res.StatusCode != 200 {
-		return out, Unavailable
+		return out, providerUnavailable(ctx, "identity revocation response", fmt.Errorf("unexpected HTTP status %d", res.StatusCode))
 	}
 	raw, err = io.ReadAll(io.LimitReader(res.Body, 65537))
-	if err != nil || len(raw) > 65536 {
-		return out, Unavailable
+	if err != nil {
+		return out, providerUnavailable(ctx, "identity revocation response read", err)
+	}
+	if len(raw) > 65536 {
+		return out, providerUnavailable(ctx, "identity revocation response", errors.New("response exceeds 65536 bytes"))
 	}
 	d := json.NewDecoder(bytes.NewReader(raw))
 	d.DisallowUnknownFields()
 	if rejectDuplicateFields(raw) != nil || d.Decode(&out) != nil || d.Decode(new(any)) != io.EOF {
-		return out, Unavailable
+		return out, providerUnavailable(ctx, "identity revocation response", errors.New("invalid revocation response document"))
 	}
 	if out.Incident != i.ID || out.Identity != i.ServiceIdentity || !out.SecretsRevoked || !out.CachesInvalidated || !text(out.Rotation, 256) || !text(out.Integrity, 256) {
-		return out, Unavailable
+		return out, providerUnavailable(ctx, "identity revocation response", errors.New("revocation acknowledgement does not bind completed secret and cache revocation"))
 	}
 	return out, nil
 }
@@ -273,6 +287,7 @@ func (i *PostgresIdentity) Wallet(ctx context.Context, actor, wallet string) err
 	}
 	err := i.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM "+i.identitySchema+"."+table+" WHERE account_id::text=$1 AND wallet=$2 AND chain_id=125 AND state='verified')", actor, wallet).Scan(&verified)
 	if err != nil {
+		slog.ErrorContext(ctx, "control wallet authority unavailable", "error", err)
 		return Unavailable
 	}
 	if !verified {
@@ -426,6 +441,7 @@ func (r *Runtime) Ready(ctx context.Context) error {
 		var admitted bool
 		err := role.pool.QueryRow(ctx, `SELECT current_user=$1 AND NOT (p.rolsuper OR p.rolcreatedb OR p.rolcreaterole OR p.rolbypassrls) AND NOT EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname=$2 AND pg_has_role(current_user,n.nspowner,'MEMBER')) FROM pg_roles p WHERE p.rolname=current_user`, role.name, role.schema).Scan(&admitted)
 		if err != nil {
+			slog.ErrorContext(ctx, "control role readiness unavailable", "role", role.name, "error", err)
 			return Unavailable
 		}
 		if !admitted {
@@ -439,6 +455,7 @@ func (r *Runtime) Ready(ctx context.Context) error {
 	var narrowed bool
 	err := r.config.IdentityPool.QueryRow(ctx, `SELECT has_any_column_privilege(current_user,$1,'SELECT') AND has_any_column_privilege(current_user,$2,'SELECT') AND NOT (has_table_privilege(current_user,$3,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE') OR has_any_column_privilege(current_user,$3,'SELECT,INSERT,UPDATE'))`, r.Identity.identitySchema+".authority_credentials_v2", r.Identity.identitySchema+".identity_control_wallets_v2", r.Identity.schema+".authority_credentials").Scan(&narrowed)
 	if err != nil {
+		slog.ErrorContext(ctx, "control identity readiness unavailable", "error", err)
 		return Unavailable
 	}
 	if !narrowed {

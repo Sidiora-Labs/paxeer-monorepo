@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -87,9 +88,22 @@ func unavailable(w http.ResponseWriter) {
 	w.Header().Set("Retry-After", "10")
 	snapshotError(w, 503, "RANKING_UNAVAILABLE", "A completed ranking snapshot is temporarily unavailable.", 10, rankingGuidance{RetainLastResult: true})
 }
-func (h *Snapshots) visible(ctx context.Context, header ranker.Header, now time.Time) bool {
+func (h *Snapshots) visible(ctx context.Context, header ranker.Header) bool {
 	revision, observed, err := h.visibility.CurrentRankingRevision(ctx)
-	return err == nil && revision != "" && revision == header.Provenance.ModerationRevision && !observed.After(now) && now.Sub(observed) <= 60*time.Second && !observed.IsZero()
+	now := time.Now().UTC()
+	if err != nil {
+		slog.Error("ranking visibility read failed", "error", err)
+		return false
+	}
+	if revision == "" || revision != header.Provenance.ModerationRevision {
+		slog.Error("ranking visibility revision differs from snapshot")
+		return false
+	}
+	if observed.IsZero() || observed.After(now) || now.Sub(observed) > 60*time.Second {
+		slog.Error("ranking visibility observation outside snapshot read window")
+		return false
+	}
+	return true
 }
 func (h *Snapshots) page(w http.ResponseWriter, r *http.Request) {
 	category, err := snapshotCategory(chi.URLParam(r, "category"))
@@ -142,7 +156,12 @@ func (h *Snapshots) page(w http.ResponseWriter, r *http.Request) {
 	} else {
 		header, err = h.store.Current(ctx, category)
 	}
-	if err != nil || !h.visible(ctx, header, now) {
+	if err != nil {
+		slog.Error("ranking header read failed", "category", category, "error", err)
+		unavailable(w)
+		return
+	}
+	if !h.visible(ctx, header) {
 		unavailable(w)
 		return
 	}
@@ -157,6 +176,7 @@ func (h *Snapshots) page(w http.ResponseWriter, r *http.Request) {
 	if !cached {
 		page, err = h.store.Page(ctx, header, offset, limit)
 		if err != nil {
+			slog.Error("ranking page read failed", "category", category, "error", err)
 			unavailable(w)
 			return
 		}
@@ -181,6 +201,7 @@ func (h *Snapshots) page(w http.ResponseWriter, r *http.Request) {
 	}
 	snapshot, e := store.WireSnapshot(header, page.Items)
 	if e != nil {
+		slog.Error("ranking snapshot encoding failed", "category", category, "error", e)
 		unavailable(w)
 		return
 	}
@@ -188,6 +209,7 @@ func (h *Snapshots) page(w http.ResponseWriter, r *http.Request) {
 	if offset+int64(len(page.Items)) < header.Total && now.Unix() < header.CutoffTime+900 && len(page.Items) > 0 {
 		cursor, e := h.cursor.EncodePage(header, page.Items[len(page.Items)-1])
 		if e != nil {
+			slog.Error("ranking cursor encoding failed", "category", category, "error", e)
 			unavailable(w)
 			return
 		}
@@ -227,7 +249,12 @@ func (h *Snapshots) inspect(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 	header, err := h.store.Header(ctx, chi.URLParam(r, "runID"), category)
-	if err != nil || !h.visible(ctx, header, time.Now()) {
+	if err != nil {
+		slog.Error("ranking inspection read failed", "category", category, "error", err)
+		unavailable(w)
+		return
+	}
+	if !h.visible(ctx, header) {
 		unavailable(w)
 		return
 	}

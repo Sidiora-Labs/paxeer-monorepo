@@ -164,6 +164,7 @@ export class MetadataResponseTooLargeError extends RangeError {
 }
 export interface ClientConfig { baseUrl: string; timeoutMs?: number }
 export interface RequestOptions { signal?: AbortSignal }
+export interface UploadOptions extends RequestOptions { accessToken?: string }
 
 async function readBoundedBody(response: Response, limitBytes: number): Promise<string> {
   const declaredLength = response.headers.get('content-length');
@@ -254,7 +255,7 @@ export function createMetadataClient(initial?: ClientConfig) {
         return result;
       }, METADATA_RESPONSE_LIMITS.batch);
     },
-    async uploadMetadata(tokenAddress: string, input: UploadRequest, options: RequestOptions = {}): Promise<UploadResponse> {
+    async uploadMetadata(tokenAddress: string, input: UploadRequest, options: UploadOptions = {}): Promise<UploadResponse> {
       const token = address(tokenAddress);
       const wallet = address(input.wallet);
       if (!input.signature || !input.message) throw new TypeError('Signature and message are required');
@@ -265,7 +266,8 @@ export function createMetadataClient(initial?: ClientConfig) {
       if (input.metadata !== undefined) body.append('metadata', JSON.stringify(input.metadata));
       if (input.logo) body.append('logo', input.logo, 'logo');
       if (input.banner) body.append('banner', input.banner, 'banner');
-      const result = await request<UploadResponse>(`/metadata/${token}`, { method: 'POST', body, signal: options.signal }, parseUpload, METADATA_RESPONSE_LIMITS.upload);
+      const headers = options.accessToken === undefined ? undefined : { Authorization: `Bearer ${options.accessToken}` };
+      const result = await request<UploadResponse>(`/metadata/${token}`, { method: 'POST', body, headers, redirect: 'error', signal: options.signal }, parseUpload, METADATA_RESPONSE_LIMITS.upload);
       if (!result.success) throw new MetadataUploadError(result);
       return result;
     },

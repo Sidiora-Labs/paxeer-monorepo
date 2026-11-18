@@ -43,21 +43,22 @@ describe('getNativePrice', () => {
 });
 
 describe('TokensTableItem', () => {
-  it('lays the token out over the seven market columns', () => {
+  it('lays the token out over the reported market columns', () => {
     const { container } = renderItem(tokenMock.tokenInfo);
 
-    expect(container.querySelectorAll('[data-token-row] td')).toHaveLength(7);
+    expect(container.querySelectorAll('[data-token-row] td')).toHaveLength(6);
     expect(container.querySelector('[data-token-rank]')?.textContent).toBe('1');
     expect(container.querySelector('[data-token-holders]')?.textContent).toBe('46,554');
   });
 
-  it('dashes the change and the volume the payload does not carry', () => {
+  it('omits the change and dashes the volume the payload does not carry', () => {
     const { container } = renderItem(tokenMock.tokenInfo);
 
     const placeholders = Array.from(container.querySelectorAll('[data-token-value-placeholder]'));
 
-    expect(placeholders).toHaveLength(2);
-    expect(placeholders.map((item) => item.textContent)).toEqual([ TOKEN_VALUE_PLACEHOLDER, TOKEN_VALUE_PLACEHOLDER ]);
+    expect(placeholders).toHaveLength(1);
+    expect(container.querySelector('[data-market-field="change"]')).toBeNull();
+    expect(placeholders.map((item) => item.textContent)).toEqual([ TOKEN_VALUE_PLACEHOLDER ]);
   });
 
   it('uses only the API price even when a native coin price is available', () => {

@@ -28,7 +28,8 @@ const answers = new Map(await Promise.all(answerNames.map(async name =>
 const returning = await readFile(new URL('returning.js', directory));
 const loading = await readFile(new URL('loading.js', directory));
 const surface = JSON.parse(await readFile(new URL('./parts/explore.json', import.meta.url), 'utf8'));
-const loadingPaths = new Set(surface.views.filter(view => {
+const rewardsSurface = JSON.parse(await readFile(new URL('./parts/rewards.json', import.meta.url), 'utf8'));
+const loadingPaths = new Set([...surface.views, ...rewardsSurface.views].filter(view => {
   const url = new URL(view.path, origin);
   return url.searchParams.get('render') === 'loading';
 }).map(view => view.path));

@@ -2,6 +2,7 @@ import { Box, createListCollection } from '@chakra-ui/react';
 import { useRouter } from 'next/router';
 import React from 'react';
 
+import type * as multichain from '@blockscout/multichain-aggregator-types';
 import type { ChainMetricsSorting, ChainMetricsSortingField, ChainMetricsSortingValue } from 'types/client/multichainAggregator';
 
 import multichainConfig from 'configs/multichain';
@@ -22,16 +23,26 @@ const sortCollection = createListCollection({
   items: SORT_OPTIONS,
 });
 
-const MultichainEcosystems = () => {
+export type InitialChainMetrics =
+  { status: 'success'; data: multichain.ListChainMetricsResponse } |
+  { status: 'error' };
+
+interface Props {
+  initialMetrics?: InitialChainMetrics;
+}
+
+const MultichainEcosystems = ({ initialMetrics }: Props) => {
   const router = useRouter();
 
+  const initialSort = getSortValueFromQuery<ChainMetricsSortingValue>(router.query, SORT_OPTIONS) ?? 'default';
   const [ sort, setSort ] =
-  React.useState<ChainMetricsSortingValue>(getSortValueFromQuery<ChainMetricsSortingValue>(router.query, SORT_OPTIONS) ?? 'default');
+  React.useState<ChainMetricsSortingValue>(initialSort);
 
   const { data, isError, isPlaceholderData } = useApiQuery('multichainAggregator:chain_metrics', {
     queryParams: getSortParamsFromValue<ChainMetricsSortingValue, ChainMetricsSortingField, ChainMetricsSorting['order']>(sort),
     queryOptions: {
-      placeholderData: { items: Array(10).fill(CHAIN_METRICS) },
+      initialData: sort === initialSort && initialMetrics?.status === 'success' ? initialMetrics.data : undefined,
+      placeholderData: (previousData) => previousData ?? { items: Array(10).fill(CHAIN_METRICS) },
     },
   });
 
@@ -43,7 +54,15 @@ const MultichainEcosystems = () => {
 
   const content = data?.items ? (
     <>
-      <Box hideBelow="lg">
+      <Box
+        hideBelow="lg"
+        overflowX="auto"
+        maxW="100%"
+        role="region"
+        aria-label="Ecosystem metrics"
+        tabIndex={ 0 }
+        _focusVisible={{ outline: 'var(--chakra-border-widths-2) solid', outlineColor: 'focusRing', outlineOffset: 'var(--chakra-border-widths-2)' }}
+      >
         <MultichainEcosystemsTable
           data={ data.items }
           sort={ sort }
@@ -80,7 +99,7 @@ const MultichainEcosystems = () => {
         withTextAd
       />
       <DataListDisplay
-        isError={ isError }
+        isError={ isError || (initialMetrics?.status === 'error' && isPlaceholderData) }
         itemsNum={ data?.items.length }
         emptyText="There are no chains in the cluster."
       >

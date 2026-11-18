@@ -81,7 +81,7 @@ export default function ProfileHeader({ wallet, displayName, bio, avatarUrl, ban
       <div className="flex flex-col gap-3 px-4 pt-2 md:px-5">
         <div className="flex min-w-0 flex-col gap-0.5 [&>*]:max-w-full">
           <h1 className="truncate text-lg font-bold text-text" title={named ? name : wallet}>
-            {loading ? <Skeleton width={surfaceSpacing(45)} className="h-[1lh]" /> : name}
+            {loading ? <><span className="sr-only">Profile</span><Skeleton width={surfaceSpacing(45)} className="h-[1lh]" /></> : name}
           </h1>
           <ShortAddress address={wallet} head={4} tail={4} explorerHref={`https://paxscan.paxeer.app/address/${wallet}`} className="self-start text-xs text-text-faint" />
         </div>

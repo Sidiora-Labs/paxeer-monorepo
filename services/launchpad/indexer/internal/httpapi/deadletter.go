@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -22,6 +23,7 @@ import (
 // without requiring the indexer module to import a sibling module. DB is the
 // durable operator journal/quarantine database, never the compatibility queue.
 type AuditedDeadLetters struct {
+	Logger                                                  *slog.Logger
 	DB                                                      sqlcdb.DBTX
 	Verifier                                                auth.ServiceAssertionVerifier
 	DeliverySchema, SecuritySchema, Audience, PolicyVersion string
@@ -55,6 +57,7 @@ func (d AuditedDeadLetters) serve(w http.ResponseWriter, r *http.Request, scope 
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 	if d.DB == nil || !operationalSchema.MatchString(d.DeliverySchema) || !operationalSchema.MatchString(d.SecuritySchema) || d.Audience == "" || d.Verifier.Audience != d.Audience || d.PolicyVersion == "" {
+		logOperationalFailure(ctx, d.Logger, "deadLetterPolicy", errors.New("dead-letter policy unavailable"))
 		http.Error(w, "dead-letter policy unavailable", http.StatusServiceUnavailable)
 		return
 	}
@@ -67,6 +70,7 @@ func (d AuditedDeadLetters) serve(w http.ResponseWriter, r *http.Request, scope 
 		var scopes []string
 		err := d.DB.QueryRow(ctx, "SELECT actor,audience,issued_at,expires_at,mfa_expires_at,scopes FROM "+pgx.Identifier{d.SecuritySchema, "operator_session_authority_v1"}.Sanitize()+" WHERE session_id=$1 AND wallet=$2 AND NOT revoked AND expires_at>clock_timestamp()", principal.SessionID, principal.Wallet).Scan(&actor, &audience, &issued, &expires, &mfa, &scopes)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			logOperationalFailure(ctx, d.Logger, "deadLetterAuthorization", err)
 			http.Error(w, "authorization unavailable", http.StatusServiceUnavailable)
 			return
 		}
@@ -89,6 +93,7 @@ func (d AuditedDeadLetters) serve(w http.ResponseWriter, r *http.Request, scope 
 	}
 	_, err := d.DB.Exec(ctx, "SELECT "+pgx.Identifier{d.SecuritySchema, "record_authorization_decision_v1"}.Sanitize()+"($1,$2,$3,$4,$5)", actor, scope, requestID, d.PolicyVersion, allowed)
 	if err != nil {
+		logOperationalFailure(ctx, d.Logger, "deadLetterAudit", err)
 		http.Error(w, "audit unavailable", http.StatusServiceUnavailable)
 		return
 	}
@@ -134,6 +139,7 @@ func (d AuditedDeadLetters) inspect(ctx context.Context, w http.ResponseWriter, 
 	}
 	rows, err := d.DB.Query(ctx, "SELECT consumer_id,projection_generation,envelope_hash,failure_class,created_at FROM "+pgx.Identifier{d.DeliverySchema, "delivery_quarantine"}.Sanitize()+" WHERE (envelope_hash,consumer_id,projection_generation)>($1,$2,$3) ORDER BY envelope_hash,consumer_id,projection_generation LIMIT $4", cursor.EnvelopeHash, cursor.Consumer, cursor.Generation, limit)
 	if err != nil {
+		logOperationalFailure(ctx, d.Logger, "deadLetterInspection", err)
 		http.Error(w, "inspection unavailable", http.StatusServiceUnavailable)
 		return
 	}
@@ -141,7 +147,13 @@ func (d AuditedDeadLetters) inspect(ctx context.Context, w http.ResponseWriter, 
 	entries := []deadLetterMetadata{}
 	for rows.Next() {
 		var entry deadLetterMetadata
-		if rows.Scan(&entry.Consumer, &entry.Generation, &entry.EnvelopeHash, &entry.FailureClass, &entry.Created) != nil || !operationalDigest.MatchString(entry.EnvelopeHash) || len(entry.Consumer) > 128 || len(entry.Generation) > 128 {
+		if err := rows.Scan(&entry.Consumer, &entry.Generation, &entry.EnvelopeHash, &entry.FailureClass, &entry.Created); err != nil {
+			logOperationalFailure(ctx, d.Logger, "deadLetterInspection", err)
+			http.Error(w, "inspection unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		if !operationalDigest.MatchString(entry.EnvelopeHash) || len(entry.Consumer) > 128 || len(entry.Generation) > 128 {
+			logOperationalFailure(ctx, d.Logger, "deadLetterInspection", errors.New("invalid quarantine metadata"))
 			http.Error(w, "inspection unavailable", http.StatusServiceUnavailable)
 			return
 		}
@@ -152,7 +164,8 @@ func (d AuditedDeadLetters) inspect(ctx context.Context, w http.ResponseWriter, 
 		}
 		entries = append(entries, entry)
 	}
-	if rows.Err() != nil {
+	if err := rows.Err(); err != nil {
+		logOperationalFailure(ctx, d.Logger, "deadLetterInspection", err)
 		http.Error(w, "inspection unavailable", http.StatusServiceUnavailable)
 		return
 	}

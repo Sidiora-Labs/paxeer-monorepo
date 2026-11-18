@@ -43,6 +43,9 @@ func statsFailure(w http.ResponseWriter, err error) {
 	if errors.Is(err, ErrNotFound) {
 		status, code = 404, "pool_not_found"
 	}
+	if status >= 500 {
+		slog.Error("canonical statistics request failed", "error", err)
+	}
 	statsResponse(w, status, map[string]any{"error": map[string]string{"code": code}})
 }
 func (h PublicHandlers) trades(w http.ResponseWriter, r *http.Request) {

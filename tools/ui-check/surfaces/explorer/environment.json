@@ -25,5 +25,10 @@
   "NEXT_PUBLIC_FONT_FAMILY_BODY": "{\"name\": \"Inter, InterFallback\", \"url\": \"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap\"}",
   "NEXT_PUBLIC_HOMEPAGE_CHARTS": "[\"daily_txs\"]",
   "NEXT_PUBLIC_PROMOTE_BLOCKSCOUT_IN_TITLE": "false",
-  "NEXT_PUBLIC_API_SPEC_URL": "https://explorer.example.test/openapi.yaml"
+  "NEXT_PUBLIC_API_SPEC_URL": "https://explorer.example.test/openapi.yaml",
+  "NEXT_PUBLIC_ZETACHAIN_SERVICE_API_HOST": "http://localhost:4173",
+  "NEXT_PUBLIC_MULTICHAIN_AGGREGATOR_API_HOST": "http://localhost:4173",
+  "NEXT_PUBLIC_MULTICHAIN_CLUSTER": "render",
+  "NEXT_PUBLIC_VISUALIZE_API_HOST": "https://explorer.example.test",
+  "NEXT_PUBLIC_STATS_API_HOST": "http://localhost:4173"
 }

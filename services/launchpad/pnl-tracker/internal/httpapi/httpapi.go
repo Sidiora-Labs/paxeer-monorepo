@@ -10,6 +10,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -70,6 +71,7 @@ func cachedJSON(w http.ResponseWriter, r *http.Request, rdb *goredis.Client, key
 	}
 	val, err := compute(ctx)
 	if err != nil {
+		slog.ErrorContext(r.Context(), "lookup failed", slog.Any("err", err))
 		sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "lookup failed")
 		return
 	}

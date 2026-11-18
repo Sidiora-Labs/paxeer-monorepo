@@ -81,10 +81,11 @@ const toneClass: Record<ChipTone, string> = {
 
 function ChipLink({ chip, hidden }: { chip: TickerChip; hidden: boolean }) {
   return (
-    <Link prefetch={false}
+    <Link
+      prefetch={false}
       href={chip.href}
       tabIndex={hidden ? -1 : undefined}
-      className="flex min-h-touch-target-min shrink-0 items-center py-1 gap-1.5 rounded-pill bg-surface-1 pl-0.5 pr-2 text-xs transition-colors duration-fast hover:bg-surface-hover"
+      className="flex min-h-6 shrink-0 items-center gap-1.5 rounded-pill bg-surface-1 pl-0.5 pr-2 text-xs transition-colors duration-fast hover:bg-surface-hover"
     >
       <Avatar src={chip.image} name={chip.label} size="xs" shape={chip.avatarShape} decorative />
       <span className="max-w-48 truncate font-bold text-text">{chip.label}</span>
@@ -98,7 +99,7 @@ function ChipLink({ chip, hidden }: { chip: TickerChip; hidden: boolean }) {
 }
 
 /**
- * How many copies of the chip list the strip renders. The list is shown once
+ * How many copies of the chip list the strip shows. The list is shown once
  * when it fits (or holds a single entry): no animation, no repeated chips. Only
  * a list wider than the strip scrolls, and a seamless loop then needs exactly one
  * trailing copy (the keyframes translate by -50%), so no chip ever appears more
@@ -133,13 +134,14 @@ function Marquee({ chips, mode }: { chips: TickerChip[]; mode: TickerModeConfig 
 
   return (
     <div className="flex min-h-full min-w-0 items-center gap-1">
-      {scrolling ? (
+      {chips.length > 1 ? (
         <button
           type="button"
+          hidden={!scrolling}
           aria-label={paused ? 'Resume ticker' : 'Pause ticker'}
           aria-pressed={paused}
           onClick={() => setPaused((value) => !value)}
-          className="flex size-touch-target-min shrink-0 items-center justify-center rounded-sm bg-surface-1 text-text hover:bg-surface-hover"
+          className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-surface-1 text-text hover:bg-surface-hover"
         >
           {paused ? (
             <Play aria-hidden="true" className="size-icon-sm" />
@@ -158,9 +160,10 @@ function Marquee({ chips, mode }: { chips: TickerChip[]; mode: TickerModeConfig 
         <p className="sr-only">
           {mode.label}, {chips.length} {chips.length === 1 ? 'entry' : 'entries'}.
         </p>
-        <Link prefetch={false}
+        <Link
+          prefetch={false}
           href={mode.href}
-          className="inline-flex min-h-touch-target-min shrink-0 items-center rounded-sm px-2 text-xs text-text-muted hover:bg-surface-hover hover:text-text"
+          className="inline-flex min-h-6 shrink-0 items-center rounded-sm px-2 text-xs text-text-muted hover:bg-surface-hover hover:text-text"
         >
           Open {mode.label.toLowerCase()}
         </Link>
@@ -169,10 +172,11 @@ function Marquee({ chips, mode }: { chips: TickerChip[]; mode: TickerModeConfig 
           className={cn('flex h-full w-max items-center', scrolling && !paused && 'sl-marquee')}
           aria-live="off"
         >
-          {Array.from({ length: paused ? 1 : copies }).map((_, index) => (
+          {Array.from({ length: chips.length > 1 ? 2 : 1 }).map((_, index) => (
             <ul
               key={index}
               ref={index === 0 ? firstSet : undefined}
+              hidden={index > 0 && (paused || !scrolling)}
               aria-hidden={index > 0 || undefined}
               className="flex items-center gap-1 pr-1"
             >
@@ -230,13 +234,14 @@ function FeedView({ feed, mode }: { feed: TickerFeed; mode: TickerModeConfig }) 
         <button
           type="button"
           onClick={() => openAuthModal('ticker-holdings')}
-          className="flex min-h-touch-target-min items-center py-1 rounded-pill bg-surface-1 px-3 text-xs font-bold text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text"
+          className="flex min-h-6 items-center rounded-pill bg-surface-1 px-3 text-xs font-bold text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text"
         >
           {feed.prompt}
         </button>
       );
     case 'ready':
       if (feed.chips.length === 0) {
+        if (feed.emptyText === null) return null;
         return (
           // Only the message may truncate; the open link never shrinks. Narrow screens get the short message.
           <p
@@ -247,9 +252,10 @@ function FeedView({ feed, mode }: { feed: TickerFeed; mode: TickerModeConfig }) 
               <span className="sm:hidden">{feed.emptyShort ?? feed.emptyText}</span>
               <span className="hidden sm:inline">{feed.emptyText}</span>
             </span>
-            <Link prefetch={false}
+            <Link
+              prefetch={false}
               href={mode.href}
-              className="inline-flex min-h-touch-target-min shrink-0 items-center whitespace-nowrap font-bold text-text-muted hover:text-text"
+              className="inline-flex min-h-6 shrink-0 items-center whitespace-nowrap font-bold text-text-muted hover:text-text"
             >
               Open {mode.label.toLowerCase()}
             </Link>
@@ -337,7 +343,7 @@ export default function TickerStrip() {
                 onClick={() => select(entry.id)}
                 onKeyDown={(event) => onKeyDown(event, index)}
                 className={cn(
-                  'relative flex size-touch-target-min items-center justify-center rounded-sm text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text',
+                  'relative flex size-6 items-center justify-center rounded-sm text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text',
                   selected && 'bg-surface-3 text-text'
                 )}
               >

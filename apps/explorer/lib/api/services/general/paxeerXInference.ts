@@ -115,6 +115,14 @@ export const INFERENCE_SCHEMAS = {
   px_getInferenceReceipts: v.array(receiptSchema),
 };
 
+export type InferenceInactive = { state: 'not_active'; code: 'inference_program_not_configured' };
+
+export function isInferenceInactive(value: unknown): value is InferenceInactive {
+  return typeof value === 'object' && value !== null && !('result' in value) &&
+    'state' in value && value.state === 'not_active' &&
+    'code' in value && value.code === 'inference_program_not_configured';
+}
+
 export type InferenceMethod = keyof typeof INFERENCE_SCHEMAS;
 export type InferenceResults = { [M in InferenceMethod]: v.InferOutput<typeof INFERENCE_SCHEMAS[M]> };
 export type InferenceRoom = InferenceResults['px_getInferenceRoom'];
@@ -152,7 +160,15 @@ export function inferenceQueryKey(method: InferenceMethod, id?: string) {
   return [ 'paxeer-x-inference', method, id ?? null ] as const;
 }
 
-export async function paxeerXInference<M extends InferenceMethod>(method: M, id?: string, signal?: AbortSignal): Promise<InferenceResults[M]> {
+export function parseInferencePayload<M extends InferenceMethod>(method: M, payload: unknown): InferenceResults[M] | InferenceInactive {
+  if (isInferenceInactive(payload)) return { state: payload.state, code: payload.code };
+  if (typeof payload !== 'object' || payload === null || !('result' in payload)) throw new Error('Invalid inference response');
+  return parseInferenceResult(method, payload.result);
+}
+
+export async function paxeerXInference<M extends InferenceMethod>(
+  method: M, id?: string, signal?: AbortSignal,
+): Promise<InferenceResults[M] | InferenceInactive> {
   const resource = Object.values(GENERAL_API_PAXEER_X_INFERENCE_RESOURCES).find((entry) => entry.rpcMethod === method);
   if (!resource || (method !== 'px_getInferenceRooms' && !isInferenceId(id)) || (method === 'px_getInferenceRooms' && id !== undefined)) {
     throw new Error('Invalid inference request');
@@ -166,6 +182,5 @@ export async function paxeerXInference<M extends InferenceMethod>(method: M, id?
   });
   if (!response.ok) throw new Error('Inference data is unavailable. Please try again later.');
   const payload: unknown = await response.json();
-  if (typeof payload !== 'object' || payload === null || !('result' in payload)) throw new Error('Invalid inference response');
-  return parseInferenceResult(method, payload.result);
+  return parseInferencePayload(method, payload);
 }

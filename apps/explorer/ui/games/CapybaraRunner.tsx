@@ -11,6 +11,9 @@ const easterEggBadgeFeature = config.features.easterEggBadge;
 
 interface RunnerInstance extends EventListenerObject {
   canvas: HTMLCanvasElement | null;
+  activated: boolean;
+  distanceRan: number;
+  distanceMeter: { update: (deltaTime: number, distance: number) => void };
   stop: () => void;
 }
 
@@ -70,9 +73,15 @@ const CapybaraRunner = () => {
       container.addEventListener('mouseup', handlePointer);
       container.addEventListener('focusout', handleBlur);
     };
-    const observer = new MutationObserver(bindRunner);
-    observer.observe(container, { childList: true, subtree: true });
-    bindRunner();
+    const updateRunner = () => {
+      bindRunner();
+      if (runner && !runner.activated) {
+        runner.distanceMeter.update(0, Math.ceil(runner.distanceRan));
+      }
+    };
+    const observer = new MutationObserver(updateRunner);
+    observer.observe(container, { childList: true, subtree: true, attributes: true, attributeFilter: [ 'width', 'height' ] });
+    updateRunner();
     return () => {
       observer.disconnect();
       container.removeEventListener('keydown', handleKey);
@@ -87,7 +96,7 @@ const CapybaraRunner = () => {
   return (
     <>
       <Heading level="2" mt={ 12 } mb={ 2 }>Score 1000 to win a special prize!</Heading>
-      <Box mb={ 4 }>Tap the game or focus it and press Space to start</Box>
+      <Box mb={ 4 } textWrap="balance">Tap the game or focus it and press Space to start</Box>
       <Script strategy="lazyOnload" src="/explorer/static/capybara/index.js" onReady={ handleScriptReady }/>
       <Box
         ref={ gameRef }

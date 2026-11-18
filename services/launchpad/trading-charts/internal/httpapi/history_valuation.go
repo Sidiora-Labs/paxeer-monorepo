@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -117,7 +118,10 @@ func (s RPCSupplySource) At(ctx context.Context, token string, position interfac
 	blockHash := strings.ToLower(position.BlockHash)
 	address := common.HexToAddress(token)
 	values, err := s.Chain.CallAt(ctx, int64(height), blockHash, []ethereum.CallMsg{{To: &address, Data: []byte{0x18, 0x16, 0x0d, 0xdd}}, {To: &address, Data: []byte{0x31, 0x3c, 0xe5, 0x67}}})
-	if err != nil || len(values) != 2 || len(values[0]) != 32 || len(values[1]) != 32 {
+	if err != nil {
+		return result, fmt.Errorf("historical token supply read failed: %w", err)
+	}
+	if len(values) != 2 || len(values[0]) != 32 || len(values[1]) != 32 {
 		return result, errors.New("historical token supply read failed")
 	}
 	decimals := new(big.Int).SetBytes(values[1])

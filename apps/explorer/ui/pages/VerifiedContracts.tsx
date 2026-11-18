@@ -2,7 +2,6 @@ import { Box, createListCollection, HStack } from '@chakra-ui/react';
 import React from 'react';
 
 import config from 'configs/app';
-import useIsMobile from 'lib/hooks/useIsMobile';
 import ActionBar from 'ui/shared/ActionBar';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import Pagination from 'ui/shared/pagination/Pagination';
@@ -22,8 +21,6 @@ const sortCollection = createListCollection({
 });
 
 const VerifiedContracts = () => {
-  const isMobile = useIsMobile();
-
   const { query, type, searchTerm, debouncedSearchTerm, sort, onSearchTermChange, onTypeChange, onSortChange } = useVerifiedContractsQuery();
   const { isError, isPlaceholderData, data, pagination } = query;
 
@@ -62,15 +59,13 @@ const VerifiedContracts = () => {
         { sortButton }
         { filterInput }
       </HStack>
-      { (!isMobile || pagination.isVisible) && (
-        <ActionBar w="100%" mx={ 0 } px={ 0 } mt={ -6 }>
-          <HStack gap={ 3 } display={{ base: 'none', lg: 'flex' }} flexWrap="wrap" minW={ 0 }>
-            { typeFilter }
-            { filterInput }
-          </HStack>
-          <Pagination ml="auto" { ...pagination }/>
-        </ActionBar>
-      ) }
+      <ActionBar w="100%" mx={ 0 } px={ 0 } mt={ -6 }>
+        <HStack gap={ 3 } display={{ base: 'none', lg: 'flex' }} flexWrap="wrap" minW={ 0 }>
+          { typeFilter }
+          { filterInput }
+        </HStack>
+        <Pagination ml="auto" { ...pagination } reserveSpace/>
+      </ActionBar>
     </>
   );
 
@@ -101,6 +96,8 @@ const VerifiedContracts = () => {
           term: 'contract',
         }}
         actionBar={ actionBar }
+        showActionBarIfEmpty
+        showActionBarIfError
       >
         { content }
       </PageDataListDisplay>

@@ -166,7 +166,8 @@ func TestRealCreationAndRestart(t *testing.T) {
 	// The row peer retains the actual generated event's fields. No topic or
 	// event payload is constructed by this test.
 	row := store.DevelopmentPool{
-		Pool: strings.ToLower(event.Pool.Hex()), Token: strings.ToLower(event.Token.Hex()), Creator: strings.ToLower(event.Creator.Hex()), Optical: strings.ToLower(event.Optical.Hex()), PoolID: common.Hash(event.PoolId).Hex(),
+		HomeChain: "0",
+		Pool:      strings.ToLower(event.Pool.Hex()), Token: strings.ToLower(event.Token.Hex()), Creator: strings.ToLower(event.Creator.Hex()), Optical: strings.ToLower(event.Optical.Hex()), PoolID: common.Hash(event.PoolId).Hex(),
 		CreatedHeight: event.BlockNumber.Int64(), CreatedAt: event.Timestamp.Int64(), CreationTransaction: strings.ToLower(receipt.TxHash.Hex()),
 		FeeBps: &fee, Reserves: &store.PoolReserves{VirtualUsdl: "100000000000000000000000001", RealUsdl: "9999999999999999999999999", Token: "800000000000000000000000000"},
 	}
