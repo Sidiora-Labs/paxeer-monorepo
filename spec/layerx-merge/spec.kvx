@@ -208374,7 +208374,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.935]
 title = "Accept the web application behind its rewrite on the preflight routes of the production authority of the launchpad API, answer its route from the kept envelope and accept a recent committed head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
