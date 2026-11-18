@@ -208949,7 +208949,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.897]
 title = "Close the community flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
