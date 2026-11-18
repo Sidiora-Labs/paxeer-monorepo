@@ -13,12 +13,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"math/big"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -33,8 +31,9 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/ranker"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
-	shareddb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
+	v1 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v1"
 )
 
 const (
@@ -131,58 +130,6 @@ func writeBound(t *testing.T, path string, raw []byte) string {
 	return production.Checksum(raw)
 }
 
-// connectionBudget is the fleet connection budget document in the shape the
-// production renderer emits (one direct client per runtime role, a dedicated
-// migration allocation), targeting the private test database. Only the
-// rankingd client is opened; its user is the bootstrapped runtime role.
-func connectionBudget(t *testing.T, db internaltest.RuntimeDatabase, maxConnections int64) []byte {
-	t.Helper()
-	clients := []production.ClientBudget{}
-	for _, c := range []struct{ role, user, pool, class string }{
-		{"mediagatewayd", "identity_runtime", "gateway_identity", "interactive"},
-		{"userd", "users_runtime", "userd_primary", "interactive"},
-		{"metadatad", "metadata_runtime", "metadata_primary", "interactive"},
-		{"sociald", "chat_runtime", "social_primary", "interactive"},
-		{"livestreamd", "livestream_runtime", "livestream_primary", "interactive"},
-		{"pnld", "pnl_runtime", "pnl_batch", "batch"},
-		{"apid:rest", "api_rest_runtime", "api_rest", "interactive"},
-		{"apid:sockets", "api_sockets_runtime", "api_sockets", "interactive"},
-		{"statsd", "stats_runtime", "stats_batch", "batch"},
-		{"chartsd", "candles_runtime", "charts_batch", "batch"},
-		{"rankingd", db.RuntimeRole, "ranking_batch", "batch"},
-		{"indexerd", "indexer_runtime", "indexer_primary", "batch"},
-	} {
-		clients = append(clients, production.ClientBudget{Role: c.role, PoolID: c.pool, Target: "fixture_pg", Transport: shareddb.TransportDirect, Alias: db.Database, User: c.user, QueryClass: shareddb.QueryClass(c.class), Processes: production.LiveProcesses{Replicas: 1, Surge: 1, Maximum: 2}, MaxConnections: 3})
-	}
-	budget := production.ConnectionBudget{
-		Identity: "ranking_app_test",
-		Targets:  []production.PostgresTarget{{ID: "fixture_pg", Member: "fixture_pg_primary", Host: db.Host, Port: db.Port, MaxConnections: maxConnections}},
-		Poolers:  []production.PoolerBudget{}, Clients: clients,
-		Operational: []production.OperationalBudget{{ID: "migration", Target: "fixture_pg", Category: "migration", Connections: 2}},
-	}
-	raw, err := json.Marshal(budget)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = production.ParseConnectionBudget(raw); err != nil {
-		t.Fatalf("connection budget: %v", err)
-	}
-	return raw
-}
-
-func freePort(t *testing.T) int {
-	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	port := l.Addr().(*net.TCPAddr).Port
-	if err = l.Close(); err != nil {
-		t.Fatal(err)
-	}
-	return port
-}
-
 func contractEnv(t *testing.T) {
 	t.Helper()
 	// Contract addresses must equal the reviewed chain-125 deployment manifest
@@ -205,7 +152,7 @@ func contractEnv(t *testing.T) {
 }
 
 // TestNewServesAndRanks boots rankingd on its production native path
-// (NODE_ENV=production, owned_local profile): the bound connection budget
+// (NODE_ENV=production, container profile): the bound connection budget
 // admits the pool, the bound ExpectedSchema is checked against the actual
 // catalog as the least-privilege runtime role, the bound runtime document
 // supplies the mTLS perimeter, and the HTTPS listener enforces the pinned
@@ -252,11 +199,6 @@ func TestNewServesAndRanks(t *testing.T) {
 		ServerCertFile: filepath.Join(dir, "server.pem"), ServerCertSHA256: pins["server.pem"], ServerKeyReference: "RANKING_SERVER_KEY_PEM",
 		MaxAttempts: 10, MaximumReads: 16,
 	}
-	runtimeDoc, err := json.Marshal(binding)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	admin, err := pgx.Connect(ctx, db.AdminDSN)
 	if err != nil {
 		t.Fatal(err)
@@ -267,8 +209,7 @@ func TestNewServesAndRanks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	port := freePort(t)
-	privatePort := freePort(t)
+	port, privatePort := 8080, 8443
 	contractEnv(t)
 	for k, v := range map[string]string{
 		"NODE_ENV":                       "production",
@@ -285,14 +226,8 @@ func TestNewServesAndRanks(t *testing.T) {
 		"REDIS_URL":                      redisURL,
 		"REDIS_BULL_URL":                 redisURL,
 		"RPC_URL":                        "https://rpc.example.com/rpc",
-		"DB_BUDGET_FILE":                 filepath.Join(dir, "db-budget.json"),
-		"DB_BUDGET_SHA256":               writeBound(t, filepath.Join(dir, "db-budget.json"), connectionBudget(t, db, maxConnections)),
 		"DB_POOL_ID":                     "ranking_batch",
 		"INSTANCE_ID":                    "ranking-test-1",
-		"EXPECTED_SCHEMA_FILE":           filepath.Join(dir, "expected-schema.json"),
-		"EXPECTED_SCHEMA_SHA256":         writeBound(t, filepath.Join(dir, "expected-schema.json"), db.ExpectedSchema),
-		"RANKING_RUNTIME_FILE":           filepath.Join(dir, "ranking-runtime.json"),
-		"RANKING_RUNTIME_SHA256":         writeBound(t, filepath.Join(dir, "ranking-runtime.json"), runtimeDoc),
 		"RANKING_TICK_INTERVAL_MS":       "30000",
 		"RANKING_NEW_TICK_INTERVAL_MS":   "10000",
 		"RANKING_CLIENT_KEY_PEM":         string(clientKey),
@@ -301,6 +236,10 @@ func TestNewServesAndRanks(t *testing.T) {
 	} {
 		t.Setenv(k, v)
 	}
+
+	composeStartup(t, db, binding, maxConnections)
+	provisionStartupBroker(t)
+	binary := startupBinary(t)
 
 	// The bound documents are refused when their pins differ.
 	t.Run("bound documents", func(t *testing.T) {
@@ -354,33 +293,23 @@ func TestNewServesAndRanks(t *testing.T) {
 				if instance, err := New(ctx, cfg, quietLogger()); err == nil {
 					instance.Close()
 					t.Fatal("invalid runtime binding accepted")
+				} else {
+					reference := map[string]string{"client key": changed.ClientKeyReference, "server key": changed.ServerKeyReference, "cursor secret": changed.CursorKeyReference}[tc.name]
+					if reference != "" && !strings.Contains(err.Error(), reference) {
+						t.Fatalf("missing secret diagnostic does not name its reference: %v", err)
+					}
 				}
 			})
 		}
 	})
 
-	runCtx, stop := context.WithCancel(ctx)
-	done := make(chan error, 1)
-	go func() { done <- Run(runCtx) }()
-	stopped := false
-	shutdown := func() error {
-		if stopped {
-			return nil
-		}
-		stopped = true
-		stop()
-		select {
-		case err := <-done:
-			return err
-		case <-time.After(45 * time.Second):
-			return errors.New("rankingd did not shut down")
-		}
-	}
-	defer func() { _ = shutdown() }()
+	process := startRankingProcess(t, binary)
+	shutdown := process.stop
 
 	roots := x509.NewCertPool()
 	roots.AddCert(pki.caCert)
-	base := fmt.Sprintf("https://127.0.0.1:%d", port)
+	base := fmt.Sprintf("https://127.0.0.1:%d", privatePort)
+	healthBase := fmt.Sprintf("http://127.0.0.1:%d", port)
 	httpsClient := func(identity *leaf) *http.Client {
 		cfg := &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: roots, ServerName: rankingDNS}
 		if identity != nil {
@@ -407,9 +336,8 @@ func TestNewServesAndRanks(t *testing.T) {
 	deadline := time.Now().Add(30 * time.Second)
 	for {
 		select {
-		case err := <-done:
-			stopped = true
-			t.Fatalf("rankingd exited during startup: %v", err)
+		case <-process.done:
+			t.Fatalf("rankingd exited during startup: %v", process.err)
 		default:
 		}
 		resp, err := observerClient.Get(base + "/health/live") //nolint:noctx // bounded client timeout
@@ -423,6 +351,24 @@ func TestNewServesAndRanks(t *testing.T) {
 			t.Fatalf("rankingd listener not live: %v", err)
 		}
 		time.Sleep(100 * time.Millisecond)
+	}
+	healthClient := &http.Client{Timeout: 5 * time.Second}
+	defer healthClient.CloseIdleConnections()
+	for _, path := range []string{"/health/live", "/health/ready", "/rankings/trending"} {
+		response, err := healthClient.Get(healthBase + path)
+		if err != nil {
+			t.Fatalf("plain health listener GET %s: %v", path, err)
+		}
+		response.Body.Close()
+		want := http.StatusOK
+		if path == "/health/ready" {
+			want = http.StatusServiceUnavailable
+		} else if path == "/rankings/trending" {
+			want = http.StatusNotFound
+		}
+		if response.StatusCode != want {
+			t.Fatalf("plain health listener %s = %d, want %d", path, response.StatusCode, want)
+		}
 	}
 
 	// mTLS is mandatory: no client certificate, no connection.
@@ -456,6 +402,7 @@ func TestNewServesAndRanks(t *testing.T) {
 		}
 	})
 
+	var retained v1.RankingsResponse
 	t.Run("publishes and becomes ready", func(t *testing.T) {
 		if peer == nil || peer.URL == "" {
 			t.Fatal("publication qualification requires the loopback social mTLS peer")
@@ -494,13 +441,47 @@ func TestNewServesAndRanks(t *testing.T) {
 				t.Fatalf("%s = %d %v", category, code, body)
 			}
 		}
-		response, err := gatewayClient.Get(base + "/internal/v2/rankings/inputs") //nolint:noctx // bounded client timeout
+		response, err := gatewayClient.Get(base + "/rankings/new")
+		if err != nil {
+			t.Fatal(err)
+		}
+		decodeErr := json.NewDecoder(response.Body).Decode(&retained)
+		closeErr := response.Body.Close()
+		if decodeErr != nil || closeErr != nil || response.StatusCode != http.StatusOK || retained.Data.Snapshot.SnapshotId == "" || retained.Revision == nil || retained.Quality != "complete" {
+			t.Fatalf("new snapshot: status %d, decode %v, close %v", response.StatusCode, decodeErr, closeErr)
+		}
+		for _, category := range ranker.Categories {
+			deadline := time.Now().Add(5 * time.Second)
+			for {
+				var raw []byte
+				err := admin.QueryRow(ctx, `SELECT frame FROM api_stream.stream_projection WHERE topic=$1`, "market.rankings."+category).Scan(&raw)
+				if err == nil {
+					frame, err := delivery.ParseCommittedStreamFrame(raw)
+					if err != nil || frame.Topic != "market.rankings."+category {
+						t.Fatalf("committed %s frame: %v", category, err)
+					}
+					var snapshot v1.RankingSnapshot
+					if err = json.Unmarshal(frame.Payload, &snapshot); err != nil || snapshot.Category != category || snapshot.Items == nil {
+						t.Fatalf("committed %s snapshot: %v", category, err)
+					}
+					if category == "new" && (snapshot.SnapshotId != retained.Data.Snapshot.SnapshotId || snapshot.TotalEligible != retained.Data.Snapshot.TotalEligible || frame.Revision != string(*retained.Revision)) {
+						t.Fatal("committed new snapshot differs from the HTTP response")
+					}
+					break
+				}
+				if err != pgx.ErrNoRows || time.Now().After(deadline) {
+					t.Fatalf("committed %s frame not available: %v", category, err)
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+		}
+		response, err = gatewayClient.Get(base + "/internal/v2/rankings/inputs") //nolint:noctx // bounded client timeout
 		if err != nil {
 			t.Fatal(err)
 		}
 		var input ranker.InputSnapshot
-		decodeErr := json.NewDecoder(response.Body).Decode(&input)
-		closeErr := response.Body.Close()
+		decodeErr = json.NewDecoder(response.Body).Decode(&input)
+		closeErr = response.Body.Close()
 		if decodeErr != nil || closeErr != nil || response.StatusCode != http.StatusOK || response.Header.Get("Cache-Control") != "no-store" || !input.Complete || len(input.Candidates) != 1 {
 			t.Fatalf("complete ranking inputs: status %d, input %+v, decode %v, close %v", response.StatusCode, input, decodeErr, closeErr)
 		}
@@ -508,6 +489,37 @@ func TestNewServesAndRanks(t *testing.T) {
 
 	if err := shutdown(); err != nil {
 		t.Fatalf("shutdown: %v", err)
+	}
+	gatewayClient.CloseIdleConnections()
+	observerClient.CloseIdleConnections()
+	process = startRankingProcess(t, binary)
+	deadline = time.Now().Add(30 * time.Second)
+	for {
+		select {
+		case <-process.done:
+			t.Fatalf("rankingd exited during restart: %v", process.err)
+		default:
+		}
+		response, err := healthClient.Get(healthBase + "/health/ready")
+		if err == nil {
+			response.Body.Close()
+			if response.StatusCode == http.StatusOK {
+				break
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("rankingd not ready after restart: %v", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if code, body := get(gatewayClient, "/rankings/runs/"+retained.Data.Snapshot.SnapshotId+"/new"); code != http.StatusOK || body["runId"] != retained.Data.Snapshot.SnapshotId {
+		t.Fatalf("retained snapshot after restart = %d %v", code, body)
+	}
+	if code, body := get(gatewayClient, "/rankings/new"); code != http.StatusOK {
+		t.Fatalf("current snapshot after restart = %d %v", code, body)
+	}
+	if err := process.stop(); err != nil {
+		t.Fatalf("shutdown restarted process: %v", err)
 	}
 }
 

@@ -1091,6 +1091,56 @@ async function tallFocusKeepsItsStartingEdgeVisible() {
 }
 test(tallFocusKeepsItsStartingEdgeVisible);
 
+async function transparentControlRevealsItsKeyboardFocus() {
+  const { result } = await execute("transparent-focus");
+  assertMatrix(result);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.deepEqual(result.findings, []);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#control"]);
+    assert.deepEqual(render.findings, []);
+  }
+}
+test(transparentControlRevealsItsKeyboardFocus);
+
+async function transparentControlWithoutVisibleFocusKeepsOneFinding() {
+  const { result } = await execute("transparent-focus", {
+    views: [{ name: "unmarked", path: "/transparent-focus.html?unmarked" }],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 4);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#control"]);
+    assert.equal(render.findings.length, 1);
+    const finding = render.findings[0];
+    assert.equal(finding.kind, "focus");
+    assert.equal(finding.selector, "#control");
+    assert.equal(finding.values.visibleChange, false);
+    assert.equal(finding.values.outside, false);
+  }
+}
+test(transparentControlWithoutVisibleFocusKeepsOneFinding);
+
+async function visibleControlWithoutFocusMarkKeepsOneFinding() {
+  const { result } = await execute("transparent-focus", {
+    views: [{ name: "visible", path: "/transparent-focus.html?visible&unmarked" }],
+  });
+  assertMatrix(result);
+  assert.equal(result.passed, false);
+  assert.equal(result.findings.length, 4);
+  for (const render of result.renders.filter((entry) => entry.mode === "keyboard")) {
+    assert.deepEqual(render.focused, ["#control"]);
+    assert.equal(render.findings.length, 1);
+    const finding = render.findings[0];
+    assert.equal(finding.kind, "focus");
+    assert.equal(finding.selector, "#control");
+    assert.equal(finding.values.visibleChange, false);
+    assert.equal(finding.values.outside, false);
+  }
+}
+test(visibleControlWithoutFocusMarkKeepsOneFinding);
+
 async function clippedInputUsesItsVisibleControlFocusMark() {
   const { result } = await execute("clipped-focus");
   assertMatrix(result);

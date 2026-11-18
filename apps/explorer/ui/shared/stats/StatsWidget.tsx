@@ -85,7 +85,7 @@ const StatsWidget = ({
             opacity={ isFallback && !isLoading ? 'control.disabled' : 1 }
           />
         ) }
-        <Box flex={ 1 } minW={ 0 }>
+        <Box flex={ 1 } minW={ 0 } css={{ containerType: 'inline-size' }}>
           <Skeleton
             loading={ isLoading }
             color="text.muted"
@@ -110,7 +110,18 @@ const StatsWidget = ({
           >
             { valuePrefix && <chakra.span whiteSpace="pre">{ valuePrefix }</chakra.span> }
             { typeof value === 'string' || typeof value === 'number' ? (
-              <chakra.span minW={ 0 } maxW="100%" overflowWrap="anywhere">{ value }</chakra.span>
+              <chakra.span
+                minW={ 0 }
+                maxW="100%"
+                whiteSpace="normal"
+                wordBreak="normal"
+                overflowWrap="anywhere"
+                fontSize={ `clamp(0.875rem, calc(100cqi / ${ Math.max(String(value).length, 1) * 0.625 }), var(--chakra-font-sizes-stat-value))` }
+              >
+                { typeof value === 'string' ? value.split(/(?<=,)/).map((group, index) => (
+                  <React.Fragment key={ index }>{ index > 0 && <wbr/> }{ group }</React.Fragment>
+                )) : value }
+              </chakra.span>
             ) : (
               value ?? '—'
             ) }

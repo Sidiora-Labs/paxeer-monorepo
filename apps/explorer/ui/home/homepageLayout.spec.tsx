@@ -81,7 +81,12 @@ function TokenResponseState() {
 
 async function tickerUsesOnlyReturnedRatesAndSignedChanges() {
   const { container } = render(<TickerStrip/>);
+  const pendingStrip = screen.getByRole('region', { name: 'Token prices' });
+  expect(pendingStrip.getAttribute('aria-busy')).toBe('true');
+  expect(pendingStrip.querySelector('[data-ticker-token]')).toBeNull();
   await screen.findByText('UP');
+  expect(screen.getByRole('region', { name: 'Token prices' })).toBe(pendingStrip);
+  expect(pendingStrip.getAttribute('aria-busy')).toBe('false');
   const chips = container.querySelectorAll('[data-ticker-token]');
   expect(chips).toHaveLength(2);
   expect(chips[0].querySelector('[data-price]')?.textContent).toBe('$1.25');
@@ -113,10 +118,8 @@ async function tickerDoesNotInventMissingChangesOrRoundSmallPricesToZero() {
   tokenItems = [ { ...tokenInfoERC20b, symbol: 'UP', exchange_rate: '0.00000125' } ];
   const { container } = render(<TickerStrip/>);
   await screen.findByText('UP');
-  expect(container.querySelector('[data-price]')?.textContent).toBe('$0.00000125');
-  const change = container.querySelector('[data-change]')!;
-  expect(change.textContent).toBe('—');
-  expect(cssFor(change)).toContain('color:var(--chakra-colors-text-muted)');
+  expect(container.querySelector('[data-price]')?.textContent).toBe('$0.000001');
+  expect(container.querySelector('[data-change]')).toBeNull();
 }
 
 test(tickerDoesNotInventMissingChangesOrRoundSmallPricesToZero.name, tickerDoesNotInventMissingChangesOrRoundSmallPricesToZero);

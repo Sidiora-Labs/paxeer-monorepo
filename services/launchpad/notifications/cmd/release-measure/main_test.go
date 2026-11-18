@@ -6,6 +6,7 @@ import (
 	"flag"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,6 +15,22 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/testpki"
 )
+
+func TestReleaseCommandReportsConfigurationCause(t *testing.T) {
+	if os.Getenv("NOTIFICATIONS_TEST_RELEASE_COMMAND") == "1" {
+		flag.CommandLine = flag.NewFlagSet("release-measure", flag.ContinueOnError)
+		os.Args = []string{"release-measure"}
+		main()
+		return
+	}
+	command := exec.Command(os.Args[0], "-test.run=^TestReleaseCommandReportsConfigurationCause$")
+	command.Env = append(os.Environ(), "NOTIFICATIONS_TEST_RELEASE_COMMAND=1")
+	output, err := command.CombinedOutput()
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) || exit.ExitCode() != 1 || !strings.Contains(string(output), "Release measurement failed: "+notifications.ErrInvalid.Error()) {
+		t.Fatalf("release command diagnostic: %s err=%v", output, err)
+	}
+}
 
 func TestExecuteRequiresBoundedReleaseConfiguration(t *testing.T) {
 	originalFlags, originalArgs := flag.CommandLine, os.Args

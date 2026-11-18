@@ -1,4 +1,5 @@
 'use client';
+import { userFacingMessage } from '@/core/user-facing-error';
 import { UserCheck, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, IconButton, type ControlSize } from '@/ui/primitives';
@@ -23,6 +24,7 @@ export interface FollowButtonProps {
 export function FollowButton({ wallet, handle, size = 'sm', variant = 'text', className }: FollowButtonProps) {
   const { stats, following, pending, self, signedIn, toggle } = useFollow(wallet);
   if (self) return null;
+  if (stats.state === 'error') return <div><p role="alert">{userFacingMessage(stats.error)}</p><Button variant="secondary" size={size} onClick={stats.retry}>Try again</Button></div>;
   const name = handle?.trim() || shortAddress(wallet);
   const unsupported = stats.state === 'unsupported';
   const loading = stats.state === 'loading' || pending;

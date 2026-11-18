@@ -63,6 +63,21 @@ describe('BlockPageContent', () => {
     expect(container.querySelector('[data-entity-kind-label]')?.textContent).toBe('BLOCK');
   }, 60_000);
 
+  it('centres the proposer title and address on one line', async function centresProposerTitleAndAddress() {
+    const { container } = await renderPage();
+
+    const address = container.querySelector('[data-title-second-row] [data-entity-kind="address"]') as HTMLElement;
+    const row = address.parentElement as HTMLElement;
+    const title = row.firstElementChild as HTMLElement;
+
+    expect(address.querySelector('a')?.getAttribute('href')).toContain(blockMock.base.miner.hash);
+    expect(title.textContent).toBe('Validator');
+    expect(title.nextElementSibling).toBe(address);
+    expect(window.getComputedStyle(row).display).toBe('flex');
+    expect(window.getComputedStyle(row).alignItems).toBe('center');
+    expect(window.getComputedStyle(title).flexShrink).toBe('0');
+  }, 60_000);
+
   it('lists the sections the block carries as pills', async() => {
     const { container } = await renderPage();
 

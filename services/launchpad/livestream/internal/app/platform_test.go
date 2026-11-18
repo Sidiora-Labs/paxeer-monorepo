@@ -317,6 +317,7 @@ func TestPlatformRuntimeRefusesMisconfiguration(t *testing.T) {
 // unmigrated database even when its credential could have migrated it.
 func TestPlatformBootVerifiesCoordinatorSchemaWithoutMigrating(t *testing.T) {
 	db, admin := platformDatabase(t)
+	t.Run("composed entrypoint", func(t *testing.T) { exerciseComposedPlatformEntrypoint(t, db, admin) })
 	s := platformAppServers(t, db)
 	if status, raw, _ := do(t, http.MethodGet, s.plain.URL+"/health/ready", "", nil); status != 200 {
 		t.Fatalf("readiness %d %s", status, raw)

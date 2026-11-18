@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
+import { applySurfaceTestStyle } from '@/core/app-foundation/surface-test-style';
 import React, { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
@@ -13,6 +15,7 @@ import { clearNavigationSession, installNavigationSession, makeNavigationConfig 
 vi.mock('next/image', async importOriginal => ({ default: ((await importOriginal()) as { default: unknown }).default }));
 
 beforeAll(() => {
+  applySurfaceTestStyle();
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   // jsdom has no matchMedia; a phone-width implementation that never matches min-width queries.
   window.matchMedia = (query: string) => ({ matches: false, media: query, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false }) as MediaQueryList;
@@ -72,7 +75,11 @@ describe('MobileBottomNav bar', () => {
   it('separates by background contrast only: no border or ring classes, create is not a filled accent tile', async () => {
     await render('/');
     expect(nav().className).toContain('bg-surface-1');
-    expect(nav().outerHTML).not.toMatch(/\bborder\b|border-[a-z]|\bring-|shadow-|bg-accent\b|gradient/);
+    expect(nav().outerHTML).not.toMatch(/\bborder\b|border-[a-z]|\bring-|shadow-|gradient/);
+    expect(nav().querySelector('[class~="bg-accent"]')).toBeNull();
+    expect(
+      targets().map(item => [...item.classList].filter(name => name.startsWith('bg-')))
+    ).toEqual([['bg-accent-soft'], [], [], [], []]);
   });
 
   it('tints only the active target and marks it as the current page', async () => {
@@ -98,6 +105,8 @@ describe('More sheet', () => {
     await act(async () => { moreButton().click(); });
     const dialog = sheet()!;
     expect(dialog).not.toBeNull();
+    expect(dialog.tagName).toBe('DIALOG');
+    expect(dialog.hasAttribute('open')).toBe(true);
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(moreButton().getAttribute('aria-expanded')).toBe('true');
     const links = Array.from(dialog.querySelectorAll('a')).map(link => link.textContent?.trim());
@@ -107,7 +116,9 @@ describe('More sheet', () => {
     expect(links).toEqual(expected);
     expect(links.slice(0, 4)).toEqual(['Leaderboard', 'Live', 'Holder rewards', 'Terminal']);
     expect(dialog.className).toContain('bg-surface-2');
-    expect(dialog.outerHTML).not.toMatch(/\bborder\b|border-[a-z]|\bring-|shadow-|gradient/);
+    expect(assertControlEdges(dialog.outerHTML)).not.toMatch(
+      /\bborder\b|border-[a-z]|\bring-|shadow-|gradient/
+    );
     await act(async () => { dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
     expect(sheet()).toBeNull();
     expect(moreButton().getAttribute('aria-expanded')).toBe('false');
@@ -116,12 +127,19 @@ describe('More sheet', () => {
   it('closes from the scrim and from the close button', async () => {
     await render('/');
     await act(async () => { moreButton().click(); });
-    const closers = Array.from(document.querySelectorAll<HTMLButtonElement>('button[aria-label="Close menu"]'));
-    expect(closers).toHaveLength(2);
-    await act(async () => { closers[0].click(); });
+    const dialog = sheet()!;
+    const scrim = dialog.previousElementSibling as HTMLElement;
+    expect(scrim.getAttribute('aria-hidden')).toBe('true');
+    expect(scrim.classList).toContain('fixed');
+    expect(dialog.querySelectorAll('button[aria-label="Close menu"]')).toHaveLength(1);
+    await act(async () => {
+      scrim.click();
+    });
     expect(sheet()).toBeNull();
     await act(async () => { moreButton().click(); });
-    await act(async () => { document.querySelectorAll<HTMLButtonElement>('button[aria-label="Close menu"]')[1].click(); });
+    await act(async () => {
+      sheet()!.querySelector<HTMLButtonElement>('button[aria-label="Close menu"]')!.click();
+    });
     expect(sheet()).toBeNull();
   });
 

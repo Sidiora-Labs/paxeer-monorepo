@@ -758,9 +758,9 @@ async function purchaseRecoveryControlReopensAndVerifies() {
   }
 }
 
-test(chainConfigUsesTrackedProjectAndPrivateCache);
-test(runnerSharesRootsAcrossEveryPhase);
-test(sourceAuthorityBindsCandidateAndRejectsDrift);
+test(chainConfigUsesTrackedProjectAndPrivateCache.name, chainConfigUsesTrackedProjectAndPrivateCache);
+test(runnerSharesRootsAcrossEveryPhase.name, runnerSharesRootsAcrossEveryPhase);
+test(sourceAuthorityBindsCandidateAndRejectsDrift.name, sourceAuthorityBindsCandidateAndRejectsDrift);
 test(
   controllerJourneyUsesRuntimeAuthorityAndCanonicalApprovals,
   { timeout: 30000 },
@@ -786,7 +786,7 @@ test(
   { timeout: 30000 },
   purchaseHashPersistenceFailureKeepsRestartFence,
 );
-test(fixtureConsumesRenderedTradingRulesAndPoolPath);
+test(fixtureConsumesRenderedTradingRulesAndPoolPath.name, fixtureConsumesRenderedTradingRulesAndPoolPath);
 test(
   purchaseRecoveryControlReopensAndVerifies,
   { timeout: 30000 },

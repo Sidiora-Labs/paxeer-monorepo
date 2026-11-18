@@ -139,8 +139,10 @@ const Accounts = () => {
         title={ title }
         note={ note }
         actions={ actions }
-        pagination={ <Pagination { ...pagination }/> }
+        pagination={ <Pagination { ...pagination } reserveSpace/> }
         showRows={ showRows }
+        keepActionsInline
+        isLoading={ isPlaceholderData }
       >
         <DataListDisplay
           isError={ isError }

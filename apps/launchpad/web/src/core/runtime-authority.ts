@@ -133,7 +133,7 @@ async function readJSON(path: string, signal: AbortSignal, body?: unknown): Prom
   finally { clearTimeout(timer); signal.removeEventListener('abort', cancel); }
 }
 async function readJSONBody(path: string, signal: AbortSignal, body?: unknown): Promise<unknown> {
-  if (window.location.protocol !== 'https:') throw new Error('Network authority requires the HTTPS application origin');
+  if (window.location.protocol !== 'https:') throw new Error('Open the secure app to connect your wallet');
   const response = await fetch(new URL(path, window.location.origin), { method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store', redirect: 'error', signal, headers: { Accept: 'application/json', ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   if (!response.ok) throw new Error(`Network authority is unavailable (${response.status})`);
   if (!response.headers.get('content-type')?.toLowerCase().startsWith('application/json')) throw new Error('Network authority did not return JSON');
@@ -180,7 +180,10 @@ async function readAuthority(signal: AbortSignal, fixture?: PrivateFixtureAuthor
       if (identity.runtimeHash.toLowerCase() !== expected.runtimeHash || expected.kind === 'direct' && (identity.implementationAddress !== undefined || identity.implementationHash !== undefined) || expected.kind !== 'direct' && (typeof identity.implementationAddress !== 'string' || getAddress(identity.implementationAddress) !== expected.implementationAddress || typeof identity.implementationHash !== 'string' || identity.implementationHash.toLowerCase() !== expected.implementationHash)) throw new Error(`Reviewed network identity differs for ${role}`);
     } else {
       const expected = CORE_DEPLOYMENT.roleIdentity[field];
-      if (identity.runtimeHash.toLowerCase() !== expected.runtimeHash) throw new Error(`Reviewed network runtime differs for ${role}`);
+      const runtimeHash = identity.runtimeHash.toLowerCase();
+      const reviewedRuntime = runtimeHash === expected.runtimeHash ||
+        expected.kind === 'surface' && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,95}$/.test(expected.stagedUpgrade) && runtimeHash === expected.stagedRuntimeHash;
+      if (!reviewedRuntime) throw new Error(`Reviewed network runtime differs for ${role}`);
       if (expected.kind === 'surface' || expected.kind === 'direct') {
         if (identity.implementationAddress !== undefined || identity.implementationHash !== undefined || identity.beaconAddress !== undefined) throw new Error(`Reviewed network identity differs for ${role}`);
       } else if (typeof identity.implementationAddress !== 'string' || getAddress(identity.implementationAddress) !== getAddress(expected.implementationAddress) || typeof identity.implementationHash !== 'string' || identity.implementationHash.toLowerCase() !== expected.implementationHash) throw new Error(`Reviewed network implementation differs for ${role}`);

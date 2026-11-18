@@ -1,8 +1,11 @@
+import { walletSubmissionState } from './wallet-flow.ts';
+import { withinDeadline } from './flow-state.ts';
 import type SignClient from '@walletconnect/sign-client';
 import {
   decodeTradeIdentity,
   prepareTradeIdentity,
   verifyTradeRecovery,
+  verifyTradeReplacement,
   type TradeIdentity,
   type TradeRequest,
   decodeTradeRequest,
@@ -59,7 +62,9 @@ export class ForegroundLifecycle {
   }
   get canExecute() {
     return (
-      !!this.quote && this.executionCurrent(this.quote) && !this.pending.current
+      !!this.quote &&
+      this.executionCurrent(this.quote) &&
+      !this.pending.current
     );
   }
   background() {
@@ -144,12 +149,15 @@ export class ForegroundLifecycle {
       generation !== this.session.generation ||
       this.controller.signal.aborted
     )
-      throw new Error('Application lifecycle or quote changed during request');
+      throw new Error(
+        'Application lifecycle or quote changed during request',
+      );
     if (result.watermark.integrity !== 'healthy')
       throw new Error('Current healthy complete quote required');
     const quote = result;
     if (
-      quote.poolAddress.toLowerCase() !== body.poolAddress.toLowerCase() ||
+      quote.poolAddress.toLowerCase() !==
+        body.poolAddress.toLowerCase() ||
       quote.side !== body.side ||
       quote.inputRaw !== body.inputRaw ||
       Date.parse(quote.validUntil) <= Date.now()
@@ -160,7 +168,12 @@ export class ForegroundLifecycle {
     this.changed();
     return quote;
   }
-  tradeRecoveryResult: 'confirmed' | 'reverted' | undefined;
+  tradeRecoveryResult:
+    | 'confirmed'
+    | 'reverted'
+    | 'cancelled'
+    | 'replaced_action'
+    | undefined;
   get tradeRecovery() {
     const operation = this.pending.current,
       identity = this.pending.trade;
@@ -178,7 +191,11 @@ export class ForegroundLifecycle {
         'Open the wallet activity for this account and nonce. Verify its transaction hash before another trade.',
     };
   }
-  async recoverTrade(transactionHash: string, signal = this.controller.signal) {
+  async recoverTrade(
+    transactionHash: string,
+    signal = this.controller.signal,
+    replacement = false,
+  ) {
     const pending = this.pending.current,
       trade = this.pending.trade;
     const generation = this.session.generation,
@@ -200,27 +217,30 @@ export class ForegroundLifecycle {
         !trade ||
         !rpcURL ||
         !this.session.token ||
+        !this.localUnlocked() ||
         generation !== this.session.generation ||
         revision !== this.revision ||
         this.pending.current?.requestId !== pending.requestId ||
         JSON.stringify(this.pending.trade) !== JSON.stringify(trade) ||
-        this.session.account?.toLowerCase() !== trade.request.from.toLowerCase()
+        this.session.account?.toLowerCase() !==
+          trade.request.from.toLowerCase()
       )
-        throw new Error('Trade recovery authority changed or unavailable');
+        throw new Error(
+          'Trade recovery authority changed or unavailable',
+        );
     };
     fence();
     this.state.receiptReconciled = false;
     this.invalidateQuote();
-    const result = await verifyTradeRecovery(
-      rpcURL!,
-      trade!,
-      transactionHash,
-      signal,
-    );
+    const result = await (
+      replacement ? verifyTradeReplacement : verifyTradeRecovery
+    )(rpcURL!, trade!, transactionHash, signal);
     fence();
     if (
+      !replacement &&
       pending!.transactionHash &&
-      pending!.transactionHash.toLowerCase() !== transactionHash.toLowerCase()
+      pending!.transactionHash.toLowerCase() !==
+        transactionHash.toLowerCase()
     )
       throw new Error(
         'Trade recovery hash differs from the submitted transaction',
@@ -233,7 +253,10 @@ export class ForegroundLifecycle {
     }
     await this.pending.clearConfirmed(pending!.requestId);
     signal.throwIfAborted();
-    if (generation !== this.session.generation || revision !== this.revision)
+    if (
+      generation !== this.session.generation ||
+      revision !== this.revision
+    )
       throw new Error('Trade recovery authority changed');
     this.tradeRecoveryResult = result;
     this.state.receiptReconciled = true;
@@ -264,7 +287,10 @@ export class ForegroundLifecycle {
     }
     const generation = this.session.generation,
       account = this.session.account;
-    const result = await this.services.receipt(pending.transactionHash, signal);
+    const result = await this.services.receipt(
+      pending.transactionHash,
+      signal,
+    );
     signal.throwIfAborted();
     if (
       generation !== this.session.generation ||
@@ -273,7 +299,9 @@ export class ForegroundLifecycle {
       throw new Error('Receipt recovery authority changed');
     if (
       result.data.receipt &&
-      ['included_success', 'included_reverted'].includes(result.data.status)
+      ['included_success', 'included_reverted'].includes(
+        result.data.status,
+      )
     ) {
       const receipt = result.data.receipt;
       if (
@@ -306,7 +334,15 @@ export interface WalletExecutionProvider {
     nonce: number,
     signal: AbortSignal,
   ): Promise<{ transactionHash: string }>;
-  prepareTrade?(quote: Quote, signal: AbortSignal): Promise<TradeIdentity>;
+  submitHomeApproval?(
+    request: TradeRequest,
+    nonce: number,
+    signal: AbortSignal,
+  ): Promise<{ transactionHash: string }>;
+  prepareTrade?(
+    quote: Quote,
+    signal: AbortSignal,
+  ): Promise<TradeIdentity>;
   submitTrade?(
     identity: TradeIdentity,
     signal: AbortSignal,
@@ -355,14 +391,19 @@ export async function executeExternalWallet(
       lifecycle.session.account?.toLowerCase()
   )
     throw new Error('Trade preparation authority changed');
+  lifecycle.tradeRecoveryResult = undefined;
   await pending.begin(operation, identity);
+  let handedOff = false;
   try {
     signal.throwIfAborted();
     if (
       generation !== lifecycle.session.generation ||
       !lifecycle.executionCurrent(quote)
     )
-      throw new Error('Execution authority changed before wallet handoff');
+      throw new Error(
+        'Execution authority changed before wallet handoff',
+      );
+    handedOff = true;
     const result = await provider.submitTrade(identity, signal);
     signal.throwIfAborted();
     if (generation !== lifecycle.session.generation)
@@ -370,7 +411,90 @@ export async function executeExternalWallet(
     await pending.submitted(operation.requestId, result.transactionHash);
     return result;
   } catch (error) {
-    await pending.markUnknown();
+    if (pending.current?.requestId === operation.requestId) {
+      if (walletSubmissionState(error, handedOff) === 'ready')
+        await pending.clearConfirmed(operation.requestId);
+      else await pending.markUnknown();
+    }
+    lifecycle.invalidateQuote();
+    throw error;
+  }
+}
+
+export async function executeWalletTransaction(
+  provider: WalletExecutionProvider,
+  lifecycle: ForegroundLifecycle,
+  operation: PendingOperation,
+  request: TransactionRequest,
+  signal: AbortSignal,
+) {
+  const generation = lifecycle.session.generation;
+  const allowed = () => {
+    signal.throwIfAborted();
+    if (
+      !provider.sendTransaction ||
+      !lifecycle.localUnlocked() ||
+      !lifecycle.additionalExecutionAllowed() ||
+      !lifecycle.session.token ||
+      !lifecycle.state.online ||
+      !lifecycle.state.sessionFresh ||
+      !lifecycle.state.manifestFresh ||
+      !lifecycle.state.receiptReconciled ||
+      generation !== lifecycle.session.generation ||
+      provider.connectedAccount?.toLowerCase() !==
+        lifecycle.session.account?.toLowerCase() ||
+      request.from.toLowerCase() !==
+        lifecycle.session.account?.toLowerCase()
+    )
+      throw new Error(
+        'Refresh and unlock the connected account before signing.',
+      );
+  };
+  allowed();
+  const rootRPC = lifecycle.services.config.walletConnect?.rpcURL;
+  if (!rootRPC) throw new Error('Chain RPC unavailable');
+  const route = chainRoute(
+    request.chainId === '125' ? 0n : BigInt(request.chainId),
+    rootRPC,
+  );
+  const identity = await prepareTradeIdentity(
+    route.rpcURL,
+    request,
+    operation.requestId,
+    signal,
+  );
+  allowed();
+  lifecycle.tradeRecoveryResult = undefined;
+  await lifecycle.pending.begin(operation, identity);
+  let handedOff = false;
+  try {
+    allowed();
+    handedOff = true;
+    const result = await provider.sendTransaction!(
+      request,
+      signal,
+      identity.nonce,
+    );
+    signal.throwIfAborted();
+    if (
+      generation !== lifecycle.session.generation ||
+      lifecycle.pending.current?.requestId !== operation.requestId
+    )
+      throw new Error('Account changed during wallet handoff');
+    await lifecycle.pending.submitted(
+      operation.requestId,
+      result.transactionHash,
+    );
+    lifecycle.state.receiptReconciled = false;
+    lifecycle.changed();
+    return result;
+  } catch (error) {
+    if (lifecycle.pending.current?.requestId === operation.requestId) {
+      if (walletSubmissionState(error, handedOff) === 'ready')
+        await lifecycle.pending.clearConfirmed(operation.requestId);
+      else await lifecycle.pending.markUnknown();
+    }
+    lifecycle.changed();
     throw error;
   }
 }
@@ -380,7 +504,9 @@ export type NativeQuoteTransactionBuilder = (
   account: string,
   signal: AbortSignal,
 ) => Promise<TradeRequest>;
-export class WalletConnectNativeProvider implements WalletExecutionProvider {
+export class WalletConnectNativeProvider
+  implements WalletExecutionProvider
+{
   readonly supportedChain = 125 as const;
   private clientPromise: Promise<SignClient> | undefined;
   private active: SessionTypes.Struct | undefined;
@@ -485,7 +611,8 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
             (event.params.event.name === 'chainChanged' &&
               !this.tradeSession) ||
             (event.params.chainId !== 'eip155:125' &&
-              event.params.chainId !== `eip155:${this.tradeSessionChainId}`)
+              event.params.chainId !==
+                `eip155:${this.tradeSessionChainId}`)
           )
             this.invalidate();
         });
@@ -506,7 +633,8 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
     if (session.expiry * 1000 <= Date.now())
       throw new Error('WalletConnect session expired');
     const namespace =
-      session.namespaces.eip155 ?? session.namespaces[`eip155:${chainId}`];
+      session.namespaces.eip155 ??
+      session.namespaces[`eip155:${chainId}`];
     if (
       !namespace ||
       !(
@@ -521,7 +649,9 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
     );
     if (
       accounts.length !== 1 ||
-      !new RegExp(`^eip155:${chainId}:0x[0-9a-fA-F]{40}$`).test(accounts[0])
+      !new RegExp(`^eip155:${chainId}:0x[0-9a-fA-F]{40}$`).test(
+        accounts[0],
+      )
     )
       throw new Error('Approve exactly one chain125 wallet account');
     return accounts[0].split(':')[2];
@@ -532,15 +662,18 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
     signal: AbortSignal,
     rpcURL = this.configuration.walletConnect?.rpcURL,
   ) {
-    if (!rpcURL) throw new Error('Native wallet configuration unavailable');
-    const response = await fetch(rpcURL, {
-      method: 'POST',
-      redirect: 'error',
-      credentials: 'omit',
-      signal,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-    });
+    if (!rpcURL)
+      throw new Error('Native wallet configuration unavailable');
+    const response = await withinDeadline(signal, (bounded) =>
+      fetch(rpcURL, {
+        method: 'POST',
+        redirect: 'error',
+        credentials: 'omit',
+        signal: bounded,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      }),
+    );
     if (!response.ok) throw new Error('Chain125 RPC unavailable');
     const value: unknown = await response.json();
     if (
@@ -559,8 +692,12 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
   }
   private async assertChain(signal: AbortSignal, chainId = 125) {
     const rootRPC = this.configuration.walletConnect?.rpcURL;
-    if (!rootRPC) throw new Error('Native wallet configuration unavailable');
-    const route = chainRoute(chainId === 125 ? 0n : BigInt(chainId), rootRPC);
+    if (!rootRPC)
+      throw new Error('Native wallet configuration unavailable');
+    const route = chainRoute(
+      chainId === 125 ? 0n : BigInt(chainId),
+      rootRPC,
+    );
     if (
       BigInt(await this.rpc('eth_chainId', [], signal, route.rpcURL)) !==
       BigInt(chainId)
@@ -616,7 +753,9 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
       this.account(session, chainId).toLowerCase() !==
       this.address?.toLowerCase()
     )
-      throw new Error('Trade wallet account differs from connected account');
+      throw new Error(
+        'Trade wallet account differs from connected account',
+      );
     await this.assertChain(signal, chainId);
     this.tradeSession = session;
     this.tradeSessionChainId = chainId;
@@ -682,7 +821,11 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
       }
       const account = this.account(session);
       await this.assertChain(signal);
-      const code = await this.rpc('eth_getCode', [account, 'latest'], signal);
+      const code = await this.rpc(
+        'eth_getCode',
+        [account, 'latest'],
+        signal,
+      );
       if (!/^0x(?:[0-9a-fA-F]{2})*$/.test(code))
         throw new Error('Wallet code lookup failed');
       this.active = session;
@@ -723,8 +866,10 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
         expiry: 300,
       });
       const bound = walletBound(result, signal);
-      await openWalletURL(this.configuration.walletConnect!.walletLink);
-      const value = await bound;
+      const [, value] = await Promise.all([
+        openWalletURL(this.configuration.walletConnect!.walletLink),
+        bound,
+      ]);
       if (
         epoch !== this.epoch ||
         session.topic !==
@@ -739,13 +884,15 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
   }
   async signMessage(message: string, signal: AbortSignal) {
     if (!message || message.length > 16384 || !this.address)
-      throw new Error('Exact server message and connected wallet required');
+      throw new Error(
+        'Exact server message and connected wallet required',
+      );
     const bytes = new TextEncoder().encode(message),
       encoded =
         '0x' +
-        Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join(
-          '',
-        );
+        Array.from(bytes, (value) =>
+          value.toString(16).padStart(2, '0'),
+        ).join('');
     const signature = await this.request(
       'personal_sign',
       [encoded, this.address],
@@ -765,7 +912,10 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
     nonce?: number,
   ) {
     const tx = decodeTradeRequest(request);
-    if (!this.address || tx.from.toLowerCase() !== this.address.toLowerCase())
+    if (
+      !this.address ||
+      tx.from.toLowerCase() !== this.address.toLowerCase()
+    )
       throw new Error('Transaction account or chain mismatch');
     const quantity = (value: string) => '0x' + BigInt(value).toString(16);
     const payload = {
@@ -775,7 +925,9 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
       data: tx.data,
       value: quantity(tx.valueRaw),
       ...(nonce !== undefined ? { nonce: quantity(String(nonce)) } : {}),
-      ...(tx.gasLimitRaw !== null ? { gas: quantity(tx.gasLimitRaw) } : {}),
+      ...(tx.gasLimitRaw !== null
+        ? { gas: quantity(tx.gasLimitRaw) }
+        : {}),
       ...(tx.maxFeePerGasRaw !== null
         ? { maxFeePerGas: quantity(tx.maxFeePerGasRaw) }
         : {}),
@@ -801,6 +953,16 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
     if (!Number.isSafeInteger(nonce) || nonce < 0)
       throw new Error('Invalid approval nonce');
     return this.sendTransaction(request, signal, nonce);
+  }
+  async submitHomeApproval(
+    request: TradeRequest,
+    nonce: number,
+    signal: AbortSignal,
+  ) {
+    const tx = decodeTradeRequest(request);
+    if (tx.chainId === '125' || !Number.isSafeInteger(nonce) || nonce < 0)
+      throw new Error('Valid home-chain approval and nonce required');
+    return this.sendTransaction(tx, signal, nonce);
   }
   async prepareTrade(quote: Quote, signal: AbortSignal) {
     if (
@@ -829,7 +991,9 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
       request.from.toLowerCase() !== account.toLowerCase() ||
       Date.parse(quote.validUntil) <= Date.now()
     )
-      throw new Error('Trade preparation authority changed or quote expired');
+      throw new Error(
+        'Trade preparation authority changed or quote expired',
+      );
     return identity;
   }
   async submitTrade(identity: TradeIdentity, signal: AbortSignal) {
@@ -844,7 +1008,8 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
       throw new Error('Admitted quote transaction builder unavailable');
     if (
       Date.parse(input.quote.validUntil) <= Date.now() ||
-      new URL(input.returnURL).origin !== this.configuration.canonicalOrigin
+      new URL(input.returnURL).origin !==
+        this.configuration.canonicalOrigin
     )
       throw new Error('Expired quote or unrelated return origin');
     const identity = await this.prepareTrade(input.quote, signal);
@@ -869,7 +1034,10 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
     );
   }
 }
-function walletBound<T>(value: Promise<T>, signal: AbortSignal): Promise<T> {
+function walletBound<T>(
+  value: Promise<T>,
+  signal: AbortSignal,
+): Promise<T> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) {
       reject(new Error('Wallet request cancelled'));

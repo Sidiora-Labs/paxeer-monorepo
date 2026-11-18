@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -81,10 +82,10 @@ func (r Runtime) Run(ctx context.Context) error {
 		_, e := r.EvaluateBatch(evaluation, 100, time.Now().UTC())
 		cancel()
 		if e != nil {
-			return e
+			return fmt.Errorf("evaluate discovery alerts: %w", e)
 		}
 		if _, e := r.PublishBatch(ctx, 100); e != nil {
-			return e
+			return fmt.Errorf("publish discovery events: %w", e)
 		}
 		select {
 		case <-ctx.Done():
@@ -94,6 +95,9 @@ func (r Runtime) Run(ctx context.Context) error {
 	}
 }
 func (s Store) ExpireSnapshots(ctx context.Context, now time.Time) error {
+	if s.DB == nil {
+		return ErrUnavailable
+	}
 	_, e := s.DB.ExecContext(ctx, `DELETE FROM narrative_discovery.snapshots WHERE id IN(SELECT id FROM narrative_discovery.snapshots WHERE expires_at<=$1 LIMIT 1000)`, now)
 	return e
 }

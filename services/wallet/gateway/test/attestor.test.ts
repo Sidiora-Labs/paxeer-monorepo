@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { assertProcessRunning, startOnReservedPorts, stopPortProcess } from './support/ports.js';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
@@ -1458,100 +1459,107 @@ describe('signing routes', () => {
         authorityPublic,
         createPublicKey(tls.clientKey).export({ format: 'pem', type: 'spki' })
       );
-      const reservations = await Promise.all(
-        Array.from({ length: ids.length * 2 }, async () => {
-          const server = createNetServer();
-          await new Promise<void>((resolve, reject) => {
-            server.once('error', reject);
-            server.listen(0, '127.0.0.1', resolve);
-          });
-          return server;
-        })
-      );
-      const ports = reservations.map((server) => (server.address() as AddressInfo).port);
-      await Promise.all(
-        reservations.map((server) => new Promise<void>((resolve) => server.close(() => resolve())))
-      );
       const bin = buildAttestor(work);
-      for (const [i, id] of ids.entries()) {
-        const nodeKey = join(work, `${id}.key`);
-        const dataDir = join(work, id);
-        mkdirSync(dataDir);
-        writeFileSync(nodeKey, randomBytes(32).toString('hex'), { mode: 0o600 });
-        const others = ids.filter((peer) => peer !== id);
-        const child = spawn(bin, [], {
-          env: {
-            PATH: process.env.PATH,
-            HOME: process.env.HOME,
-            ATTESTOR_NODE_ID: id,
-            ATTESTOR_REGION: `region-${i + 1}`,
-            ATTESTOR_LISTEN_ADDR: `127.0.0.1:${ports[i * 2]}`,
-            ATTESTOR_PEER_LISTEN_ADDR: `127.0.0.1:${ports[i * 2 + 1]}`,
-            ATTESTOR_PEERS: others
-              .map((peer) => `${peer}=127.0.0.1:${ports[ids.indexOf(peer) * 2 + 1]}`)
-              .join(','),
-            ATTESTOR_PEER_PINS: others.map((peer) => `${peer}=${pki.node(peer).pin}`).join(','),
-            ATTESTOR_NODE_KEY_FILE: nodeKey,
-            ATTESTOR_DATA_DIR: dataDir,
-            ATTESTOR_CHAIN_ID: '125',
-            ATTESTOR_JWKS_URL: `${supabaseUrl}/auth/v1/.well-known/jwks.json`,
-            ATTESTOR_JWT_ISSUER: `${supabaseUrl}/auth/v1`,
-            ATTESTOR_JWT_AUDIENCE: 'authenticated',
-            ATTESTOR_POLICY_FILE: policyFile,
-            ATTESTOR_RPC_URL: rpcUrl,
-            ATTESTOR_TLS_CERT_FILE: pki.node(id).cert,
-            ATTESTOR_TLS_KEY_FILE: pki.node(id).key,
-            ATTESTOR_TLS_CA_FILE: pki.caFile,
-            ATTESTOR_OPERATOR_CA_FILE: pki.operatorCaFile,
-            ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE: authorityPublic,
-            ATTESTOR_AUTHORITY_ISSUER: `${supabaseUrl}/auth/v1`,
-            ATTESTOR_AUTHORITY_TENANT: originalPayload.tenant,
-            ATTESTOR_INVENTORY_PUBLIC_KEY_FILE: authorityPublic,
-            ATTESTOR_INVENTORY_FILE: inventoryFile,
-          },
-          stdio: ['ignore', 'pipe', 'pipe'],
-        });
-        children.push(child);
-        child.stdout!.on('data', (chunk: Buffer) => logs[i]!.push(chunk.toString('utf8')));
-        child.stderr!.on('data', (chunk: Buffer) => logs[i]!.push(chunk.toString('utf8')));
-        const proxy = createNetServer((socket) => {
-          const upstream = connect(ports[i * 2]!, '127.0.0.1');
-          for (const connection of [socket, upstream]) {
-            sockets.add(connection);
-            connection.on('close', () => sockets.delete(connection));
-            connection.on('error', () => {
-              socket.destroy();
-              upstream.destroy();
+      for (const id of ids) {
+        mkdirSync(join(work, id));
+        writeFileSync(join(work, `${id}.key`), randomBytes(32).toString('hex'), { mode: 0o600 });
+      }
+      let endpoints: string[] = [];
+      await startOnReservedPorts(
+        ids.length * 2,
+        async (reservations) => {
+          const ports = reservations.map((reservation) => reservation.port);
+          for (const [i, id] of ids.entries()) {
+            const nodeKey = join(work, `${id}.key`);
+            const dataDir = join(work, id);
+            const others = ids.filter((peer) => peer !== id);
+            await Promise.all([reservations[i * 2]!.release(), reservations[i * 2 + 1]!.release()]);
+            const child = spawn(bin, [], {
+              env: {
+                PATH: process.env.PATH,
+                HOME: process.env.HOME,
+                ATTESTOR_NODE_ID: id,
+                ATTESTOR_REGION: `region-${i + 1}`,
+                ATTESTOR_LISTEN_ADDR: `127.0.0.1:${ports[i * 2]}`,
+                ATTESTOR_PEER_LISTEN_ADDR: `127.0.0.1:${ports[i * 2 + 1]}`,
+                ATTESTOR_PEERS: others
+                  .map((peer) => `${peer}=127.0.0.1:${ports[ids.indexOf(peer) * 2 + 1]}`)
+                  .join(','),
+                ATTESTOR_PEER_PINS: others.map((peer) => `${peer}=${pki.node(peer).pin}`).join(','),
+                ATTESTOR_NODE_KEY_FILE: nodeKey,
+                ATTESTOR_DATA_DIR: dataDir,
+                ATTESTOR_CHAIN_ID: '125',
+                ATTESTOR_JWKS_URL: `${supabaseUrl}/auth/v1/.well-known/jwks.json`,
+                ATTESTOR_JWT_ISSUER: `${supabaseUrl}/auth/v1`,
+                ATTESTOR_JWT_AUDIENCE: 'authenticated',
+                ATTESTOR_POLICY_FILE: policyFile,
+                ATTESTOR_RPC_URL: rpcUrl,
+                ATTESTOR_TLS_CERT_FILE: pki.node(id).cert,
+                ATTESTOR_TLS_KEY_FILE: pki.node(id).key,
+                ATTESTOR_TLS_CA_FILE: pki.caFile,
+                ATTESTOR_OPERATOR_CA_FILE: pki.operatorCaFile,
+                ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE: authorityPublic,
+                ATTESTOR_AUTHORITY_ISSUER: `${supabaseUrl}/auth/v1`,
+                ATTESTOR_AUTHORITY_TENANT: originalPayload.tenant,
+                ATTESTOR_INVENTORY_PUBLIC_KEY_FILE: authorityPublic,
+                ATTESTOR_INVENTORY_FILE: inventoryFile,
+              },
+              stdio: ['ignore', 'pipe', 'pipe'],
+            });
+            children.push(child);
+            child.stdout!.on('data', (chunk: Buffer) => logs[i]!.push(chunk.toString('utf8')));
+            child.stderr!.on('data', (chunk: Buffer) => logs[i]!.push(chunk.toString('utf8')));
+            child.once('error', (error) => logs[i]!.push(error.message));
+            const proxy = createNetServer((socket) => {
+              const upstream = connect(ports[i * 2]!, '127.0.0.1');
+              for (const connection of [socket, upstream]) {
+                sockets.add(connection);
+                connection.on('close', () => sockets.delete(connection));
+                connection.on('error', () => {
+                  socket.destroy();
+                  upstream.destroy();
+                });
+              }
+              socket.on('data', (chunk: Buffer) => {
+                traffic[i]! += chunk.length;
+              });
+              socket.pipe(upstream).pipe(socket);
+            });
+            proxies.push(proxy);
+            await new Promise<void>((resolve, reject) => {
+              proxy.once('error', reject);
+              proxy.listen(0, '127.0.0.1', resolve);
             });
           }
-          socket.on('data', (chunk: Buffer) => {
-            traffic[i]! += chunk.length;
-          });
-          socket.pipe(upstream).pipe(socket);
-        });
-        proxies.push(proxy);
-        await new Promise<void>((resolve, reject) => {
-          proxy.once('error', reject);
-          proxy.listen(0, '127.0.0.1', resolve);
-        });
-      }
-      const endpoints = proxies.map(
-        (proxy) => `https://127.0.0.1:${(proxy.address() as AddressInfo).port}`
-      );
-      const deadline = Date.now() + 60_000;
-      for (const [i, endpoint] of endpoints.entries()) {
-        for (;;) {
-          if (children[i]!.exitCode !== null) throw new Error(logs[i]!.join(''));
-          const health = await call<{ reachable_peers: number }>(
-            gateway,
-            `${endpoint}/health`
-          ).catch(() => null);
-          if (health?.body.reachable_peers === 4) break;
-          if (Date.now() >= deadline)
-            throw new Error(`authorization attestor not ready: ${logs[i]!.join('')}`);
-          await new Promise((resolve) => setTimeout(resolve, 100));
+          endpoints = proxies.map(
+            (proxy) => `https://127.0.0.1:${(proxy.address() as AddressInfo).port}`
+          );
+          const deadline = Date.now() + 60_000;
+          for (const [i, endpoint] of endpoints.entries()) {
+            for (;;) {
+              for (const [j, child] of children.entries()) assertProcessRunning(child, logs[j]!);
+              const health = await call<{ reachable_peers: number }>(
+                gateway,
+                `${endpoint}/health`
+              ).catch(() => null);
+              if (health?.body.reachable_peers === 4) break;
+              if (Date.now() >= deadline)
+                throw new Error(`authorization attestor not ready: ${logs[i]!.join('')}`);
+              await new Promise((resolve) => setTimeout(resolve, 100));
+            }
+          }
+        },
+        async () => {
+          await Promise.all(children.map(stopPortProcess));
+          for (const socket of sockets) socket.destroy();
+          await Promise.all(
+            proxies.map((proxy) => new Promise<void>((resolve) => proxy.close(() => resolve())))
+          );
+          children.length = 0;
+          proxies.length = 0;
+          for (const log of logs) log.length = 0;
         }
-      }
+      );
       const sessionId = randomUUID();
       const generated = await Promise.all(
         endpoints.map((endpoint) =>

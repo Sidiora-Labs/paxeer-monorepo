@@ -1,0 +1,37 @@
+[manifest]
+task = "22.44.91"
+surface = "Paxscan explorer rollup"
+views = 14
+named_states = 0
+form = "Feature-unavailable routes show the explorer not-found page with a home link."
+
+[coverage]
+routes = ["/batches/[number]", "/batches/celestia/[height]/[commitment]", "/batches", "/blobs/[hash]", "/deposits", "/dispute-games", "/epochs/[number]", "/epochs", "/interop-messages", "/op/[hash]", "/ops", "/output-roots", "/txn-withdrawals", "/withdrawals"]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default"]
+renders_per_view = 22
+configurations = 308
+
+[presentation]
+landmark = "The not-found main landmark identifies the page."
+navigation = "Back to home is one native link with the outline button appearance and touch target."
+dimensions = "The existing typography, spacing, control dimensions and scheme tokens are preserved."
+
+[criteria]
+content = "Each route answers with status 404 and renders the explorer heading, named main landmark and one native home link after hydration."
+home_links = 1
+data_probe_status = 404
+
+[visual_review]
+widths = [360, 768, 1440, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+screenshots = 139
+presentation = "Headings, paragraphs, navigation and footer columns retain their alignment and wrapping in both schemes."
+corrections = "The home action uses one native anchor with the existing outline appearance. Typography, spacing, colours and layout tracks retain their existing values."
+
+[guidance]
+ids = ["html", "accessibility"]

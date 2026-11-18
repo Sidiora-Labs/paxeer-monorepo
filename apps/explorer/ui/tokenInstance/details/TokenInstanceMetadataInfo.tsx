@@ -83,7 +83,7 @@ const TokenInstanceMetadataInfo = ({ data, isLoading: isLoadingProp }: Props) =>
 
   return (
     <>
-      <DetailedInfo.ItemDivider/>
+      <DetailedInfo.ItemDivider colSpan={ 1 }/>
       { metadata?.name && (
         <>
           <DetailedInfo.ItemLabel
@@ -128,7 +128,7 @@ const TokenInstanceMetadataInfo = ({ data, isLoading: isLoadingProp }: Props) =>
           >
             Attributes
           </DetailedInfo.ItemLabel>
-          <DetailedInfo.ItemValue>
+          <DetailedInfo.ItemValue overflowX="auto" role="region" aria-label="NFT attributes" tabIndex={ 0 }>
             <Grid gap={ 2 } templateColumns="repeat(auto-fill,minmax(var(--chakra-sizes-40), 1fr))" w="100%" whiteSpace="normal">
               { metadata.attributes
                 .filter((attribute) => attribute.value)

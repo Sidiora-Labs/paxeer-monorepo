@@ -21,14 +21,11 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/broker"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
-	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/testpki"
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -558,45 +555,32 @@ func TestRuntimeIdentityInlineMaterial(t *testing.T) {
 	}
 }
 
-// loadInlineDocument loads the config with one inline bound document whose
-// declared digest is wrong for its bytes.
-func loadInlineDocument(t *testing.T, name string) config.Config {
+func loadInlineDocument(t *testing.T, name string) error {
 	t.Helper()
 	t.Setenv("DATABASE_URL", "postgres://kl:kl@localhost:5432/kl")
 	t.Setenv("REDIS_URL", "redis://localhost:6379/0")
+	t.Setenv(name+"_FILE", "")
 	t.Setenv(name+"_DOCUMENT", base64.StdEncoding.EncodeToString([]byte(`{"schemaVersion":2}`)))
 	t.Setenv(name+"_SHA256", fmt.Sprintf("%x", sha256.Sum256([]byte("another document"))))
-	cfg, err := config.Load()
-	if err != nil {
-		t.Fatalf("inline %s_DOCUMENT rejected at load: %v", name, err)
-	}
-	return cfg
+	_, err := config.Load()
+	return err
 }
 
 func TestNetworkAuthorityInlineDocumentGate(t *testing.T) {
-	cfg := loadInlineDocument(t, "NETWORK_AUTHORITY_CONFIG")
-	cfg.NetworkRPCURL = "https://rpc.example"
-	if _, err := newNetworkAuthority(context.Background(), nil, &cfg); err == nil || err.Error() != "runtime_document_binding_mismatch" {
-		t.Fatalf("inline network authority document with a wrong digest did not fail startup: %v", err)
+	if err := loadInlineDocument(t, "NETWORK_AUTHORITY_CONFIG"); err == nil || err.Error() != "config: NETWORK_AUTHORITY_CONFIG_DOCUMENT: runtime_document_binding_mismatch" {
+		t.Fatalf("inline network authority document with a wrong digest accepted: %v", err)
 	}
 }
 
 func TestDiscoveryRuntimeInlineDocumentGate(t *testing.T) {
-	cfg := loadInlineDocument(t, "DISCOVERY_RUNTIME_CONFIG")
-	admission, err := rest.NewAdmission(10, 1, time.Millisecond)
-	if err != nil {
-		t.Fatal(err)
-	}
-	a := &App{cfg: cfg}
-	if err = a.registerDiscovery(context.Background(), chi.NewRouter(), nil, admission, map[string]sharedhttp.Check{}); err == nil || err.Error() != "runtime_document_binding_mismatch" {
-		t.Fatalf("inline discovery runtime document with a wrong digest did not fail startup: %v", err)
+	if err := loadInlineDocument(t, "DISCOVERY_RUNTIME_CONFIG"); err == nil || err.Error() != "config: DISCOVERY_RUNTIME_CONFIG_DOCUMENT: runtime_document_binding_mismatch" {
+		t.Fatalf("inline discovery runtime document with a wrong digest accepted: %v", err)
 	}
 }
 
 func TestStreamRelayInlineDocumentGate(t *testing.T) {
-	cfg := loadInlineDocument(t, "STREAM_RELAY_CONFIG")
-	if _, err := readStreamRelayDocument(&cfg); err == nil || err.Error() != "runtime_document_binding_mismatch" {
-		t.Fatalf("inline stream relay document with a wrong digest did not fail startup: %v", err)
+	if err := loadInlineDocument(t, "STREAM_RELAY_CONFIG"); err == nil || err.Error() != "config: STREAM_RELAY_CONFIG_DOCUMENT: runtime_document_binding_mismatch" {
+		t.Fatalf("inline stream relay document with a wrong digest accepted: %v", err)
 	}
 	t.Setenv("STREAM_RELAY_CONFIG_SHA256", "")
 	if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "STREAM_RELAY_CONFIG_DOCUMENT is set without STREAM_RELAY_CONFIG_SHA256") {

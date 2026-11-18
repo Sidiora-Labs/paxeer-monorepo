@@ -3,6 +3,11 @@ defmodule Explorer.SmartContract.CompilerDownload do
 
   alias Explorer.HttpClient
 
+  def file_path(directory, filename) do
+    bundled = Path.join([directory, "bundled", filename])
+    if File.regular?(bundled), do: bundled, else: Path.join(directory, filename)
+  end
+
   def get(url) do
     case HttpClient.get(url, [], timeout: 60_000, recv_timeout: 60_000, follow_redirect: true) do
       {:ok, %{status_code: status, body: body}} when status in 200..299 and is_binary(body) -> {:ok, body}

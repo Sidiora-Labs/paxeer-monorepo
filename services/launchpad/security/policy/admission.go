@@ -108,6 +108,11 @@ func admissionCaptured(o AdmissionOptions, next http.Handler, capture *Middlewar
 				return
 			}
 			if err != nil || id.Actor == "" || !id.Expires.After(time.Now()) || id.Issued.After(time.Now()) {
+				if err != nil && !errors.Is(err, ErrDenied) {
+					logDependencyFailure(r.Context(), "admission identity", err)
+					http.Error(w, "unavailable", http.StatusServiceUnavailable)
+					return
+				}
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}
@@ -121,6 +126,7 @@ func admissionCaptured(o AdmissionOptions, next http.Handler, capture *Middlewar
 			return
 		}
 		if err != nil {
+			logDependencyFailure(r.Context(), "request budget", err)
 			if fallbackAllowed {
 				next.ServeHTTP(w, r)
 				return

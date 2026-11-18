@@ -2,8 +2,12 @@
 
 import React from 'react';
 
+import config from 'configs/app';
+import { MultichainContext } from 'lib/contexts/multichain';
 import * as statsMock from 'mocks/stats/index';
 import * as txsStatsMock from 'mocks/txs/stats';
+import { TXS_STATS_MICROSERVICE } from 'stubs/tx';
+import { thinsp } from 'toolkit/utils/htmlEntities';
 import { render } from 'ui/shared/layout/testWrapper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { waitFor } from 'vitest/lib';
@@ -47,11 +51,33 @@ const declarationsOf = (element: Element, property: string) => ruleTexts()
   .filter((rule): rule is { text: string; value: string } => rule.value !== undefined);
 
 describe('TxsStats', () => {
+  let feeSum = txsStatsMock.base.transaction_fees_sum_24h;
+  let statsFeeSum = '22.184012506492688277';
+
   beforeEach(() => {
+    feeSum = txsStatsMock.base.transaction_fees_sum_24h;
+    statsFeeSum = '22.184012506492688277';
     fetchMock.resetMocks();
     fetchMock.mockResponse((request) => {
       if (request.url.includes('/api/v2/transactions/stats')) {
-        return { body: json(txsStatsMock.base), headers: { 'Content-Type': 'application/json' } };
+        return {
+          body: json({ ...txsStatsMock.base, transaction_fees_sum_24h: feeSum }),
+          headers: { 'Content-Type': 'application/json' },
+        };
+      }
+
+      if (request.url.includes('/api/v1/pages/transactions')) {
+        return {
+          body: json({
+            ...TXS_STATS_MICROSERVICE,
+            transactions_fee_24h: {
+              ...TXS_STATS_MICROSERVICE.transactions_fee_24h,
+              title: 'Total transaction fee',
+              value: statsFeeSum,
+            },
+          }),
+          headers: { 'Content-Type': 'application/json' },
+        };
       }
 
       if (request.url.includes('/api/v2/stats')) {
@@ -96,6 +122,43 @@ describe('TxsStats', () => {
       expect(values[6]?.startsWith('$')).toBe(true);
     });
   });
+
+  const feeCases = [
+    { baseUnits: '392934000000000', coins: '0.000392934', expected: '0.00039', decimals: 18 },
+    { baseUnits: '0', coins: '0', expected: '0', decimals: 18 },
+    { baseUnits: '1500000000000000000', coins: '1.5', expected: '1.5', decimals: 18 },
+    { baseUnits: '1', coins: '0.000000000000000001', expected: '0.000000000000000001', decimals: 18 },
+    { baseUnits: '10000000000000000', coins: '0.01', expected: '0.01', decimals: 18 },
+    { baseUnits: '100000000000000', coins: '0.0001', expected: '0.0001', decimals: 18 },
+    { baseUnits: '9999000000000000', coins: '0.009999', expected: '0.01', decimals: 18 },
+    { baseUnits: '1', coins: '0.000001', expected: '0.000001', decimals: 6 },
+  ];
+
+  it.each([ 'general', 'stats' ].flatMap((source) => feeCases.map((fee) => ({ ...fee, source }))))(
+    'shows $coins coins from $source with the required fraction digits',
+    async function showsFeeSum({ baseUnits, coins, expected, decimals, source }) {
+      feeSum = baseUnits;
+      statsFeeSum = coins;
+
+      const chainConfig = {
+        ...config,
+        chain: { ...config.chain, currency: { ...config.chain.currency, decimals } },
+        apis: { ...config.apis, stats: source === 'stats' ? { endpoint: window.location.origin } : undefined },
+      };
+      const { container } = render(
+        <MultichainContext.Provider value={{ chain: { id: '1', name: 'Ethereum', slug: 'ethereum', app_config: chainConfig } }}>
+          <TxsStats/>
+        </MultichainContext.Provider>,
+      );
+
+      await waitFor(() => {
+        const card = container.querySelector('[data-scan-stat="Total transaction fee (24h)"]');
+
+        expect(card?.querySelector('[data-value]')?.textContent).toBe(`${ expected }${ thinsp }ETH`);
+        expect(card?.querySelector('[data-delta]')?.textContent).toBe('(7.42%)');
+      });
+    },
+  );
 
   it('carries deltas derived from the statistics it reads', async() => {
     const { container } = render(<TxsStats/>);

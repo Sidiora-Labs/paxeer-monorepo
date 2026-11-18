@@ -24,7 +24,7 @@ function transpilePackagesAreDeclaredWorkspaceDependencies() {
   }
 }
 
-test(transpilePackagesAreDeclaredWorkspaceDependencies);
+test(transpilePackagesAreDeclaredWorkspaceDependencies.name, transpilePackagesAreDeclaredWorkspaceDependencies);
 
 function allowedDevOriginsDefaultToLoopback() {
   expect(allowedDevOrigins({})).toEqual(['localhost', '127.0.0.1']);
@@ -56,8 +56,8 @@ function allowedDevOriginsRejectSchemeOrPath() {
   }
 }
 
-test(allowedDevOriginsDefaultToLoopback);
-test(allowedDevOriginsRejectSchemeOrPath);
+test(allowedDevOriginsDefaultToLoopback.name, allowedDevOriginsDefaultToLoopback);
+test(allowedDevOriginsRejectSchemeOrPath.name, allowedDevOriginsRejectSchemeOrPath);
 
 async function backendRewritesRefuseMissingProductionUpstream() {
   const env = {
@@ -133,6 +133,6 @@ async function backendRewritesKeepRouteTemplates() {
   }
 }
 
-test(backendRewritesRefuseMissingProductionUpstream);
-test(backendRewritesEmptyInDevelopment);
-test(backendRewritesKeepRouteTemplates);
+test(backendRewritesRefuseMissingProductionUpstream.name, backendRewritesRefuseMissingProductionUpstream);
+test(backendRewritesEmptyInDevelopment.name, backendRewritesEmptyInDevelopment);
+test(backendRewritesKeepRouteTemplates.name, backendRewritesKeepRouteTemplates);

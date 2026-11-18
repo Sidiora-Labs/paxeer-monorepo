@@ -17,6 +17,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/go-chi/chi/v5"
 )
 
 func TestCanonicalMetadataReadsDeployedTokenAtCreationBlock(t *testing.T) {
@@ -92,6 +93,20 @@ CREATE TABLE indexer.indexer_canonical_creations_v1(pool text PRIMARY KEY,payloa
 	(SymbolsHandler{Canonical: &source, DisplayPrecision: 6}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v2/udf/symbols?symbol="+devPool, nil))
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"full_name":"CCT/USDL"`) || rec.Header().Get("ETag") == "" {
 		t.Fatalf("canonical symbol response: %d %s", rec.Code, rec.Body.String())
+	}
+	router := chi.NewRouter()
+	RegisterProductionUDF(router, SymbolsHandler{Canonical: &source, DisplayPrecision: 6}, ProductionHistoryHandler{})
+	for _, path := range []string{"/symbols", "/v2/udf/symbols"} {
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path+"?symbol="+devPool, nil))
+		if response.Code != http.StatusOK || response.Body.String() != rec.Body.String() || response.Header().Get("ETag") != rec.Header().Get("ETag") {
+			t.Fatalf("verified symbols route %s: %d %s", path, response.Code, response.Body.String())
+		}
+		unknown := httptest.NewRecorder()
+		router.ServeHTTP(unknown, httptest.NewRequest(http.MethodGet, path+"?symbol=0x"+strings.Repeat("f", 40), nil))
+		if unknown.Code != http.StatusNotFound || !strings.Contains(unknown.Body.String(), "NOT_FOUND") {
+			t.Fatalf("unknown symbols route %s: %d %s", path, unknown.Code, unknown.Body.String())
+		}
 	}
 	conditional := httptest.NewRequest(http.MethodGet, "/v2/udf/symbols?symbol="+devPool, nil)
 	conditional.Header.Set("If-None-Match", rec.Header().Get("ETag"))

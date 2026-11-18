@@ -1,9 +1,11 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,17 +17,30 @@ import (
 func TestReadinessRejectsInvalidRegistrationsAndPanics(t *testing.T) {
 	healthy := func(context.Context) error { return nil }
 	for _, custom := range []map[string]Check{
-		{"database": healthy}, {"lifecycle": healthy}, {"invalid check": healthy}, {"probe": func(context.Context) error { panic("probe failed") }},
+		{"database": healthy}, {"lifecycle": healthy}, {"invalid check": healthy}, {"missing": nil}, {"probe": func(context.Context) error { panic("probe failed") }},
 	} {
+		var logs bytes.Buffer
 		response := httptest.NewRecorder()
-		readyHandler(HealthDeps{DB: healthy, Redis: healthy, Custom: custom, State: healthy})(response, httptest.NewRequest("GET", "/health/ready", nil))
+		readyHandler(HealthDeps{DB: healthy, Redis: healthy, Custom: custom, State: healthy, Logger: slog.New(slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: slog.LevelError}))})(response, httptest.NewRequest("GET", "/health/ready", nil))
 		if response.Code != 503 || !strings.Contains(response.Body.String(), `"status":"degraded"`) {
 			t.Fatalf("invalid readiness admitted: %d %s", response.Code, response.Body.String())
+		}
+		var entry map[string]any
+		err := json.Unmarshal(bytes.TrimSpace(logs.Bytes()), &entry)
+		name, named := entry["check"].(string)
+		status, classified := entry["status"].(string)
+		cause, diagnosed := entry["err"].(string)
+		if err != nil || !named || name == "" || !classified || status == "" || !diagnosed || cause == "" || entry["msg"] != "readiness check failed" || entry["level"] != "ERROR" {
+			t.Fatalf("readiness diagnostic: %s (%v)", logs.Bytes(), err)
+		}
+		if _, panics := custom["probe"]; panics && (entry["err"] != "readiness_check_panicked: probe failed" || strings.Contains(response.Body.String(), "probe failed")) {
+			t.Fatalf("panic diagnostic: log=%s response=%s", logs.Bytes(), response.Body.String())
 		}
 	}
 	entered, release := make(chan struct{}), make(chan struct{})
 	var once sync.Once
-	handler := readyHandler(HealthDeps{DB: func(context.Context) error { once.Do(func() { close(entered) }); <-release; return nil }, Redis: healthy})
+	var logs bytes.Buffer
+	handler := readyHandler(HealthDeps{DB: func(context.Context) error { once.Do(func() { close(entered) }); <-release; return nil }, Redis: healthy, Logger: slog.New(slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: slog.LevelError}))})
 	ctx, cancel := context.WithCancel(context.Background())
 	first := httptest.NewRecorder()
 	done := make(chan struct{})
@@ -47,6 +62,11 @@ func TestReadinessRejectsInvalidRegistrationsAndPanics(t *testing.T) {
 	close(release)
 	if first.Code != 503 || !strings.Contains(first.Body.String(), `"database":"timeout"`) {
 		t.Fatalf("cancelled readiness %d %s", first.Code, first.Body.String())
+	}
+	for _, cause := range []string{"previous readiness check still running", "context canceled"} {
+		if !strings.Contains(logs.String(), cause) {
+			t.Fatalf("readiness cause %q absent: %s", cause, logs.Bytes())
+		}
 	}
 }
 

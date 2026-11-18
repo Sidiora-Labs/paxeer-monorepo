@@ -237,6 +237,7 @@ function FeedView({ feed, mode }: { feed: TickerFeed; mode: TickerModeConfig }) 
       );
     case 'ready':
       if (feed.chips.length === 0) {
+        if (feed.emptyText === null) return null;
         return (
           // Only the message may truncate; the open link never shrinks. Narrow screens get the short message.
           <p

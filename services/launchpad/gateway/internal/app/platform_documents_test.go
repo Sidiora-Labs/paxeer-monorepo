@@ -57,6 +57,7 @@ func TestPlatformDocumentsBinding(t *testing.T) {
 	}
 	digest := func(raw []byte) string { return fmt.Sprintf("%x", sha256.Sum256(raw)) }
 	write(filepath.Join(values, "common.json"), read(filepath.Join(documents, "values", "common.example.json")))
+	write(filepath.Join(values, "livestream.json"), read(filepath.Join(documents, "values", "livestream.example.json")))
 	var source map[string]any
 	if err := json.Unmarshal(read(filepath.Join(documents, "values", "gateway.example.json")), &source); err != nil {
 		t.Fatal(err)
@@ -376,4 +377,7 @@ func TestPlatformDocumentsBinding(t *testing.T) {
 	if identityPool.Stat().TotalConns() != 0 || controlPool.Stat().TotalConns() != 0 {
 		t.Fatal("document binding checks opened database connections")
 	}
+	t.Run("entrypoint", func(t *testing.T) {
+		exerciseComposedGatewayEntrypoint(t, values, out, pki, source)
+	})
 }

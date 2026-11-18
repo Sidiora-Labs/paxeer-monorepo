@@ -908,6 +908,7 @@ def test_launchpad_go_job_creates_real_export_bucket_before_tests():
     (storage,) = [step for step in steps if step["name"] == "Start object storage fixture"]
     assert "go install github.com/minio/minio@RELEASE.2025-04-22T22-12-26Z" in storage["run"]
     assert 'GOBIN="$RUNNER_TEMP/launchpad-fixture-bin" GOFLAGS=' in storage["run"]
+    assert 'echo "$RUNNER_TEMP/launchpad-fixture-bin" >> "$GITHUB_PATH"' in storage["run"]
     assert '--address :9000' in storage["run"]
     assert 'curl --fail --aws-sigv4 "aws:amz:us-east-1:s3"' in storage["run"]
     assert '--user "$SHARED_TEST_MINIO_ACCESS_KEY_ID:$SHARED_TEST_MINIO_SECRET_ACCESS_KEY"' in storage["run"]
@@ -1195,7 +1196,8 @@ def test_launchpad_ci_job_runs_all_stages_with_go_test_services():
     assert "working-directory" not in run
     assert steps[-1] == run
     for name in (
-        "Create the pool test database", "Start the owned authorization chain",
+        "Create the pool test database", "Enable database commit timestamps",
+        "Start the owned authorization chain",
         "Install fixture binaries", "Start API NATS fixture",
         "Start object storage fixture", "Start malware scanner fixture",
         "Build native library for protocol producer proofs",
@@ -1212,6 +1214,10 @@ def test_launchpad_ci_job_runs_all_stages_with_go_test_services():
     assert 'docker restart "${{ job.services.postgres.id }}"' in timestamps["run"]
     assert "SHOW track_commit_timestamp" in timestamps["run"]
     assert steps.index(timestamps) < steps.index(run)
+    for go_steps in (steps, test_job["steps"]):
+        (database,) = [step for step in go_steps
+                       if step.get("name") == "Create the pool test database"]
+        assert go_steps[go_steps.index(database) + 1] is timestamps
 
 
 def test_launchpad_go_jobs_install_the_reward_schema_fixture():

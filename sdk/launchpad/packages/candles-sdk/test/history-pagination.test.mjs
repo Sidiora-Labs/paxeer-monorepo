@@ -41,6 +41,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/httpapi"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/migrate"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/go-chi/chi/v5"
 )
 
 func main() {
@@ -81,6 +82,9 @@ func serve() error {
 	if _, err := rand.Read(key); err != nil { return err }
 	mux := http.NewServeMux()
 	mux.Handle("GET /history", httpapi.HistoryHandler{Source: source, SigningKey: key})
+	versioned := chi.NewRouter()
+	httpapi.RegisterDevelopmentUDF(versioned, httpapi.SymbolsHandler{}, httpapi.DevelopmentHistoryHandler{Source: source})
+	mux.Handle("/v2/udf/", versioned)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil { return err }
 	server := &http.Server{Handler: mux, ReadHeaderTimeout: time.Second}
@@ -269,3 +273,58 @@ async function cursorValidationAndBinding() {
   assert.deepEqual(await getHistory({ ...request, from: request.to, to: request.to + 60 }), { s: 'no_data' });
 }
 test(cursorValidationAndBinding);
+
+async function versionedHistoryFromPostgres() {
+  const versioned = new CandlesClient();
+  versioned.configure({ baseUrl: `${baseUrl}/v2/udf` });
+  const config = await versioned.getConfig();
+  assert.deepEqual(config.supported_resolutions, ['1', '5', '15', '60', '240', '1D', 'D', '1W', 'W']);
+  const beforeTime = Math.floor(Date.now() / 1000);
+  const time = await versioned.getTime();
+  assert.ok(time >= beforeTime && time <= Math.floor(Date.now() / 1000));
+  const range = { ...request, to: 180 };
+  const price = await versioned.getHistory(range);
+  assertBars(price, 1, 2);
+  assert.equal(price.mode, 'price');
+  assert.equal(price.valuationBasis, 'total_supply_valuation');
+  assert.equal(price.valuationAvailable, false);
+  assert.deepEqual(price.valuations, Array(2).fill({
+    available: false, valuationBasis: 'total_supply_valuation', reason: 'historical_supply_unavailable',
+  }));
+  assert.equal(price.algorithmVersion, 'development-legacy-candles-v1');
+  assert.equal(typeof price.snapshotId, 'string');
+  assert.equal(price.watermark, null);
+  assert.equal(price.nextCursor, undefined);
+  const counted = await versioned.getHistory({ symbol, resolution: '1', to: 180, countback: 1 });
+  assertBars(counted, 2, 1);
+  assert.equal(counted.nextCursor, undefined);
+  const unavailable = await versioned.getHistory({ ...range, mode: 'total_supply_valuation' });
+  assert.deepEqual(unavailable, {
+    s: 'unavailable', mode: 'total_supply_valuation', valuationAvailable: false,
+    valuationBasis: price.valuationBasis, valuations: price.valuations, snapshotId: price.snapshotId,
+    algorithmVersion: price.algorithmVersion, watermark: null, t: price.t, v: price.v,
+    priceHistory: Object.fromEntries(['t', 'o', 'h', 'l', 'c'].map(field => [field, price[field]])),
+  });
+  for (const mode of ['price', 'total_supply_valuation']) {
+    const empty = await versioned.getHistory({ ...range, from: request.to, to: request.to + 60, mode });
+    assert.equal(empty.s, 'no_data');
+    assert.equal(empty.mode, mode);
+    assert.equal(empty.valuationAvailable, true);
+    assert.deepEqual(empty.valuations, []);
+    assert.deepEqual(empty.t, []);
+    assert.deepEqual(empty.v, []);
+    for (const field of ['o', 'h', 'l', 'c']) assert.deepEqual(empty[field], mode === 'price' ? [] : null);
+    assert.equal(empty.algorithmVersion, price.algorithmVersion);
+    assert.equal(empty.watermark, null);
+  }
+  const legacy = await client.getHistory(request);
+  await assert.rejects(versioned.getHistory({ ...range, cursor: legacy.nextCursor }), error => {
+    assert.ok(error instanceof CandlesHttpError);
+    assert.equal(error.status, 422);
+    assert.equal(error.response.code, 'FIELD_INVALID');
+    assert.equal(error.response.message, 'invalid versioned history request');
+    assert.equal(error.response.retryable, false);
+    return true;
+  });
+}
+test(versionedHistoryFromPostgres);

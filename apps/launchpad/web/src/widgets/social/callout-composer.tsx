@@ -1,11 +1,12 @@
 'use client';
-import { useId, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useId, useState, useEffect, useSyncExternalStore, type FormEvent, type KeyboardEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { CapabilityUnavailableError, HttpError } from '@kindle/sdk';
 import { Megaphone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSessionOperations } from '@/core/market/operations';
 import { isSignedOutError, toUnsupported, type Unsupported } from '@/core/market/unsupported';
+import { accountSession, subscribeAccount } from '@/widgets/profile/account-transport';
 import { openAuthModal } from '@/shell/auth-modal-store';
 import { Button, FormField, SegmentedControl, SelectPill, UnavailableState } from '@/ui/primitives';
 import { validateInteractionText } from '@/widgets/community-interactions/plain-content';
@@ -47,6 +48,7 @@ export function describeCreateError(error: unknown): SubmitState {
 export function CalloutComposer({ poolAddress, onPosted, variant = 'inline', className }: CalloutComposerProps) {
   const id = useId();
   const operations = useSessionOperations();
+  const scope = useSyncExternalStore(subscribeAccount, accountSession, () => null);
   const queryClient = useQueryClient();
   const [body, setBody] = useState('');
   const [direction, setDirection] = useState<CalloutDirection>('bullish');
@@ -57,22 +59,25 @@ export function CalloutComposer({ poolAddress, onPosted, variant = 'inline', cla
   const length = Array.from(body).length;
   const valid = pool !== null && validateInteractionText(body) && Array.from(position).length <= 160;
   const posting = submit.state === 'posting';
-  const signedIn = operations !== null;
+  const signedIn = operations !== null && scope !== null;
+  useEffect(() => { setSubmit({ state: 'idle' }); setBody(''); setPosition(''); }, [scope, pool]);
 
   async function post(event?: FormEvent) {
     event?.preventDefault();
     if (!signedIn) { openAuthModal('Sign in to post a callout'); return; }
-    if (!valid || posting || !pool) return;
+    if (!valid || posting || !pool || !scope || accountSession() !== scope) return;
     setSubmit({ state: 'posting' });
     const calloutId = crypto.randomUUID();
     try {
-      const created = await operations.call(operation, { body: { ID: calloutId, PoolAddress: pool, Body: body, Direction: direction, Disclosure: disclosure, ...(position.trim() ? { PositionDisclosure: position.trim() } : {}) } });
+      const created = await operations.call(operation, { body: { ID: calloutId, PoolAddress: pool, Body: body, Direction: direction, Disclosure: disclosure, ...(position.trim() ? { PositionDisclosure: position.trim() } : {}) } }, { signal: scope.signal });
+      if (accountSession() !== scope || scope.signal.aborted) return;
       setSubmit({ state: 'posted', id: created.ID });
       setBody('');
       setPosition('');
       void queryClient.invalidateQueries({ predicate: query => query.queryKey[1] === 'feed' || query.queryKey[1] === 'callouts' });
       onPosted?.(created.ID);
     } catch (error) {
+      if (accountSession() !== scope || scope.signal.aborted) return;
       setSubmit(describeCreateError(error));
     }
   }

@@ -27,18 +27,23 @@ func FrozenV2Operations(t *testing.T) []FrozenOperation {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return decodeFrozenV2Operations(t, raw)
+}
+
+func decodeFrozenV2Operations(t *testing.T, raw []byte) []FrozenOperation {
+	t.Helper()
 	const declaration = "export const operationDefinitions = "
 	_, object, ok := strings.Cut(string(raw), declaration+"{")
 	if !ok {
-		t.Fatalf("%s: operationDefinitions declaration absent", path)
+		t.Fatal("operationDefinitions declaration absent")
 	}
 	object, _, ok = strings.Cut(object, "\n} as const;")
 	if !ok {
-		t.Fatalf("%s: operationDefinitions terminator absent", path)
+		t.Fatal("operationDefinitions terminator absent")
 	}
 	var catalog map[string]FrozenOperation
 	if err := json.Unmarshal([]byte("{"+object+"\n}"), &catalog); err != nil {
-		t.Fatalf("%s: decode operationDefinitions: %v", path, err)
+		t.Fatalf("decode operationDefinitions: %v", err)
 	}
 	ids := make([]string, 0, len(catalog))
 	for id := range catalog {

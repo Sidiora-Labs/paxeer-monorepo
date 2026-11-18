@@ -1,4 +1,5 @@
 import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
+import { applyBrowserSurface } from '@/core/app-foundation/browser-surface.test-support';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import React, { act } from 'react';
@@ -23,6 +24,7 @@ for (const key of Object.getOwnPropertyNames(dom.window)) {
 browserGlobals.window = dom.window;
 browserGlobals.document = dom.window.document;
 browserGlobals.IS_REACT_ACT_ENVIRONMENT = true;
+const closeBrowserSurface = applyBrowserSurface();
 
 type Responder = (method: string, url: string, body: string) => { status: number; body?: unknown; headers?: Record<string, string> };
 type Served = { server: Server; origin: string; paths: string[] };
@@ -71,6 +73,7 @@ const served = await serve((method, url, body) => {
     const tokens = decodeURIComponent(url.slice('/metadata/batch?addresses='.length)).split(',');
     return { status: 200, body: Object.fromEntries(tokens.map(t => [t, metadata[t] ?? null])) };
   }
+  console.warn(`Unanswered request: ${method} ${url} ${body}`);
   return { status: 404 };
 });
 const unserved = await serve(() => ({ status: 404 }));
@@ -219,3 +222,5 @@ describe('TerminalLeftRail against a real HTTP origin', () => {
     unmount();
   });
 });
+
+afterAll(closeBrowserSurface);

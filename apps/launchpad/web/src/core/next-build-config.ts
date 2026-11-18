@@ -26,8 +26,14 @@ export function allowedDevOrigins(env: Readonly<Record<string, string | undefine
   return origins;
 }
 
-function upstream(value: string): string {
-  return value.replace(/\/+$/, '');
+function upstream(name: string, value: string): string {
+  const base = value.replace(/\/+$/, '');
+  let url: URL;
+  try { url = new URL(base); } catch { throw new TypeError(`${name} must be an HTTP(S) origin`); }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || url.pathname !== '/') {
+    throw new TypeError(`${name} must be an HTTP(S) origin`);
+  }
+  return url.origin;
 }
 
 /**
@@ -74,10 +80,10 @@ export async function backendRewrites(env: Readonly<Record<string, string | unde
   if (!gatewayValue || !apiValue || !socketsValue || !chartsValue) {
     return { beforeFiles: [], afterFiles: [], fallback: [] };
   }
-  const gateway = upstream(gatewayValue);
-  const api = upstream(apiValue);
-  const sockets = upstream(socketsValue);
-  const charts = upstream(chartsValue);
+  const gateway = upstream('WEB_GATEWAY_UPSTREAM', gatewayValue);
+  const api = upstream('WEB_API_UPSTREAM', apiValue);
+  const sockets = upstream('WEB_SOCKETS_UPSTREAM', socketsValue);
+  const charts = upstream('WEB_CHARTS_UPSTREAM', chartsValue);
   return {
     beforeFiles: [
       // Identity (media/gateway): challenges, sessions, `sessions:refresh`, and stream tickets.

@@ -5,7 +5,7 @@ import {
   parseAbi, type Hex, type PublicClient, type TransactionReceipt, type WalletClient,
 } from 'viem';
 import { ChainLaunchAdapter, chainLaunchRequest, chainsAbi, type ChainLaunchStep } from './chain-adapters';
-import { CHAINS_PRECOMPILE, chainCost, type ChainDraft } from './chain-domain';
+import { CHAINS_PRECOMPILE, chainCost, chainRevenueOperator, type ChainDraft } from './chain-domain';
 import { CHAIN_LAUNCH_ABI, LAUNCHPAD_ADDRESS } from '@/core/network/contracts';
 import vectors from '../../../../../../tests/vectors/chains/abi-vectors.json';
 
@@ -59,7 +59,7 @@ function chainFixture() {
     switch (request.functionName) {
       case 'params': return params;
       case 'chainByName': return 0;
-      case 'getChain': return record;
+      case 'getChain': return [record[0], record[1], chainRevenueOperator(record[0]), ...record.slice(3)];
       case 'launchedChain': return [1, 125000001n, pool, token, 7n, creator, 42n];
       case 'name': return 'Demo Token';
       case 'symbol': return 'DMT';
@@ -143,7 +143,7 @@ async function chain_adapter_launches_and_reports_the_new_chain() {
     const allowance = tier === 'growth' ? [1500000n, 262144n] as const : [4000000n, 1048576n] as const;
     const sizedRead = sized.client.readContract.getMockImplementation()!;
     sized.client.readContract.mockImplementation(async request => request.functionName === 'getChain'
-      ? [1, 'demo', creator, 1, 125000001n, ...allowance, 100, sized.params[1], 1000000000n, 42n]
+      ? [1, 'demo', chainRevenueOperator(1), 1, 125000001n, ...allowance, 100, sized.params[1], 1000000000n, 42n]
       : sizedRead(request));
     await sized.adapter.launch({ ...sized.draft, tier }, () => {});
     expect(sized.wallet.writeContract.mock.calls[0][0].args).toEqual(['Demo Token', 'DMT', 2, '0x0000000000000000000000000000000000000000', 'demo', ...allowance, 100]);

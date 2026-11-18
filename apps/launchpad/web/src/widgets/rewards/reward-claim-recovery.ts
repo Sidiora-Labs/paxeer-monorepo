@@ -9,9 +9,12 @@ import { getWalletClient, PaxeerWallet } from '@/core/wallet-sdk/client';
 import type { WalletPublicClient } from '@/core/wallet-sdk/assets';
 import { assertAccount, type AccountSession } from '../profile/account-transport';
 import { normalizeAddress } from '../profile/account-disclosure';
-import { validatedRewardClaim } from './reward-claim-state';
+import { isRewardClaimRejected, validatedRewardClaim } from './reward-claim-state';
 
 type RecoveryStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+export function releaseRejectedRewardClaim(storage: RecoveryStorage, key: string, reservation: string, error: unknown): void {
+  if (isRewardClaimRejected(error) && storage.getItem(key) === reservation) storage.removeItem(key);
+}
 export type RewardClaimAuthority = Pick<RuntimeAuthority, 'revision' | 'expiresAt' | 'network'>;
 export type RewardClaimClient = Pick<WalletPublicClient, 'getChainId' | 'getBlock' | 'getTransaction' | 'getTransactionReceipt'>;
 export interface RewardClaimContext {
@@ -96,12 +99,18 @@ export class RewardClaimRecovery {
     // No await may separate the durable intent from invoking the wallet.
     this.save(record);
     const request = record.prepared.data.transactionRequest;
-    const hash = await getWalletClient(provider).sendTransaction({
-      account: getAddress(request.from), to: getAddress(request.to), data: request.data as Hex, value: BigInt(request.valueRaw),
-      ...(request.gasLimitRaw === null ? {} : { gas: BigInt(request.gasLimitRaw) }),
-      ...(request.maxFeePerGasRaw === null ? {} : { maxFeePerGas: BigInt(request.maxFeePerGasRaw) }),
-      ...(request.maxPriorityFeePerGasRaw === null ? {} : { maxPriorityFeePerGas: BigInt(request.maxPriorityFeePerGasRaw) }),
-    });
+    let hash: Hex;
+    try {
+      hash = await getWalletClient(provider).sendTransaction({
+        account: getAddress(request.from), to: getAddress(request.to), data: request.data as Hex, value: BigInt(request.valueRaw),
+        ...(request.gasLimitRaw === null ? {} : { gas: BigInt(request.gasLimitRaw) }),
+        ...(request.maxFeePerGasRaw === null ? {} : { maxFeePerGas: BigInt(request.maxFeePerGasRaw) }),
+        ...(request.maxPriorityFeePerGasRaw === null ? {} : { maxPriorityFeePerGas: BigInt(request.maxPriorityFeePerGasRaw) }),
+      });
+    } catch (error) {
+      releaseRejectedRewardClaim(this.storage, this.key, JSON.stringify(record), error);
+      throw error;
+    }
     if (!hashPattern.test(hash)) throw new Error('Wallet returned an invalid transaction hash');
     // Save a late wallet response even after unmount/sign-out; never put it under the new account.
     const saved: unknown = JSON.parse(this.storage.getItem(this.key) ?? 'null');

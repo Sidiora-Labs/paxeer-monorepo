@@ -2,15 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { getEventListeners } from 'node:events';
 import { createServer } from 'node:http';
+import { auth, wallet, assertOperation, imageDigest } from './signer.mjs';
 import { gzipSync } from 'node:zlib';
 import {
   UsersHttpClient, UsersApiError, UsersResponseError, UsersResponseTooLargeError,
   USERS_DEFAULT_TIMEOUT_MS, USERS_MAX_TIMEOUT_MS, USERS_RESPONSE_LIMITS,
 } from '../dist/index.js';
 
-const wallet = '0x' + 'a'.repeat(40);
 const pool = '0x' + 'b'.repeat(40);
-const auth = { signature: 'caller-signed-value', message: 'caller-message' };
 const data = { display_name: 'Name', bio: '', website: '', twitter: '', telegram: '', discord: '' };
 const profile = {
   wallet_address: wallet, display_name: null, bio: null,
@@ -25,7 +24,7 @@ const routes = [
   { name: 'watchlist', method: 'GET', path: `/users/${wallet}/watchlist`, payload: watchlist, limit: 1024 * 1024,
     call: (client, options) => client.getWatchlist(wallet, options) },
   { name: 'update', method: 'POST', path: `/users/${wallet}`, payload: { success: true }, limit: 16 * 1024,
-    call: (client, options) => client.updateProfile(wallet, { ...auth, data }, options) },
+    call: (client, options) => client.updateProfile(wallet, { data }, auth, options) },
   { name: 'add', method: 'PUT', path: `/users/${wallet}/watchlist/${pool}`, payload: { success: true }, limit: 16 * 1024,
     call: (client, options) => client.addWatchlist(wallet, pool, auth, options) },
   { name: 'remove', method: 'DELETE', path: `/users/${wallet}/watchlist/${pool}`, payload: { success: true }, limit: 16 * 1024,
@@ -193,14 +192,16 @@ async function endpointCapsAndExactBoundaries(t) {
       for (const request of requests) {
         assert.equal(request.method, route.method);
         assert.equal(request.path, route.path);
-        if (route.name === 'update') assert.deepEqual(JSON.parse(request.body), { ...auth, data });
-        if (route.name === 'add' || route.name === 'remove') assert.deepEqual(JSON.parse(request.body), auth);
+        if (route.name === 'update') assert.deepEqual(JSON.parse(request.body), { data });
+        if (route.name === 'add' || route.name === 'remove') assert.deepEqual(JSON.parse(request.body), {});
+        if (route.name === 'update') await assertOperation(request, 'profile.update');
+        if (route.name === 'add') await assertOperation(request, 'watchlist.update');
+        if (route.name === 'remove') await assertOperation(request, 'watchlist.remove');
         if (route.name === 'avatar' || route.name === 'banner') {
           assert.match(request.headers['content-type'], /^multipart\/form-data; boundary=/);
           assert.ok(request.body.includes(`name="${route.name}"`));
-          assert.match(request.body, /name="signature"/);
-          assert.match(request.body, /caller-signed-value/);
-          assert.match(request.body, /caller-message/);
+          assert.equal([...request.body.matchAll(/Content-Disposition:/g)].length, 1);
+          await assertOperation(request, `image.${route.name}.update`, JSON.stringify({ content_type: request.headers['content-type'], sha256: imageDigest(request.body) }));
         }
       }
     });

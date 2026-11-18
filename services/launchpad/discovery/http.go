@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -26,9 +27,13 @@ type HTTP struct {
 
 func (h HTTP) actor(r *http.Request) (string, error) {
 	if h.Authenticate == nil {
+		slog.WarnContext(r.Context(), "discovery authentication unavailable", "route", r.Pattern)
 		return "", ErrUnavailable
 	}
 	a, e := h.Authenticate(r)
+	if e != nil {
+		slog.WarnContext(r.Context(), "discovery authentication refused", "error", e, "route", r.Pattern)
+	}
 	if e != nil || a == "" {
 		return "", ErrForbidden
 	}
@@ -49,6 +54,11 @@ func decode(w http.ResponseWriter, r *http.Request, v any) error {
 func reply(w http.ResponseWriter, r *http.Request, v any, e error) {
 	if e != nil {
 		status, code := errorStatus(e)
+		if status == http.StatusServiceUnavailable {
+			requestID := squadRequestID(r)
+			r.Header.Set("X-Request-Id", requestID)
+			slog.ErrorContext(r.Context(), "discovery request unavailable", "error", e, "method", r.Method, "route", r.Pattern, "request_id", requestID)
+		}
 		writeError(w, r, status, code)
 		return
 	}
@@ -137,12 +147,12 @@ func (h HTTP) Handler() http.Handler {
 			return
 		}
 		if h.Wallet == nil {
-			writeError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+			reply(w, r, nil, ErrUnavailable)
 			return
 		}
 		wallet, e := h.Wallet(r)
 		if e != nil || !address.MatchString(wallet) {
-			writeError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+			reply(w, r, nil, errors.Join(ErrUnavailable, e))
 			return
 		}
 		var raw json.RawMessage
@@ -176,12 +186,12 @@ func (h HTTP) Handler() http.Handler {
 			return
 		}
 		if h.Wallet == nil {
-			writeError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+			reply(w, r, nil, ErrUnavailable)
 			return
 		}
 		wallet, e := h.Wallet(r)
 		if e != nil || !address.MatchString(wallet) {
-			writeError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+			reply(w, r, nil, errors.Join(ErrUnavailable, e))
 			return
 		}
 		id, e := uuid.Parse(r.PathValue("alertId"))
@@ -206,12 +216,17 @@ func (h HTTP) Handler() http.Handler {
 			Rule     AlertRule
 			Expected uint64
 		}
-		if e = decode(w, r, &input); e != nil {
+		if e = decodeV2Squad(w, r, "ConnectedAlertPutBody", &input); e != nil {
 			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		input.Rule.OwnerAccountID = actor
 		input.Rule.ID = r.PathValue("id")
+		input.Rule, e = NewAlertRule(input.Rule)
+		if e != nil {
+			reply(w, r, nil, e)
+			return
+		}
 		e = h.Store.SaveRule(r.Context(), actor, input.Rule, input.Expected)
 		reply(w, r, input.Rule, e)
 	})
@@ -262,7 +277,7 @@ func (h HTTP) Handler() http.Handler {
 				return
 			}
 		}
-		body, e := AdaptV2SquadRead(squadRequestID(r), q, members, time.Now().UTC())
+		body, e := adaptV2SquadRead(squadRequestID(r), q, members, actor, time.Now().UTC())
 		replyV2Squad(w, r, http.StatusOK, body, e)
 	})
 	mux.HandleFunc("PUT /v2/squads/{squadId}/members/{accountId}", func(w http.ResponseWriter, r *http.Request) {

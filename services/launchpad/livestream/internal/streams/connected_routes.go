@@ -41,7 +41,7 @@ func (p *RestrictionReader) Allowed(ctx context.Context, wallet, pool string) (b
 	var banned bool
 	err := p.Pool.QueryRow(bounded, `SELECT EXISTS(SELECT 1 FROM chat.safety_bans_v1 WHERE wallet=$1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>clock_timestamp()) AND (scope='global' OR (scope='pool' AND resource=$2)))`, strings.ToLower(wallet), strings.ToLower(pool)).Scan(&banned)
 	if err != nil {
-		return false, ErrUnavailable
+		return false, fmt.Errorf("moderation read: %w: %w", ErrUnavailable, err)
 	}
 	return !banned, nil
 }
@@ -565,7 +565,7 @@ func (p *RestrictionReader) AllowedTx(ctx context.Context, tx pgx.Tx, wallet, po
 	var banned bool
 	err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM chat.safety_bans_v1 WHERE wallet=$1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>clock_timestamp()) AND (scope='global' OR (scope='pool' AND resource=$2)))`, strings.ToLower(wallet), strings.ToLower(pool)).Scan(&banned)
 	if err != nil {
-		return false, ErrUnavailable
+		return false, fmt.Errorf("moderation read: %w: %w", ErrUnavailable, err)
 	}
 	return !banned, nil
 }

@@ -39,7 +39,7 @@ function ChainRow({ chain }: { chain: ChainRecord }) {
       <TableCell>{ row.launchSymbol || (launch.isError ? 'Unavailable' : '') }</TableCell>
       <TableCell><Text wordBreak="break-all">{ row.operator }</Text></TableCell>
       <TableCell>{ statusLabel(row.status) }</TableCell>
-      <TableCell>
+      <TableCell isNumeric>
         <Text>{ row.gas_allowance.toLocaleString() } gas</Text>
         <Text>{ row.byte_allowance.toLocaleString() } bytes</Text>
       </TableCell>
@@ -79,7 +79,7 @@ export function ChainsList() {
                     <TableColumnHeader>Launch asset</TableColumnHeader>
                     <TableColumnHeader>Operator</TableColumnHeader>
                     <TableColumnHeader>Status</TableColumnHeader>
-                    <TableColumnHeader>Allowance</TableColumnHeader>
+                    <TableColumnHeader isNumeric>Allowance</TableColumnHeader>
                     <TableColumnHeader isNumeric>Created height</TableColumnHeader>
                   </TableRow>
                 </TableHeader>

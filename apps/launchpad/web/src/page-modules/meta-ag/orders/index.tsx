@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import Link from 'next/link';
 import OrderForm from '@/widgets/meta-ag/order-form';
 import OpenOrdersList from '@/widgets/meta-ag/open-orders-list';
 
@@ -20,8 +21,8 @@ export default function MetaAgOrdersPage() {
           <h1 className="text-lg font-bold text-text">Orders</h1>
         </div>
         <p className="text-xs text-text-faint mt-1">
-          Set limit and stop orders. They trade automatically when the price
-          hits your trigger
+          Limit and stop orders are not available yet.{' '}
+          <Link prefetch={false} href="/terminal">Open the terminal to trade</Link>
         </p>
       </div>
 
@@ -43,17 +44,16 @@ function KeeperHealthHint() {
     <div className="mt-3 px-3 py-2.5 rounded-xl bg-surface-2 text-2xs text-text-faint space-y-1">
       <div className="font-bold uppercase tracking-wider text-text mb-1">How it works</div>
       <p>
-        Your order waits on-chain until the price hits your trigger, then it
-        trades automatically. Cancel anytime, your funds stay locked in the
-        order until it trades
+        When orders become available, funds will stay locked until the order
+        trades, expires or is cancelled. A trigger does not guarantee execution.
       </p>
       <div className="pt-1.5 mt-1.5 flex justify-between">
         <span>Order bot</span>
-        <span className="font-mono text-text">0xaA39…36aB</span>
+        <span className="font-mono text-text">Not available yet</span>
       </div>
       <div className="flex justify-between">
         <span>Orders contract</span>
-        <span className="font-mono text-text">0x16bC…5f6E</span>
+        <span className="font-mono text-text">Not available yet</span>
       </div>
     </div>
   );

@@ -5,10 +5,14 @@ import {
 
 const IF_POOL_LIST = 'IF_POOL_LIST';
 
-export function pools(sdk: SdkClient, signal: AbortSignal) {
+export function pools(
+  sdk: SdkClient,
+  signal: AbortSignal,
+  cursor?: string,
+) {
   return new Operations(sdk).call(
     IF_POOL_LIST,
-    { query: { sort: 'new', limit: 50 } },
+    { query: { sort: 'new', limit: 50, ...(cursor ? { cursor } : {}) } },
     { signal },
   );
 }

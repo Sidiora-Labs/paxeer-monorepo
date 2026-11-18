@@ -175,7 +175,7 @@ describe('home widgets on a successful empty answer', () => {
     dom.window.close();
   });
 
-  it(homeEmptyStatesProfilesUseGatewayOrigin);
+  it(homeEmptyStatesProfilesUseGatewayOrigin.name, homeEmptyStatesProfilesUseGatewayOrigin);
 
   it('Trending renders the empty state with a Create coin action and no quality warning', async () => {
     const { root, container, queryClient } = mount(empty.origin, <TrendingWidget {...props} />);

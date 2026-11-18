@@ -3288,7 +3288,7 @@
       "height",
       "integrity"
     ],
-    "sql": "SELECT height::text,block_hash,integrity FROM auth_committed_blocks WHERE chain_id=125 ORDER BY height DESC LIMIT 1"
+    "sql": "SELECT height::text,block_hash,integrity FROM auth_committed_blocks AS heads WHERE chain_id=125 ORDER BY heads.height DESC LIMIT 1"
   },
   {
     "id": "sdk/launchpad/shared/auth/ledger.go/Ledger.ExecuteValidatedTx/1",

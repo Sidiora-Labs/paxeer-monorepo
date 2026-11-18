@@ -7,6 +7,8 @@ import type { RankingCategory } from '@/core/market/use-rankings';
 import type { StatValue } from '@/core/market/pool-stats-display';
 import type { TokenMetadata } from '@/widgets/home/types';
 import type { Loadable } from '@/core/market/unsupported';
+import { SourceNotice } from '@/ui/common/source-notice';
+import { WatchlistNotice } from '@/ui/common/watchlist-notice';
 import { useWatchlist } from '@/hooks/ui/use-watchlist';
 import { TrendingRow, TrendingRowSkeleton, safeSocials, type TrendingRowData } from './trending-row';
 import type { WidgetProps } from './widget-registry';
@@ -92,6 +94,10 @@ export function toTrendingRow(row: ExploreRow, timeframe: Timeframe, metadata: T
   };
 }
 
+export function trendingMetadata(row: Pick<ExploreRow, 'tokenAddress'>, metadata: Record<string, TokenMetadata | null> | null): TokenMetadata | null {
+  return row.tokenAddress ? metadata?.[row.tokenAddress] ?? null : null;
+}
+
 function readyRecord<T>(source: Loadable<Record<string, T>>): Record<string, T> | null {
   return source.state === 'ready' ? source.data : null;
 }
@@ -109,7 +115,7 @@ export function TrendingWidget({ filter, density }: WidgetProps) {
   const watchlist = useWatchlist();
   const metadata = readyRecord(explore.metadata);
   const rows = useMemo(
-    () => explore.rows.filter(row => matchesFilter(row, filter)).map(row => toTrendingRow(row, timeframe, metadata?.[row.poolAddress] ?? null)),
+    () => explore.rows.filter(row => matchesFilter(row, filter)).map(row => toTrendingRow(row, timeframe, trendingMetadata(row, metadata))),
     [explore.rows, filter, timeframe, metadata],
   );
   const quality = explore.snapshot?.quality ?? null;
@@ -132,6 +138,10 @@ export function TrendingWidget({ filter, density }: WidgetProps) {
         {rows.length > 0 && (quality === 'stale' || quality === 'partial' || quality === 'quarantined') ? (
           <NoticeBar tone="warning" className="mx-2 mb-2" surface={1}>Rankings may be a little behind right now</NoticeBar>
         ) : null}
+        <WatchlistNotice state={watchlist} />
+        {explore.stats.state === 'error' ? <SourceNotice label="Coin stats" state={explore.stats} onRetry={explore.retrySources} /> : null}
+        <SourceNotice label="Pool details" state={explore.listings} onRetry={explore.retrySources} />
+        <SourceNotice label="Coin details" state={explore.metadata} onRetry={explore.retrySources} />
         {panel.state === 'loading' ? (
           <TrendingRowSkeleton density={density} />
         ) : panel.state === 'unsupported' ? (
@@ -146,7 +156,7 @@ export function TrendingWidget({ filter, density }: WidgetProps) {
           )
         ) : (
           <>
-            {explore.stats.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Live stats" operation={explore.stats.operation} status={explore.stats.status} /> : null}
+            {explore.stats.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Live stats" operation={explore.stats.operation} status={explore.stats.status} onRetry={explore.retrySources} /> : null}
             <ol className="flex flex-col">
               {rows.map(row => (
                 <TrendingRow key={row.poolAddress} row={row} density={density} starred={watchlist.check(row.poolAddress)} onToggleStar={() => watchlist.toggle(row.poolAddress)} />

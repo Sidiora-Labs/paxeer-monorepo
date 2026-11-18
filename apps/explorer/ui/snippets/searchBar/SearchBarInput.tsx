@@ -101,6 +101,7 @@ const SearchBarInput = (
       onClick={ onFormClick }
       w={ isHero ? 'calc(var(--chakra-spacing-80) * 2)' : 'var(--chakra-spacing-80)' }
       maxW="100%"
+      minW={ 0 }
       flexShrink={ 1 }
       backgroundColor="raised"
       borderRadius={ isHero ? 'control' : 'pill' }
@@ -109,10 +110,14 @@ const SearchBarInput = (
       { ...rest }
     >
       <InputGroup
+        minW={ 0 }
         startElement={ startElement }
+        startOffset="var(--chakra-spacing-10)"
+        endOffset={ isMobile ? 'var(--chakra-spacing-16)' : 'calc(var(--chakra-spacing-16) + var(--chakra-spacing-12))' }
         endElement={ endElement }
       >
         <Input
+          minW={ 0 }
           size="md"
           name="q"
           aria-controls={ isSuggestOpen ? suggestionId : undefined }

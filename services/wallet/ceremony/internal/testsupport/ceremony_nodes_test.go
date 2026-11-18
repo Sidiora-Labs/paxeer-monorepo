@@ -7,17 +7,85 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/dealer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/attestor"
 )
+
+func TestCeremonyShareFingerprint(t *testing.T) {
+	record := func(form, text string) []byte {
+		raw, err := json.Marshal(map[string]any{form: map[string]string{"share": text}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return raw
+	}
+	var odd, even [32]byte
+	odd[30], odd[31] = 0x0a, 0xbc
+	even[30], even[31] = 0x12, 0x34
+	oddFingerprint, evenFingerprint := sha256.Sum256(odd[:]), sha256.Sum256(even[:])
+	for _, tc := range []struct {
+		name, form, text string
+		want             [32]byte
+	}{
+		{"odd-ecdsa", "ecdsa", "abc", oddFingerprint},
+		{"odd-import", "bundle", "0abc", oddFingerprint},
+		{"even-ecdsa", "ecdsa", "1234", evenFingerprint},
+		{"even-import", "bundle", "1234", evenFingerprint},
+		{"padded-import", "bundle", strings.Repeat("0", 60) + "0abc", oddFingerprint},
+		{"uppercase-ecdsa", "ecdsa", "ABC", oddFingerprint},
+		{"zero-ecdsa", "ecdsa", "0", sha256.Sum256(make([]byte, 32))},
+		{"zero-import", "bundle", "00", sha256.Sum256(make([]byte, 32))},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ceremonyShareFingerprint(record(tc.form, tc.text))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tc.want {
+				t.Fatal("share fingerprint differs from the SHA-256 of its 32-byte integer")
+			}
+		})
+	}
+	first, err := ceremonyShareFingerprint(record("ecdsa", "abc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := ceremonyShareFingerprint(record("bundle", "1234"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == second {
+		t.Fatal("different shares have the same comparison value")
+	}
+	for _, form := range []string{"ecdsa", "bundle"} {
+		for _, tc := range []struct{ name, text string }{
+			{"empty", ""},
+			{"invalid", "not-hex"},
+			{"negative", "-abc"},
+			{"oversized", "1" + strings.Repeat("0", 64)},
+		} {
+			t.Run(form+"-"+tc.name, func(t *testing.T) {
+				got, err := ceremonyShareFingerprint(record(form, tc.text))
+				if err == nil {
+					t.Fatal("invalid share text was accepted")
+				}
+				if got != ([32]byte{}) {
+					t.Fatal("invalid share returned a comparison value")
+				}
+			})
+		}
+	}
+}
 
 func ceremonyNodesConfig(t *testing.T) (*TLSFiles, []attestor.NodeConfig) {
 	t.Helper()

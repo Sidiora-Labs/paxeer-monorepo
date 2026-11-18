@@ -20,4 +20,4 @@ function unexecutableQuoteMapsToOpticalRejection() {
   });
 }
 
-test(unexecutableQuoteMapsToOpticalRejection);
+test(unexecutableQuoteMapsToOpticalRejection.name, unexecutableQuoteMapsToOpticalRejection);

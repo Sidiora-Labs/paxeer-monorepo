@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useMemo } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAccount } from 'wagmi';
 import { BadgeCheck, ClipboardCheck, Target, Wallet } from 'lucide-react';
 import { Button, EmptyState, ErrorState, LoadMore, UnavailableState } from '@/ui/primitives';
@@ -37,15 +37,6 @@ function SkeletonGrid({ count = 1 }: { count?: number }) {
   );
 }
 
-/** Route-level fallback while the search params boundary resolves. */
-export function BountiesHomeSkeleton() {
-  return (
-    <div className="mx-auto flex w-full max-w-content-narrow-max-width flex-col gap-6 px-4 py-6">
-      <SkeletonGrid />
-    </div>
-  );
-}
-
 function BountyGrid({ items, now }: { items: Bounty[]; now?: number }) {
   const pools = useMemo(() => [...new Set(items.flatMap(item => (item.poolAddress ? [item.poolAddress.toLowerCase()] : [])))].slice(0, marketLimits.rankingPage), [items]);
   const batch = useStatsBatch(pools);
@@ -69,12 +60,10 @@ function BountyGrid({ items, now }: { items: Bounty[]; now?: number }) {
   );
 }
 
-export default function BountiesHome() {
+export default function BountiesHome({ requestedTab }: { requestedTab: string | null }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const requested = searchParams.get('tab');
-  const tab: BountyTab = isBountyTab(requested) ? requested : 'open';
+  const tab: BountyTab = isBountyTab(requestedTab) ? requestedTab : 'open';
   const { address } = useAccount();
   const { openModal } = useAuthModal();
 

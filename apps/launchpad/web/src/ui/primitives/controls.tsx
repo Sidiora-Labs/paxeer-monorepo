@@ -133,7 +133,7 @@ export function SegmentedControl<T extends string>({
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
               'inline-flex items-center justify-center gap-1.5 border border-transparent py-2 text-sm font-bold transition-colors duration-fast',
-              compact ? 'px-1.5' : 'px-3',
+              compact ? 'whitespace-nowrap px-1.5' : 'px-3',
               radius,
               size === 'sm' ? 'min-h-control-height-sm' : 'min-h-control-height-md',
               fullWidth && 'flex-1',
@@ -363,6 +363,7 @@ export function SelectPill<T extends string>({
       <div
         className={cn(
           'sl-field relative inline-flex min-h-control-height-sm min-w-0 flex-wrap items-center gap-1.5 rounded-pill px-3 py-1',
+          compact && 'px-2 py-0',
           error ? 'bg-danger-soft' : 'bg-surface-2'
         )}
       >
@@ -391,7 +392,7 @@ export function SelectPill<T extends string>({
           }}
           className={cn(
             'sl-native-select min-w-[min(var(--sl-select-min-width),max(100%,var(--sl-touch-target-min)))] max-w-full flex-1 cursor-pointer rounded-sm bg-transparent py-1 text-md font-bold text-text disabled:cursor-not-allowed disabled:text-text-disabled',
-            compact && 'px-0',
+            compact && 'min-w-0 flex-none appearance-none whitespace-nowrap px-0 py-0 text-sm [field-sizing:content] [&::picker-icon]:hidden',
             size === 'md' && 'min-h-control-height-md'
           )}
         >
@@ -624,6 +625,8 @@ export interface FormFieldProps {
   optional?: boolean;
   helper?: ReactNode;
   error?: string | null;
+  describedBy?: string;
+  invalid?: boolean;
   multiline?: boolean;
   size?: 'md' | 'lg';
   /** Surface the field sits on; the control takes the next step. */
@@ -651,6 +654,8 @@ export function FormField({
   optional = false,
   helper,
   error = null,
+  describedBy: externalDescription,
+  invalid = false,
   multiline = false,
   size = 'md',
   surface = 'surface-1',
@@ -668,7 +673,11 @@ export function FormField({
   const errorId = `${id}-error`;
   const counterId = `${id}-counter`;
   const describedBy =
-    [error ? errorId : helper ? helperId : null, counter ? counterId : null]
+    [
+      externalDescription,
+      error ? errorId : helper ? helperId : null,
+      counter ? counterId : null,
+    ]
       .filter(Boolean)
       .join(' ') || undefined;
   const disabled = Boolean(inputProps?.disabled ?? textareaProps?.disabled);
@@ -724,7 +733,7 @@ export function FormField({
             id={id}
             name={id}
             aria-describedby={describedBy}
-            aria-invalid={error ? true : undefined}
+            aria-invalid={error || invalid ? true : undefined}
             className={control}
             {...textareaProps}
           />
@@ -733,7 +742,7 @@ export function FormField({
             id={id}
             name={id}
             aria-describedby={describedBy}
-            aria-invalid={error ? true : undefined}
+            aria-invalid={error || invalid ? true : undefined}
             className={control}
             {...inputProps}
           />

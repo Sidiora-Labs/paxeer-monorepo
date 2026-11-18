@@ -5,14 +5,12 @@ import React from 'react';
 import PageNextJs from 'nextjs/PageNextJs';
 
 import config from 'configs/app';
+import { ContentLoader } from 'toolkit/components/loaders/ContentLoader';
+import TokenTransfersContent from 'ui/pages/TokenTransfers';
 
-const TokenTransfers = dynamic(() => {
-  if (config.features.multichain.isEnabled) {
-    return import('ui/multichain/tokenTransfers/MultichainTokenTransfers');
-  }
-
-  return import('ui/pages/TokenTransfers');
-}, { ssr: false });
+const TokenTransfers = config.features.multichain.isEnabled ?
+  dynamic(() => import('ui/multichain/tokenTransfers/MultichainTokenTransfers'), { ssr: false, loading: () => <ContentLoader/> }) :
+  TokenTransfersContent;
 
 const Page: NextPage = () => {
   return (

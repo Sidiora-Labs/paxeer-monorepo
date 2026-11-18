@@ -56,6 +56,7 @@ SERVICE_PACKAGES = {
         'github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/internaltest',
         'github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/ranker',
         'github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/rolecheck',
+        'github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/rolecheck/generate',
         'github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/store',
     },
     'stats-workers': {
@@ -148,6 +149,7 @@ SERVICE_PACKAGES = {
         'github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/internaltest',
         'github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/migrate',
         'github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/rolecheck',
+        'github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/rolecheck/cmd/rolecheckgen',
         'github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/safety',
         'github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/social',
         'github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/voice',

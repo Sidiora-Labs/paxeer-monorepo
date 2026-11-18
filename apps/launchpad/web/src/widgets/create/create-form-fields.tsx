@@ -40,7 +40,7 @@ export interface CreateFormFieldsProps {
 }
 
 /** Shown inside the field once the user has typed, so the empty form keeps the reference's density. */
-function InlineCounter({ id, count, max }: { id: string; count: number; max: number }) {
+export function InlineCounter({ id, count, max }: { id: string; count: number; max: number }) {
   if (count === 0) return null;
   const tone = count >= max ? 'text-danger' : count >= max * 0.9 ? 'text-warning' : 'text-text-faint';
   return (

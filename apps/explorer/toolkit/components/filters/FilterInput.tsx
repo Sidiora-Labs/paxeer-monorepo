@@ -58,7 +58,8 @@ export const FilterInput = ({
 
   return (
     <Skeleton
-      minW={ 'var(--chakra-spacing-62\\.5)' }
+      minW={ 'min(100%, var(--chakra-spacing-62\\.5))' }
+      maxW="100%"
       borderRadius="base"
       loading={ loading }
       { ...rest }
@@ -77,6 +78,7 @@ export const FilterInput = ({
           onFocus={ onFocus }
           onBlur={ onBlur }
           placeholder={ placeholder }
+          aria-label={ placeholder }
           borderWidth="var(--chakra-border-widths-2)"
           textOverflow="ellipsis"
           whiteSpace="nowrap"

@@ -150,11 +150,12 @@ export function useRecentTicker(): TickerFeed {
   return { state: 'ready', chips, emptyText: null };
 }
 
-/** IF_LEADERBOARDS trader / 24h; the real 404 surfaces as Unsupported until core/api serves it. */
+/** IF_LEADERBOARDS trader / 24h; unavailable rankings leave the feed empty. */
 export function useEarnersTicker(): TickerFeed {
   const board = useLeaderboard('trader', '24h', 20);
   const entries = board.state === 'ready' ? board.data.data.snapshot.entries : [];
   const identities = useWalletIdentities(entries.map(entry => entry.wallet));
+  if (board.state === 'unsupported') return { state: 'ready', chips: [], emptyText: null };
   if (board.state !== 'ready') return board;
   if (entries.length === 0) return { state: 'ready', chips: [], emptyText: 'No top earners in the last 24h', emptyShort: 'None in 24h' };
   const chips = entries.map<TickerChip>(entry => {

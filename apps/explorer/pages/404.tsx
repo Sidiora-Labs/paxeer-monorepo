@@ -19,7 +19,7 @@ const Page: NextPageWithLayout = () => {
 
 Page.getLayout = function getLayout(page: React.ReactElement) {
   return (
-    <LayoutError>
+    <LayoutError mainLabel="Page not found">
       { page }
     </LayoutError>
   );

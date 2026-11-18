@@ -14,6 +14,7 @@ const Content = ({ children, className }: Props) => {
       as="main"
       data-label="content"
       className={ className }
+      isolation="isolate"
       pt={ 0 }
       w="100%"
       minW={ 0 }
