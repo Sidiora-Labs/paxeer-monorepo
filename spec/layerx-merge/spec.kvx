@@ -176799,7 +176799,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.849]
 title = "Name the symbol of a market once in a row of the markets table of the price feed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
