@@ -1,9 +1,11 @@
 package projectionstats
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"os"
 	"strings"
 	"testing"
@@ -13,11 +15,22 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
 )
 
 func TestDurablePublicationCarriesCommittedTrade(t *testing.T) {
 	ctx, repository := repository(t)
+	ctx, cancelPublication := context.WithTimeout(ctx, 15*time.Second)
+	defer cancelPublication()
+	poolConfig := repository.pool.Config()
+	poolConfig.MaxConns = 1
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	repository.pool = pool
 	trade := input(fixture("buy", "7"), 119)
 	result, err := repository.Apply(ctx, trade)
 	if err != nil || !result.Accepted {
@@ -78,6 +91,16 @@ func TestDurablePublicationCarriesCommittedTrade(t *testing.T) {
 	info, err := js.StreamInfo(stream)
 	if err != nil || info.State.Msgs != 2 {
 		t.Fatalf("published stream state: %+v %v", info, err)
+	}
+	pool.Close()
+	var output bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	defer slog.SetDefault(previous)
+	failedCtx, stop := context.WithTimeout(ctx, 200*time.Millisecond)
+	defer stop()
+	if err := worker.Run(failedCtx); !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(output.String(), "closed pool") {
+		t.Fatalf("publication dependency cause: %v %s", err, output.String())
 	}
 	if err := (DurablePublisher{}).Run(context.Background()); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("invalid publisher: %v", err)
