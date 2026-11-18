@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"math/big"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -19,10 +18,13 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
+	sharedchain "github.com/Sidiora-Technologies/KindleLaunch/shared/chain"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/profile"
+	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
 	dbproduction "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type rebuildOptions struct {
@@ -77,6 +79,13 @@ func loadRebuildConfig(schema string) (config.Config, error) {
 	if expected.Service != "core/trading-charts" || expected.Schemas[schema] == "" {
 		return config.Config{}, errors.New("rebuild runtime schema binding mismatch")
 	}
+	rawExpected, err := json.Marshal(expected)
+	if err != nil {
+		return config.Config{}, err
+	}
+	if _, err = dbproduction.LoadExpectedSchema(rawExpected, dbproduction.Checksum(rawExpected)); err != nil {
+		return config.Config{}, fmt.Errorf("rebuild runtime schema readiness: %w", err)
+	}
 	return cfg, nil
 }
 
@@ -114,30 +123,40 @@ func runArgs(args []string) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Minute)
 	defer cancel()
-	database, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	database, err := cfg.OpenRuntimePool(ctx, "chartsd", runtimedb.PoolOptions{})
 	if err != nil {
-		return errors.New("chart database configuration unavailable")
-	}
-	defer database.Close()
-	if err = cfg.CheckRuntimeSchema(ctx, database); err != nil {
 		return fmt.Errorf("rebuild runtime schema readiness: %w", err)
 	}
+	defer runtimedb.ClosePool(database)
 	exact, err := store.NewExact(database, schema)
 	if err != nil {
 		return err
 	}
+	features, err := cfg.RuntimeFeatures()
+	if err != nil {
+		return err
+	}
+	if features.Archive == nil {
+		return errors.New("archive object reader configuration unavailable: bound archive required")
+	}
+	verified, err := sharedchain.NewVerifiedClient(ctx, cfg.RPCURL, cfg.RPCURLFallback, sharedchain.VerifiedConfig{Profile: profile.Paxeer(features.EndpointSetVersion, features.DeploymentVersion), AnchorHeight: features.AnchorHeight, AnchorHash: common.HexToHash(features.AnchorHash)})
+	if err != nil {
+		return fmt.Errorf("canonical chain125 RPC required: %w", err)
+	}
+	defer verified.Close()
 	rpc, err := ethclient.DialContext(ctx, cfg.RPCURL)
 	if err != nil {
-		return errors.New("canonical RPC unavailable")
+		return fmt.Errorf("canonical RPC unavailable: %w", err)
 	}
 	defer rpc.Close()
-	chain, err := rpc.ChainID(ctx)
-	if err != nil || chain == nil || chain.Cmp(big.NewInt(125)) != 0 {
-		return errors.New("canonical chain125 RPC required")
+	for name, admitted := range map[string]string{"S3_ENDPOINT": features.Archive.Endpoint, "S3_REGION": features.Archive.Region, "S3_BUCKET": features.Archive.Bucket} {
+		if supplied, present := os.LookupEnv(name); present && supplied != admitted {
+			return fmt.Errorf("archive object reader configuration unavailable: %s differs from bound archive", name)
+		}
 	}
-	objects, err := storage.New(ctx, storage.Config{Endpoint: os.Getenv("S3_ENDPOINT"), Region: os.Getenv("S3_REGION"), AccessKeyID: os.Getenv("S3_ACCESS_KEY_ID"), SecretAccessKey: os.Getenv("S3_SECRET_ACCESS_KEY"), Bucket: os.Getenv("S3_BUCKET")})
+	objects, err := storage.New(ctx, storage.Config{Endpoint: features.Archive.Endpoint, Region: features.Archive.Region, AccessKeyID: cfg.ArchiveAccessKeyID, SecretAccessKey: cfg.ArchiveSecretAccessKey, Bucket: features.Archive.Bucket})
 	if err != nil {
-		return errors.New("archive object reader configuration unavailable")
+		return fmt.Errorf("archive object reader configuration unavailable: %w", err)
 	}
 	reader := store.ArchiveReader{Objects: objects, Bucket: objects.Bucket(), Exact: exact, BlockTime: func(ctx context.Context, height int64, expectedHash string) (int64, error) {
 		return rebuildBlockTime(ctx, rpc, height, expectedHash)
@@ -154,7 +173,7 @@ func rebuildBlockTime(ctx context.Context, rpc *ethclient.Client, height int64, 
 	defer stop()
 	block, err := (chainread.Reader{RPC: rpc}).Block(bounded, height)
 	if err != nil {
-		return 0, errors.New("archive boundary header unavailable")
+		return 0, fmt.Errorf("archive boundary header unavailable: %w", err)
 	}
 	if !strings.EqualFold(block.Hash, expectedHash) {
 		return 0, store.ErrIntegrity
