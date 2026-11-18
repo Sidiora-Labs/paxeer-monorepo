@@ -8,3 +8,5 @@
 !services/explorer/backend/apps/utils/mix.exs
 !services/explorer/backend/apps/nft_media_handler/mix.exs
 !docker/explorer-elixir-builder/build-web-assets.sh
+!docker/explorer-elixir-builder/compilers.tsv
+!docker/explorer-elixir-builder/install-compilers.sh
