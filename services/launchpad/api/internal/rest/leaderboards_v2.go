@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -30,6 +31,7 @@ func writeComputedEnvelope(w http.ResponseWriter, r *http.Request, name string, 
 
 // writeComputedReadError maps read-model failures onto the frozen v2 codes.
 func writeComputedReadError(w http.ResponseWriter, r *http.Request, err error) {
+	slog.ErrorContext(r.Context(), "API read unavailable", "path", r.URL.Path, "reason", err.Error(), "request_id", responseRequestID(w))
 	switch {
 	case errors.Is(err, ErrDependencyNotConfigured):
 		WriteV2NotConfiguredError(w, r)
