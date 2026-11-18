@@ -176776,7 +176776,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.847]
 title = "Let the assistant route of the explorer ask for one document and read an answer in either form"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178269,7 +178269,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.92]
 title = "Close the account, application and service views of the explorer on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.38"]
