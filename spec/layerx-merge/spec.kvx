@@ -15700,6 +15700,12 @@ value = "One. A tracked list under docker/explorer-elixir-builder names every ve
 basis = "Gotcha 4691. Decision 3602."
 affects = []
 
+[decision.3765]
+title = "The assistant route of the explorer asks for one document and reads an answer in either form"
+value = "The request of apps/explorer/pages/api/assistant.ts names the field stream with the value false beside the model and the messages. The route reads the body of the answer as text up to a bound of one mebibyte as a least value of care, a longer body counts as a failed answer, and it takes the answer from either form: one JSON document of a completion, with or without lines of an event stream after it; or an event stream whose data lines hold either one completion document or parts whose delta content is joined in their order, closed by the done line of an event stream or by the end of the body. Only the content of the answer is given on; a field with the reasoning of the model is never given on. An answer without content, a body that fits neither form, a status that is no success and a failed call keep the status 502 with the general text, and the key of the endpoint is replaced in every answer as today. The time bound of the call, the checks of the request and the status 503 without an endpoint stay as they are. Task 22.39.847."
+basis = "Gotcha 4692. Decision 2652."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45360,6 +45366,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.847]
+title = "Let the assistant route of the explorer ask for one document and read an answer in either form"
+reqs = ["22998.1"]
+touches = ["apps/explorer/pages/api/assistant.ts", "apps/explorer/nextjs/pages-tests/api/assistant.spec.ts"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint pages/api/assistant.ts nextjs/pages-tests/api/assistant.spec.ts && yarn vitest run nextjs/pages-tests/api/assistant.spec.ts"
+do_1 = "do_1 Gotcha 4692 and decision 3765. Read apps/explorer/pages/api/assistant.ts and apps/explorer/nextjs/pages-tests/api/assistant.spec.ts in full."
+symbols = []
 
 [capability.22.39.846]
 title = "Show the inference view of the explorer as not active where the node holds no inference program"
@@ -176500,9 +176515,41 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.847]
+title = "Let the assistant route of the explorer ask for one document and read an answer in either form"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.847"]
+interfaces = []
+do_1 = "do_1 Gotcha 4692 and decision 3765. Read apps/explorer/pages/api/assistant.ts and apps/explorer/nextjs/pages-tests/api/assistant.spec.ts in full."
+do_2 = "do_2 apps/explorer/pages/api/assistant.ts: the body of the request names stream with the value false beside the model and the messages; nothing else of the request changes."
+do_3 = "do_3 apps/explorer/pages/api/assistant.ts: the answer is read as text up to the bound of decision 3765 and the content is taken by one function of the file that accepts both forms of the decision: one JSON document of a completion, alone or followed by lines of an event stream; an event stream whose data lines hold one completion document; an event stream whose data lines hold parts, whose delta content is joined in order. The done line, empty lines and lines that are no data lines are passed over. The reasoning of the model is never part of what the route gives on. An answer without content, a body of neither form, a body above the bound, a status that is no success and a failed call answer 502 with the general text as today. The replacement of the key in the answer and the model name stays."
+do_4 = "do_4 Cases in apps/explorer/nextjs/pages-tests/api/assistant.spec.ts in the form the file holds: the request body names stream false; a body of one completion document followed by the done line with the content type of an event stream gives 200 with the content; a body of data lines with parts gives 200 with the joined content; a body of data lines with one completion document gives 200; a body with a reasoning field gives the content only; an event stream without any content gives 502; a body above the bound gives 502; the key of the endpoint inside a part is replaced. Every case the file holds stays and passes. A new case is registered in the form the lint rules of the application accept: a title in lower case that begins with a letter, a named function as the body and at least one expectation in it. The lint run over the changed files is part of the verification. "
+do_5 = "do_5 Before the counted verification run the cases of the file once by hand and read that each passes. No assertion is weakened or removed, and no case is removed, skipped or tagged out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The two files named above are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No other file changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/pages/api/assistant.ts", "apps/explorer/nextjs/pages-tests/api/assistant.spec.ts"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint pages/api/assistant.ts nextjs/pages-tests/api/assistant.spec.ts && yarn vitest run nextjs/pages-tests/api/assistant.spec.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.846]
 title = "Show the inference view of the explorer as not active where the node holds no inference program"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176661,7 +176708,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.840]
 title = "Show a tile in the head of the statistics view of the explorer only where its source holds a value"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
