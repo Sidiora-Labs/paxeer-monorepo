@@ -12,7 +12,7 @@ function ExplorePage() {
   const params = useSearchParams();
   const preset = presetFor(params.get('preset'));
   const data = useExploreRows(preset.category);
-  const notices = [<SourceNotice key="stats" label="Coin stats" state={data.stats} />, <SourceNotice key="details" label="Coin details" state={data.metadata} />];
+  const notices = [<SourceNotice key="listings" label="Pool details" state={data.listings} onRetry={data.retrySources} />, <SourceNotice key="stats" label="Coin stats" state={data.stats} onRetry={data.retrySources} />, <SourceNotice key="details" label="Coin details" state={data.metadata} onRetry={data.retrySources} />];
   const tabs = <PresetTabs active={preset.id} />;
 
   const rankingFailed = data.ranking.state === 'unsupported' || data.ranking.state === 'error';
@@ -56,7 +56,7 @@ function ExplorePage() {
 
   return (
     <>
-      {!rankingFailed && [data.stats, data.metadata].some(source => source.state === 'unsupported' || source.state === 'error') ? <div className="flex flex-col gap-2">{notices}</div> : null}
+      {!rankingFailed && [data.stats, data.listings, data.metadata].some(source => source.state === 'unsupported' || source.state === 'error') ? <div className="flex flex-col gap-2">{notices}</div> : null}
       {body}
     </>
   );

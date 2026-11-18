@@ -25,7 +25,8 @@ func frozenIdentityRouter(t *testing.T) *chi.Mux {
 	if err != nil {
 		t.Fatal(err)
 	}
-	identity := &Identity{tokens: tokens, now: time.Now, origins: map[string]bool{"https://kindle.test": true}}
+	identity := ownerHTTPFixture(t).s
+	identity.tokens = tokens
 	router := chi.NewRouter()
 	if err := identity.RegisterV2Routes(router, IdentityHTTPConfig{ServiceToken: strings.Repeat("t", 32)}); err != nil {
 		t.Fatal(err)
@@ -61,6 +62,17 @@ func TestIdentityV2RoutesCoverFrozenIdentityCatalog(t *testing.T) {
 		t.Fatalf("decode frozen SDK operationDefinitions: %v", err)
 	}
 
+	expectedIdentityOperations := map[string]string{
+		"IF_CHALLENGE":             "POST /v2/auth/challenges",
+		"IF_LOGIN":                 "POST /v2/auth/sessions",
+		"IF_LOGOUT":                "DELETE /v2/auth/sessions/{sessionId}",
+		"IF_REFRESH":               "POST /v2/auth/sessions:refresh",
+		"IF_SESSIONS":              "GET /v2/auth/sessions",
+		"IF_STREAM_TICKET_ISSUE":   "POST /v2/stream/tickets",
+		"IF_WALLET_LINK_CHALLENGE": "POST /v2/me/wallet-links/challenges",
+		"IF_WALLET_LINK_REMOVE":    "DELETE /v2/me/wallet-links/{linkId}",
+		"IF_WALLET_LINK_VERIFY":    "POST /v2/me/wallet-links/{linkId}:verify",
+	}
 	identityOperations := 0
 	for name, operation := range operations {
 		if operation.Service != "identity" {
@@ -69,13 +81,16 @@ func TestIdentityV2RoutesCoverFrozenIdentityCatalog(t *testing.T) {
 		identityOperations++
 		t.Run(name, func(t *testing.T) {
 			route := operation.Method + " " + operation.Path
+			if expectedIdentityOperations[name] != route {
+				t.Errorf("frozen identity operation %s has route %s, want %s", name, route, expectedIdentityOperations[name])
+			}
 			if !routes[route] {
 				t.Errorf("frozen identity operation %s has no registered route: %s", name, route)
 			}
 		})
 	}
-	if identityOperations != 6 {
-		t.Fatalf("frozen catalog has %d identity operations, want 6", identityOperations)
+	if identityOperations != len(expectedIdentityOperations) {
+		t.Fatalf("frozen catalog has %d identity operations, want %d", identityOperations, len(expectedIdentityOperations))
 	}
 }
 

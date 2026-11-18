@@ -268,7 +268,7 @@ def prepare_fixture(owner):
         'deployment': fixture['authorityDeployment'], 'rpcUrl': fixture['rpcUrl'],
         'genesisHash': fixture['genesisHash'], 'creationTransactions': fixture['creationTransactions']}) + '\n')
     signing_key = secrets.token_hex(32)
-    ports = ports_for(['browser', 'gateway', 'api', 'trading-charts', 'indexer', 'stats'])
+    ports = ports_for(['browser', 'gateway', 'api', 'trading-charts', 'indexer', 'stats', 'ranking'])
     origins = {role: f'http://127.0.0.1:{value}' for role, value in ports.items()}
     # The identity loader uses URL.Host as the schema's hostname-only domain.
     # Reuse the owned TLS issuer's standard HTTPS origin, without a port.
@@ -306,6 +306,7 @@ def prepare_fixture(owner):
     for role, service, entry in [('trading-charts', 'trading-charts', 'chartsd'),
                                   ('stats', 'stats-workers', 'statsd'),
                                   ('indexer', 'indexer', 'indexerd'),
+                                  ('ranking', 'ranking-algo', 'rankingd'),
                                   ('gateway', 'gateway', 'mediagatewayd'), ('api', 'api', 'apid')]:
         binary = output / role
         build_go(owner, binary, entry, 'joined-build-' + role, services / service, common)
