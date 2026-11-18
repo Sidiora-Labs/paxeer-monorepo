@@ -54,7 +54,7 @@ defmodule Explorer.Migrator.DeleteZeroValueInternalTransactions do
   def handle_info(:update, %{"max_block_number" => max_number} = state) do
     border_number = get_border_number()
     to_number = border_number && min(max_number + batch_size(), border_number)
-    clear_internal_transactions(max_number, to_number)
+    {:ok, _} = clear_internal_transactions(max_number, to_number)
     completed? = not is_nil(border_number) and to_number == border_number
     new_max_number = (to_number && to_number + 1) || max_number
 
@@ -98,13 +98,13 @@ defmodule Explorer.Migrator.DeleteZeroValueInternalTransactions do
   end
 
   defp clear_internal_transactions(from_number, to_number)
-       when is_integer(from_number) and is_integer(to_number) and from_number < to_number do
+       when is_integer(from_number) and is_integer(to_number) and from_number <= to_number do
     dynamic_condition = dynamic([it], it.block_number >= ^from_number and it.block_number <= ^to_number)
 
     do_clear_internal_transactions(dynamic_condition)
   end
 
-  defp clear_internal_transactions(_from, _to), do: :ok
+  defp clear_internal_transactions(_from, _to), do: {:ok, nil}
 
   @smallint_max_value 32767
   defp do_clear_internal_transactions(dynamic_condition) do
@@ -217,7 +217,7 @@ defmodule Explorer.Migrator.DeleteZeroValueInternalTransactions do
 
     Block
     |> where([b], b.timestamp < ^border_timestamp)
-    |> order_by([b], desc: b.timestamp)
+    |> order_by([b], desc: b.timestamp, desc: b.number)
     |> limit(1)
     |> select([b], b.number)
     |> Repo.one()
