@@ -208076,7 +208076,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.906]
 title = "Carry the livestream without a broadcast provider in the deployment contract and the composer of the launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.904"]
@@ -208830,7 +208830,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.882]
 title = "Close the shared module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
