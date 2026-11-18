@@ -100,7 +100,7 @@ const TxsTableItem = ({
           />
         </Flex>
       </TableCell>
-      <TableCell>
+      <TableCell title={ method }>
         <VStack alignItems="flex-start">
           { (() => {
             if (translationIsLoading || translationData) {
