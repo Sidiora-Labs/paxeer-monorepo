@@ -15664,6 +15664,12 @@ value = "Every read of the node that the backfill makes per transaction or per h
 basis = "Gotcha 4685. Decision 3586."
 affects = []
 
+[decision.3759]
+title = "A named preset of the explorer image applies from its tracked file and leaves the names a deployment decides"
+value = "The entrypoint of the explorer image reads the preset that ENVS_PRESET names from configs/envs/.env.NAME and, where that file is absent, from configs/envs/NAME.env, so a tracked preset applies without a copy step. An empty name and the name none read nothing. A name that holds a character other than letters, digits, dot, dash and underscore, and a name for which neither file exists, end the start with a message that gives the name and a non-zero exit. The NEXT_PUBLIC values of a preset replace the process values as before. The names a deployment decides are NEXT_PUBLIC_APP_PROTOCOL, NEXT_PUBLIC_APP_HOST, NEXT_PUBLIC_APP_PORT, NEXT_PUBLIC_APP_ENV and NEXT_PUBLIC_API_WEBSOCKET_PROTOCOL together with NEXT_PUBLIC_API_HOST and NEXT_PUBLIC_ASSISTANT_ENABLED: each of them keeps the process value where the process holds one, an empty value included, and takes the preset value where the process holds none. A name is compared with that list as a whole name. The tracked preset of the public explorer keeps the assistant off, and a deployment that holds the settings of the assistant turns it on by its own value. The list is a least set: a later decision may add a name to it and none is taken from it without one. Task 22.39.832."
+basis = "Gotcha 4686. Decision 2652."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45324,6 +45330,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.832]
+title = "Read a named preset of the explorer image from its tracked file and keep the names a deployment decides"
+reqs = ["22998.1"]
+touches = ["apps/explorer/deploy/scripts", "apps/explorer/configs/envs", "services/explorer/deploy/tests", "docs/explorer"]
+tests = []
+verification_contract = "bash services/explorer/deploy/tests/config-check.sh && bash services/explorer/deploy/tests/preset-check.sh"
+do_1 = "do_1 Gotcha 4686 and decision 3759. Read apps/explorer/deploy/scripts/entrypoint.sh in full, the part of docker/explorer-frontend/Dockerfile that copies the scripts and the presets, apps/explorer/configs/envs/paxeer-x.env, apps/explorer/configs/envs/paxeer-x-dev.env, deploy/projects/explorer/frontend.kvx, services/explorer/deploy/tests/config-check.sh, the passage on the entrypoint in docs/explorer/BUILD-TIME_ENVS.md, the passage on presets in docs/explorer/CONTRIBUTING.md, and the function loadPaxeerPreset in apps/explorer/deploy/tools/envs-validator/assistant.spec.ts, which runs the text of the entrypoint up to the line that begins the download of the external assets."
+symbols = []
 
 [capability.22.39.831]
 title = "Read the transaction domains of a backfill range of the hosted indexer in bounded batches and repeat a step after a source failure"
@@ -176325,6 +176340,42 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.832]
+title = "Read a named preset of the explorer image from its tracked file and keep the names a deployment decides"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.832"]
+interfaces = []
+do_1 = "do_1 Gotcha 4686 and decision 3759. Read apps/explorer/deploy/scripts/entrypoint.sh in full, the part of docker/explorer-frontend/Dockerfile that copies the scripts and the presets, apps/explorer/configs/envs/paxeer-x.env, apps/explorer/configs/envs/paxeer-x-dev.env, deploy/projects/explorer/frontend.kvx, services/explorer/deploy/tests/config-check.sh, the passage on the entrypoint in docs/explorer/BUILD-TIME_ENVS.md, the passage on presets in docs/explorer/CONTRIBUTING.md, and the function loadPaxeerPreset in apps/explorer/deploy/tools/envs-validator/assistant.spec.ts, which runs the text of the entrypoint up to the line that begins the download of the external assets."
+do_2 = "do_2 The file a preset is read from: export_envs_from_preset in apps/explorer/deploy/scripts/entrypoint.sh reads configs/envs/.env.NAME where that file exists and configs/envs/NAME.env otherwise, NAME being the value of ENVS_PRESET. An empty name and the name none read nothing, as today. A name that holds a character other than letters, digits, dot, dash and underscore, and a name for which neither file exists, write one line to the error stream that gives the name and the two paths looked at, and the entrypoint ends with a non-zero exit before any later step runs. The function stays in apps/explorer/deploy/scripts/entrypoint.sh above the line that begins the download of the external assets, and that line keeps its text, since apps/explorer/deploy/tools/envs-validator/assistant.spec.ts reads the entrypoint up to it."
+do_3 = "do_3 The names a deployment decides: the list of the function holds NEXT_PUBLIC_APP_PROTOCOL, NEXT_PUBLIC_APP_HOST, NEXT_PUBLIC_APP_PORT, NEXT_PUBLIC_APP_ENV and NEXT_PUBLIC_API_WEBSOCKET_PROTOCOL, NEXT_PUBLIC_API_HOST and NEXT_PUBLIC_ASSISTANT_ENABLED. A name of the list keeps the process value where the process holds the name, an empty value included, and takes the value of the preset where the process does not hold it. Every other NEXT_PUBLIC name of the preset replaces the process value as today, and a name that does not begin with NEXT_PUBLIC_ is never exported. A name is compared with the list as a whole name, not by containment. The way a line of a preset is split into name and value does not change."
+do_4 = "do_4 The tracked presets: the header comments of apps/explorer/configs/envs/paxeer-x.env and apps/explorer/configs/envs/paxeer-x-dev.env say that the image reads the file under its tracked name where ENVS_PRESET names it, that no copy is needed, and which names keep the value of the deployment. No value of either preset changes and no line is added below the header."
+do_5 = "do_5 The documents: the passage in docs/explorer/BUILD-TIME_ENVS.md gives the two file names in the order they are read, the end of the start for a named preset without a file, the seven names and their rule. The passage in docs/explorer/CONTRIBUTING.md says that the image reads the tracked presets under their tracked names, and keeps what it says about the local method. Links stay relative and resolve. No other passage of either document changes."
+do_6 = "do_6 A new case file services/explorer/deploy/tests/preset-check.sh, a bash script in the manner of services/explorer/deploy/tests/config-check.sh: it takes the text of apps/explorer/deploy/scripts/entrypoint.sh up to the line that begins the download of the external assets, runs it with bash in a temporary directory that holds sample presets under configs/envs, reads the exported names and asserts each of the following: a preset that exists only under the tracked form is read; where both forms exist the dot form is read; a name of the list keeps a process value, an empty one included; a name of the list without a process value takes the preset value; another NEXT_PUBLIC name is replaced by the preset value; a NEXT_PUBLIC name whose text contains a name of the list without being one is replaced; a name outside NEXT_PUBLIC_ is not exported; an empty preset name and the name none read nothing and exit zero; a name without a file and a name with a slash exit non-zero and write the name to the error stream. With a copy of apps/explorer/configs/envs/paxeer-x.env as the only preset and the name paxeer-x it asserts NEXT_PUBLIC_NETWORK_ID 125, the assistant flag false where the process holds none, the assistant flag true where the process holds true, and the API host of the process where the process holds one. It asserts as well that docker/explorer-frontend/Dockerfile copies apps/explorer/configs/envs to configs/envs and copies the entrypoint. It removes its temporary directory on exit, prints one line for every assertion that does not hold and one closing line, and exits non-zero where any assertion did not hold. It needs bash and the usual text tools only."
+do_7 = "do_7 The build arguments in services/explorer/deploy/tests/config-check.sh: the check of an image argument accepts a declaration with a default value as well as a declaration without one, and still refuses an image definition that does not declare the argument. Nothing else of that check changes and no image definition changes."
+do_8 = "do_8 Run by hand once where the tools of the application install: the case file apps/explorer/deploy/tools/envs-validator/assistant.spec.ts with the runner the application uses for such files, after the build of the validator it copies. Give the result in the final message, or say in one sentence that it could not run there. That case file is outside the paths and is not changed; its assertions hold with the changed entrypoint as they are written."
+do_9 = "do_9 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/explorer/deploy/scripts, apps/explorer/configs/envs, services/explorer/deploy/tests and docs/explorer named above are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No file under docker, deploy or .github changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/deploy/scripts", "apps/explorer/configs/envs", "services/explorer/deploy/tests", "docs/explorer"]
+tests = []
+planned_paths = ["services/explorer/deploy/tests/preset-check.sh"]
+build_cmd = "bash -n apps/explorer/deploy/scripts/entrypoint.sh && bash -n services/explorer/deploy/tests/config-check.sh && bash -n services/explorer/deploy/tests/preset-check.sh"
+verify_cmd = "bash services/explorer/deploy/tests/config-check.sh && bash services/explorer/deploy/tests/preset-check.sh"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
