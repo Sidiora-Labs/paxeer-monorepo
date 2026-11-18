@@ -218620,7 +218620,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.831]
 title = "Read the transaction domains of a backfill range of the hosted indexer in bounded batches and repeat a step after a source failure"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
