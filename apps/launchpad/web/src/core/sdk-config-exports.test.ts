@@ -9,4 +9,4 @@ function sdkConfigExportsNoMediaApiUrl() {
   expect(sdkConfig.gatewayUrl('/v2/x')).toBe(`${gatewayOrigin!.replace(/\/+$/, '')}/v2/x`);
 }
 
-test(sdkConfigExportsNoMediaApiUrl);
+test(sdkConfigExportsNoMediaApiUrl.name, sdkConfigExportsNoMediaApiUrl);

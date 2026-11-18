@@ -216,7 +216,7 @@ function ANVIL_BIN() {
   expect(() => resolveAnvilBinary({ ANVIL_BIN: join(tmpdir(), 'absent-launchpad-anvil'), PATH: '' })).toThrow('anvil binary unavailable');
 }
 
-test(NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE);
-test(deploymentFlowsIntoContractsAndTradeCalldata);
-test(Error);
-test(ANVIL_BIN);
+test(NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE.name, NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE);
+test(deploymentFlowsIntoContractsAndTradeCalldata.name, deploymentFlowsIntoContractsAndTradeCalldata);
+test(Error.name, Error);
+test(ANVIL_BIN.name, ANVIL_BIN);

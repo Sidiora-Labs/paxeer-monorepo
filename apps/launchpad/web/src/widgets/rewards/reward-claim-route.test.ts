@@ -37,7 +37,7 @@ beforeAll(async () => {
   // every existing test remains intact. The overlay stays inside this task's
   // scope, never in the service's directory.
   const overlay = { Replace: {
-    [resolve(moduleRoot, 'internal/app/web_reward_claim_proof_test.go')]: resolve(__dirname, 'registered-reward-handler_test.go'),
+    [resolve(moduleRoot, 'internal/app/web_reward_claim_proof_test.go')]: resolve(__dirname, 'registered-reward-handler_test.go.txt'),
   } };
   overlayDirectory = mkdtempSync(resolve(__dirname, '.reward-route-'));
   const overlayPath = resolve(overlayDirectory, 'overlay.json');

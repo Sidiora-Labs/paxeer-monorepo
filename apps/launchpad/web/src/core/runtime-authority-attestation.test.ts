@@ -93,7 +93,7 @@ async function surfaceAuthorityRoundTripsCurrentAttestation() {
   for (const [role, field] of [['Router', 'router'], ['Quoter', 'quoter'], ['PoolRegistry', 'poolRegistry']] as const) {
     const identity = emitted.attestation.identities[role];
     expect(identity.verified).toBe(true);
-    expect(identity.runtimeHash).toBe(CORE_DEPLOYMENT.roleIdentity[field].runtimeHash);
+    expect(identity.runtimeHash).toBe(CORE_DEPLOYMENT.roleIdentity[field].stagedRuntimeHash);
     expect(identity).not.toHaveProperty('implementationAddress');
     expect(identity).not.toHaveProperty('implementationHash');
     expect(authority.tradeDeployment.pins.find(pin => pin.address === CORE_DEPLOYMENT[field])).toEqual({

@@ -89,4 +89,4 @@ async function developmentOperationsRenderUnsupportedInProduction() {
   }
 }
 
-test(developmentOperationsRenderUnsupportedInProduction);
+test(developmentOperationsRenderUnsupportedInProduction.name, developmentOperationsRenderUnsupportedInProduction);
