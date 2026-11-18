@@ -67,8 +67,8 @@ const TxsTable = ({
   const showValue = !config.UI.views.tx.hiddenFields?.value;
   const showFee = !config.UI.views.tx.hiddenFields?.tx_fee;
 
-  const columnNum = [ showBlockInfo, true, showValue, showFee ].filter(Boolean).length;
-  const baseWidth = `${ 100 / columnNum }%`;
+  const fixedColumnsWidth = 35 + (chainData ? 2 : 0) + (showBlockInfo ? 7 : 0) + (showValue ? 7 : 0) + (showFee ? 7.5 : 0);
+  const fromToWidth = `calc(100% - ${ fixedColumnsWidth }rem)`;
 
   return (
     <AddressHighlightProvider>
@@ -85,7 +85,7 @@ const TxsTable = ({
           <TableRow>
             <TableColumnHeader width="var(--chakra-spacing-12)"></TableColumnHeader>
             { chainData && <TableColumnHeader width="var(--chakra-spacing-8)"></TableColumnHeader> }
-            <TableColumnHeader width="var(--chakra-spacing-48)">Transaction hash</TableColumnHeader>
+            <TableColumnHeader width="var(--chakra-spacing-40)">Transaction hash</TableColumnHeader>
             <TableColumnHeader width="14rem">Action</TableColumnHeader>
             { showBlockInfo && (
               onSortToggle ? (
@@ -108,13 +108,13 @@ const TxsTable = ({
                 <TimeFormatToggle flexShrink={ 0 }/>
               </Flex>
             </TableColumnHeader>
-            <TableColumnHeader width={ columnNum <= 2 ? `calc(${ baseWidth } - 4.625rem)` : '14.125rem' }>
+            <TableColumnHeader width={ fromToWidth }>
               From / To
             </TableColumnHeader>
             { showValue && (
               onSortToggle ? (
                 <TableColumnHeaderSortable
-                  width={ baseWidth }
+                  width="var(--chakra-spacing-28)"
                   isNumeric
                   sortField="value"
                   sortValue={ sort }
@@ -123,13 +123,13 @@ const TxsTable = ({
                   { `Amount ${ currencyUnits.ether }` }
                 </TableColumnHeaderSortable>
               ) : (
-                <TableColumnHeader width={ baseWidth } isNumeric>Amount</TableColumnHeader>
+                <TableColumnHeader width="var(--chakra-spacing-28)" isNumeric>Amount</TableColumnHeader>
               )
             ) }
             { showFee && (
               onSortToggle ? (
                 <TableColumnHeaderSortable
-                  width={ baseWidth }
+                  width="7.5rem"
                   isNumeric
                   pr={ 5 }
                   sortField="fee"
@@ -139,7 +139,7 @@ const TxsTable = ({
                   { `Txn fee${ feeCurrency }` }
                 </TableColumnHeaderSortable>
               ) : (
-                <TableColumnHeader width={ baseWidth } isNumeric pr={ 5 }>Txn fee</TableColumnHeader>
+                <TableColumnHeader width="7.5rem" isNumeric pr={ 5 }>Txn fee</TableColumnHeader>
               )
             ) }
           </TableRow>
