@@ -31,6 +31,14 @@ func (s *CommittedSource) Metrics() SourceMetrics {
 	return SourceMetrics{m.blocksFetched.Load(), m.emptyRanges.Load(), m.rangeBisections.Load(), m.receiptFallbacks.Load(), m.cacheHits.Load(), m.headerFetches.Load(), m.readaheadHits.Load(), m.bloomSkipped.Load()}
 }
 func (s *CommittedSource) BlockAt(ctx context.Context, height uint64) (BlockRecord, error) {
+	return s.blockAt(ctx, height, true)
+}
+
+func (s *CommittedSource) CheckpointBlockAt(ctx context.Context, height uint64) (BlockRecord, error) {
+	return s.blockAt(ctx, height, false)
+}
+
+func (s *CommittedSource) blockAt(ctx context.Context, height uint64, historical bool) (BlockRecord, error) {
 	if height > math.MaxInt64 {
 		return BlockRecord{}, sourceError(InvalidError, "range", nil)
 	}
@@ -45,7 +53,7 @@ func (s *CommittedSource) BlockAt(ctx context.Context, height uint64) (BlockReco
 	}
 	var last error
 	for _, endpoint := range s.eligible() {
-		_, record, err := s.block(ctx, endpoint, fmtHeight(height), true)
+		_, record, err := s.block(ctx, endpoint, fmtHeight(height), historical)
 		if err == nil && record.Height == height {
 			s.mu.Lock()
 			err = s.fenceLocked(height)
