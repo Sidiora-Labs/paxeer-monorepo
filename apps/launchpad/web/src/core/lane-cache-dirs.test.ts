@@ -39,4 +39,4 @@ async function laneCacheDirsStayInWorkspace() {
   }
 }
 
-test(laneCacheDirsStayInWorkspace);
+test(laneCacheDirsStayInWorkspace.name, laneCacheDirsStayInWorkspace);

@@ -15676,6 +15676,12 @@ value = "The preset apps/explorer/configs/envs/paxeer-x.env holds no line for NE
 basis = "Gotcha 4687. Decision 3759."
 affects = []
 
+[decision.3761]
+title = "Target forms of six places of the explorer"
+value = "One. The count of the price submissions of the last day is a kept value: it is counted at most once per period, the period is a setting of the application with a default of sixty seconds and a least value of zero, and the test configuration sets zero so a case reads a fresh count. Two. The scroll effect of the tabs does nothing for an index below zero, an index beyond the list or an absent entry. Three. The path of the shipped API spec is built from the base path of the application, and the section is titled Core API. Four. The tracked presets name no default theme. A first visit follows the system preference, and a stored preference wins over it, as the design brief of the explorer states. A deployment that wants a fixed default sets it by its own value. Five. From the width of 1280 the header is one row: brand, menu, search, prices and settings, with the search field taking the free room between a least and a greatest width. Below that width the search field may take a second row of the full width. No text of the row is cut and no row overflows. The text of a search field begins after the search mark with a gap at every width. Six. The definition of the frontend names the node root of the inference view and the base address and the credential of the assistant as inputs of the deployment; the model keeps the value of the preset."
+basis = "Gotcha 4688. Decision 3760."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45336,6 +45342,60 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.839]
+title = "Name the server settings of the inference view and the assistant in the definition of the explorer frontend"
+reqs = ["22998.1"]
+touches = ["deploy/projects/explorer", "tools/deploy/tests/projects"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_explorer_*.py"
+do_1 = "do_1 Gotcha 4688 and decision 3761, point six. Read deploy/projects/explorer/frontend.kvx, the definition of the backend beside it as a model of inputs with their categories and comment lines, tools/deploy/tests/projects/test_explorer_frontend.py in full, and the lines of apps/explorer/pages/api/inference.ts and apps/explorer/pages/api/assistant.ts that read the process."
+symbols = []
+
+[capability.22.39.838]
+title = "Hold the desktop header of the explorer in one row and begin the text of a search field after its mark"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/snippets/header", "apps/explorer/ui/snippets/searchBar", "apps/explorer/ui/snippets/topBar", "apps/explorer/toolkit/chakra"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/snippets/header/HeaderDesktop.tsx ui/snippets/header/HeaderDesktop.spec.tsx ui/snippets/searchBar/SearchBarInput.tsx ui/snippets/searchBar/SearchBarInput.spec.tsx && yarn vitest run ui/snippets/header ui/snippets/searchBar ui/snippets/topBar toolkit/chakra"
+do_1 = "do_1 Gotcha 4688 and decision 3761, point five. Read apps/explorer/ui/snippets/header/HeaderDesktop.tsx, the desktop search field and apps/explorer/ui/snippets/searchBar/SearchBarInput.tsx under apps/explorer/ui/snippets/searchBar, the top bar under apps/explorer/ui/snippets/topBar, apps/explorer/toolkit/chakra/input-group.tsx, and the case files beside them that end in spec.tsx."
+symbols = []
+
+[capability.22.39.837]
+title = "Name no default theme in the tracked presets of the explorer"
+reqs = ["22998.1"]
+touches = ["apps/explorer/configs/envs", "services/explorer/deploy/tests", "apps/explorer/toolkit/theme/foundations", "apps/explorer/toolkit/chakra"]
+tests = []
+verification_contract = "bash services/explorer/deploy/tests/config-check.sh && bash services/explorer/deploy/tests/preset-check.sh && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint toolkit/theme/foundations/tokens.spec.ts && yarn vitest run toolkit/theme/foundations/tokens.spec.ts toolkit/chakra/color-mode.spec.ts"
+do_1 = "do_1 Gotcha 4688 and decision 3761, point four. Read apps/explorer/configs/envs/paxeer-x.env, apps/explorer/configs/envs/paxeer-x-dev.env, apps/explorer/toolkit/chakra/color-mode.tsx, the part of apps/explorer/configs/app/ui.ts that reads the default theme, every reader of that value under apps/explorer, the case of apps/explorer/toolkit/theme/foundations/tokens.spec.ts that reads the presets, and services/explorer/deploy/tests/preset-check.sh in full."
+symbols = []
+
+[capability.22.39.836]
+title = "Build the path of the shipped API spec of the explorer from the base path of the application"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/apiDocs"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/apiDocs/utils.ts ui/apiDocs/utils.spec.ts && yarn vitest run ui/apiDocs/utils.spec.ts"
+do_1 = "do_1 Gotcha 4688 and decision 3761, point three. Read apps/explorer/ui/apiDocs/utils.ts in full, the other files under apps/explorer/ui/apiDocs that read its names, and the lines of apps/explorer/configs/app/app.ts that name the base path."
+symbols = []
+
+[capability.22.39.835]
+title = "Let the scroll effect of the tabs do nothing for an index outside the list"
+reqs = ["22998.1"]
+touches = ["apps/explorer/toolkit/components/AdaptiveTabs"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint toolkit/components/AdaptiveTabs/useScrollToActiveTab.tsx toolkit/components/AdaptiveTabs/useScrollToActiveTab.spec.tsx && yarn vitest run toolkit/components/AdaptiveTabs/useScrollToActiveTab.spec.tsx"
+do_1 = "do_1 Gotcha 4688 and decision 3761, point two. Read apps/explorer/toolkit/components/AdaptiveTabs/useScrollToActiveTab.tsx and the lines of apps/explorer/toolkit/components/AdaptiveTabs/AdaptiveTabsList.tsx that compute the active index and call the effect."
+symbols = []
+
+[capability.22.39.834]
+title = "Serve the count of the price submissions of the last day from a kept value"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x", "services/explorer/backend/apps/explorer/config", "services/explorer/backend/config"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+do_1 = "do_1 Gotcha 4688 and decision 3761, point one. Read total_update_count, update_count_24h and the query functions they use in services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex, the function stats in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/transaction_controller.ex, the counter services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/transactions_24h_count.ex as a model of a count with a period, and the cases of the day count in services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs and services/explorer/backend/apps/block_scout_web/test/repair/transaction_price_update_statistics_test.exs."
+symbols = []
 
 [capability.22.39.833]
 title = "Name no port of the application in the tracked preset of the public explorer"
@@ -176359,9 +176419,136 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.838]
+title = "Hold the desktop header of the explorer in one row and begin the text of a search field after its mark"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.838"]
+interfaces = []
+do_1 = "do_1 Gotcha 4688 and decision 3761, point five. Read apps/explorer/ui/snippets/header/HeaderDesktop.tsx, the desktop search field and apps/explorer/ui/snippets/searchBar/SearchBarInput.tsx under apps/explorer/ui/snippets/searchBar, the top bar under apps/explorer/ui/snippets/topBar, apps/explorer/toolkit/chakra/input-group.tsx, and the case files beside them that end in spec.tsx."
+do_2 = "do_2 apps/explorer/ui/snippets/header/HeaderDesktop.tsx: from the width of 1280 the row does not wrap and holds, in this order, the brand, the menu, the search field, the prices and the settings with the profile. The search field takes the free room of the row between a least and a greatest width taken from the spacing scale; the menu, the prices and the settings keep their natural width and do not shrink below their content. Below 1280 and from the desktop breakpoint the row may wrap in one defined way: the search field takes a second row of the full width, and the first row holds the brand, the menu and the controls. No text of the row is cut, no element lies over another, and the row never makes the page scroll sideways. No size of a text or a control grows, and the height of the row at 1280 and above is the height of one line of controls."
+do_3 = "do_3 The search field: the text and the placeholder begin after the search mark with a gap at every width, in the header and in the large field of the home view, from the first paint on and after a change of the width. Where the start padding is measured, the field holds a fitting padding before the measure arrives. A change in apps/explorer/toolkit/chakra/input-group.tsx keeps every other use of that group as it is."
+do_4 = "do_4 Cases beside the changed files, in the form the files hold: the header row is marked as not wrapping from 1280 and holds brand, menu, search and controls in that order in the document; the search field of the header may grow and shrink between its bounds; the input of a search field with a mark has a start padding above the width of the mark before any measure. A case is registered in the form the lint rules of the application accept: a title in lower case that begins with a letter, a named function as the body and at least one expectation in it. The lint run over the changed files is part of the verification. "
+do_5 = "do_5 Before the counted gates, where the browser of the render check under tools/ui-check can be installed, read one render of the home view at the widths 1024, 1280, 1440 and 1920 in light and in dark by hand, and say in the final message for each width whether the header is one row and where the text of the search field begins. A hand read that cannot run is said so and does not hold the task back."
+do_6 = "do_6 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. Other tasks may change the same files meanwhile. The files under apps/explorer/ui/snippets/header, apps/explorer/ui/snippets/searchBar, apps/explorer/ui/snippets/topBar and apps/explorer/toolkit/chakra are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No file under tools changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/snippets/header", "apps/explorer/ui/snippets/searchBar", "apps/explorer/ui/snippets/topBar", "apps/explorer/toolkit/chakra"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/snippets/header/HeaderDesktop.tsx ui/snippets/header/HeaderDesktop.spec.tsx ui/snippets/searchBar/SearchBarInput.tsx ui/snippets/searchBar/SearchBarInput.spec.tsx && yarn vitest run ui/snippets/header ui/snippets/searchBar ui/snippets/topBar toolkit/chakra"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.837]
+title = "Name no default theme in the tracked presets of the explorer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.833"]
+reqs = ["22998.1"]
+capabilities = ["22.39.837"]
+interfaces = []
+do_1 = "do_1 Gotcha 4688 and decision 3761, point four. Read apps/explorer/configs/envs/paxeer-x.env, apps/explorer/configs/envs/paxeer-x-dev.env, apps/explorer/toolkit/chakra/color-mode.tsx, the part of apps/explorer/configs/app/ui.ts that reads the default theme, every reader of that value under apps/explorer, the case of apps/explorer/toolkit/theme/foundations/tokens.spec.ts that reads the presets, and services/explorer/deploy/tests/preset-check.sh in full."
+do_2 = "do_2 Both presets: remove the line NEXT_PUBLIC_COLOR_THEME_DEFAULT and add one comment line in its place that says the presets name no default theme, a first visit follows the system preference and a stored preference wins. No other line of a preset changes."
+do_3 = "do_3 Where a reader of the default theme under apps/explorer/toolkit/theme/foundations or apps/explorer/toolkit/chakra would show a wrong state without a default, for example a theme marked as chosen that is not the one shown, correct it there so the shown theme and the marked theme agree in light and in dark. Where no reader needs a change, change none and say so in the final message."
+do_4 = "do_4 Cases: the expectation of apps/explorer/toolkit/theme/foundations/tokens.spec.ts that the presets hold the line with the value light becomes the expectation that no preset holds a line that begins with NEXT_PUBLIC_COLOR_THEME_DEFAULT; this is the new target form and every other expectation of the file stays. services/explorer/deploy/tests/preset-check.sh gains, in the manner of the assertions it holds: no tracked preset holds such a line; a start with the production preset and no process value exports no NEXT_PUBLIC_COLOR_THEME_DEFAULT; the same start with the process value dark exports dark."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/explorer/configs/envs, services/explorer/deploy/tests, apps/explorer/toolkit/theme/foundations and apps/explorer/toolkit/chakra named above are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No file under docker, deploy, docs or .github changes. A case is registered in the form the lint rules of the application accept: a title in lower case that begins with a letter, a named function as the body and at least one expectation in it. The lint run over the changed files is part of the verification. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/configs/envs", "services/explorer/deploy/tests", "apps/explorer/toolkit/theme/foundations", "apps/explorer/toolkit/chakra"]
+tests = []
+planned_paths = []
+build_cmd = "bash -n services/explorer/deploy/tests/preset-check.sh && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "bash services/explorer/deploy/tests/config-check.sh && bash services/explorer/deploy/tests/preset-check.sh && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint toolkit/theme/foundations/tokens.spec.ts && yarn vitest run toolkit/theme/foundations/tokens.spec.ts toolkit/chakra/color-mode.spec.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.836]
+title = "Build the path of the shipped API spec of the explorer from the base path of the application"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.836"]
+interfaces = []
+do_1 = "do_1 Gotcha 4688 and decision 3761, point three. Read apps/explorer/ui/apiDocs/utils.ts in full, the other files under apps/explorer/ui/apiDocs that read its names, and the lines of apps/explorer/configs/app/app.ts that name the base path."
+do_2 = "do_2 apps/explorer/ui/apiDocs/utils.ts: the constant CORE_API_SPEC_PUBLIC_URL is the base path of the application from the configuration followed by /openapi.yaml, so with the base path /explorer it is /explorer/openapi.yaml and with an empty base path it is /openapi.yaml. The order of the candidates and the fallback to the backend stay as they are. The title of the section with the id blockscout-core-api reads Core API; the id stays, since other files read it."
+do_3 = "do_3 New case file apps/explorer/ui/apiDocs/utils.spec.ts: the constant begins with the base path of the configuration and ends with /openapi.yaml; the list of the candidates holds it after a configured address and before the address of the backend; the title of the first section is Core API. A case is registered in the form the lint rules of the application accept: a title in lower case that begins with a letter, a named function as the body and at least one expectation in it. The lint run over the changed files is part of the verification. "
+do_4 = "do_4 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/explorer/ui/apiDocs are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No file under tools or public changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/apiDocs"]
+tests = []
+planned_paths = ["apps/explorer/ui/apiDocs/utils.spec.ts"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/apiDocs/utils.ts ui/apiDocs/utils.spec.ts && yarn vitest run ui/apiDocs/utils.spec.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.835]
+title = "Let the scroll effect of the tabs do nothing for an index outside the list"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.835"]
+interfaces = []
+do_1 = "do_1 Gotcha 4688 and decision 3761, point two. Read apps/explorer/toolkit/components/AdaptiveTabs/useScrollToActiveTab.tsx and the lines of apps/explorer/toolkit/components/AdaptiveTabs/AdaptiveTabsList.tsx that compute the active index and call the effect."
+do_2 = "do_2 apps/explorer/toolkit/components/AdaptiveTabs/useScrollToActiveTab.tsx: the effect and the function inside its timer do nothing where the index is below zero, where it is not below the length of the list, or where the entry of the list at the index or its current element is absent. The reading of the widths of the tabs before the active one stays as it is. No other behaviour changes."
+do_3 = "do_3 New case file apps/explorer/toolkit/components/AdaptiveTabs/useScrollToActiveTab.spec.tsx with cases that render the effect through a small component: an index of minus one on a narrow device throws nothing and scrolls nothing when the timer fires; an index beyond the list does the same; an entry whose current element is absent does the same; an index inside the list with elements present scrolls the list as before. The cases use the timers of the case runner. A case is registered in the form the lint rules of the application accept: a title in lower case that begins with a letter, a named function as the body and at least one expectation in it. The lint run over the changed files is part of the verification. "
+do_4 = "do_4 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/explorer/toolkit/components/AdaptiveTabs are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No file outside apps/explorer/toolkit/components/AdaptiveTabs changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/toolkit/components/AdaptiveTabs"]
+tests = []
+planned_paths = ["apps/explorer/toolkit/components/AdaptiveTabs/useScrollToActiveTab.spec.tsx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint toolkit/components/AdaptiveTabs/useScrollToActiveTab.tsx toolkit/components/AdaptiveTabs/useScrollToActiveTab.spec.tsx && yarn vitest run toolkit/components/AdaptiveTabs/useScrollToActiveTab.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.833]
 title = "Name no port of the application in the tracked preset of the public explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.832"]
@@ -206800,7 +206987,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.814]
 title = "Bring the cases of the joined fixtures of the launchpad web application in line and run its test script whole to its summary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.810", "22.39.811", "22.39.812", "22.39.813"]
@@ -391829,6 +392016,37 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.39.839]
+title = "Name the server settings of the inference view and the assistant in the definition of the explorer frontend"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.839"]
+interfaces = []
+do_1 = "do_1 Gotcha 4688 and decision 3761, point six. Read deploy/projects/explorer/frontend.kvx, the definition of the backend beside it as a model of inputs with their categories and comment lines, tools/deploy/tests/projects/test_explorer_frontend.py in full, and the lines of apps/explorer/pages/api/inference.ts and apps/explorer/pages/api/assistant.ts that read the process."
+do_2 = "do_2 deploy/projects/explorer/frontend.kvx: the variables gain EXPLORER_INFERENCE_NODE_URL, EXPLORER_ASSISTANT_BASE_URL and EXPLORER_ASSISTANT_API_KEY, each as an input of the deployment in the manner the file holds, with a name that begins with EXPLORER_FRONTEND_. Each input has its comment line and its category: the node root is of the category chain, the base address and the credential of the assistant are of the category provider. The comment of the node root says it is the root of a public node without a path. No value of a credential or an address is written into the file. The model of the assistant is not named, since the preset holds it."
+do_3 = "do_3 tools/deploy/tests/projects/test_explorer_frontend.py: the cases hold with the three new names; where the set of the names the sources read does not yet take the reads of the two server routes, it takes them. A new assertion names the three variables and their inputs."
+do_4 = "do_4 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under deploy/projects/explorer and tools/deploy/tests/projects named above are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No other definition and no file under apps changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/explorer", "tools/deploy/tests/projects"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_explorer_frontend.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_explorer_*.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.778]
 title = "Name the present cases of the sequenced execution in the driver of the qualification"
 status = "done"
@@ -471698,6 +471916,38 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.834]
+title = "Serve the count of the price submissions of the last day from a kept value"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.834"]
+interfaces = []
+do_1 = "do_1 Gotcha 4688 and decision 3761, point one. Read total_update_count, update_count_24h and the query functions they use in services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex, the function stats in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/transaction_controller.ex, the counter services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/transactions_24h_count.ex as a model of a count with a period, and the cases of the day count in services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs and services/explorer/backend/apps/block_scout_web/test/repair/transaction_price_update_statistics_test.exs."
+do_2 = "do_2 services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex: update_count_24h keeps its name and its callers and returns a kept value. The count itself moves into a function of its own that counts in the store as today. The kept value holds the count and the time it was taken; a call inside the period returns it, a call after the period counts once and replaces it. The period is read from the configuration of the application explorer, with a default of sixty seconds; zero means every call counts. The kept value needs no new process in the supervision tree; a term kept by the runtime for the module is a fitting form. A function clears the kept value for the cases."
+do_3 = "do_3 Configuration: the default period is set where the application explorer sets its configuration under services/explorer/backend/apps/explorer/config or services/explorer/backend/config, and the test configuration sets zero, so every case of every application that reads the count through update_count_24h holds as before. No new variable of a deployment is added."
+do_4 = "do_4 services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs: the cases of the day count stay and pass unchanged with the period zero. New cases with a period above zero: two calls inside the period return the same value although a submission was stored between them; after the kept value is cleared the new count is returned; with the period zero every call counts. Each new case restores the configuration and clears the kept value when it ends."
+do_5 = "do_5 Run services/explorer/backend/apps/block_scout_web/test/repair/transaction_price_update_statistics_test.exs once by hand in the manner of the verification and give its result in the final message; it is not part of the counted verification. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x, services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x, services/explorer/backend/apps/explorer/config and services/explorer/backend/config are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No file under apps/block_scout_web changes. Do not run the formatter over a whole existing file; format only the lines of the change. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x", "services/explorer/backend/apps/explorer/config", "services/explorer/backend/config"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

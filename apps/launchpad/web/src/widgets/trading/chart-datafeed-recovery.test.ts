@@ -974,7 +974,7 @@ try {
   let releaseVendorFailure;
   const vendorFailure = new Promise(resolve => { releaseVendorFailure = resolve; });
   await page.route('**/charting_library/charting_library.standalone.js', async route => { await vendorFailure; await route.abort(); });
-  await page.goto(new URL('/token/' + pool, origin).href, { waitUntil: 'load' });
+  await page.goto(new URL('/coin/' + pool, origin).href, { waitUntil: 'load' });
   await completeFirstVisit(page, touch);
   const inspect = page.locator('button[aria-controls="canonical-chart-table"]');
   await inspect.waitFor();
@@ -1047,7 +1047,7 @@ try {
    } });
   } });
  });
- await page.goto(new URL('/token/' + pool, origin).href, { waitUntil: 'load' });
+ await page.goto(new URL('/coin/' + pool, origin).href, { waitUntil: 'load' });
  await completeFirstVisit(page, false);
  await page.waitForFunction(() => window.__actualChartObservation?.ready === true);
  await page.waitForFunction(() => Boolean(window.__actualChartObservation?.widget.activeChart().symbolExt()?.timezone));

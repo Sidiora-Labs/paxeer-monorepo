@@ -11,6 +11,7 @@ import { expect, test } from 'vitest';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { hexToBytes, recoverMessageAddress, type EIP1193Provider, type Hex } from 'viem';
 import type { MetadataV2Data } from '@/core/clients/metadata';
+import { applyBrowserSurface } from '@/core/app-foundation/browser-surface.test-support';
 import type { FrozenAsset } from './frozen-adapter';
 import {
   metadataBrowserLabels, recordMetadataRequest, recordMetadataResponse,
@@ -161,7 +162,8 @@ async function metadata_routes_connect_editor_and_viewer() {
   }
   install('window', dom.window); install('document', dom.window.document); install('IS_REACT_ACT_ENVIRONMENT', true);
   install('CustomEvent', dom.window.CustomEvent);
-  const environment = ['DATA_API_URL', 'GATEWAY_URL', 'METADATA_API_URL', 'PNL_API_URL', 'EXPLORER_API', 'PAXEER_RPC_URL', 'STREAM_ORIGIN'].map(name => `NEXT_PUBLIC_${name}`);
+  const restoreBrowserSurface = applyBrowserSurface();
+  const environment = ['DATA_API_URL', 'GATEWAY_URL', 'METADATA_API_URL', 'PNL_API_URL', 'EXPLORER_API', 'RPC_URL', 'RPC_URL_FALLBACK', 'PAXEER_RPC_URL', 'STREAM_ORIGIN'].map(name => `NEXT_PUBLIC_${name}`);
   const savedEnvironment = new Map(environment.map(name => [name, process.env[name]]));
   for (const name of environment) process.env[name] = name.endsWith('STREAM_ORIGIN') ? origin.replace('https:', 'wss:') : origin;
   const { createRoot } = await import('react-dom/client');
@@ -175,6 +177,7 @@ async function metadata_routes_connect_editor_and_viewer() {
   const { SdkClient } = await import('@kindle/sdk');
   const { default: TokenMetadataPage } = await import('@/app/tokens/[tokenAddress]/metadata/page');
   const { default: CoinPage } = await import('@/app/coin/[address]/page');
+  await import('@/widgets/trading/trade-panel');
   const auth = await import('@/widgets/profile/account-transport');
   dom.reconfigure({ url: `${origin}/tokens/${tokenAddress}/metadata` });
   const events = new EventEmitter();
@@ -254,7 +257,7 @@ async function metadata_routes_connect_editor_and_viewer() {
     expect(approval.metadata_operation_id).not.toBe(operation);
     expect(uploadCount).toBe(3);
     expect(signatures).toHaveLength(2);
-    expect(region(metadataBrowserLabels.viewer)?.querySelector('textarea')).not.toBeNull();
+    expect(region(metadataBrowserLabels.viewer)!.querySelector('textarea')!.value).toBe(metadata.description);
 
     chainId = 1;
     await act(async () => { events.emit('chainChanged', '0x1'); });
@@ -308,6 +311,7 @@ async function metadata_routes_connect_editor_and_viewer() {
     await act(async () => root.unmount());
     queries.clear(); auth.clearAccountSession(false);
     await disconnect(config);
+    await restoreBrowserSurface();
     for (const [key, value] of savedGlobals) { if (value) Object.defineProperty(globalThis, key, value); else Reflect.deleteProperty(globalThis, key); }
     for (const [key, value] of savedEnvironment) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
     dom.window.close();
