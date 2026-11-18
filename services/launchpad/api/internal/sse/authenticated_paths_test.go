@@ -18,6 +18,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/sse"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/migrations"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/google/uuid"
 )
 
@@ -68,6 +69,10 @@ func TestAuthenticatedEventStreamAdmission(t *testing.T) {
 			hub.HandleV2(res, req)
 			if res.Code != tc.status || !strings.Contains(res.Body.String(), tc.wantBody) {
 				t.Fatalf("status %d body %q, want %d %q", res.Code, res.Body.String(), tc.status, tc.wantBody)
+			}
+			failure, err := v2.DecodeError(res.Body.Bytes())
+			if err != nil || failure.Code != tc.wantBody || failure.RequestId != res.Header().Get("X-Request-ID") || failure.Retryable || failure.RetryAfterMs != nil || res.Header().Get("Content-Type") != "application/json" || res.Header().Get("X-Schema-Version") != "2" {
+				t.Fatalf("stream admission error: %s %v: %v", res.Body, res.Header(), err)
 			}
 		})
 	}

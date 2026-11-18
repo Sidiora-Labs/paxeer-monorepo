@@ -1,4 +1,4 @@
-package app_test
+package app
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/app"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
 )
 
@@ -33,7 +32,7 @@ func TestRuntimeServesReadyAndDrainsOnCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	finished := make(chan error, 1)
-	go func() { finished <- app.Run(ctx) }()
+	go func() { finished <- Run(ctx) }()
 	client := &http.Client{Timeout: 150 * time.Millisecond}
 	endpoint := fmt.Sprintf("http://127.0.0.1:%d/health/ready", port)
 	deadline := time.Now().Add(5 * time.Second)
@@ -68,4 +67,6 @@ func TestRuntimeServesReadyAndDrainsOnCancellation(t *testing.T) {
 	case <-time.After(12 * time.Second):
 		t.Fatal("runtime did not drain")
 	}
+	t.Run("production sockets", productionSocketRuntime)
+
 }
