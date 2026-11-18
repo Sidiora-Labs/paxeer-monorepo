@@ -25,6 +25,13 @@ func TestPlatformDocuments(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(values, "common.json"), common, 0o600); err != nil {
 		t.Fatal(err)
 	}
+	livestream, err := os.ReadFile(filepath.Join(root, "deploy", "launchpad", "documents", "values", "livestream.example.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(values, "livestream.json"), livestream, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	example, err := os.ReadFile(filepath.Join(root, "deploy", "launchpad", "documents", "values", "gateway.example.json"))
 	if err != nil {
 		t.Fatal(err)
