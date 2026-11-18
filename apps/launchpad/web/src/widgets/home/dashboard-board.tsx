@@ -1,6 +1,14 @@
 'use client';
 import { launchpadMedia } from '@/app/presentation-tokens';
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+  type RefObject,
+} from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, IconButton, type MenuItem } from '@/ui/primitives';
@@ -15,14 +23,19 @@ import { Column } from './column';
 export const compactHomeQuery = launchpadMedia.compact;
 
 function subscribeMedia(onChange: () => void) {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return () => undefined;
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function')
+    return () => undefined;
   const media = window.matchMedia(compactHomeQuery);
   media.addEventListener('change', onChange);
   return () => media.removeEventListener('change', onChange);
 }
 
 function readCompact() {
-  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(compactHomeQuery).matches;
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia(compactHomeQuery).matches
+  );
 }
 
 const desktop = () => false;
@@ -39,7 +52,8 @@ export function useCompactHome(): boolean {
  * instead of leaving an empty tail, and a board with more scrolls behind the rail. The 288 px slot
  * minimum keeps every tab row on one line; the column never gets narrower than that.
  */
-export const boardVisibleClass = '[--board-visible:2] lg:[--board-visible:3] board-wide:[--board-visible:4] board-ultrawide:[--board-visible:5]';
+export const boardVisibleClass =
+  '[--board-visible:2] lg:[--board-visible:3] board-wide:[--board-visible:4] board-ultrawide:[--board-visible:5]';
 export const columnSlotClass = 'min-w-72';
 /**
  * Flush board, as on pump.fun: no outer padding, square column edges, and a 2 px seam of canvas
@@ -48,16 +62,32 @@ export const columnSlotClass = 'min-w-72';
  */
 export const boardSeamClass = '[--sl-dashboard-column-gap:var(--sl-board-seam)]';
 const shown = 'min(var(--board-visible), var(--board-count))';
-export const columnSlotStyle = { width: `calc((100% - (${shown} - 1) * var(--sl-dashboard-column-gap)) / ${shown})` } as const;
+export const columnSlotStyle = {
+  width: `calc((100% - (${shown} - 1) * var(--sl-dashboard-column-gap)) / ${shown})`,
+} as const;
 
 /** Visible scrollbar on the board: a surface-3 thumb on a surface-1 track, never hidden. */
-export const boardScrollbarClass = '[scrollbar-width:auto] [scrollbar-color:var(--sl-surface-3)_var(--sl-surface-1)]';
+export const boardScrollbarClass =
+  '[scrollbar-width:auto] [scrollbar-color:var(--sl-surface-3)_var(--sl-surface-1)]';
 
-export interface BoardOverflow { overflow: boolean; atStart: boolean; atEnd: boolean; hiddenAfter: number }
+export interface BoardOverflow {
+  overflow: boolean;
+  atStart: boolean;
+  atEnd: boolean;
+  hiddenAfter: number;
+}
 
 /** Tracks whether the board scrolls horizontally and where it is, for the scroll rail. */
-export function useBoardOverflow(ref: RefObject<HTMLElement | null>, itemCount: number): BoardOverflow {
-  const [state, setState] = useState<BoardOverflow>({ overflow: false, atStart: true, atEnd: true, hiddenAfter: 0 });
+export function useBoardOverflow(
+  ref: RefObject<HTMLElement | null>,
+  itemCount: number
+): BoardOverflow {
+  const [state, setState] = useState<BoardOverflow>({
+    overflow: false,
+    atStart: true,
+    atEnd: true,
+    hiddenAfter: 0,
+  });
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
@@ -66,16 +96,34 @@ export function useBoardOverflow(ref: RefObject<HTMLElement | null>, itemCount: 
       const overflow = max > 1;
       const items = Array.from(element.children) as HTMLElement[];
       const right = element.scrollLeft + element.clientWidth;
-      const hiddenAfter = overflow ? items.filter(item => item.offsetLeft + item.offsetWidth / 2 > right).length : 0;
-      const next = { overflow, atStart: element.scrollLeft <= 1, atEnd: element.scrollLeft >= max - 1, hiddenAfter };
-      setState(previous => (previous.overflow === next.overflow && previous.atStart === next.atStart && previous.atEnd === next.atEnd && previous.hiddenAfter === next.hiddenAfter ? previous : next));
+      const hiddenAfter = overflow
+        ? items.filter((item) => item.offsetLeft + item.offsetWidth / 2 > right).length
+        : 0;
+      const next = {
+        overflow,
+        atStart: element.scrollLeft <= 1,
+        atEnd: element.scrollLeft >= max - 1,
+        hiddenAfter,
+      };
+      setState((previous) =>
+        previous.overflow === next.overflow &&
+        previous.atStart === next.atStart &&
+        previous.atEnd === next.atEnd &&
+        previous.hiddenAfter === next.hiddenAfter
+          ? previous
+          : next
+      );
     };
     measure();
     element.addEventListener('scroll', measure, { passive: true });
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
     observer?.observe(element);
     window.addEventListener('resize', measure);
-    return () => { element.removeEventListener('scroll', measure); observer?.disconnect(); window.removeEventListener('resize', measure); };
+    return () => {
+      element.removeEventListener('scroll', measure);
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
   }, [ref, itemCount]);
   return state;
 }
@@ -96,12 +144,28 @@ export function DashboardBoard({ className }: DashboardBoardProps) {
   const columns = layout.columns;
 
   const endDrag = useCallback(() => setDragging(null), []);
-  const drop = useCallback((id: string, toIndex: number) => { layout.move(id, toIndex); setDragging(null); }, [layout]);
-  const add = useCallback((type: WidgetType, atIndex?: number) => { layout.add(type, atIndex); }, [layout]);
+  const drop = useCallback(
+    (id: string, toIndex: number) => {
+      layout.move(id, toIndex);
+      setDragging(null);
+    },
+    [layout]
+  );
+  const add = useCallback(
+    (type: WidgetType, atIndex?: number) => {
+      layout.add(type, atIndex);
+    },
+    [layout]
+  );
 
-  const addItems: MenuItem[] = widgetOrder.map(type => {
+  const addItems: MenuItem[] = widgetOrder.map((type) => {
     const TypeIcon = widgetRegistry[type].icon;
-    return { id: type, label: widgetRegistry[type].title, icon: <TypeIcon aria-hidden="true" className="size-icon-sm" />, onSelect: () => add(type) };
+    return {
+      id: type,
+      label: widgetRegistry[type].title,
+      icon: <TypeIcon aria-hidden="true" className="size-icon-sm" />,
+      onSelect: () => add(type),
+    };
   });
   const full = columns.length >= maxColumns;
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -116,11 +180,19 @@ export function DashboardBoard({ className }: DashboardBoardProps) {
   }, []);
 
   return (
-    <div className={cn('flex min-h-0 flex-1 gap-dashboard-column-gap', boardSeamClass, className)} style={{ height: 'calc(100dvh - var(--shell-top))' }}>
+    <div
+      className={cn('flex min-h-0 flex-1 gap-dashboard-column-gap', boardSeamClass, className)}
+      style={{ height: 'calc(100dvh - var(--shell-top))' }}
+    >
       {columns.length === 0 ? (
-        <div data-board-empty="" className="flex flex-1 flex-col items-center justify-center gap-3 bg-surface-1 text-text-muted">
+        <div
+          data-board-empty=""
+          className="flex flex-1 flex-col items-center justify-center gap-3 bg-surface-1 text-text-muted"
+        >
           <p className="text-md font-bold text-text">Your board has no columns</p>
-          <p className="max-w-70 text-center text-sm text-text-muted">Add Trending, callouts, the leaderboard or any other widget as a column.</p>
+          <p className="max-w-70 text-center text-sm text-text-muted">
+            Add Trending, callouts, the leaderboard or any other widget as a column.
+          </p>
           <DropdownMenu
             label="Add column"
             menuLabel="Add column"
@@ -130,7 +202,13 @@ export function DashboardBoard({ className }: DashboardBoardProps) {
             trigger={<Plus aria-hidden="true" className="size-icon-md" />}
             triggerClassName="rounded-md bg-surface-3 px-4 text-text hover:bg-surface-hover"
           />
-          <button type="button" onClick={layout.reset} className="text-xs font-bold text-text-muted hover:text-text">Restore the default board</button>
+          <button
+            type="button"
+            onClick={layout.reset}
+            className="text-xs font-bold text-text-muted hover:text-text"
+          >
+            Restore the default board
+          </button>
         </div>
       ) : (
         <div
@@ -140,11 +218,21 @@ export function DashboardBoard({ className }: DashboardBoardProps) {
           data-home-board="true"
           data-board-overflow={overflow.overflow ? 'true' : 'false'}
           data-board-full={full ? 'true' : 'false'}
-          className={cn('relative flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory scroll-smooth motion-reduce:scroll-auto focus-within:snap-none gap-dashboard-column-gap overflow-x-auto overflow-y-hidden scroll-px-2', overflow.overflow && 'pb-1', boardVisibleClass, boardScrollbarClass)}
+          className={cn(
+            'relative flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory scroll-smooth motion-reduce:scroll-auto focus-within:snap-none gap-dashboard-column-gap overflow-x-auto overflow-y-hidden scroll-px-2',
+            overflow.overflow && 'pb-1',
+            boardVisibleClass,
+            boardScrollbarClass
+          )}
           style={{ '--board-count': String(columns.length) } as CSSProperties}
         >
           {columns.map((column, index) => (
-            <div key={column.id} role="listitem" className={cn('flex h-full shrink-0 snap-start', columnSlotClass)} style={columnSlotStyle}>
+            <div
+              key={column.id}
+              role="listitem"
+              className={cn('flex h-full shrink-0 snap-start', columnSlotClass)}
+              style={columnSlotStyle}
+            >
               <Column
                 column={column}
                 index={index}
@@ -164,11 +252,40 @@ export function DashboardBoard({ className }: DashboardBoardProps) {
           ))}
         </div>
       )}
-      {overflow.overflow && columns.length > 0 ? (
-        <div data-board-rail="" className="flex w-control-height-sm shrink-0 flex-col items-center justify-center gap-2 bg-surface-2 py-2">
-          <IconButton size="sm" className="text-text" label="Scroll columns left" icon={<ChevronLeft />} disabled={overflow.atStart} onClick={() => scrollColumns(-1)} />
-          {overflow.hiddenAfter > 0 ? <span aria-hidden="true" className="text-xs font-bold text-text-muted">+{overflow.hiddenAfter}</span> : null}
-          <IconButton size="sm" className="text-text" label={overflow.hiddenAfter > 0 ? `Scroll columns right, ${overflow.hiddenAfter} more` : 'Scroll columns right'} icon={<ChevronRight />} disabled={overflow.atEnd} onClick={() => scrollColumns(1)} />
+      {columns.length > 0 ? (
+        <div
+          data-board-scroll-controls=""
+          data-board-rail={overflow.overflow ? '' : undefined}
+          hidden={!overflow.overflow}
+          className="flex w-8 shrink-0 flex-col items-center justify-center gap-2 bg-surface-2 py-2"
+        >
+          <IconButton
+            size="sm"
+            className="text-text"
+            label="Scroll columns left"
+            icon={<ChevronLeft />}
+            disabled={overflow.atStart}
+            onClick={() => scrollColumns(-1)}
+          />
+          <span
+            aria-hidden="true"
+            hidden={overflow.hiddenAfter === 0}
+            className="text-xs font-bold text-text-muted"
+          >
+            +{overflow.hiddenAfter}
+          </span>
+          <IconButton
+            size="sm"
+            className="text-text"
+            label={
+              overflow.hiddenAfter > 0
+                ? `Scroll columns right, ${overflow.hiddenAfter} more`
+                : 'Scroll columns right'
+            }
+            icon={<ChevronRight />}
+            disabled={overflow.atEnd}
+            onClick={() => scrollColumns(1)}
+          />
         </div>
       ) : null}
     </div>

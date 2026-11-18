@@ -142,6 +142,13 @@ page and performs its own steps in order. `click`, `fill` and `press` use
 Playwright selectors; `press` takes a Playwright key name. `wait` waits for visible
 text containing its `text` value. States and build/start commands are optional.
 
+A view may declare an optional `ready` list using the same steps as a state,
+for example `"ready": [{ "action": "wait", "text": "Content is ready" }]`.
+After navigation, every state, including `default`, performs the view’s ready
+steps before its own steps and before any rendering mode begins. Layout movement
+during both lists shares the state-step window. Views without `ready` keep the
+same rendering order.
+
 Views and named states may declare `modes`, a nonempty list of unique names from
 `default`, `reduced-motion`, `double-text` and `keyboard`. Every list must include
 `default`. A view without `modes` uses all four; a state without `modes` inherits
