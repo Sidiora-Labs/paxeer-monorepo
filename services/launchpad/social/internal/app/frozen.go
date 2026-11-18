@@ -108,6 +108,9 @@ func frozenError(w http.ResponseWriter, req *http.Request, err error) {
 	case errors.Is(err, pgx.ErrNoRows):
 		status, code = 404, notFoundCode
 	}
+	if status == http.StatusServiceUnavailable {
+		slog.ErrorContext(req.Context(), "social request failed", "method", req.Method, "path", req.URL.Path, "error", err)
+	}
 	frozenWriteError(w, req, status, code)
 }
 func frozenWriteError(w http.ResponseWriter, req *http.Request, status int, code string) {
