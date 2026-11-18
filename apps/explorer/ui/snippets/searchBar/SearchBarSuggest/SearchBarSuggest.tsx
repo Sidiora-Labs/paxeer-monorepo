@@ -57,6 +57,7 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
   const categoriesRefs = React.useRef(new Map<Category, HTMLParagraphElement>());
 
   const [ currentTab, setCurrentTab ] = React.useState<Category | undefined>(undefined);
+  const showAssistant = config.features.assistant.isEnabled && assistant && Boolean(assistant.canAsk || assistant.answer || assistant.error);
 
   const visibleCategories = React.useMemo(() => {
     const categories = category ? searchCategories.filter((cat) => cat.id === category) : searchCategories;
@@ -200,7 +201,7 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
         );
       }
 
-      return <Text>No results found.</Text>;
+      return showAssistant ? null : <Text>No results found.</Text>;
     }
 
     return (
@@ -299,8 +300,9 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
 
   return (
     <>
-      { config.features.assistant.isEnabled && assistant && (assistant.canAsk || assistant.answer || assistant.error) && (
+      { showAssistant && assistant && (
         <Box
+          flexShrink={ 0 }
           bgColor="raised"
           color="text.primary"
           borderColor="hairline"
@@ -318,16 +320,17 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
             whiteSpace="normal"
             height="auto"
             minH="touchTarget"
+            px={ 0 }
             textAlign="left"
             disabled={ assistant.pending }
             onClick={ assistant.ask }
           >
             { assistant.pending ? 'Asking…' : `Ask: ${ assistant.question }` }
           </Button>
-          <Box role="status" aria-live="polite" overflowY="auto" maxH="30dvh">
+          <Box role="status" aria-live="polite">
             { assistant.answer && (
               <>
-                <Text whiteSpace="pre-wrap" overflowWrap="anywhere">{ assistant.answer.answer }</Text>
+                <Text whiteSpace="pre-wrap" overflowWrap="anywhere" maxW="72ch">{ assistant.answer.answer }</Text>
                 <Text color="text.muted" textStyle="xs" mt={ 2 }>
                   model output, not chain data · { assistant.answer.model }
                 </Text>
