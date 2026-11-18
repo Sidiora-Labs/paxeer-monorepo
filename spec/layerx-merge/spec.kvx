@@ -208527,7 +208527,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.929]
 title = "Supply the cursor key variable of the deployment contract in the cases of the launchpad ranking module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
