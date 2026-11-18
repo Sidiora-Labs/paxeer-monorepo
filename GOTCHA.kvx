@@ -23350,3 +23350,8 @@ fix = "Decision 3777. Task 22.39.866."
 title = "The test command of the launchpad web application prepares its environment before the cases run"
 symptom = "In apps/launchpad/web/package.json the script test starts scripts/prepare-test-environment.py, which prepares the chain fixtures and the local services the joined cases read and then starts the case runner with the arguments it was given. A file name given after the script name reaches the case runner as a filter, so one case file runs under the same prepared environment as the whole suite. The case runner reads the files under src whose names end with .test.ts or .test.tsx. A case file of a flow therefore lies under src beside the page module it holds, and it can read started services where the prepared environment starts them."
 fix = "Decision 3778."
+
+[gotcha.4706]
+title = "The frozen install of the launchpad workspace compares every manifest with the lock file"
+symptom = "The workspace under apps/launchpad takes the web application, the mobile application and every client package under sdk/launchpad/packages, and apps/launchpad/pnpm-lock.yaml holds one importer entry for each of them. The frozen install accepts the lock file only where every importer entry holds what its manifest names. The manifest of the client package users-sdk names the development dependency viem in the version 2.37.3, which its signing cases read, and the importer entry of that package holds typescript alone. A dependency that enters a manifest of the workspace therefore enters the lock file in the same change."
+fix = "Decision 3779."
