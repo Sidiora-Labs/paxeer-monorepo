@@ -1,4 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- The chain configuration loads this module through CommonJS.
 const path = require('node:path');
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- The chain configuration loads this module through CommonJS.
 const layout = require('./creation-chain-layout.json');
 
 function creationChainRoots(sourceRoot = '', contractRoot = '') {

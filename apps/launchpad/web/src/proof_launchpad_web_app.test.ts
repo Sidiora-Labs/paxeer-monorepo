@@ -142,7 +142,7 @@ async function NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE() {
       const active = useConfig(); observed.push(active);
       return createElement('output', null, active.state.current);
     }
-    const html = renderToString(createElement(AppProviders, { ...first!.props, children: createElement(ObservePrivateConfig) }));
+    const html = renderToString(createElement(AppProviders, first!.props, createElement(ObservePrivateConfig)));
     expect(html).toContain(selected);
     expect(observed).toHaveLength(1);
     expect(observed[0].state.current).toBe(selected);
@@ -155,7 +155,7 @@ async function NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE() {
     process.env.NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE = '{';
     const malformed = providerElement(await requestLayout(cookie));
     expect(malformed!.props.privateFixtureProfileInput).toBe('{');
-    const refused = renderToString(createElement(AppProviders, { ...malformed!.props, children: createElement(ObservePrivateConfig) }));
+    const refused = renderToString(createElement(AppProviders, malformed!.props, createElement(ObservePrivateConfig)));
     expect(refused).toContain('Something went wrong, reload the page');
     expect(observed).toHaveLength(1);
     expect(() => resolvePrivateFixtureAuthorityProfileV1({ privateFixtureProfile: profile, privateFixtureProfileInput: JSON.stringify(profile) })).toThrow('ambiguous');
