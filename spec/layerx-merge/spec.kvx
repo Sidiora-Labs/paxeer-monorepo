@@ -208247,7 +208247,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.914]
 title = "Open the direct sessions of the launchpad services with just-in-time compilation off"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208375,7 +208375,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.909]
 title = "Release the pause of historical reads of the launchpad indexer at the head and keep the readiness read off that pause"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208407,7 +208407,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.908]
 title = "Read the newest committed head of the launchpad in bounded work at any size of the committed heads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208849,7 +208849,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.894]
 title = "Close the discovery flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209578,7 +209578,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.871]
 title = "Close the gateway module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.866"]

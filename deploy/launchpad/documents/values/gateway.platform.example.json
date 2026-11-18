@@ -42,7 +42,7 @@
       "durable": "gateway-audit-consumer",
       "eventType": "gateway.audit.revision",
       "keyCredential": "auditKey",
-      "sinkDeliverySchema": "gateway_audit_delivery",
+      "sinkDeliverySchema": "gateway_audit_sink",
       "sinkSchema": "gateway_audit_sink",
       "stream": "GATEWAY_AUDIT",
       "subject": "gateway.audit.v1"
@@ -84,7 +84,7 @@
     "recoveryEpoch": 1,
     "recoveryRegion": "mainnet-beta-eu",
     "recoverySchema": "recovery",
-    "safetySchema": "safety",
+    "safetySchema": "chat",
     "serverCertFile": "/run/kindle/gateway/server-cert.pem",
     "serverCertSha256": "0000000000000000000000000000000000000000000000000000000000000000",
     "serverKeyCredential": "serverKey",
