@@ -176346,7 +176346,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.832]
 title = "Read a named preset of the explorer image from its tracked file and keep the names a deployment decides"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
