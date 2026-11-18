@@ -45,7 +45,7 @@ const columns: ReadonlyArray<{ key: HolderRewardsSortKey; label: string; width: 
 function ColumnHead({ label, sr, sort, onSort, className }: { label: string; sr?: string; sort: 'asc' | 'desc' | null; onSort(): void; className?: string }) {
   const Icon = sort === 'asc' ? ArrowUp : sort === 'desc' ? ArrowDown : ArrowUpDown;
   return (
-    <th scope="col" aria-sort={sort === 'asc' ? 'ascending' : sort === 'desc' ? 'descending' : undefined} className={cn('h-touch-target-min px-2 text-xs font-medium md:px-3', sort ? 'text-text' : 'text-text-faint', className)}>
+    <th scope="col" aria-sort={sort === 'asc' ? 'ascending' : sort === 'desc' ? 'descending' : undefined} className={cn('h-10 px-2 text-xs font-medium md:px-3', sort ? 'text-text' : 'text-text-faint', className)}>
       <button type="button" onClick={onSort} className="relative ml-auto flex h-full items-center justify-end gap-1 rounded-xs transition-colors hover:text-text focus-visible:bg-surface-3 focus-visible:underline">
         <span>{label}{sr ? <span className="sr-only"> {sr}</span> : null}</span>
         <Icon aria-hidden="true" className={cn('size-3', sort ? 'text-text' : 'opacity-0 group-hover/head:opacity-60')} />
@@ -107,7 +107,7 @@ export default function HolderRewardsTable({
 }: HolderRewardsTableProps) {
   const empty = !loading && rows.length === 0 && !filtered;
   return (
-    <div aria-busy={loading || loadingMore || undefined} className={cn('flex min-h-80 flex-col gap-2 rounded-lg bg-surface-1 p-2', className)}>
+    <div aria-busy={loading || loadingMore || undefined} className={cn('flex flex-col gap-2 rounded-lg bg-surface-1 p-2', className)}>
       <div className="overflow-x-auto">
       <table className="w-full min-w-[var(--sl-rewards-table-min-width)] table-fixed">
         <caption className="sr-only">Holder rewards coins ranked by {order.key === 'age' ? 'creation time' : order.key === 'mcap' ? 'market cap' : order.key === 'holders' ? 'holders paid' : 'rewards distributed'}, {order.direction === 'desc' ? 'highest first' : 'lowest first'}</caption>
@@ -165,7 +165,7 @@ export default function HolderRewardsTable({
                     <Avatar src={row.image} name={row.name} size="lg" shape="square" decorative className="md:size-avatar-xl" />
                     <div className="min-w-0 flex-1">
                       <div className="flex min-w-0 items-center gap-1">
-                        <Link prefetch={false} href={href} className="flex min-h-touch-target-min min-w-touch-target-min items-center text-base font-semibold text-text after:absolute after:inset-0 after:content-['']" title={row.name}>
+                        <Link prefetch={false} href={href} className="flex min-w-0 items-center text-base font-semibold text-text after:absolute after:inset-0 after:content-['']" title={row.name}>
                           <span className="min-w-0 truncate">{row.name}</span>
                           <span className="sr-only">
                             , {rewardsText(row.pool.distributedRaw)} distributed to holders

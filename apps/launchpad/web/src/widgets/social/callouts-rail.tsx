@@ -58,13 +58,12 @@ export function CalloutsRail({ title = 'Best callouts', initialWindow = '1d', ma
   }
 
   return (
-    <aside aria-label={title} className={cn('relative flex min-h-96 flex-col gap-3', className)}>
+    <aside aria-label={title} className={cn('relative flex flex-col gap-3', className)}>
       <SectionHeader
         title={title}
         count={feed.state === 'ready' ? callouts.length : undefined}
         loading={feed.state === 'loading'}
         description={`Top calls from the last ${range === '1d' ? 'day' : 'week'}`}
-        className="[&_h2]:min-h-[2lh]"
         action={<SegmentedControl label="Time range" options={windowOptions} value={range} onChange={setRange} />}
       />
       <div ref={listRef} tabIndex={-1} style={maxHeight !== undefined ? { maxHeight } : undefined} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto outline-none">

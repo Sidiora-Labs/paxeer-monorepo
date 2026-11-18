@@ -170,7 +170,7 @@ export function DropdownMenu({
           open && 'bg-surface-3 text-text',
           trigger
             ? size === 'sm'
-              ? 'min-h-control-height-sm px-2 py-2 text-sm'
+              ? 'min-h-control-height-sm px-2 py-1 text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))]'
               : 'min-h-control-height-md px-3 py-2 text-base'
             : size === 'sm'
               ? 'size-control-height-sm'

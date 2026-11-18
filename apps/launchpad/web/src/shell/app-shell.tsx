@@ -211,7 +211,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               </Button>
             </section>
           )}
-          {route?.id === 'terminal' ? null : <ShellFooter />}
+          {route?.id === 'terminal' || route?.id === 'holder-rewards' || route?.id === 'leaderboard' ? null : <ShellFooter />}
         </main>
       </div>
       <MobileBottomNav />

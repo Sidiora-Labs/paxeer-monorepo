@@ -190,3 +190,12 @@ export function ShellFooter() {
     </footer>
   );
 }
+
+export function PageWithFooter({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col">
+      <div className="min-w-0 flex-1">{children}</div>
+      <ShellFooter />
+    </div>
+  );
+}

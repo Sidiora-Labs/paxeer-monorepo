@@ -17,7 +17,7 @@ type TileState =
   | { kind: 'value'; value: string; unit?: string; caption?: string }
   | { kind: 'unavailable'; title: string; plural?: boolean };
 
-const numeral = 'text-2xl font-bold tracking-tight tabular-nums';
+const numeral = 'text-2xl leading-tight font-bold tracking-tight tabular-nums';
 
 function DisplayTile({ label, state, tone = 'text', detail, onRetry, className }: { label: string; state: TileState; tone?: 'text' | 'success'; detail: string | null; onRetry?: () => void; className?: string }) {
   let body: ReactNode;
@@ -35,7 +35,7 @@ function DisplayTile({ label, state, tone = 'text', detail, onRetry, className }
     );
   }
   return (
-    <div className={cn('flex min-h-[var(--sl-rewards-tile-min-height)] @max-[18em]/rewards-totals:min-h-[var(--sl-rewards-expanded-tile-min-height)] min-w-0 flex-col gap-2 rounded-md bg-surface-2 px-5 py-4', className)}>
+    <div className={cn('flex min-h-23.5 sm:min-h-31.5 min-w-0 flex-col gap-2 rounded-md bg-surface-2 px-5 py-4', className)}>
       <dt className="text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">{label}</dt>
       <dd data-numeric className={numeral} aria-busy={state.kind === 'loading' || undefined}>{body}</dd>
       {state.kind === 'unavailable' ? (
@@ -68,15 +68,15 @@ export default function StatsRow({ stats }: StatsRowProps) {
   return (
     <section aria-labelledby="holder-rewards-stats-title" className="flex flex-col gap-2">
       <h2 id="holder-rewards-stats-title" className="sr-only">Holder rewards totals</h2>
-      <dl className="@container/rewards-totals grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-token-card-min-width)),1fr))] gap-2">
+      <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         <DisplayTile label="Holder rewards" tone="success" detail={detail} onRetry={onRetry}
           state={tile(distributed, { title: 'Holder rewards', plural: true }, { unit: 'USDL' })} />
         <DisplayTile label="At today's prices" detail={detail} onRetry={onRetry}
           state={tile(distributed, { title: "Today's value" }, { unit: 'USDL', caption: 'Valued in USDL' })} />
-        <DisplayTile label="Wallets rewarded" detail={detail} onRetry={onRetry}
+        <DisplayTile label="Wallets rewarded" className="sm:col-span-2 lg:col-span-1" detail={detail} onRetry={onRetry}
           state={tile(data ? data.walletsRewarded.toLocaleString('en-US') : null, { title: 'Wallet count' })} />
       </dl>
-      <div className="min-h-touch-target-min">
+      <div className="min-h-[var(--sl-leading-xs)]">
         {stats.state === 'error' ? (
           <ErrorState variant="chip" message="Totals can't load right now" onRetry={stats.retry} className="self-start" />
         ) : data ? (
