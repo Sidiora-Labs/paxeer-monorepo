@@ -28,8 +28,10 @@ beforeAll(() => {
 afterEach(cleanup);
 
 const declarationsOf = (element: Element): string => {
-  const css = Array.from(document.styleSheets)
-    .flatMap((sheet) => Array.from(sheet.cssRules).map((rule) => rule.cssText))
+  const css = [
+    ...Array.from(document.styleSheets).flatMap((sheet) => Array.from(sheet.cssRules).map((rule) => rule.cssText)),
+    ...Array.from(document.querySelectorAll('style')).map((style) => style.textContent),
+  ]
     .join('').replace(/\s+/g, '');
 
   return Array.from(element.classList)
@@ -38,6 +40,70 @@ const declarationsOf = (element: Element): string => {
 };
 
 describe('ScanStatCard', () => {
+  it('lets label text wrap within its tile', function statLabelWraps() {
+    const { container } = render(
+      <Provider>
+        <ScanStatCard label="Average block time" value="1.0s"/>
+      </Provider>,
+    );
+    const label = container.querySelector('[data-label]') as HTMLElement;
+
+    expect(declarationsOf(label)).toContain('white-space:normal');
+    expect(declarationsOf(label)).not.toContain('white-space:nowrap');
+    expect(declarationsOf(label)).toContain('min-width:0');
+    expect(declarationsOf(label)).toContain('overflow-wrap:anywhere');
+  });
+
+  it('limits label text to two lines while keeping the hint on the first line', function statLabelClampsToTwoLines() {
+    const { container } = render(
+      <Provider>
+        <ScanStatCard label="Transactions over the last day" value="1,234" hint="Daily transactions" icon={ <svg aria-label="transactions"/> }/>
+      </Provider>,
+    );
+    const label = container.querySelector('[data-label]') as HTMLElement;
+    const labelRow = label.parentElement as HTMLElement;
+    const hint = container.querySelector('button[aria-label="hint"]') as HTMLElement;
+
+    expect(declarationsOf(label)).toContain('display:-webkit-box');
+    expect(declarationsOf(label)).toContain('-webkit-line-clamp:2');
+    expect(declarationsOf(label)).toContain('-webkit-box-orient:vertical');
+    expect(declarationsOf(label)).toContain('overflow:hidden');
+    expect(declarationsOf(labelRow)).toContain('min-height:fit-content');
+    expect(declarationsOf(labelRow)).toContain('align-items:flex-start');
+    expect(declarationsOf(hint.parentElement as HTMLElement)).toContain('height:var(--chakra-sizes-4)');
+    expect(declarationsOf(hint.parentElement as HTMLElement)).toContain('flex-shrink:0');
+    expect(labelRow.querySelector('svg[aria-label="transactions"]')).not.toBeNull();
+  });
+
+  it('keeps the full label in its title', function statLabelHasFullTitle() {
+    const label = 'Transactions per second over the last twenty four hours';
+    const { container } = render(
+      <Provider>
+        <ScanStatCard label={ label } value="12"/>
+      </Provider>,
+    );
+    const text = container.querySelector('[data-label]');
+
+    expect(text?.getAttribute('title')).toBe(label);
+    expect(text?.textContent).toBe(label);
+  });
+
+  it('places the value at the end of the tile', function statValueAtTileEnd() {
+    const { container } = render(
+      <Provider>
+        <ScanStatCard label="Transactions per second" value="12"/>
+        <ScanStatCard label="Blocks" value="42"/>
+      </Provider>,
+    );
+    const cards = container.querySelectorAll('[data-scan-stat]');
+
+    expect(cards).toHaveLength(2);
+    for (const card of cards) {
+      expect(declarationsOf(card)).toContain('height:100%');
+      expect(declarationsOf(card.querySelector('[data-value]')?.parentElement as HTMLElement)).toContain('margin-top:auto');
+    }
+  });
+
   it.each([ false, true ])('keeps labels and values aligned with and without a hint when loading is %s', function statLabelsShareLineHeight(isLoading) {
     const { container } = render(
       <Provider>
