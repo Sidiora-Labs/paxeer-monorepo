@@ -176301,7 +176301,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.827]
 title = "Bring the TypeScript configuration of the settings validator of the explorer in line with the application files its target compiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.825"]
@@ -218507,7 +218507,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.828]
 title = "Serve the chain reads of the indexer as public reads of the hosted gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
