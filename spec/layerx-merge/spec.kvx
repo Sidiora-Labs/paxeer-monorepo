@@ -15622,6 +15622,12 @@ value = "Where test support reads a value that a service has stored, it reads th
 basis = "Gotcha 4678."
 affects = []
 
+[decision.3752]
+title = "The launchpad web application takes the sizes and the shell of its earlier state from its record"
+value = "Decisions 3707, 3708 and 3710 hold for the launchpad web application with the record spec/layerx-merge/programme/records/ui/22.44.104.kvx as the measure. Every size token that the record lists with different values in the two states gives the value of the earlier state at every width; the form of a token can stay where its value equals the earlier one at every width. The header, the navigation, the main region and the footer have the boxes of the earlier state. A control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above. A view or a part that a task outside series 22.44 added stays and takes the sizes of the like parts of the earlier state. The track the page reserves for the scroll bar stays, since it keeps the layout from shifting; the record of the correcting task names it as the cause of the differences in width it leaves. Task 22.44.106 brings the tokens, the shell and the home views to this rule, and tasks 22.44.107 to 22.44.112 close the other parts of the surface on it."
+basis = "Gotcha 4679. Decisions 3707, 3708, 3710 and 3747."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45282,6 +45288,69 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.112]
+title = "Close the terminal, swap and order views of the launchpad again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.112.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.69.kvx, the part file tools/ui-check/surfaces/launchpad/parts/terminal.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+symbols = []
+
+[capability.22.44.111]
+title = "Close the leaderboard and reward views of the launchpad again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.111.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.67.kvx, the part file tools/ui-check/surfaces/launchpad/parts/rewards.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+symbols = []
+
+[capability.22.44.110]
+title = "Close the live, profit card and profile views of the launchpad again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.110.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json --out /tmp/ui-check/launchpad-live && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.68.kvx, the part file tools/ui-check/surfaces/launchpad/parts/live.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+symbols = []
+
+[capability.22.44.109]
+title = "Close the explore, search and watchlist views of the launchpad again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.109.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json --out /tmp/ui-check/launchpad-explore && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.66.kvx, the part file tools/ui-check/surfaces/launchpad/parts/explore.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+symbols = []
+
+[capability.22.44.108]
+title = "Close the bounty, chat and document views of the launchpad again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.108.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/community.json --out /tmp/ui-check/launchpad-community && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.64.kvx, the part file tools/ui-check/surfaces/launchpad/parts/community.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+symbols = []
+
+[capability.22.44.107]
+title = "Close the coin, token and creation views of the launchpad again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.107.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.65.kvx, the part file tools/ui-check/surfaces/launchpad/parts/coin.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+symbols = []
+
+[capability.22.44.106]
+title = "Bring the size tokens, the shell and the footer of the launchpad web application back to its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.106.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4679, decisions 3708, 3710 and 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.104.kvx with its table of tokens and its parts, tools/ui-check/surfaces/launchpad/measure.json, tools/ui-check/surfaces/launchpad/earlier-geometry.json, apps/launchpad/web/src/app/tokens.css, apps/launchpad/web/src/app/globals.css, apps/launchpad/web/src/app/presentation-tokens.ts, the components of the header, the navigation and the footer, and the state of apps/launchpad/web at the earlier revision the record names, in the history. List in the final message the tokens whose value differs between the two states."
+symbols = []
 
 [capability.22.39.826]
 title = "Let the share comparison of the ceremony test nodes read the share of a record as the attestor reads it"
@@ -176170,6 +176239,198 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.112]
+title = "Close the terminal, swap and order views of the launchpad again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.106"]
+reqs = ["22998.1"]
+capabilities = ["22.44.112"]
+interfaces = []
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.69.kvx, the part file tools/ui-check/surfaces/launchpad/parts/terminal.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decision 3708 holds for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token is not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, and a colour that was changed for the contrast rule. No behaviour, no route, no data flow and no text changes."
+do_3 = "do_3 Read in tools/ui-check/surfaces/launchpad/measure.json the views that belong to this part and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. The files tools/ui-check/surfaces/launchpad/measure.json and tools/ui-check/surfaces/launchpad/earlier-geometry.json stay as they are."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, keep the lines of other parts in the setup files of the surface as they are, and where the main line holds such a change take it and keep both. A change of an answer of a state holds for the paths of this part only. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.112.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/launchpad/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.112.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.112.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.111]
+title = "Close the leaderboard and reward views of the launchpad again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.106"]
+reqs = ["22998.1"]
+capabilities = ["22.44.111"]
+interfaces = []
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.67.kvx, the part file tools/ui-check/surfaces/launchpad/parts/rewards.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decision 3708 holds for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token is not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, and a colour that was changed for the contrast rule. No behaviour, no route, no data flow and no text changes."
+do_3 = "do_3 Read in tools/ui-check/surfaces/launchpad/measure.json the views that belong to this part and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. The files tools/ui-check/surfaces/launchpad/measure.json and tools/ui-check/surfaces/launchpad/earlier-geometry.json stay as they are."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, keep the lines of other parts in the setup files of the surface as they are, and where the main line holds such a change take it and keep both. A change of an answer of a state holds for the paths of this part only. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.111.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/launchpad/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.111.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.111.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.110]
+title = "Close the live, profit card and profile views of the launchpad again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.106"]
+reqs = ["22998.1"]
+capabilities = ["22.44.110"]
+interfaces = []
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.68.kvx, the part file tools/ui-check/surfaces/launchpad/parts/live.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decision 3708 holds for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token is not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, and a colour that was changed for the contrast rule. No behaviour, no route, no data flow and no text changes."
+do_3 = "do_3 Read in tools/ui-check/surfaces/launchpad/measure.json the views that belong to this part and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. The files tools/ui-check/surfaces/launchpad/measure.json and tools/ui-check/surfaces/launchpad/earlier-geometry.json stay as they are."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, keep the lines of other parts in the setup files of the surface as they are, and where the main line holds such a change take it and keep both. A change of an answer of a state holds for the paths of this part only. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.110.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/launchpad/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.110.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.110.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json --out /tmp/ui-check/launchpad-live && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.109]
+title = "Close the explore, search and watchlist views of the launchpad again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.106"]
+reqs = ["22998.1"]
+capabilities = ["22.44.109"]
+interfaces = []
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.66.kvx, the part file tools/ui-check/surfaces/launchpad/parts/explore.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decision 3708 holds for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token is not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, and a colour that was changed for the contrast rule. No behaviour, no route, no data flow and no text changes."
+do_3 = "do_3 Read in tools/ui-check/surfaces/launchpad/measure.json the views that belong to this part and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. The files tools/ui-check/surfaces/launchpad/measure.json and tools/ui-check/surfaces/launchpad/earlier-geometry.json stay as they are."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, keep the lines of other parts in the setup files of the surface as they are, and where the main line holds such a change take it and keep both. A change of an answer of a state holds for the paths of this part only. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.109.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/launchpad/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.109.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.109.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json --out /tmp/ui-check/launchpad-explore && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.108]
+title = "Close the bounty, chat and document views of the launchpad again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.106"]
+reqs = ["22998.1"]
+capabilities = ["22.44.108"]
+interfaces = []
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.64.kvx, the part file tools/ui-check/surfaces/launchpad/parts/community.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decision 3708 holds for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token is not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, and a colour that was changed for the contrast rule. No behaviour, no route, no data flow and no text changes."
+do_3 = "do_3 Read in tools/ui-check/surfaces/launchpad/measure.json the views that belong to this part and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. The files tools/ui-check/surfaces/launchpad/measure.json and tools/ui-check/surfaces/launchpad/earlier-geometry.json stay as they are."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, keep the lines of other parts in the setup files of the surface as they are, and where the main line holds such a change take it and keep both. A change of an answer of a state holds for the paths of this part only. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.108.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/launchpad/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.108.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.108.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/community.json --out /tmp/ui-check/launchpad-community && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.107]
+title = "Close the coin, token and creation views of the launchpad again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.106"]
+reqs = ["22998.1"]
+capabilities = ["22.44.107"]
+interfaces = []
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.65.kvx, the part file tools/ui-check/surfaces/launchpad/parts/coin.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decision 3708 holds for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token is not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, and a colour that was changed for the contrast rule. No behaviour, no route, no data flow and no text changes."
+do_3 = "do_3 Read in tools/ui-check/surfaces/launchpad/measure.json the views that belong to this part and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. The files tools/ui-check/surfaces/launchpad/measure.json and tools/ui-check/surfaces/launchpad/earlier-geometry.json stay as they are."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, keep the lines of other parts in the setup files of the surface as they are, and where the main line holds such a change take it and keep both. A change of an answer of a state holds for the paths of this part only. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.107.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/launchpad/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.107.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.107.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.825]
 title = "Give the configuration of the explorer the entry of the chain indexer that the chain resources name"
 status = "pending"
@@ -205843,6 +206104,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.106]
+title = "Bring the size tokens, the shell and the footer of the launchpad web application back to its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.104", "22.39.814"]
+reqs = ["22998.1"]
+capabilities = ["22.44.106"]
+interfaces = []
+do_1 = "do_1 Gotcha 4679, decisions 3708, 3710 and 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.104.kvx with its table of tokens and its parts, tools/ui-check/surfaces/launchpad/measure.json, tools/ui-check/surfaces/launchpad/earlier-geometry.json, apps/launchpad/web/src/app/tokens.css, apps/launchpad/web/src/app/globals.css, apps/launchpad/web/src/app/presentation-tokens.ts, the components of the header, the navigation and the footer, and the state of apps/launchpad/web at the earlier revision the record names, in the history. List in the final message the tokens whose value differs between the two states."
+do_2 = "do_2 Every size token that the record lists with different values gives the value of the earlier state at the widths 390, 1440 and 1920 and between them: the sizes of text and the line heights as fixed values, the heights of the small, the middle and the large control, the height of the header and of the ticker, and the collapsed column and the gutter of the columns. The text of the body has the size and the line height of the earlier state. A token that only the present state holds stays where no part gets a size from it that differs from the earlier state; where one does, it takes the value that gives the earlier size. No size of text, no line height, no distance, no height of a control and no track grows above the earlier value."
+do_3 = "do_3 The shell has the boxes of the earlier state at every width: the header, the navigation with its rows of 40 pixels at the desktop widths, the main region and the footer as one row with its links and its activity at the earlier sizes. At the widths up to 834 a control that takes touch measures at least 44 pixels and no more than the rule asks; above 834 every control has its earlier size. A view or a part that a task outside series 22.44 added stays and takes the sizes of the like parts of the earlier state."
+do_4 = "do_4 What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, and a colour that was changed for the contrast rule. No behaviour, no route, no data flow and no text changes. A case under apps/launchpad/web that pins a size the series gave is brought to the earlier one; no assertion on behaviour is weakened and no case is removed or left out."
+do_5 = "do_5 Run the check by hand with tools/ui-check/surfaces/launchpad/measure.json, which names tools/ui-check/surfaces/launchpad/earlier-geometry.json, at most twice, and read every finding of the kind geometry. Correct a difference of more than one pixel in a part of the shell or in a size of text. Write the record spec/layerx-merge/programme/records/ui/22.44.106.kvx in present tense: the tokens brought back with their values, for each width the count of parts that still differ from the earlier state, and for each such part its cause, content the earlier state does not hold, the touch rule at the widths up to 834, the track of the scroll bar, or a view of another part of the surface that its own task closes. The files tools/ui-check/surfaces/launchpad/measure.json and tools/ui-check/surfaces/launchpad/earlier-geometry.json stay as they are."
+do_6 = "do_6 Run the render check of the home part by hand once over the whole device list and read the summary per view; correct a finding inside the rule of do_2 and do_3. Then run the test script of the package once by hand. Start the build and the counted verification early and keep time for them. The files of apps/launchpad/web are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.106.kvx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.106.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
