@@ -154,7 +154,7 @@ func TestReactionIdentityOverGatewayMTLSListener(t *testing.T) {
 
 	redisURL := os.Getenv("STATS_TEST_REDIS_URL")
 	if redisURL == "" {
-		redisURL = "redis://:kindle_fixture_password@127.0.0.1:26379/12"
+		t.Fatal("STATS_TEST_REDIS_URL required: real Redis fixture")
 	}
 	options, err := redis.ParseURL(redisURL)
 	if err != nil {
