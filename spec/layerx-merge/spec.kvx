@@ -208938,7 +208938,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.883]
 title = "Bring the client package sdk of the launchpad in line with the routes it calls and hold each call with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209097,7 +209097,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.878]
 title = "Close the social module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
