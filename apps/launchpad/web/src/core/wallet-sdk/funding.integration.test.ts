@@ -71,6 +71,13 @@ test('reviewed native and ERC20 transfers produce authentic receipts; no consent
     expect(confirmed.state).toBe('confirmed'); expect(confirmed.amountRaw).toBe('12345');
     receipts.push({ kind: `reviewed_${asset.kind}_transfer`, receipt, confirmed });
     await expect(transfer.submit(preview, async () => true)).rejects.toThrow('already');
+    const nonce = await rpc.getTransactionCount({ address: A });
+    const nextDraft = new WalletTransfer(rpc, external, sessions);
+    const nextReview = await nextDraft.preview(`next-${asset.kind}`, asset, B, '13');
+    expect(nextDraft.hash).toBeUndefined();
+    expect(nextReview.amountRaw).toBe('13');
+    expect(transfer.hash).toBe(hash);
+    expect(await rpc.getTransactionCount({ address: A })).toBe(nonce);
   }
   const denied = new WalletTransfer(rpc, external, sessions);
   const preview = await denied.preview('denied', nativePAX, B, '1');
