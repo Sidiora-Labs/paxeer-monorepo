@@ -258,6 +258,7 @@ func sqlText(expr ast.Expr, constants map[string]ast.Expr, schema string) (strin
 }
 
 func registeredSchemas(root string) (map[string]string, error) {
+	//nolint:gosec // The repository root supplies the fixed migration registry path.
 	raw, err := os.ReadFile(filepath.Join(root, "migrations/registry.json"))
 	if err != nil {
 		return nil, err
