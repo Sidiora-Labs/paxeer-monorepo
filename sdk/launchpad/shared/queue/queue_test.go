@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/internal/testpostgres"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -144,12 +145,12 @@ func TestEnqueueIntegration(t *testing.T) {
 
 func TestRecoveryEpochGuardChecksCommittedDatabaseState(t *testing.T) {
 	dsn := os.Getenv("DELIVERY_TEST_DSN")
-	parsed, err := pgxpool.ParseConfig(dsn)
-	if err != nil || parsed.ConnConfig.Host != "127.0.0.1" || parsed.ConnConfig.Database != "kindle_fixture" {
+	parsed, err := testpostgres.ParseConfig(dsn)
+	if err != nil {
 		t.Fatal("private PostgreSQL fixture is required")
 	}
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dsn)
+	pool, err := pgxpool.NewWithConfig(ctx, parsed)
 	if err != nil {
 		t.Fatal(err)
 	}
