@@ -176527,7 +176527,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.825]
 title = "Give the configuration of the explorer the entry of the chain indexer that the chain resources name"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
