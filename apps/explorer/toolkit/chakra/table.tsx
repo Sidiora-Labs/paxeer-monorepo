@@ -38,7 +38,15 @@ export interface TableColumnHeaderProps extends ChakraTable.ColumnHeaderProps {
 export const TableColumnHeader = (props: TableColumnHeaderProps) => {
   const { isNumeric, ...rest } = props;
 
-  return <ChakraTable.ColumnHeader scope="col" data-is-numeric={ isNumeric || undefined } textAlign={ isNumeric ? 'right' : undefined } { ...rest }/>;
+  return (
+    <ChakraTable.ColumnHeader
+      scope="col"
+      data-is-numeric={ isNumeric || undefined }
+      textAlign={ isNumeric ? 'right' : undefined }
+      fontVariantNumeric={ isNumeric ? 'tabular-nums' : undefined }
+      { ...rest }
+    />
+  );
 };
 
 export interface TableColumnHeaderSortableProps<F extends string> extends TableColumnHeaderProps {

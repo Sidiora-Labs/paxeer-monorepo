@@ -1,6 +1,7 @@
-import type { NextPage } from 'next';
+import type { GetServerSidePropsContext, NextPage } from 'next';
 import React from 'react';
 
+import { base } from 'nextjs/getServerSideProps/main';
 import PageNextJs from 'nextjs/PageNextJs';
 
 import Sol2Uml from 'ui/pages/Sol2Uml';
@@ -15,4 +16,10 @@ const Page: NextPage = () => {
 
 export default Page;
 
-export { base as getServerSideProps } from 'nextjs/getServerSideProps/main';
+export async function getServerSideProps(context: GetServerSidePropsContext) {
+  if (typeof context.query.address !== 'string' || !context.query.address) {
+    return { notFound: true };
+  }
+
+  return base(context);
+}

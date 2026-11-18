@@ -56,17 +56,27 @@ const MultichainEcosystemsListItem = ({ data, chainInfo, isLoading }: Props) => 
       </HStack>
       <Grid
         w="full"
+        fontVariantNumeric="tabular-nums"
         minW={ 0 }
         gridTemplateColumns="minmax(0, 1fr)"
         columnGap={ 2 }
         rowGap={ 3 }
-        css={{ [ `@container (min-width: ${ spacing['80'].value })` ]: { gridTemplateColumns: 'calc(var(--chakra-spacing-1) * 35) minmax(0, 1fr)' } }}
+        css={{
+          [ `@container (min-width: ${ spacing['80'].value })` ]: {
+            gridTemplateColumns: 'calc(var(--chakra-spacing-1) * 35) minmax(0, 1fr)',
+            '& > [data-metric-value]': {
+              flexDirection: 'row-reverse',
+              justifyContent: 'flex-start',
+              textAlign: 'right',
+            },
+          },
+        }}
       >
         <Skeleton loading={ isLoading } fontWeight="medium">
           <span>Active addresses</span>
           <chakra.span color="text.secondary"> 7D</chakra.span>
         </Skeleton>
-        <HStack gap={ 1 } flexWrap="wrap" minW={ 0 }>
+        <HStack data-metric-value gap={ 1 } flexWrap="wrap" minW={ 0 }>
           <Skeleton loading={ isLoading }>
             <span>{ activeAddresses.value.toLocaleString() }</span>
           </Skeleton>
@@ -86,7 +96,7 @@ const MultichainEcosystemsListItem = ({ data, chainInfo, isLoading }: Props) => 
           <span>New addresses</span>
           <chakra.span color="text.secondary"> 7D</chakra.span>
         </Skeleton>
-        <HStack gap={ 1 } flexWrap="wrap" minW={ 0 }>
+        <HStack data-metric-value gap={ 1 } flexWrap="wrap" minW={ 0 }>
           <Skeleton loading={ isLoading }>
             <span>{ newAddresses.value.toLocaleString() }</span>
           </Skeleton>
@@ -106,7 +116,7 @@ const MultichainEcosystemsListItem = ({ data, chainInfo, isLoading }: Props) => 
           <span>Daily txs</span>
           <chakra.span color="text.secondary"> 7D</chakra.span>
         </Skeleton>
-        <HStack gap={ 1 } flexWrap="wrap" minW={ 0 }>
+        <HStack data-metric-value gap={ 1 } flexWrap="wrap" minW={ 0 }>
           <Skeleton loading={ isLoading }>
             <span>{ dailyTransactions.value.toLocaleString() }</span>
           </Skeleton>
@@ -125,7 +135,7 @@ const MultichainEcosystemsListItem = ({ data, chainInfo, isLoading }: Props) => 
         <Skeleton loading={ isLoading } fontWeight="medium">
           <span>TPS</span>
         </Skeleton>
-        <Skeleton loading={ isLoading }>
+        <Skeleton data-metric-value loading={ isLoading }>
           <span>{ Number(data.tps ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 }) }</span>
         </Skeleton>
       </Grid>
