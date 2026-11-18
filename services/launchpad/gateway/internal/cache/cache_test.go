@@ -2,7 +2,7 @@ package cache
 
 import (
 	"context"
-	redis "github.com/redis/go-redis/v9"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/internaltest"
 	"strings"
 	"testing"
 	"time"
@@ -10,7 +10,7 @@ import (
 
 func TestRealRedisCacheBoundsAndIdentity(t *testing.T) {
 	ctx := context.Background()
-	db := redis.NewClient(&redis.Options{Addr: "127.0.0.1:26379", Password: "kindle_fixture_password"})
+	db, _ := internaltest.RedisClient(t)
 	defer db.Close()
 	c := New(db, time.Minute)
 	bucket := "kd-fec98588ef6fe4334797a5de-" + time.Now().Format("150405000000000")
@@ -62,7 +62,7 @@ func TestRealRedisCacheBoundsAndIdentity(t *testing.T) {
 func TestRealRedisMissingMarkerCannotSurvivePositivePublication(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	db := redis.NewClient(&redis.Options{Addr: "127.0.0.1:26379", Password: "kindle_fixture_password"})
+	db, _ := internaltest.RedisClient(t)
 	defer db.Close()
 	c := New(db, time.Minute)
 	bucket := "l41-missing-" + time.Now().Format("150405000000000")

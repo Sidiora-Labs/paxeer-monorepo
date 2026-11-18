@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/internal/testpostgres"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -191,12 +192,9 @@ func epochPostgresFixture(t *testing.T) (*pgxpool.Pool, string) {
 	if dsn == "" {
 		t.Skip("BROKER_EPOCH_TEST_DSN and DELIVERY_TEST_DSN are unset: configure real PostgreSQL")
 	}
-	cfg, err := pgxpool.ParseConfig(dsn)
+	cfg, err := testpostgres.ParseConfig(dsn)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if cfg.ConnConfig.Host != "127.0.0.1" || cfg.ConnConfig.Database != "kindle_fixture" {
-		t.Fatal("refusing non-fixture PostgreSQL")
 	}
 	cfg.MaxConns = 3
 	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
