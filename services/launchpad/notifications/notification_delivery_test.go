@@ -1,6 +1,7 @@
 package notifications
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/ed25519"
@@ -14,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -340,6 +342,34 @@ func TestNotificationDeliveryPushOriginSlash(t *testing.T) {
 				t.Fatalf("%s accepted invalid link %q: %v", adapter.Provider(), link, e)
 			}
 		}
+	}
+	provider.Close()
+	runtime, e := NewPushRuntime(ctx, db, authority, RuntimeOptions{Secrets: options, Owner: "notification-worker", DeepLinkOrigin: "https://app.example:443", EnableAPNS: true, APNSKey: "REPAIR958_APNS", APNSKeyID: "REPAIR958_KID", APNSTeamID: "REPAIR958_TEAM", APNSTopic: "REPAIR958_TOPIC"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	runtime.Worker.Adapters[providerAPNS].(*APNS).client = &http.Client{Timeout: time.Second, Transport: transport}
+	item, created, e := (RecipientConsumer{Store: runtime.Worker.Store, Authority: authority}).EnqueueChat(ctx, "provider-disconnected", peer.account.AccountID, "conversation", time.Now().UTC())
+	if e != nil || !created {
+		t.Fatalf("disconnected provider trigger: created=%v err=%v", created, e)
+	}
+	var diagnostics bytes.Buffer
+	previousOutput := log.Writer()
+	log.SetOutput(&diagnostics)
+	defer log.SetOutput(previousOutput)
+	if e = runtime.Worker.Once(ctx, 1); e != nil {
+		t.Fatal(e)
+	}
+	var raw []byte
+	if e = db.QueryRowContext(ctx, `SELECT deliveries FROM discovery_notifications.outbox WHERE id=$1`, item.ID).Scan(&raw); e != nil {
+		t.Fatal(e)
+	}
+	var attempts []DeliveryAttempt
+	if e = json.Unmarshal(raw, &attempts); e != nil || len(attempts) != 1 || attempts[0].State != stateUnknown || !attempts[0].AcceptanceUnknown {
+		t.Fatalf("disconnected provider delivery: %s err=%v", raw, e)
+	}
+	if !strings.Contains(diagnostics.String(), "notification provider apns failed:") || !strings.Contains(diagnostics.String(), "connection refused") {
+		t.Fatalf("provider transport diagnostics: %s", diagnostics.String())
 	}
 }
 
