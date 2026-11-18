@@ -176318,7 +176318,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.113]
 title = "Let the focus measure of the render check hold the appearance at rest of a control that is not shown at rest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
