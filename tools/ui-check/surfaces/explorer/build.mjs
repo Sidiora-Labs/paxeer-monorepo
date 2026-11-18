@@ -7,7 +7,13 @@ import { fileURLToPath } from 'node:url';
 const environment = JSON.parse(await readFile(new URL('./environment.json', import.meta.url), 'utf8'));
 const options = {
   stdio: 'inherit',
-  env: { ...process.env, ...environment, DISABLE_TRACKING: 'true', NEXT_TELEMETRY_DISABLED: '1' },
+  env: {
+    ...process.env,
+    ...environment,
+    DISABLE_TRACKING: 'true',
+    NEXT_TELEMETRY_DISABLED: '1',
+    NEXT_PRIVATE_OUTPUT_TRACE_ROOT: process.cwd(),
+  },
 };
 async function run(command, args) {
   const child = spawn(command, args, options);
