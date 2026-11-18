@@ -25,17 +25,19 @@ export interface ScanStatCardProps {
 
 const ScanStatCard = ({ label, value, secondary, delta, hint, icon, isLoading, className }: ScanStatCardProps) => {
   return (
-    <Stat.Root variant="scan" className={ className } data-scan-stat={ label } minW={ 0 }>
-      <Stat.Label h={ 4 } flexShrink={ 0 } maxW="full" flexWrap="nowrap" whiteSpace="nowrap">
+    <Stat.Root variant="scan" className={ className } data-scan-stat={ label } minW={ 0 } h="100%">
+      <Stat.Label h={ 4 } minH="fit-content" flexShrink={ 0 } maxW="full" flexWrap="nowrap" whiteSpace="nowrap" alignItems="flex-start">
         { icon }
-        <chakra.span data-label minW={ 0 } truncate title={ label }>{ label }</chakra.span>
+        <chakra.span data-label minW={ 0 } whiteSpace="normal" lineClamp={ 2 } textOverflow="ellipsis" overflowWrap="anywhere" title={ label }>
+          { label }
+        </chakra.span>
         { hint && (
           <chakra.span position="relative" boxSize={ 4 } flexShrink={ 0 }>
             <Hint label={ hint } isLoading={ isLoading } boxSize={ 4 } position="absolute" top="50%" transform="translateY(-50%)"/>
           </chakra.span>
         ) }
       </Stat.Label>
-      <Stat.ValueText>
+      <Stat.ValueText mt="auto">
         <Skeleton loading={ isLoading } data-value whiteSpace="nowrap">{ value }</Skeleton>
         { secondary !== undefined && secondary !== null && (
           <chakra.span data-secondary>({ secondary })</chakra.span>

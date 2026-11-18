@@ -177413,7 +177413,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.861]
 title = "Let the label of a tile take a second line instead of being cut and keep the values of a row of tiles on one line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.89"]
