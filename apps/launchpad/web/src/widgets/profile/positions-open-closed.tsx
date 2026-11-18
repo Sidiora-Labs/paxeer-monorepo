@@ -49,7 +49,7 @@ function Amount({ raw, signed = false, className }: { raw: bigint | string | nul
 
 function TokenCell({ address, identity, href }: { address: string; identity: TokenIdentity; href: string }) {
   return (
-    <Link prefetch={false} href={href} className="flex min-h-touch-target-min min-w-0 items-center gap-3 rounded-sm">
+    <Link prefetch={false} href={href} className="flex min-h-10 min-w-0 items-center gap-3 rounded-sm">
       <Avatar src={identity.logo} name={identity.symbol ?? identity.name} size="lg" shape="square" decorative />
       <span className="min-w-0">
         <span className="flex min-w-0 items-baseline gap-1 text-sm font-bold text-text"><span className="min-w-0 truncate">{identity.name}</span>{identity.symbol ? <span className="min-w-0 truncate font-semibold text-text-muted">{identity.symbol}</span> : null}</span>

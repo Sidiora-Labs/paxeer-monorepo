@@ -158,7 +158,7 @@ export function EmptyState({
     <div
       role={announce ? 'status' : undefined}
       className={cn(
-        '@container/state flex w-full min-w-0 flex-col items-center justify-center gap-3 px-4 py-8 text-center',
+        '@container/state flex w-full min-w-0 flex-col items-center justify-center gap-3 p-8 text-center',
         variant === 'table' && 'min-h-40',
         className
       )}
@@ -166,7 +166,7 @@ export function EmptyState({
       <Icon aria-hidden="true" className="size-8 text-text-faint" />
       <div className="flex flex-col gap-1">
         <Heading className="text-[length:var(--sl-text-card-title)] leading-[var(--sl-leading-md)] font-bold text-text">{title}</Heading>
-        {body ? <p className="max-w-sm text-sm text-text-muted">{body}</p> : null}
+        {body ? <p className="max-w-96 text-sm text-text-muted">{body}</p> : null}
       </div>
       {action || secondaryAction ? (
         <div className="flex flex-wrap items-center justify-center gap-2">
