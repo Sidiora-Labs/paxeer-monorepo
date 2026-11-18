@@ -29,5 +29,6 @@
   "NEXT_PUBLIC_ZETACHAIN_SERVICE_API_HOST": "http://localhost:4173",
   "NEXT_PUBLIC_MULTICHAIN_AGGREGATOR_API_HOST": "http://localhost:4173",
   "NEXT_PUBLIC_MULTICHAIN_CLUSTER": "render",
-  "NEXT_PUBLIC_VISUALIZE_API_HOST": "https://explorer.example.test"
+  "NEXT_PUBLIC_VISUALIZE_API_HOST": "https://explorer.example.test",
+  "NEXT_PUBLIC_STATS_API_HOST": "http://localhost:4173"
 }

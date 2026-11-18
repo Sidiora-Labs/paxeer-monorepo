@@ -255,6 +255,7 @@ const Chart = () => {
                 variant="icon_background"
                 size="md"
                 boxSize={ 8 }
+                px={ 0 }
               />
             )
           )) }

@@ -34,6 +34,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/uptime",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/uptime.json",
+          "status": 404
         }
       ]
     },
@@ -48,6 +53,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/validators/1",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/validators/1.json",
+          "status": 404
         }
       ]
     },
@@ -61,6 +71,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/validators",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/validators.json",
           "status": 404
         }
       ]
