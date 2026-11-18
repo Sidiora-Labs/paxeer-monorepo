@@ -101,7 +101,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
           "key": "Shift"
         },
         {
@@ -154,7 +154,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
           "key": "Shift"
         },
         {
@@ -238,7 +238,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
           "key": "Shift"
         },
         {
@@ -257,7 +257,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
           "key": "Shift"
         },
         {
@@ -315,6 +315,10 @@
             {
               "action": "click",
               "selector": "html:has([data-shell-ready]) #coin-tabs-tab-trades"
+            },
+            {
+              "action": "wait",
+              "text": "No older trades"
             }
           ]
         },
@@ -324,6 +328,11 @@
             {
               "action": "click",
               "selector": "html:has([data-shell-ready]) #coin-tabs-tab-about"
+            },
+            {
+              "action": "press",
+              "selector": "html:has([role=\"log\"][aria-label=\"Coin chat\"]:not(:has([aria-busy=\"true\"])))",
+              "key": "Shift"
             }
           ]
         },
@@ -333,14 +342,126 @@
             {
               "action": "click",
               "selector": "html:has([data-shell-ready]) #coin-tabs-tab-callouts"
+            },
+            {
+              "action": "wait",
+              "text": "Be the first to post a callout for this coin."
             }
           ]
+        }
+      ],
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-coin-header=\"ready\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-mobile-trade-cta])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(aside[aria-label=\"Hot callouts\"]):not(:has(aside[aria-label=\"Hot callouts\"] .sl-skeleton))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Price chart\"] iframe):has(section[aria-label=\"Price chart\"] [role=\"group\"]:not([inert])), html:has(section[aria-label=\"Price chart\"] :text(\"No trades yet\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "No holders yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Stats and audit\"]):not(:has(section[aria-label=\"Stats and audit\"] .sl-skeleton))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-labelledby=\"creator-card-title\"] a):not(:has(section[aria-labelledby=\"creator-card-title\"] .sl-skeleton)):not(:has(section[aria-labelledby=\"creator-card-title\"] [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Onchain name: Science Inu"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
         }
       ]
     },
     {
       "name": "coin-0x1111111111111111111111111111111111111111-empty",
-      "path": "/coin/0x1111111111111111111111111111111111111111?render=empty"
+      "path": "/coin/0x1111111111111111111111111111111111111111?render=empty",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-coin-header=\"ready\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-mobile-trade-cta])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(aside[aria-label=\"Hot callouts\"]):not(:has(aside[aria-label=\"Hot callouts\"] .sl-skeleton))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Price chart\"] iframe):has(section[aria-label=\"Price chart\"] [role=\"group\"]:not([inert])), html:has(section[aria-label=\"Price chart\"] :text(\"No trades yet\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "No holders yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Stats and audit\"]):not(:has(section[aria-label=\"Stats and audit\"] .sl-skeleton))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-labelledby=\"creator-card-title\"] a):not(:has(section[aria-labelledby=\"creator-card-title\"] .sl-skeleton)):not(:has(section[aria-labelledby=\"creator-card-title\"] [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Onchain name: Science Inu"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"No top earners in the last 24h\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
     },
     {
       "name": "coin-0x1111111111111111111111111111111111111111-error",
@@ -351,11 +472,110 @@
           "pattern": "https://sidiora.test:4173/*",
           "status": 503
         }
+      ],
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-coin-header=\"degraded\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-mobile-trade-cta])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(aside[aria-label=\"Hot callouts\"]):not(:has(aside[aria-label=\"Hot callouts\"] .sl-skeleton))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Price chart\"] iframe):has(section[aria-label=\"Price chart\"] [role=\"group\"]:not([inert])), html:has(section[aria-label=\"Price chart\"] :text(\"No trades yet\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Holders are not available yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Stats and audit\"]):not(:has(section[aria-label=\"Stats and audit\"] .sl-skeleton))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Platform activity is not available yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible):not(:has(section[aria-label=\"Market ticker\"] [aria-busy=\"true\"])):not(:has(section[aria-label=\"Market ticker\"] [data-ticker-loading]))",
+          "key": "Shift"
+        }
       ]
     },
     {
       "name": "coin-0x1111111111111111111111111111111111111111-loading",
-      "path": "/coin/0x1111111111111111111111111111111111111111?render=loading"
+      "path": "/coin/0x1111111111111111111111111111111111111111?render=loading",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-coin-header=\"ready\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-mobile-trade-cta])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(aside[aria-label=\"Hot callouts\"]):not(:has(aside[aria-label=\"Hot callouts\"] .sl-skeleton))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Price chart\"] iframe):has(section[aria-label=\"Price chart\"] [role=\"group\"]:not([inert])), html:has(section[aria-label=\"Price chart\"] :text(\"No trades yet\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "No holders yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Stats and audit\"]):not(:has(section[aria-label=\"Stats and audit\"] .sl-skeleton))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-labelledby=\"creator-card-title\"] a):not(:has(section[aria-labelledby=\"creator-card-title\"] .sl-skeleton)):not(:has(section[aria-labelledby=\"creator-card-title\"] [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Onchain name: Science Inu"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
     },
     {
       "name": "create",
@@ -402,6 +622,31 @@
               "text": "Fewer options"
             }
           ]
+        }
+      ],
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(#create-name):has(#create-symbol):has(#create-description)",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Custom rules can't load right now, so only Standard is available."
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
         }
       ]
     },
@@ -464,6 +709,31 @@
               "text": "Connect a wallet to sign in"
             }
           ]
+        }
+      ],
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(#chain-name):has(#chain-token-name):has(#chain-token-symbol)",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Connect your wallet on Paxeer to check availability."
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
         }
       ]
     },
@@ -1026,7 +1296,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
           "key": "Shift"
         },
         {
@@ -1052,7 +1322,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
           "key": "Shift"
         },
         {
@@ -1094,7 +1364,12 @@
       "states": [
         {
           "name": "wallets-open",
-          "modes": ["default", "reduced-motion", "double-text", "keyboard"],
+          "modes": [
+            "default",
+            "reduced-motion",
+            "double-text",
+            "keyboard"
+          ],
           "steps": [
             {
               "action": "click",
@@ -1217,7 +1492,10 @@
       "states": [
         {
           "name": "settings",
-          "modes": ["default", "keyboard"],
+          "modes": [
+            "default",
+            "keyboard"
+          ],
           "steps": [
             {
               "action": "click",
@@ -1231,7 +1509,10 @@
         },
         {
           "name": "coin-selector",
-          "modes": ["default", "keyboard"],
+          "modes": [
+            "default",
+            "keyboard"
+          ],
           "steps": [
             {
               "action": "click",
@@ -1251,7 +1532,10 @@
       "states": [
         {
           "name": "layout-menu",
-          "modes": ["default", "keyboard"],
+          "modes": [
+            "default",
+            "keyboard"
+          ],
           "steps": [
             {
               "action": "click",
@@ -1265,7 +1549,10 @@
         },
         {
           "name": "settings-menu",
-          "modes": ["default", "keyboard"],
+          "modes": [
+            "default",
+            "keyboard"
+          ],
           "steps": [
             {
               "action": "click",
@@ -1305,15 +1592,109 @@
     },
     {
       "name": "token",
-      "path": "/token"
+      "path": "/token",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Connect your wallet to manage your coins"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
     },
     {
       "name": "token-poolAddress",
-      "path": "/token/0x1111111111111111111111111111111111111111"
+      "path": "/token/0x1111111111111111111111111111111111111111",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-coin-header=\"ready\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-mobile-trade-cta])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(aside[aria-label=\"Hot callouts\"]):not(:has(aside[aria-label=\"Hot callouts\"] .sl-skeleton))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Price chart\"] iframe):has(section[aria-label=\"Price chart\"] [role=\"group\"]:not([inert])), html:has(section[aria-label=\"Price chart\"] :text(\"No trades yet\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "No holders yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Stats and audit\"]):not(:has(section[aria-label=\"Stats and audit\"] .sl-skeleton))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-labelledby=\"creator-card-title\"] a):not(:has(section[aria-labelledby=\"creator-card-title\"] .sl-skeleton)):not(:has(section[aria-labelledby=\"creator-card-title\"] [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Onchain name: Science Inu"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
     },
     {
       "name": "tokens-tokenAddress-metadata",
-      "path": "/tokens/0x3333333333333333333333333333333333333333/metadata"
+      "path": "/tokens/0x3333333333333333333333333333333333333333/metadata",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Connect the creator wallet to edit coin details"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
     },
     {
       "name": "watchlist",

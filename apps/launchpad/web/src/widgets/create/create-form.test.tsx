@@ -195,7 +195,8 @@ describe('create page loading frame', () => {
     expect(h1?.textContent).toBe('Create new coin');
     expect(h1?.className).toContain('text-md');
     expect(h1?.className).not.toMatch(/text-(2xl|3xl|4xl)|font-extrabold/);
-    expect(markup).toContain('grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-form-field-min-width)),1fr))]');
+    expect(markup).toContain('sm:grid-cols-2');
+    expect(markup).toContain('sm:gap-3');
     expect(markup).toContain('Coin name');
     expect(markup).toContain('Ticker');
     expect(markup).toContain('Preview');

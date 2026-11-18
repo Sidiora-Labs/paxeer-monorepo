@@ -456,7 +456,7 @@ export function Toggle({
   return (
     <span
       className={cn(
-        'relative inline-flex min-h-touch-target-min min-w-touch-target-min shrink-0 items-center justify-center',
+        'relative inline-flex max-[834px]:min-h-touch-target-min max-[834px]:min-w-touch-target-min shrink-0 items-center justify-center',
         className
       )}
     >
@@ -471,8 +471,8 @@ export function Toggle({
         disabled={disabled || loading}
         onChange={(event) => onChange(event.target.checked)}
         className={cn(
-          'peer absolute inset-0 m-auto h-touch-target-min w-full cursor-pointer appearance-none rounded-pill disabled:cursor-not-allowed',
-          size === 'md' ? 'min-w-12' : 'min-w-11'
+          'peer absolute inset-0 m-auto h-full w-full cursor-pointer appearance-none rounded-pill disabled:cursor-not-allowed',
+          size === 'md' ? 'min-w-10' : 'min-w-8'
         )}
       />
       <span
@@ -700,17 +700,17 @@ export function FormField({
           : controlSurface[surface],
     'focus-within:outline-2 focus-within:outline-focus',
     multiline
-      ? 'items-start py-2'
+      ? 'items-start py-[calc(var(--sl-space-2)-var(--sl-edge-width))]'
       : size === 'lg'
-        ? 'min-h-control-height-lg py-2'
-        : 'min-h-control-height-md py-2'
+        ? 'min-h-control-height-lg py-0'
+        : 'min-h-control-height-md py-0'
   );
   const control = cn(
-    'min-w-0 flex-1 bg-transparent text-md text-text outline-none placeholder:text-text-faint',
+    'min-w-0 flex-1 bg-transparent text-base text-text outline-none placeholder:text-text-faint',
     'disabled:text-text-disabled read-only:text-text-muted',
     mono && 'font-[family-name:var(--sl-font-mono)]',
     uppercase && 'uppercase',
-    multiline && 'min-h-24 resize-y leading-[var(--sl-leading-base)]'
+    multiline && 'min-h-24! resize-y leading-[var(--sl-leading-base)]'
   );
 
   return (
@@ -837,7 +837,7 @@ export function SortHeader({
       aria-sort={ariaSort}
       style={width !== undefined ? { width } : undefined}
       className={cn(
-        'min-h-table-header-height px-3 py-2 text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)]',
+        'h-table-header-height px-3 text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)]',
         sort ? 'text-text' : 'text-text-faint',
         align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left',
         className
@@ -959,8 +959,8 @@ export function ResizeHandle({
       className={cn(
         'group flex touch-none select-none items-center justify-center focus-visible:bg-surface-active focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus',
         vertical
-          ? 'h-full min-w-touch-target-min cursor-col-resize'
-          : 'min-h-touch-target-min w-full cursor-row-resize',
+          ? 'h-full min-w-2 cursor-col-resize'
+          : 'min-h-6 w-full cursor-row-resize',
         className
       )}
     >

@@ -225,7 +225,7 @@ export function DropdownMenu({
                   'aria-checked': item.selected !== undefined ? item.selected : undefined,
                   onMouseEnter: () => !item.disabled && setActiveIndex(index),
                   className: cn(
-                    'flex min-h-touch-target-min w-full py-2 items-center gap-2 rounded-sm px-3 text-left text-base transition-colors duration-fast',
+                    'flex min-h-10 w-full py-2 items-center gap-2 rounded-sm px-3 text-left text-base transition-colors duration-fast',
                     index === activeIndex && !item.disabled && 'bg-surface-hover',
                     item.selected && 'bg-surface-active',
                     item.destructive ? 'text-danger' : 'text-text',

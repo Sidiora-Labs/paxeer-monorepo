@@ -482,7 +482,7 @@ export function ShortAddress({
           onClick={handleCopy}
           aria-label={`Copy address ${short}`}
           className={cn(
-            'inline-flex size-touch-target-min shrink-0 items-center justify-center rounded-xs transition-colors hover:bg-surface-hover hover:text-text',
+            'inline-flex size-5 shrink-0 items-center justify-center rounded-xs transition-colors hover:bg-surface-hover hover:text-text',
             copied && 'text-accent'
           )}
         >
@@ -503,7 +503,7 @@ export function ShortAddress({
           rel="noreferrer noopener"
           onClick={(event) => event.stopPropagation()}
           aria-label="View on Paxeer explorer, opens in new tab"
-          className="inline-flex size-touch-target-min shrink-0 items-center justify-center rounded-xs transition-colors hover:bg-surface-hover hover:text-text"
+          className="inline-flex size-5 shrink-0 items-center justify-center rounded-xs transition-colors hover:bg-surface-hover hover:text-text"
         >
           <ExternalLink aria-hidden="true" className="size-icon-sm" />
         </a>

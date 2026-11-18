@@ -24,8 +24,9 @@ export default function WalletGate({
 
   if (!isConnected) {
     return (
-      <div className="flex min-h-[var(--sl-page-min-height)] items-center justify-center">
+      <div className="flex min-h-[var(--sl-page-min-height)] items-center justify-center px-4">
         <EmptyState
+          className="px-8"
           icon={Wallet}
           title={message}
           headingLevel={headingLevel}
