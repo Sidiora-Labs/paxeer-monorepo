@@ -29,6 +29,7 @@ import (
 	mediastore "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/storage"
 	control "github.com/Sidiora-Technologies/KindleLaunch/security/control"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
@@ -129,8 +130,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 		defer func() {
 			if !secretOwned {
-				pool.Close()
-				controlPool.Close()
+				runtimedb.ClosePool(pool)
+				runtimedb.ClosePool(controlPool)
 			}
 		}()
 	}
@@ -532,6 +533,9 @@ func buildBuckets(ctx context.Context, cfg config.Config) (map[string]serve.Read
 
 // Close releases the Redis pool.
 func (a *App) Close() {
+	if a.tracker != nil {
+		a.tracker.BeginDrain()
+	}
 	if a.runtimeStop != nil {
 		a.runtimeStop()
 	}
@@ -551,10 +555,10 @@ func (a *App) Close() {
 		a.secretStop()
 	}
 	if a.controlPool != nil {
-		a.controlPool.Close()
+		runtimedb.ClosePool(a.controlPool)
 	}
 	if a.pool != nil {
-		a.pool.Close()
+		runtimedb.ClosePool(a.pool)
 	}
 	if a.rpc != nil {
 		a.rpc.Close()
@@ -904,7 +908,7 @@ func prepareGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool
 		}
 		value, e := runtime.provider.GetRequired(ctx, reference)
 		if e != nil {
-			return "", errors.New("gateway runtime secret unavailable")
+			return "", fmt.Errorf("gateway runtime secret unavailable: %s", reference)
 		}
 		runtime.secrets[reference] = value
 		return value, nil
@@ -1163,7 +1167,9 @@ func (r *gatewayConnectedRuntime) configureAuditStores(pool *pgxpool.Pool, guard
 
 func (r *gatewayConnectedRuntime) fail(e error) {
 	if e != nil {
-		r.failure.CompareAndSwap(nil, &e)
+		if r.failure.CompareAndSwap(nil, &e) && r.logger != nil {
+			r.logger.Error("gateway runtime unavailable", slog.String("err", e.Error()))
+		}
 	}
 }
 func (r *gatewayConnectedRuntime) ready(ctx context.Context) error {
@@ -1262,7 +1268,7 @@ func (r *gatewayConnectedRuntime) start(identity *auth.Identity) {
 				if _, e := r.purge.RunOne(r.ctx); e != nil && r.ctx.Err() == nil {
 					r.purgeErrors.Add(1)
 					if r.logger != nil {
-						r.logger.Warn("media purge pending", slog.String("reason", "provider_or_authority_unavailable"))
+						r.logger.Warn("media purge pending", slog.String("reason", "provider_or_authority_unavailable"), slog.String("err", e.Error()))
 					}
 				}
 				probe, cancel := context.WithTimeout(r.ctx, 2*time.Second)
@@ -1384,7 +1390,7 @@ func (r *gatewayConnectedRuntime) newControlRuntime(ctx context.Context, cfg con
 	_ = consumed
 	configuration := control.RuntimeConfig{ControlPool: controlPool, IdentityPool: identityPool, ControlSchema: binding.Schema, AuthoritySchema: binding.AuthoritySchema, Observe: func(_ string, e error) {
 		if e != nil && r.logger != nil {
-			r.logger.Warn("control worker pending", slog.String("reason", "control_dependency_or_authority_unavailable"))
+			r.logger.Warn("control worker pending", slog.String("reason", "control_dependency_or_authority_unavailable"), slog.String("err", e.Error()))
 		}
 	}}
 	if binding.IncidentCredentialReference != "" {
@@ -1522,7 +1528,7 @@ func (r *gatewayConnectedRuntime) runRestrictionIntake() {
 				return r.objectCache.Evict(ctx, r.binding.ApprovedBucket, key)
 			})
 			if e != nil && r.ctx.Err() == nil && r.logger != nil {
-				r.logger.Warn("media restriction intake pending", slog.String("reason", "restriction_dependency_or_integrity_failure"))
+				r.logger.Warn("media restriction intake pending", slog.String("reason", "restriction_dependency_or_integrity_failure"), slog.String("err", e.Error()))
 			}
 		}
 	}
@@ -1543,7 +1549,7 @@ func (r *gatewayConnectedRuntime) runObjectWorkers() {
 		_, deleteError := worker.RunOne(bounded)
 		_, retentionError := worker.ExpireOriginal(bounded)
 		if (deletionIntakeError != nil || importError != nil || deleteError != nil || retentionError != nil) && r.ctx.Err() == nil && r.logger != nil {
-			r.logger.Warn("media object deletion pending", slog.String("reason", "object_dependency_or_retention_authority_failure"))
+			r.logger.Warn("media object deletion pending", slog.String("reason", "object_dependency_or_retention_authority_failure"), slog.Any("err", errors.Join(deletionIntakeError, importError, deleteError, retentionError)))
 		}
 		if !time.Now().Before(nextInventory) {
 			for _, object := range r.objects {
@@ -1552,7 +1558,7 @@ func (r *gatewayConnectedRuntime) runObjectWorkers() {
 					e = r.mediaAuthority.PersistInventory(bounded, object.binding.Bucket, object.binding.Prefix, report)
 				}
 				if e != nil && r.ctx.Err() == nil && r.logger != nil {
-					r.logger.Warn("media inventory pending", slog.String("reason", "inventory_dependency_unavailable"))
+					r.logger.Warn("media inventory pending", slog.String("reason", "inventory_dependency_unavailable"), slog.String("err", e.Error()))
 				}
 			}
 			nextInventory = time.Now().Add(time.Hour)
