@@ -176776,7 +176776,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.864]
 title = "Let the notice row of the transactions table span exactly the columns the table draws"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.863"]
