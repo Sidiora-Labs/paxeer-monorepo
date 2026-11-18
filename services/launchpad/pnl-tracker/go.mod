@@ -23,6 +23,7 @@ require (
 require (
 	github.com/fjl/jsonw v0.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/nats-io/jwt/v2 v2.8.0 // indirect
 	github.com/pion/transport/v4 v4.0.2 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 )
