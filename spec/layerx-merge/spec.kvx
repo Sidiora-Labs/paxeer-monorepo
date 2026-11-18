@@ -208479,7 +208479,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.889]
 title = "Bring the client package users-sdk of the launchpad in line with the routes it calls and hold each call with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208510,7 +208510,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.888]
 title = "Bring the client package stats-sdk of the launchpad in line with the routes it calls and hold each call with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208572,7 +208572,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.886]
 title = "Bring the client package metadata-sdk of the launchpad in line with the routes it calls and hold each call with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208603,7 +208603,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.885]
 title = "Bring the client package indexer-sdk of the launchpad in line with the routes it calls and hold each call with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209080,7 +209080,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.870]
 title = "Close the notifications module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209112,7 +209112,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.869]
 title = "Close the discovery module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
