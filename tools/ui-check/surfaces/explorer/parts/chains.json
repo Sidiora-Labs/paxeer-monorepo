@@ -8,6 +8,13 @@
   "readyPath": "/__surface_ready",
   "views": [
     {
+      "name": "/cc/tx/[hash]",
+      "path": "/explorer/cc/tx/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+      "modes": [
+        "default"
+      ]
+    },
+    {
       "name": "/chain/[chain_slug]/accounts/label/[slug]",
       "path": "/explorer/chain/paxeer/accounts/label/example",
       "modes": [
@@ -17,6 +24,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/chain/paxeer/accounts/label/example",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/accounts/label/example.json",
           "status": 404
         }
       ]
@@ -32,6 +44,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/chain/paxeer/advanced-filter",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/advanced-filter.json",
+          "status": 404
         }
       ]
     },
@@ -45,6 +62,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/chain/paxeer/block/8988736",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/block/8988736.json",
           "status": 404
         }
       ]
@@ -60,6 +82,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/chain/paxeer/block/countdown/9000000",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/block/countdown/9000000.json",
+          "status": 404
         }
       ]
     },
@@ -73,6 +100,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/chain/paxeer/block/countdown",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/block/countdown.json",
           "status": 404
         }
       ]
@@ -88,6 +120,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/chain/paxeer/csv-export",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/csv-export.json",
+          "status": 404
         }
       ]
     },
@@ -101,6 +138,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/chain/paxeer/op/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/op/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2.json",
           "status": 404
         }
       ]
@@ -116,6 +158,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/chain/paxeer/token/0x0000000000000000000000000000000000000002",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/token/0x0000000000000000000000000000000000000002.json",
+          "status": 404
         }
       ]
     },
@@ -129,6 +176,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/chain/paxeer/token/0x0000000000000000000000000000000000000002/instance/1",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/token/0x0000000000000000000000000000000000000002/instance/1.json",
           "status": 404
         }
       ]
@@ -144,6 +196,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/chain/paxeer/tx/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/tx/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2.json",
+          "status": 404
         }
       ]
     },
@@ -157,6 +214,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/chain/paxeer/visualize/sol2uml",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/chain/paxeer/visualize/sol2uml.json",
           "status": 404
         }
       ]
@@ -173,6 +235,25 @@
       "path": "/explorer/chains",
       "modes": [
         "default"
+      ]
+    },
+    {
+      "name": "/cross-chain-tx/[id]",
+      "path": "/explorer/cross-chain-tx/1",
+      "modes": [
+        "default"
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/explorer/cross-chain-tx/1",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/cross-chain-tx/1.json",
+          "status": 404
+        }
       ]
     }
   ],

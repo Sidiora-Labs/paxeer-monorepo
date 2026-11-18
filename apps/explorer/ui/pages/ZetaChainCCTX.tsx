@@ -1,6 +1,9 @@
 import { useRouter } from 'next/router';
 import React from 'react';
 
+import type { CrossChainTx } from '@blockscout/zetachain-cctx-types';
+
+import type { ResourceError } from 'lib/api/resources';
 import useApiQuery from 'lib/api/useApiQuery';
 import throwOnResourceLoadError from 'lib/errors/throwOnResourceLoadError';
 import getQueryParamString from 'lib/router/getQueryParamString';
@@ -10,7 +13,12 @@ import TxEntityZetaChainCC from 'ui/shared/entities/tx/TxEntityZetaChainCC';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import ZetaChainCCTXDetails from 'ui/zetaChain/cctxDetails/ZetaChainCCTXDetails';
 
-const ZetaChainCCTX = () => {
+export interface ZetaChainCCTXProps {
+  initialTransaction?: CrossChainTx | null;
+  initialError?: ResourceError | null;
+}
+
+const ZetaChainCCTX = ({ initialTransaction, initialError }: ZetaChainCCTXProps) => {
   const router = useRouter();
 
   const hash = getQueryParamString(router.query.hash);
@@ -19,9 +27,14 @@ const ZetaChainCCTX = () => {
     queryParams: { cctx_id: hash },
     queryOptions: {
       placeholderData: ZETA_CHAIN_CCTX,
+      initialData: initialTransaction ?? undefined,
+      enabled: !initialError,
     },
   });
 
+  if (initialError) {
+    throwOnResourceLoadError({ isError: true, error: initialError, resource: 'zetachain:transaction' });
+  }
   throwOnResourceLoadError(cctxQuery);
 
   return (

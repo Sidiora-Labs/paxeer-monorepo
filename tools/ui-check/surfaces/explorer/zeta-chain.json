@@ -1,0 +1,84 @@
+{
+  "creator": "",
+  "index": "0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+  "zeta_fees": "0",
+  "relayed_message": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "cctx_status_reduced": "SUCCESS",
+  "token_symbol": "USDT.ARBSEP",
+  "token_name": "USDT.ARBSEP",
+  "zrc20_contract_address": "0x1234567890123456789012345678901234567890",
+  "icon_url": "https://example.com/icon.png",
+  "decimals": 6,
+  "cctx_status": {
+    "status": "OUTBOUND_MINED",
+    "status_message": "",
+    "error_message": "",
+    "last_update_timestamp": 1641139818,
+    "is_abort_refunded": false,
+    "created_timestamp": 0,
+    "error_message_revert": "",
+    "error_message_abort": ""
+  },
+  "inbound_params": {
+    "sender": "0x0000000000000000000000000000000000000002",
+    "sender_chain_id": 7001,
+    "tx_origin": "0x0000000000000000000000000000000000000002",
+    "coin_type": "GAS",
+    "asset": "",
+    "amount": "434880247204065094",
+    "observed_hash": "0x0001150419abd8d8383fae702f3a8415e57c96e78c9815756d15e1f1f5c0f466",
+    "observed_external_height": 1345648,
+    "ballot_index": "0x1c1e7410d7dfefe6173cc11efa47221e85587d3831c69108121198e0b2a86657",
+    "finalized_zeta_height": 0,
+    "tx_finalization_status": "NOT_FINALIZED",
+    "is_cross_chain_call": false,
+    "status": "INBOUND_SUCCESS",
+    "confirmation_mode": "SAFE"
+  },
+  "outbound_params": [
+    {
+      "receiver": "0x0000000000000000000000000000000000000002",
+      "receiver_chain_id": 11155111,
+      "coin_type": "GAS",
+      "amount": "434880247204065094",
+      "tss_nonce": 62305,
+      "gas_limit": 21000,
+      "gas_price": "4000000000",
+      "gas_priority_fee": "",
+      "hash": "0xe209ab8ee452d5ee3bc98e5035d33eb4d3f314880f8c956be2c0f78a26bfc37d",
+      "ballot_index": "0x9c5cc2a0ad2abba365105f1414ea261153634a5882bede9a883e0bb4f982cc55",
+      "observed_external_height": 32787262,
+      "gas_used": 0,
+      "effective_gas_price": "0",
+      "effective_gas_limit": 0,
+      "tss_pubkey": "",
+      "tx_finalization_status": "NOT_FINALIZED",
+      "call_options": {
+        "gas_limit": 0,
+        "is_arbitrary_call": false
+      },
+      "confirmation_mode": "SAFE"
+    }
+  ],
+  "protocol_contract_version": "V1",
+  "related_cctxs": [
+    {
+      "index": "0x0001150419abd8d8383fae702f3a8415e57c96e78c9815756d15e1f1f5c0f466",
+      "depth": 0,
+      "source_chain_id": 7001,
+      "status": "OUTBOUND_MINED",
+      "inbound_amount": "100000000000000000",
+      "inbound_coin_type": "GAS",
+      "created_timestamp": 0,
+      "outbound_params": [
+        {
+          "amount": "0",
+          "chain_id": 7001,
+          "coin_type": "GAS",
+          "gas_used": 0
+        }
+      ],
+      "status_reduced": "SUCCESS"
+    }
+  ]
+}

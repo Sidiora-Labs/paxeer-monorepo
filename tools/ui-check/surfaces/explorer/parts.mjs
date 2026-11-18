@@ -7,6 +7,8 @@ const wholeFile = fileURLToPath(new URL('../explorer.json', import.meta.url));
 const whole = JSON.parse(await readFile(wholeFile, 'utf8'));
 const names = ['home', 'blocks', 'transactions', 'addresses', 'tokens', 'statistics', 'chains', 'rollup', 'services'];
 const seen = new Set();
+const crossChainViews = new Set(['/cc/tx/[hash]', '/cross-chain-tx/[id]']);
+const membership = new Map();
 
 async function normalise(value, base) {
   if (Array.isArray(value)) return Promise.all(value.map((entry) => normalise(entry, base)));
@@ -31,15 +33,43 @@ for (const name of names) {
   assert.equal(resolve(base, part.directory), resolve(dirname(wholeFile), whole.directory), `${name}: directory`);
   assert.deepEqual(await normalise(part.answers, base), await normalise(whole.answers, dirname(wholeFile)), `${name}: answers`);
   assert.ok(part.views.length > 0, `${name}: views`);
+  const partNames = new Set();
   for (const view of part.views) {
-    assert.ok(!seen.has(view.name), `${name}: duplicate view ${view.name}`);
+    assert.ok(!partNames.has(view.name), `${name}: duplicate view ${view.name}`);
+    partNames.add(view.name);
+    const owners = membership.get(view.name) ?? [];
+    owners.push(name);
+    membership.set(view.name, owners);
     seen.add(view.name);
     const expected = whole.views.find((candidate) => candidate.name === view.name);
     assert.ok(expected, `${name}: unknown view ${view.name}`);
-    assert.deepEqual(await normalise(view, base), await normalise(expected, dirname(wholeFile)), `${name}: view ${view.name}`);
+    const documentRefusal = expected.expects?.find((entry) =>
+      entry.method === 'GET' && entry.status === 404 && entry.pattern === new URL(expected.path, whole.address).href);
+    const expectedInPart = name === 'chains' && documentRefusal ? {
+      ...expected,
+      expects: [...expected.expects, {
+        method: 'HEAD',
+        pattern: `${whole.address}/explorer/_next/data/*${expected.path.slice('/explorer'.length)}.json`,
+        status: 404,
+      }],
+    } : expected;
+    assert.deepEqual(await normalise(view, base), await normalise(expectedInPart, dirname(wholeFile)), `${name}: view ${view.name}`);
+  }
+  if (name === 'chains') {
+    assert.deepEqual([...partNames].sort(), whole.views
+      .filter((view) => view.name.startsWith('/chain/') || view.name === '/chains' || view.name.startsWith('/chains/') || crossChainViews.has(view.name))
+      .map((view) => view.name).sort(), 'Chain and cross-chain views');
   }
   console.log(`${name}: ${part.views.length} views`);
 }
-for (const view of whole.views) assert.ok(seen.has(view.name), `Missing view ${view.name}`);
+for (const view of whole.views) {
+  assert.ok(seen.has(view.name), `Missing view ${view.name}`);
+  const owners = membership.get(view.name).sort();
+  if (crossChainViews.has(view.name)) {
+    assert.deepEqual(owners, ['chains', 'transactions'], `Cross-chain coverage: ${view.name}`);
+  } else {
+    assert.equal(owners.length, 1, `Exclusive view: ${view.name}`);
+  }
+}
 assert.equal(seen.size, whole.views.length, 'Explorer view count');
 console.log(`Explorer: ${seen.size} views in ${names.length} parts`);

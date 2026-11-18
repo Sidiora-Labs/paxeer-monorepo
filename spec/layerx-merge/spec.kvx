@@ -15646,6 +15646,24 @@ value = "The gateway serves /v1/chains, /v1/chains/:id, /v1/chains/:id/summary, 
 basis = "Gotcha 4682. Decision 3750."
 affects = []
 
+[decision.3756]
+title = "The development market documents of the launchpad API carry the home chain of the pool"
+value = "The read DevelopmentPools of the store reads the column home_chain of indexer.pools as decimal text for each pool and checks it in the form the read PoolHomeChains has. The function developmentPoolDocument sets homeChain from the row. A row whose value does not pass the check is refused as a data integrity error, and the document invents no value. The schema that the cases of the module create for indexer.pools holds the column in the form of migration 60003. Nothing of the contract changes."
+basis = "Gotcha 4683."
+affects = []
+
+[decision.3757]
+title = "Case files in the directories the build of the explorer lints are registered in the form its lint rules accept"
+value = "A case file under a directory that the build of the explorer lints, among them lib, pages and components, registers each case with a string title and a function written in place that holds its assertions. No lint rule is turned off for it by a comment or in the configuration, and the lint configuration does not change. The verification of a task that adds or changes such a file runs the lint of the application on the files it touched beside its cases. Task 22.39.830 brings the case file of the chain indexer entry in line."
+basis = "Gotcha 4684. Decision 3750."
+affects = []
+
+[decision.3758]
+title = "The backfill of the hosted indexer reads the node in bounded batches throughout and repeats a step after a source failure"
+value = "Every read of the node that the backfill makes per transaction or per height goes through JSON-RPC batches whose size is the batch setting of the backfill and whose number in flight is its reader setting; the documented bounds of both settings stay as they are and no setting is added. The checks that bind an answer to the row or the height it was asked for do not change, and an entry of a batch that is missing or an error is read again alone. A batch that fails as a whole at its deadline is read again in halves down to a single entry before the failure is returned. A step that ends on a source failure is repeated no fewer than three times with a pause that grows between the repeats, and each repeat is written to the log with the range and the class of the failure, without an address of a source; a failure of the classes decode, integrity, configuration or store ends the backfill at once. Nothing of a range is committed unless every height of it verified. Task 22.39.831."
+basis = "Gotcha 4685. Decision 3586."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45306,6 +45324,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.831]
+title = "Read the transaction domains of a backfill range of the hosted indexer in bounded batches and repeat a step after a source failure"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/indexer"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --lib transport && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --lib config && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test backfill --test env_example"
+do_1 = "do_1 Gotcha 4685 and decision 3758. Read services/platform/hosted/indexer/src/paxscan.rs with resolve_transaction_domains and range_verified, in services/platform/hosted/indexer/src/paxeer.rs transaction_domain, blocks_with_receipts and read_block_batch, in services/platform/hosted/indexer/src/transport.rs rpc, rpc_batch and the deadline, services/platform/hosted/indexer/src/backfill.rs in full, the function backfill in services/platform/hosted/indexer/src/main.rs, services/platform/hosted/indexer/tests/backfill.rs with its stand-in for the node, and in services/platform/hosted/indexer/tests/snapshot_runtime.rs the stand-in for the node and the two cases that call resolve_transaction_domains."
+symbols = []
+
+[capability.22.39.830]
+title = "Register the cases of the chain indexer entry of the explorer in the form the lint rules of the application accept"
+reqs = ["22998.1"]
+touches = ["apps/explorer/lib/api"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint lib/api/chainIndexerEntry.spec.ts lib/api/chainIndexerRouting.spec.ts && yarn vitest run lib/api/chainIndexerEntry.spec.ts lib/api/chainIndexerRouting.spec.ts"
+do_1 = "do_1 Gotcha 4684 and decision 3757. Read apps/explorer/lib/api/chainIndexerEntry.spec.ts, apps/explorer/lib/api/chainIndexerRouting.spec.ts and the part of apps/explorer/eslint.config.mjs that holds the rules for case files. Run the lint of the application once by hand on the directory lib/api and give its findings by file in the final message."
+symbols = []
+
+[capability.22.39.829]
+title = "Give the pool document of the development market reads of the launchpad API the home chain the contract requires"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api"]
+tests = []
+verification_contract = "anvil --version > /dev/null && grep -q -e TestDevelopmentPoolHomeChain services/launchpad/api/internal/rest/dev_market_home_chain_test.go && (cd services/launchpad/api && go test -count=1 -timeout 20m ./internal/rest/ -run TestDevelopmentPoolHomeChain)"
+do_1 = "do_1 Gotcha 4683 and decision 3756. Read the schemas Pool and PoolDetailResponse in services/launchpad/api/internal/rest/testdata/contracts/v2/openapi.json, the pool document and the read PoolHomeChains in services/launchpad/api/internal/rest/pool_reads.go and services/launchpad/api/internal/store/chain_reads.go, the function developmentPoolDocument and every place that calls it in services/launchpad/api/internal/rest/dev_market.go, the type DevelopmentPool and the read DevelopmentPools in services/launchpad/api/internal/store/development_market.go, the table indexer.pools in services/launchpad/api/internal/internaltest/containers.go and the column home_chain in migrations/60003.sql."
+symbols = []
 
 [capability.22.39.828]
 title = "Serve the chain reads of the indexer as public reads of the hosted gateway"
@@ -176284,9 +176329,41 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.830]
+title = "Register the cases of the chain indexer entry of the explorer in the form the lint rules of the application accept"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.830"]
+interfaces = []
+do_1 = "do_1 Gotcha 4684 and decision 3757. Read apps/explorer/lib/api/chainIndexerEntry.spec.ts, apps/explorer/lib/api/chainIndexerRouting.spec.ts and the part of apps/explorer/eslint.config.mjs that holds the rules for case files. Run the lint of the application once by hand on the directory lib/api and give its findings by file in the final message."
+do_2 = "do_2 Register each of the four cases of apps/explorer/lib/api/chainIndexerEntry.spec.ts in the form apps/explorer/lib/api/chainIndexerRouting.spec.ts has: the title is the string of the present function name, and the body is the named function written in place of the call. The statements and the assertions of every case stay as they are, in their order, and the preparation and the cleanup of the file stay as they are."
+do_3 = "do_3 No lint rule is turned off by a comment, and apps/explorer/eslint.config.mjs does not change. No file outside apps/explorer/lib/api changes. Where the lint names another finding in a file under apps/explorer/lib/api, settle it in the same way without a change of what the file asserts or does; a finding in a file that is not a case file is named in the final message and left."
+do_4 = "do_4 Run the lint of the application once by hand on the directories lib and pages after the change and name every finding that remains with file, line and rule in the final message; change nothing outside apps/explorer/lib/api for it."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/explorer/lib/api are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/lib/api"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint lib/api/chainIndexerEntry.spec.ts lib/api/chainIndexerRouting.spec.ts && yarn vitest run lib/api/chainIndexerEntry.spec.ts lib/api/chainIndexerRouting.spec.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.827]
 title = "Bring the TypeScript configuration of the settings validator of the explorer in line with the application files its target compiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.825"]
@@ -176318,7 +176395,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.113]
 title = "Let the focus measure of the render check hold the appearance at rest of a control that is not shown at rest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177364,7 +177441,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.91]
 title = "Close the batch, deposit and withdrawal views of the explorer on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.38"]
@@ -177397,7 +177474,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.90]
 title = "Close the chain and cross-chain views of the explorer on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.38"]
@@ -206217,6 +206294,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.829]
+title = "Give the pool document of the development market reads of the launchpad API the home chain the contract requires"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.829"]
+interfaces = []
+do_1 = "do_1 Gotcha 4683 and decision 3756. Read the schemas Pool and PoolDetailResponse in services/launchpad/api/internal/rest/testdata/contracts/v2/openapi.json, the pool document and the read PoolHomeChains in services/launchpad/api/internal/rest/pool_reads.go and services/launchpad/api/internal/store/chain_reads.go, the function developmentPoolDocument and every place that calls it in services/launchpad/api/internal/rest/dev_market.go, the type DevelopmentPool and the read DevelopmentPools in services/launchpad/api/internal/store/development_market.go, the table indexer.pools in services/launchpad/api/internal/internaltest/containers.go and the column home_chain in migrations/60003.sql."
+do_2 = "do_2 The type DevelopmentPool gains the home chain as decimal text. The read DevelopmentPools reads the column home_chain of indexer.pools as text in its own statement, and a value that is not a decimal number of 32 bits whose text equals the value ends the read with the data integrity error, in the form PoolHomeChains has. Every other place of the store that builds a row of the type DevelopmentPool reads the column the same way."
+do_3 = "do_3 The function developmentPoolDocument sets homeChain from the row, and a row without a checked home chain is refused with the data integrity error. No default value stands in the document. Every answer of the development market reads that holds a pool document thereby holds the field: the list, the detail and the reads built on them."
+do_4 = "do_4 The table indexer.pools in services/launchpad/api/internal/internaltest/containers.go gains the column home_chain in the form of migration 60003, so the cases of the module read it; a case that applies the migration afterwards keeps passing. Rows that cases build by hand for the type DevelopmentPool gain the field. Where a file under services/launchpad/api/internal/rolecheck holds the statement of the read DevelopmentPools, bring it in line with the statement."
+do_5 = "do_5 Add the file services/launchpad/api/internal/rest/dev_market_home_chain_test.go with cases whose names begin with TestDevelopmentPoolHomeChain: the document of a row with home chain 0 and of a row with another home chain validates as the pool of the schema PoolDetailResponse and holds the value of the row; a row without a checked home chain is refused; and the read DevelopmentPools gives the value of the column for a pool of the table and refuses a value that does not pass the check. Run the cases of the development market in the packages internal/rest and internal/store once by hand and give in the final message every case that does not pass with its first message."
+do_6 = "do_6 No file outside services/launchpad/api changes, nothing of the contract changes, and no migration changes. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/launchpad/api are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api"]
+tests = []
+planned_paths = ["services/launchpad/api/internal/rest/dev_market_home_chain_test.go"]
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/api && go build ./... && go vet ./internal/store/ ./internal/rest/)"
+verify_cmd = "anvil --version > /dev/null && grep -q -e TestDevelopmentPoolHomeChain services/launchpad/api/internal/rest/dev_market_home_chain_test.go && (cd services/launchpad/api && go test -count=1 -timeout 20m ./internal/rest/ -run TestDevelopmentPoolHomeChain)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.106]
 title = "Bring the size tokens, the shell and the footer of the launchpad web application back to its earlier state"
 status = "pending"
@@ -218457,9 +218567,43 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.831]
+title = "Read the transaction domains of a backfill range of the hosted indexer in bounded batches and repeat a step after a source failure"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.831"]
+interfaces = []
+do_1 = "do_1 Gotcha 4685 and decision 3758. Read services/platform/hosted/indexer/src/paxscan.rs with resolve_transaction_domains and range_verified, in services/platform/hosted/indexer/src/paxeer.rs transaction_domain, blocks_with_receipts and read_block_batch, in services/platform/hosted/indexer/src/transport.rs rpc, rpc_batch and the deadline, services/platform/hosted/indexer/src/backfill.rs in full, the function backfill in services/platform/hosted/indexer/src/main.rs, services/platform/hosted/indexer/tests/backfill.rs with its stand-in for the node, and in services/platform/hosted/indexer/tests/snapshot_runtime.rs the stand-in for the node and the two cases that call resolve_transaction_domains."
+do_2 = "do_2 The domains of a range: resolve_transaction_domains reads the rows through JSON-RPC batches of eth_getTransactionByHash, in the batch size and with the number of readers the backfill is configured with, in the manner blocks_with_receipts reads blocks. For every row the answer is bound to the hash, the block number and the transaction index of the row exactly as transaction_domain binds it today, and the chain id is read from the same answer; an entry that is missing or an error is read again with the single request, and an answer without a chain id or with another position refuses the whole range as today. No row is updated unless every domain of the range has been resolved, and the order of the rows does not change. The functions may take the two bounds as arguments; every caller under services/platform/hosted/indexer is brought in line, among them the closure in services/platform/hosted/indexer/src/main.rs and the cases in services/platform/hosted/indexer/tests/snapshot_runtime.rs."
+do_3 = "do_3 A batch that fails as a whole: where rpc_batch returns a source failure for a batch of more than one entry, the reader reads the two halves of that batch again, down to a single entry, before the failure is returned to the caller. This holds for the block batches and the receipt batches of read_block_batch and for the domain batches of do_2. A failure of another class is returned at once, and the deadline of a request does not change."
+do_4 = "do_4 A step that ends on a source failure: the function run in services/platform/hosted/indexer/src/backfill.rs repeats the step for the same range after a pause that grows from one repeat to the next, at least three and at most eight times in a row, and writes one line to the log per repeat with the range, the number of the repeat and the class of the failure; the line holds no address of a source and no text of an answer. A step that then passes sets the count back. A failure of the classes decode, integrity, configuration or store, and a reorganisation below the finality window, end the backfill at once as today. The pause is short enough in the cases that the case file runs in seconds: give the pause as a value the cases can set, not as a new setting of the environment. No setting is added and no file outside services/platform/hosted/indexer changes."
+do_5 = "do_5 Cases in services/platform/hosted/indexer/tests/backfill.rs with the stand-in for the node: a range with several transactions per height resolves every domain with fewer requests than transactions and stores the same rows as the read one by one; an entry of a domain batch that is missing or an error is read again alone and only that entry; a domain answer with another position or without a chain id leaves the stored rows unchanged; a batch that the stand-in fails as a whole once is read again in smaller batches and the range is committed; a step whose first try ends on a source failure is repeated and commits the range, with the count of the tries asserted; a step that ends on an integrity failure is tried once. The stand-in in services/platform/hosted/indexer/tests/snapshot_runtime.rs answers batches where the changed code sends them, and its two cases on domains keep what they assert about the binding and the refusal; where one of them counts single requests, it counts the entries the stand-in answered instead."
+do_6 = "do_6 Run by hand once: cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test snapshot_runtime transaction_domains, and cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test snapshot_runtime tenant_query, and give both results in the final message; a case there that does not pass after the change is repaired inside services/platform/hosted/indexer. Do not run the formatter over a whole existing file: format only the lines you changed, so the change of each file stays readable."
+do_7 = "do_7 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/platform/hosted/indexer are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cargo check --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --lib transport && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --lib config && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test backfill --test env_example"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.828]
 title = "Serve the chain reads of the indexer as public reads of the hosted gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
