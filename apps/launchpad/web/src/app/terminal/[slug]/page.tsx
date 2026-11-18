@@ -3,7 +3,7 @@ import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query
 import { decodeV2Contract, Operations, SdkClient } from '@kindle/sdk';
 import { backendOrigins } from '@/core/backend-origins';
 import { marketCachePolicy } from '@/core/cache-policy';
-import { resolvePoolSnapshot } from '@/core/market/pool-resolver';
+import { resolvePoolSnapshot, type PoolSnapshot } from '@/core/market/pool-resolver';
 import { queryKeys } from '@/core/query-keys';
 import TerminalModule from '@/page-modules/terminal';
 import { parseTerminalSlug } from '@/widgets/terminal/sub-nav';
@@ -28,11 +28,13 @@ export default async function TerminalSlugPage({ params }: Props) {
     });
     const operations = new Operations(market);
     const client = new QueryClient();
-    await Promise.all([client.prefetchQuery({
+    await client.prefetchQuery({
       queryKey: queryKeys.poolSnapshot(target.pool),
       queryFn: ({ signal }) => resolvePoolSnapshot(target.pool, { operations }, signal),
       ...marketCachePolicy.poolSnapshot,
-    }), client.prefetchQuery({
+    });
+    const resolved = client.getQueryData<PoolSnapshot>(queryKeys.poolSnapshot(target.pool));
+    if (resolved?.pool.poolAddress === target.pool) await client.prefetchQuery({
       queryKey: queryKeys.poolPriceSnapshot(target.pool),
       queryFn: async ({ signal }) => {
         const topic = `market.price.${target.pool}`;
@@ -43,7 +45,7 @@ export default async function TerminalSlugPage({ params }: Props) {
         return entry ? decodeV2Contract('Price', entry.payload) : null;
       },
       ...marketCachePolicy.poolSnapshot,
-    })]);
+    });
     return <HydrationBoundary state={dehydrate(client)}><TerminalModule slug={target.pool} /></HydrationBoundary>;
   }
   return <TerminalModule slug={target.view} />;
