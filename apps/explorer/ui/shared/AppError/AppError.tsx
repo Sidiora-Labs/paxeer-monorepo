@@ -93,19 +93,18 @@ const AppError = ({ error, className }: Props) => {
             <AppErrorIcon statusCode={ statusCode }/>
             <AppErrorTitle title={ title }/>
             <Text color="text.secondary" mt={ 3 }>{ text }</Text>
-            <Link
-              href={ route({ pathname: '/' }) }
+            <Button
               asChild
+              display="inline-flex"
+              mt={ 8 }
+              variant="outline"
+              minW="touchTarget"
+              minH="touchTarget"
             >
-              <Button
-                mt={ 8 }
-                variant="outline"
-                minW="touchTarget"
-                minH="touchTarget"
-              >
+              <Link href={ route({ pathname: '/' }) } variant="plain">
                 Back to home
-              </Button>
-            </Link>
+              </Link>
+            </Button>
             { statusCode === 404 && <AdBanner mt={ 12 }/> }
           </>
         );
