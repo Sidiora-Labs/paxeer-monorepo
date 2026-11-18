@@ -125,6 +125,72 @@ grep -q '^  applied registry credentials$' "$tmp/apply.out" || fail "registry cr
 grep -q "^  applied $(cat "$tmp/upsert-count") variables$" "$tmp/apply.out" || fail "apply did not upsert the changed variables"
 grep -q 'sentinel-ghcr-token' "$tmp/apply.out" && fail "apply printed the registry token"
 
+values_annotations() {
+	python3 - "$tmp" "$tool" <<'PY'
+import json, os, subprocess, sys
+from pathlib import Path
+
+directory = Path(sys.argv[1])
+values = json.loads((directory / "values.json").read_text())["charts"]
+annotations = {
+    "$comment": "annotation-text-94c2",
+    "$object": {"details": "annotation-object-94c2", "nested": {"setting": False}},
+    "$array": ["annotation-array-94c2", None, 3],
+    "$integer": 42,
+    "$fraction": 1.5,
+    "$boolean": False,
+    "$null": None,
+}
+environment = dict(os.environ, GHCR_USERNAME="sentinel-ghcr-user-4a1f",
+                   GHCR_TOKEN="sentinel-ghcr-token-8c3e")
+
+
+def invoke(label, supplied, mode):
+    path = directory / f"annotations-{label}.json"
+    path.write_text(json.dumps(supplied))
+    return subprocess.run([
+        sys.executable, sys.argv[2], "proj-test", "production", f"--{mode}",
+        "--manifest", str(directory / "manifest.json"), "--values", str(path),
+        "--replay", str(directory / "apply-replay.json"), "--from-env", "--registry-credentials",
+    ], capture_output=True, text=True, env=environment)
+
+
+for label, supplied in (
+    ("top", {**annotations, "charts": values}),
+    ("service", {"charts": {**annotations, **values}}),
+    ("both", {**annotations, "charts": {**annotations, **values}}),
+):
+    for mode in ("plan", "apply"):
+        result = invoke(label, supplied, mode)
+        output = result.stdout + result.stderr
+        assert result.returncode == 0, f"{label} {mode}: {output}"
+        assert output == (directory / f"{mode}.out").read_text(), f"{label} {mode}: {output}"
+        assert all(name not in output for name in annotations), output
+        assert "annotation-" not in output, output
+    print(f"PASS values-annotations-{label}")
+
+for label, supplied, message in (
+    ("unknown-service", {"charts": values, "ghost": {}}, "--values: unknown service ghost"),
+    ("unknown-scoped", {"charts": {**values, "UNDECLARED_SETTING": "annotation-unknown-94c2"}},
+     "charts: unknown variable UNDECLARED_SETTING"),
+    ("unknown-shared", {"charts": values, "UNDECLARED_SETTING": "annotation-unknown-94c2"},
+     "--values: unknown variable UNDECLARED_SETTING"),
+    ("scoped-type", {"charts": {**values, "RPC_URL": False}}, "charts: RPC_URL must be a string"),
+    ("shared-type", {"charts": values, "RPC_URL": False}, "--values: RPC_URL must be a string"),
+):
+    supplied = {**annotations, **supplied, "charts": {**annotations, **supplied["charts"]}}
+    for mode in ("plan", "apply"):
+        result = invoke(label, supplied, mode)
+        output = result.stdout + result.stderr
+        assert result.returncode == 2, f"{label} {mode}: {output}"
+        assert output == f"bad input: {message}\n", output
+        assert "annotation-" not in output, output
+        assert "applied" not in output, output
+    print(f"PASS values-annotations-{label}")
+PY
+}
+values_annotations
+
 stats_inline_pem_plan() {
 	python3 - "$root/deploy/launchpad/railway/variables.json" "$tmp" "$replay" <<'PY'
 import json, sys

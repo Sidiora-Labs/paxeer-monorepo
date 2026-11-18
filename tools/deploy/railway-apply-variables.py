@@ -103,10 +103,14 @@ def load_manifest(path):
 def validate_values(values, manifest):
     known = set().union(*(svc["known"] for svc in manifest.values()))
     for name, value in values.items():
+        if name.startswith("$"):
+            continue
         if isinstance(value, dict):
             if name not in manifest:
                 raise ValueError(f"--values: unknown service {name}")
             for key, setting in value.items():
+                if key.startswith("$"):
+                    continue
                 if key not in manifest[name]["known"]:
                     raise ValueError(f"{name}: unknown variable {key}")
                 if not isinstance(setting, str):
