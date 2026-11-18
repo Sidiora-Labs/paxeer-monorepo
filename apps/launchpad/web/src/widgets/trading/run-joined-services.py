@@ -201,7 +201,7 @@ def stream_ready(owner, child, origin, pool, browser_origin, timeout=90):
     raise owner.readiness_error(child, 'stream readiness timed out: ' + url)
 
 
-def community_interfaces(owner, root, database):
+def community_interfaces(owner, root, database, applied_sources):
     """Install the registered owner interfaces read by the social schema."""
     directory = root / 'migrations'
     registry = json.loads((directory / 'registry.json').read_text())
@@ -230,7 +230,11 @@ def community_interfaces(owner, root, database):
             path = root / source['path']
             if digest(path) != source['source_sha256']:
                 raise ValueError('Community owner migration source differs from its registry')
-            statements.append('BEGIN;\n' + path.read_text().split('-- +goose Down')[0] + '\nCOMMIT;')
+            if source['path'] in applied_sources:
+                if applied_sources[source['path']] != source['source_sha256']:
+                    raise ValueError('Applied community owner migration differs from its registry')
+            else:
+                statements.append('BEGIN;\n' + path.read_text().split('-- +goose Down')[0] + '\nCOMMIT;')
     for version in registry['application_order']:
         if version not in needed:
             continue
@@ -285,10 +289,12 @@ def prepare_fixture(owner):
         raise owner.readiness_error(postgres, 'PostgreSQL readiness timed out')
     owner.run(['psql', admin, '-v', 'ON_ERROR_STOP=1', '-c', 'CREATE DATABASE launchpad_joined'], 'joined-createdb')
     database = admin.replace('/postgres?', '/launchpad_joined?')
+    applied_sources = {}
     for migration in sorted((services / 'metadata/migrations').glob('*.sql')):
         up = migration.read_text().split('-- +goose Down', 1)[0]
         owner.run(['psql', database, '-v', 'ON_ERROR_STOP=1', '--single-transaction'],
                   'joined-metadata-' + migration.stem, input=up)
+        applied_sources[str(migration.relative_to(root))] = digest(migration)
     redis = owner.start(['redis-server', '--bind', '127.0.0.1', '--port', str(redis_port),
                          '--save', '', '--appendonly', 'no', '--dir', str(output)], 'joined-redis')
     redis_url = f'redis://127.0.0.1:{redis_port}/0'
@@ -359,7 +365,7 @@ def prepare_fixture(owner):
         build_go(owner, binary, entry, 'joined-build-' + role, services / service, common)
         env = {**common, 'PORT': str(ports[role])}
         if role == 'social':
-            community_interfaces(owner, root, database)
+            community_interfaces(owner, root, database, applied_sources)
             owner.run(['psql', database, '-v', 'ON_ERROR_STOP=1', '-c',
                        'CREATE SCHEMA social_migrations'], 'joined-social-migration-schema')
             env['DATABASE_URL'] = database + '&search_path=social_migrations'

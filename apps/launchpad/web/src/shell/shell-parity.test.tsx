@@ -116,7 +116,7 @@ describe('navigation rail', () => {
     expect(classes(rail)).not.toContain('lg:flex');
   });
 
-  it('keeps the logo and expansion control in the rail header with full touch targets', async () => {
+  it('keeps the logo and expansion control in the compact rail header', async () => {
     const container = await render(<SidebarNav />);
     const logo = container.querySelector('a[aria-label="Sidiora Launch home"]')!;
     const expand = container.querySelector('button[aria-label="Expand navigation"]')!;
@@ -124,8 +124,8 @@ describe('navigation rail', () => {
     expect(classes(logo.parentElement)).toEqual(
       expect.arrayContaining(['min-h-header-height', 'items-center'])
     );
-    expect(classes(logo.parentElement)).toContain('flex-col');
-    expect(classes(expand)).toContain('size-touch-target-min');
+    expect(classes(logo.parentElement)).not.toContain('flex-col');
+    expect(classes(expand)).toEqual(expect.arrayContaining(['h-7', 'w-4']));
   });
 
   it('separates primary and secondary destinations with a spacing gap, then create', async () => {
@@ -211,16 +211,11 @@ describe('top bar anatomy', () => {
       cls: classes(element.closest('header > *')),
     }));
 
-  it('desktop: touch-sized subtle search field, ghost paste icon beside it, no back button on home', async () => {
+  it('desktop: compact subtle search field, ghost paste icon beside it, no back button on home', async () => {
     const container = await render(<TopBar />);
     const field = container.querySelector('[data-search-field]')!;
     expect(classes(field)).toEqual(
-      expect.arrayContaining([
-        'hidden',
-        'lg:block',
-        '[&>button]:min-h-control-height-md',
-        '[&>button]:bg-surface-1',
-      ])
+      expect.arrayContaining(['hidden', 'lg:block', '[&>button]:h-8', '[&>button]:bg-surface-1'])
     );
     expect(field.nextElementSibling?.className).toContain('lg:hidden');
     const paste = container.querySelector(
@@ -293,7 +288,7 @@ describe('ticker strip', () => {
 });
 
 describe('footer row', () => {
-  it('keeps legal links and copyright inline and reserves a grid for activity figures', async () => {
+  it('keeps legal links and copyright inline and reserves a row for activity figures', async () => {
     const container = await render(<ShellFooter />);
     const footer = container.querySelector('footer')!;
     expect(classes(footer)).toEqual(
@@ -307,53 +302,57 @@ describe('footer row', () => {
       )
     ).toEqual(['Terms', 'Privacy', 'Trademarks', 'DMCA', 'Do not sell my data']);
     expect(footer.textContent).toContain(`© ${new Date().getFullYear()} Sidiora`);
-    // The loading grid reserves the same six labelled cells as the served figures.
+    // The loading row reserves the same six labelled figures as the served data.
     const busy = footer.querySelector('[aria-busy="true"]');
     if (busy) {
-      expect(busy.className).toContain('grid');
+      expect(busy.className).toContain('flex');
       expect(busy.querySelectorAll('dt')).toHaveLength(6);
       expect(busy.querySelectorAll('dd .sr-only')).toHaveLength(6);
-    }
-    else expect(footer.querySelector('[role="status"]')?.className).toContain('text-2xs');
+    } else expect(footer.querySelector('[role="status"]')?.className).toContain('text-2xs');
   });
 });
 
 describe('footer placement', () => {
-  it('keeps the footer after a viewport of content on short pages', async () => {
+  it('keeps the footer at the viewport bottom on short pages', async () => {
     const { default: AppShell } = await import('./app-shell');
-    const html = renderToString(
-      <WagmiProvider config={config}>
-        <QueryClientProvider
-          client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-        >
-          <AppRouterContext.Provider value={router}>
-            <PathnameContext.Provider value="/live">
-              <AppShell>
-                <p>short page</p>
-              </AppShell>
-            </PathnameContext.Provider>
-          </AppRouterContext.Provider>
-        </QueryClientProvider>
-      </WagmiProvider>
-    );
+    const shellHtml = (pathname: string) =>
+      renderToString(
+        <WagmiProvider config={config}>
+          <QueryClientProvider
+            client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+          >
+            <AppRouterContext.Provider value={router}>
+              <PathnameContext.Provider value={pathname}>
+                <AppShell>
+                  <p>short page</p>
+                </AppShell>
+              </PathnameContext.Provider>
+            </AppRouterContext.Provider>
+          </QueryClientProvider>
+        </WagmiProvider>
+      );
     const host = document.createElement('div');
-    host.innerHTML = html;
+    host.innerHTML = shellHtml('/live');
     const main = host.querySelector('main#main-content')!;
     expect(classes(main)).toEqual(
       expect.arrayContaining([
-        'min-h-[calc(100dvh-var(--shell-top))]',
+        'min-h-dvh',
         'flex',
         'flex-col',
-        'pb-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom,0rem))]',
-        'md:pb-0',
+        'pb-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom,0rem)+var(--sl-cookie-banner-height,0px))]',
+        'md:pb-[var(--sl-cookie-banner-height,0px)]',
       ])
     );
     const content = main.querySelector('[data-shell-content]')!;
     expect(classes(content)).toContain('flex-1');
-    expect(classes(content)).toContain('min-h-[calc(100dvh-var(--shell-top))]');
-    expect(main.previousElementSibling?.classList.contains('sticky')).toBe(true);
+    expect(classes(main)).toContain('pt-[var(--shell-top)]');
+    expect(main.previousElementSibling?.classList.contains('fixed')).toBe(true);
     expect(main.lastElementChild?.tagName).toBe('FOOTER');
     expect(main.outerHTML).not.toMatch(NO_STROKES);
+    const home = document.createElement('div');
+    home.innerHTML = shellHtml('/');
+    expect(classes(home.querySelector('main#main-content'))).toContain('h-dvh');
+    expect(classes(home.querySelector('[data-shell-content]'))).toContain('min-h-0');
   });
 });
 
