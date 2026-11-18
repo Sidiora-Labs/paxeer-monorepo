@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -59,6 +60,9 @@ func contractError(w http.ResponseWriter, r *http.Request, err error) {
 		status, code, message = http.StatusConflict, "REVISION_CONFLICT", "revision is not current"
 	case errors.Is(err, pgx.ErrNoRows):
 		status, code, message = http.StatusNotFound, "NOT_FOUND", "not found"
+	}
+	if status == http.StatusServiceUnavailable {
+		slog.ErrorContext(r.Context(), "social follow request failed", "method", r.Method, "path", r.URL.Path, "error", err)
 	}
 	id, parseErr := uuid.Parse(r.Header.Get("X-Request-ID"))
 	if parseErr != nil || id == uuid.Nil {
