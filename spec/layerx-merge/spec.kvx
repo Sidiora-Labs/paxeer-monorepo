@@ -15658,6 +15658,12 @@ value = "A case file under a directory that the build of the explorer lints, amo
 basis = "Gotcha 4684. Decision 3750."
 affects = []
 
+[decision.3758]
+title = "The backfill of the hosted indexer reads the node in bounded batches throughout and repeats a step after a source failure"
+value = "Every read of the node that the backfill makes per transaction or per height goes through JSON-RPC batches whose size is the batch setting of the backfill and whose number in flight is its reader setting; the documented bounds of both settings stay as they are and no setting is added. The checks that bind an answer to the row or the height it was asked for do not change, and an entry of a batch that is missing or an error is read again alone. A batch that fails as a whole at its deadline is read again in halves down to a single entry before the failure is returned. A step that ends on a source failure is repeated no fewer than three times with a pause that grows between the repeats, and each repeat is written to the log with the range and the class of the failure, without an address of a source; a failure of the classes decode, integrity, configuration or store ends the backfill at once. Nothing of a range is committed unless every height of it verified. Task 22.39.831."
+basis = "Gotcha 4685. Decision 3586."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45318,6 +45324,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.831]
+title = "Read the transaction domains of a backfill range of the hosted indexer in bounded batches and repeat a step after a source failure"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/indexer"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --lib transport && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --lib config && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test backfill --test env_example"
+do_1 = "do_1 Gotcha 4685 and decision 3758. Read services/platform/hosted/indexer/src/paxscan.rs with resolve_transaction_domains and range_verified, in services/platform/hosted/indexer/src/paxeer.rs transaction_domain, blocks_with_receipts and read_block_batch, in services/platform/hosted/indexer/src/transport.rs rpc, rpc_batch and the deadline, services/platform/hosted/indexer/src/backfill.rs in full, the function backfill in services/platform/hosted/indexer/src/main.rs, services/platform/hosted/indexer/tests/backfill.rs with its stand-in for the node, and in services/platform/hosted/indexer/tests/snapshot_runtime.rs the stand-in for the node and the two cases that call resolve_transaction_domains."
+symbols = []
 
 [capability.22.39.830]
 title = "Register the cases of the chain indexer entry of the explorer in the form the lint rules of the application accept"
@@ -218548,6 +218563,40 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.831]
+title = "Read the transaction domains of a backfill range of the hosted indexer in bounded batches and repeat a step after a source failure"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.831"]
+interfaces = []
+do_1 = "do_1 Gotcha 4685 and decision 3758. Read services/platform/hosted/indexer/src/paxscan.rs with resolve_transaction_domains and range_verified, in services/platform/hosted/indexer/src/paxeer.rs transaction_domain, blocks_with_receipts and read_block_batch, in services/platform/hosted/indexer/src/transport.rs rpc, rpc_batch and the deadline, services/platform/hosted/indexer/src/backfill.rs in full, the function backfill in services/platform/hosted/indexer/src/main.rs, services/platform/hosted/indexer/tests/backfill.rs with its stand-in for the node, and in services/platform/hosted/indexer/tests/snapshot_runtime.rs the stand-in for the node and the two cases that call resolve_transaction_domains."
+do_2 = "do_2 The domains of a range: resolve_transaction_domains reads the rows through JSON-RPC batches of eth_getTransactionByHash, in the batch size and with the number of readers the backfill is configured with, in the manner blocks_with_receipts reads blocks. For every row the answer is bound to the hash, the block number and the transaction index of the row exactly as transaction_domain binds it today, and the chain id is read from the same answer; an entry that is missing or an error is read again with the single request, and an answer without a chain id or with another position refuses the whole range as today. No row is updated unless every domain of the range has been resolved, and the order of the rows does not change. The functions may take the two bounds as arguments; every caller under services/platform/hosted/indexer is brought in line, among them the closure in services/platform/hosted/indexer/src/main.rs and the cases in services/platform/hosted/indexer/tests/snapshot_runtime.rs."
+do_3 = "do_3 A batch that fails as a whole: where rpc_batch returns a source failure for a batch of more than one entry, the reader reads the two halves of that batch again, down to a single entry, before the failure is returned to the caller. This holds for the block batches and the receipt batches of read_block_batch and for the domain batches of do_2. A failure of another class is returned at once, and the deadline of a request does not change."
+do_4 = "do_4 A step that ends on a source failure: the function run in services/platform/hosted/indexer/src/backfill.rs repeats the step for the same range after a pause that grows from one repeat to the next, at least three and at most eight times in a row, and writes one line to the log per repeat with the range, the number of the repeat and the class of the failure; the line holds no address of a source and no text of an answer. A step that then passes sets the count back. A failure of the classes decode, integrity, configuration or store, and a reorganisation below the finality window, end the backfill at once as today. The pause is short enough in the cases that the case file runs in seconds: give the pause as a value the cases can set, not as a new setting of the environment. No setting is added and no file outside services/platform/hosted/indexer changes."
+do_5 = "do_5 Cases in services/platform/hosted/indexer/tests/backfill.rs with the stand-in for the node: a range with several transactions per height resolves every domain with fewer requests than transactions and stores the same rows as the read one by one; an entry of a domain batch that is missing or an error is read again alone and only that entry; a domain answer with another position or without a chain id leaves the stored rows unchanged; a batch that the stand-in fails as a whole once is read again in smaller batches and the range is committed; a step whose first try ends on a source failure is repeated and commits the range, with the count of the tries asserted; a step that ends on an integrity failure is tried once. The stand-in in services/platform/hosted/indexer/tests/snapshot_runtime.rs answers batches where the changed code sends them, and its two cases on domains keep what they assert about the binding and the refusal; where one of them counts single requests, it counts the entries the stand-in answered instead."
+do_6 = "do_6 Run by hand once: cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test snapshot_runtime transaction_domains, and cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test snapshot_runtime tenant_query, and give both results in the final message; a case there that does not pass after the change is repaired inside services/platform/hosted/indexer. Do not run the formatter over a whole existing file: format only the lines you changed, so the change of each file stays readable."
+do_7 = "do_7 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/platform/hosted/indexer are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cargo check --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --lib transport && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --lib config && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test backfill --test env_example"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
