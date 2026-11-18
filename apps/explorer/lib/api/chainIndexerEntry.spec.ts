@@ -18,7 +18,7 @@ afterEach(() => {
   vi.resetModules();
 });
 
-async function chainIndexerEntryBuildsApplicationChainUrls() {
+test('chainIndexerEntryBuildsApplicationChainUrls', async function chainIndexerEntryBuildsApplicationChainUrls() {
   const { 'default': config } = await import('configs/app');
   const { 'default': buildUrl } = await import('./buildUrl');
   const { 'default': getResourceParams } = await import('./getResourceParams');
@@ -35,9 +35,9 @@ async function chainIndexerEntryBuildsApplicationChainUrls() {
     expect(buildUrl(`${ namespace }:paxeer_x_chain`, { id: '7' }))
       .toBe('https://example.com/network/indexer/v1/chains/7');
   }
-}
+});
 
-async function chainIndexerEntryAllowsAnOptionalBasePath() {
+test('chainIndexerEntryAllowsAnOptionalBasePath', async function chainIndexerEntryAllowsAnOptionalBasePath() {
   vi.stubEnv('NEXT_PUBLIC_PAXEER_X_INDEXER_API_BASE_PATH', undefined);
   const { 'default': config } = await import('configs/app');
   const { 'default': buildUrl } = await import('./buildUrl');
@@ -45,9 +45,9 @@ async function chainIndexerEntryAllowsAnOptionalBasePath() {
   expect(config.apis.paxeerXIndexer).toEqual({ endpoint: 'https://example.com', basePath: '' });
   expect(buildUrl('general:paxeer_x_chains')).toBe('https://example.com/v1/chains');
   expect(buildUrl('general:paxeer_x_chain', { id: '7' })).toBe('https://example.com/v1/chains/7');
-}
+});
 
-async function chainIndexerEntryPreservesChainConfigurationPrecedence() {
+test('chainIndexerEntryPreservesChainConfigurationPrecedence', async function chainIndexerEntryPreservesChainConfigurationPrecedence() {
   const { 'default': config } = await import('configs/app');
   const { 'default': buildUrl } = await import('./buildUrl');
   const { 'default': getResourceParams } = await import('./getResourceParams');
@@ -67,9 +67,9 @@ async function chainIndexerEntryPreservesChainConfigurationPrecedence() {
   expect(getResourceParams('general:paxeer_x_chains', chain).api).toBe(chain.app_config.apis.paxeerXIndexer);
   expect(buildUrl('general:paxeer_x_chain', { id: '7' }, undefined, true, chain))
     .toBe('https://example.com/chain/indexer/v1/chains/7');
-}
+});
 
-async function chainIndexerEntryRefusesReadsWithoutAHost() {
+test('chainIndexerEntryRefusesReadsWithoutAHost', async function chainIndexerEntryRefusesReadsWithoutAHost() {
   vi.stubEnv('NEXT_PUBLIC_PAXEER_X_INDEXER_API_HOST', undefined);
   const { 'default': config } = await import('configs/app');
   const { 'default': paxeerX } = await import('configs/app/features/paxeerX');
@@ -84,9 +84,4 @@ async function chainIndexerEntryRefusesReadsWithoutAHost() {
     expect(() => getResourceParams(`general:${ name }`)).toThrow('API config for paxeerXIndexer not found');
     expect(() => buildUrl(`general:${ name }`, { id: '7' })).toThrow('API config for paxeerXIndexer not found');
   }
-}
-
-test(chainIndexerEntryBuildsApplicationChainUrls.name, chainIndexerEntryBuildsApplicationChainUrls);
-test(chainIndexerEntryAllowsAnOptionalBasePath.name, chainIndexerEntryAllowsAnOptionalBasePath);
-test(chainIndexerEntryPreservesChainConfigurationPrecedence.name, chainIndexerEntryPreservesChainConfigurationPrecedence);
-test(chainIndexerEntryRefusesReadsWithoutAHost.name, chainIndexerEntryRefusesReadsWithoutAHost);
+});
