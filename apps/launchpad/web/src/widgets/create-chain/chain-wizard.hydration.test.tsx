@@ -72,7 +72,7 @@ async function chain_wizard_hydrates_without_a_mismatch() {
     expect(container.querySelector('h1')?.textContent).toBe('Launch a chain and token');
     expect(container.querySelector<HTMLInputElement>('#chain-name')?.value).toBe('');
     expect(container.textContent).toContain('Connect wallet');
-    expect(container.querySelector('li[aria-current="step"]')?.textContent).toBe('1. Name');
+    expect(container.querySelector('li[aria-current="step"]')?.textContent).toBe('1. Name, current step');
   } finally {
     await act(async () => root?.unmount());
     console.error = original;
@@ -113,7 +113,7 @@ async function chain_wizard_hydrates_saved_confirmation_across_reload() {
       expect(container.querySelector('[aria-label="Submitted transaction"]')?.textContent).toContain(txHash);
       expect(container.textContent).toContain(creator);
       expect(container.textContent).toContain('Root chain: 125');
-      expect(container.querySelector('li[aria-current="step"]')?.textContent).toBe('3. Review and launch');
+      expect(container.querySelector('li[aria-current="step"]')?.textContent).toBe('3. Review and launch, current step');
       const retry = Array.from(container.querySelectorAll('button')).find(node => node.textContent === 'Retry confirmation');
       expect(retry?.disabled).toBe(true);
       expect(container.textContent).toContain('belongs to a different account or chain');

@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAccount, usePublicClient, useSwitchChain, useWalletClient } from 'wagmi';
 import { formatEther, formatUnits, parseAbi, type PublicClient, type WalletClient } from 'viem';
-import { Button } from '@/ui/primitives';
+import { Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button, FormField } from '@/ui/primitives';
 import { poolPath } from '@/core/app-foundation/navigation';
 import { PROTOCOL_CONFIG_ADDRESS } from '@/core/network/contracts';
 import { useAuthModal } from '@/shell/auth-modal-store';
@@ -14,13 +16,50 @@ import { SIZE_TIERS, chainCost, validateChainDraft, validateChainName, type Chai
 import { ChainDraftStorage } from './chain-storage';
 import { ChainFeeAdapter, type ChainFeeApproval, type ChainFeeFunding } from './chain-fees';
 import { StrategyPicker, feeStrategyLabel } from '../create/strategy-picker';
-import { NAME_MAX_BYTES, SYMBOL_MAX_BYTES } from '../create/create-form-fields';
+import { InlineCounter, NAME_MAX_BYTES, SYMBOL_MAX_BYTES, byteLength } from '../create/create-form-fields';
 
 const marketFeeAbi = parseAbi(['function creationFee() view returns (uint256)']);
 
 const tierNames: Record<SizeTier, string> = { starter: 'Starter', growth: 'Growth', pro: 'Pro' };
 const tiers: SizeTier[] = ['starter', 'growth', 'pro'];
 const nameRule = 'Use 3 to 32 lowercase letters, numbers or hyphens. Start and end with a letter or number.';
+
+export function ChainLaunchSummary({
+  name, tokenName, tokenSymbol, tier, feeStrategy, params, marketFee,
+}: Pick<ChainDraft, 'name' | 'tokenName' | 'tokenSymbol' | 'tier' | 'feeStrategy'> & {
+  params: ChainsParams | null;
+  marketFee: bigint | null;
+}) {
+  return (
+    <section role="region" aria-labelledby="chain-summary-title" className="flex min-w-0 flex-col gap-3">
+      <h2 id="chain-summary-title" className="text-md font-semibold text-text">Launch summary</h2>
+      <dl className="flex flex-col gap-4 rounded-lg bg-surface-1 p-4 text-sm text-text [overflow-wrap:anywhere]">
+        <div className="flex flex-col gap-1">
+          <dt className="text-xs text-text-muted">Chain name</dt>
+          <dd>{name || <span className="text-text-muted">Not named yet</span>}</dd>
+        </div>
+        <div className="flex flex-col gap-1">
+          <dt className="text-xs text-text-muted">Size</dt>
+          <dd>{tierNames[tier]}<span className="block text-xs text-text-muted">Up to {SIZE_TIERS[tier].gas.toLocaleString('en-US')} gas and {SIZE_TIERS[tier].bytes.toLocaleString('en-US')} bytes per block.</span></dd>
+        </div>
+        <div className="flex flex-col gap-1">
+          <dt className="text-xs text-text-muted">Coin</dt>
+          <dd>{tokenName || <span className="text-text-muted">Coin name</span>} ({tokenSymbol || <span className="text-text-muted">Ticker</span>})</dd>
+        </div>
+        <div className="flex flex-col gap-1">
+          <dt className="text-xs text-text-muted">Send creator rewards to</dt>
+          <dd>{feeStrategyLabel(feeStrategy)}</dd>
+        </div>
+        <div className="flex flex-col gap-1">
+          <dt className="text-xs text-text-muted">Launch cost</dt>
+          <dd>{params ? <>{formatEther(params[1] + params[2])} PAX</> : <span className="text-text-muted">Awaiting chain costs</span>}</dd>
+          <dd>{marketFee !== null ? <>{formatUnits(marketFee, 6)} USDL</> : <span className="text-text-muted">Awaiting market fee</span>}</dd>
+          <dd className="text-xs text-text-muted">Plus network gas shown in your wallet.</dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
 
 export default function ChainWizard() {
   const { address, chainId } = useAccount();
@@ -276,111 +315,144 @@ export default function ChainWizard() {
   ];
 
   return (
-    <div className="mx-auto flex w-full max-w-content-narrow-max-width flex-col gap-4 px-4 py-4 lg:px-6">
-      <h1 className="text-md font-semibold text-text">Launch a chain and token</h1>
-      <p className="text-sm text-text-muted">Name your chain and token, pick a size, and launch them together.</p>
-      <ol aria-label="Launch a chain steps" className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-text-muted">
-        {['Name', 'Size', 'Review and launch'].map((label, index) => <li key={label} aria-current={step === index ? 'step' : undefined}>{index + 1}. {label}</li>)}
-      </ol>
-      {!address ? <Button type="button" onClick={() => openModal('Connect your wallet to launch a chain')}>Connect wallet</Button>
-        : chainId !== 125 ? <Button type="button" onClick={() => void switchChainAsync({ chainId: 125 }).catch(() => setError('Switch to Paxeer in your wallet to continue.'))}>Switch to Paxeer</Button> : null}
-      <section className="flex flex-col gap-4 rounded-lg bg-surface-1 p-4">
-        {step === 0 ? <>
-          <h2 className="text-base font-semibold text-text">Name your chain</h2>
-          <label htmlFor="chain-name" className="text-sm font-bold text-text">Chain name</label>
-          <input id="chain-name" name="chainName" autoComplete="off" value={name} maxLength={32} disabled={locked} autoCapitalize="none" autoCorrect="off" spellCheck={false}
-            aria-describedby="chain-name-rule chain-name-status" aria-invalid={!!name && (!!validateChainName(name) || availability?.state === 'taken') || undefined}
-            className="sl-field min-w-0 w-full rounded-sm bg-surface-2 p-3 text-text" onChange={event => setName(event.target.value)} />
-          <p id="chain-name-rule" className="text-xs text-text-muted">{nameRule}</p>
-          <p id="chain-name-status" role="status" className="text-sm text-text-muted">
-            {name && validateChainName(name) ? 'Check the name rules above.' : availability?.name === name
-              ? { checking: 'Checking availability…', available: 'This name is available.', taken: 'This name is taken. Choose another.', error: 'Name availability could not be checked. Try again.' }[availability.state]
-              : !connected ? 'Connect your wallet on Paxeer to check availability.' : ''}
-          </p>
-          {availability?.state === 'error' ? <Button disabled={busy} onClick={() => setValidation(value => value + 1)}>Retry name check</Button> : null}
-          <h2 className="text-base font-semibold text-text">Name your token</h2>
-          <label htmlFor="chain-token-name" className="text-sm font-bold text-text">Coin name</label>
-          <input id="chain-token-name" name="tokenName" autoComplete="off" value={tokenName} maxLength={NAME_MAX_BYTES} disabled={locked}
-            className="sl-field min-w-0 w-full rounded-sm bg-surface-2 p-3 text-text" onChange={event => setTokenName(event.target.value)} />
-          <p className="text-xs text-text-muted">Name must be 1 to {NAME_MAX_BYTES} bytes.</p>
-          <label htmlFor="chain-token-symbol" className="text-sm font-bold text-text">Ticker</label>
-          <input id="chain-token-symbol" name="tokenSymbol" autoComplete="off" value={tokenSymbol} maxLength={SYMBOL_MAX_BYTES} disabled={locked}
-            autoCapitalize="none" autoCorrect="off" spellCheck={false}
-            className="sl-field min-w-0 w-full rounded-sm bg-surface-2 p-3 text-text" onChange={event => setTokenSymbol(event.target.value)} />
-          <p className="text-xs text-text-muted">Ticker must be 1 to {SYMBOL_MAX_BYTES} bytes.</p>
-          <StrategyPicker value={feeStrategy} onChange={setFeeStrategy} disabled={locked} />
-          <Button variant="primary" disabled={!nameAvailable || !launchFieldsValid || !connected || locked} onClick={() => setStep(1)}>Next</Button>
-        </> : step === 1 ? <>
-          <h2 className="text-base font-semibold text-text">Pick a size</h2>
-          <div role="radiogroup" aria-label="Chain size" className="grid gap-3 sm:grid-cols-3">
-            {tiers.map(value => <label key={value} className="flex min-w-0 cursor-pointer flex-col gap-2 rounded-md bg-surface-2 p-3 text-sm text-text">
-              <span className="flex min-h-touch-target-min items-center gap-2"><input className="size-touch-target-min shrink-0 accent-accent" type="radio" name="chain-size" value={value} checked={tier === value} disabled={locked || !tierAvailable(value)} onChange={() => setTier(value)} /> {tierNames[value]}</span>
-              <span>Up to {SIZE_TIERS[value].gas.toLocaleString('en-US')} gas and {SIZE_TIERS[value].bytes.toLocaleString('en-US')} bytes per block.</span>
-              {params && !tierAvailable(value) ? <span>Currently unavailable</span> : null}
-            </label>)}
-          </div>
-          <Button variant="primary" disabled={!tierAvailable(tier) || locked} onClick={() => setStep(2)}>Next</Button>
-        </> : <>
-          <h2 className="text-base font-semibold text-text">{result ? 'Your chain and token are live' : 'Review and launch'}</h2>
-          <p className="text-sm text-text">{name} · {tierNames[tier]}</p>
-          <p className="text-sm text-text">{tokenName} ({tokenSymbol}) · {feeStrategyLabel(feeStrategy)}</p>
-          <p className="text-xs text-text-muted">Up to {SIZE_TIERS[tier].gas.toLocaleString('en-US')} gas and {SIZE_TIERS[tier].bytes.toLocaleString('en-US')} bytes per block.</p>
-          {!result ? <Button variant="primary" disabled={!connected || !launchFieldsValid || !nameAvailable || !tierAvailable(tier) || marketFee === null || !feeFunding || feeFunding.balance < feeFunding.fee || feeFunding.allowance < feeFunding.fee || locked} onClick={() => void launch()}>Launch chain and token</Button> : null}
-          {submission ? <div className="text-sm text-text" role="region" aria-label="Submitted transaction">
-            <p>Transaction: {submission.txHash}</p>
-            <p>Creator: {submission.creator} · Root chain: {submission.chainId}</p>
-            {!submissionMatches ? <p role="alert">This submitted transaction belongs to a different account or chain. Reconnect its creator on the root chain to confirm it.</p> : null}
-            <Button disabled={busy || !connected || !submissionMatches} onClick={() => void launch(true)}>Retry confirmation</Button>
-          </div> : null}
-          {phase ? <LaunchProgress steps={progress} busy={busy} /> : null}
-          {result ? <div className="flex flex-col gap-3 text-sm text-text" role="region" aria-label="Live chain">
-            <p>Token: <strong>{result.tokenName} ({result.tokenSymbol})</strong> · {result.token}</p>
-            <p>Pool: {result.pool}</p>
-            <p>Chain ID: <strong>{result.chainId}</strong></p>
-            <p>Registry ID: {result.id}</p>
-            <label htmlFor="chain-rpc">Chain node path</label>
-            <input id="chain-rpc" name="rpcUrl" autoComplete="off" readOnly value={result.rpcUrl} className="w-full rounded-sm bg-surface-2 p-2 font-mono text-xs" />
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={() => void readyAction('copy')}>Copy RPC URL</Button>
-              <Button onClick={() => void readyAction('wallet')}>Add to wallet</Button>
-              <a href={result.explorerUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline">View explorer<span className="sr-only">, opens in a new tab</span></a>
-              <Button variant="link" href={poolPath(125, result.pool)}>Trade token</Button>
+    <div className="@container/create mx-auto w-full max-w-content-narrow-max-width px-4 py-4 lg:px-6">
+      <div className="flex flex-col gap-4 @market-two/create:flex-row @market-two/create:items-start @market-two/create:gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-4 @market-two/create:max-w-form-max-width">
+          <h1 className="text-md font-semibold text-text">Launch a chain and token</h1>
+          <p className="text-sm text-text-muted">Name your chain and token, pick a size, and launch them together.</p>
+          <ol aria-label="Launch a chain steps" className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-text-muted">
+            {['Name', 'Size', 'Review and launch'].map((label, index) => (
+              <li key={label} aria-current={step === index ? 'step' : undefined} data-step-state={index < step ? 'done' : index === step ? 'current' : 'pending'} className="flex min-w-0 items-center gap-2">
+                <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-pill text-xs font-bold tabular-nums', index === step ? 'bg-accent text-on-accent' : index < step ? 'bg-accent-soft-strong text-accent' : 'bg-surface-3 text-text-muted')}>{index + 1}</span>
+                <span className="sr-only">. </span>
+                <span className={cn('min-w-0', index === step && 'font-bold text-text underline underline-offset-[var(--sl-focus-offset)]')}>{label}</span>
+                {index < step ? <span className="inline-flex items-center gap-1 text-text-muted"><Check aria-hidden="true" className="size-icon-sm" /><span className="sr-only">, </span>done</span> : <span className="sr-only">{index === step ? ', current step' : ', not started'}</span>}
+              </li>
+            ))}
+          </ol>
+          {!address ? <Button type="button" onClick={() => openModal('Connect your wallet to launch a chain')}>Connect wallet</Button>
+            : chainId !== 125 ? <Button type="button" onClick={() => void switchChainAsync({ chainId: 125 }).catch(() => setError('Switch to Paxeer in your wallet to continue.'))}>Switch to Paxeer</Button> : null}
+          <section className="flex min-w-0 flex-col gap-4 rounded-lg bg-surface-1 p-4 [overflow-wrap:anywhere]">
+            {step === 0 ? <>
+              <h2 className="text-base font-semibold text-text">Name your chain</h2>
+              <FormField
+                id="chain-name"
+                label="Chain name"
+                describedBy="chain-name-rule chain-name-status"
+                invalid={!!name && (!!validateChainName(name) || availability?.state === 'taken')}
+                inputProps={{ name: 'chainName', autoComplete: 'off', value: name, maxLength: 32, disabled: locked, autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false, placeholder: 'Name your chain', onChange: event => setName(event.target.value) }}
+              />
+              <p id="chain-name-rule" className="text-xs text-text-muted">{nameRule}</p>
+              <p id="chain-name-status" role="status" className="text-sm text-text-muted">
+                {name && validateChainName(name) ? 'Check the name rules above.' : availability?.name === name
+                  ? { checking: 'Checking availability…', available: 'This name is available.', taken: 'This name is taken. Choose another.', error: 'Name availability could not be checked. Try again.' }[availability.state]
+                  : !connected ? 'Connect your wallet on Paxeer to check availability.' : ''}
+              </p>
+              {availability?.state === 'error' ? <Button disabled={busy} onClick={() => setValidation(value => value + 1)}>Retry name check</Button> : null}
+              <h2 className="text-base font-semibold text-text">Name your token</h2>
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-form-field-min-width)),1fr))] gap-4">
+                <FormField
+                  id="chain-token-name"
+                  label="Coin name"
+                  helper={<>Name must be 1 to {NAME_MAX_BYTES} bytes.</>}
+                  describedBy={tokenName ? 'chain-token-name-count' : undefined}
+                  trailing={<InlineCounter id="chain-token-name-count" count={byteLength(tokenName)} max={NAME_MAX_BYTES} />}
+                  inputProps={{ name: 'tokenName', autoComplete: 'off', value: tokenName, maxLength: NAME_MAX_BYTES, disabled: locked, placeholder: 'Name your coin', onChange: event => setTokenName(event.target.value) }}
+                />
+                <FormField
+                  id="chain-token-symbol"
+                  label="Ticker"
+                  helper={<>Ticker must be 1 to {SYMBOL_MAX_BYTES} bytes.</>}
+                  describedBy={tokenSymbol ? 'chain-token-symbol-count' : undefined}
+                  trailing={<InlineCounter id="chain-token-symbol-count" count={byteLength(tokenSymbol)} max={SYMBOL_MAX_BYTES} />}
+                  inputProps={{ name: 'tokenSymbol', autoComplete: 'off', value: tokenSymbol, maxLength: SYMBOL_MAX_BYTES, disabled: locked, autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false, placeholder: 'Add a coin ticker (e.g. PAXE)', onChange: event => setTokenSymbol(event.target.value) }}
+                />
+              </div>
+              <StrategyPicker value={feeStrategy} onChange={setFeeStrategy} disabled={locked} />
+            </> : step === 1 ? <>
+              <h2 className="text-base font-semibold text-text">Pick a size</h2>
+              <div role="radiogroup" aria-label="Chain size" className="grid gap-3 sm:grid-cols-3">
+                {tiers.map(value => (
+                  <label key={value} data-selected={tier === value} className={cn('flex min-w-0 flex-col gap-2 rounded-md p-3 text-sm', tier === value ? 'bg-accent-soft-strong' : 'bg-surface-2', !tierAvailable(value) ? 'cursor-not-allowed text-text-muted' : 'cursor-pointer text-text')}>
+                    <span className="flex min-h-touch-target-min flex-wrap items-center gap-2"><input className="size-touch-target-min shrink-0 accent-accent" type="radio" name="chain-size" value={value} checked={tier === value} disabled={locked || !tierAvailable(value)} onChange={() => setTier(value)} /> {tierNames[value]}</span>
+                    {tier === value ? <span className="inline-flex items-center gap-1 font-bold"><Check aria-hidden="true" className="size-icon-sm" />Selected</span> : null}
+                    <span>Up to {SIZE_TIERS[value].gas.toLocaleString('en-US')} gas and {SIZE_TIERS[value].bytes.toLocaleString('en-US')} bytes per block.</span>
+                    {params && !tierAvailable(value) ? <span>Currently unavailable</span> : null}
+                  </label>
+                ))}
+              </div>
+            </> : <>
+              <h2 className="text-base font-semibold text-text">{result ? 'Your chain and token are live' : 'Review and launch'}</h2>
+              <dl className="flex min-w-0 flex-col gap-3 text-sm text-text [overflow-wrap:anywhere]">
+                <div><dt className="text-xs text-text-muted">Chain and size</dt><dd>{name} · {tierNames[tier]}</dd></div>
+                <div><dt className="text-xs text-text-muted">Coin and creator rewards</dt><dd>{tokenName} ({tokenSymbol}) · {feeStrategyLabel(feeStrategy)}</dd></div>
+                <div><dt className="text-xs text-text-muted">Block capacity</dt><dd className="text-xs text-text-muted">Up to {SIZE_TIERS[tier].gas.toLocaleString('en-US')} gas and {SIZE_TIERS[tier].bytes.toLocaleString('en-US')} bytes per block.</dd></div>
+              </dl>
+              {submission ? <div className="text-sm text-text [overflow-wrap:anywhere]" role="region" aria-label="Submitted transaction">
+                <p>Transaction: {submission.txHash}</p>
+                <p>Creator: {submission.creator} · Root chain: {submission.chainId}</p>
+                {!submissionMatches ? <p role="alert">This submitted transaction belongs to a different account or chain. Reconnect its creator on the root chain to confirm it.</p> : null}
+                <Button disabled={busy || !connected || !submissionMatches} onClick={() => void launch(true)}>Retry confirmation</Button>
+              </div> : null}
+              {phase ? <LaunchProgress steps={progress} busy={busy} /> : null}
+              {result ? <div className="flex min-w-0 flex-col gap-3 text-sm text-text [overflow-wrap:anywhere]" role="region" aria-label="Live chain">
+                <p>Token: <strong>{result.tokenName} ({result.tokenSymbol})</strong> · {result.token}</p>
+                <p>Pool: {result.pool}</p>
+                <p>Chain ID: <strong>{result.chainId}</strong></p>
+                <p>Registry ID: {result.id}</p>
+                <label htmlFor="chain-rpc">Chain node path</label>
+                <input id="chain-rpc" name="rpcUrl" autoComplete="off" readOnly value={result.rpcUrl} className="w-full rounded-sm bg-surface-2 p-2 font-mono text-xs" />
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={() => void readyAction('copy')}>Copy RPC URL</Button>
+                  <Button onClick={() => void readyAction('wallet')}>Add to wallet</Button>
+                  <a href={result.explorerUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline">View explorer<span className="sr-only">, opens in a new tab</span></a>
+                  <Button variant="link" href={poolPath(125, result.pool)}>Trade token</Button>
+                </div>
+              </div> : null}
+            </>}
+            {approval ? <div role="region" aria-label="Submitted market fee approval">
+              <p>Market fee approval transaction: {approval.txHash}</p>
+              {busy ? <p role="status">Waiting for market fee approval confirmation…</p> : null}
+              <Button disabled={busy || !connected} onClick={() => void approveFee(true)}>Retry fee confirmation</Button>
+            </div> : null}
+            {step === 2 && !submission && !result ? <>
+              {feeFunding && feeFunding.balance < feeFunding.fee ? <p role="alert">Add USDL to cover the market creation fee, then refresh the launch details.</p> : null}
+              {feeFunding && feeFunding.allowance < feeFunding.fee && !approval ? <Button disabled={busy || !connected || feeFunding.balance < feeFunding.fee} onClick={() => void approveFee()}>Approve USDL market fee</Button> : null}
+              {!feeFunding ? <p role="status">{feeError || (!connected ? 'Connect your wallet on Paxeer to read market fee funding.' : 'Loading market fee funding…')}</p> : null}
+              <Button disabled={busy || !connected} onClick={() => setValidation(value => value + 1)}>Refresh launch details</Button>
+            </> : null}
+            {recoveryBlocked ? <>
+              <Button disabled={busy} onClick={() => setRecoveryValidation(value => value + 1)}>Retry saved launch</Button>
+              <Button variant="link" href="/create">Back to creation</Button>
+            </> : null}
+            {address && !draft && !busy && !submission && !result && !recoveryBlocked ? <Button onClick={() => {
+              setDraft({ draftId: crypto.randomUUID(), version: 2, creator: address.toLowerCase(), chainId: 125,
+                name, tokenName, tokenSymbol, feeStrategy, tier, feeShareBps: 0, updatedAt: Date.now() });
+              if (recoveryBlocked) return;
+              setError('');
+            }}>Start a fresh draft</Button> : null}
+            {step > 0 && !result ? params ? <div className="text-sm text-text-muted">
+              <p>Bond: {formatEther(params[1])} PAX</p>
+              <p>Creation fee: {formatEther(params[2])} PAX</p>
+              <p>Total: {formatEther(params[1] + params[2])} PAX, plus network gas shown in your wallet.</p>
+              {marketFee !== null ? <p>Market creation charge: {formatUnits(marketFee, 6)} USDL from your approved balance.</p> : null}
+            </div> : <p role="status">{paramsError || (!connected ? 'Connect your wallet on Paxeer to read chain costs.' : 'Loading chain costs…')}</p> : null}
+            {step === 0 && paramsError ? <p role="alert">{paramsError}</p> : null}
+            {paramsError && !result ? <Button disabled={busy || !connected} onClick={() => setValidation(value => value + 1)}>Retry chain costs</Button> : null}
+            {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
+            {notice ? <p role="status" className="text-sm text-text-muted">{notice}</p> : null}
+            <div className="flex flex-col gap-2">
+              {step === 0 ? <Button variant="primary" size="lg" disabled={!nameAvailable || !launchFieldsValid || !connected || locked} onClick={() => setStep(1)}>Next</Button>
+                : step === 1 ? <Button variant="primary" size="lg" disabled={!tierAvailable(tier) || locked} onClick={() => setStep(2)}>Next</Button>
+                  : !result ? <Button variant="primary" size="lg" disabled={!connected || !launchFieldsValid || !nameAvailable || !tierAvailable(tier) || marketFee === null || !feeFunding || feeFunding.balance < feeFunding.fee || feeFunding.allowance < feeFunding.fee || locked} onClick={() => void launch()}>Launch chain and token</Button> : null}
+              {step > 0 && !locked ? <Button variant="ghost" onClick={() => setStep(previous => previous - 1)}>Back</Button> : null}
             </div>
-          </div> : null}
-        </>}
-        {approval ? <div role="region" aria-label="Submitted market fee approval">
-          <p>Market fee approval transaction: {approval.txHash}</p>
-          {busy ? <p role="status">Waiting for market fee approval confirmation…</p> : null}
-          <Button disabled={busy || !connected} onClick={() => void approveFee(true)}>Retry fee confirmation</Button>
-        </div> : null}
-        {step === 2 && !submission && !result ? <>
-          {feeFunding && feeFunding.balance < feeFunding.fee ? <p role="alert">Add USDL to cover the market creation fee, then refresh the launch details.</p> : null}
-          {feeFunding && feeFunding.allowance < feeFunding.fee && !approval ? <Button disabled={busy || !connected || feeFunding.balance < feeFunding.fee} onClick={() => void approveFee()}>Approve USDL market fee</Button> : null}
-          {!feeFunding ? <p role="status">{feeError || (!connected ? 'Connect your wallet on Paxeer to read market fee funding.' : 'Loading market fee funding…')}</p> : null}
-          <Button disabled={busy || !connected} onClick={() => setValidation(value => value + 1)}>Refresh launch details</Button>
-        </> : null}
-        {step > 0 && !locked ? <Button variant="ghost" onClick={() => setStep(previous => previous - 1)}>Back</Button> : null}
-        {recoveryBlocked ? <>
-          <Button disabled={busy} onClick={() => setRecoveryValidation(value => value + 1)}>Retry saved launch</Button>
-          <Button variant="link" href="/create">Back to creation</Button>
-        </> : null}
-        {address && !draft && !busy && !submission && !result && !recoveryBlocked ? <Button onClick={() => {
-          setDraft({ draftId: crypto.randomUUID(), version: 2, creator: address.toLowerCase(), chainId: 125,
-            name, tokenName, tokenSymbol, feeStrategy, tier, feeShareBps: 0, updatedAt: Date.now() });
-          if (recoveryBlocked) return;
-          setError('');
-        }}>Start a fresh draft</Button> : null}
-        {step > 0 && !result ? params ? <div className="text-sm text-text-muted">
-          <p>Bond: {formatEther(params[1])} PAX</p>
-          <p>Creation fee: {formatEther(params[2])} PAX</p>
-          <p>Total: {formatEther(params[1] + params[2])} PAX, plus network gas shown in your wallet.</p>
-          {marketFee !== null ? <p>Market creation charge: {formatUnits(marketFee, 6)} USDL from your approved balance.</p> : null}
-        </div> : <p role="status">{paramsError || (!connected ? 'Connect your wallet on Paxeer to read chain costs.' : 'Loading chain costs…')}</p> : null}
-        {step === 0 && paramsError ? <p role="alert">{paramsError}</p> : null}
-        {paramsError && !result ? <Button disabled={busy || !connected} onClick={() => setValidation(value => value + 1)}>Retry chain costs</Button> : null}
-        {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
-        {notice ? <p role="status" className="text-sm text-text-muted">{notice}</p> : null}
-      </section>
+          </section>
+        </div>
+        <aside className="min-w-0 shrink-0 @market-two/create:sticky @market-two/create:top-4 @market-two/create:w-56">
+          <ChainLaunchSummary name={name} tokenName={tokenName} tokenSymbol={tokenSymbol} tier={tier} feeStrategy={feeStrategy} params={params} marketFee={marketFee} />
+        </aside>
+      </div>
     </div>
   );
 }

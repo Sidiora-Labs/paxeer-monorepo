@@ -318,7 +318,7 @@ async function chain_launch_path_proof_recovers_the_submitted_journal_with_one_s
     expect(await registry.readContract({
       address: CHAINS_PRECOMPILE, abi: chainsAbi, functionName: 'chainByName', args: [transcript.draft.name],
     })).toBe(transcript.record[0]);
-    expect(container.querySelector('[aria-current="step"]')?.textContent).toBe('3. Review and launch');
+    expect(container.querySelector('[aria-current="step"]')?.textContent).toBe('3. Review and launch, current step');
     expect(container.querySelector('[aria-label="Submitted transaction"]')?.textContent).toContain(transcript.transaction.hash);
     expect(ChainDraftStorage.restoreSubmission()).toEqual(saved);
     expect(button('Launch chain and token').disabled).toBe(true);
