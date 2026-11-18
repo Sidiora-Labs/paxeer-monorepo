@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -40,7 +41,12 @@ func RankingBroker(t *testing.T) string {
 		}
 	})
 	digest := sha256.Sum256([]byte("ranking-test:market.rankings.*:" + brokerURL))
-	if _, err := lock.Exec(ctx, "SELECT pg_advisory_lock($1)", int64(binary.BigEndian.Uint64(digest[:8]))); err != nil {
+	bits := binary.BigEndian.Uint64(digest[:8])
+	lockID := int64(bits & math.MaxInt64)
+	if bits > math.MaxInt64 {
+		lockID += math.MinInt64
+	}
+	if _, err := lock.Exec(ctx, "SELECT pg_advisory_lock($1)", lockID); err != nil {
 		t.Fatalf("acquire ranking broker within deadline: %v", err)
 	}
 	conn, err := nats.Connect(brokerURL, nats.NoReconnect(), nats.Timeout(3*time.Second))
@@ -108,6 +114,7 @@ func RankingBroker(t *testing.T) string {
 
 func rankingSubject(subject string) bool {
 	parts := strings.Split(subject, ".")
+	prefix := []string{"market", "rankings"}
 	for i, part := range parts {
 		if i >= 3 {
 			return false
@@ -115,7 +122,7 @@ func rankingSubject(subject string) bool {
 		if part == ">" {
 			return true
 		}
-		if part != "*" && i < 2 && part != []string{"market", "rankings"}[i] {
+		if part != "*" && i < len(prefix) && part != prefix[i] {
 			return false
 		}
 	}

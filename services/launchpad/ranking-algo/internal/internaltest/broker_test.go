@@ -16,17 +16,24 @@ import (
 
 func TestRankingSubjectOverlap(t *testing.T) {
 	for subject, want := range map[string]bool{
-		"market.rankings.*":        true,
-		"market.rankings.trending": true,
-		"market.rankings.>":        true,
-		"market.*.*":               true,
-		"market.>":                 true,
-		"*.rankings.*":             true,
-		">":                        true,
-		"market.stats.*":           false,
-		"market.rankings":          false,
-		"market.rankings.*.extra":  false,
-		"social.>":                 false,
+		"market.rankings.*":              true,
+		"market.rankings.trending":       true,
+		"market.rankings.>":              true,
+		"market.*.*":                     true,
+		"market.>":                       true,
+		"*.rankings.*":                   true,
+		">":                              true,
+		"market.stats.*":                 false,
+		"market":                         false,
+		"":                               false,
+		"*":                              false,
+		"*.*.*":                          true,
+		"*.*.>":                          true,
+		"market.*.trending":              true,
+		"market.rankings.trending.extra": false,
+		"market.rankings":                false,
+		"market.rankings.*.extra":        false,
+		"social.>":                       false,
 	} {
 		if got := rankingSubject(subject); got != want {
 			t.Errorf("overlap for %s = %v, want %v", subject, got, want)
