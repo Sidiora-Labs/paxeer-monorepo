@@ -29,6 +29,10 @@ function rankingFixture() {
     } },
     requestId: '00000000-0000-4000-8000-000000000002', generatedAt: computedAt,
     nextCursor: null, revision: '1', watermark, quality: 'complete',
+    freshness: {
+      cutoffHeight: '100', sourceObservedAt: computedAt, generatedAt: computedAt,
+      ageSeconds: 0, stale: false, staleReason: null, retryAfterSeconds: 10,
+    },
   };
 }
 
