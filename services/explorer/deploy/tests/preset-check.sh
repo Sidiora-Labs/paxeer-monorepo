@@ -148,6 +148,29 @@ check 'Paxeer X development preset names application port 3000' \
 for preset in paxeer-x paxeer-x-dev; do
   check "$preset preset names no default theme" \
     test "$(grep -c '^NEXT_PUBLIC_COLOR_THEME_DEFAULT' "$repo/apps/explorer/configs/envs/$preset.env")" -eq 0
+  check "$preset preset names no type family" \
+    test "$(grep -c '^NEXT_PUBLIC_FONT_FAMILY' "$repo/apps/explorer/configs/envs/$preset.env")" -eq 0
+  for line in \
+    "NEXT_PUBLIC_VIEWS_ADDRESS_FORMAT=['base16','bech32']" \
+    'NEXT_PUBLIC_VIEWS_ADDRESS_BECH_32_PREFIX=pax' \
+    'NEXT_PUBLIC_VIEWS_ADDRESS_IDENTICON_TYPE=gradient_avatar'; do
+    check "$preset preset carries $line once" \
+      test "$(grep -cFx "$line" "$repo/apps/explorer/configs/envs/$preset.env")" -eq 1
+    check "$preset preset defines ${line%%=*} once" \
+      test "$(grep -c "^${line%%=*}=" "$repo/apps/explorer/configs/envs/$preset.env")" -eq 1
+  done
+done
+
+for line in \
+  'NEXT_PUBLIC_NETWORK_RPC_URL=https://api5.mainnet-beta.paxeer.network' \
+  "NEXT_PUBLIC_VIEWS_TX_ADDITIONAL_FIELDS=['fee_per_gas']" \
+  'NEXT_PUBLIC_VIEWS_TX_GROUPED_FEES=true' \
+  "NEXT_PUBLIC_VIEWS_CONTRACT_EXTRA_VERIFICATION_METHODS=['solidity-hardhat','solidity-foundry']" \
+  "NEXT_PUBLIC_WEB3_WALLETS=['metamask','rabby','coinbase','trust','okx','token_pocket']"; do
+  check "Paxeer X production preset carries $line once" \
+    test "$(grep -cFx "$line" "$repo/apps/explorer/configs/envs/paxeer-x.env")" -eq 1
+  check "Paxeer X production preset defines ${line%%=*} once" \
+    test "$(grep -c "^${line%%=*}=" "$repo/apps/explorer/configs/envs/paxeer-x.env")" -eq 1
 done
 
 cp "$repo/apps/explorer/configs/envs/paxeer-x.env" "$tmp/paxeer/configs/envs/paxeer-x.env"
