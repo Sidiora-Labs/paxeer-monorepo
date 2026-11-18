@@ -15712,6 +15712,12 @@ value = "One. The type of a token in apps/explorer/types/api/token.ts names the 
 basis = "Gotcha 4693. Decisions 2587 and 3592."
 affects = []
 
+[decision.3767]
+title = "A hint adds nothing to the height of a detail row, the proposer line of a block shares one centre line, and the action column shows the label of a price update in full"
+value = "One. In the label of a detail row the hint takes part in the layout with the size of its icon only. The control keeps at least the touch target of the theme, is placed over the centre of that box and stands on the centre line of the first line of the label text. A row with a hint has the height of a row without one. Task 22.39.851. Two. The title of the proposer and the address entity of the second title row of the block view stand on one centre line at every width. Task 22.39.852. Three. The column Action of the transactions table shows the label of a price update with a count of three digits in full at the widths from 1280 px on, as a least value of care; the width comes from the column From / To, which keeps the room of two shortened addresses and the arrow. Where a label is still cut at a narrower width, the cell carries the full text as its title. Task 22.39.853. No view gains a horizontal overflow, no touch target shrinks and no size of a text grows."
+basis = "Gotcha 4694. Decisions 2587 and 3592."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45372,6 +45378,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.853]
+title = "Give the action column of the transactions table the room of the label of a price update"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/txs"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/txs/TxsTable.tsx ui/txs/TxsTable.spec.tsx ui/txs/TxsTableItem.tsx ui/txs/TxsTableItem.spec.tsx && yarn vitest run ui/txs"
+do_1 = "do_1 Gotcha 4694 and decision 3767, point three. Read apps/explorer/ui/txs/TxsTable.tsx and apps/explorer/ui/txs/TxsTable.spec.tsx in full, the row component of the table and priceUpdateMethod in apps/explorer/ui/txs/TxPriceUpdate.tsx."
+symbols = []
+
+[capability.22.39.852]
+title = "Set the title of the proposer and its address on one centre line in the block view"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/pages/Block.tsx", "apps/explorer/ui/pages/Block.spec.tsx"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/pages/Block.tsx ui/pages/Block.spec.tsx && yarn vitest run ui/pages/Block.spec.tsx"
+do_1 = "do_1 Gotcha 4694 and decision 3767, point two. Read apps/explorer/ui/pages/Block.tsx and apps/explorer/ui/pages/Block.spec.tsx in full."
+symbols = []
+
+[capability.22.39.851]
+title = "Keep the hint of a detail row out of the height of the row and on the centre line of its label"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/shared/DetailedInfo/DetailedInfo.tsx", "apps/explorer/ui/shared/DetailedInfo/DetailedInfo.spec.tsx"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/shared/DetailedInfo/DetailedInfo.tsx ui/shared/DetailedInfo/DetailedInfo.spec.tsx && yarn vitest run ui/shared/DetailedInfo"
+do_1 = "do_1 Gotcha 4694 and decision 3767, point one. Read apps/explorer/ui/shared/DetailedInfo/DetailedInfo.tsx and apps/explorer/ui/shared/DetailedInfo/DetailedInfo.spec.tsx in full, the hint component of the toolkit, apps/explorer/toolkit/chakra/icon-button.tsx and the form of the hint in apps/explorer/ui/shared/scan/ScanStatCard.tsx."
+symbols = []
 
 [capability.22.39.850]
 title = "Keep the value of a statistics tile, the large search text and the head of the recent blocks table whole at phone width"
@@ -176544,6 +176577,101 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.853]
+title = "Give the action column of the transactions table the room of the label of a price update"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.853"]
+interfaces = []
+do_1 = "do_1 Gotcha 4694 and decision 3767, point three. Read apps/explorer/ui/txs/TxsTable.tsx and apps/explorer/ui/txs/TxsTable.spec.tsx in full, the row component of the table and priceUpdateMethod in apps/explorer/ui/txs/TxPriceUpdate.tsx."
+do_2 = "do_2 apps/explorer/ui/txs/TxsTable.tsx: the column Action is wide enough for the label of a price update with a count of three digits at the widths from 1280 px on. The width is taken from the column From / To, which keeps the room of two shortened addresses and the arrow; the sum of the widths of the table does not grow and the table gains no horizontal overflow at 1280 px. The other columns keep their widths. Where the cell of the action still cuts its label at a narrower width, it carries the full text as its title; change the row component under ui/txs only for that title and say so in the final message."
+do_3 = "do_3 Cases in apps/explorer/ui/txs/TxsTable.spec.tsx in the form the file holds: the width of the column Action, the width of the column From / To, and the title of a cut label. Every case the file holds stays and passes. A new case is registered in the form the lint rules of the application accept: a title in lower case that begins with a letter, a named function as the body and at least one expectation in it. The lint run over the changed files is part of the verification. Before the counted verification run the new cases once by hand and read for each expectation of a style the form the element holds, a token or a plain value, and write the expectation in that form. "
+do_4 = "do_4 Read the transactions view once by hand in the browser of the render check at 1280 and 1440 px with a row of a price update of 18 markets from the fixtures of the case files and give in the final message whether the label stands in full. Install the browser of the check first."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. No size of a text or a control grows. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under ui/txs are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No file outside ui/txs changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/txs"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/txs/TxsTable.tsx ui/txs/TxsTable.spec.tsx ui/txs/TxsTableItem.tsx ui/txs/TxsTableItem.spec.tsx && yarn vitest run ui/txs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.852]
+title = "Set the title of the proposer and its address on one centre line in the block view"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.852"]
+interfaces = []
+do_1 = "do_1 Gotcha 4694 and decision 3767, point two. Read apps/explorer/ui/pages/Block.tsx and apps/explorer/ui/pages/Block.spec.tsx in full."
+do_2 = "do_2 apps/explorer/ui/pages/Block.tsx: the title of the proposer and the address entity of the second title row are centred on one line at every width; the word does not shrink, the address may shorten as today, and the row keeps its gap and its place."
+do_3 = "do_3 A case in apps/explorer/ui/pages/Block.spec.tsx in the form the file holds: the line that holds the title of the proposer and the address aligns its items on the centre. Every case the file holds stays and passes. A new case is registered in the form the lint rules of the application accept: a title in lower case that begins with a letter, a named function as the body and at least one expectation in it. The lint run over the changed files is part of the verification. Before the counted verification run the new cases once by hand and read for each expectation of a style the form the element holds, a token or a plain value, and write the expectation in that form. "
+do_4 = "do_4 No assertion is weakened or removed, and no case is removed, skipped or tagged out. No size of a text or a control grows. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The two files named above are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No other file changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/pages/Block.tsx", "apps/explorer/ui/pages/Block.spec.tsx"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/pages/Block.tsx ui/pages/Block.spec.tsx && yarn vitest run ui/pages/Block.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.851]
+title = "Keep the hint of a detail row out of the height of the row and on the centre line of its label"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.851"]
+interfaces = []
+do_1 = "do_1 Gotcha 4694 and decision 3767, point one. Read apps/explorer/ui/shared/DetailedInfo/DetailedInfo.tsx and apps/explorer/ui/shared/DetailedInfo/DetailedInfo.spec.tsx in full, the hint component of the toolkit, apps/explorer/toolkit/chakra/icon-button.tsx and the form of the hint in apps/explorer/ui/shared/scan/ScanStatCard.tsx."
+do_2 = "do_2 apps/explorer/ui/shared/DetailedInfo/DetailedInfo.tsx: in the label of a row the hint takes part in the layout with a box of the size of its icon, the control keeps at least the touch target of the theme and is placed over the centre of that box, and the box stands on the centre line of the first line of the label text at both breakpoints. A row with a hint has the height of a row without one, and the least height of the label cell stays the line height of the value. The loading state keeps the same sizes. The label of the control, its tooltip and its place after the text stay. Neighbouring touch targets of the row do not overlap the control."
+do_3 = "do_3 Cases in apps/explorer/ui/shared/DetailedInfo/DetailedInfo.spec.tsx in the form the file holds: the box of the hint has the size of the icon; the control keeps the touch target; a row with a hint and a row without one hold the same sizes of the label cell; the loading state holds the same form. Every case the file holds stays and passes. A new case is registered in the form the lint rules of the application accept: a title in lower case that begins with a letter, a named function as the body and at least one expectation in it. The lint run over the changed files is part of the verification. Before the counted verification run the new cases once by hand and read for each expectation of a style the form the element holds, a token or a plain value, and write the expectation in that form. "
+do_4 = "do_4 The form is chosen so that every case of the views that draw detail rows passes unchanged: run the cases under ui/tx, ui/block and ui/address once by hand before the change and once after it and give in the final message every case whose result differs. A case that differs through the change is brought back by the form of the change, never by the case. No case outside apps/explorer/ui/shared/DetailedInfo/DetailedInfo.spec.tsx changes. Read one detail view once by hand in the browser of the render check at 390 and 1440 px and give in the final message the height of a row with a hint and of a row without one. Install the browser of the check first."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. No size of a text or a control grows. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The two files named above are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No other file changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/shared/DetailedInfo/DetailedInfo.tsx", "apps/explorer/ui/shared/DetailedInfo/DetailedInfo.spec.tsx"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/shared/DetailedInfo/DetailedInfo.tsx ui/shared/DetailedInfo/DetailedInfo.spec.tsx && yarn vitest run ui/shared/DetailedInfo"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
