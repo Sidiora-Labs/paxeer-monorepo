@@ -67,8 +67,8 @@ const TxsTable = ({
   const showValue = !config.UI.views.tx.hiddenFields?.value;
   const showFee = !config.UI.views.tx.hiddenFields?.tx_fee;
 
-  const fixedColumnsWidth = 35 + (chainData ? 2 : 0) + (showBlockInfo ? 7 : 0) + (showValue ? 7 : 0) + (showFee ? 7.5 : 0);
-  const fromToWidth = `calc(100% - ${ fixedColumnsWidth }rem)`;
+  const fixedColumnsWidth = 3 + 10 + 14 + 8 + (chainData ? 2 : 0) + (showBlockInfo ? 7 : 0) + (showValue ? 7 : 0) + (showFee ? 7.5 : 0);
+  const minTableWidth = `${ fixedColumnsWidth + 19.5 }rem`;
 
   return (
     <AddressHighlightProvider>
@@ -79,7 +79,7 @@ const TxsTable = ({
           ...LIST_TABLE_STYLES,
           '& thead th': { whiteSpace: 'nowrap', verticalAlign: 'middle' },
         }}
-        minWidth={{ base: 'var(--chakra-sizes-6xl)', lg: 'var(--chakra-sizes-5xl)' }}
+        minWidth={{ base: minTableWidth, lg: minTableWidth }}
       >
         <TableHeaderComponent top={ stickyHeader ? top : undefined }>
           <TableRow>
@@ -108,7 +108,7 @@ const TxsTable = ({
                 <TimeFormatToggle flexShrink={ 0 }/>
               </Flex>
             </TableColumnHeader>
-            <TableColumnHeader width={ fromToWidth }>
+            <TableColumnHeader>
               From / To
             </TableColumnHeader>
             { showValue && (
