@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"runtime"
@@ -22,6 +23,8 @@ type HealthDeps struct {
 	Redis  Check
 	Custom map[string]Check
 	State  Check
+	// Logger receives readiness failure causes. Nil uses the default logger.
+	Logger *slog.Logger
 }
 
 // RegisterHealth registers /health, /health/live (liveness) and /health/ready
@@ -44,6 +47,10 @@ const ReadinessTimeout = 2 * time.Second
 var checkName = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 
 func readyHandler(deps HealthDeps) http.HandlerFunc {
+	logger := deps.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	checks := map[string]Check{"database": deps.DB, "redis": deps.Redis}
 	for name, check := range deps.Custom {
 		if _, reserved := checks[name]; reserved || name == "lifecycle" {
@@ -58,6 +65,9 @@ func readyHandler(deps HealthDeps) http.HandlerFunc {
 	var mu sync.Mutex
 	inflight := map[string]bool{}
 	return func(w http.ResponseWriter, r *http.Request) {
+		failed := func(name, status string, err error) {
+			logger.ErrorContext(r.Context(), "readiness check failed", "check", name, "status", status, "err", err)
+		}
 		ctx, cancel := context.WithTimeout(r.Context(), ReadinessTimeout)
 		defer cancel()
 		type result struct {
@@ -70,11 +80,13 @@ func readyHandler(deps HealthDeps) http.HandlerFunc {
 		healthy := true
 		for name, check := range checks {
 			if !checkName.MatchString(name) {
+				failed(name, "failed", fmt.Errorf("invalid readiness check name"))
 				statuses["invalid_check"] = "failed"
 				healthy = false
 				continue
 			}
 			if check == nil {
+				failed(name, "missing", fmt.Errorf("readiness check missing or reserved registration"))
 				statuses[name] = "missing"
 				healthy = false
 				continue
@@ -86,6 +98,7 @@ func readyHandler(deps HealthDeps) http.HandlerFunc {
 			}
 			mu.Unlock()
 			if busy {
+				failed(name, "busy", fmt.Errorf("previous readiness check still running"))
 				statuses[name] = "busy"
 				healthy = false
 				continue
@@ -94,8 +107,8 @@ func readyHandler(deps HealthDeps) http.HandlerFunc {
 			go func(name string, check Check) {
 				var err error
 				defer func() {
-					if recover() != nil {
-						err = fmt.Errorf("readiness_check_panicked")
+					if cause := recover(); cause != nil {
+						err = fmt.Errorf("readiness_check_panicked: %v", cause)
 					}
 					mu.Lock()
 					delete(inflight, name)
@@ -110,6 +123,7 @@ func readyHandler(deps HealthDeps) http.HandlerFunc {
 			case result := <-results:
 				pending--
 				if result.err != nil {
+					failed(result.name, "failed", result.err)
 					statuses[result.name] = "failed"
 					healthy = false
 				} else {
@@ -120,6 +134,7 @@ func readyHandler(deps HealthDeps) http.HandlerFunc {
 				pending = 0
 				for name := range checks {
 					if _, ok := statuses[name]; !ok {
+						failed(name, "timeout", ctx.Err())
 						statuses[name] = "timeout"
 					}
 				}

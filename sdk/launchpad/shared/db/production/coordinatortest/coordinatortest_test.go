@@ -60,6 +60,8 @@ func TestPlatformRuntimeRolesPassReadiness(t *testing.T) {
 		}
 	}
 	assertConnectedInterfaces(t, db, conn)
+	assertMountedReadiness(t, db)
+	assertOrderedBatchRecovery(t, db, conn)
 	var goose bool
 	if err = conn.QueryRow(ctx, `SELECT to_regclass('public.goose_db_version') IS NOT NULL`).Scan(&goose); err != nil || goose {
 		t.Fatalf("coordinator bootstrap left a goose history: %v %v", goose, err)
