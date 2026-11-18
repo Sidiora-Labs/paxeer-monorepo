@@ -176661,7 +176661,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.840]
 title = "Show a tile in the head of the statistics view of the explorer only where its source holds a value"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
