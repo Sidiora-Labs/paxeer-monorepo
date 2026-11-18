@@ -392185,7 +392185,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.839]
 title = "Name the server settings of the inference view and the assistant in the definition of the explorer frontend"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
