@@ -176758,7 +176758,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.859]
 title = "List the blocks of the network in the blocks view without the tabs of forked blocks and uncles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
