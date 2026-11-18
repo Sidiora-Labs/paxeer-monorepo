@@ -12,6 +12,43 @@ BACKEND = ROOT / "services/explorer/backend"
 BUILDER = ROOT / "services/explorer/deploy/tools/mix-in-builder.sh"
 
 
+def test_compiler_inventory_covers_compiler_cases_and_their_fixtures():
+    inventory = ROOT / "docker/explorer-elixir-builder/compilers.tsv"
+    entries = [line.split("\t") for line in inventory.read_text().splitlines()]
+    listed = set()
+    for compiler, version, url, digest in entries:
+        assert compiler in {"solc", "vyper"}
+        assert url.startswith("https://")
+        assert re.fullmatch(r"[0-9a-f]{64}", digest)
+        assert (compiler, version) not in listed
+        listed.add((compiler, version))
+
+    tests = BACKEND / "apps/explorer/test"
+    contracts = tests / "explorer/smart_contract"
+    factory = (tests / "support/factory.ex").read_text()
+    version_pattern = r'"(v\d+\.\d+\.\d+(?:-nightly\.[\d.]+)?(?:\+commit\.[0-9a-f]+)?)"'
+    requested = set()
+    for case in contracts.rglob("*.exs"):
+        source = case.read_text()
+        if not re.search(r"@(?:module|describe)?tag\s+:compiler|tags:\s*\[compiler:\s*true", source):
+            continue
+        sources = [source]
+        for name in set(re.findall(r"Factory\.(contract_code_info\w*)\(", source)):
+            body = re.search(rf"^  def {name} do\n(.*?)(?=^  def |\Z)", factory, re.M | re.S)
+            assert body, name
+            sources.append(body[1])
+        for fixture in set(re.findall(r"/test/(support/fixture/[^\"\s]+\.json)", source)):
+            sources.append((tests / fixture).read_text())
+        for text in sources:
+            for version in re.findall(version_pattern, text):
+                compiler = "solc" if "+commit." in version else "vyper"
+                requested.add((compiler, version))
+
+    assert requested
+    assert {compiler for compiler, _ in requested} == {"solc", "vyper"}
+    assert requested <= listed, sorted(requested - listed)
+
+
 def test_mix_test_excludes_compiler_tag_without_binaries(tmp_path):
     source = BUILDER.read_text(encoding="utf-8")
     match = re.search(
