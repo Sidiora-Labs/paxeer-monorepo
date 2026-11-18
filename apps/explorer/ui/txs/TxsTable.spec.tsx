@@ -86,6 +86,38 @@ describe('TxsTable', () => {
       .toEqual([ '', 'Transaction hash', 'Action', 'Block', 'Age', 'From / To', 'Amount ETH', 'Txn fee ETH' ]);
   });
 
+  it('reserves room for a price update action with a three digit market count', function priceUpdateActionWidth() {
+    const { container } = renderTable();
+    const headers = Array.from(container.querySelectorAll('thead th'));
+
+    expect(getComputedStyle(headers[2]).width).toBe('14rem');
+  });
+
+  it('takes the action space from the counterparty column and preserves the other widths', function priceUpdateCounterpartyWidth() {
+    const { container } = renderTable();
+    const headers = Array.from(container.querySelectorAll('thead th'));
+
+    expect(getComputedStyle(headers[5]).width).toBe('14.125rem');
+    expect([ 0, 1, 3, 4, 6, 7 ].map((index) => getComputedStyle(headers[index]).width))
+      .toEqual([ 'var(--chakra-spacing-12)', 'var(--chakra-spacing-48)', 'var(--chakra-spacing-28)', 'var(--chakra-spacing-32)', '25%', '25%' ]);
+  });
+
+  it.each([ 18, 999 ])('carries the full price update action in the title when clipped with %i markets', function priceUpdateActionTitle(count) {
+    const { container } = render(
+      <TxsTable
+        txs={ [ { ...txMock.priceUpdate, price_update: { ...txMock.priceUpdate.price_update, observation_count: count } } ] }
+        sort="default"
+        top={ 0 }
+        showBlockInfo
+        stickyHeader={ false }
+      />,
+    );
+    const cell = container.querySelectorAll('tbody tr td')[2];
+
+    expect(cell.textContent).toBe(`Price update · ${ count } markets`);
+    expect(cell.getAttribute('title')).toBe(cell.textContent);
+  });
+
   it('takes the scan table styling from the table recipe', () => {
     const { container } = renderTable();
     const { container: plain } = render(

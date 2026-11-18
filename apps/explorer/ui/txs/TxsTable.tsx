@@ -86,7 +86,7 @@ const TxsTable = ({
             <TableColumnHeader width="var(--chakra-spacing-12)"></TableColumnHeader>
             { chainData && <TableColumnHeader width="var(--chakra-spacing-8)"></TableColumnHeader> }
             <TableColumnHeader width="var(--chakra-spacing-48)">Transaction hash</TableColumnHeader>
-            <TableColumnHeader width="var(--chakra-spacing-37\.5)">Action</TableColumnHeader>
+            <TableColumnHeader width="14rem">Action</TableColumnHeader>
             { showBlockInfo && (
               onSortToggle ? (
                 <TableColumnHeaderSortable
@@ -108,7 +108,9 @@ const TxsTable = ({
                 <TimeFormatToggle flexShrink={ 0 }/>
               </Flex>
             </TableColumnHeader>
-            <TableColumnHeader width={ columnNum <= 2 ? baseWidth : 'var(--chakra-spacing-75)' }>From / To</TableColumnHeader>
+            <TableColumnHeader width={ columnNum <= 2 ? `calc(${ baseWidth } - 4.625rem)` : '14.125rem' }>
+              From / To
+            </TableColumnHeader>
             { showValue && (
               onSortToggle ? (
                 <TableColumnHeaderSortable
