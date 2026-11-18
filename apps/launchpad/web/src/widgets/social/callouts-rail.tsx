@@ -30,9 +30,10 @@ const windowOptions = [{ value: '1d' as const, label: '1D' }, { value: '1w' as c
 export function CalloutsRail({ title = 'Best callouts', initialWindow = '1d', maxHeight, className }: CalloutsRailProps) {
   const [range, setRange] = useState<CalloutWindow>(initialWindow);
   const [scrolled, setScrolled] = useState(false);
+  const [cursor, setCursor] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const queryClient = useQueryClient();
-  const feed = useFeed('relevance');
+  const feed = useFeed('relevance', cursor);
   const all = useMemo(() => (feed.state === 'ready' ? (feed.data.Entries ?? []).map(feedCardView) : []), [feed]);
   const callouts = useMemo(() => withinWindow(all, calloutWindows[range]), [all, range]);
   const statsFor = useCalloutStats(callouts);
@@ -79,7 +80,7 @@ export function CalloutsRail({ title = 'Best callouts', initialWindow = '1d', ma
               </div>
             ) : feed.state === 'unsupported' ? (
               <div className="rounded-md bg-surface-1">
-                <UnavailableState title="Callouts" plural="auto" operation={feed.operation} status={feed.status} message={feed.status === 503 ? 'Check back in a bit' : undefined} onRetry={() => { void queryClient.invalidateQueries({ queryKey: queryKeys.feed('relevance', null, 50) }); }} />
+                <UnavailableState title="Callouts" plural="auto" operation={feed.operation} status={feed.status} message={feed.status === 503 ? 'Check back in a bit' : undefined} onRetry={() => { void queryClient.invalidateQueries({ queryKey: queryKeys.feed('relevance', cursor, 50) }); }} />
               </div>
             ) : feed.state === 'error' ? (
               <div className="rounded-md bg-surface-1"><ErrorState title="Can't load callouts right now" message="Check your connection and try again" onRetry={feed.retry} /></div>
@@ -89,6 +90,8 @@ export function CalloutsRail({ title = 'Best callouts', initialWindow = '1d', ma
           </div>
         </div>
       </div>
+      {feed.state === 'ready' && feed.data.Cursor ? <Button variant="secondary" size="sm" onClick={() => setCursor(feed.data.Cursor)}>Next page</Button> : null}
+      {cursor ? <Button variant="ghost" size="sm" onClick={() => setCursor(null)}>First page</Button> : null}
       {scrolled ? (
         <IconButton label="Back to top" icon={<ArrowUp />} variant="round" size="md" onClick={scrollToTop} className="absolute bottom-3 right-3 shadow-pop" />
       ) : null}

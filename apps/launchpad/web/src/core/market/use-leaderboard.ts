@@ -28,12 +28,12 @@ export function validateLeaderboard(response: LeaderboardsResponse, category: Le
  * core/api today; the SDK turns the 404 into CapabilityUnavailableError and
  * this hook returns it as an Unsupported marker rather than synthetic rows.
  */
-export function useLeaderboard(category: LeaderboardCategory, window: LeaderboardWindow, limit: number = leaderboardLimit): Loadable<LeaderboardsResponse> {
+export function useLeaderboard(category: LeaderboardCategory, window: LeaderboardWindow, limit: number = leaderboardLimit, cursor?: string): Loadable<LeaderboardsResponse> {
   const operations = useOperations();
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > leaderboardLimit) throw new RangeError('Invalid leaderboard page bound');
   const query = useQuery({
-    queryKey: queryKeys.leaderboard(category, window, limit),
-    queryFn: async ({ signal }) => validateLeaderboard(await operations.call('IF_LEADERBOARDS', { path: { category }, query: { window, limit } }, { signal }), category, window, limit),
+    queryKey: [...queryKeys.leaderboard(category, window, limit), ...(cursor ? [cursor] : [])],
+    queryFn: async ({ signal }) => validateLeaderboard(await operations.call('IF_LEADERBOARDS', { path: { category }, query: { window, limit, ...(cursor ? { cursor } : {}) } }, { signal }), category, window, limit),
     ...marketCachePolicy.leaderboard,
   });
   return loadable(query, 'IF_LEADERBOARDS');
