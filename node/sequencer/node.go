@@ -9,6 +9,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/ante"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"log/slog"
 	"net"
 	"path/filepath"
 	"sync"
@@ -21,10 +22,11 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/paxeer-network/paxlog"
 	"go.opentelemetry.io/otel"
 )
-
 type Node struct {
+	logger           *slog.Logger
 	Config           Config
 	App              *app.App
 	WAL              *wal.WAL
@@ -47,7 +49,6 @@ type Node struct {
 	leaseDone        chan struct{}
 	lifecycle        sync.Mutex
 }
-
 func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
 	if !cfg.Enable {
 		if option, forward := NewFollowerReceiptOption(cfg); forward {
@@ -64,7 +65,7 @@ func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
 	if a == nil {
 		return nil, fmt.Errorf("%w: sequencer needs an app", ErrConfigValue)
 	}
-	n := &Node{Config: cfg, App: a}
+	n := &Node{Config: cfg, App: a, logger: paxlog.NewLogger("app")}
 	if cfg.Role == RoleStandby {
 		ctx, cancel := context.WithCancel(context.Background())
 		n.Standby, err = StartStandby(ctx, cfg, a)
@@ -185,7 +186,6 @@ func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
 	n.ReceiptSource.pending = n.pendingSend
 	return n, nil
 }
-
 type nodeOpenNonces struct{ app *app.App }
 
 func (r nodeOpenNonces) EvmNonce(addr common.Address) uint64 {
@@ -398,7 +398,7 @@ func (n *Node) startLease(ctx context.Context, result wal.ReplayResult) error {
 	if err != nil {
 		return err
 	}
-	holder, err := NewLeaseHolder(LeaseHolderConfig{Replicator: n.Replicator, Replay: result, KeyID: keyID, LeaseDuration: n.Config.LeaseDuration})
+	holder, err := NewLeaseHolder(LeaseHolderConfig{Replicator: n.Replicator, Replay: result, KeyID: keyID, LeaseDuration: n.Config.LeaseDuration, Logger: n.logger})
 	if err != nil {
 		return err
 	}
@@ -419,10 +419,15 @@ func (n *Node) startLease(ctx context.Context, result wal.ReplayResult) error {
 				return
 			case <-ticker.C:
 				now := time.Now()
-				if !now.Before(holder.Expiry()) || holder.renew(run, now) != nil {
+				var err error
+				if !n.Replicator.Standalone() && !now.Before(holder.Expiry()) {
+					err = ErrLeaseFenced
+				} else {
+					err = holder.renew(run, now)
+				}
+				if err != nil {
 					n.Accepter.mu.Lock()
-					n.Accepter.halted = true
-					_ = n.Executor.Fence()
+					n.Accepter.fenceLease(now, err)
 					n.Accepter.mu.Unlock()
 					return
 				}
