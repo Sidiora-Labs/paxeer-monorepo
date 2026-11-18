@@ -208375,7 +208375,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.909]
 title = "Release the pause of historical reads of the launchpad indexer at the head and keep the readiness read off that pause"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
