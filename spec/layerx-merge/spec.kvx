@@ -176725,7 +176725,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.837]
 title = "Name no default theme in the tracked presets of the explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.833"]
@@ -176757,7 +176757,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.836]
 title = "Build the path of the shipped API spec of the explorer from the base path of the application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176788,7 +176788,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.835]
 title = "Let the scroll effect of the tabs do nothing for an index outside the list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -472225,7 +472225,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.834]
 title = "Serve the count of the price submissions of the last day from a kept value"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
