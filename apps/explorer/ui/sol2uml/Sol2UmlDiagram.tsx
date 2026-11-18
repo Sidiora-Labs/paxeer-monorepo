@@ -68,7 +68,7 @@ const Sol2UmlDiagram = ({ addressHash }: Props) => {
   throwOnResourceLoadError(umlQuery);
 
   if (contractQuery.isPending || umlQuery.isPending) {
-    return <ContentLoader/>;
+    return <ContentLoader width={ 800 } maxW="100%" aspectRatio="4 / 3"/>;
   }
 
   if (!umlQuery.data?.svg || !contractQuery.data) {
