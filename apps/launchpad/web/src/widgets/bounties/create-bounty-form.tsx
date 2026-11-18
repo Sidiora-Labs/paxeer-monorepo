@@ -125,15 +125,15 @@ export function CreateBountyForm({ className }: { className?: string }) {
   const snapshot = usePoolSnapshot(pool);
   const token = pool && snapshot.data?.token && snapshot.data.pool.poolAddress.toLowerCase() === pool ? snapshot.data.token : null;
   const tokenUsable = token !== null && token.decimalsQuality === 'verified' && token.decimals !== null;
-  const effectiveAsset: AssetChoice = asset === 'token' && tokenUsable ? 'token' : 'usdl';
+  const effectiveAsset = asset;
   const decimals = effectiveAsset === 'usdl' ? bountiesContract.usdlDecimals : (token?.decimals as number);
   const symbol = effectiveAsset === 'usdl' ? 'USDL' : token?.symbol ?? 'token';
-  const budgetRaw = parseDecimalAmount(budget, decimals);
+  const budgetRaw = effectiveAsset === 'token' && !tokenUsable ? null : parseDecimalAmount(budget, decimals);
 
   const errors = {
     title: !title.trim() ? 'Give your bounty a title' : Array.from(title).length > TITLE_MAX ? `Keep the title under ${TITLE_MAX} characters` : null,
     description: !description.trim() ? 'Say what a winning submission looks like' : Array.from(description).length > DESCRIPTION_MAX ? `Keep the description under ${DESCRIPTION_MAX} characters` : null,
-    budget: budgetRaw === null ? `Enter an amount with up to ${decimals} decimals` : null,
+    budget: effectiveAsset === 'token' && !tokenUsable ? 'Choose an available reward asset' : budgetRaw === null ? `Enter an amount with up to ${decimals} decimals` : null,
   };
   const valid = !errors.title && !errors.description && !errors.budget;
 
@@ -219,7 +219,7 @@ export function CreateBountyForm({ className }: { className?: string }) {
       {blocked && probe.state === 'unsupported' ? (
         <UnavailableState title="Creating bounties" operation={probe.operation} status={probe.status} message="Your draft is saved here. Try again in a moment" onRetry={availability.retry} />
       ) : null}
-      {blocked && probe.state === 'error' ? <NoticeBar tone="danger" announce title="Can't create bounties right now">Your draft is saved here. Try again in a moment</NoticeBar> : null}
+      {blocked && probe.state === 'error' ? <NoticeBar tone="danger" announce title="Can't create bounties right now">Your draft is saved here. Try again in a moment<Button type="button" variant="secondary" size="sm" onClick={availability.retry}>Try again</Button></NoticeBar> : null}
       {blocked && probe.state === 'loading' ? <p role="status" className="text-sm text-text-muted">Still checking, try again in a moment</p> : null}
       {failure && failure.state === 'unsupported' ? (
         <UnavailableState title="Creating bounties" operation={failure.operation} status={failure.status} message="Try again in a moment" />

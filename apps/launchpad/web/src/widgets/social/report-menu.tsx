@@ -1,10 +1,10 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import { Flag, MoreHorizontal } from 'lucide-react';
 import { gatewayUrl } from '@/core/sdk-config';
 import { openAuthModal } from '@/shell/auth-modal-store';
 import { DropdownMenu, ModalFrame, type MenuItem } from '@/ui/primitives';
-import { accountSession } from '@/widgets/profile/account-transport';
+import { accountEpoch, accountSession, subscribeAccount } from '@/widgets/profile/account-transport';
 import { ReportContent } from '@/widgets/community-safety/report-content';
 import { SafetyClient, type ReportCommand } from '@/widgets/community-safety/safety-client';
 import { useViewerWallet } from './use-follow';
@@ -48,6 +48,7 @@ function gatewaySafetyClient(): SafetyClient | null {
 export function ReportMenu({ subject, items = [], onLocalMute, onLocalBlock, align = 'end', size = 'sm', className }: ReportMenuProps) {
   const [open, setOpen] = useState(false);
   const viewer = useViewerWallet();
+  const epoch = useSyncExternalStore(subscribeAccount, accountEpoch, () => 0);
   const client = useMemo(gatewaySafetyClient, []);
   const menu: MenuItem[] = [
     ...items,
@@ -68,7 +69,7 @@ export function ReportMenu({ subject, items = [], onLocalMute, onLocalBlock, ali
       <DropdownMenu label={`More actions for ${subject.label}`} items={menu} trigger={<MoreHorizontal aria-hidden="true" className="size-icon-md" />} align={align} size={size} className={className} />
       {client ? (
         <ModalFrame open={open} onClose={() => setOpen(false)} title="Report" subtitle={`Reporting ${subject.label}`} size="sm">
-          <ReportContent client={client} targetType={subject.targetType} targetId={subject.targetId} onLocalMute={onLocalMute} onLocalBlock={onLocalBlock} embedded />
+          <ReportContent key={`${epoch}:${subject.targetType}:${subject.targetId}`} client={client} targetType={subject.targetType} targetId={subject.targetId} onLocalMute={onLocalMute} onLocalBlock={onLocalBlock} embedded />
         </ModalFrame>
       ) : null}
     </>
