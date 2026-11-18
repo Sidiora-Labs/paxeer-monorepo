@@ -15760,6 +15760,18 @@ value = "One. A row of a table of fixed layout that holds one cell for the whole
 basis = "Gotchas 4700 and 4701. Decision 3773."
 affects = []
 
+[decision.3775]
+title = "The ticker case of the home view and the preset case of the theme tokens follow decisions 3762, 3763 and 3766"
+value = "One. The case of the ticker in apps/explorer/ui/home/homepageLayout.spec.tsx expects the price of a token with the rate 0.00000125 in the form of decision 3762, which is 0.000001 after the sign of the currency, a value above zero, and expects no element of the change where the token carries none, as decision 3766 sets it. The name of the case and its token stay. Two. The case of the presets in apps/explorer/toolkit/theme/foundations/tokens.spec.ts expects that neither tracked preset holds a line that begins with NEXT_PUBLIC_FONT_FAMILY, as decision 3763 sets it. Its expectations for the four marks and for the default theme stay, and its title names the marks and the absent type family. Three. Neither the ticker nor a preset changes with this decision. Task 22.39.865."
+basis = "Gotcha 4702. Decisions 3762, 3763 and 3766."
+affects = []
+
+[decision.3776]
+title = "The verification of task 22.39.865 lints the case file of the theme tokens and runs the cases of both files"
+value = "The verification command of task 22.39.865 runs the lint of the application over apps/explorer/toolkit/theme/foundations/tokens.spec.ts and then the cases of apps/explorer/ui/home/homepageLayout.spec.tsx and of apps/explorer/toolkit/theme/foundations/tokens.spec.ts. The file apps/explorer/ui/home/homepageLayout.spec.tsx keeps the form of registration it holds; that form is not a subject of the task, and the task changes in it only the expectations decision 3775 names. The steps of the task stay as they are."
+basis = "Gotcha 4703. Decision 3775."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45420,6 +45432,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.865]
+title = "Bring the ticker case of the home view and the preset case of the theme tokens to the forms the product holds"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/home/homepageLayout.spec.tsx", "apps/explorer/toolkit/theme/foundations/tokens.spec.ts"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/home/homepageLayout.spec.tsx toolkit/theme/foundations/tokens.spec.ts && yarn vitest run ui/home/homepageLayout.spec.tsx toolkit/theme/foundations/tokens.spec.ts"
+do_1 = "do_1 Gotcha 4702 and decision 3775. Read apps/explorer/ui/home/homepageLayout.spec.tsx, apps/explorer/ui/home/TickerStrip.tsx, the case file TickerStrip.spec.tsx beside it, apps/explorer/toolkit/theme/foundations/tokens.spec.ts, apps/explorer/configs/envs/paxeer-x.env, apps/explorer/configs/envs/paxeer-x-dev.env and services/explorer/deploy/tests/preset-check.sh in full."
+symbols = []
 
 [capability.22.39.864]
 title = "Let the notice row of the transactions table span exactly the columns the table draws"
@@ -176722,6 +176743,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.865]
+title = "Bring the ticker case of the home view and the preset case of the theme tokens to the forms the product holds"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.865"]
+interfaces = []
+do_1 = "do_1 Gotcha 4702 and decision 3775. Read apps/explorer/ui/home/homepageLayout.spec.tsx, apps/explorer/ui/home/TickerStrip.tsx, the case file TickerStrip.spec.tsx beside it, apps/explorer/toolkit/theme/foundations/tokens.spec.ts, apps/explorer/configs/envs/paxeer-x.env, apps/explorer/configs/envs/paxeer-x-dev.env and services/explorer/deploy/tests/preset-check.sh in full."
+do_2 = "do_2 apps/explorer/ui/home/homepageLayout.spec.tsx: the case of the ticker with the rate 0.00000125 expects the price in the form of decision 3762, which is 0.000001 after the sign of the currency, and expects that the entry holds no element with the attribute data-change. The two expectations that read the text and the colour of the change go with the element they read. The name of the case, its token and its registration stay. No other case of the file changes."
+do_3 = "do_3 apps/explorer/toolkit/theme/foundations/tokens.spec.ts: the case of the presets expects for each of the two presets that no line begins with NEXT_PUBLIC_FONT_FAMILY; the four expectations that named the type family go and that one takes their place. The expectations for the four marks and for the default theme stay. The title of the case names the marks and the absent type family, and the name of its function follows. No other case of the file changes."
+do_4 = "do_4 Run the two files once by hand before the counted verification and read that every case of both passes. The expectations named in do_2 and do_3 change to the form of decision 3775 and no further; no other assertion is weakened or removed, and no case is removed, skipped or tagged out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The two files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No other file changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/home/homepageLayout.spec.tsx", "apps/explorer/toolkit/theme/foundations/tokens.spec.ts"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint toolkit/theme/foundations/tokens.spec.ts && yarn vitest run ui/home/homepageLayout.spec.tsx toolkit/theme/foundations/tokens.spec.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.864]
 title = "Let the notice row of the transactions table span exactly the columns the table draws"
 status = "pending"
@@ -176758,7 +176810,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.863]
 title = "Let the column From / To of the transactions table take the room the other columns leave"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
