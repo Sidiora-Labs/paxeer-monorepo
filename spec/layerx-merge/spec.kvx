@@ -176361,7 +176361,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.833]
 title = "Name no port of the application in the tracked preset of the public explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.832"]
@@ -206800,7 +206800,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.814]
 title = "Bring the cases of the joined fixtures of the launchpad web application in line and run its test script whole to its summary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.810", "22.39.811", "22.39.812", "22.39.813"]
