@@ -534,13 +534,11 @@ func TestRuntimeAdmissionOperatorPromotionAndRecovery(t *testing.T) {
 	require.Error(t, reopened.Promote(t.Context()), "an existing primary cannot take over its own lease")
 }
 
-func TestRuntimeAdmissionLeaseExpiryFencesAdmission(t *testing.T) {
+func TestRuntimeAdmissionLeaseExpiryRenewsAdmission(t *testing.T) {
 	sender := utils.NewSigner()
 	n, _ := sequencerRecoveryNode(t, sender, ModeSequential)
 	n.Config.LeaseDuration = 80 * time.Millisecond
 	require.NoError(t, n.Start(t.Context()))
-	// Hold the renewal writer past expiry; the public admission path must fence
-	// from the configured clock even before the blocked renewer reports failure.
 	n.Replicator.mu.Lock()
 	locked := true
 	defer func() {
@@ -552,11 +550,14 @@ func TestRuntimeAdmissionLeaseExpiryFencesAdmission(t *testing.T) {
 	timer := time.NewTimer(time.Until(expiry) + 10*time.Millisecond)
 	<-timer.C
 	_, raw := runtimeAdmissionSigned(t, n, sender, 0)
-	_, err := runtimeAdmissionAPI(t, n).SendRawTransaction(t.Context(), raw)
-	require.ErrorIs(t, err, ErrLeaseFenced)
-	require.Zero(t, n.App.EvmKeeper.GetNonce(n.App.LatestCtx(), sender.EvmAddress))
 	n.Replicator.mu.Unlock()
 	locked = false
+	_, err := runtimeAdmissionAPI(t, n).SendRawTransaction(t.Context(), raw)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), n.App.EvmKeeper.GetNonce(n.App.LatestCtx(), sender.EvmAddress))
+	require.True(t, n.LeaseHolder.Expiry().After(expiry))
+	_, err = n.Executor.Seal(n.App.LastBlockHeight() + 1)
+	require.NoError(t, err)
 }
 
 // Keep both sides of the public interface in the gate: JSON-RPC encodes a
