@@ -19,8 +19,8 @@ optional service modules beside `compose.py` for service-specific documents.
 Each expected-schema document is the output of the `launchpad-schema expected`
 command. The composer compares its `service` member with the service registry
 name while retaining the platform service name in the values filename.
-Output files are named `<service>.json`, contain only document, file and digest
-variables, and are created with mode `0600`.
+Output files are named `<service>.json`, contain document, file, digest and
+service environment variables, and are created with mode `0600`.
 
 The optional `expected-schema/runtime-paths.json` values file selects the file
 form for named services. It is a JSON object whose service members map to
@@ -88,6 +88,18 @@ file alternative. The composer and variable apply tool require exactly one
 source per document, alongside the required digest. When changing an existing
 deployment's form, clear its previous source before applying the new variables.
 
+The inline indexer form takes the complete deployment manifest and ABI catalog
+from `sdk/launchpad/shared/config/deployment/current.json` and
+`sdk/launchpad/protocol/catalog/reviewed.json`. Role identities retain their
+runtime and implementation hashes. ABI revisions are the catalog's ABI digests;
+the committed source uses the receipt's epochs and the hash of the complete
+manifest. The source manifest digest identifies the reviewed contract bundle.
+Factory discovery templates, including reviewed pool and masked ERC20 runtime
+hashes, are supplied by the native renderer in the rendered receipt form.
+The receipt authority requires an issued, nonzero chain anchor at or after the
+manifest's activation height. Example anchors and runtime hashes are illustrative;
+deployment uses the chain-issued values with the matching rendered documents.
+
 The broker stream and durable example is `values/broker.example.json`. Apply it
 with the shared module's `brokerprovision` command before starting consumers.
 Its `check` action compares the broker with the reviewed document without writes.
@@ -142,3 +154,54 @@ example's `environment`. Listener PEM materials and assertion keys are supplied
 separately under the metadata variable contract. The contract selects `mtls`
 with `METADATA_TLS_CERT_PEM`, `METADATA_TLS_KEY_PEM` and
 `METADATA_TLS_CLIENT_CA_PEM`; these materials are not publication documents.
+
+For `--service livestream`, the composer also writes `RPC_URL`,
+`LIVEPEER_API_URL`, `LIVEPEER_API_KEY`, `BIND_ADDRESS`, `PORT`, `ZONE`,
+`MAX_STREAMS_PER_WALLET`, `MAX_GLOBAL_STREAMS`, `SECRETS_REFRESH_SECONDS` and
+`LIVEPEER_WEBHOOK_TIMESTAMP_UNIT` from their example values. The example API
+key is test data. The public endpoint in the values describes deployment routing;
+the service has no `PUBLIC_URL` setting. Connected broadcasting additionally
+uses the conditional budget, identity, vault, ingest, playback and audit inputs
+listed in the variable contract. A connected budget policy contains the vendor
+identity, prices, monthly allowance, broadcast reserve, currency, peak duration
+and approval reference read by `streams.BudgetPolicy.ValidateVendor`.
+
+The contract's `optional` names are parsed by the image alongside its fixed and
+required names. `forms` describes their environment representation and `defaults`
+records the configuration reader's defaults. `documentCredentials` names the
+secret-provider inputs referenced inside composed documents; the deployment
+supplies their resolved values separately. `buildInputs` describes Docker build
+arguments. The web entry also records its image environment and the Next.js build
+and runtime context in `imageEnvironment` and `contextEnvironment`. Context
+settings are read by Next.js configuration; Docker build arguments are the names
+declared in `Dockerfile.web`.
+
+The Compose stack mounts each service's document directory at
+`/run/launchpad/<service>`. Mount certificate files and rendered documents at the
+absolute paths used by their documents. Private listener values match the
+variable contract's IPv6 wildcard addresses.
+
+Startup document readers and validation are in these service modules:
+
+| Service | Documents and startup readers |
+| --- | --- |
+| All runtime services | `internal/config`: bound JSON sources, digest binding, `OpenRuntimePool`, `ExpectedSchema`; shared `db/production.ConnectionBudget.Reconcile` and readiness schema contracts |
+| api | `internal/app`: accounting read configuration, `streamRelayDocument`, `discoveryRuntimeDocument`, network authority configuration |
+| api-sockets | `internal/app`: `[]natsdriver.ConsumerConfig`, each checked by `BrokerConsumerConfig` |
+| indexer | `internal/runtimedocs`, `internal/receipt.NewRPCQualificationWithAttestation`, `internal/decode.NewRegistry`, `internal/app`: receipt, delivery and lifecycle documents |
+| charts | `internal/config.RuntimeFeatures`, `internal/app.chartOutboxConfig`, `internal/consumer`: chart features, delivery policy and consumer configuration |
+| stats | `internal/app.statsRuntimeDocument.validate`, `statsPhase2Document.validate`: delivery and phase-two workers |
+| pnl | `internal/app`: delivery consumer; optional journey configuration |
+| ranking | `internal/config.RankingRuntimeBinding`, `internal/app`: version-two runtime binding |
+| gateway | `internal/app/app.go`, `internal/config`: runtime, object and identity bindings |
+| user | `internal/app/account_runtime.go`: account event subject map |
+| social | `internal/config.SocialRuntimeBinding`, `internal/app`: private runtime, certificates, resolved credentials and recovery binding |
+| metadata | `internal/config.ReadPublicationRuntime`: publication version, environment, header names and audit key |
+| livestream | `internal/config.ValidateConnected`, `internal/streams.BudgetPolicy`: shared documents and conditional connected policy |
+
+Consumer durations use nanoseconds; the sockets and PnL values express
+milliseconds and their composers convert them. Document variables contain
+standard base64, file variables contain mounted paths, and SHA-256 variables
+identify the exact decoded or mounted bytes. Native service startup additionally
+resolves credentials, reads certificates, and admits the configured external
+dependencies.

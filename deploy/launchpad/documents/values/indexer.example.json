@@ -10,7 +10,6 @@
   "live_deadline_ms": 2000,
   "bulk_deadline_ms": 15000,
   "max_response_bytes": 33554432,
-  "abi_revision": "reviewed-v1",
   "addresses": {
     "event_emitter": "0x622E1bb90E0E2B6E6e5e9e2DbE1555389E8A3EF6",
     "pool_registry": "0x1dC357d2B7B850332a91F06A9E66634F46fC4Ba7",
@@ -22,12 +21,6 @@
     "sidiora_nft": "0xe8DcC844a8006dbf64f5Bb851bCad90292a6409B",
     "fees_router": "0x05681dA6f611C2dfFD3E92611F6dE2d247647927",
     "pool_beacon": "0x0c60Ea33B1DD602A17E1EF1875eE912F3fad71BE"
-  },
-  "catalog": {
-    "schemaVersion": 1,
-    "chainId": 125,
-    "manifestSha256": "6ec466f0cade69ad3da3ea55485afe6d13ec47722bba46864df156ea0900ee6b",
-    "contracts": []
   },
   "max_delivery_lag_ms": 60000,
   "epoch": 1,

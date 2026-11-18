@@ -1,9 +1,8 @@
-"""Validate deployment values for the livestream service.
+"""Compose deployment values for the livestream service.
 
 Livestream has no service-specific startup document.  Its startup contract is
 the shared database budget and expected-schema document supplied by
-``common.py``; this module keeps the deployment values that describe the
-provider and the small mainnet-beta runtime checked before composition.
+``common.py``; this module emits the provider and runtime environment settings.
 """
 
 from __future__ import annotations
@@ -136,4 +135,23 @@ def documents(service: str, values: str | Path) -> dict[str, Any]:
     value = _read_values(Path(values))
     _validate(value)
     return {}
+
+
+def environment(service: str, values: str | Path) -> dict[str, str]:
+    """Write the runtime settings supplied by the deployment values."""
+
+    documents(service, values)
+    value = _read_values(Path(values))
+    return {
+        "BIND_ADDRESS": value["addresses"]["bind"],
+        "PORT": str(value["addresses"]["port"]),
+        "RPC_URL": value["network"]["rpc_url"],
+        "ZONE": value["names"]["zone"],
+        "LIVEPEER_API_URL": value["endpoints"]["livepeer_api_url"],
+        "LIVEPEER_API_KEY": value["credentials"]["livepeer_api_key"],
+        "MAX_STREAMS_PER_WALLET": str(value["limits"]["max_streams_per_wallet"]),
+        "MAX_GLOBAL_STREAMS": str(value["limits"]["max_global_streams"]),
+        "SECRETS_REFRESH_SECONDS": str(value["periods"]["secrets_refresh_seconds"]),
+        "LIVEPEER_WEBHOOK_TIMESTAMP_UNIT": value["periods"]["webhook_timestamp_unit"],
+    }
 
