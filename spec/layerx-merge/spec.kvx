@@ -15610,6 +15610,12 @@ value = "Decision 3748 lets the set of a module in tests/ci/data/launchpad_go_te
 basis = "Gotcha 4676. Decision 3748."
 affects = []
 
+[decision.3750]
+title = "The chain resources of the explorer read the chain indexer through an entry of their own and never through the general API"
+value = "The entry paxeerXIndexer of the configuration of the application is built from the public setting NEXT_PUBLIC_PAXEER_X_INDEXER_API_HOST and the optional setting NEXT_PUBLIC_PAXEER_X_INDEXER_API_BASE_PATH, in the form the entry of the statistics API has. Where a read is given a chain whose configuration holds the entry, that entry is used, as today. Where neither holds the entry, the read is refused with the message apps/explorer/lib/api/getResourceParams.ts gives today: it does not fall back to the general API, since the general API does not serve these routes. The settings validator admits the two settings only together with NEXT_PUBLIC_PAXEER_X_ENABLED set to true. A preset under apps/explorer/configs/envs names the host only where the repository documents the public address of the chain indexer of that network; a host is never invented for a preset."
+basis = "Gotcha 4677."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45270,6 +45276,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.825]
+title = "Give the configuration of the explorer the entry of the chain indexer that the chain resources name"
+reqs = ["22998.1"]
+touches = ["apps/explorer/configs/app/apis.ts", "apps/explorer/deploy/tools/envs-validator", "apps/explorer/lib/api", "apps/explorer/.env.example", "apps/explorer/README.md", "docs/explorer/ENVS.md"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run lib/api/chainIndexerRouting.spec.ts lib/api/chainIndexerEntry.spec.ts deploy/tools/envs-validator/booleanEnvs.spec.ts deploy/tools/envs-validator/chainIndexer.spec.ts"
+do_1 = "do_1 Gotcha 4677 and decision 3750. Read apps/explorer/configs/app/apis.ts with the entries of the statistics API and of the interchain indexer, apps/explorer/lib/api/resources.ts with the five chain resources, apps/explorer/lib/api/getResourceParams.ts, the cases in apps/explorer/lib/api/chainIndexerRouting.spec.ts, the schema files under apps/explorer/deploy/tools/envs-validator with the place that names NEXT_PUBLIC_PAXEER_X_ENABLED and the feature schema of the cross-chain transactions, and the lines of NEXT_PUBLIC_PAXEER_X_ENABLED in apps/explorer/.env.example, apps/explorer/README.md and docs/explorer/ENVS.md."
+symbols = []
 
 [capability.22.39.824]
 title = "Name the command package of the role statements of the social module in the package inventory of the launchpad Go test runner"
@@ -176136,6 +176151,40 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.825]
+title = "Give the configuration of the explorer the entry of the chain indexer that the chain resources name"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.825"]
+interfaces = []
+do_1 = "do_1 Gotcha 4677 and decision 3750. Read apps/explorer/configs/app/apis.ts with the entries of the statistics API and of the interchain indexer, apps/explorer/lib/api/resources.ts with the five chain resources, apps/explorer/lib/api/getResourceParams.ts, the cases in apps/explorer/lib/api/chainIndexerRouting.spec.ts, the schema files under apps/explorer/deploy/tools/envs-validator with the place that names NEXT_PUBLIC_PAXEER_X_ENABLED and the feature schema of the cross-chain transactions, and the lines of NEXT_PUBLIC_PAXEER_X_ENABLED in apps/explorer/.env.example, apps/explorer/README.md and docs/explorer/ENVS.md."
+do_2 = "do_2 In apps/explorer/configs/app/apis.ts build the entry paxeerXIndexer: the endpoint from the setting NEXT_PUBLIC_PAXEER_X_INDEXER_API_HOST, the base path from the optional setting NEXT_PUBLIC_PAXEER_X_INDEXER_API_BASE_PATH without a trailing slash, no entry where the host is not set, and name it in the object of the entries. The type of the entries and the names of the APIs stay as they are. Nothing under apps/explorer/lib/api changes in its sources: the entry of a chain keeps its precedence and the refusal of a read without an entry keeps its message."
+do_3 = "do_3 In the schema files under apps/explorer/deploy/tools/envs-validator admit the two settings: the host as a URL in the form of the other API hosts, the base path as a string, and both only together with NEXT_PUBLIC_PAXEER_X_ENABLED set to true, in the form the feature schema of the cross-chain transactions uses for its host. A configuration that sets NEXT_PUBLIC_PAXEER_X_ENABLED without the host stays valid."
+do_4 = "do_4 Name the two settings in apps/explorer/.env.example beside NEXT_PUBLIC_PAXEER_X_ENABLED, in the table of apps/explorer/README.md that names the feature settings, and in docs/explorer/ENVS.md in the section of NEXT_PUBLIC_PAXEER_X_ENABLED with type, description, the condition and an example, in the form of the neighbouring rows. State there that the views of the chain list and the chain detail read the chain indexer of the network through this entry."
+do_5 = "do_5 Add the case file apps/explorer/lib/api/chainIndexerEntry.spec.ts: with the host and the base path set before the first import of the configuration, the entry of the application holds the endpoint and the base path, the address of the chain list and of a chain detail built without a chain starts with them, and with the host not set the entry is absent and the read is refused with the message of apps/explorer/lib/api/getResourceParams.ts. The cases prepare the settings the configuration reads before the first import and do not depend on the order of the files of a run. Add the case file apps/explorer/deploy/tools/envs-validator/chainIndexer.spec.ts: the schema admits host and base path with NEXT_PUBLIC_PAXEER_X_ENABLED set to true, refuses each of them without it, refuses a host that is no URL, and admits NEXT_PUBLIC_PAXEER_X_ENABLED alone."
+do_6 = "do_6 The presets under apps/explorer/configs/envs do not change, and no file under apps/explorer/ui, apps/explorer/toolkit, apps/explorer/pages or tools/ui-check changes: other tasks hold them. Give in the final message which state the views of the chain list and of the chain detail reach where NEXT_PUBLIC_PAXEER_X_ENABLED is true and the entry is absent, read from their sources, with file and line, and change nothing there. Search the repository for a document that names the public address of the chain indexer of a network and give what it names, or that none does, in the final message."
+do_7 = "do_7 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files named in the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/configs/app/apis.ts", "apps/explorer/deploy/tools/envs-validator", "apps/explorer/lib/api", "apps/explorer/.env.example", "apps/explorer/README.md", "docs/explorer/ENVS.md"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run lib/api/chainIndexerRouting.spec.ts lib/api/chainIndexerEntry.spec.ts deploy/tools/envs-validator/booleanEnvs.spec.ts deploy/tools/envs-validator/chainIndexer.spec.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
