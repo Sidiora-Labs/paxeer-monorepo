@@ -12,6 +12,7 @@ import { LaunchProgress, type LaunchStep } from '../create/launch-progress';
 import { ChainLaunchAdapter, type ChainLaunchResult, type ChainLaunchStep, type ChainSubmission } from './chain-adapters';
 import { SIZE_TIERS, chainCost, validateChainDraft, validateChainName, type ChainDraft, type ChainsParams, type SizeTier } from './chain-domain';
 import { ChainDraftStorage } from './chain-storage';
+import { ChainFeeAdapter, type ChainFeeApproval, type ChainFeeFunding } from './chain-fees';
 import { StrategyPicker, feeStrategyLabel } from '../create/strategy-picker';
 import { NAME_MAX_BYTES, SYMBOL_MAX_BYTES } from '../create/create-form-fields';
 
@@ -33,6 +34,8 @@ export default function ChainWizard() {
   }
   const adapter = useMemo(() => client && wallet
     ? new ChainLaunchAdapter(client as PublicClient, wallet as WalletClient, () => scope.current) : null, [client, wallet]);
+  const feeAdapter = useMemo(() => client && wallet
+    ? new ChainFeeAdapter(client as PublicClient, wallet as WalletClient, () => scope.current) : null, [client, wallet]);
   const storage = useMemo(() => address ? new ChainDraftStorage(address) : null, [address]);
   const [draft, setDraft] = useState<ChainDraft | null>(null);
   const [name, setName] = useState('');
@@ -51,6 +54,10 @@ export default function ChainWizard() {
   const [submission, setSubmission] = useState<ChainSubmission | null>(null);
   const [validation, setValidation] = useState(0);
   const [recoveryBlocked, setRecoveryBlocked] = useState(false);
+  const [recoveryValidation, setRecoveryValidation] = useState(0);
+  const [feeFunding, setFeeFunding] = useState<ChainFeeFunding | null>(null);
+  const [feeError, setFeeError] = useState('');
+  const [approval, setApproval] = useState<ChainFeeApproval | null>(null);
   const [phase, setPhase] = useState<ChainLaunchStep | null>(null);
   const [result, setResult] = useState<ChainLaunchResult | null>(null);
   const launchLock = useRef(false);
@@ -64,7 +71,7 @@ export default function ChainWizard() {
   useEffect(() => {
     setStep(0); setResult(null); setPhase(null); setError(''); setNotice('');
     setName(''); setTokenName(''); setTokenSymbol(''); setFeeStrategy(0);
-    setTier('starter'); setDraft(null); setSubmission(null); setRecoveryBlocked(false);
+    setTier('starter'); setDraft(null); setSubmission(null); setApproval(null); setRecoveryBlocked(false);
     let checkingSubmission = true;
     try {
       const saved = ChainDraftStorage.restoreSubmission();
@@ -76,6 +83,10 @@ export default function ChainWizard() {
         return;
       }
       if (!storage || !address) return;
+      checkingSubmission = true;
+      const savedApproval = storage.restoreFeeApproval();
+      checkingSubmission = false;
+      setApproval(savedApproval);
       const restored = saved?.submission.phase === 'reverted' && saved.submission.creator === address.toLowerCase()
         ? saved.draft : storage.restoreDraft();
       const next: ChainDraft = restored ?? {
@@ -89,7 +100,7 @@ export default function ChainWizard() {
       setRecoveryBlocked(checkingSubmission);
       setError(cause instanceof Error ? cause.message : 'Your saved draft could not be loaded.');
     }
-  }, [storage, address, chainId]);
+  }, [storage, address, chainId, recoveryValidation]);
 
   useEffect(() => {
     if (!draft || !storage || draft.creator !== address?.toLowerCase() || result || submission || recoveryBlocked) return;
@@ -107,7 +118,7 @@ export default function ChainWizard() {
       Promise.all([adapter.readParams(), adapter.client.readContract({
         address: PROTOCOL_CONFIG_ADDRESS, abi: marketFeeAbi, functionName: 'creationFee',
       })]).then(([value, fee]) => { if (active) { setParams(value); setMarketFee(fee); } })
-        .catch(() => { if (active) setParamsError('Chain costs could not be loaded. Reload to try again.'); });
+        .catch(() => { if (active) setParamsError('Chain costs could not be loaded. Try again.'); });
     }
     return () => { active = false; };
   }, [adapter, chainId, validation]);
@@ -123,6 +134,18 @@ export default function ChainWizard() {
     return () => { active = false; };
   }, [adapter, chainId, name, validation]);
 
+  useEffect(() => {
+    let active = true;
+    setFeeFunding(null); setFeeError('');
+    if (!feeAdapter || chainId !== 125 || step !== 2 || submission || result) return;
+    feeAdapter.read({ ...scope.current }).then(value => {
+      if (active) { setFeeFunding(value); setMarketFee(value.fee); }
+    }).catch(cause => {
+      if (active) setFeeError(cause instanceof Error ? cause.message : 'Market fee funding could not be loaded.');
+    });
+    return () => { active = false; };
+  }, [feeAdapter, address, chainId, step, submission, result, validation]);
+
   const nameAvailable = availability?.name === name && availability.state === 'available';
   const launchFieldsValid = !!draft && Object.keys(validateChainDraft({
     ...draft, name, tokenName, tokenSymbol, feeStrategy, tier, updatedAt: Date.now(),
@@ -133,10 +156,42 @@ export default function ChainWizard() {
   };
   const connected = !!address && chainId === 125 && !!adapter;
   const submissionMatches = !!submission && submission.creator === address?.toLowerCase() && submission.chainId === chainId;
-  const locked = busy || !!submission || phase === 'confirm' || !!result || recoveryBlocked;
+  const locked = busy || !!submission || !!approval || phase === 'confirm' || !!result || recoveryBlocked;
+
+  async function approveFee(retry = false) {
+    if (launchLock.current || !feeAdapter || !connected || !storage || recoveryBlocked || submission || result) return;
+    if (retry ? !approval : !!approval || !feeFunding) return;
+    launchLock.current = true;
+    const expected = { ...scope.current };
+    let sent = approval;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      if (!retry) sent = await feeAdapter.approve(expected, feeFunding!.fee, saved => {
+        sent = saved;
+        if (mounted.current && scope.current.epoch === expected.epoch) setApproval(saved);
+        try { storage.saveFeeApproval(saved); }
+        catch { if (mounted.current) setNotice('Your fee approval could not be saved. Keep this page open and retain the transaction hash.'); }
+      });
+      if (!sent) return;
+      const outcome = await feeAdapter.confirm(sent, expected);
+      storage.clearFeeApproval(sent.txHash);
+      if (!mounted.current || scope.current.epoch !== expected.epoch) return;
+      setApproval(null);
+      setValidation(value => value + 1);
+      if (outcome === 'reverted') setError('Market fee approval reverted. Review the fee and try again.');
+      else setNotice('Market fee approved. Review and launch your chain and token.');
+    } catch (cause) {
+      if (mounted.current && scope.current.epoch === expected.epoch) {
+        setError(cause instanceof Error ? cause.message : 'The market fee could not be approved. Try again.');
+      }
+    } finally {
+      launchLock.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  }
 
   async function launch(retry = false) {
-    if (launchLock.current || !adapter || !draft || !connected || recoveryBlocked) return;
+    if (launchLock.current || !adapter || !feeAdapter || !draft || !connected || recoveryBlocked || approval) return;
     if (retry ? !submissionMatches : !!submission || phase === 'confirm' || !nameAvailable || !launchFieldsValid || !tierAvailable(tier) || marketFee === null) return;
     launchLock.current = true;
     const expectedEpoch = scope.current.epoch;
@@ -144,6 +199,14 @@ export default function ChainWizard() {
     let sent = retry ? submission : null;
     setBusy(true); setError(''); setPhase(retry ? 'confirm' : 'create');
     try {
+      if (!retry) {
+        const funding = await feeAdapter.read({ ...scope.current });
+        if (scope.current.epoch !== expectedEpoch) throw new Error('Wallet changed. Review this launch again.');
+        setFeeFunding(funding); setMarketFee(funding.fee);
+        if (funding.fee !== marketFee) throw new Error('The market fee changed. Review it again.');
+        if (funding.balance < funding.fee) throw new Error('Add USDL to cover the market creation fee.');
+        if (funding.allowance < funding.fee) throw new Error('Approve the USDL market fee before launching.');
+      }
       const report = (next: ChainLaunchStep, saved?: ChainSubmission) => {
         if (saved) {
           sent = saved;
@@ -231,9 +294,10 @@ export default function ChainWizard() {
           <p id="chain-name-rule" className="text-xs text-text-muted">{nameRule}</p>
           <p id="chain-name-status" role="status" className="text-sm text-text-muted">
             {name && validateChainName(name) ? 'Check the name rules above.' : availability?.name === name
-              ? { checking: 'Checking availability…', available: 'This name is available.', taken: 'This name is taken. Choose another.', error: 'Name availability could not be checked. Edit the name to try again.' }[availability.state]
+              ? { checking: 'Checking availability…', available: 'This name is available.', taken: 'This name is taken. Choose another.', error: 'Name availability could not be checked. Try again.' }[availability.state]
               : !connected ? 'Connect your wallet on Paxeer to check availability.' : ''}
           </p>
+          {availability?.state === 'error' ? <Button disabled={busy} onClick={() => setValidation(value => value + 1)}>Retry name check</Button> : null}
           <h2 className="text-base font-semibold text-text">Name your token</h2>
           <label htmlFor="chain-token-name" className="text-sm font-bold text-text">Coin name</label>
           <input id="chain-token-name" name="tokenName" autoComplete="off" value={tokenName} maxLength={NAME_MAX_BYTES} disabled={locked}
@@ -261,7 +325,7 @@ export default function ChainWizard() {
           <p className="text-sm text-text">{name} · {tierNames[tier]}</p>
           <p className="text-sm text-text">{tokenName} ({tokenSymbol}) · {feeStrategyLabel(feeStrategy)}</p>
           <p className="text-xs text-text-muted">Up to {SIZE_TIERS[tier].gas.toLocaleString('en-US')} gas and {SIZE_TIERS[tier].bytes.toLocaleString('en-US')} bytes per block.</p>
-          {!result ? <Button variant="primary" disabled={!connected || !launchFieldsValid || !nameAvailable || !tierAvailable(tier) || marketFee === null || locked} onClick={() => void launch()}>Launch chain and token</Button> : null}
+          {!result ? <Button variant="primary" disabled={!connected || !launchFieldsValid || !nameAvailable || !tierAvailable(tier) || marketFee === null || !feeFunding || feeFunding.balance < feeFunding.fee || feeFunding.allowance < feeFunding.fee || locked} onClick={() => void launch()}>Launch chain and token</Button> : null}
           {submission ? <div className="text-sm text-text" role="region" aria-label="Submitted transaction">
             <p>Transaction: {submission.txHash}</p>
             <p>Creator: {submission.creator} · Root chain: {submission.chainId}</p>
@@ -284,7 +348,22 @@ export default function ChainWizard() {
             </div>
           </div> : null}
         </>}
+        {approval ? <div role="region" aria-label="Submitted market fee approval">
+          <p>Market fee approval transaction: {approval.txHash}</p>
+          {busy ? <p role="status">Waiting for market fee approval confirmation…</p> : null}
+          <Button disabled={busy || !connected} onClick={() => void approveFee(true)}>Retry fee confirmation</Button>
+        </div> : null}
+        {step === 2 && !submission && !result ? <>
+          {feeFunding && feeFunding.balance < feeFunding.fee ? <p role="alert">Add USDL to cover the market creation fee, then refresh the launch details.</p> : null}
+          {feeFunding && feeFunding.allowance < feeFunding.fee && !approval ? <Button disabled={busy || !connected || feeFunding.balance < feeFunding.fee} onClick={() => void approveFee()}>Approve USDL market fee</Button> : null}
+          {!feeFunding ? <p role="status">{feeError || (!connected ? 'Connect your wallet on Paxeer to read market fee funding.' : 'Loading market fee funding…')}</p> : null}
+          <Button disabled={busy || !connected} onClick={() => setValidation(value => value + 1)}>Refresh launch details</Button>
+        </> : null}
         {step > 0 && !locked ? <Button variant="ghost" onClick={() => setStep(previous => previous - 1)}>Back</Button> : null}
+        {recoveryBlocked ? <>
+          <Button disabled={busy} onClick={() => setRecoveryValidation(value => value + 1)}>Retry saved launch</Button>
+          <Button variant="link" href="/create">Back to creation</Button>
+        </> : null}
         {address && !draft && !busy && !submission && !result && !recoveryBlocked ? <Button onClick={() => {
           setDraft({ draftId: crypto.randomUUID(), version: 2, creator: address.toLowerCase(), chainId: 125,
             name, tokenName, tokenSymbol, feeStrategy, tier, feeShareBps: 0, updatedAt: Date.now() });
@@ -296,7 +375,9 @@ export default function ChainWizard() {
           <p>Creation fee: {formatEther(params[2])} PAX</p>
           <p>Total: {formatEther(params[1] + params[2])} PAX, plus network gas shown in your wallet.</p>
           {marketFee !== null ? <p>Market creation charge: {formatUnits(marketFee, 6)} USDL from your approved balance.</p> : null}
-        </div> : <p role="status">{paramsError || 'Loading chain costs…'}</p> : null}
+        </div> : <p role="status">{paramsError || (!connected ? 'Connect your wallet on Paxeer to read chain costs.' : 'Loading chain costs…')}</p> : null}
+        {step === 0 && paramsError ? <p role="alert">{paramsError}</p> : null}
+        {paramsError && !result ? <Button disabled={busy || !connected} onClick={() => setValidation(value => value + 1)}>Retry chain costs</Button> : null}
         {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
         {notice ? <p role="status" className="text-sm text-text-muted">{notice}</p> : null}
       </section>

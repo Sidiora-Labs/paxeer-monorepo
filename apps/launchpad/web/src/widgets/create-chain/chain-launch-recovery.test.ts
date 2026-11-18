@@ -9,15 +9,15 @@ import { connect, disconnect } from 'wagmi/actions';
 import { injected } from 'wagmi/connectors';
 import {
   createPublicClient, createWalletClient, decodeFunctionResult, defineChain, encodeAbiParameters,
-  encodeEventTopics, encodeFunctionData, encodeFunctionResult, http, parseAbi, toHex,
+  encodeEventTopics, encodeFunctionData, encodeFunctionResult, erc20Abi, http, parseAbi, toHex,
   type EIP1193Provider, type Hex,
 } from 'viem';
 import { expect, test } from 'vitest';
 import vectors from '../../../../../../tests/vectors/chains/abi-vectors.json';
 import blocks from '../../../../../../services/platform/hosted/indexer/tests/fixtures/chains_blocks.json';
 import { chainsAbi } from './chain-adapters';
-import { CHAINS_PRECOMPILE, decodeChainCreated, decodeChainLaunched, type ChainDraft } from './chain-domain';
-import { CHAIN_LAUNCH_ABI, LAUNCHPAD_ADDRESS, PROTOCOL_CONFIG_ADDRESS } from '@/core/network/contracts';
+import { CHAINS_PRECOMPILE, chainRevenueOperator, decodeChainCreated, decodeChainLaunched, type ChainDraft } from './chain-domain';
+import { CHAIN_LAUNCH_ABI, LAUNCHPAD_ADDRESS, PROTOCOL_CONFIG_ADDRESS, USDL_ADDRESS } from '@/core/network/contracts';
 import { ChainDraftStorage } from './chain-storage';
 import ChainWizard from './chain-wizard';
 
@@ -78,6 +78,7 @@ async function openChainTranscript() {
   });
   const launchedCall = encodeFunctionData({ abi: CHAIN_LAUNCH_ABI, functionName: 'launchedChain', args: [record[0]] });
   const creationFeeCall = encodeFunctionData({ abi: parseAbi(['function creationFee() view returns (uint256)']), functionName: 'creationFee' });
+  const configTokenAbi = parseAbi(['function usdlAddress() view returns (address)']);
   const tokenAbi = parseAbi(['function name() view returns (string)', 'function symbol() view returns (string)']);
 
   type RpcRequest = { id: number; method: string; params?: unknown[] };
@@ -120,8 +121,24 @@ async function openChainTranscript() {
         case 'eth_call': {
           const call = args[0] as { to: string; data: string };
           if (call.to.toLowerCase() === PROTOCOL_CONFIG_ADDRESS.toLowerCase()) {
-            expect(call.data).toBe(creationFeeCall);
-            result = encodeAbiParameters([{ type: 'uint256' }], [10n]);
+            if (call.data === creationFeeCall) {
+              expect(call.data).toBe(creationFeeCall);
+              result = encodeAbiParameters([{ type: 'uint256' }], [10n]);
+            }
+            else {
+              expect(call.data).toBe(encodeFunctionData({ abi: configTokenAbi, functionName: 'usdlAddress' }));
+              result = encodeFunctionResult({ abi: configTokenAbi, functionName: 'usdlAddress', result: USDL_ADDRESS });
+            }
+          } else if (call.to.toLowerCase() === USDL_ADDRESS.toLowerCase()) {
+            if (call.data === encodeFunctionData({ abi: erc20Abi, functionName: 'decimals' })) {
+              result = encodeFunctionResult({ abi: erc20Abi, functionName: 'decimals', result: 6 });
+            } else {
+              expect([
+                encodeFunctionData({ abi: erc20Abi, functionName: 'balanceOf', args: [record[2]] }),
+                encodeFunctionData({ abi: erc20Abi, functionName: 'allowance', args: [record[2], LAUNCHPAD_ADDRESS] }),
+              ]).toContain(call.data);
+              result = encodeAbiParameters([{ type: 'uint256' }], [10n]);
+            }
           } else if (call.to.toLowerCase() === token) {
             if (call.data === encodeFunctionData({ abi: tokenAbi, functionName: 'name' })) {
               result = encodeFunctionResult({ abi: tokenAbi, functionName: 'name', result: tokenName });
@@ -148,7 +165,10 @@ async function openChainTranscript() {
                 response.end(JSON.stringify({ jsonrpc: '2.0', id: rpc.id, error: { code: -32000, message: 'Registry readback interrupted' } }));
                 return;
               }
-              result = vectors.getChain.returndata;
+              result = encodeFunctionResult({ abi: chainsAbi, functionName: 'getChain', result: [
+                record[0], record[1], chainRevenueOperator(record[0]), record[3], record[4], record[5], record[6],
+                record[7], record[8], record[9], record[10],
+              ] });
             }
           }
           break;
@@ -264,6 +284,10 @@ async function chain_launch_path_proof_recovers_the_submitted_journal_with_one_s
     await rendered('Total: 101 PAX');
     await click('Next');
     expect(transcript.submissions).toHaveLength(0);
+    await expect.poll(async () => {
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
+      return button('Launch chain and token').disabled;
+    }, { timeout: 5000 }).toBe(false);
     await click('Launch chain and token');
     await rendered('Registry readback interrupted');
     expect(transcript.unexpected).toEqual([]);
