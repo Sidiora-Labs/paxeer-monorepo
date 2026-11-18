@@ -28,6 +28,7 @@ class SidioraVideoView: UIView {
  private var player: AVPlayer?
  private var playerLayer: AVPlayerLayer?
  private var observer: NSObjectProtocol?
+ private var itemObservation: NSKeyValueObservation?
  private let control = UIButton(type: .system)
  @objc var source: NSString? { didSet { configure(source as String?) } }
  override init(frame: CGRect) {
@@ -43,9 +44,12 @@ class SidioraVideoView: UIView {
  override func layoutSubviews() { super.layoutSubviews(); playerLayer?.frame = bounds; control.frame = CGRect(x: 12, y: max(0, bounds.height - 56), width: max(44, bounds.width - 24), height: 44) }
  override func didMoveToWindow() { super.didMoveToWindow(); if window == nil { pause() } }
  private func configure(_ value: String?) {
-  pause(); playerLayer?.removeFromSuperlayer(); player = nil; playerLayer = nil
+  itemObservation = nil; pause(); playerLayer?.removeFromSuperlayer(); player = nil; playerLayer = nil
   guard let value = value, let url = URL(string: value), url.scheme == "https", url.user == nil, url.password == nil else { control.setTitle("Playback unavailable", for: .normal); control.isEnabled = false; return }
   let instance = AVPlayer(url: url), layer = AVPlayerLayer(player: instance); layer.videoGravity = .resizeAspect
+  itemObservation = instance.currentItem?.observe(\.status, options: [.new]) { [weak self] item, _ in
+   if item.status == .failed { DispatchQueue.main.async { self?.player?.pause(); self?.control.setTitle("Playback unavailable. Close and retry.", for: .normal); self?.control.isEnabled = false; UIAccessibility.post(notification: .announcement, argument: "Playback unavailable. Close playback and retry.") } }
+  }
   self.layer.insertSublayer(layer, at: 0); player = instance; playerLayer = layer; control.isEnabled = true; control.setTitle("Play stream", for: .normal); setNeedsLayout()
  }
  private func pause() { player?.pause(); control.setTitle("Play stream", for: .normal) }
