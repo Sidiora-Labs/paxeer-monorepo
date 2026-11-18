@@ -176726,7 +176726,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.860]
 title = "Show the addresses of the column From / To of the transactions table in their shortened form in full"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
