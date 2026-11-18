@@ -100,6 +100,11 @@ func NewPool(ctx context.Context, dsn string, opts PoolOptions) (*pgxpool.Pool, 
 	if statement > 0 && opts.Transport != TransportTransactionPooler {
 		cfg.ConnConfig.RuntimeParams["statement_timeout"] = fmt.Sprintf("%d", statement.Milliseconds())
 	}
+	if opts.Transport != TransportTransactionPooler {
+		if _, supplied := cfg.ConnConfig.RuntimeParams["jit"]; !supplied {
+			cfg.ConnConfig.RuntimeParams["jit"] = "off"
+		}
+	}
 
 	if opts.Service != "" {
 		cfg.ConnConfig.RuntimeParams["application_name"] = PoolApplicationName(opts)
