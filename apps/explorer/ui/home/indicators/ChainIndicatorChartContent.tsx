@@ -13,6 +13,7 @@ interface Props {
 
 const X_AXIS_TICKS = 3;
 const Y_AXIS_TICKS = 2;
+const CHART_MARGIN = { left: 9, right: 1 };
 
 const ChainIndicatorChartContent = ({ data, caption }: Props) => {
   const overlayRef = React.useRef<SVGRectElement>(null);
@@ -30,10 +31,15 @@ const ChainIndicatorChartContent = ({ data, caption }: Props) => {
   const { rect, ref, axes, innerWidth, innerHeight, chartMargin } = useTimeChartController({
     data,
     axesConfig,
+    margin: CHART_MARGIN,
   });
 
   return (
-    <Box pt={ 1.25 } pr={ 2.5 } pb={ 5 } w="full" h="full" css={{ '& .tick text': { color: 'text.muted' } }}>
+    <Box pt={ 1.25 } pb={ 6 } w="full" h="full" css={{
+      '& .tick text': { color: 'text.muted' },
+      '& [data-label="sparkline-x-axis"] .tick:first-of-type text': { textAnchor: 'start' },
+      '& [data-label="sparkline-x-axis"] .tick:last-of-type text': { textAnchor: 'end' },
+    }}>
       <svg overflow="visible" width="100%" height="100%" ref={ ref } cursor="pointer" data-label="sparkline" role="img"
         aria-label={ caption ?? data[0].name } aria-describedby={ descriptionId }>
         <desc id={ descriptionId }>
