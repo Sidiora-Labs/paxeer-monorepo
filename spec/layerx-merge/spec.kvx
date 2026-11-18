@@ -208051,7 +208051,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.904]
 title = "Read the deployment contract and the composer of the launchpad against what every launchpad image reads at build and at start"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208838,7 +208838,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.879]
 title = "Close the stats module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208966,7 +208966,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.875]
 title = "Close the pnl module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
