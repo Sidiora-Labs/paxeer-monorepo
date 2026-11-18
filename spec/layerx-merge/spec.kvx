@@ -208247,7 +208247,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.914]
 title = "Open the direct sessions of the launchpad services with just-in-time compilation off"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
