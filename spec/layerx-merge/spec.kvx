@@ -15616,6 +15616,12 @@ value = "The entry paxeerXIndexer of the configuration of the application is bui
 basis = "Gotcha 4677."
 affects = []
 
+[decision.3751]
+title = "A reader in test support reads a stored value in the form the producer of the value reads it"
+value = "Where test support reads a value that a service has stored, it reads the value by the rule the service itself reads it with, and not by a narrower rule of its own. For the share of a key record of the attestor that rule is the base 16 integer; a comparison of two shares compares the integers in a form of fixed width, so the record form a share is held in does not change the result. The producer stays as it is: the form the attestor writes is not changed to fit a reader in test support."
+basis = "Gotcha 4678."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45276,6 +45282,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.826]
+title = "Let the share comparison of the ceremony test nodes read the share of a record as the attestor reads it"
+reqs = ["22998.1"]
+touches = ["services/wallet/ceremony/internal/testsupport"]
+tests = []
+verification_contract = "(cd services/wallet/ceremony && go test -count=1 -timeout 30m ./internal/testsupport/)"
+do_1 = "do_1 Gotcha 4678 and decision 3751. Read the function of the share comparison in services/wallet/ceremony/internal/testsupport/ceremony_nodes.go with both record forms it admits, the case TestCeremonyNodesRealProtocolRefreshAndDescribe in services/wallet/ceremony/internal/testsupport/ceremony_nodes_test.go, the two functions in services/wallet/attestor/internal/tss/ecdsa/share.go that write and read the integer of a share, and the function in services/wallet/attestor/internal/server/keys.go that writes the share of the import form."
+symbols = []
 
 [capability.22.39.825]
 title = "Give the configuration of the explorer the entry of the chain indexer that the chain resources name"
@@ -205828,6 +205843,38 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.826]
+title = "Let the share comparison of the ceremony test nodes read the share of a record as the attestor reads it"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.826"]
+interfaces = []
+do_1 = "do_1 Gotcha 4678 and decision 3751. Read the function of the share comparison in services/wallet/ceremony/internal/testsupport/ceremony_nodes.go with both record forms it admits, the case TestCeremonyNodesRealProtocolRefreshAndDescribe in services/wallet/ceremony/internal/testsupport/ceremony_nodes_test.go, the two functions in services/wallet/attestor/internal/tss/ecdsa/share.go that write and read the integer of a share, and the function in services/wallet/attestor/internal/server/keys.go that writes the share of the import form."
+do_2 = "do_2 Move the reading of the share out of the node function into a function of its own in services/wallet/ceremony/internal/testsupport that takes the stored record and gives the comparison value: it takes the text of the share from either record form, reads it as a base 16 integer, refuses an empty text, a text that is no base 16 integer and a negative value, and gives the SHA-256 of the form of 32 bytes of the integer. The buffers that held the share are set to zero as today, and no share leaves the function. The node function calls it."
+do_3 = "do_3 Add a case to the package that calls the function directly on records it builds itself, with fixed values and no random input: a share whose base 16 text has an odd length in the ECDSA form, the same share in the import form with the same comparison value, a share whose text has an even length in both forms, two different shares with different comparison values, and the three refused texts. The case needs no node, no database and no network."
+do_4 = "do_4 Nothing under services/wallet/attestor changes, and the case TestCeremonyNodesRealProtocolRefreshAndDescribe keeps every assertion. Search services/wallet/ceremony for a further place that reads the share of a stored record with the hex decoder of byte strings; correct one inside services/wallet/ceremony/internal/testsupport the same way and give any outside it with file and line in the final message."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/wallet/ceremony/internal/testsupport are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/ceremony/internal/testsupport"]
+tests = []
+planned_paths = []
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && (cd services/wallet/ceremony && go vet ./...)"
+verify_cmd = "(cd services/wallet/ceremony && go test -count=1 -timeout 30m ./internal/testsupport/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
