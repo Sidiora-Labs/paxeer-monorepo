@@ -65,10 +65,12 @@ const TickerStrip = () => {
               { token.symbol ?? '—' }
             </Link>
             <Text data-price textStyle="number" color={ price.isFinite() ? 'text.primary' : 'text.muted' }>
-              { price.isFinite() ? `$${ price.toFormat(Math.max(2, price.decimalPlaces() ?? 2), BigNumber.ROUND_HALF_UP) }` : '—' }
+              { price.isFinite() ? `$${ price.toFormat(Math.min(6, Math.max(2, price.decimalPlaces() ?? 2)), BigNumber.ROUND_HALF_UP) }` : '—' }
             </Text>
             <Text data-change textStyle="number" color={ changeColor } aria-label="24 hour change">
-              { change ? `${ change.isPositive() && !change.isZero() ? '+' : '' }${ change.toFormat() }%` : '—' }
+              { change ? `${ change.isPositive() && !change.isZero() ? '+' : '' }${
+                change.toFormat(Math.min(2, change.decimalPlaces() ?? 0), BigNumber.ROUND_HALF_UP)
+              }%` : '—' }
             </Text>
           </Flex>
         );

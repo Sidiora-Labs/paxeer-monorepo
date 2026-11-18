@@ -1,3 +1,4 @@
+import { Flex } from '@chakra-ui/react';
 import React from 'react';
 
 import type { TxsSocketType } from './socket/types';
@@ -74,7 +75,10 @@ const TxsTable = ({
       <ActivityTable
         label="Transactions"
         variant="scan"
-        css={ LIST_TABLE_STYLES }
+        css={{
+          ...LIST_TABLE_STYLES,
+          '& thead th': { whiteSpace: 'nowrap', verticalAlign: 'middle' },
+        }}
         minWidth={{ base: 'var(--chakra-sizes-6xl)', lg: 'var(--chakra-sizes-5xl)' }}
       >
         <TableHeaderComponent top={ stickyHeader ? top : undefined }>
@@ -99,8 +103,10 @@ const TxsTable = ({
               )
             ) }
             <TableColumnHeader width="var(--chakra-spacing-32)">
-              Age
-              <TimeFormatToggle/>
+              <Flex flexDirection="row" alignItems="center" flexWrap="nowrap" whiteSpace="nowrap">
+                Age
+                <TimeFormatToggle flexShrink={ 0 }/>
+              </Flex>
             </TableColumnHeader>
             <TableColumnHeader width={ columnNum <= 2 ? baseWidth : 'var(--chakra-spacing-75)' }>From / To</TableColumnHeader>
             { showValue && (

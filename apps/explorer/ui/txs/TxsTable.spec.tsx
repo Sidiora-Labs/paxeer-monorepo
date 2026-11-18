@@ -2,10 +2,12 @@
 
 import React from 'react';
 
+import { SettingsContextProvider } from 'lib/contexts/settings';
 import * as txMock from 'mocks/txs/tx';
 import { TableBody, TableCell, TableRoot, TableRow } from 'toolkit/chakra/table';
 import { render } from 'ui/shared/layout/testWrapper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, waitFor } from 'vitest/lib';
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
@@ -32,6 +34,49 @@ describe('TxsTable', () => {
   beforeEach(() => {
     fetchMock.resetMocks();
     fetchMock.mockResponse(JSON.stringify({}), { headers: { 'Content-Type': 'application/json' } });
+  });
+
+  it.each([
+    { sortable: false, sticky: false },
+    { sortable: true, sticky: false },
+    { sortable: false, sticky: true },
+    { sortable: true, sticky: true },
+  ])('keeps the age switch inline and all headers aligned with options %j', async function ageHeaderStaysInline({ sortable, sticky }) {
+    const { container } = render(
+      <SettingsContextProvider>
+        <TxsTable txs={ txs } sort="default" onSortToggle={ sortable ? noop : undefined } top={ 0 } showBlockInfo stickyHeader={ sticky }/>
+      </SettingsContextProvider>,
+    );
+    const toggle = container.querySelector('button[aria-label="Toggle time format"]') as HTMLButtonElement;
+    const ageHeader = toggle.closest('th') as HTMLTableCellElement;
+    const row = ageHeader.firstElementChild as HTMLElement;
+    const headers = Array.from(container.querySelectorAll('thead th'));
+
+    expect(row.textContent).toBe('Age');
+    expect(row.contains(toggle)).toBe(true);
+    expect(getComputedStyle(row).display).toBe('flex');
+    expect(getComputedStyle(row).flexDirection).toBe('row');
+    expect(getComputedStyle(row).flexWrap).toBe('nowrap');
+    expect(getComputedStyle(row).alignItems).toBe('center');
+    for (const header of headers) {
+      expect(getComputedStyle(header).whiteSpace).toBe('nowrap');
+      expect(getComputedStyle(header).verticalAlign).toBe('middle');
+    }
+    expect(headers.some((header) => header.textContent === 'Block')).toBe(true);
+
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(row.textContent).toBe('AgeLocal');
+      expect(toggle.getAttribute('data-selected')).toBe('true');
+    });
+    expect(getComputedStyle(row).flexWrap).toBe('nowrap');
+
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(row.textContent).toBe('Age');
+    });
   });
 
   it('heads the table with the scan columns in order', () => {
