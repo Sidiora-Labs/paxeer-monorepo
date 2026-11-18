@@ -15868,6 +15868,12 @@ value = "One. The preflight routes of the production authority follow the origin
 basis = "Gotcha 4719."
 affects = []
 
+[decision.3793]
+title = "The head acceptance reads the committed head by its key under bounds of its own, and a revision mismatch is answered with the conflict code"
+value = "One. The statement of the head acceptance reads the committed head of chain 125 at the height of the header and compares hash and integrity. It holds no aggregate and no read whose cost grows with the count of committed heads. The comparison with the greatest height goes, since the row found implies it. Two. The read of the header and the read of the record each take a bound of their own, both named values. The bound of the header read is at least two seconds and the bound of the record read at least 300 milliseconds. Both are least values. A header read once for a hash may be kept by its hash in a store of bounded size, because the header of a hash does not change. The age of the block is held against its bound on every request, and the record is read on every request, so nothing a kept header shortens weakens the rule of decision 3792 point three. Three. A preflight whose expected revision differs from the revision of the engine is answered 409 REVISION_CONFLICT on each of the four routes, by both authorities. No outcome that the request alone decides is answered 500. The answer 500 INTERNAL_ERROR stays for a served result that fails its projection. Four. The engine, the body of a served answer, every other code of the routes, the origin rule, the readiness check and the contract of the web application do not change. Task 22.39.936."
+basis = "Gotcha 4720."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45528,6 +45534,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.936]
+title = "Read the committed head of the head acceptance of the launchpad API by its key under bounds of its own and answer a revision mismatch with 409 REVISION_CONFLICT"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4720 and decision 3793. Read services/launchpad/api/internal/app/authority.go and services/launchpad/api/internal/app/dev_authority.go whole, the cases in services/launchpad/api/internal/app/authority_recent_head_test.go with their helpers, the declaration of the view in migrations/60006.sql, the functions Handler, Outcome and Preflight in sdk/launchpad/shared/config/capabilities/preflight.go with every return that carries no capability, and the statement list of services/launchpad/api/internal/rolecheck with the means that package gives to change a statement. The files under sdk and under migrations are read only."
+symbols = []
 
 [capability.22.39.935]
 title = "Accept the web application behind its rewrite on the preflight routes of the production authority of the launchpad API, answer its route from the kept envelope and accept a recent committed head"
@@ -208368,6 +208383,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.936]
+title = "Read the committed head of the head acceptance of the launchpad API by its key under bounds of its own and answer a revision mismatch with 409 REVISION_CONFLICT"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.936"]
+interfaces = []
+do_1 = "do_1 Gotcha 4720 and decision 3793. Read services/launchpad/api/internal/app/authority.go and services/launchpad/api/internal/app/dev_authority.go whole, the cases in services/launchpad/api/internal/app/authority_recent_head_test.go with their helpers, the declaration of the view in migrations/60006.sql, the functions Handler, Outcome and Preflight in sdk/launchpad/shared/config/capabilities/preflight.go with every return that carries no capability, and the statement list of services/launchpad/api/internal/rolecheck with the means that package gives to change a statement. The files under sdk and under migrations are read only."
+do_2 = "do_2 Statement. The statement of acceptsHead in services/launchpad/api/internal/app/authority.go follows decision 3793 point one: one read at chain 125 and the height of the header, hash compared without regard to case, integrity healthy, and no aggregate. The entry of the statement in the statement list of services/launchpad/api/internal/rolecheck changes with it by the means of that package, and the cases of that package pass."
+do_3 = "do_3 Bounds. The header read and the record read of acceptsHead take one bound each, as two named values next to the other named values of the file, under decision 3793 point two. A request whose context ends earlier still ends with it. A store of headers by hash is allowed and not required: when it is added it is bounded in size, safe for concurrent requests, and holds only headers the chain returned for the hash. The refusals of decision 3792 point three and the answer 503 DEPENDENCY_UNAVAILABLE for a read that fails stay as they are. The read of the newest head in the same file keeps its own bound and is not part of this task."
+do_4 = "do_4 Revision. A result of the engine with the reason code RevisionMismatch is answered 409 REVISION_CONFLICT in servePreflight before the projection, for both authorities. Where the reading of do_1 finds another return of Preflight that the handler of the engine answers with status 200 and without a capability, it is answered with the code of the declared contract that fits its cause and never with 500; name each in the final message. A served result that fails its projection keeps the answer 500 INTERNAL_ERROR and its log line."
+do_5 = "do_5 Add services/launchpad/api/internal/app/authority_head_read_test.go in the package of the present authority cases, with cases whose names begin with TestAuthorityHeadRead, built on the helpers of services/launchpad/api/internal/app/authority_recent_head_test.go. Plan: a case takes the text of the statement from the place the service runs it, reads its plan with EXPLAIN in the database of the cases, and proves that the plan holds no Aggregate node; the same case proves that the text of the statement holds no aggregate function. Many heads: with several thousand committed heads of chain 125 in the record a preflight with the hash of a recent healthy head is served, and a hash with no row at its height is answered 409 REVISION_CONFLICT. Slow header: with a reader whose header read takes longer than 300 milliseconds and less than the bound of the header read, a preflight is served; with a header read past its bound the answer is 503 DEPENDENCY_UNAVAILABLE. Revision: on each of the four preflight routes a request with an accepted head and an expected revision that differs from the revision of the engine is answered 409 REVISION_CONFLICT, for the production authority and for the authority outside production, and the same request with the revision of the engine is served."
+do_6 = "do_6 No case of the module is removed, skipped or tagged out and no other assertion is weakened. A case that pins the present text of the statement or the answer 500 for a revision mismatch changes with the rule and keeps every other assertion it holds. The whole case inventory of the module is the verification: run it once by hand before the counted run and read the whole output. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api"]
+tests = []
+planned_paths = ["services/launchpad/api/internal/app/authority_head_read_test.go"]
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/api && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
