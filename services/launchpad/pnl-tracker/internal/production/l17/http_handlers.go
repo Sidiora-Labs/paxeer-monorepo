@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -83,6 +84,9 @@ func writeFailure(w http.ResponseWriter, e error) {
 	var authority *auth.IdentityAuthorityError
 	if errors.As(e, &authority) {
 		status, code, retry = auth.PublicCode(e)
+	}
+	if status >= http.StatusInternalServerError {
+		slog.Error("portfolio request unavailable", slog.Any("err", e))
 	}
 	id, _ := opaqueID()
 	writeJSON(w, status, interfaces.Error{Code: code, Message: "Portfolio request unavailable", RequestId: id, Retryable: retry, FieldErrors: []interfaces.FieldError{}, Details: nil, RetryAfterMs: nil})

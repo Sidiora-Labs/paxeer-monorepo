@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -45,6 +46,7 @@ func getCard(deps CardDeps) http.HandlerFunc {
 		cardID := chi.URLParam(r, "cardId")
 		minted, err := deps.Cards.Get(r.Context(), cardID)
 		if err != nil {
+			slog.ErrorContext(r.Context(), "card lookup failed", slog.Any("err", err))
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "card lookup failed")
 			return
 		}
@@ -73,6 +75,7 @@ func ogImage(deps CardDeps) http.HandlerFunc {
 
 		minted, err := deps.Cards.Get(ctx, cardID)
 		if err != nil {
+			slog.ErrorContext(r.Context(), "card lookup failed", slog.Any("err", err))
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "card lookup failed")
 			return
 		}
@@ -87,6 +90,7 @@ func ogImage(deps CardDeps) http.HandlerFunc {
 		}
 		png, err := deps.Renderer.Render(card.BuildRenderInput(minted.Snapshot, footer))
 		if err != nil {
+			slog.ErrorContext(r.Context(), "card render failed", slog.Any("err", err))
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "card render failed")
 			return
 		}

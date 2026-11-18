@@ -1,8 +1,10 @@
 package notifications
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log"
 	"strings"
 	"testing"
 	"time"
@@ -40,6 +42,14 @@ func TestCanonicalPoolAuthorityRejectsUnboundCanonicalRows(t *testing.T) {
 	if _, err := canonical.PublicSources(ctx); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("invalid public source: %v", err)
 	}
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := canonical.ResolvePublic(canceled, resourcePool, pool); !errors.Is(err, ErrUnavailable) || !errors.Is(err, context.Canceled) {
+		t.Fatalf("canonical pool read cause: %v", err)
+	}
+	if _, err := canonical.PublicSources(canceled); !errors.Is(err, ErrUnavailable) || !errors.Is(err, context.Canceled) {
+		t.Fatalf("canonical pool list cause: %v", err)
+	}
 	if _, err := db.ExecContext(ctx, `UPDATE indexer.indexer_canonical_creations_v1 SET height=1 WHERE pool=$1`, pool); err != nil {
 		t.Fatal(err)
 	}
@@ -55,5 +65,16 @@ func TestCanonicalPoolAuthorityRejectsUnboundCanonicalRows(t *testing.T) {
 	}
 	if _, _, err := NewRuntimeAuthorities(ctx, db, RuntimeConfig{}, pool); err == nil {
 		t.Fatal("missing interval inventory admitted")
+	}
+	var diagnostics bytes.Buffer
+	previousOutput := log.Writer()
+	log.SetOutput(&diagnostics)
+	defer log.SetOutput(previousOutput)
+	runtime := HTTPRuntime{DB: db, Config: RuntimeConfig{Pools: canonical}}
+	if err := runtime.maintain(canceled); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled source maintenance: %v", err)
+	}
+	if !strings.Contains(diagnostics.String(), "notification maintenance failed:") || !strings.Contains(diagnostics.String(), "context canceled") {
+		t.Fatalf("source maintenance diagnostics: %s", diagnostics.String())
 	}
 }

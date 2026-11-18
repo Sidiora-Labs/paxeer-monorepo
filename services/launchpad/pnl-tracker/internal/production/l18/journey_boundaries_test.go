@@ -1,10 +1,12 @@
 package l18
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -125,6 +127,10 @@ func TestRewardCursorBindsResourceWalletAndCheckpoint(t *testing.T) {
 }
 
 func TestRewardHTTPRejectsInvalidQueriesAndOversizedClaims(t *testing.T) {
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	defer slog.SetDefault(previous)
 	f := rewardHistoryChain(t)
 	handler := f.handler(f.chain.Alice)
 	for _, query := range []string{"unknown=1", "limit=1&limit=2", "limit=abc", "limit=0", "programId=" + strings.Repeat("x", 65), "cursor=" + strings.Repeat("x", 2049)} {
@@ -146,6 +152,7 @@ func TestRewardHTTPRejectsInvalidQueriesAndOversizedClaims(t *testing.T) {
 		t.Fatal(out.Code, out.Body.String())
 	}
 	for _, claim := range []bool{false, true} {
+		logs.Reset()
 		out = httptest.NewRecorder()
 		h := HTTP{}
 		if claim {
@@ -155,6 +162,9 @@ func TestRewardHTTPRejectsInvalidQueriesAndOversizedClaims(t *testing.T) {
 		}
 		if out.Code != 503 {
 			t.Fatal(out.Code)
+		}
+		if !strings.Contains(logs.String(), ErrUnavailable.Error()) {
+			t.Fatal("reward dependency cause missing", logs.String())
 		}
 		out = httptest.NewRecorder()
 		if claim {

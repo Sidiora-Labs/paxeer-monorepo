@@ -1,16 +1,22 @@
 package policy
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"sync"
 	"time"
 )
+
+func logDependencyFailure(ctx context.Context, operation string, err error) {
+	slog.ErrorContext(ctx, "security dependency unavailable", "operation", operation, "error", err)
+}
 
 type SecurityEvent struct {
 	RequestID        string          `json:"requestId"`
@@ -76,7 +82,16 @@ type MiddlewareRecord struct {
 	BackendUnavailable bool   `json:"backend_unavailable"`
 }
 
-func (c *MiddlewareCapture) Record(r *http.Request, stage string, started time.Time, allowed, unavailable bool) error {
+func (c *MiddlewareCapture) Record(r *http.Request, stage string, started time.Time, allowed, unavailable bool) (resultErr error) {
+	defer func() {
+		if resultErr != nil {
+			ctx := context.Background()
+			if r != nil {
+				ctx = r.Context()
+			}
+			logDependencyFailure(ctx, "middleware capture", resultErr)
+		}
+	}()
 	if c == nil || c.Writer == nil || len(c.Key) < 32 || r == nil || len(r.Header.Values("X-Request-ID")) != 1 || !regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`).MatchString(r.Header.Get("X-Request-ID")) || !regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`).MatchString(c.RunID) || !regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`).MatchString(c.ReplicaID) || !digestPattern.MatchString(c.CandidateSHA256) || !regexp.MustCompile(`^[a-z0-9.-]{1,32}$`).MatchString(c.PolicyVersion) || stage != "authorization" && stage != "limiter" {
 		return ErrDenied
 	}

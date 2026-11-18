@@ -64,33 +64,32 @@ func (b *CanonicalLegacyBridge) validate() error {
 	return nil
 }
 
+func (b *CanonicalLegacyBridge) beginProjection(ctx context.Context) (pgx.Tx, error) {
+	tx, err := b.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0))", canonicalLegacyLock); err != nil {
+		rollbackTransaction(context.WithoutCancel(ctx), tx)
+		return nil, err
+	}
+	return tx, nil
+}
+
 func (b *CanonicalLegacyBridge) source(name string) string {
 	return pgx.Identifier{b.SourceSchema, name}.Sanitize()
 }
 
 // RunOnce bootstraps pool_stats rows for new canonical pools and replays up to
-// Batch committed fills. It returns the number of events applied; zero when
-// another instance holds the bridge lock.
+// Batch committed fills. Each effect owns its transaction and bridge lock so
+// source reads never hold a connection while a projection acquires another.
 func (b *CanonicalLegacyBridge) RunOnce(ctx context.Context) (int, error) {
 	if err := b.validate(); err != nil {
 		return 0, err
 	}
-	tx, err := b.Pool.Begin(ctx)
-	if err != nil {
-		return 0, err
-	}
-	defer func() {
-		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
-		defer cancel()
-		rollbackTransaction(cleanup, tx)
-	}()
-	var locked bool
-	if err = tx.QueryRow(ctx, "SELECT pg_try_advisory_xact_lock(hashtextextended($1,0))", canonicalLegacyLock).Scan(&locked); err != nil || !locked {
-		return 0, err
-	}
 	var raw, typed int64
 	var alive bool
-	err = tx.QueryRow(ctx, "SELECT w.raw_complete_height,w.typed_complete_height,l.expires_at>clock_timestamp() FROM "+b.source("indexer_ingest_watermarks_v1")+" w JOIN "+b.source("indexer_ingest_leases_v1")+" l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1", b.SourceStream).Scan(&raw, &typed, &alive)
+	err := b.Pool.QueryRow(ctx, "SELECT w.raw_complete_height,w.typed_complete_height,l.expires_at>clock_timestamp() FROM "+b.source("indexer_ingest_watermarks_v1")+" w JOIN "+b.source("indexer_ingest_leases_v1")+" l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1", b.SourceStream).Scan(&raw, &typed, &alive)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, ErrAccountingSourceUnavailable
 	}
@@ -100,20 +99,20 @@ func (b *CanonicalLegacyBridge) RunOnce(ctx context.Context) (int, error) {
 	if raw < 0 || raw != typed || !alive {
 		return 0, ErrAccountingSourceUnavailable
 	}
-	applied, err := b.creations(ctx, tx, typed)
+	applied, err := b.creations(ctx, typed)
 	if err != nil {
 		return applied, err
 	}
-	swaps, err := b.swaps(ctx, tx, typed)
+	swaps, err := b.swaps(ctx, typed)
 	if err != nil {
 		return applied + swaps, err
 	}
-	routes, err := b.multihops(ctx, tx, typed)
+	routes, err := b.multihops(ctx, typed)
 	return applied + swaps + routes, err
 }
 
-func (b *CanonicalLegacyBridge) creations(ctx context.Context, tx pgx.Tx, typed int64) (int, error) {
-	rows, err := tx.Query(ctx, "SELECT k.pool,k.token,k.creator,k.block_timestamp FROM "+b.source("indexer_canonical_creations_v1")+" k WHERE k.height<=$1 AND NOT EXISTS(SELECT 1 FROM stats.pool_stats s WHERE s.pool_address=k.pool) ORDER BY k.height,k.transaction_index,k.log_index LIMIT $2", typed, b.Batch)
+func (b *CanonicalLegacyBridge) creations(ctx context.Context, typed int64) (int, error) {
+	rows, err := b.Pool.Query(ctx, "SELECT k.pool,k.token,k.creator,k.block_timestamp FROM "+b.source("indexer_canonical_creations_v1")+" k WHERE k.height<=$1 AND NOT EXISTS(SELECT 1 FROM stats.pool_stats s WHERE s.pool_address=k.pool) ORDER BY k.height,k.transaction_index,k.log_index LIMIT $2", typed, b.Batch)
 	if err != nil {
 		return 0, err
 	}
@@ -135,8 +134,19 @@ func (b *CanonicalLegacyBridge) creations(ctx context.Context, tx pgx.Tx, typed 
 		return 0, err
 	}
 	for i, c := range pending {
+		tx, err := b.beginProjection(ctx)
+		if err != nil {
+			return i, err
+		}
+		market := *b.Market
+		market.store = market.store.WithTx(tx)
 		creator := strings.ToLower(c.creator)
-		if err = b.Market.ProcessCanonical(ctx, MarketEvent{Pool: strings.ToLower(c.pool), Token: strings.ToLower(c.token), Creator: &creator}, c.created); err != nil {
+		err = market.ProcessCanonical(ctx, MarketEvent{Pool: strings.ToLower(c.pool), Token: strings.ToLower(c.token), Creator: &creator}, c.created)
+		if err == nil {
+			err = tx.Commit(ctx)
+		}
+		rollbackTransaction(context.WithoutCancel(ctx), tx)
+		if err != nil {
 			return i, err
 		}
 	}
@@ -173,9 +183,9 @@ func LegacySwapFromCanonical(fill accounting.FillV1, emitter string, topics []st
 	return SwapEvent{PoolAddress: fill.PoolAddress, Sender: "0x" + strings.ToLower(topics[2][26:]), IsBuy: fill.Side == valueBuy, AmountIn: word(1).String(), AmountOut: word(2).String(), Price: word(4).String(), Fee: word(3).String(), BlockTimestamp: timestamp, TxHash: fill.Position.TransactionHash, LogIndex: logIndex}, nil
 }
 
-func (b *CanonicalLegacyBridge) swaps(ctx context.Context, tx pgx.Tx, typed int64) (int, error) {
+func (b *CanonicalLegacyBridge) swaps(ctx context.Context, typed int64) (int, error) {
 	commits := pgx.Identifier{b.ProjectionSchema, "accounting_market_commits"}.Sanitize()
-	rows, err := tx.Query(ctx, `SELECT c.fill,r.emitter,r.topics,r.data FROM `+commits+` c
+	rows, err := b.Pool.Query(ctx, `SELECT c.fill,r.emitter,r.topics,r.data FROM `+commits+` c
  LEFT JOIN `+b.source("indexer_raw_logs_v1")+` r ON r.chain_id=125 AND r.transaction_hash=c.fill->'position'->>'transactionHash' AND r.log_index=(c.fill->'position'->>'logIndex')::bigint AND r.block_hash=c.fill->'position'->>'blockHash'
  WHERE c.projection_version=$1 AND (c.fill->'position'->>'height')::numeric<=$2::numeric
   AND EXISTS(SELECT 1 FROM stats.pool_stats s WHERE s.pool_address=c.pool)
@@ -230,7 +240,7 @@ func (b *CanonicalLegacyBridge) swaps(ctx context.Context, tx pgx.Tx, typed int6
 // earliest pending fill in chain order. Redis cache and the debounced holder
 // refresh run only after the commit.
 func (b *CanonicalLegacyBridge) projectFill(ctx context.Context, ev SwapEvent) error {
-	tx, err := b.Pool.Begin(ctx)
+	tx, err := b.beginProjection(ctx)
 	if err != nil {
 		return err
 	}

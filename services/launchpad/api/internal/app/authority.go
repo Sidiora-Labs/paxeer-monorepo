@@ -273,8 +273,11 @@ func (a *networkAuthority) head(ctx context.Context) (committedHead, error) {
 	bounded, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
 	defer cancel()
 	err := a.pool.QueryRow(bounded, "SELECT height::text,block_hash,integrity FROM "+pgx.Identifier{a.config.SourceSchema, "indexer_committed_heads_v2"}.Sanitize()+" WHERE chain_id=125 ORDER BY height DESC LIMIT 1").Scan(&h.Number, &h.Hash, &integrity)
+	if err != nil {
+		return committedHead{}, fmt.Errorf("read committed network head: %w", err)
+	}
 	n, ok := new(big.Int).SetString(h.Number, 10)
-	if err != nil || integrity != "healthy" || !authorityDecimal.MatchString(h.Number) || !authorityHash.MatchString(h.Hash) || common.HexToHash(h.Hash) == (common.Hash{}) || !ok || !n.IsUint64() || n.Uint64() > 9007199254740991 {
+	if integrity != "healthy" || !authorityDecimal.MatchString(h.Number) || !authorityHash.MatchString(h.Hash) || common.HexToHash(h.Hash) == (common.Hash{}) || !ok || !n.IsUint64() || n.Uint64() > 9007199254740991 {
 		return committedHead{}, errors.New("healthy committed network head unavailable")
 	}
 	h.Hash = common.HexToHash(h.Hash).Hex()
@@ -328,7 +331,9 @@ func (a *networkAuthority) startRefresh(parent context.Context) {
 			if ctx.Err() != nil {
 				return
 			}
-			_ = a.refresh(ctx)
+			if err := a.refresh(ctx); err != nil && ctx.Err() == nil {
+				slog.Default().Warn("network authority refresh unavailable", "reason", err.Error())
+			}
 			select {
 			case <-ctx.Done():
 				return
@@ -367,6 +372,7 @@ func (a *networkAuthority) Register(r chi.Router, admission *rest.Admission) {
 		defer cancel()
 		body, err := a.envelope(ctx)
 		if err != nil {
+			slog.Default().Warn("network authority unavailable", "reason", err.Error(), "request_id", w.Header().Get("X-Request-ID"))
 			rest.WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
 			return
 		}
@@ -399,6 +405,7 @@ func (a *networkAuthority) Register(r chi.Router, admission *rest.Admission) {
 			}
 			head, err := a.head(r.Context())
 			if err != nil {
+				slog.Default().Warn("network authority preflight head unavailable", "reason", err.Error(), "request_id", w.Header().Get("X-Request-ID"))
 				rest.WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
 				return
 			}

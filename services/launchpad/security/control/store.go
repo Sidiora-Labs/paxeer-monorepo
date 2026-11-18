@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"regexp"
 	"strings"
@@ -175,7 +176,13 @@ func (t *transaction) audit(op, scope, reason, result string) error {
 // A single advisory lock serializes low-volume control mutations across processes.
 // It deliberately favors clear invariants; this is not a DAU throughput claim.
 // Domain failures roll back their writes but commit an append-only denial record.
-func (s *Store) run(ctx context.Context, credential, op, scope, reason string, fn func(*transaction) error) error {
+func (s *Store) run(ctx context.Context, credential, op, scope, reason string, fn func(*transaction) error) (resultErr error) {
+	defer func() {
+		var fault Fault
+		if resultErr != nil && (!errors.As(resultErr, &fault) || fault == Unavailable) {
+			slog.ErrorContext(ctx, "control operation unavailable", "operation", op, "error", resultErr)
+		}
+	}()
 	if !key(scope) || !text(reason, 1000) || len(credential) == 0 || len(credential) > 4096 {
 		return Invalid
 	}
@@ -186,6 +193,9 @@ func (s *Store) run(ctx context.Context, credential, op, scope, reason string, f
 	}
 	p, e := s.identity.Resolve(ctx, credential)
 	if e != nil {
+		if errors.Is(e, Unavailable) {
+			return e
+		}
 		return Denied
 	}
 	if !key(p.ID) || !text(p.Role, 40) {
@@ -210,6 +220,9 @@ func (s *Store) run(ctx context.Context, credential, op, scope, reason string, f
 	}
 	// Revalidate after contended lock acquisition, before any authority use.
 	p, e = s.identity.Resolve(ctx, credential)
+	if errors.Is(e, Unavailable) {
+		return e
+	}
 	if e != nil || !key(p.ID) || !text(p.Role, 40) {
 		return Denied
 	}

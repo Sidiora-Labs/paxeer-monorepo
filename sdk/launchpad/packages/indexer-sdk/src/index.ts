@@ -55,6 +55,7 @@ async function readBoundedBody(response: Response, limitBytes: number, url: stri
 
 export interface Trade {
   id: string;
+  poolAddress: string;
   sender: string;
   isBuy: boolean;
   amountIn: string;
@@ -64,7 +65,7 @@ export interface Trade {
   blockTimestamp: number;
   txHash: string;
 }
-export interface RecentTrades { pool: string; trades: Trade[] | null }
+export interface RecentTrades { pool: string; trades: Trade[] }
 
 export class HttpClient {
   private config?: HttpClientConfig;
@@ -123,7 +124,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 function isTrade(value: unknown): value is Trade {
   if (!isRecord(value)) return false;
-  return ['id', 'sender', 'amountIn', 'amountOut', 'price', 'fee', 'txHash'].every(key => typeof value[key] === 'string')
+  return ['id', 'poolAddress', 'sender', 'amountIn', 'amountOut', 'price', 'fee', 'txHash'].every(key => typeof value[key] === 'string')
     && typeof value.isBuy === 'boolean' && typeof value.blockTimestamp === 'number' && Number.isSafeInteger(value.blockTimestamp);
 }
 

@@ -38,6 +38,7 @@ async function marketReadsUseV2PoolRoutes() {
   } as const;
   const pool = {
     chainId: '125',
+    homeChain: '0',
     createdAt: time,
     createdPosition: position,
     creator: address,
@@ -197,8 +198,12 @@ async function marketReadsUseV2PoolRoutes() {
     ).rejects.toThrow('Invalid IF_SEARCH query');
     const cancelled = AbortSignal.abort();
     await expect(marketRoutes.pools(sdk, cancelled)).rejects.toThrow();
-    await expect(marketRoutes.pool(sdk, address, cancelled)).rejects.toThrow();
-    await expect(marketRoutes.search(sdk, query, cancelled)).rejects.toThrow();
+    await expect(
+      marketRoutes.pool(sdk, address, cancelled),
+    ).rejects.toThrow();
+    await expect(
+      marketRoutes.search(sdk, query, cancelled),
+    ).rejects.toThrow();
     expect(observed).toHaveLength(3);
   } finally {
     await new Promise<void>((resolve, reject) => {
