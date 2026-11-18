@@ -190,43 +190,55 @@ func (n *CeremonyNodes) open(t *testing.T, i int, peer, api net.Listener) {
 	node.fingerprint = func(keyID string) ([32]byte, error) {
 		var fingerprint [32]byte
 		err := real.Store.WithShare(keyID, func(raw []byte) error {
-			// Compare the scalar inside either production encoding, without returning it.
-			var held struct {
-				Bundle *struct {
-					Share string `json:"share"`
-				} `json:"bundle"`
-				ECDSA json.RawMessage `json:"ecdsa"`
-			}
-			if err := json.Unmarshal(raw, &held); err != nil {
-				return err
-			}
-			scalar := ""
-			if held.Bundle != nil {
-				scalar = held.Bundle.Share
-			} else {
-				var share struct {
-					Share string `json:"share"`
-				}
-				if err := json.Unmarshal(held.ECDSA, &share); err != nil {
-					return err
-				}
-				scalar = share.Share
-			}
-			if scalar == "" {
-				return errors.New("production record has no scalar")
-			}
-			rawScalar, err := hex.DecodeString(scalar)
-			if err != nil {
-				return err
-			}
-			fingerprint = sha256.Sum256(rawScalar)
-			for i := range rawScalar {
-				rawScalar[i] = 0
-			}
-			return nil
+			var err error
+			fingerprint, err = ceremonyShareFingerprint(raw)
+			return err
 		})
 		return fingerprint, err
 	}
+}
+
+func ceremonyShareFingerprint(raw []byte) ([32]byte, error) {
+	var held struct {
+		Bundle *struct {
+			Share string `json:"share"`
+		} `json:"bundle"`
+		ECDSA json.RawMessage `json:"ecdsa"`
+	}
+	defer func() { clear(held.ECDSA) }()
+	if err := json.Unmarshal(raw, &held); err != nil {
+		return [32]byte{}, err
+	}
+	scalar := ""
+	if held.Bundle != nil {
+		scalar = held.Bundle.Share
+	} else {
+		var share struct {
+			Share string `json:"share"`
+		}
+		if err := json.Unmarshal(held.ECDSA, &share); err != nil {
+			return [32]byte{}, err
+		}
+		scalar = share.Share
+	}
+	if scalar == "" {
+		return [32]byte{}, errors.New("production record has no scalar")
+	}
+	value := new(big.Int)
+	defer func() {
+		clear(value.Bits())
+		value.SetInt64(0)
+	}()
+	if _, ok := value.SetString(scalar, 16); !ok || value.Sign() < 0 {
+		return [32]byte{}, errors.New("production record has malformed scalar")
+	}
+	var rawScalar [32]byte
+	defer func() { clear(rawScalar[:]) }()
+	if value.BitLen() > len(rawScalar)*8 {
+		return [32]byte{}, errors.New("production record scalar exceeds 32 bytes")
+	}
+	value.FillBytes(rawScalar[:])
+	return sha256.Sum256(rawScalar[:]), nil
 }
 
 type ceremonyCountingListener struct {

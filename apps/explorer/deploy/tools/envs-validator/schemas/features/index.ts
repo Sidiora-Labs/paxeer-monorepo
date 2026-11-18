@@ -12,6 +12,7 @@ export * from './marketplace';
 export * from './megaEth';
 export * from './multichainButton';
 export * from './nameServices';
+export * from './paxeerX';
 export * from './rollup';
 export * from './tac';
 export * from './userOps';

@@ -15610,6 +15610,48 @@ value = "Decision 3748 lets the set of a module in tests/ci/data/launchpad_go_te
 basis = "Gotcha 4676. Decision 3748."
 affects = []
 
+[decision.3750]
+title = "The chain resources of the explorer read the chain indexer through an entry of their own and never through the general API"
+value = "The entry paxeerXIndexer of the configuration of the application is built from the public setting NEXT_PUBLIC_PAXEER_X_INDEXER_API_HOST and the optional setting NEXT_PUBLIC_PAXEER_X_INDEXER_API_BASE_PATH, in the form the entry of the statistics API has. Where a read is given a chain whose configuration holds the entry, that entry is used, as today. Where neither holds the entry, the read is refused with the message apps/explorer/lib/api/getResourceParams.ts gives today: it does not fall back to the general API, since the general API does not serve these routes. The settings validator admits the two settings only together with NEXT_PUBLIC_PAXEER_X_ENABLED set to true. A preset under apps/explorer/configs/envs names the host only where the repository documents the public address of the chain indexer of that network; a host is never invented for a preset."
+basis = "Gotcha 4677."
+affects = []
+
+[decision.3751]
+title = "A reader in test support reads a stored value in the form the producer of the value reads it"
+value = "Where test support reads a value that a service has stored, it reads the value by the rule the service itself reads it with, and not by a narrower rule of its own. For the share of a key record of the attestor that rule is the base 16 integer; a comparison of two shares compares the integers in a form of fixed width, so the record form a share is held in does not change the result. The producer stays as it is: the form the attestor writes is not changed to fit a reader in test support."
+basis = "Gotcha 4678."
+affects = []
+
+[decision.3752]
+title = "The launchpad web application takes the sizes and the shell of its earlier state from its record"
+value = "Decisions 3707, 3708 and 3710 hold for the launchpad web application with the record spec/layerx-merge/programme/records/ui/22.44.104.kvx as the measure. Every size token that the record lists with different values in the two states gives the value of the earlier state at every width; the form of a token can stay where its value equals the earlier one at every width. The header, the navigation, the main region and the footer have the boxes of the earlier state. A control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above. A view or a part that a task outside series 22.44 added stays and takes the sizes of the like parts of the earlier state. The track the page reserves for the scroll bar stays, since it keeps the layout from shifting; the record of the correcting task names it as the cause of the differences in width it leaves. Task 22.44.106 brings the tokens, the shell and the home views to this rule, and tasks 22.44.107 to 22.44.112 close the other parts of the surface on it."
+basis = "Gotcha 4679. Decisions 3707, 3708, 3710 and 3747."
+affects = []
+
+[decision.3753]
+title = "The focus measure compares a control with its own appearance at rest, also where the control is not shown at rest"
+value = "A control that a view shows only when the pointer is over its row or when it holds keyboard focus is an admitted form: the keyboard reaches it and the focus shows it. The focus measure of the render check stores the appearance at rest of every element that can take keyboard focus and compares the focused control with it; the two captures of the viewport decide as today whether the change is visible. The list of the elements that Tab is expected to reach stays the list of the elements shown at rest, and every other rule of the kind focus stays as it is: a control without a visible change, a control outside the viewport and an element that Tab does not reach keep their findings."
+basis = "Gotcha 4680."
+affects = []
+
+[decision.3754]
+title = "The validator target of the explorer compiles through its own configuration, and the verification of task 22.39.825 runs the cases of its entry"
+value = "The configuration of the settings validator is brought in line with the application files its sources import; no file of the application outside apps/explorer/deploy/tools/envs-validator changes for it, the strict setting stays, no source of the validator leaves the program, and no check is turned off by a comment or a cast. Task 22.39.827 does this and runs the case that compiles the target. The verification of task 22.39.825 runs the cases of the chain indexer entry and of its settings; the case file of the boolean settings, which holds the case of the validator target, belongs to the verification of task 22.39.827. Nothing else of task 22.39.825 changes, and no step of it changes."
+basis = "Gotcha 4681. Decision 3750."
+affects = []
+
+[decision.3755]
+title = "The chain reads of the indexer reach a browser through the hosted gateway"
+value = "The gateway serves /v1/chains, /v1/chains/:id, /v1/chains/:id/summary, /v1/chains/:id/transfers and /v1/chains/:id/events with the method GET as public reads and answers them from the indexer origin it is configured with, in the form its public reads have: exact paths, a checked chain number, the read budget of the public reads, JSON answers only, and the status and the document of the indexer kept. The indexer gets no cross-origin handling and no public listener for these reads. The setting NEXT_PUBLIC_PAXEER_X_INDEXER_API_HOST of the explorer names the public address of the gateway on a deployment, and the origin of the explorer stands in the allowed origins of the route bindings. The read of a chain by its name is not part of these routes. The budget values are the values of the public reads and are a least protection, not a measured bound."
+basis = "Gotcha 4682. Decision 3750."
+affects = []
+
+[decision.3756]
+title = "The development market documents of the launchpad API carry the home chain of the pool"
+value = "The read DevelopmentPools of the store reads the column home_chain of indexer.pools as decimal text for each pool and checks it in the form the read PoolHomeChains has. The function developmentPoolDocument sets homeChain from the row. A row whose value does not pass the check is refused as a data integrity error, and the document invents no value. The schema that the cases of the module create for indexer.pools holds the column in the form of migration 60003. Nothing of the contract changes."
+basis = "Gotcha 4683."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45270,6 +45312,123 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.829]
+title = "Give the pool document of the development market reads of the launchpad API the home chain the contract requires"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api"]
+tests = []
+verification_contract = "anvil --version > /dev/null && grep -q -e TestDevelopmentPoolHomeChain services/launchpad/api/internal/rest/dev_market_home_chain_test.go && (cd services/launchpad/api && go test -count=1 -timeout 20m ./internal/rest/ -run TestDevelopmentPoolHomeChain)"
+do_1 = "do_1 Gotcha 4683 and decision 3756. Read the schemas Pool and PoolDetailResponse in services/launchpad/api/internal/rest/testdata/contracts/v2/openapi.json, the pool document and the read PoolHomeChains in services/launchpad/api/internal/rest/pool_reads.go and services/launchpad/api/internal/store/chain_reads.go, the function developmentPoolDocument and every place that calls it in services/launchpad/api/internal/rest/dev_market.go, the type DevelopmentPool and the read DevelopmentPools in services/launchpad/api/internal/store/development_market.go, the table indexer.pools in services/launchpad/api/internal/internaltest/containers.go and the column home_chain in migrations/60003.sql."
+symbols = []
+
+[capability.22.39.828]
+title = "Serve the chain reads of the indexer as public reads of the hosted gateway"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway", "docs/wiki/HostedGateway.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway chain_reads_ && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway public_read"
+do_1 = "do_1 Gotcha 4682 and decision 3755. Read in services/platform/hosted/gateway/src the files public_reads.rs with its targets, its budget and its route, history.rs with the indexer origin and the type Source, main.rs with the function route_with_peer and the place where the public reads are routed, and routes.rs with the rule of the allowed origins. Read the chain routes in services/platform/hosted/indexer/src/api.rs with their refusals, the chain resources in apps/explorer/lib/api/resources.ts and the section Public routes in docs/wiki/HostedGateway.md."
+symbols = []
+
+[capability.22.39.827]
+title = "Bring the TypeScript configuration of the settings validator of the explorer in line with the application files its target compiles"
+reqs = ["22998.1"]
+touches = ["apps/explorer/deploy/tools/envs-validator"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run deploy/tools/envs-validator/booleanEnvs.spec.ts deploy/tools/envs-validator/chainIndexer.spec.ts"
+do_1 = "do_1 Gotcha 4681 and decision 3754. Read apps/explorer/deploy/tools/envs-validator/tsconfig.json, the case envSchemaDuplicateKeyCompilesValidatorTarget in apps/explorer/deploy/tools/envs-validator/booleanEnvs.spec.ts, the imports of application files in the sources under apps/explorer/deploy/tools/envs-validator, apps/explorer/tsconfig.json with its paths, its jsx setting and its list of declaration files, and apps/explorer/global.d.ts. Build the program of the validator target once by hand and list its diagnostics by file in the final message."
+symbols = []
+
+[capability.22.44.113]
+title = "Let the focus measure of the render check hold the appearance at rest of a control that is not shown at rest"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/browser.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4680 and decision 3753. Read the functions focusSnapshot and focusedElement in tools/ui-check/browser.mjs with the rule of visibility they use, the traversal of the keyboard mode in tools/ui-check/check.mjs, the cases of the kind focus in tools/ui-check/test/check.test.mjs with their fixtures, and the row of the kind focus in tools/ui-check/README.md."
+symbols = []
+
+[capability.22.44.112]
+title = "Close the terminal, swap and order views of the launchpad again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.112.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.69.kvx, the part file tools/ui-check/surfaces/launchpad/parts/terminal.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+symbols = []
+
+[capability.22.44.111]
+title = "Close the leaderboard and reward views of the launchpad again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.111.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.67.kvx, the part file tools/ui-check/surfaces/launchpad/parts/rewards.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+symbols = []
+
+[capability.22.44.110]
+title = "Close the live, profit card and profile views of the launchpad again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.110.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json --out /tmp/ui-check/launchpad-live && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.68.kvx, the part file tools/ui-check/surfaces/launchpad/parts/live.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+symbols = []
+
+[capability.22.44.109]
+title = "Close the explore, search and watchlist views of the launchpad again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.109.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json --out /tmp/ui-check/launchpad-explore && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.66.kvx, the part file tools/ui-check/surfaces/launchpad/parts/explore.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+symbols = []
+
+[capability.22.44.108]
+title = "Close the bounty, chat and document views of the launchpad again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.108.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/community.json --out /tmp/ui-check/launchpad-community && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.64.kvx, the part file tools/ui-check/surfaces/launchpad/parts/community.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+symbols = []
+
+[capability.22.44.107]
+title = "Close the coin, token and creation views of the launchpad again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.107.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.65.kvx, the part file tools/ui-check/surfaces/launchpad/parts/coin.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+symbols = []
+
+[capability.22.44.106]
+title = "Bring the size tokens, the shell and the footer of the launchpad web application back to its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.106.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4679, decisions 3708, 3710 and 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.104.kvx with its table of tokens and its parts, tools/ui-check/surfaces/launchpad/measure.json, tools/ui-check/surfaces/launchpad/earlier-geometry.json, apps/launchpad/web/src/app/tokens.css, apps/launchpad/web/src/app/globals.css, apps/launchpad/web/src/app/presentation-tokens.ts, the components of the header, the navigation and the footer, and the state of apps/launchpad/web at the earlier revision the record names, in the history. List in the final message the tokens whose value differs between the two states."
+symbols = []
+
+[capability.22.39.826]
+title = "Let the share comparison of the ceremony test nodes read the share of a record as the attestor reads it"
+reqs = ["22998.1"]
+touches = ["services/wallet/ceremony/internal/testsupport"]
+tests = []
+verification_contract = "(cd services/wallet/ceremony && go test -count=1 -timeout 30m ./internal/testsupport/)"
+do_1 = "do_1 Gotcha 4678 and decision 3751. Read the function of the share comparison in services/wallet/ceremony/internal/testsupport/ceremony_nodes.go with both record forms it admits, the case TestCeremonyNodesRealProtocolRefreshAndDescribe in services/wallet/ceremony/internal/testsupport/ceremony_nodes_test.go, the two functions in services/wallet/attestor/internal/tss/ecdsa/share.go that write and read the integer of a share, and the function in services/wallet/attestor/internal/server/keys.go that writes the share of the import form."
+symbols = []
+
+[capability.22.39.825]
+title = "Give the configuration of the explorer the entry of the chain indexer that the chain resources name"
+reqs = ["22998.1"]
+touches = ["apps/explorer/configs/app/apis.ts", "apps/explorer/deploy/tools/envs-validator", "apps/explorer/lib/api", "apps/explorer/.env.example", "apps/explorer/README.md", "docs/explorer/ENVS.md"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run lib/api/chainIndexerRouting.spec.ts lib/api/chainIndexerEntry.spec.ts deploy/tools/envs-validator/booleanEnvs.spec.ts deploy/tools/envs-validator/chainIndexer.spec.ts"
+do_1 = "do_1 Gotcha 4677 and decision 3750. Read apps/explorer/configs/app/apis.ts with the entries of the statistics API and of the interchain indexer, apps/explorer/lib/api/resources.ts with the five chain resources, apps/explorer/lib/api/getResourceParams.ts, the cases in apps/explorer/lib/api/chainIndexerRouting.spec.ts, the schema files under apps/explorer/deploy/tools/envs-validator with the place that names NEXT_PUBLIC_PAXEER_X_ENABLED and the feature schema of the cross-chain transactions, and the lines of NEXT_PUBLIC_PAXEER_X_ENABLED in apps/explorer/.env.example, apps/explorer/README.md and docs/explorer/ENVS.md."
+symbols = []
 
 [capability.22.39.824]
 title = "Name the command package of the role statements of the social module in the package inventory of the launchpad Go test runner"
@@ -176140,6 +176299,296 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.827]
+title = "Bring the TypeScript configuration of the settings validator of the explorer in line with the application files its target compiles"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.825"]
+reqs = ["22998.1"]
+capabilities = ["22.39.827"]
+interfaces = []
+do_1 = "do_1 Gotcha 4681 and decision 3754. Read apps/explorer/deploy/tools/envs-validator/tsconfig.json, the case envSchemaDuplicateKeyCompilesValidatorTarget in apps/explorer/deploy/tools/envs-validator/booleanEnvs.spec.ts, the imports of application files in the sources under apps/explorer/deploy/tools/envs-validator, apps/explorer/tsconfig.json with its paths, its jsx setting and its list of declaration files, and apps/explorer/global.d.ts. Build the program of the validator target once by hand and list its diagnostics by file in the final message."
+do_2 = "do_2 Bring apps/explorer/deploy/tools/envs-validator/tsconfig.json in line: it names every path of the application configuration that a file of its program uses, the jsx setting of the application, and the declaration files of the application that those files read, among them the declaration of the settings object of the window and the declaration of the routes. The strict setting stays, and the options that the build of the validator reads keep their values."
+do_3 = "do_3 No file of the application outside apps/explorer/deploy/tools/envs-validator changes. No source of the validator leaves the program, no check is turned off by a comment or by a cast, and no import of the validator changes into a copy of application code. Where a diagnostic remains that only a change of an application file can settle, change nothing there and give file, line and message in the final message."
+do_4 = "do_4 The case envSchemaDuplicateKeyCompilesValidatorTarget keeps its assertion that the program has no diagnostics, and the other cases of apps/explorer/deploy/tools/envs-validator/booleanEnvs.spec.ts keep theirs. Check by reading that the build script and the test script of the package of the validator read no option this task changed in a way that alters their result."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/explorer/deploy/tools/envs-validator are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/deploy/tools/envs-validator"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run deploy/tools/envs-validator/booleanEnvs.spec.ts deploy/tools/envs-validator/chainIndexer.spec.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.113]
+title = "Let the focus measure of the render check hold the appearance at rest of a control that is not shown at rest"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.113"]
+interfaces = []
+do_1 = "do_1 Gotcha 4680 and decision 3753. Read the functions focusSnapshot and focusedElement in tools/ui-check/browser.mjs with the rule of visibility they use, the traversal of the keyboard mode in tools/ui-check/check.mjs, the cases of the kind focus in tools/ui-check/test/check.test.mjs with their fixtures, and the row of the kind focus in tools/ui-check/README.md."
+do_2 = "do_2 In tools/ui-check/browser.mjs the function focusSnapshot stores the appearance at rest of every element that can take keyboard focus: one with a tab index of zero or more that is not disabled and not inert, whether it is shown at rest or not. The appearance of the elements shown at rest is stored as today. The list the function gives back, the elements that Tab is expected to reach, stays as it is. The file tools/ui-check/check.mjs does not change: the traversal and the comparison of the two captures stay as they are."
+do_3 = "do_3 Add a fixture under tools/ui-check/test/fixtures and cases in tools/ui-check/test/check.test.mjs: a control that is transparent at rest and shows itself with an outline when it holds keyboard focus gives no finding of the kind focus and is named in the focus sequence; a control that is transparent at rest and stays transparent when focused gives a finding of the kind focus; a control shown at rest without any change when focused gives its finding as today. The cases do not depend on the speed of the machine."
+do_4 = "do_4 State in the row of the kind focus in tools/ui-check/README.md that a control is compared with its own appearance at rest also where it is not shown at rest, in one sentence in the form of the row."
+do_5 = "do_5 No other measure of the check changes and no limit changes. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files named in the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/browser.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.112]
+title = "Close the terminal, swap and order views of the launchpad again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.106"]
+reqs = ["22998.1"]
+capabilities = ["22.44.112"]
+interfaces = []
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.69.kvx, the part file tools/ui-check/surfaces/launchpad/parts/terminal.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decision 3708 holds for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token is not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, and a colour that was changed for the contrast rule. No behaviour, no route, no data flow and no text changes."
+do_3 = "do_3 Read in tools/ui-check/surfaces/launchpad/measure.json the views that belong to this part and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. The files tools/ui-check/surfaces/launchpad/measure.json and tools/ui-check/surfaces/launchpad/earlier-geometry.json stay as they are."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, keep the lines of other parts in the setup files of the surface as they are, and where the main line holds such a change take it and keep both. A change of an answer of a state holds for the paths of this part only. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.112.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/launchpad/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.112.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.112.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.111]
+title = "Close the leaderboard and reward views of the launchpad again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.106"]
+reqs = ["22998.1"]
+capabilities = ["22.44.111"]
+interfaces = []
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.67.kvx, the part file tools/ui-check/surfaces/launchpad/parts/rewards.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decision 3708 holds for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token is not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, and a colour that was changed for the contrast rule. No behaviour, no route, no data flow and no text changes."
+do_3 = "do_3 Read in tools/ui-check/surfaces/launchpad/measure.json the views that belong to this part and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. The files tools/ui-check/surfaces/launchpad/measure.json and tools/ui-check/surfaces/launchpad/earlier-geometry.json stay as they are."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, keep the lines of other parts in the setup files of the surface as they are, and where the main line holds such a change take it and keep both. A change of an answer of a state holds for the paths of this part only. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.111.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/launchpad/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.111.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.111.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.110]
+title = "Close the live, profit card and profile views of the launchpad again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.106"]
+reqs = ["22998.1"]
+capabilities = ["22.44.110"]
+interfaces = []
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.68.kvx, the part file tools/ui-check/surfaces/launchpad/parts/live.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decision 3708 holds for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token is not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, and a colour that was changed for the contrast rule. No behaviour, no route, no data flow and no text changes."
+do_3 = "do_3 Read in tools/ui-check/surfaces/launchpad/measure.json the views that belong to this part and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. The files tools/ui-check/surfaces/launchpad/measure.json and tools/ui-check/surfaces/launchpad/earlier-geometry.json stay as they are."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, keep the lines of other parts in the setup files of the surface as they are, and where the main line holds such a change take it and keep both. A change of an answer of a state holds for the paths of this part only. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.110.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/launchpad/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.110.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.110.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json --out /tmp/ui-check/launchpad-live && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.109]
+title = "Close the explore, search and watchlist views of the launchpad again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.106"]
+reqs = ["22998.1"]
+capabilities = ["22.44.109"]
+interfaces = []
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.66.kvx, the part file tools/ui-check/surfaces/launchpad/parts/explore.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decision 3708 holds for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token is not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, and a colour that was changed for the contrast rule. No behaviour, no route, no data flow and no text changes."
+do_3 = "do_3 Read in tools/ui-check/surfaces/launchpad/measure.json the views that belong to this part and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. The files tools/ui-check/surfaces/launchpad/measure.json and tools/ui-check/surfaces/launchpad/earlier-geometry.json stay as they are."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, keep the lines of other parts in the setup files of the surface as they are, and where the main line holds such a change take it and keep both. A change of an answer of a state holds for the paths of this part only. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.109.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/launchpad/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.109.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.109.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json --out /tmp/ui-check/launchpad-explore && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.108]
+title = "Close the bounty, chat and document views of the launchpad again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.106"]
+reqs = ["22998.1"]
+capabilities = ["22.44.108"]
+interfaces = []
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.64.kvx, the part file tools/ui-check/surfaces/launchpad/parts/community.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decision 3708 holds for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token is not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, and a colour that was changed for the contrast rule. No behaviour, no route, no data flow and no text changes."
+do_3 = "do_3 Read in tools/ui-check/surfaces/launchpad/measure.json the views that belong to this part and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. The files tools/ui-check/surfaces/launchpad/measure.json and tools/ui-check/surfaces/launchpad/earlier-geometry.json stay as they are."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, keep the lines of other parts in the setup files of the surface as they are, and where the main line holds such a change take it and keep both. A change of an answer of a state holds for the paths of this part only. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.108.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/launchpad/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.108.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.108.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/community.json --out /tmp/ui-check/launchpad-community && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.107]
+title = "Close the coin, token and creation views of the launchpad again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.106"]
+reqs = ["22998.1"]
+capabilities = ["22.44.107"]
+interfaces = []
+do_1 = "do_1 Gotcha 4679 and decision 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.106.kvx, the record spec/layerx-merge/programme/records/ui/22.44.65.kvx, the part file tools/ui-check/surfaces/launchpad/parts/coin.json and tools/ui-check/README.md. Run the render check of the part by hand once over the whole device list and read the summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decision 3708 holds for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token is not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, and a colour that was changed for the contrast rule. No behaviour, no route, no data flow and no text changes."
+do_3 = "do_3 Read in tools/ui-check/surfaces/launchpad/measure.json the views that belong to this part and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. The files tools/ui-check/surfaces/launchpad/measure.json and tools/ui-check/surfaces/launchpad/earlier-geometry.json stay as they are."
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, keep the lines of other parts in the setup files of the surface as they are, and where the main line holds such a change take it and keep both. A change of an answer of a state holds for the paths of this part only. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.107.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/launchpad/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.107.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.107.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.825]
+title = "Give the configuration of the explorer the entry of the chain indexer that the chain resources name"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.825"]
+interfaces = []
+do_1 = "do_1 Gotcha 4677 and decision 3750. Read apps/explorer/configs/app/apis.ts with the entries of the statistics API and of the interchain indexer, apps/explorer/lib/api/resources.ts with the five chain resources, apps/explorer/lib/api/getResourceParams.ts, the cases in apps/explorer/lib/api/chainIndexerRouting.spec.ts, the schema files under apps/explorer/deploy/tools/envs-validator with the place that names NEXT_PUBLIC_PAXEER_X_ENABLED and the feature schema of the cross-chain transactions, and the lines of NEXT_PUBLIC_PAXEER_X_ENABLED in apps/explorer/.env.example, apps/explorer/README.md and docs/explorer/ENVS.md."
+do_2 = "do_2 In apps/explorer/configs/app/apis.ts build the entry paxeerXIndexer: the endpoint from the setting NEXT_PUBLIC_PAXEER_X_INDEXER_API_HOST, the base path from the optional setting NEXT_PUBLIC_PAXEER_X_INDEXER_API_BASE_PATH without a trailing slash, no entry where the host is not set, and name it in the object of the entries. The type of the entries and the names of the APIs stay as they are. Nothing under apps/explorer/lib/api changes in its sources: the entry of a chain keeps its precedence and the refusal of a read without an entry keeps its message."
+do_3 = "do_3 In the schema files under apps/explorer/deploy/tools/envs-validator admit the two settings: the host as a URL in the form of the other API hosts, the base path as a string, and both only together with NEXT_PUBLIC_PAXEER_X_ENABLED set to true, in the form the feature schema of the cross-chain transactions uses for its host. A configuration that sets NEXT_PUBLIC_PAXEER_X_ENABLED without the host stays valid."
+do_4 = "do_4 Name the two settings in apps/explorer/.env.example beside NEXT_PUBLIC_PAXEER_X_ENABLED, in the table of apps/explorer/README.md that names the feature settings, and in docs/explorer/ENVS.md in the section of NEXT_PUBLIC_PAXEER_X_ENABLED with type, description, the condition and an example, in the form of the neighbouring rows. State there that the views of the chain list and the chain detail read the chain indexer of the network through this entry."
+do_5 = "do_5 Add the case file apps/explorer/lib/api/chainIndexerEntry.spec.ts: with the host and the base path set before the first import of the configuration, the entry of the application holds the endpoint and the base path, the address of the chain list and of a chain detail built without a chain starts with them, and with the host not set the entry is absent and the read is refused with the message of apps/explorer/lib/api/getResourceParams.ts. The cases prepare the settings the configuration reads before the first import and do not depend on the order of the files of a run. Add the case file apps/explorer/deploy/tools/envs-validator/chainIndexer.spec.ts: the schema admits host and base path with NEXT_PUBLIC_PAXEER_X_ENABLED set to true, refuses each of them without it, refuses a host that is no URL, and admits NEXT_PUBLIC_PAXEER_X_ENABLED alone."
+do_6 = "do_6 The presets under apps/explorer/configs/envs do not change, and no file under apps/explorer/ui, apps/explorer/toolkit, apps/explorer/pages or tools/ui-check changes: other tasks hold them. Give in the final message which state the views of the chain list and of the chain detail reach where NEXT_PUBLIC_PAXEER_X_ENABLED is true and the entry is absent, read from their sources, with file and line, and change nothing there. Search the repository for a document that names the public address of the chain indexer of a network and give what it names, or that none does, in the final message."
+do_7 = "do_7 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files named in the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/configs/app/apis.ts", "apps/explorer/deploy/tools/envs-validator", "apps/explorer/lib/api", "apps/explorer/.env.example", "apps/explorer/README.md", "docs/explorer/ENVS.md"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run lib/api/chainIndexerRouting.spec.ts lib/api/chainIndexerEntry.spec.ts deploy/tools/envs-validator/chainIndexer.spec.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.105]
 title = "Measure the explorer against its state before the tasks of series 22.44"
 status = "pending"
@@ -176174,7 +176623,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.104]
 title = "Measure the launchpad web application against its state before the tasks of series 22.44"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176963,7 +177412,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.90]
 title = "Close the chain and cross-chain views of the explorer on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.38"]
@@ -205783,9 +206232,107 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.829]
+title = "Give the pool document of the development market reads of the launchpad API the home chain the contract requires"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.829"]
+interfaces = []
+do_1 = "do_1 Gotcha 4683 and decision 3756. Read the schemas Pool and PoolDetailResponse in services/launchpad/api/internal/rest/testdata/contracts/v2/openapi.json, the pool document and the read PoolHomeChains in services/launchpad/api/internal/rest/pool_reads.go and services/launchpad/api/internal/store/chain_reads.go, the function developmentPoolDocument and every place that calls it in services/launchpad/api/internal/rest/dev_market.go, the type DevelopmentPool and the read DevelopmentPools in services/launchpad/api/internal/store/development_market.go, the table indexer.pools in services/launchpad/api/internal/internaltest/containers.go and the column home_chain in migrations/60003.sql."
+do_2 = "do_2 The type DevelopmentPool gains the home chain as decimal text. The read DevelopmentPools reads the column home_chain of indexer.pools as text in its own statement, and a value that is not a decimal number of 32 bits whose text equals the value ends the read with the data integrity error, in the form PoolHomeChains has. Every other place of the store that builds a row of the type DevelopmentPool reads the column the same way."
+do_3 = "do_3 The function developmentPoolDocument sets homeChain from the row, and a row without a checked home chain is refused with the data integrity error. No default value stands in the document. Every answer of the development market reads that holds a pool document thereby holds the field: the list, the detail and the reads built on them."
+do_4 = "do_4 The table indexer.pools in services/launchpad/api/internal/internaltest/containers.go gains the column home_chain in the form of migration 60003, so the cases of the module read it; a case that applies the migration afterwards keeps passing. Rows that cases build by hand for the type DevelopmentPool gain the field. Where a file under services/launchpad/api/internal/rolecheck holds the statement of the read DevelopmentPools, bring it in line with the statement."
+do_5 = "do_5 Add the file services/launchpad/api/internal/rest/dev_market_home_chain_test.go with cases whose names begin with TestDevelopmentPoolHomeChain: the document of a row with home chain 0 and of a row with another home chain validates as the pool of the schema PoolDetailResponse and holds the value of the row; a row without a checked home chain is refused; and the read DevelopmentPools gives the value of the column for a pool of the table and refuses a value that does not pass the check. Run the cases of the development market in the packages internal/rest and internal/store once by hand and give in the final message every case that does not pass with its first message."
+do_6 = "do_6 No file outside services/launchpad/api changes, nothing of the contract changes, and no migration changes. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/launchpad/api are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api"]
+tests = []
+planned_paths = ["services/launchpad/api/internal/rest/dev_market_home_chain_test.go"]
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/api && go build ./... && go vet ./internal/store/ ./internal/rest/)"
+verify_cmd = "anvil --version > /dev/null && grep -q -e TestDevelopmentPoolHomeChain services/launchpad/api/internal/rest/dev_market_home_chain_test.go && (cd services/launchpad/api && go test -count=1 -timeout 20m ./internal/rest/ -run TestDevelopmentPoolHomeChain)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.106]
+title = "Bring the size tokens, the shell and the footer of the launchpad web application back to its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.104", "22.39.814"]
+reqs = ["22998.1"]
+capabilities = ["22.44.106"]
+interfaces = []
+do_1 = "do_1 Gotcha 4679, decisions 3708, 3710 and 3752. Read the record spec/layerx-merge/programme/records/ui/22.44.104.kvx with its table of tokens and its parts, tools/ui-check/surfaces/launchpad/measure.json, tools/ui-check/surfaces/launchpad/earlier-geometry.json, apps/launchpad/web/src/app/tokens.css, apps/launchpad/web/src/app/globals.css, apps/launchpad/web/src/app/presentation-tokens.ts, the components of the header, the navigation and the footer, and the state of apps/launchpad/web at the earlier revision the record names, in the history. List in the final message the tokens whose value differs between the two states."
+do_2 = "do_2 Every size token that the record lists with different values gives the value of the earlier state at the widths 390, 1440 and 1920 and between them: the sizes of text and the line heights as fixed values, the heights of the small, the middle and the large control, the height of the header and of the ticker, and the collapsed column and the gutter of the columns. The text of the body has the size and the line height of the earlier state. A token that only the present state holds stays where no part gets a size from it that differs from the earlier state; where one does, it takes the value that gives the earlier size. No size of text, no line height, no distance, no height of a control and no track grows above the earlier value."
+do_3 = "do_3 The shell has the boxes of the earlier state at every width: the header, the navigation with its rows of 40 pixels at the desktop widths, the main region and the footer as one row with its links and its activity at the earlier sizes. At the widths up to 834 a control that takes touch measures at least 44 pixels and no more than the rule asks; above 834 every control has its earlier size. A view or a part that a task outside series 22.44 added stays and takes the sizes of the like parts of the earlier state."
+do_4 = "do_4 What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, and a colour that was changed for the contrast rule. No behaviour, no route, no data flow and no text changes. A case under apps/launchpad/web that pins a size the series gave is brought to the earlier one; no assertion on behaviour is weakened and no case is removed or left out."
+do_5 = "do_5 Run the check by hand with tools/ui-check/surfaces/launchpad/measure.json, which names tools/ui-check/surfaces/launchpad/earlier-geometry.json, at most twice, and read every finding of the kind geometry. Correct a difference of more than one pixel in a part of the shell or in a size of text. Write the record spec/layerx-merge/programme/records/ui/22.44.106.kvx in present tense: the tokens brought back with their values, for each width the count of parts that still differ from the earlier state, and for each such part its cause, content the earlier state does not hold, the touch rule at the widths up to 834, the track of the scroll bar, or a view of another part of the surface that its own task closes. The files tools/ui-check/surfaces/launchpad/measure.json and tools/ui-check/surfaces/launchpad/earlier-geometry.json stay as they are."
+do_6 = "do_6 Run the render check of the home part by hand once over the whole device list and read the summary per view; correct a finding inside the rule of do_2 and do_3. Then run the test script of the package once by hand. Start the build and the counted verification early and keep time for them. The files of apps/launchpad/web are inside the paths of this task, and it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.106.kvx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.106.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.826]
+title = "Let the share comparison of the ceremony test nodes read the share of a record as the attestor reads it"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.826"]
+interfaces = []
+do_1 = "do_1 Gotcha 4678 and decision 3751. Read the function of the share comparison in services/wallet/ceremony/internal/testsupport/ceremony_nodes.go with both record forms it admits, the case TestCeremonyNodesRealProtocolRefreshAndDescribe in services/wallet/ceremony/internal/testsupport/ceremony_nodes_test.go, the two functions in services/wallet/attestor/internal/tss/ecdsa/share.go that write and read the integer of a share, and the function in services/wallet/attestor/internal/server/keys.go that writes the share of the import form."
+do_2 = "do_2 Move the reading of the share out of the node function into a function of its own in services/wallet/ceremony/internal/testsupport that takes the stored record and gives the comparison value: it takes the text of the share from either record form, reads it as a base 16 integer, refuses an empty text, a text that is no base 16 integer and a negative value, and gives the SHA-256 of the form of 32 bytes of the integer. The buffers that held the share are set to zero as today, and no share leaves the function. The node function calls it."
+do_3 = "do_3 Add a case to the package that calls the function directly on records it builds itself, with fixed values and no random input: a share whose base 16 text has an odd length in the ECDSA form, the same share in the import form with the same comparison value, a share whose text has an even length in both forms, two different shares with different comparison values, and the three refused texts. The case needs no node, no database and no network."
+do_4 = "do_4 Nothing under services/wallet/attestor changes, and the case TestCeremonyNodesRealProtocolRefreshAndDescribe keeps every assertion. Search services/wallet/ceremony for a further place that reads the share of a stored record with the hex decoder of byte strings; correct one inside services/wallet/ceremony/internal/testsupport the same way and give any outside it with file and line in the final message."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under services/wallet/ceremony/internal/testsupport are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/ceremony/internal/testsupport"]
+tests = []
+planned_paths = []
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && (cd services/wallet/ceremony && go vet ./...)"
+verify_cmd = "(cd services/wallet/ceremony && go test -count=1 -timeout 30m ./internal/testsupport/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.824]
 title = "Name the command package of the role statements of the social module in the package inventory of the launchpad Go test runner"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217954,6 +218501,40 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.828]
+title = "Serve the chain reads of the indexer as public reads of the hosted gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.828"]
+interfaces = []
+do_1 = "do_1 Gotcha 4682 and decision 3755. Read in services/platform/hosted/gateway/src the files public_reads.rs with its targets, its budget and its route, history.rs with the indexer origin and the type Source, main.rs with the function route_with_peer and the place where the public reads are routed, and routes.rs with the rule of the allowed origins. Read the chain routes in services/platform/hosted/indexer/src/api.rs with their refusals, the chain resources in apps/explorer/lib/api/resources.ts and the section Public routes in docs/wiki/HostedGateway.md."
+do_2 = "do_2 The gateway answers the method GET on /v1/chains, /v1/chains/:id, /v1/chains/:id/summary, /v1/chains/:id/transfers and /v1/chains/:id/events as public reads from the indexer origin of LAYERX_GATEWAY_INDEXER_URL, through the client the history methods use. The chain number is a decimal number that fits 32 bits without sign; another value is refused with status 400 in the form of the public reads before any upstream request. The reads of transfers and events pass the query string to the indexer where it is at most 512 bytes of the characters a query of cursor, limit and kind holds, and refuse it with status 400 otherwise; the other three reads refuse a query string that is not empty with status 400. Another method on these paths is answered with status 405."
+do_3 = "do_3 Each read spends the read budget of the public reads and is answered with status 429 in their form where the budget is spent. The status and the JSON document of the indexer are passed on as they are, among them the refusals and the answer for an unknown chain. An answer that is not JSON gives status 502, and an indexer that is not configured or not reachable gives status 503, both in the form of the refusals of the gateway. No header of the request is passed to the indexer, and the read of a chain by its name is not served."
+do_4 = "do_4 The cross-origin answer follows the rule the gateway has for every route: an origin of the allowed origins of the route bindings is answered with its headers, another origin is refused as today. Nothing of that rule changes."
+do_5 = "do_5 Add cases to the module of the binary whose names begin with chain_reads_: each of the five reads answered from an indexer of the test in the form the history cases use; the refused chain number without an upstream request; the query rules; the method rule; the spent budget; the answer that is not JSON; the indexer that is not configured. The cases do not depend on the speed of the machine."
+do_6 = "do_6 State the five routes, their source, their budget and their refusals in the section Public routes of docs/wiki/HostedGateway.md, and name the chain reads in the row of LAYERX_GATEWAY_INDEXER_URL of its table of config keys. Where a check of the package of the gateway compares the routes it serves with a list in its own directory, bring that list in line in the form the public reads have there."
+do_7 = "do_7 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway", "docs/wiki/HostedGateway.md"]
+tests = []
+planned_paths = []
+build_cmd = "cargo check --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway chain_reads_ && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway public_read"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
