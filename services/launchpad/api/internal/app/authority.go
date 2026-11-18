@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -314,7 +315,11 @@ func recentAuthorityHeader(ctx context.Context, reader deployment.Reader, hash c
 	if header == nil || header.Number == nil || !header.Number.IsUint64() || header.Number.Uint64() > 9007199254740991 {
 		return nil, nil
 	}
-	if header.Time > uint64(time.Now().Unix()) || time.Since(time.Unix(int64(header.Time), 0)) > authorityRecentHeadMaxAge {
+	if header.Time > math.MaxInt64 {
+		return nil, nil
+	}
+	blockTime := time.Unix(int64(header.Time), 0)
+	if blockTime.After(time.Now()) || time.Since(blockTime) > authorityRecentHeadMaxAge {
 		return nil, nil
 	}
 	return header, nil
