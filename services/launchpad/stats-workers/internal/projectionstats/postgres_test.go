@@ -22,7 +22,7 @@ func repository(t *testing.T) (context.Context, *Repository) {
 	t.Cleanup(cancel)
 	dsn := os.Getenv("L13_POSTGRES_DSN")
 	if dsn == "" {
-		dsn = "postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable"
+		t.Fatal("L13_POSTGRES_DSN required: real PostgreSQL fixture")
 	}
 	p, e := pgxpool.New(ctx, dsn)
 	if e != nil {

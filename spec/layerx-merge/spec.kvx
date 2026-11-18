@@ -208449,7 +208449,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.930]
 title = "Bring the producer transcript of the launchpad client package candles-sdk in line with the history handler of the charts module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -395877,7 +395877,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.932]
 title = "Give the package jobs of the launchpad test workflow the database, the variables and the object store binary their cases read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
