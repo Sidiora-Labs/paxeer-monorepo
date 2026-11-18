@@ -475053,7 +475053,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.911]
 title = "Make the outcome of the case of the explorer migrator that deletes zero value calls independent of timing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
