@@ -176316,7 +176316,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.830]
 title = "Register the cases of the chain indexer entry of the explorer in the form the lint rules of the application accept"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
