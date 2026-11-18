@@ -15856,6 +15856,12 @@ value = "One. Where a case pins a producer outside its directory and the two dif
 basis = "Gotcha 4717."
 affects = []
 
+[decision.3791]
+title = "A case compares across time only what does not follow the clock, and asserts an entry by its element"
+value = "One. A case that reads one document twice across a wait or a restart asserts as equal every field that must not change, and asserts a field that follows the clock by the rule of the product for the time of each read. Where the moment the rule turns on falls inside the span of a read, both values of the rule are accepted for that read and no other. Two. A case asserts that an entry is present or absent by the element of that entry, its identifier or the text of its own body element, and not by characters of the text of a whole container in which neighbouring labels stand side by side. Three. No rule of the product changes for a case, no wait of a fixed length is added to move a read away from a boundary, no case is removed, skipped or tagged out and no other assertion is weakened. Tasks 22.39.933 and 22.39.934."
+basis = "Gotcha 4718."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45516,6 +45522,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.934]
+title = "Let the callouts case of the launchpad rewards flow assert the pages of the rail by the elements of its callouts"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/page-modules/rewards/flow-rewards.test.ts"
+do_1 = "do_1 Gotcha 4718 and decision 3791. Read the case rewards_callouts_follow_the_discovery_cursor in apps/launchpad/web/src/page-modules/rewards/flow-rewards.test.ts with the producer it reads its callouts from, apps/launchpad/web/src/widgets/social/callouts-rail.tsx, apps/launchpad/web/src/widgets/social/callout-card.tsx and apps/launchpad/web/src/widgets/social/embedded-coin-card.tsx."
+symbols = []
+
+[capability.22.39.933]
+title = "Let the composed start case of the launchpad charts module hold when the interval ends between its two reads"
+reqs = ["22998.1"]
+touches = ["services/launchpad/trading-charts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/trading-charts && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4718 and decision 3791. Read services/launchpad/trading-charts/internal/app/composed_startup_test.go whole, the case that calls its helper in services/launchpad/trading-charts/internal/app/production_runtime_coverage_test.go, the function refreshSeriesSnapshot in services/launchpad/trading-charts/internal/store/series.go with the three values it gives the completeness status and what each one turns on, and the type of the series answer the case decodes."
+symbols = []
 
 [capability.22.39.932]
 title = "Give the package jobs of the launchpad test workflow the database, the variables and the object store binary their cases read"
@@ -208329,6 +208353,66 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.934]
+title = "Let the callouts case of the launchpad rewards flow assert the pages of the rail by the elements of its callouts"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.934"]
+interfaces = []
+do_1 = "do_1 Gotcha 4718 and decision 3791. Read the case rewards_callouts_follow_the_discovery_cursor in apps/launchpad/web/src/page-modules/rewards/flow-rewards.test.ts with the producer it reads its callouts from, apps/launchpad/web/src/widgets/social/callouts-rail.tsx, apps/launchpad/web/src/widgets/social/callout-card.tsx and apps/launchpad/web/src/widgets/social/embedded-coin-card.tsx."
+do_2 = "do_2 The case asserts each page of the rail by the elements that carry the attribute data-callout-id: after the step to the next page the one element shown is the fifty-first callout of the producer, by its identifier and by the text of its own body element, and after the return to the first page no element carries that identifier, the count is fifty and the first element is the first callout of the producer. No assertion of the case reads characters from the text of the whole rail where an element can be asked. The outcome is the same whether the pool reads of the coin cards have ended or not: prove that by running the case once with those reads held open and once with them ended, by the means the producer of the case offers. Read the other cases of the file for the same form, an absence asserted by characters of the text of a whole container, and bring each one found to the form of decision 3791. No component of the product changes for this."
+do_3 = "do_3 Run the file alone three times in a row by hand, with pnpm --dir apps/launchpad/web run test src/page-modules/rewards/flow-rewards.test.ts, and read the whole output. No assertion is weakened and no case is removed, skipped or tagged out. Do not change apps/launchpad/pnpm-lock.yaml. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/page-modules/rewards/flow-rewards.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.933]
+title = "Let the composed start case of the launchpad charts module hold when the interval ends between its two reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.933"]
+interfaces = []
+do_1 = "do_1 Gotcha 4718 and decision 3791. Read services/launchpad/trading-charts/internal/app/composed_startup_test.go whole, the case that calls its helper in services/launchpad/trading-charts/internal/app/production_runtime_coverage_test.go, the function refreshSeriesSnapshot in services/launchpad/trading-charts/internal/store/series.go with the three values it gives the completeness status and what each one turns on, and the type of the series answer the case decodes."
+do_2 = "do_2 In the helper assertComposedChartStartup the comparison across the restart follows decision 3791. Each read notes the time just before and just after its request. The completeness status of each answer is asserted by the rule of refreshSeriesSnapshot for the time of that read: live_interval where the read ended before the end of the interval, interval_elapsed where it began at or after the end, either of the two where the end falls inside the read, and the value for a covered interval only where the source time of the answer is at or past the end. Every other field of the two answers stays equal, compared on the decoded documents with the status set apart, and the message of a difference names the field. The check of the single read stays as it is. Read the other cases of the package internal/app and of the module for the same form, a comparison of whole answers taken at two times, and bring each one found to the same form."
+do_3 = "do_3 Add a case beside the helper that proves the comparison without a container: two answers that differ only in the status pass when the times of the reads lie on the two sides of the end of the interval, do not pass when both reads lie before the end, and two answers that differ in any other field do not pass. Read the job launchpad-go-test in .github/workflows/launchpad-test.yml for the variables and the database address it gives the cases, and let every case of the module hold under those values as well as under the ones of the qualification environment. Run the whole case inventory of the module once by hand, with python3 tests/ci/data/launchpad_go_tests.py --module . from the module directory, and read the whole output: every case of the module holds. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/trading-charts"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/trading-charts && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/trading-charts && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
