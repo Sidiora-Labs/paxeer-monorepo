@@ -472866,7 +472866,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.862]
 title = "Hold the vyper version the verification case compiles with in the builder and keep the download cases apart from the bundled compilers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
