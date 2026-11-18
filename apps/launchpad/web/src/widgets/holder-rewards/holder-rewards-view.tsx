@@ -107,7 +107,7 @@ export default function HolderRewardsView() {
       </HolderRewardsHeader>
       <div className="grid min-w-0">
         <div aria-hidden={list.availability ? true : undefined} inert={list.availability ? true : undefined} className={`col-start-1 row-start-1 flex min-w-0 flex-col gap-8${list.availability ? ' invisible' : ''}`}>
-          <TopPayingRail rows={topRows} loading={top.loading || top.pricesPending || top.identityPending} />
+          {top.availability ? <HolderRewardsUnavailable availability={top.availability} onRetry={top.retry} /> : <TopPayingRail rows={topRows} loading={top.loading || top.pricesPending || top.identityPending} />}
           <section aria-labelledby="all-holder-rewards-title" aria-describedby="holder-rewards-scope" className="flex flex-col gap-3">
             <h2 id="all-holder-rewards-title" className="sr-only">All holder rewards coins</h2>
             <HolderRewardsControls order={order} onSortChange={key => setOrder({ key, direction: 'desc' })} view={view} onViewChange={setView} filters={filters} onFiltersChange={setFilters} onExport={exportRows} />
@@ -129,6 +129,7 @@ export default function HolderRewardsView() {
                 loadMoreFailed={list.loadMoreFailed}
                 onLoadMore={list.loadMore}
                 pricesUnavailable={list.pricesUnavailable}
+                pricesPending={list.pricesPending}
                 hoveredPool={hoveredPool}
                 onHoverPool={setHoveredPool}
                 airdrop={airdrop}

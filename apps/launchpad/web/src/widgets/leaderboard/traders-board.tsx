@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAccount } from 'wagmi';
 import { Users } from 'lucide-react';
@@ -28,7 +29,9 @@ const qualityNotes = { complete: null, partial: 'Still counting', unavailable: '
  */
 export function TradersBoard({ period, className }: TradersBoardProps) {
   const window: LeaderboardWindow = periodWindows[period];
-  const board = useLeaderboard('trader', window, leaderboardLimit);
+  const [page, setPage] = useState<{ window: LeaderboardWindow; cursor?: string }>({ window });
+  const cursor = page.window === window ? page.cursor : undefined;
+  const board = useLeaderboard('trader', window, leaderboardLimit, cursor);
   const wallets = board.state === 'ready' ? board.data.data.snapshot.entries.map(entry => entry.wallet) : [];
   const { identities } = useWalletIdentities(wallets);
   const account = useAccount();
@@ -83,6 +86,8 @@ export function TradersBoard({ period, className }: TradersBoardProps) {
           ) : null}
         </div>
       </div>
+      {board.state === 'ready' && board.data.nextCursor ? <Button variant="secondary" size="sm" onClick={() => setPage({ window, cursor: board.data.nextCursor ?? undefined })}>Next page</Button> : null}
+      {cursor ? <Button variant="ghost" size="sm" onClick={() => setPage({ window })}>First page</Button> : null}
     </section>
   );
 }
