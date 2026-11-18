@@ -176935,7 +176935,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.848]
 title = "Show the 24 hour change of a token in the tokens views and the ticker strip only where the read serves one"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
