@@ -48,11 +48,13 @@ function post(body: unknown) {
 
 type CompletionRequest = {
   model: string;
+  stream: false;
   messages: Array<{ role: string; content: string }>;
 };
 
 function isCompletionRequest(value: unknown): value is CompletionRequest {
   return typeof value === 'object' && value !== null && 'model' in value && typeof value.model === 'string' &&
+    'stream' in value && value.stream === false &&
     'messages' in value && Array.isArray(value.messages) && value.messages.every((message: unknown) => (
     typeof message === 'object' && message !== null && 'role' in message && typeof message.role === 'string' &&
       'content' in message && typeof message.content === 'string'
@@ -66,24 +68,22 @@ function parseCompletionRequest(raw: string): CompletionRequest {
   return value;
 }
 
-async function assistantRejectsOverlongQuestion(): Promise<void> {
+test('assistant rejects overlong questions', async function assistantRejectsOverlongQuestion(): Promise<void> {
   const response = await post({ question: 'q'.repeat(2001) });
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({ error: 'Provide a question of 1 to 2000 characters' });
   expect(fetchMock).not.toHaveBeenCalled();
-}
-test(assistantRejectsOverlongQuestion.name, assistantRejectsOverlongQuestion);
+});
 
-async function assistantReturns503WithoutBaseUrl(): Promise<void> {
+test('assistant returns 503 without a base url', async function assistantReturns503WithoutBaseUrl(): Promise<void> {
   vi.stubEnv('EXPLORER_ASSISTANT_BASE_URL', '');
   const response = await post({ question: 'What is Paxeer?' });
   expect(response.status).toBe(503);
   expect(await response.json()).toEqual({ error: 'Assistant is not configured' });
   expect(fetchMock).not.toHaveBeenCalled();
-}
-test(assistantReturns503WithoutBaseUrl.name, assistantReturns503WithoutBaseUrl);
+});
 
-async function assistantForwardsModelBearerQuestionAndContext(): Promise<void> {
+test('assistant forwards model bearer question and context', async function assistantForwardsModelBearerQuestionAndContext(): Promise<void> {
   const context = { route: '/address/0x123', entityKind: 'address', identifier: '0x123' };
   const response = await post({ question: 'What network is this?', context });
   expect(response.status).toBe(200);
@@ -97,6 +97,7 @@ async function assistantForwardsModelBearerQuestionAndContext(): Promise<void> {
   expect(init?.redirect).toBe('error');
   const body = parseCompletionRequest(String(init?.body));
   expect(body.model).toBe('test/model');
+  expect(body.stream).toBe(false);
   expect(body.messages).toHaveLength(2);
   expect(body.messages[0].role).toBe('system');
   for (const text of [ 'Paxeer X Network', '125', 'api-mainnet-beta.paxeer.network', 'api1.mainnet-beta.paxeer.network',
@@ -105,10 +106,9 @@ async function assistantForwardsModelBearerQuestionAndContext(): Promise<void> {
   }
   expect(body.messages[1]).toEqual({ role: 'user', content: `What network is this?\nExplorer context: ${ JSON.stringify(context) }` });
   expect(JSON.stringify(body)).not.toContain(secret);
-}
-test(assistantForwardsModelBearerQuestionAndContext.name, assistantForwardsModelBearerQuestionAndContext);
+});
 
-async function assistantStripsCredentialsFromUpstreamReply(): Promise<void> {
+test('assistant strips credentials from upstream replies', async function assistantStripsCredentialsFromUpstreamReply(): Promise<void> {
   fetchMock.mockResponse(JSON.stringify({
     api_key: secret,
     model: secret,
@@ -119,10 +119,9 @@ async function assistantStripsCredentialsFromUpstreamReply(): Promise<void> {
   const payload = await response.text();
   expect(payload).not.toContain(secret);
   expect(JSON.parse(payload)).toEqual({ answer: 'Answer [redacted] [redacted]', model: 'test/model' });
-}
-test(assistantStripsCredentialsFromUpstreamReply.name, assistantStripsCredentialsFromUpstreamReply);
+});
 
-async function assistantUsesDefaultModelAndAcceptsBoundaryQuestion(): Promise<void> {
+test('assistant uses the default model and accepts a boundary question', async function assistantUsesDefaultModelAndAcceptsBoundaryQuestion(): Promise<void> {
   vi.stubEnv('EXPLORER_ASSISTANT_MODEL', '');
   vi.stubEnv('EXPLORER_ASSISTANT_BASE_URL', 'https://assistant.example/v1/');
   const response = await post({ question: 'q'.repeat(2000) });
@@ -130,10 +129,9 @@ async function assistantUsesDefaultModelAndAcceptsBoundaryQuestion(): Promise<vo
   expect(await response.json()).toEqual({ answer: 'Paxeer chain id is 125.', model: 'xai/grok-4.7' });
   expect(parseCompletionRequest(String(fetchMock.mock.calls[0][1]?.body)).model).toBe('xai/grok-4.7');
   expect(fetchMock.mock.calls[0][0]).toBe('https://assistant.example/v1/chat/completions');
-}
-test(assistantUsesDefaultModelAndAcceptsBoundaryQuestion.name, assistantUsesDefaultModelAndAcceptsBoundaryQuestion);
+});
 
-async function assistantRejectsMalformedBodiesAndOtherMethods(): Promise<void> {
+test('assistant rejects malformed bodies and other methods', async function assistantRejectsMalformedBodiesAndOtherMethods(): Promise<void> {
   for (const body of [ null, [], {}, { question: 125 }, { question: '  ' },
     { question: 'Hello?', context: [] }, { question: 'Hello?', context: { route: 125 } } ]) {
     expect((await post(body)).status).toBe(400);
@@ -142,10 +140,9 @@ async function assistantRejectsMalformedBodiesAndOtherMethods(): Promise<void> {
   expect(response.status).toBe(405);
   expect(response.headers.get('allow')).toBe('POST');
   expect(fetchMock).not.toHaveBeenCalled();
-}
-test(assistantRejectsMalformedBodiesAndOtherMethods.name, assistantRejectsMalformedBodiesAndOtherMethods);
+});
 
-async function assistantReportsUpstreamFailuresWithoutLeakingDetails(): Promise<void> {
+test('assistant reports upstream failures without leaking details', async function assistantReportsUpstreamFailuresWithoutLeakingDetails(): Promise<void> {
   for (const body of [ { error: secret }, { choices: [] }, { choices: [ { message: { content: '' } } ] } ]) {
     fetchMock.mockResponse(JSON.stringify(body));
     const response = await post({ question: 'Explain?' });
@@ -158,5 +155,117 @@ async function assistantReportsUpstreamFailuresWithoutLeakingDetails(): Promise<
   expect(await response.text()).not.toContain(secret);
   fetchMock.mockReject(new Error(secret));
   expect((await post({ question: 'Explain?' })).status).toBe(502);
-}
-test(assistantReportsUpstreamFailuresWithoutLeakingDetails.name, assistantReportsUpstreamFailuresWithoutLeakingDetails);
+});
+
+test('assistant accepts a completion with an event stream trailer', async function assistantAcceptsCompletionWithEventStreamTrailer(): Promise<void> {
+  const completion = JSON.stringify({ choices: [ { message: { content: 'Paxeer chain id is 125.' } } ] }, null, 2);
+  fetchMock.mockResponse(`${ completion }\n\nevent: completion\ndata: [DONE]\n\n`, {
+    headers: { 'Content-Type': 'text/event-stream' },
+  });
+  const response = await post({ question: 'What network is this?' });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ answer: 'Paxeer chain id is 125.', model: 'test/model' });
+});
+
+test('assistant joins event stream parts', async function assistantJoinsEventStreamParts(): Promise<void> {
+  const parts = [
+    ': completion stream',
+    'event: message',
+    'id: 1',
+    'retry: 1000',
+    '',
+    'data:',
+    `data: ${ JSON.stringify({ choices: [ { delta: { role: 'assistant' } } ] }) }`,
+    `data: ${ JSON.stringify({ choices: [ { delta: { content: 'Paxeer ' } } ] }) }`,
+    `data: ${ JSON.stringify({ choices: [ { delta: { content: 'chain id is 125.' } } ] }) }`,
+    `data: ${ JSON.stringify({ choices: [ { delta: {}, finish_reason: 'stop' } ] }) }`,
+  ];
+  for (const ending of [ '', '\r\ndata: [DONE]\r\n' ]) {
+    fetchMock.mockResponse(parts.join('\r\n') + ending, { headers: { 'Content-Type': 'text/event-stream' } });
+    const response = await post({ question: 'What network is this?' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ answer: 'Paxeer chain id is 125.', model: 'test/model' });
+  }
+});
+
+test('assistant accepts a completion in event data', async function assistantAcceptsCompletionInEventData(): Promise<void> {
+  const completion = JSON.stringify({ choices: [ { message: { content: 'Paxeer chain id is 125.' } } ] });
+  fetchMock.mockResponse(`data: ${ completion }\n\ndata: [DONE]\n\n`, { headers: { 'Content-Type': 'text/event-stream' } });
+  const response = await post({ question: 'What network is this?' });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ answer: 'Paxeer chain id is 125.', model: 'test/model' });
+});
+
+test('assistant returns content without reasoning', async function assistantReturnsContentWithoutReasoning(): Promise<void> {
+  const message = { content: 'Paxeer chain id is 125.', reasoning: 'Private reasoning', reasoning_content: 'Private reasoning content' };
+  for (const body of [
+    JSON.stringify({ reasoning: 'Private top level reasoning', choices: [ { message } ] }),
+    `data: ${ JSON.stringify({ choices: [ { message } ] }) }\n\ndata: [DONE]\n`,
+    `data: ${ JSON.stringify({ choices: [ { delta: { reasoning: 'Private reasoning' } } ] }) }\n` +
+      `data: ${ JSON.stringify({ choices: [ { delta: message } ] }) }\n\ndata: [DONE]\n`,
+  ]) {
+    fetchMock.mockResponse(body);
+    const response = await post({ question: 'What network is this?' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ answer: 'Paxeer chain id is 125.', model: 'test/model' });
+  }
+});
+
+test('assistant rejects event streams without content', async function assistantRejectsEventStreamsWithoutContent(): Promise<void> {
+  for (const body of [
+    '\n: no answer\nevent: message\ndata: [DONE]\n',
+    `data: ${ JSON.stringify({ choices: [ { delta: { reasoning_content: 'Private reasoning' } } ] }) }\n\ndata: [DONE]\n`,
+    `data: ${ JSON.stringify({ choices: [ { message: { reasoning: 'Private reasoning' } } ] }) }\n`,
+    `data: ${ JSON.stringify({ choices: [ { delta: { content: '  ' } } ] }) }\n`,
+  ]) {
+    fetchMock.mockResponse(body, { headers: { 'Content-Type': 'text/event-stream' } });
+    const response = await post({ question: 'Explain?' });
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: 'Assistant request failed. Please try again later.' });
+  }
+});
+
+test('assistant rejects malformed answers', async function assistantRejectsMalformedAnswers(): Promise<void> {
+  for (const body of [ 'not a completion', '{', 'data: not json\n\ndata: [DONE]\n',
+    JSON.stringify({ choices: [ { message: { content: 125 } } ] }) ]) {
+    fetchMock.mockResponse(body);
+    const response = await post({ question: 'Explain?' });
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: 'Assistant request failed. Please try again later.' });
+  }
+});
+
+test('assistant accepts a response at the byte limit', async function assistantAcceptsResponseAtByteLimit(): Promise<void> {
+  const envelope = JSON.stringify({ choices: [ { message: { content: '' } } ] });
+  const content = 'a'.repeat(1024 * 1024 - Buffer.byteLength(envelope));
+  const body = JSON.stringify({ choices: [ { message: { content } } ] });
+  expect(Buffer.byteLength(body)).toBe(1024 * 1024);
+  fetchMock.mockResponse(body);
+  const response = await post({ question: 'Explain?' });
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ answer: content, model: 'test/model' });
+});
+
+test('assistant rejects a response above the byte limit', async function assistantRejectsResponseAboveByteLimit(): Promise<void> {
+  const envelope = JSON.stringify({ choices: [ { message: { content: '' } } ] });
+  for (const content of [ 'a'.repeat(1024 * 1024 - Buffer.byteLength(envelope) + 1), 'é'.repeat(512 * 1024) ]) {
+    const body = JSON.stringify({ choices: [ { message: { content } } ] });
+    expect(Buffer.byteLength(body)).toBeGreaterThan(1024 * 1024);
+    fetchMock.mockResponse(body);
+    const response = await post({ question: 'Explain?' });
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: 'Assistant request failed. Please try again later.' });
+  }
+});
+
+test('assistant redacts the key in event stream parts and the model', async function assistantRedactsKeyInEventStreamPartsAndModel(): Promise<void> {
+  vi.stubEnv('EXPLORER_ASSISTANT_MODEL', `${ secret }/model`);
+  const parts = [ 'Answer ', secret, ' ', secret.slice(0, 8), secret.slice(8) ];
+  fetchMock.mockResponse(parts.map(content => `data: ${ JSON.stringify({ choices: [ { delta: { content } } ] }) }`).join('\n') +
+    '\n\ndata: [DONE]\n', { headers: { 'Content-Type': 'text/event-stream' } });
+  const response = await post({ question: 'Explain?' });
+  expect(response.status).toBe(200);
+  const payload = await response.text();
+  expect(payload).not.toContain(secret);
+  expect(JSON.parse(payload)).toEqual({ answer: 'Answer [redacted] [redacted]', model: '[redacted]/model' });
+});
