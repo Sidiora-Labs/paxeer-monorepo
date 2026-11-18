@@ -105,6 +105,8 @@ const (
 	authorityAttestationTimeout = 10 * time.Second
 	authorityEnvelopeMaxAge     = authorityRefreshInterval + authorityAttestationTimeout
 	authorityRecentHeadMaxAge   = authorityMaxAge
+	authorityHeadHeaderTimeout  = 2 * time.Second
+	authorityHeadRecordTimeout  = 300 * time.Millisecond
 )
 
 type networkAuthority struct {
@@ -322,14 +324,16 @@ func (a *networkAuthority) acceptsHead(ctx context.Context, hash common.Hash) (b
 	if a == nil || a.unavailable != nil || a.engine == nil || a.reader == nil || a.pool == nil {
 		return false, errors.New("network authority unavailable")
 	}
-	bounded, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
-	defer cancel()
-	header, err := recentAuthorityHeader(bounded, a.reader, hash)
+	headerContext, cancelHeader := context.WithTimeout(ctx, authorityHeadHeaderTimeout)
+	header, err := recentAuthorityHeader(headerContext, a.reader, hash)
+	cancelHeader()
 	if err != nil || header == nil {
 		return false, err
 	}
+	recordContext, cancelRecord := context.WithTimeout(ctx, authorityHeadRecordTimeout)
+	defer cancelRecord()
 	var committed bool
-	err = a.pool.QueryRow(bounded, "SELECT EXISTS(SELECT 1 FROM "+pgx.Identifier{a.config.SourceSchema, "indexer_committed_heads_v2"}.Sanitize()+" AS heads WHERE heads.chain_id=125 AND heads.height=$1 AND lower(heads.block_hash)=lower($2) AND heads.integrity='healthy' AND heads.height<=(SELECT max(newest.height) FROM "+pgx.Identifier{a.config.SourceSchema, "indexer_committed_heads_v2"}.Sanitize()+" AS newest WHERE newest.chain_id=125))", header.Number.String(), hash.Hex()).Scan(&committed)
+	err = a.pool.QueryRow(recordContext, "SELECT EXISTS(SELECT 1 FROM "+pgx.Identifier{a.config.SourceSchema, "indexer_committed_heads_v2"}.Sanitize()+" AS heads WHERE heads.chain_id=125 AND heads.height=$1 AND lower(heads.block_hash)=lower($2) AND heads.integrity='healthy')", header.Number.String(), hash.Hex()).Scan(&committed)
 	if err != nil {
 		return false, fmt.Errorf("read committed network head: %w", err)
 	}
@@ -502,6 +506,7 @@ func (a *networkAuthority) Register(r chi.Router, admission *rest.Admission) {
 // results with a stable reasonCode); its output is then held to the contract:
 //   - 200: the result projected onto ConnectedCapabilitiesPreflight and
 //     validated (500 INTERNAL_ERROR if the projection does not validate);
+//   - revision mismatch: 409 REVISION_CONFLICT;
 //   - 400 (request the engine rejects): 422 FIELD_INVALID, not retryable;
 //   - anything else (a failed or malformed chain read): the retryable
 //     503 DEPENDENCY_UNAVAILABLE.
@@ -518,6 +523,18 @@ func servePreflight(w http.ResponseWriter, r *http.Request, engine *capabilities
 	default:
 		report(errors.New(strings.TrimSpace(recorder.Body.String())))
 		rest.WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+		return
+	}
+	var outcome struct {
+		ReasonCode capabilities.ReasonCode `json:"reasonCode"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &outcome); err != nil {
+		report(err)
+		rest.WriteV2APIError(w, r, 500, "INTERNAL_ERROR")
+		return
+	}
+	if outcome.ReasonCode == capabilities.RevisionMismatch {
+		rest.WriteV2APIError(w, r, 409, "REVISION_CONFLICT")
 		return
 	}
 	body, err := contractPreflight(recorder.Body.Bytes())
