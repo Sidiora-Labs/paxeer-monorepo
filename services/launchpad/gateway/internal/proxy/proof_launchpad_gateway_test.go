@@ -45,6 +45,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/user"
@@ -131,11 +132,12 @@ func (e *identityE2E) throwawayDatabase(prefix string) string {
 			t.Error(err)
 		}
 	})
-	pc, err := pgx.ParseConfig(e.adminDSN)
+	endpoint, err := url.Parse(e.adminDSN)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable", pc.User, pc.Password, pc.Host, pc.Port, name)
+	endpoint.Path = "/" + name
+	return endpoint.String()
 }
 
 // e2eChain is a chain-125 go-ethereum node with HTTP JSON-RPC, so the
