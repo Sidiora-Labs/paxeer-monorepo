@@ -15652,6 +15652,12 @@ value = "The read DevelopmentPools of the store reads the column home_chain of i
 basis = "Gotcha 4683."
 affects = []
 
+[decision.3757]
+title = "Case files in the directories the build of the explorer lints are registered in the form its lint rules accept"
+value = "A case file under a directory that the build of the explorer lints, among them lib, pages and components, registers each case with a string title and a function written in place that holds its assertions. No lint rule is turned off for it by a comment or in the configuration, and the lint configuration does not change. The verification of a task that adds or changes such a file runs the lint of the application on the files it touched beside its cases. Task 22.39.830 brings the case file of the chain indexer entry in line."
+basis = "Gotcha 4684. Decision 3750."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45312,6 +45318,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.830]
+title = "Register the cases of the chain indexer entry of the explorer in the form the lint rules of the application accept"
+reqs = ["22998.1"]
+touches = ["apps/explorer/lib/api"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint lib/api/chainIndexerEntry.spec.ts lib/api/chainIndexerRouting.spec.ts && yarn vitest run lib/api/chainIndexerEntry.spec.ts lib/api/chainIndexerRouting.spec.ts"
+do_1 = "do_1 Gotcha 4684 and decision 3757. Read apps/explorer/lib/api/chainIndexerEntry.spec.ts, apps/explorer/lib/api/chainIndexerRouting.spec.ts and the part of apps/explorer/eslint.config.mjs that holds the rules for case files. Run the lint of the application once by hand on the directory lib/api and give its findings by file in the final message."
+symbols = []
 
 [capability.22.39.829]
 title = "Give the pool document of the development market reads of the launchpad API the home chain the contract requires"
@@ -176295,6 +176310,38 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.830]
+title = "Register the cases of the chain indexer entry of the explorer in the form the lint rules of the application accept"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.830"]
+interfaces = []
+do_1 = "do_1 Gotcha 4684 and decision 3757. Read apps/explorer/lib/api/chainIndexerEntry.spec.ts, apps/explorer/lib/api/chainIndexerRouting.spec.ts and the part of apps/explorer/eslint.config.mjs that holds the rules for case files. Run the lint of the application once by hand on the directory lib/api and give its findings by file in the final message."
+do_2 = "do_2 Register each of the four cases of apps/explorer/lib/api/chainIndexerEntry.spec.ts in the form apps/explorer/lib/api/chainIndexerRouting.spec.ts has: the title is the string of the present function name, and the body is the named function written in place of the call. The statements and the assertions of every case stay as they are, in their order, and the preparation and the cleanup of the file stay as they are."
+do_3 = "do_3 No lint rule is turned off by a comment, and apps/explorer/eslint.config.mjs does not change. No file outside apps/explorer/lib/api changes. Where the lint names another finding in a file under apps/explorer/lib/api, settle it in the same way without a change of what the file asserts or does; a finding in a file that is not a case file is named in the final message and left."
+do_4 = "do_4 Run the lint of the application once by hand on the directories lib and pages after the change and name every finding that remains with file, line and rule in the final message; change nothing outside apps/explorer/lib/api for it."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under apps/explorer/lib/api are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/lib/api"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint lib/api/chainIndexerEntry.spec.ts lib/api/chainIndexerRouting.spec.ts && yarn vitest run lib/api/chainIndexerEntry.spec.ts lib/api/chainIndexerRouting.spec.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
