@@ -49,6 +49,43 @@ def test_compiler_inventory_covers_compiler_cases_and_their_fixtures():
     assert requested <= listed, sorted(requested - listed)
 
 
+def test_compiler_inventory_excludes_downloader_cases():
+    inventory = ROOT / "docker/explorer-elixir-builder/compilers.tsv"
+    listed = {tuple(line.split("\t")[:2]) for line in inventory.read_text().splitlines()}
+    source = (
+        BACKEND / "apps/explorer/test/repair/contract_reader_and_compiler_download_test.exs"
+    ).read_text()
+    version_pattern = r'"(v\d+\.\d+\.\d+(?:-nightly\.[\d.]+)?(?:\+commit\.[0-9a-f]+)?)"'
+    requested = {
+        ("solc" if "+commit." in version else "vyper", version)
+        for version in re.findall(version_pattern, source)
+    }
+    assert {compiler for compiler, _ in requested} == {"solc", "vyper"}
+    assert not requested & listed, sorted(requested & listed)
+
+
+def test_compiler_inventory_covers_vyper_verification_requests():
+    inventory = ROOT / "docker/explorer-elixir-builder/compilers.tsv"
+    listed = {
+        version
+        for compiler, version, *_ in (
+            line.split("\t") for line in inventory.read_text().splitlines()
+        )
+        if compiler == "vyper"
+    }
+    source = (
+        BACKEND
+        / "apps/block_scout_web/test/block_scout_web/controllers/api/v2/verification_controller_test.exs"
+    ).read_text()
+    requested = set()
+    for section in re.split(r"^\s*describe\s+", source, flags=re.M)[1:]:
+        if not section.startswith('"/api/v2/smart-contracts/{address_hash}/verification/via/vyper-'):
+            continue
+        requested.update(re.findall(r'"compiler_version"\s*=>\s*"(v[^"]+)"', section))
+    assert requested
+    assert requested <= listed, sorted(requested - listed)
+
+
 def test_mix_test_excludes_compiler_tag_without_binaries(tmp_path):
     source = BUILDER.read_text(encoding="utf-8")
     match = re.search(
