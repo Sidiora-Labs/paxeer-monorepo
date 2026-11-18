@@ -208494,7 +208494,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.947]
 title = "Keep the requests of the rate limit case of the wallet gateway inside one window of the limiter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
