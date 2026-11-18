@@ -209139,7 +209139,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.892]
 title = "Close the token and trade flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
