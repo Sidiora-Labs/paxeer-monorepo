@@ -62,13 +62,13 @@ export function RankRow({ rank, wallet, identity, metricSigned, metricLabel = 'P
         <div className="flex min-w-0 items-center gap-2">
           <Link prefetch={false}
             href={profileHref(address)}
-            className="inline-flex min-h-touch-target-min min-w-touch-target-min flex-1 items-center text-md font-bold leading-[var(--sl-leading-base)] text-text after:absolute after:inset-0 after:content-['']"
+            className="inline-flex min-w-0 flex-1 items-center text-md font-bold leading-[var(--sl-leading-base)] text-text after:absolute after:inset-0 after:content-['']"
           >
             <span className="min-w-0 truncate">{handle ?? short}</span>
           </Link>
           {self ? <span className="inline-flex h-5 shrink-0 items-center rounded-xs bg-surface-3 px-1.5 text-2xs font-bold uppercase tracking-wide text-text-muted">You</span> : null}
         </div>
-        {handle ? <p className="truncate font-mono text-xs leading-[var(--sl-leading-base)] text-text-muted">{short}</p> : null}
+        {handle ? <p className="truncate font-mono text-xs leading-[var(--sl-leading-xs)] text-text-muted">{short}</p> : null}
       </div>
       <div className="col-span-2 col-start-3 row-start-2 flex min-w-0 flex-col items-end gap-1 text-right sm:col-span-1 sm:col-start-auto sm:row-auto">
         <span className={cn('text-md font-bold leading-[var(--sl-leading-base)] tabular-nums', toneClass[tone])} data-numeric>

@@ -132,10 +132,10 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(option.value)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
-              'inline-flex items-center justify-center gap-1.5 border border-transparent py-2 text-sm font-bold transition-colors duration-fast',
+              'inline-flex items-center justify-center gap-1.5 border border-transparent py-0.5 text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] font-bold transition-colors duration-fast',
               compact ? 'whitespace-nowrap px-1.5' : 'px-3',
               radius,
-              size === 'sm' ? 'min-h-control-height-sm' : 'min-h-control-height-md',
+              size === 'sm' ? 'min-h-6' : 'min-h-8',
               fullWidth && 'flex-1',
               selected
                 ? `${tradeTone} underline underline-offset-[var(--sl-focus-offset)]`
@@ -242,7 +242,7 @@ export function TabStrip<T extends string>({
         role="tablist"
         aria-label={label}
         className={cn(
-          'flex min-w-0 flex-1 basis-40 items-end overflow-x-auto p-1',
+          '-m-1 flex min-w-0 flex-1 basis-40 items-end overflow-x-auto p-1',
           variant === 'filled' && 'gap-1'
         )}
       >
@@ -362,13 +362,13 @@ export function SelectPill<T extends string>({
     <div className={cn('inline-flex min-w-0 max-w-full flex-col gap-1', className)}>
       <div
         className={cn(
-          'sl-field relative inline-flex min-h-control-height-sm min-w-0 flex-wrap items-center gap-1.5 rounded-pill px-3 py-1',
+          'sl-field relative inline-flex min-h-control-height-sm min-w-0 items-center gap-1.5 rounded-pill px-3',
           compact && 'px-2 py-0',
           error ? 'bg-danger-soft' : 'bg-surface-2'
         )}
       >
         {showLabel ? (
-          <label htmlFor={id} className="text-sm text-text-faint">
+          <label htmlFor={id} className="text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] text-text-faint">
             {label}:
           </label>
         ) : null}
@@ -391,7 +391,7 @@ export function SelectPill<T extends string>({
             if (option && !option.disabled) onChange(option.value);
           }}
           className={cn(
-            'sl-native-select min-w-[min(var(--sl-select-min-width),max(100%,var(--sl-touch-target-min)))] max-w-full flex-1 cursor-pointer rounded-sm bg-transparent py-1 text-md font-bold text-text disabled:cursor-not-allowed disabled:text-text-disabled',
+            'sl-native-select min-w-0 max-w-full flex-1 cursor-pointer rounded-sm bg-transparent py-0 text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] [field-sizing:content] font-bold text-text disabled:cursor-not-allowed disabled:text-text-disabled',
             compact && 'min-w-0 flex-none appearance-none whitespace-nowrap px-0 py-0 text-sm [field-sizing:content] [&::picker-icon]:hidden',
             size === 'md' && 'min-h-control-height-md'
           )}

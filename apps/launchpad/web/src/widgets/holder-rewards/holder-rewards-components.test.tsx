@@ -82,9 +82,9 @@ describe('holder rewards components', () => {
     expect(out).toContain('Holder rewards coins');
     expect(out).toMatch(/<header class="[^"]*bg-surface-1/);
     expect(out).toContain('sm:text-[40px]');
-    expect(out).toContain('sm:leading-[46px]');
+    expect(out).toContain('sm:leading-[calc(46/40)]');
     expect(out).toContain('text-[28px]');
-    expect(out).toContain('leading-[34px]');
+    expect(out).toContain('leading-[calc(34/28)]');
     expect(out).not.toMatch(/font-(extrabold|black)/);
     expect(out).toMatch(/<h1 class="[^"]*font-bold/);
     expect(out).toContain('stats slot');
@@ -107,7 +107,7 @@ describe('holder rewards components', () => {
     expect(ready).toContain('445,691');
     expect(ready).toContain('text-2xl');
     expect(ready).toContain(
-      'grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-token-card-min-width)),1fr))]'
+      'grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3'
     );
     expect(ready).not.toContain('aria-label="No data"');
     expect(ready).not.toContain('not available yet');
