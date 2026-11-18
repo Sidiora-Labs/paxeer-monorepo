@@ -1,30 +1,51 @@
 {
-	"compilerOptions": {
-	  "target": "ES2022",
-	  "module": "ESNext",
-	  "moduleResolution": "bundler",
-	  "esModuleInterop": true,
-	  "strict": true,
-	  "skipLibCheck": true,
-	  "forceConsistentCasingInFileNames": true,
-	  "outDir": "./dist",
-	  "baseUrl": ".",
-	  "paths": {
-		"configs/*": ["../../../configs/*"],
-		"lib/*": ["../../../lib/*"],
-		"toolkit/*": ["../../../toolkit/*"],
-		"types/*": ["../../../types/*"],
-		"public/*": ["../../../public/*"]
-	  },
-	  "types": ["node"],
-	  "allowImportingTsExtensions": true,
-	  "noEmit": true
-	},
-	"include": [
-	  "**/*.ts"
-	],
-	"exclude": [
-	  "node_modules",
-	  "dist"
-	]
-  } 
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "configs/*": [
+        "../../../configs/*"
+      ],
+      "lib/*": [
+        "../../../lib/*"
+      ],
+      "toolkit/*": [
+        "../../../toolkit/*"
+      ],
+      "types/*": [
+        "../../../types/*"
+      ],
+      "ui/*": [
+        "../../../ui/*"
+      ],
+      "public/*": [
+        "../../../public/*"
+      ]
+    },
+    "types": [
+      "node"
+    ],
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": [
+    "**/*.ts",
+    "../../../next-env.d.ts",
+    "../../../decs.d.ts",
+    "../../../global.d.ts",
+    "../../../reset.d.ts",
+    "../../../nextjs/nextjs-routes.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

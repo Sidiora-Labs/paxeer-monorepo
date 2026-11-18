@@ -25,7 +25,7 @@ function createRuntime(configEnvs: Record<string, string> = {}) {
   writeFileSync(join(directory, '.env'), '');
   writeFileSync(join(directory, '.env.registry'), Object.keys(appEnvs).map(name => `${ name }=`).join('\n'));
 
-  const env = { PATH: process.env.PATH, ...appEnvs };
+  const env = { NODE_ENV: process.env.NODE_ENV, PATH: process.env.PATH, ...appEnvs };
   const download = () => spawnSync('bash', [ resolve(sourceDir, '../../scripts/download_assets.sh'), './public/assets/configs' ], {
     cwd: directory,
     env,
