@@ -208557,7 +208557,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.928]
 title = "Let the provision case of the launchpad shared module hold on every broker state the case itself builds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208587,7 +208587,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.927]
 title = "Let the connected binding case of the launchpad gateway wait for the readiness it asserts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
