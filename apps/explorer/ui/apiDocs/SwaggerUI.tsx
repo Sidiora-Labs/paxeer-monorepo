@@ -47,8 +47,26 @@ const SwaggerUI = ({ url, requestInterceptor }: Props) => {
     '& .swagger-ui': {
       color: mainColor,
     },
-    '& .swagger-ui .opblock-summary-control:focus': {
-      outline: 'none',
+    '& .swagger-ui .opblock-summary': {
+      flexWrap: 'wrap',
+    },
+    '& .swagger-ui .opblock-summary-control': {
+      minWidth: 0,
+      flexWrap: 'wrap',
+    },
+    '& .swagger-ui .opblock .opblock-summary-path': {
+      minWidth: 0,
+      maxWidth: '100%',
+      overflowWrap: 'anywhere',
+      wordBreak: 'normal',
+    },
+    '& .swagger-ui .opblock .opblock-summary-description': {
+      minWidth: 0,
+      overflowWrap: 'anywhere',
+    },
+    '& .swagger-ui :is(button, a, input, select, textarea, [tabindex]):focus-visible': {
+      outline: 'var(--chakra-border-widths-2) solid var(--chakra-colors-focus-ring) !important',
+      outlineOffset: 'var(--chakra-spacing-0\\.5)',
     },
     // eslint-disable-next-line max-len
     '& .swagger-ui .opblock .opblock-summary-path, & .swagger-ui .opblock .opblock-summary-description, & .swagger-ui div, & .swagger-ui p, & .swagger-ui h5, & .swagger-ui .response-col_links, & .swagger-ui h4, & .swagger-ui table thead tr th, & .swagger-ui table thead tr td, & .swagger-ui .parameter__name, & .swagger-ui .parameter__type, & .swagger-ui .response-col_status, & .swagger-ui .tab li, & .swagger-ui .opblock .opblock-section-header h4': {
@@ -104,9 +122,6 @@ const SwaggerUI = ({ url, requestInterceptor }: Props) => {
     },
     '& .swagger-ui .model': {
       color: mainColor,
-    },
-    '& .swagger-ui .model-box-control:focus': {
-      outline: 'none',
     },
     '& .swagger-ui .model-toggle': {
       bgColor: 'transparent',

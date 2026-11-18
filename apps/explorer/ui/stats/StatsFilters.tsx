@@ -1,4 +1,4 @@
-import { Box, createListCollection, Flex, Grid, GridItem, chakra } from '@chakra-ui/react';
+import { Box, createListCollection, Flex, chakra } from '@chakra-ui/react';
 import React from 'react';
 
 import type * as stats from '@blockscout/stats-types';
@@ -63,17 +63,12 @@ const StatsFilters = ({
   }, [ onIntervalChange ]);
 
   return (
-    <Grid
+    <Flex
       data-stats-filters
       css={{ '& button, & input': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } } }}
       gap={{ base: 2, lg: 3 }}
-      templateAreas={{
-        base: `"input"
-                "section"
-                "interval"`,
-        lg: `"input section interval"`,
-      }}
-      gridTemplateColumns={{ base: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) auto auto' }}
+      flexDirection={{ base: 'column', lg: 'row' }}
+      flexWrap="wrap"
       alignItems="end"
       bg="bg.surface"
       borderWidth="1"
@@ -84,10 +79,10 @@ const StatsFilters = ({
       px={{ base: 3, lg: 4 }}
       py={{ base: 3, lg: 3 }}
     >
-      <GridItem
-        minW={ 0 }
-        w="100%"
-        area="input"
+      <Box
+        minW={{ base: 0, lg: 'min(100%, 20ch)' }}
+        w={{ base: '100%', lg: 'auto' }}
+        flex={{ lg: '1 1 20ch' }}
         data-stats-filter-input
       >
         <chakra.label htmlFor={ inputId } display="block" textStyle="label" mb={ 2 }>Find chart, metric</chakra.label>
@@ -102,12 +97,11 @@ const StatsFilters = ({
           minW={ 0 }
           inputProps={{ id: inputId, type: 'search', autoCapitalize: 'none', spellCheck: false, enterKeyHint: 'search' }}
         />
-      </GridItem>
+      </Box>
 
-      <GridItem
+      <Box
         minW={ 0 }
         w={{ base: '100%', lg: 'auto' }}
-        area="section"
         data-stats-filter-section
       >
         <chakra.label htmlFor={ sectionId } display="block" textStyle="label" mb={ 2 }>Section</chakra.label>
@@ -130,13 +124,13 @@ const StatsFilters = ({
             _motionReduce: { animation: 'none' },
           }}
         />
-      </GridItem>
+      </Box>
 
-      <GridItem
+      <Box
         minW={ 0 }
+        maxW="100%"
         w={{ base: '100%', lg: 'auto' }}
         as="fieldset"
-        area="interval"
         data-stats-filter-interval
       >
         <chakra.legend textStyle="label" mb={ 2 }>Interval</chakra.legend>
@@ -181,8 +175,8 @@ const StatsFilters = ({
             </SelectContent>
           </SelectRoot>
         </Box>
-      </GridItem>
-    </Grid>
+      </Box>
+    </Flex>
   );
 };
 

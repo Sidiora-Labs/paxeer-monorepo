@@ -48,8 +48,8 @@ const GasTracker = () => {
       { typeof data?.network_utilization_percentage === 'number' &&
         <GasTrackerNetworkUtilization percentage={ data.network_utilization_percentage } isLoading={ isLoading }/> }
       { data?.gas_price_updated_at && (
-        <Skeleton loading={ isLoading } whiteSpace="pre" display="flex" alignItems="center">
-          <span>Last updated </span>
+        <Skeleton loading={ isLoading } whiteSpace="normal" display="flex" flexWrap="wrap" minW={ 0 } maxW="100%" alignItems="center">
+          <chakra.span whiteSpace="pre-wrap">Last updated </chakra.span>
           <Time timestamp={ data.gas_price_updated_at } format="DD MMM, HH:mm:ss" color="text.secondary"/>
           { data.gas_prices_update_in !== 0 && (
             <GasInfoUpdateTimer
