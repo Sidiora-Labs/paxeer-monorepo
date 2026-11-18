@@ -54,7 +54,7 @@ const BlockCountdownIndex = () => {
       >
         Block countdown
       </Heading>
-      <Box mt={ 2 }>
+      <Box mt={ 2 } textWrap="balance">
         The estimated time for a block to be created and added to the blockchain.
       </Box>
       <chakra.form

@@ -50,7 +50,7 @@ const BlocksTable = ({ data, isLoading, top, page, showSocketInfo, socketInfoNum
   return (
     <AddressHighlightProvider>
       <TableScrollArea label="Blocks">
-        <TableRoot aria-label="Blocks" variant="scan" css={ LIST_TABLE_STYLES } minWidth="max-content" fontWeight="medium">
+        <TableRoot aria-label="Blocks" variant="scan" css={ LIST_TABLE_STYLES } minWidth="full" fontWeight="medium">
           <TableHeaderSticky top={ top }>
             <TableRow>
               { chainData && <TableColumnHeader width="var(--chakra-spacing-9)"/> }

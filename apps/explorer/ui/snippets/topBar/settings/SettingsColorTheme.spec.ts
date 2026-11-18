@@ -21,6 +21,8 @@ function renderControls() {
   ));
 }
 
+let controls: ReturnType<typeof renderControls>;
+
 function selectSwatch(id: string) {
   const swatch = document.querySelector(`[data-value="${ id }"]`);
 
@@ -59,11 +61,10 @@ beforeEach(() => {
   cookies.remove(cookies.NAMES.COLOR_THEME);
   document.documentElement.removeAttribute('style');
   document.documentElement.classList.remove('dark', 'light');
+  controls = renderControls();
 });
 
 async function themeSettingsStaleTracksTopBarAndReload() {
-  const controls = renderControls();
-
   fireEvent.click(screen.getByLabelText('User settings'));
   await assertTheme('light');
 
