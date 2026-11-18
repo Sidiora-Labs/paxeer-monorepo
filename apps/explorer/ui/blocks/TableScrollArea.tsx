@@ -36,7 +36,8 @@ const TableScrollArea = ({ label, children }: Props) => {
       css={{
         '& a': { display: 'inline-flex', alignItems: 'center' },
         '& a, & button': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } },
-        '& table': { minWidth: 'max-content', width: 'full' },
+        '& table': { minWidth: 'full', width: 'full', tableLayout: 'auto' },
+        '& thead': { top: 0 },
         '& th:first-of-type, & td:first-of-type': { position: { base: 'static', lg: 'sticky' }, insetInlineStart: 0, bg: 'canvas', zIndex: 1 },
         '& tr:hover > td, & tr:focus-within > td': { bg: 'raised' },
       }}

@@ -7,14 +7,10 @@ interface Props {
   content: React.ReactNode;
 }
 
-const Root = ({ children, content }: Props) => {
+const Root = ({ children }: Props) => {
   const isMounted = useIsMounted();
 
-  if (!isMounted) {
-    return content;
-  }
-
-  return children;
+  return isMounted ? children : null;
 };
 
 export default React.memo(Root);

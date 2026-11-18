@@ -41,7 +41,6 @@ export const recipe = defineRecipe({
         '--start-color': 'colors.skeleton.bg.start',
         '--end-color': 'colors.skeleton.bg.end',
         position: 'relative',
-        overflow: 'hidden',
         backgroundColor: 'var(--start-color)',
         animation: 'none',
         '&::after': {
@@ -51,6 +50,7 @@ export const recipe = defineRecipe({
           left: '0',
           width: '100%',
           pointerEvents: 'none',
+          borderRadius: 'inherit',
           backgroundSize: '300% 100%',
           backgroundPosition: '100% 0',
           backgroundImage:

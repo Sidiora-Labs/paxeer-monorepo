@@ -55,29 +55,33 @@ const BlocksContent = ({ type, query, enableSocket = true, top, isInsideTableCar
 
   const content = query.data?.items ? (
     <>
-      <Box hideFrom="lg">
-        { query.pagination.page === 1 && enableSocket && (
-          <SocketNewItemsNotice.Mobile
-            num={ newItemsCount }
-            showErrorAlert={ showSocketAlert }
-            type="block"
+      { isMobile && (
+        <Box>
+          { query.pagination.page === 1 && enableSocket && (
+            <SocketNewItemsNotice.Mobile
+              num={ newItemsCount }
+              showErrorAlert={ showSocketAlert }
+              type="block"
+              isLoading={ query.isPlaceholderData }
+            />
+          ) }
+          <BlocksList data={ query.data.items } isLoading={ query.isPlaceholderData } page={ query.pagination.page } chainData={ chainData }/>
+        </Box>
+      ) }
+      { !isMobile && (
+        <Box>
+          <BlocksTable
+            data={ query.data.items }
+            top={ top || (query.pagination.isVisible ? TABS_HEIGHT : 0) }
+            page={ query.pagination.page }
             isLoading={ query.isPlaceholderData }
+            showSocketInfo={ query.pagination.page === 1 && enableSocket }
+            socketInfoNum={ newItemsCount }
+            showSocketErrorAlert={ showSocketAlert }
+            chainData={ chainData }
           />
-        ) }
-        <BlocksList data={ query.data.items } isLoading={ query.isPlaceholderData } page={ query.pagination.page } chainData={ chainData }/>
-      </Box>
-      <Box hideBelow="lg">
-        <BlocksTable
-          data={ query.data.items }
-          top={ top || (query.pagination.isVisible ? TABS_HEIGHT : 0) }
-          page={ query.pagination.page }
-          isLoading={ query.isPlaceholderData }
-          showSocketInfo={ query.pagination.page === 1 && enableSocket }
-          socketInfoNum={ newItemsCount }
-          showSocketErrorAlert={ showSocketAlert }
-          chainData={ chainData }
-        />
-      </Box>
+        </Box>
+      ) }
     </>
   ) : null;
 

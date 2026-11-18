@@ -13,7 +13,19 @@
     },
     {
       "name": "/block/countdown/[height]",
-      "path": "/explorer/block/countdown/9000000"
+      "path": "/explorer/block/countdown/9000000",
+      "answers": [
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api?*",
+          "file": "answers/countdown.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        }
+      ]
     },
     {
       "name": "/block/countdown",
@@ -28,7 +40,7 @@
           "steps": [
             {
               "action": "wait",
-              "text": "Blocks"
+              "text": "There are no blocks."
             }
           ],
           "answers": [

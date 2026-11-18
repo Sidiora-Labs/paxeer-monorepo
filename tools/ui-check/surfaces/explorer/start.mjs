@@ -18,6 +18,7 @@ Object.assign(process.env, environment, { NODE_ENV: 'production', DISABLE_TRACKI
 const next = require('next');
 const { WebSocketServer } = require('ws');
 const staticAssets = new Map();
+let blockResponses = new Map();
 async function loadStaticAssets(relative = '') {
   const root = join(directory, '.next/static', relative);
   for (const entry of await readdir(root, { withFileTypes: true })) {
@@ -28,13 +29,15 @@ async function loadStaticAssets(relative = '') {
       const body = await readFile(join(root, entry.name));
       staticAssets.set('/explorer/_next/static/' + filename, {
         body,
-        compressed: gzipSync(body),
+        compressed: null,
         type: entry.name.endsWith('.js') ? 'application/javascript' : 'text/css',
       });
     }
   }
 }
 await loadStaticAssets();
+const iconSprite = await readFile('/tmp/explorer-icons/sprite.svg');
+const compressedIconSprite = gzipSync(iconSprite);
 const application = next({ dir: directory, dev: false, hostname: 'localhost', port: 4173 });
 await application.prepare();
 const handle = application.getRequestHandler();
@@ -47,9 +50,10 @@ const server = createServer(async (request, response) => {
       response.end('Explorer');
       return;
     }
-    const asset = staticAssets.get(url.pathname);
+    const asset = staticAssets.get(decodeURI(url.pathname));
     if (asset && (request.method === 'GET' || request.method === 'HEAD')) {
       const compressed = /\bgzip\b/.test(request.headers['accept-encoding'] ?? '');
+      if (compressed && !asset.compressed) asset.compressed = gzipSync(asset.body);
       const body = compressed ? asset.compressed : asset.body;
       response.writeHead(200, {
         'content-type': asset.type,
@@ -68,8 +72,15 @@ const server = createServer(async (request, response) => {
       return;
     }
     if (url.pathname === '/explorer/icons/sprite.svg') {
-      response.writeHead(200, { 'content-type': 'image/svg+xml' });
-      response.end(await readFile('/tmp/explorer-icons/sprite.svg'));
+      const compressed = /\bgzip\b/.test(request.headers['accept-encoding'] ?? '');
+      const body = compressed ? compressedIconSprite : iconSprite;
+      response.writeHead(200, {
+        'content-type': 'image/svg+xml',
+        'content-length': body.length,
+        vary: 'Accept-Encoding',
+        ...(compressed ? { 'content-encoding': 'gzip' } : {}),
+      });
+      response.end(request.method === 'HEAD' ? undefined : body);
       return;
     }
     if (url.pathname === '/explorer/icons/registry.json') {
@@ -91,13 +102,13 @@ const server = createServer(async (request, response) => {
       response.end(await readFile(new URL('./' + documentData, import.meta.url)));
       return;
     }
-    const apiPath = url.pathname.replace(/^\/explorer\/node-api\/proxy(?=\/api\/)/, '');
+    const apiPath = url.pathname.replace(/^\/explorer\/node-api\/proxy(?=\/api(?:\/|$))/, '');
     if (apiPath === '/api/v1/clusters/render/chain-metrics') {
       response.writeHead(200, { 'content-type': 'application/json' });
       response.end(await readFile(new URL('./services/chain-metrics.json', import.meta.url)));
       return;
     }
-    if (apiPath.startsWith('/api/v2/') || apiPath === '/api/v1/solidity:visualize-contracts') {
+    if (apiPath.startsWith('/api/v2/') || apiPath === '/api/v1/solidity:visualize-contracts' || (apiPath === '/api' && url.searchParams.get('action') === 'getblockcountdown')) {
       const answer = !request.headers['user-agent']?.startsWith('Mozilla/') && tokenServerAnswer(request.method, apiPath, url.search);
       if (answer) {
         response.writeHead(answer.status ?? 200, answer.headers);
@@ -119,6 +130,19 @@ const server = createServer(async (request, response) => {
         chart ? { info: chart.info, chart: chart.chart ?? statistics.series } : undefined;
       response.writeHead(payload ? 200 : 404, { 'content-type': 'application/json' });
       response.end(JSON.stringify(payload ?? { message: 'Chart not found' }));
+      return;
+    }
+    const blockResponse = !url.search && blockResponses.get(url.pathname);
+    if (blockResponse && (request.method === 'GET' || request.method === 'HEAD')) {
+      const compressed = /\bgzip\b/.test(request.headers['accept-encoding'] ?? '');
+      const body = compressed ? blockResponse.compressed : blockResponse.body;
+      response.writeHead(200, {
+        'content-type': blockResponse.type,
+        'content-length': body.length,
+        vary: 'Accept-Encoding',
+        ...(compressed ? { 'content-encoding': 'gzip' } : {}),
+      });
+      response.end(request.method === 'HEAD' ? undefined : body);
       return;
     }
     await handle(request, response);
@@ -156,7 +180,6 @@ async function prepare() {
     const response = await fetch('http://localhost:4173/explorer/404', { signal: AbortSignal.timeout(10000) });
     await response.arrayBuffer();
     if (response.status !== 404) throw new Error('Explorer not-found route must answer with status 404');
-    ready = true;
     if (preparing) {
       const { assertRollupPages } = await import('./rollup.mjs');
       await assertRollupPages();
@@ -167,8 +190,21 @@ async function prepare() {
         await document.arrayBuffer();
         if (document.status !== 200) throw new Error(`${path}: statistics document must answer with status 200`);
       }
+      await (await import('./blocks.mjs')).prepareBlockResponses();
+      blockResponses = await (await import('./blocks.mjs')).readBlockResponses();
+      await (await import('./blocks.mjs')).assertBlockPages();
       flushCompileCache();
+    } else {
+      blockResponses = await (await import('./blocks.mjs')).readBlockResponses();
     }
+    for (const response of blockResponses.values()) {
+      for (const [, path] of response.body.toString().matchAll(/(?:src|href)="(\/explorer\/_next\/static\/[^"?]+\.(?:js|css))(?:\?[^\"]*)?"/g)) {
+        const asset = staticAssets.get(decodeURI(path));
+        if (!asset) throw new Error(`Prepared block asset must exist: ${path}`);
+        if (!asset.compressed) asset.compressed = gzipSync(asset.body);
+      }
+    }
+    ready = true;
   } finally {
     if (preparing || !ready) await close();
   }
