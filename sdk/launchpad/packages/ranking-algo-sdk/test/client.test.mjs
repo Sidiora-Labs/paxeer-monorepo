@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import test from 'node:test';
-import { RankingHttpClient, RankingHttpError, httpClient } from '../src/index.ts';
+import { RankingHttpClient, RankingHttpError, httpClient, getRankings } from '../src/index.ts';
 
 async function rankingRoundTrip() {
   const computedAt = '2026-01-01T00:00:00.000Z';
@@ -102,6 +102,8 @@ async function rankingRoundTrip() {
     controller.abort();
     await assert.rejects(client.getRankings('trending', { signal: controller.signal }), { name: 'AbortError' });
     assert.equal(requests.length, received);
+    httpClient.configure({ baseUrl: `http://127.0.0.1:${server.address().port}` });
+    assert.deepEqual(await getRankings('trending'), fullPage);
   } finally {
     server.close();
     await once(server, 'close');
