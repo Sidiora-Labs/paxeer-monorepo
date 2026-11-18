@@ -208405,7 +208405,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.912]
 title = "Answer the leaderboard read of the launchpad API as empty where the accounting holds no committed fill"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
