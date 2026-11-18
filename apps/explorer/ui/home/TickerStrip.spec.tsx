@@ -2,18 +2,24 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
 
 import type { TokenInfo } from 'types/api/token';
 
 import type { ResourcePayload } from 'lib/api/resources';
 import { getResourceKey } from 'lib/api/useApiQuery';
-import { Provider } from 'toolkit/chakra/provider';
-import { expect, test } from 'vitest';
+import { render } from 'ui/shared/layout/testWrapper';
+import { afterEach, expect, test } from 'vitest';
 
 import TickerStrip from './TickerStrip';
 
-function createToken(exchangeRate: string | null, change?: string | number): TokenInfo & { price_change_percentage_24h?: string | number } {
+const clients = new Set<QueryClient>();
+
+afterEach(() => {
+  clients.forEach((client) => client.clear());
+  clients.clear();
+});
+
+function createToken(exchangeRate: string | null, change?: TokenInfo['price_change_percentage_24h']): TokenInfo {
   return {
     address_hash: '0x0000000000000000000000000000000000000001',
     type: 'ERC-20',
@@ -26,25 +32,51 @@ function createToken(exchangeRate: string | null, change?: string | number): Tok
     icon_url: null,
     circulating_market_cap: null,
     reputation: 'ok',
-    price_change_percentage_24h: change,
+    ...(change === undefined ? {} : { price_change_percentage_24h: change }),
   };
 }
 
 function renderTicker(items: Array<TokenInfo>) {
   const client = new QueryClient();
+  clients.add(client);
   client.setQueryData<ResourcePayload<'general:tokens'>>(getResourceKey('general:tokens'), { items, next_page_params: null });
-  const container = document.createElement('div');
-  try {
-    container.innerHTML = renderToStaticMarkup(
-      <Provider>
-        <QueryClientProvider client={ client }><TickerStrip/></QueryClientProvider>
-      </Provider>,
-    );
-    return container;
-  } finally {
-    client.clear();
-  }
+  return render(<QueryClientProvider client={ client }><TickerStrip/></QueryClientProvider>).container;
 }
+
+test('ticker ends entries after the price without finite changes', function tickerOmitsUnavailableChanges() {
+  for (const change of [ undefined, null, '', ' ', 'NaN', 'Infinity', '-Infinity', 'unavailable', NaN, Infinity ]) {
+    const container = renderTicker([ createToken('1.25', change) ]);
+    const entry = container.querySelector('[data-ticker-token]');
+
+    expect(entry).not.toBeNull();
+    expect(entry?.querySelector('[data-change]')).toBeNull();
+    expect(entry?.lastElementChild?.hasAttribute('data-price')).toBe(true);
+    expect(entry?.querySelector('[data-price]')?.textContent).toBe('$1.25');
+    expect(entry?.children).toHaveLength(2);
+  }
+});
+
+test('ticker shows signed changes with their direction for each entry', function tickerShowsChangeDirections() {
+  const tokens = [
+    createToken('1.25'),
+    { ...createToken('2.5', '4.25'), address_hash: '0x0000000000000000000000000000000000000002' },
+    { ...createToken('3.75', -2.5), address_hash: '0x0000000000000000000000000000000000000003' },
+    { ...createToken('5', 0), address_hash: '0x0000000000000000000000000000000000000004' },
+  ];
+  const container = renderTicker(tokens);
+  const entries = container.querySelectorAll('[data-ticker-token]');
+
+  expect(entries).toHaveLength(4);
+  expect(entries[0].querySelector('[data-change]')).toBeNull();
+  const styles = Array.from(document.styleSheets).flatMap((sheet) => Array.from(sheet.cssRules).map((rule) => rule.cssText));
+  for (const [ index, expected, color ] of [ [ 1, '+4.25%', 'positive' ], [ 2, '-2.5%', 'negative' ], [ 3, '0%', 'text-muted' ] ] as const) {
+    const change = entries[index].querySelector('[data-change]') as HTMLElement;
+    expect(change.textContent).toBe(expected);
+    expect(change.getAttribute('aria-label')).toBe('24 hour change');
+    expect(styles.some((style) => Array.from(change.classList).some((className) =>
+      style.includes(`.${ className }`) && style.includes(`color: var(--chakra-colors-${ color })`)))).toBe(true);
+  }
+});
 
 test('ticker rounds sixteen fraction digits to six', function tickerRoundsSixteenFractionDigitsToSix() {
   const container = renderTicker([ createToken('0.1234567890123456') ]);
@@ -86,7 +118,7 @@ test('ticker keeps dashes for non finite rates', function tickerKeepsDashesForNo
   for (const rate of [ 'NaN', 'Infinity', '-Infinity', 'unavailable' ]) {
     const container = renderTicker([ createToken(rate) ]);
     expect(container.querySelector('[data-price]')?.textContent).toBe('—');
-    expect(container.querySelector('[data-change]')?.textContent).toBe('—');
+    expect(container.querySelector('[data-change]')).toBeNull();
   }
 });
 

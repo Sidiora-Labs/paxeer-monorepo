@@ -15,6 +15,7 @@ import AddressAddToWallet from 'ui/shared/address/AddressAddToWallet';
 import TokenEntity from 'ui/shared/entities/token/TokenEntity';
 import ListItemMobile from 'ui/shared/ListItemMobile/ListItemMobile';
 
+import { getTokenChange } from './tokenChange';
 import {
   getTokenVolume,
   TokenChangePercent,
@@ -28,6 +29,7 @@ type Props = {
   page: number;
   isLoading?: boolean;
   coinPrice?: string | null;
+  showChange?: boolean;
 };
 
 const PRICE_ACCURACY = 4;
@@ -39,6 +41,7 @@ const TokensListItem = ({
   page,
   index,
   isLoading,
+  showChange,
 }: Props) => {
 
   const {
@@ -118,7 +121,7 @@ const TokensListItem = ({
         </Flex>
       </Flex>
       { renderRow('Price', price) }
-      { renderRow('Change 24h', <TokenChangePercent isLoading={ isLoading }/>) }
+      { showChange && !isLoading && renderRow('Change 24h', <TokenChangePercent value={ getTokenChange(token)?.toNumber() }/>) }
       { renderRow('Market cap', <TokenFiatValue value={ marketCap ? BigNumber(marketCap) : undefined } isLoading={ isLoading }/>) }
       { renderRow('Volume 24h', <TokenFiatValue value={ getTokenVolume(token) } isLoading={ isLoading }/>) }
       { renderRow('Holders', holders) }

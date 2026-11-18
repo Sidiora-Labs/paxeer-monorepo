@@ -2,25 +2,12 @@ import { Flex, Text } from '@chakra-ui/react';
 import BigNumber from 'bignumber.js';
 import React from 'react';
 
-import type { TokenInfo } from 'types/api/token';
-
 import { route } from 'nextjs-routes';
 
 import useApiQuery from 'lib/api/useApiQuery';
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
-
-function tokenChange(token: TokenInfo) {
-  if (!('price_change_percentage_24h' in token)) {
-    return undefined;
-  }
-  const value = token.price_change_percentage_24h;
-  if (typeof value !== 'number' && (typeof value !== 'string' || value.trim() === '')) {
-    return undefined;
-  }
-  const change = new BigNumber(value);
-  return change.isFinite() ? change : undefined;
-}
+import { getTokenChange } from 'ui/tokens/tokenChange';
 
 const TickerStrip = () => {
   const { data, isError, isPlaceholderData, isPending } = useApiQuery('general:tokens', {
@@ -54,7 +41,7 @@ const TickerStrip = () => {
       { isLoading && <Skeleton loading h="touchTarget" w="full"/> }
       { !isLoading && tokens.map((token) => {
         const price = new BigNumber(token.exchange_rate!);
-        const change = tokenChange(token);
+        const change = getTokenChange(token);
         let changeColor = 'text.muted';
         if (change && !change.isZero()) {
           changeColor = change.isPositive() ? 'positive' : 'negative';
@@ -67,11 +54,13 @@ const TickerStrip = () => {
             <Text data-price textStyle="number" color={ price.isFinite() ? 'text.primary' : 'text.muted' }>
               { price.isFinite() ? `$${ price.toFormat(Math.min(6, Math.max(2, price.decimalPlaces() ?? 2)), BigNumber.ROUND_HALF_UP) }` : '—' }
             </Text>
-            <Text data-change textStyle="number" color={ changeColor } aria-label="24 hour change">
-              { change ? `${ change.isPositive() && !change.isZero() ? '+' : '' }${
-                change.toFormat(Math.min(2, change.decimalPlaces() ?? 0), BigNumber.ROUND_HALF_UP)
-              }%` : '—' }
-            </Text>
+            { change && (
+              <Text data-change textStyle="number" color={ changeColor } aria-label="24 hour change">
+                { `${ change.isPositive() && !change.isZero() ? '+' : '' }${
+                  change.toFormat(Math.min(2, change.decimalPlaces() ?? 0), BigNumber.ROUND_HALF_UP)
+                }%` }
+              </Text>
+            ) }
           </Flex>
         );
       }) }
