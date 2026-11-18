@@ -23,6 +23,7 @@ import {
   View,
 } from 'react-native';
 import { surface, useSurface } from './surface.ts';
+import { actionFailure, PageHistory } from './runtime/flow-state.ts';
 export { useSurface } from './surface.ts';
 import {
   useResource as useResourceState,
@@ -496,24 +497,207 @@ export function ResourceStatus({
     </View>
   );
 }
+export function usePagination(scope: string) {
+  const [value, setValue] = useState(() => ({
+    scope,
+    history: new PageHistory(),
+  }));
+  const [, render] = useState(0);
+  const [error, setError] = useState<string>();
+  const history =
+    value.scope === scope ? value.history : new PageHistory();
+  useEffect(() => {
+    if (value.scope !== scope) setValue({ scope, history });
+  }, [scope, value.scope]);
+  return {
+    cursor: history.cursor,
+    error,
+    next: (cursor: string) => {
+      try {
+        history.next(cursor);
+        setError(undefined);
+        render((n) => n + 1);
+      } catch (failure) {
+        setError(actionFailure(failure));
+      }
+    },
+    previous: () => {
+      history.previous();
+      render((n) => n + 1);
+    },
+    reset: () => {
+      history.reset();
+      setError(undefined);
+      render((n) => n + 1);
+    },
+  };
+}
+export function PageControls({
+  page,
+  nextCursor,
+  loading,
+  offline,
+}: {
+  page: ReturnType<typeof usePagination>;
+  nextCursor?: string | null;
+  loading: boolean;
+  offline: boolean;
+}) {
+  return (
+    <>
+      {page.error && (
+        <>
+          <ErrorNotice message={page.error} />
+          <Button label="Reset pages" onPress={page.reset} />
+        </>
+      )}
+      {page.cursor && (
+        <>
+          <Button
+            label="Previous page"
+            disabled={loading}
+            onPress={page.previous}
+          />
+          <Button
+            label="First page"
+            disabled={loading}
+            onPress={page.reset}
+          />
+        </>
+      )}
+      {nextCursor && (
+        <Button
+          label="Next page"
+          disabled={loading || offline}
+          onPress={() => page.next(nextCursor)}
+        />
+      )}
+    </>
+  );
+}
 export async function showAction(
   action: () => Promise<unknown>,
   failure: (value: string) => void,
   done?: () => void,
 ) {
+  failure('');
   try {
     await action();
     done?.();
   } catch (error) {
-    const message = error instanceof Error ? error.message : '';
-    failure(
-      message &&
-        message.length <= 256 &&
-        !/(?:0x[0-9a-f]{40,}|https?:|jwt|token=|signature|payload|\r|\n)/i.test(
-          message,
-        )
-        ? message
-        : 'Operation failed. Refresh current authorization and retry explicitly.',
-    );
+    failure(actionFailure(error));
   }
+}
+
+export function WalletRecovery({ runtime }: { runtime: Runtime }) {
+  const recovery = runtime.lifecycle.tradeRecovery;
+  const [hash, setHash] = useState('');
+  const [error, setError] = useState<string>();
+  const { ui } = useSurface();
+  return (
+    <>
+      {runtime.lifecycle.tradeRecoveryResult && (
+        <Text style={ui.text}>
+          Transaction {runtime.lifecycle.tradeRecoveryResult} on chain.
+        </Text>
+      )}
+      {runtime.approval?.hasOutstanding && (
+        <Button
+          label="Open approval recovery"
+          onPress={() =>
+            runtime.navigate({
+              name: 'token',
+              address: runtime.approval!.current!.pool,
+            })
+          }
+        />
+      )}
+      {recovery && (
+        <Card>
+          <Text style={ui.text}>{recovery.instructions}</Text>
+          <Copyable
+            label="Transaction account"
+            value={recovery.account}
+          />
+          <Copyable
+            label="Transaction chain ID"
+            value={String(recovery.chainId)}
+          />
+          <Copyable
+            label="Transaction nonce"
+            value={String(recovery.nonce)}
+          />
+          {recovery.transactionHash && (
+            <Copyable
+              label="Submitted transaction hash"
+              value={recovery.transactionHash}
+            />
+          )}
+          {error && <ErrorNotice message={error} />}
+          {runtime.privacy.enabled && !runtime.privacy.unlocked && (
+            <Button
+              label="Unlock transaction recovery"
+              onPress={() =>
+                showAction(
+                  () => runtime.privacy.unlock(),
+                  setError,
+                  runtime.changed,
+                )
+              }
+            />
+          )}
+          <Field
+            label="Transaction hash from wallet activity"
+            value={hash}
+            onChange={setHash}
+          />
+          <Button
+            label="Verify same nonce replacement or cancellation"
+            disabled={
+              !/^0x[0-9a-f]{64}$/i.test(hash) ||
+              !runtime.session.token ||
+              (runtime.privacy.enabled && !runtime.privacy.unlocked)
+            }
+            onPress={() =>
+              showAction(
+                async () => {
+                  await runtime.session.validate(runtime.services);
+                  await runtime.lifecycle.recoverTrade(
+                    hash,
+                    runtime.session.signal,
+                    true,
+                  );
+                },
+                setError,
+                runtime.changed,
+              )
+            }
+          />
+          <Button
+            label="Verify transaction outcome"
+            disabled={
+              !/^0x[0-9a-f]{64}$/i.test(
+                hash || recovery.transactionHash || '',
+              ) ||
+              !runtime.session.token ||
+              (runtime.privacy.enabled && !runtime.privacy.unlocked)
+            }
+            onPress={() =>
+              showAction(
+                async () => {
+                  await runtime.lifecycle.foreground();
+                  if (runtime.lifecycle.tradeRecovery)
+                    await runtime.lifecycle.recoverTrade(
+                      hash || recovery.transactionHash!,
+                    );
+                },
+                setError,
+                runtime.changed,
+              )
+            }
+          />
+        </Card>
+      )}
+    </>
+  );
 }

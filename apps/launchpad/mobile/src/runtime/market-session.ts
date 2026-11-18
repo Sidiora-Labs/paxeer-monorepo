@@ -2,7 +2,7 @@ import {
   SnapshotStreamV2,
   decodeV2Contract,
   browserStreamTransportV2,
-} from '@kindle/sdk';
+} from '../../../../../sdk/launchpad/packages/sdk/src/index.ts';
 import type {
   StreamState,
   V2StreamEvent,

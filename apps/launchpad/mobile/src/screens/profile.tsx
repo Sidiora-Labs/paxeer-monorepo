@@ -35,7 +35,8 @@ export function Profile({
       `private:profile:${address}`,
       'bio',
     ),
-    [error, setError] = useState<string>();
+    [error, setError] = useState<string>(),
+    [notice, setNotice] = useState<string>();
   useEffect(() => {
     if (state.data) {
       const saved = runtime.routeState.get(
@@ -50,15 +51,24 @@ export function Profile({
   const owned =
     runtime.session.account?.toLowerCase() === address.toLowerCase();
   return (
-    <Page runtime={runtime} stateKey={`profile:${address}`} title="Profile">
+    <Page
+      runtime={runtime}
+      stateKey={`profile:${address}`}
+      title="Profile"
+    >
       <ResourceStatus {...state} />
       {error && <ErrorNotice message={error} />}
+      {notice && <Text style={ui.text}>{notice}</Text>}
       <Copyable label="Wallet" value={address} />
       {state.data && (
         <Card>
           {owned ? (
             <>
-              <Field label="Display name" value={name} onChange={setName} />
+              <Field
+                label="Display name"
+                value={name}
+                onChange={setName}
+              />
               <Field
                 multiline
                 label="Biography"
@@ -74,25 +84,42 @@ export function Profile({
                       runtime.services.editProfile(
                         address,
                         {
-                          expectedRevision: state.data!.data.profile.revision,
+                          expectedRevision:
+                            state.data!.data.profile.revision,
                           displayName: name,
                           bio,
                         },
                         runtime.session.signal,
                       ),
                     setError,
-                    state.reload,
+                    () => {
+                      setNotice('Profile saved.');
+                      state.reload();
+                    },
                   )
                 }
               />
+              <Button
+                label="Reload current profile"
+                disabled={state.loading}
+                onPress={() => {
+                  runtime.routeState.delete(`private:profile:${address}`);
+                  setNotice(undefined);
+                  setError(undefined);
+                  state.reload();
+                }}
+              />
               <Text style={ui.subtle}>
-                A conflicting edit requires reloading the current revision.
+                A conflicting edit requires reloading the current
+                revision.
               </Text>
             </>
           ) : (
             <>
-              <Text style={ui.text}>{name}</Text>
-              <Text style={ui.text}>{bio}</Text>
+              <Text style={ui.text}>
+                {state.data.data.profile.displayName}
+              </Text>
+              <Text style={ui.text}>{state.data.data.profile.bio}</Text>
             </>
           )}
         </Card>
