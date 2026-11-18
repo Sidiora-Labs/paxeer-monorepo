@@ -258,17 +258,14 @@ describe('the Paxeer X presets', () => {
     expect(drifted).toEqual([]);
   });
 
-  it.each(PRESETS)('preset %s points the marks and the typeface at the product', function declaresPresetBranding(path) {
+  it.each(PRESETS)('preset %s points the marks at the product and declares no type family', function declaresPresetMarksWithoutTypeFamily(path) {
     const preset = fs.readFileSync(path, 'utf-8');
 
     expect(preset).toContain('NEXT_PUBLIC_NETWORK_LOGO=file:///app/public/static/paxeer-x/logo.svg');
     expect(preset).toContain('NEXT_PUBLIC_NETWORK_LOGO_DARK=file:///app/public/static/paxeer-x/logo-dark.svg');
     expect(preset).toContain('NEXT_PUBLIC_NETWORK_ICON=file:///app/public/static/paxeer-x/icon.svg');
     expect(preset).toContain('NEXT_PUBLIC_NETWORK_ICON_DARK=file:///app/public/static/paxeer-x/icon-dark.svg');
-    expect(preset).toContain('NEXT_PUBLIC_FONT_FAMILY_HEADING=');
-    expect(preset).toContain('NEXT_PUBLIC_FONT_FAMILY_BODY=');
-    expect(preset).toMatch(/NEXT_PUBLIC_FONT_FAMILY_HEADING=\{'name':'Manrope'/);
-    expect(preset).toMatch(/NEXT_PUBLIC_FONT_FAMILY_BODY=\{'name':'Manrope'/);
+    expect(preset).not.toMatch(/^NEXT_PUBLIC_FONT_FAMILY/m);
     expect(preset).not.toMatch(/^NEXT_PUBLIC_COLOR_THEME_DEFAULT/m);
   });
 });
