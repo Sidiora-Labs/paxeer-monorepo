@@ -208144,7 +208144,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.901]
 title = "Close the protocol module of the launchpad against the contracts and the services that read it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208175,7 +208175,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.900]
 title = "Close the flows of the launchpad mobile application against the services they call"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209253,7 +209253,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.866]
 title = "Let the playback measure of the gateway envelope hold for both forms of the progress report of the player"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
