@@ -18,7 +18,7 @@ const microserviceRequestInterceptorFactory = (api: ApiPropsBase) => (req: Swagg
 const getMicroserviceSwaggerUrl = (api: ApiPropsBase) => `${ api.endpoint }${ api.basePath ?? '' }/api/v1/docs/swagger.yaml`;
 
 // The spec shipped with the frontend build (public/openapi.yaml).
-export const CORE_API_SPEC_PUBLIC_URL = '/openapi.yaml';
+export const CORE_API_SPEC_PUBLIC_URL = `${ config.app.basePath }/openapi.yaml`;
 
 // The spec the backend renders for its API v2 controllers.
 export const getCoreApiSpecBackendUrl = (): string | undefined => {
@@ -55,7 +55,7 @@ export const resolveCoreApiSpecUrl = async(candidates: Array<string>): Promise<s
 export const REST_API_SECTIONS = [
   config.apis.general && {
     id: 'blockscout-core-api',
-    title: 'Blockscout core API',
+    title: 'Core API',
     swagger: {
       // default swagger URL, will be replaced with the first reachable spec location (see getCoreApiSpecCandidates)
       url: CORE_API_SPEC_PUBLIC_URL,
