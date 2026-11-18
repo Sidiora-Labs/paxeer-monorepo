@@ -208255,7 +208255,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.910]
 title = "Bring the route corrections and the catalog of served routes of the launchpad client package in line with the producers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.883"]
@@ -208633,7 +208633,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.898]
 title = "Close the live flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
