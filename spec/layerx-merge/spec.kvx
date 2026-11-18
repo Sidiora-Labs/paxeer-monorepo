@@ -210534,7 +210534,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.106]
 title = "Bring the size tokens, the shell and the footer of the launchpad web application back to its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.104", "22.39.814"]
