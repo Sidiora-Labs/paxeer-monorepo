@@ -176502,7 +176502,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.846]
 title = "Show the inference view of the explorer as not active where the node holds no inference program"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
