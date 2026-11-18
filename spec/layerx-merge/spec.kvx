@@ -208647,7 +208647,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.925]
 title = "Bring the composed document cases of the launchpad livestream module in line with the composer they read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
