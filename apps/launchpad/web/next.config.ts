@@ -27,7 +27,13 @@ function backendImageHosts(): Array<{ protocol: 'https' | 'http'; hostname: stri
   }
   const canonical = process.env.NEXT_PUBLIC_CANONICAL_ORIGIN;
   const origins = [...browserImageOrigins()];
-  if (canonical) { try { origins.push(new URL(canonical).origin); } catch {} }
+  if (canonical) {
+    const url = new URL(canonical);
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || url.pathname !== '/') {
+      throw new TypeError('NEXT_PUBLIC_CANONICAL_ORIGIN must be an HTTP(S) origin');
+    }
+    origins.push(url.origin);
+  }
   const seen = new Set<string>();
   const out: Array<{ protocol: 'https' | 'http'; hostname: string; port?: string }> = [];
   for (const origin of origins) {
