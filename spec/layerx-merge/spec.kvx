@@ -176614,7 +176614,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.843]
 title = "Draw the labels of the value axis of the home charts of the explorer inside the inner room of the tile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176739,7 +176739,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.838]
 title = "Hold the desktop header of the explorer in one row and begin the text of a search field after its mark"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
