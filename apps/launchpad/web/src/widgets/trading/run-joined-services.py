@@ -223,7 +223,8 @@ def community_interfaces(owner, root, database):
                   for name in sorted(names)]
     histories = json.loads((directory / 'legacy-history-aliases.json').read_text())['histories']
     for history in histories:
-        if history['service'] not in ('media/user', 'media/metadata'):
+        # prepare_fixture applies the metadata sources right after creating the database.
+        if history['service'] != 'media/user':
             continue
         for source in history['sources']:
             path = root / source['path']
