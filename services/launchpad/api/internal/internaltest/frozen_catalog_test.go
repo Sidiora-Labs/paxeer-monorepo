@@ -48,7 +48,7 @@ print(generator.current_operations(package, recorded), end="")
 	if got := byID[want.ID]; got != want {
 		t.Errorf("%s = %+v, want %+v", want.ID, got, want)
 	}
-	want = FrozenOperation{ID: "IF_ACCOUNT_DELETE", Method: http.MethodPost, Path: "/v2/me/deletion-requests", Service: "api", Body: "AccountDeleteBody", Response: "AccountDeleteResponse", Authenticated: true}
+	want = FrozenOperation{ID: "IF_ACCOUNT_DELETE", Method: http.MethodPost, Path: "/v2/me/deletion-requests", Service: "media", Body: "AccountDeleteBody", Response: "AccountDeleteResponse", Authenticated: true}
 	if got := byID[want.ID]; got != want {
 		t.Errorf("%s = %+v, want %+v", want.ID, got, want)
 	}

@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"errors"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread"
 	"strings"
 	"testing"
 
@@ -11,6 +13,9 @@ import (
 func TestArchiveBlockTimeUsesCanonicalChainHeader(t *testing.T) {
 	chain := internaltest.NewMarketChain(t)
 	ctx := context.Background()
+	if _, err := archiveBlockTime(ctx, nil, 1, chain.Headers[1].Hash); !errors.Is(err, chainread.ErrUnavailable) {
+		t.Fatalf("archive read cause: %v", err)
+	}
 	header := chain.Headers[1]
 	for _, tc := range []struct {
 		name     string

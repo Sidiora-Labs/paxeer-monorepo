@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 import { useWatchlist } from '@/hooks/ui/use-watchlist';
+import { WatchlistNotice } from '@/ui/common/watchlist-notice';
 import { Button, EmptyState } from '@/ui/primitives';
 import { ColumnSettings, useExploreSettings } from './column-settings';
 import { ExploreGrid } from './explore-grid';
@@ -67,6 +68,7 @@ export function ExploreView({ rows, loading, hasMore, loadingMore, moreError, on
 
   return (
     <div className="flex flex-col gap-4">
+      <WatchlistNotice state={watchlist} />
       <ExploreToolbar
         leading={leading}
         filterOpen={filterOpen}

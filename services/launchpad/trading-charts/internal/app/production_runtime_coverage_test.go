@@ -169,6 +169,7 @@ func productionChartDatabase(t *testing.T) (string, production.ExpectedSchema, p
 }
 
 func TestProductionAppConnectsCanonicalProvidersAndServesRuntimeRoutes(t *testing.T) {
+	t.Run("composed container startup", assertComposedChartStartup)
 	ctx := context.Background()
 	dsn, expected, budget := productionChartDatabase(t)
 	redisURL := internaltest.NewRedisURL(t)

@@ -48,6 +48,7 @@ func HistoryHandler(store *DurableStore, authenticate AuthenticateUpgrade) http.
 			w.WriteHeader(status)
 			code := err.Error()
 			if status == 503 {
+				slog.ErrorContext(r.Context(), "chat history request failed", "error", err)
 				code = "chat_unavailable"
 			}
 			if err := json.NewEncoder(w).Encode(map[string]any{errorField: code, "next_cursor": page.Next, "reset_required": page.Reset}); err != nil {
@@ -75,6 +76,7 @@ func ConversationsHandler(store *DurableStore, authenticate AuthenticateUpgrade)
 		}
 		ids, err := store.List(WithPrincipal(r.Context(), p), p.Wallet, 100)
 		if err != nil {
+			slog.ErrorContext(r.Context(), "chat conversations request failed", "error", err)
 			http.Error(w, "unavailable", http.StatusServiceUnavailable)
 			return
 		}
@@ -110,6 +112,7 @@ func RegisterChatRoutes(router chi.Router, store *DurableStore, authenticate Aut
 		}
 		rows, err := store.Pool.Query(r.Context(), `SELECT c.id,peer.wallet,extract(epoch from max(msg.created_at))::bigint,count(msg.id) FILTER(WHERE msg.sequence>own.read_sequence AND msg.deleted_at IS NULL AND msg.sender<>$1),own.read_sequence,own.muted FROM chat_conversations c JOIN chat_members own ON own.conversation_id=c.id AND own.wallet=$1 JOIN chat_members peer ON peer.conversation_id=c.id AND peer.wallet<>$1 LEFT JOIN chat_messages msg ON msg.conversation_id=c.id WHERE c.kind='dm' GROUP BY c.id,peer.wallet,own.read_sequence,own.muted ORDER BY max(msg.created_at) DESC NULLS LAST,c.id LIMIT 100`, principal.Wallet)
 		if err != nil {
+			slog.ErrorContext(r.Context(), "chat conversations request failed", "error", err)
 			http.Error(w, "unavailable", http.StatusServiceUnavailable)
 			return
 		}
@@ -121,12 +124,14 @@ func RegisterChatRoutes(router chi.Router, store *DurableStore, authenticate Aut
 			var unread, read int64
 			var muted bool
 			if err = rows.Scan(&id, &peer, &last, &unread, &read, &muted); err != nil {
+				slog.ErrorContext(r.Context(), "chat conversations request failed", "error", err)
 				http.Error(w, "unavailable", http.StatusServiceUnavailable)
 				return
 			}
 			result = append(result, map[string]any{"id": id, "peer": peer, "last_message_at": last, "unread_count": unread, "read_sequence": itoa64(read), "muted": muted})
 		}
-		if rows.Err() != nil {
+		if err = rows.Err(); err != nil {
+			slog.ErrorContext(r.Context(), "chat conversations request failed", "error", err)
 			http.Error(w, "unavailable", http.StatusServiceUnavailable)
 			return
 		}
@@ -226,6 +231,7 @@ func connectedError(w http.ResponseWriter, err error) {
 	}
 	code := err.Error()
 	if status == 503 {
+		slog.Error("chat request failed", "error", err)
 		code = "chat_unavailable"
 	}
 	connectedJSON(w, status, map[string]string{errorField: code})

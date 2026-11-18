@@ -2,7 +2,7 @@
   "author": "Sidiora Labs",
   "license": "Apache-2.0",
   "name": "@kindle/sdk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "packageManager": "pnpm@9.15.0",
   "type": "module",
@@ -52,6 +52,6 @@
     ],
     "v1ReleaseManifest": "release-manifest.json",
     "compatibilityWindowRequiredForBreakingChanges": true,
-    "currentReleaseManifest": "releases/0.1.1.json"
+    "currentReleaseManifest": "releases/0.1.2.json"
   }
 }

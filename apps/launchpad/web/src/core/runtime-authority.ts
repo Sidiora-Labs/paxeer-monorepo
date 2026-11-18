@@ -133,7 +133,7 @@ async function readJSON(path: string, signal: AbortSignal, body?: unknown): Prom
   finally { clearTimeout(timer); signal.removeEventListener('abort', cancel); }
 }
 async function readJSONBody(path: string, signal: AbortSignal, body?: unknown): Promise<unknown> {
-  if (window.location.protocol !== 'https:') throw new Error('Network authority requires the HTTPS application origin');
+  if (window.location.protocol !== 'https:') throw new Error('Open the secure app to connect your wallet');
   const response = await fetch(new URL(path, window.location.origin), { method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store', redirect: 'error', signal, headers: { Accept: 'application/json', ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   if (!response.ok) throw new Error(`Network authority is unavailable (${response.status})`);
   if (!response.headers.get('content-type')?.toLowerCase().startsWith('application/json')) throw new Error('Network authority did not return JSON');

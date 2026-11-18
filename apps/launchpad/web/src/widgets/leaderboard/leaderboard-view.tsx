@@ -136,7 +136,7 @@ export function LeaderboardView({ rail, initialTab, initialPeriod, className }: 
                 {shownPeriod === 'cup' ? (
                   cup.state === 'ready' && cup.data !== null ? <CupResultsList cup={cup.data} /> : null
                 ) : (
-                  <TradersBoard period={shownPeriod} />
+                  <TradersBoard key={shownPeriod} period={shownPeriod} />
                 )}
               </div>
             ) : null}

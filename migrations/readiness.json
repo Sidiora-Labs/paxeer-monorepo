@@ -16,16 +16,19 @@
   "additional_required_migrations_by_role": {
     "indexer_runtime": [
       160001,
-      190001
+      190001,
+      60006
     ],
     "pnl_runtime": [
       80000,
       150002,
       160001,
-      190001
+      190001,
+      60006
     ],
     "metadata_runtime": [
-      190001
+      190001,
+      60006
     ],
     "stats_runtime": [
       150002,
@@ -35,7 +38,8 @@
       130000,
       150002,
       160001,
-      210002
+      210002,
+      60006
     ],
     "recovery_fencer": [
       440000,
@@ -54,12 +58,19 @@
       150002,
       160001,
       190001,
-      210002
+      210002,
+      60006
     ],
     "api_sockets_runtime": [
       130000,
       150002,
       160001
+    ],
+    "users_runtime": [
+      60006
+    ],
+    "identity_runtime": [
+      60006
     ]
   },
   "unused_runtime_roles": [

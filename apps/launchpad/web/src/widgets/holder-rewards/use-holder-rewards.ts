@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from 'react';
 import { useInfiniteQuery, useQueries, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { usePublicClient } from 'wagmi';
+import { HttpError } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
 import { useMarketClient } from '@/core/market/client';
@@ -69,7 +70,11 @@ export function useHolderRewardsPools(sort: HolderRewardsSort, limit: number = h
   const data = query.data;
   const pages = useMemo(() => data?.pages ?? [], [data]);
   const items = useMemo(() => pages.flatMap(page => page.data.items), [pages]);
-  const loadMore = useCallback(() => { if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage(); }, [query]);
+  const loadMore = useCallback(() => {
+    if (!query.hasNextPage || query.isFetching) return;
+    if (query.error instanceof HttpError && query.error.code === 'RESNAPSHOT_REQUIRED') void query.refetch();
+    else void query.fetchNextPage();
+  }, [query]);
   const retry = useCallback(() => { void query.refetch(); }, [query]);
   const availability = query.status === 'error' && pages.length === 0 ? classifyHolderRewardsFailure(holderRewardsOperations.pools, query.error) : null;
   return {
@@ -78,7 +83,7 @@ export function useHolderRewardsPools(sort: HolderRewardsSort, limit: number = h
     loading: query.status === 'pending',
     availability,
     hasMore: query.hasNextPage,
-    loadingMore: query.isFetchingNextPage,
+    loadingMore: query.isFetching && pages.length > 0,
     loadMoreFailed: query.isFetchNextPageError,
     loadMore,
     retry,

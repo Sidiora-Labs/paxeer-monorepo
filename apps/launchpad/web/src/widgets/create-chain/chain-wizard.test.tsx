@@ -6,9 +6,9 @@ import { createPublicClient, createWalletClient, custom, defineChain, decodeFunc
 import ChainWizard from './chain-wizard';
 import vectors from '../../../../../../tests/vectors/chains/abi-vectors.json';
 import { ChainLaunchAdapter, chainsAbi, type ChainLaunchResult, type ChainLaunchStep } from './chain-adapters';
-import { walletNetwork, type ChainDraft, type ChainsParams } from './chain-domain';
+import { chainRevenueOperator, walletNetwork, type ChainDraft, type ChainsParams } from './chain-domain';
 import { ChainDraftStorage } from './chain-storage';
-import { CHAIN_LAUNCH_ABI, LAUNCHPAD_ADDRESS } from '@/core/network/contracts';
+import { CHAIN_LAUNCH_ABI, LAUNCHPAD_ADDRESS, USDL_ADDRESS } from '@/core/network/contracts';
 
 const creator = '0x1111111111111111111111111111111111111111';
 const chain = defineChain({
@@ -87,6 +87,9 @@ async function typeToken() { await typeInput('#chain-token-name', 'My Token'); a
 function mockReads() {
   vi.spyOn(client, 'readContract').mockImplementation(async request => {
     if (request.functionName === 'creationFee') return 1000000n;
+    if (request.functionName === 'usdlAddress') return USDL_ADDRESS;
+    if (request.functionName === 'decimals') return 6;
+    if (request.functionName === 'balanceOf' || request.functionName === 'allowance') return 1000000n;
     throw new Error('Unexpected read');
   });
   const read = vi.spyOn(ChainLaunchAdapter.prototype, 'readParams').mockResolvedValue(params);
@@ -222,13 +225,16 @@ function recoveryFixture() {
   const read = vi.spyOn(client, 'readContract').mockImplementation(async request => {
     if (request.functionName === 'params') return params;
     if (request.functionName === 'creationFee') return 1000000n;
+    if (request.functionName === 'usdlAddress') return USDL_ADDRESS;
+    if (request.functionName === 'decimals') return 6;
+    if (request.functionName === 'balanceOf' || request.functionName === 'allowance') return 1000000n;
     if (request.functionName === 'launchedChain') return [1, 125000001n, launched.pool, launched.token, 7n, creator, 42n];
     if (request.functionName === 'name') return 'My Token';
     if (request.functionName === 'symbol') return 'MYT';
     if (request.functionName === 'chainByName') return nameAvailable ? 0 : 1;
     if (request.functionName === 'getChain') {
       if (readbackError) throw new Error(readbackError);
-      return [record[0], record[1], record[2], record[3], record[4], record[5], record[6], 0, ...record.slice(8)];
+      return [record[0], record[1], chainRevenueOperator(record[0]), record[3], record[4], record[5], record[6], 0, ...record.slice(8)];
     }
     throw new Error('Unexpected registry method');
   });

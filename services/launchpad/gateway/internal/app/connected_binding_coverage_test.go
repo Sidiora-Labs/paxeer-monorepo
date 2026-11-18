@@ -359,7 +359,7 @@ func startGatewayBrokerFixture(t *testing.T, pki *testpki.PKI, leaf testpki.Leaf
 		t.Fatal(err)
 	}
 	directory := t.TempDir()
-	configuration := fmt.Sprintf("host: 127.0.0.1\nport: %d\njetstream { store_dir: %q }\ntls { cert_file: %q; key_file: %q; ca_file: %q }\n", port, filepath.Join(directory, "store"), leaf.CertFile, leaf.KeyFile, pki.CAFile)
+	configuration := fmt.Sprintf("host: 127.0.0.1\nport: %d\nmax_payload: 2097152\njetstream { store_dir: %q }\ntls { cert_file: %q; key_file: %q; ca_file: %q }\n", port, filepath.Join(directory, "store"), leaf.CertFile, leaf.KeyFile, pki.CAFile)
 	path := filepath.Join(directory, "broker.conf")
 	if err := os.WriteFile(path, []byte(configuration), 0600); err != nil {
 		t.Fatal(err)

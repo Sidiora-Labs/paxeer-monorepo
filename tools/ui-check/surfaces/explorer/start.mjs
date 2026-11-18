@@ -13,6 +13,7 @@ if (!compileCache.directory) throw new Error(compileCache.message);
 const require = createRequire(directory + 'package.json');
 const environment = JSON.parse(await readFile(new URL('./environment.json', import.meta.url), 'utf8'));
 const zetaChainCCTX = await readFile(new URL('./zeta-chain.json', import.meta.url));
+const statistics = JSON.parse(await readFile(new URL('./statistics-service.json', import.meta.url), 'utf8'));
 Object.assign(process.env, environment, { NODE_ENV: 'production', DISABLE_TRACKING: 'true', NEXT_TELEMETRY_DISABLED: '1' });
 const next = require('next');
 const { WebSocketServer } = require('ws');
@@ -81,6 +82,15 @@ const server = createServer(async (request, response) => {
       response.end('window.__envs = ' + JSON.stringify(environment) + ';');
       return;
     }
+    const documentData = {
+      '/api/v2/stats': 'stats.json',
+      '/api/v2/main-page/blocks': 'home-blocks.json',
+    }[url.pathname];
+    if (documentData) {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(await readFile(new URL('./' + documentData, import.meta.url)));
+      return;
+    }
     const apiPath = url.pathname.replace(/^\/explorer\/node-api\/proxy(?=\/api\/)/, '');
     if (apiPath === '/api/v1/clusters/render/chain-metrics') {
       response.writeHead(200, { 'content-type': 'application/json' });
@@ -96,6 +106,19 @@ const server = createServer(async (request, response) => {
       }
       response.writeHead(307, { location: 'https://explorer.example.test' + apiPath + url.search });
       response.end();
+      return;
+    }
+    if (apiPath.startsWith('/api/v1/lines/') || ['/api/v1/docs/swagger.yaml', '/api/v1/lines', '/api/v1/counters', '/api/v1/pages/main', '/api/v1/pages/transactions', '/api/v1/pages/contracts'].includes(apiPath)) {
+      const chart = apiPath.startsWith('/api/v1/lines/') ? statistics.charts[decodeURIComponent(apiPath.slice('/api/v1/lines/'.length))] : undefined;
+      const payload = apiPath === '/api/v1/docs/swagger.yaml' ? JSON.parse(await readFile(new URL('./statistics-openapi.json', import.meta.url), 'utf8')) :
+        apiPath === '/api/v1/lines' ? statistics.lines :
+        apiPath === '/api/v1/counters' ? statistics.counters :
+        apiPath === '/api/v1/pages/main' ? statistics.main :
+        apiPath === '/api/v1/pages/transactions' ? JSON.parse(await readFile(new URL('./stats-txs.json', import.meta.url), 'utf8')) :
+        apiPath === '/api/v1/pages/contracts' ? statistics.contracts :
+        chart ? { info: chart.info, chart: chart.chart ?? statistics.series } : undefined;
+      response.writeHead(payload ? 200 : 404, { 'content-type': 'application/json' });
+      response.end(JSON.stringify(payload ?? { message: 'Chart not found' }));
       return;
     }
     await handle(request, response);
@@ -139,6 +162,11 @@ async function prepare() {
       await assertRollupPages();
       const { assertTokenPages } = await import('./tokens.mjs');
       await assertTokenPages();
+      for (const path of ['/api-docs', '/gas-tracker', '/stats/coinPrice', '/stats']) {
+        const document = await fetch('http://localhost:4173/explorer' + path, { signal: AbortSignal.timeout(10000) });
+        await document.arrayBuffer();
+        if (document.status !== 200) throw new Error(`${path}: statistics document must answer with status 200`);
+      }
       flushCompileCache();
     }
   } finally {

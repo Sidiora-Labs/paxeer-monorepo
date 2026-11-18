@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Project pinned generator with explicit versioned bundle and package outputs."""
 import argparse
+import copy
 import hashlib
 import importlib.util
 import json
@@ -116,6 +117,12 @@ def current_artifacts(root):
     if recorded['openapi'] != '3.1.0' or recorded['info']['version'] != 'v2':
         raise ValueError('Recorded OpenAPI v2 required')
     document['$defs'].update(local_refs(recorded['components']['schemas']))
+    document['$defs']['SessionsRequest']['properties']['cursor']['maxLength'] = 2048
+    notification = copy.deepcopy(document['$defs']['Notification'])
+    notification['properties'].update({'summary': {'type': 'string', 'minLength': 1, 'maxLength': 512}, 'read': {'type': 'boolean'}})
+    notification['required'].extend(['summary', 'read'])
+    document['$defs']['NotificationListItem'] = notification
+    document['$defs']['NotificationsData']['properties']['items']['items'] = {'$ref': '#/$defs/NotificationListItem'}
     for name, node in document['$defs'].items():
         module.validate_schema(node, document['$defs'], name)
     generated = module.Generator(document, major=2, format_output=False).emit()

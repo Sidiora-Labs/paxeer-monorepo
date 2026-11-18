@@ -8,12 +8,12 @@ import { NoticeBar } from '@/ui/primitives';
  * that is not served or failed. Copy is plain; the operation id and status
  * are never rendered.
  */
-export function SourceNotice({ label, state, placeholder = 'an em dash' }: { label: string; state: Loadable<unknown>; placeholder?: string }) {
+export function SourceNotice({ label, state, onRetry, placeholder = 'an em dash' }: { label: string; state: Loadable<unknown>; onRetry?: () => void; placeholder?: string }) {
   if (state.state === 'unsupported') {
     void placeholder;
     return (
       <div>
-        <NoticeBar tone="warning" announce>
+        <NoticeBar tone="warning" announce action={onRetry ? <button type="button" onClick={onRetry} className="text-sm font-bold text-text hover:underline">Try again</button> : undefined}>
           {label} not available yet
         </NoticeBar>
       </div>

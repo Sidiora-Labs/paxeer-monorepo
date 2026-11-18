@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useAccount, useConnect } from 'wagmi';
 import { Button, FormField, NoticeBar } from '@/ui/primitives';
 import {
@@ -48,40 +48,56 @@ export function readReturnPath(): string {
 export function useEmbeddedAutoConnect(enabled = true): {
   connecting: boolean;
   error: string | null;
+  retry(): void;
 } {
   const paxeer = usePaxeerOptional();
+  return useEmbeddedConnection(enabled, paxeer?.isAuthenticated ? paxeer.user?.id ?? null : null);
+}
+
+export function useEmbeddedConnection(enabled: boolean, identity: string | null, connectorId = PAXEER_CONNECTOR_ID): { connecting: boolean; error: string | null; retry(): void } {
   const { connectors, connectAsync } = useConnect();
   const { isConnected, status } = useAccount();
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const connector = connectors.find((candidate) => candidate.id === PAXEER_CONNECTOR_ID);
+  const [retryTick, setRetryTick] = useState(0);
+  const attempted = useRef<string | null>(null);
+  const generation = useRef(0);
+  const connector = connectors.find((candidate) => candidate.id === connectorId);
   const ready = Boolean(
-    enabled && paxeer?.isAuthenticated && connector && !isConnected && status === 'disconnected'
+    enabled && identity && connector && !isConnected && status === 'disconnected'
   );
 
   useEffect(() => {
+    generation.current++;
+    attempted.current = null;
+    setConnecting(false);
+    setError(null);
+    return () => { generation.current++; };
+  }, [enabled, identity]);
+
+  useEffect(() => {
     if (!ready || !connector) return;
-    let alive = true;
+    const attempt = `${connector.id}:${retryTick}`;
+    if (attempted.current === attempt) return;
+    attempted.current = attempt;
+    const observed = generation.current;
     setConnecting(true);
     void connectAsync({ connector })
       .then(() => {
-        if (alive) setError(null);
+        if (observed === generation.current) setError(null);
       })
       .catch((failure: unknown) => {
-        if (alive) {
+        if (observed === generation.current) {
           console.error('[sign-in] embedded wallet connect failed:', failure);
           setError("Couldn't connect your wallet. Try again");
         }
       })
       .finally(() => {
-        if (alive) setConnecting(false);
+        if (observed === generation.current) setConnecting(false);
       });
-    return () => {
-      alive = false;
-    };
-  }, [ready, connector, connectAsync]);
+  }, [ready, connector, connectAsync, retryTick]);
 
-  return { connecting, error };
+  return { connecting, error, retry: () => { setError(null); setRetryTick(value => value + 1); } };
 }
 
 interface EmbeddedSignInProps {
@@ -153,6 +169,7 @@ export default function EmbeddedSignIn({ disabled = false }: EmbeddedSignInProps
         {auto.error ? (
           <NoticeBar tone="danger" surface={2}>
             {auto.error}
+            <Button variant="ghost" size="sm" disabled={busy} onClick={auto.retry}>Try connecting again</Button>
           </NoticeBar>
         ) : null}
         <Button

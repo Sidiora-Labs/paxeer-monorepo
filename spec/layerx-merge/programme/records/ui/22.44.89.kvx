@@ -1,0 +1,62 @@
+[surface]
+name = "Paxscan explorer statistics"
+views = 7
+named_states = 0
+routes = ["/api-docs", "/gas-tracker", "/stats/[id]", "/stats", "/uptime", "/validators/[id]", "/validators"]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+full_mode_views = ["/api-docs", "/gas-tracker", "/stats/[id]", "/stats"]
+default_mode_views = ["/uptime", "/validators/[id]", "/validators"]
+renders = 202
+
+[presentation]
+header = "Desktop header groups wrap within the available width while retaining their existing search bounds."
+documentation = "Operation paths and descriptions wrap within the available width, and keyboard controls show the explorer focus ring."
+charts = "Axis labels use tabular figures and fit the available chart area at the selected text size."
+data = "Statistics use the package's chart and counter fixtures; unavailable features retain their unavailable view."
+page_counters = "The statistics service supplies home, transaction and verified-contract counters in their page response shapes."
+permalink = "The chart permalink displays its link icon within the existing button bounds."
+guides = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "responsive-table", "tabs", "css-layout", "size-aware-styling"]
+
+[loading]
+statistics = "Chart sections and counters are prepared before the statistics page mounts. Recent blocks retain their table rows while loading."
+gas = "Gas prices, the chart catalogue and gas history are prepared before the gas page mounts. Loading chart values reserve their text line without placeholder text; update timestamps wrap within the title row."
+
+[measurements.initial]
+load = 208
+shift = 34
+cut = 4
+sideways = 8
+contrast = 0
+touch = 0
+focus = 0
+scale = 0
+motion = 0
+
+[measurements.final]
+renders = 202
+result = "pass"
+load = 0
+shift = 0
+cut = 0
+sideways = 0
+contrast = 0
+touch = 0
+focus = 0
+scale = 0
+motion = 0
+
+[visual_review]
+header = "Navigation, utilities and search wrap within the header at enlarged text sizes while retaining their existing dimensions."
+screenshots = 100
+widths = [360, 768, 1440, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+charts = "Date and value labels fit the chart viewport at enlarged text sizes, with tabular figures."
+wrapping = "The gas history heading and chart link wrap as separate items when space is limited; update timestamps wrap within the title row and network status lines balance their text."
+filters = "Statistics filters wrap as groups and counter cards reflow with enlarged text while preserving the typography and spacing scale."
+alignment = "Recent-block numeric columns align to the right; statistics cards retain consistent edges, spacing and baselines in both schemes, with single-line labels and values and hint icons beside their labels."
+chart_titles = "Chart titles wrap within their header group while hint buttons retain their width beside the title and view links retain their own space."

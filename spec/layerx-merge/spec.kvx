@@ -15802,6 +15802,30 @@ value = "One. A read of the newest committed head, through each view that offers
 basis = "Gotcha 4708. Decisions 2893, 2917 and 3748."
 affects = []
 
+[decision.3782]
+title = "A launchpad without activity answers its reads as empty, and its sessions and examples carry what a deployment needs"
+value = "One. A computed read of the API over a system that holds no committed fill answers 200 with an empty result at the newest committed head. Unavailable stays the answer for a source that cannot be read or is held back for integrity. Task 22.39.912. Two. A view of the web application that reads the leaderboard ends its loading state when the read answers: with rows, with an empty result or as unavailable, and each of the three has a presentation of its own. Task 22.39.913. Three. The sessions the services of the launchpad open on the direct transport run with just-in-time compilation of statements off. Their reads carry bounds of a few hundred milliseconds, and the compilation of a plan can cost more than such a bound while it saves nothing on a read of that size. Task 22.39.914. Four. An example of the deployment documents names only schemas the registry of migrations holds, and a case holds that. Task 22.39.915."
+basis = "Gotcha 4709. Decision 3781."
+affects = []
+
+[decision.3783]
+title = "A step of the gateway that can pass again is tried again, annotation names of a values file are no variables, and a counted check may render two at a time"
+value = "One. A periodic step of the connected runtime of the launchpad gateway that returns an error is tried again with a delay that grows to a bound, and the readiness of the gateway follows the state of its steps: it answers the error while a step fails and ok when every step passed its last try. An error at the start of the runtime and an error the code can tell will not end by itself stay kept as today. The runtime writes one line at each change of the state of a step. Task 22.39.917. Two. A member of a values file whose name begins with the dollar character is an annotation. The tool under tools/deploy that applies the variables of a deployment contract passes over it at the top level and inside the mapping of a service: it is no variable, it is never applied and never shown, and it is not refused. Every other name the contract holds in no kind stays refused. Task 22.39.916. Three. The counted check of a part of a surface may run with two renders at a time where the machine of the qualification environment does not carry four. Every limit of a view, every time bound of a render and the whole matrix of devices, schemes and modes stay as they are. The check of the blocks part of the explorer in task 22.44.85 runs in that form."
+basis = "Gotcha 4710. Decision 3780. Decision 3782."
+affects = []
+
+[decision.3784]
+title = "The counted check of the transactions part of the explorer runs with two renders at a time"
+value = "The verification command of task 22.44.86 calls the check of the part file tools/ui-check/surfaces/explorer/parts/transactions.json with the option --jobs 2, under decision 3783 part three. Every limit of a view, every time bound of a render and the whole matrix of devices, schemes and modes stay as they are. The steps of the task stay as they are."
+basis = "Gotcha 4711. Decision 3783."
+affects = []
+
+[decision.3785]
+title = "The heap bound of the launchpad web build is stated once, its lint loads under the minimatch floor as a script of its own, and the statistics part of the explorer is checked with two renders at a time"
+value = "One. The heap bound of the build of the launchpad web image is stated in one place, the build stage of the image definition. It is 4096 megabytes, and that is a least value. The script sourced before the build sets none. Task 22.39.918. Two. The floor of minimatch in the workspace of the launchpad stays: the override stays in the manifest and the lock file holds no release below 11.0.1. The lint of the web application loads under that floor by a change on the side of what reads minimatch, and its script runs over the sources to its end and exits zero. A rule with more than fifty findings of level error over the sources may stand at level warn. Task 22.39.919. Three. The build of the launchpad web application does not run the lint. The lint is a script of its own, and the steps of the image build stay what they were. Task 22.39.919. Four. The counted check of the statistics part of the explorer in task 22.44.89 runs with two renders at a time under decision 3783 part three. Every limit of a view, every time bound of a render and the whole matrix of devices, schemes and modes stay as they are, and the steps of the task stay as they are."
+basis = "Gotcha 4712. Decision 3779. Decision 3783."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45462,6 +45486,78 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.919]
+title = "Load the lint of the launchpad web application under the minimatch floor of its workspace and run it as a script of its own"
+reqs = ["22998.1"]
+touches = ["apps/launchpad"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run lint && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4712 part three and decision 3785 parts two and three. Read apps/launchpad/package.json with its overrides and its patched dependencies, apps/launchpad/web/eslint.config.mjs, the scripts of apps/launchpad/web/package.json and apps/launchpad/web/next.config.ts. After the install read in the installed tree every place where eslint, the packages eslintrc and config-array of the eslint scope and the plugins of the configuration read minimatch, and name each with package, file and line in the final message."
+symbols = []
+
+[capability.22.39.918]
+title = "State the heap bound of the build of the launchpad web image in one place and bring the shell case of its arguments in line with the image definition"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad/web-build-env.sh", "deploy/launchpad/README.md", "tools/deploy/tests/dockerfile-web-args.test.sh", "tests/ci/test_frontend_asset_names.py"]
+tests = []
+verification_contract = "bash tools/deploy/tests/dockerfile-web-args.test.sh"
+do_1 = "do_1 Gotcha 4712 parts one and two and decision 3785 part one. Read deploy/launchpad/Dockerfile.web with the ENV line of its build stage and the last two lines of that stage, deploy/launchpad/web-build-env.sh, the two places of deploy/launchpad/README.md that name the script, the shell case tools/deploy/tests/dockerfile-web-args.test.sh and the text at the head of tests/ci/test_frontend_asset_names.py."
+symbols = []
+
+[capability.22.39.917]
+title = "Try a periodic step of the connected runtime of the launchpad gateway again after an error and write a line at each change of its state"
+reqs = ["22998.1"]
+touches = ["services/launchpad/gateway"]
+tests = []
+verification_contract = "cd services/launchpad/gateway && go test -count=1 -timeout 20m -run ^TestRuntimeStepRecovery ./internal/app/"
+do_1 = "do_1 Gotcha 4710 and decision 3783 part one. Read services/launchpad/gateway/internal/app/app.go: the type gatewayConnectedRuntime, its functions fail, ready, start and close and every place that calls fail; sdk/launchpad/shared/delivery/relay.go, sdk/launchpad/shared/auth/audit_delivery.go and sdk/launchpad/shared/delivery/natsdriver/driver.go for the errors one pass of a relay, one stage of the audit and the run of a consumer return; and services/launchpad/gateway/internal/app/connected_runtime_paths_test.go for the cases the package holds on the runtime."
+symbols = []
+
+[capability.22.39.916]
+title = "Pass over the annotation names of a values file in the tool that applies the variables of a deployment contract"
+reqs = ["22998.1"]
+touches = ["tools/deploy"]
+tests = []
+verification_contract = "bash tools/deploy/tests/*-apply-variables.test.sh && bash deploy/launchpad/tests/*-values.test.sh && python3 -m pytest -q deploy/launchpad/documents/test_compose.py"
+do_1 = "do_1 Decision 3783 part two. Read under tools/deploy the tool whose name ends in apply-variables.py with its function validate_values and its function desired, its case file under tools/deploy/tests whose name ends in apply-variables.test.sh, and under deploy/launchpad the two values files, whose first member is an annotation with the word comment behind the dollar character, and the shell case of the values under deploy/launchpad/tests. The case tests/ci/test_no_deployment_hosts_in_source.py reads the text of that annotation in the first lines of both values files, so the annotation stays where it is."
+symbols = []
+
+[capability.22.39.915]
+title = "Name in the gateway examples of the launchpad deployment only schemas the registry of migrations holds"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh"
+do_1 = "do_1 Decision 3782, part four. Read deploy/launchpad/documents/values/gateway.example.json and gateway.platform.example.json, the composer part deploy/launchpad/documents/gateway.py with every schema setting it reads and the rules it holds between them, services/launchpad/gateway/internal/app/app.go for the schema settings of the runtime and identity documents, what the gateway reads through each and which pairs it refuses, migrations/registry.json with the schemas it holds, and migrations/340008.sql and migrations/340009.sql for the tables of the audit source and the audit sink."
+symbols = []
+
+[capability.22.39.914]
+title = "Open the direct sessions of the launchpad services with just-in-time compilation off"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/db"]
+tests = []
+verification_contract = "cd sdk/launchpad/shared && go test -count=1 -timeout 20m -run ^TestPoolSession ./db/"
+do_1 = "do_1 Decision 3782, part three. Read sdk/launchpad/shared/db/client.go with the pool constructor, its options, the two transports and the place where it sets the statement timeout, the lock timeout and the application name of a session, and the cases of the package in client_test.go, options_admission_coverage_test.go and pool_admission_coverage_test.go."
+symbols = []
+
+[capability.22.39.913]
+title = "End the loading state of the leaderboard views of the launchpad web application on every answer of the read"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4709 and decision 3782, part two. Read in apps/launchpad/web/src the reader core/market/use-leaderboard.ts with the helper it returns its state through, the cache policy it takes, and its four callers: shell/use-ticker.ts, widgets/home/leaderboard-widget.tsx, widgets/leaderboard/traders-board.tsx and widgets/profile/leaderboard-panel.tsx, each with the component that presents its state and the cases that cover it."
+symbols = []
+
+[capability.22.39.912]
+title = "Answer the leaderboard read of the launchpad API as empty where the accounting holds no committed fill"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4709 and decision 3782, part one. Read in services/launchpad/api the file internal/store/leaderboard_readmodel.go with the function Leaderboard and the type LeaderboardSnapshot, internal/rest/leaderboards_v2.go with the handler and the function writeComputedReadError, internal/rest/compatibility.go for the production registration of the read, internal/store/holder_rewards_readmodel.go for the read of the newest committed head the read model already makes, the schema LeaderboardsResponse of the interface definitions the handler validates against, and the cases of both packages that cover the leaderboard."
+symbols = []
 
 [capability.22.39.911]
 title = "Make the outcome of the case of the explorer migrator that deletes zero value calls independent of timing"
@@ -179315,7 +179411,7 @@ touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.89.kvx"]
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.89.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/statistics.json --out /tmp/ui-check/explorer-statistics && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.89.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/statistics.json --out /tmp/ui-check/explorer-statistics && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -179330,7 +179426,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.88]
 title = "Close the token and search views of the explorer on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.38"]
@@ -179414,7 +179510,7 @@ touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.86.kvx"]
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.86.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/transactions.json --out /tmp/ui-check/explorer-transactions && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.86.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/transactions.json --out /tmp/ui-check/explorer-transactions && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -179447,7 +179543,7 @@ touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.85.kvx"]
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.85.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/blocks.json --out /tmp/ui-check/explorer-blocks && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.85.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/blocks.json --out /tmp/ui-check/explorer-blocks && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -208084,9 +208180,264 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.919]
+title = "Load the lint of the launchpad web application under the minimatch floor of its workspace and run it as a script of its own"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.890", "22.39.892", "22.39.893", "22.39.897"]
+reqs = ["22998.1"]
+capabilities = ["22.39.919"]
+interfaces = []
+do_1 = "do_1 Gotcha 4712 part three and decision 3785 parts two and three. Read apps/launchpad/package.json with its overrides and its patched dependencies, apps/launchpad/web/eslint.config.mjs, the scripts of apps/launchpad/web/package.json and apps/launchpad/web/next.config.ts. After the install read in the installed tree every place where eslint, the packages eslintrc and config-array of the eslint scope and the plugins of the configuration read minimatch, and name each with package, file and line in the final message."
+do_2 = "do_2 Make the configuration of the lint load with minimatch 11.0.1 in place. The floor stays: the override stays in the manifest and the lock file holds no release of minimatch below 11.0.1. Choose the least change that holds and name it in the final message: a release of a reading package that reads the named exports, a configuration in the flat form without the class FlatCompat where that ends the reading, or a patch of a reading package under the patched dependencies of the manifest with its file under apps/launchpad/patches. Every rule of the configuration that reads minimatch while a file is read runs to its end. The lock file follows every change of a manifest."
+do_3 = "do_3 The script lint of apps/launchpad/web runs the lint over the sources of the application to its end and exits zero. It may call the eslint command in place of next lint where it reads the same configuration and the same directories. A finding of level error is corrected in the source where the correction changes no behaviour; a correction never changes what a case states. Where a correction would change behaviour, the line takes a comment that sets the rule aside for that line with the reason in words. A rule whose findings of level error number more than fifty over the sources is set to level warn in the configuration and named with its count in the final message. No rule is switched off beyond those the configuration switches off today, and no file takes a comment that sets the lint aside for the whole file."
+do_4 = "do_4 The build of the web application does not run the lint: apps/launchpad/web/next.config.ts states that with the setting ignoreDuringBuilds of its eslint entry, so the build of the image keeps the steps it had and the lint stays a script of its own. The type check of the build stays as it is."
+do_5 = "do_5 Run the script lint by hand until it exits zero, then the type check, then the script test of the web application once and read its summary: no case changes its state for a correction of this task. Change nothing outside apps/launchpad. A fact outside the paths that stands against this task is named in the final message with file and line. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run lint && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.918]
+title = "State the heap bound of the build of the launchpad web image in one place and bring the shell case of its arguments in line with the image definition"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.918"]
+interfaces = []
+do_1 = "do_1 Gotcha 4712 parts one and two and decision 3785 part one. Read deploy/launchpad/Dockerfile.web with the ENV line of its build stage and the last two lines of that stage, deploy/launchpad/web-build-env.sh, the two places of deploy/launchpad/README.md that name the script, the shell case tools/deploy/tests/dockerfile-web-args.test.sh and the text at the head of tests/ci/test_frontend_asset_names.py."
+do_2 = "do_2 The script deploy/launchpad/web-build-env.sh sets no heap bound: the line that exports NODE_OPTIONS goes, and the rest of the script stays as it is. The bound of the build is the one the build stage of the image definition sets, 4096 megabytes. The image definition stays as it is."
+do_3 = "do_3 In deploy/launchpad/README.md the sentence that says the script sets NODE_OPTIONS says what the script does now, and one sentence states where the heap bound of the build is set and its value. The text at the head of tests/ci/test_frontend_asset_names.py that names the heap of the build environment names the bound of the image definition. No case of that file changes."
+do_4 = "do_4 In the shell case bring the two statements of gotcha 4712 part two to what the image definition holds: the line that copies the script, and the count of the build arguments with the prefixes NEXT_PUBLIC and WEB. Add two statements: the script holds no line that names NODE_OPTIONS, and the image definition sets NODE_OPTIONS with the bound 4096 on exactly one line. Every other statement of the case stays as it is; the correction of the two statements is this task and no other statement is weakened or removed."
+do_5 = "do_5 Run the shell case, and run python3 -m pytest -q tests/ci/test_frontend_asset_names.py once by hand and read its whole output. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad/web-build-env.sh", "deploy/launchpad/README.md", "tools/deploy/tests/dockerfile-web-args.test.sh", "tests/ci/test_frontend_asset_names.py"]
+tests = []
+planned_paths = []
+build_cmd = "sh -n deploy/launchpad/web-build-env.sh && python3 -m py_compile tests/ci/test_frontend_asset_names.py"
+verify_cmd = "bash tools/deploy/tests/dockerfile-web-args.test.sh"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.917]
+title = "Try a periodic step of the connected runtime of the launchpad gateway again after an error and write a line at each change of its state"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.917"]
+interfaces = []
+do_1 = "do_1 Gotcha 4710 and decision 3783 part one. Read services/launchpad/gateway/internal/app/app.go: the type gatewayConnectedRuntime, its functions fail, ready, start and close and every place that calls fail; sdk/launchpad/shared/delivery/relay.go, sdk/launchpad/shared/auth/audit_delivery.go and sdk/launchpad/shared/delivery/natsdriver/driver.go for the errors one pass of a relay, one stage of the audit and the run of a consumer return; and services/launchpad/gateway/internal/app/connected_runtime_paths_test.go for the cases the package holds on the runtime."
+do_2 = "do_2 Give each periodic step of the runtime a state of its own: the stage of the audit, the relay of the audit, the relay of the identity revisions and the run of each of the two consumers. A step that returns an error while the context of the runtime lives is recorded as failing with that error and is tried again; the delay between two tries begins at the period of the step, doubles with each failing try and never passes thirty seconds. After one try without an error the step is recorded as passing and returns to its period. A consumer whose run returns is started again under the same rule. No loop of a step ends before the context of the runtime ends."
+do_3 = "do_3 The function ready answers, in this order, the kept error of the function fail, the error of the first failing step in a fixed order of the steps, and then what it reads today. The function fail keeps its form and its meaning for an error at the start of the runtime: the registration of the connected routes and the capability of the socket. Where the packages give an error a type or a value that states it cannot end by itself, such as a refused permission of the broker or a binding or generation that does not match, the step calls fail as today; name each such class with file and line in the final message. An error of no such class is tried again. The run of the control runtime keeps the handling it has unless its package states the same distinction."
+do_4 = "do_4 The runtime writes one line through its logger at the first failing try of a step after the start or after a passing try, and one line at the first passing try after a failing one. The line holds the name of the step and a class of the error from a fixed list of words, and nothing else of the error: no address, no credential, no subject, no statement and no value of a row. Further failing tries of the same step write nothing. A runtime without a logger writes nothing and behaves the same."
+do_5 = "do_5 Add cases whose names begin with TestRuntimeStepRecovery to the package services/launchpad/gateway/internal/app, in a file of that directory. They drive the steps through doubles and need no store, no broker and no file of a deployment: a step that fails twice and then passes makes ready answer its error and then nil; the delay grows and holds its bound, read through a clock the case controls; an error of a kept class stays kept after a later passing try; each change of state writes exactly one line and the line holds none of the text of the error; a consumer whose run returns is started again. Where the steps need a seam for a double, add the smallest one and keep the wiring of the runtime as it is. The case TestConnectedRuntimeMetricsAndFailureState keeps every statement it holds. No assertion is weakened or removed, and no case is removed, skipped or tagged out. "
+do_6 = "do_6 Change nothing outside services/launchpad/gateway. A fact of a shared package that stands against this task is named in the final message with file and line. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/gateway"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/gateway && go vet ./...)"
+verify_cmd = "cd services/launchpad/gateway && go test -count=1 -timeout 20m -run ^TestRuntimeStepRecovery ./internal/app/"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.916]
+title = "Pass over the annotation names of a values file in the tool that applies the variables of a deployment contract"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.916"]
+interfaces = []
+do_1 = "do_1 Decision 3783 part two. Read under tools/deploy the tool whose name ends in apply-variables.py with its function validate_values and its function desired, its case file under tools/deploy/tests whose name ends in apply-variables.test.sh, and under deploy/launchpad the two values files, whose first member is an annotation with the word comment behind the dollar character, and the shell case of the values under deploy/launchpad/tests. The case tests/ci/test_no_deployment_hosts_in_source.py reads the text of that annotation in the first lines of both values files, so the annotation stays where it is."
+do_2 = "do_2 In validate_values a name that begins with the dollar character is an annotation, at the top level of the values file and inside the mapping of a service. The tool passes over it: it is not looked up in the contract, it takes no part in the plan, it is never applied, shown or counted, and its value may be of any JSON kind. Every other name stays under the rules the function holds: an unknown service, an unknown variable of a service and an unknown shared variable are refused with the messages they have today, and a value that is no string is refused."
+do_3 = "do_3 Add cases to the case file of the tool: a values file with an annotation at the top level plans as the same file without it; an annotation inside the mapping of a service does the same; the output of the plan holds neither the name nor the value of an annotation; a name without the dollar character that no entry holds stays refused beside an annotation. No assertion is weakened or removed, and no case is removed, skipped or tagged out. "
+do_4 = "do_4 Run the case file of the tool, then the shell case of the values under deploy/launchpad/tests, then the composer cases under deploy/launchpad/documents once by hand and read their whole output before the counted verification. Nothing under deploy/launchpad changes in this task. What does not pass for a cause inside tools/deploy is repaired there. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/deploy"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/*-apply-variables.py"
+verify_cmd = "bash tools/deploy/tests/*-apply-variables.test.sh && bash deploy/launchpad/tests/*-values.test.sh && python3 -m pytest -q deploy/launchpad/documents/test_compose.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.915]
+title = "Name in the gateway examples of the launchpad deployment only schemas the registry of migrations holds"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.915"]
+interfaces = []
+do_1 = "do_1 Decision 3782, part four. Read deploy/launchpad/documents/values/gateway.example.json and gateway.platform.example.json, the composer part deploy/launchpad/documents/gateway.py with every schema setting it reads and the rules it holds between them, services/launchpad/gateway/internal/app/app.go for the schema settings of the runtime and identity documents, what the gateway reads through each and which pairs it refuses, migrations/registry.json with the schemas it holds, and migrations/340008.sql and migrations/340009.sql for the tables of the audit source and the audit sink."
+do_2 = "do_2 Establish for every schema setting of both examples the relation the gateway reads through it and the schema of the registry that holds that relation. Both examples name for the delivery of the audit sink a schema the registry does not hold; the setting for the safety relations is to be established the same way. Bring every schema setting of both examples to the schema of the registry that holds its relations. Where a rule of the composer or of the gateway refuses the pair of names the registry gives, name the rule with file and line in the final message and change nothing under services/launchpad/gateway."
+do_3 = "do_3 Add a case to deploy/launchpad/documents/test_compose.py that reads every example under deploy/launchpad/documents/values and asserts that each setting whose name ends in Schema names a schema migrations/registry.json holds. An example of another service that fails this case is brought to the registry in the same way and named in the final message. A rule of the composer changes only where it refused the names of the registry. No assertion is weakened or removed, and no case is removed, skipped or tagged out. "
+do_4 = "do_4 Run the case file and the shell case of the values once by hand and read their whole output before the counted verification; what does not pass is repaired inside deploy/launchpad. Change nothing outside deploy/launchpad. The files are inside the paths of this task and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/documents/compose.py deploy/launchpad/documents/gateway.py"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.914]
+title = "Open the direct sessions of the launchpad services with just-in-time compilation off"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.914"]
+interfaces = []
+do_1 = "do_1 Decision 3782, part three. Read sdk/launchpad/shared/db/client.go with the pool constructor, its options, the two transports and the place where it sets the statement timeout, the lock timeout and the application name of a session, and the cases of the package in client_test.go, options_admission_coverage_test.go and pool_admission_coverage_test.go."
+do_2 = "do_2 On the direct transport the constructor opens every session with the setting jit off, in the same way it sets the timeouts. A value for jit that the connection string of a caller carries on the direct transport stays as the caller gave it, so that one service can decide otherwise. On the transport of the transaction pooler the constructor sets nothing and refuses startup settings as it does today; state in the final message where the setting belongs for roles that connect through such a pooler."
+do_3 = "do_3 Name in the final message every place under sdk/launchpad and services/launchpad that opens a database session without this constructor, read from the code, with file and line. Change none of them in this task."
+do_4 = "do_4 Add cases to sdk/launchpad/shared/db/client_test.go whose names begin with TestPoolSession: the configuration of a direct pool carries the setting; a value of the caller is kept; the configuration of a pool on the transaction pooler carries no such setting; and one case against a real database, which opens a direct pool and reads the setting of its session back with SHOW. That case takes its database from the variable DELIVERY_TEST_DSN the cases of the package already read; set that variable in the profile the counted verification reads, because a skipped case must not count as passed. No assertion is weakened or removed, and no case is removed, skipped or tagged out. "
+do_5 = "do_5 Prepare the environment of the job of the single modules before the verification, in the sense of decisions 2893 and 2917: every variable that job declares in .github/workflows/launchpad-test.yml is set in the shell that runs the verification and in the profile the counted verification reads, and the tools and services its steps prepare are present and running. Then run the verification command of the task once by hand and read its whole output before the counted verification; what does not pass inside sdk/launchpad/shared/db is repaired there. Change nothing under sdk/launchpad/shared/db/production. The files are inside the paths of this task and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/db"]
+tests = []
+planned_paths = []
+build_cmd = "cd sdk/launchpad/shared && go vet ./db/"
+verify_cmd = "cd sdk/launchpad/shared && go test -count=1 -timeout 20m -run ^TestPoolSession ./db/"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.913]
+title = "End the loading state of the leaderboard views of the launchpad web application on every answer of the read"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.894"]
+reqs = ["22998.1"]
+capabilities = ["22.39.913"]
+interfaces = []
+do_1 = "do_1 Gotcha 4709 and decision 3782, part two. Read in apps/launchpad/web/src the reader core/market/use-leaderboard.ts with the helper it returns its state through, the cache policy it takes, and its four callers: shell/use-ticker.ts, widgets/home/leaderboard-widget.tsx, widgets/leaderboard/traders-board.tsx and widgets/profile/leaderboard-panel.tsx, each with the component that presents its state and the cases that cover it."
+do_2 = "do_2 Establish for each caller what it presents in four states of the read: pending, rows, an empty result, and an answer 503 with the code of an unavailable dependency that repeats on every retry. Bring each caller to this rule: the placeholder of the loading state shows only while the first answer is pending; an empty result shows the empty state of that view in its own words; the unavailable answer shows the unavailable state of that view with the means to try again the view already offers elsewhere, and the placeholder does not return while retries run in the background. The ticker of the shell shows no leaderboard segment in the empty and in the unavailable state and keeps its other segments."
+do_3 = "do_3 The retries of the read follow the retry hint of the answer and the cache policy, and their number in a given time is bounded: establish the number of requests one mounted view sends in sixty seconds while the read stays unavailable, state it in the final message, and bound it where the policy leaves it open. Several callers mounted on one page share one request for the same category, window and limit."
+do_4 = "do_4 Add the cases to apps/launchpad/web/src/widgets/leaderboard/leaderboard-states.test.tsx in the form the cases of the neighbouring widgets take: each of the four callers in each of the four states, the bound of do_3 with the clock of the test, and the shared request. The sizes, spacing and colours of the states follow the tokens the views already use, at a narrow and a wide viewport and in both colour schemes. No assertion is weakened or removed, and no case is removed, skipped or tagged out. "
+do_5 = "do_5 Change nothing outside apps/launchpad/web/src. Run the new case file alone by hand first and read every case, then the verification command of the task once by hand and read its whole output before the counted verification; what does not pass inside the paths is repaired there. Do not change apps/launchpad/pnpm-lock.yaml. The files are inside the paths of this task and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/widgets/leaderboard/leaderboard-states.test.tsx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.912]
+title = "Answer the leaderboard read of the launchpad API as empty where the accounting holds no committed fill"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.912"]
+interfaces = []
+do_1 = "do_1 Gotcha 4709 and decision 3782, part one. Read in services/launchpad/api the file internal/store/leaderboard_readmodel.go with the function Leaderboard and the type LeaderboardSnapshot, internal/rest/leaderboards_v2.go with the handler and the function writeComputedReadError, internal/rest/compatibility.go for the production registration of the read, internal/store/holder_rewards_readmodel.go for the read of the newest committed head the read model already makes, the schema LeaderboardsResponse of the interface definitions the handler validates against, and the cases of both packages that cover the leaderboard."
+do_2 = "do_2 Tell two states apart in the loader. The accounting holds no committed fill at the projection version: the loader answers a snapshot with no entries for the asked category and window, whose position is the newest committed head read through the reader the read model already holds; add no second form of that reader. The accounting or the committed head cannot be read, the head is held back for integrity, or the statement passes its bound: the answer stays the one of today. The revision, the observation time, the snapshot identity and the quality of the empty snapshot take the forms the schema LeaderboardsResponse admits; choose them so that the first snapshot with a fill is a different snapshot, a cursor of the empty snapshot answers as a cursor of an earlier snapshot does today, and state the chosen forms in the final message. The schema does not change."
+do_3 = "do_3 The handler writes the empty snapshot as any other: status 200, an empty list of entries, no next cursor. Name in the final message every other computed read of internal/rest/compatibility.go and what it answers on a system without a committed fill, read from the code; a read among them that answers unavailable only because nothing has happened yet is brought to the same rule inside services/launchpad/api where its schema admits an empty result, and is named with file and line where it does not."
+do_4 = "do_4 Add cases to the existing packages internal/store and internal/rest against the database the cases of those packages already use: no committed fill gives 200 with no entries and the position of the committed head for each category and window; no committed head gives the unavailable answer; a first fill gives a snapshot with another identity; a cursor of the empty snapshot after the first fill answers as the code answers a cursor of an earlier snapshot. Add no new package directory. A case that needs a database must not count as passed when it was skipped: set the variable the package reads for its database in the profile the counted verification reads. No assertion is weakened or removed, and no case is removed, skipped or tagged out. "
+do_5 = "do_5 Prepare the environment of the job of the single modules before the verification, in the sense of decisions 2893 and 2917: every variable that job declares in .github/workflows/launchpad-test.yml is set in the shell that runs the verification and in the profile the counted verification reads, and the tools and services its steps prepare are present and running. Then run the verification command of the task once by hand in services/launchpad/api and read its whole output before the counted verification; what does not pass inside services/launchpad/api is repaired there. The files are inside the paths of this task and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/api && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.910]
 title = "Bring the route corrections and the catalog of served routes of the launchpad client package in line with the producers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.883"]
@@ -208118,7 +208469,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.909]
 title = "Release the pause of historical reads of the launchpad indexer at the head and keep the readiness read off that pause"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208150,7 +208501,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.908]
 title = "Read the newest committed head of the launchpad in bounded work at any size of the committed heads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208433,7 +208784,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.899]
 title = "Close the server routes and the rewrite table of the launchpad web application against the services behind them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208464,7 +208815,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.898]
 title = "Close the live flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208528,7 +208879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.896]
 title = "Close the rewards flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208560,7 +208911,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.895]
 title = "Close the profile and account flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208592,7 +208943,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.894]
 title = "Close the discovery flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208688,7 +209039,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.891]
 title = "Close the chain launch flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208938,7 +209289,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.883]
 title = "Bring the client package sdk of the launchpad in line with the routes it calls and hold each call with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209033,7 +209384,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.880]
 title = "Close the charts module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209097,7 +209448,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.878]
 title = "Close the social module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209321,7 +209672,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.871]
 title = "Close the gateway module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.866"]
@@ -209417,7 +209768,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.868]
 title = "Close the api module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -474884,7 +475235,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.911]
 title = "Make the outcome of the case of the explorer migrator that deletes zero value calls independent of timing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

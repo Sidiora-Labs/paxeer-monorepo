@@ -66,6 +66,25 @@ def test_example_values_one_set() -> None:
     _assert_one_set(_example_set(ROOT / "values"))
 
 
+@pytest.mark.parametrize("example", sorted((ROOT / "values").glob("*.example.json")), ids=lambda path: path.name)
+def test_example_schema_names_registered(example: Path) -> None:
+    registry = json.loads((ROOT.parents[2] / "migrations/registry.json").read_bytes())
+    schemas = {entry["schema"] for entry in registry["registrations"]}
+
+    def check(value: object, location: str) -> None:
+        if isinstance(value, dict):
+            for name, member in value.items():
+                setting = f"{location}.{name}"
+                if name.lower().endswith("schema"):
+                    assert isinstance(member, str) and member in schemas, f"{setting}: {member!r}"
+                check(member, setting)
+        elif isinstance(value, list):
+            for index, member in enumerate(value):
+                check(member, f"{location}[{index}]")
+
+    check(json.loads(example.read_bytes()), example.name)
+
+
 def test_compose_examples_one_set(tmp_path: Path) -> None:
     values, out = _values(tmp_path), tmp_path / "out"
     result = _run(values, out, *ONE_SET_SERVICES)
@@ -476,14 +495,23 @@ def test_compose_metadata_mutual_ingress(tmp_path: Path) -> None:
     assert not {"IDENTITY_SERVICE_URL", "IDENTITY_SERVICE_TOKEN"} & set(contract["required"])
 
 
-def test_compose_gateway_binding_forms(tmp_path: Path) -> None:
+@pytest.mark.parametrize("profile", ["container", "platform"])
+def test_compose_gateway_binding_forms(tmp_path: Path, profile: str) -> None:
     values, out = _values(tmp_path), tmp_path / "out"
+    if profile == "platform":
+        (values / "gateway.json").write_bytes((ROOT / "values/gateway.platform.example.json").read_bytes())
     result = _run(values, out, "gateway")
     assert result.returncode == 0, result.stderr
     record = json.loads((out / "gateway.json").read_bytes())
     runtime = json.loads(base64.b64decode(record["GATEWAY_RUNTIME_DOCUMENT"]))
     assert runtime["approvedBucket"] == "token"
     assert runtime["recoverySchema"] == "recovery"
+    assert runtime["mediaSchema"] == "gateway"
+    assert runtime["metadataSchema"] == "metadata"
+    assert runtime["safetySchema"] == "chat"
+    assert runtime["control"]["schema"] == runtime["control"]["authoritySchema"] == "pnl"
+    assert runtime["audit"]["deliverySchema"] == "gateway_audit_source"
+    assert runtime["audit"]["sinkDeliverySchema"] == runtime["audit"]["sinkSchema"] == "gateway_audit_sink"
     for service in ("ranking", "social"):
         assert runtime["recoverySchema"] == json.loads((values / f"{service}.example.json").read_bytes())["recoverySchema"]
     assert {worker["kind"]: (worker["bucket"], worker["prefix"]) for worker in runtime["objectWorkers"]} == {

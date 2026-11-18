@@ -29,6 +29,7 @@ import (
 	mediastore "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/storage"
 	control "github.com/Sidiora-Technologies/KindleLaunch/security/control"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
@@ -129,8 +130,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 		defer func() {
 			if !secretOwned {
-				pool.Close()
-				controlPool.Close()
+				runtimedb.ClosePool(pool)
+				runtimedb.ClosePool(controlPool)
 			}
 		}()
 	}
@@ -532,6 +533,9 @@ func buildBuckets(ctx context.Context, cfg config.Config) (map[string]serve.Read
 
 // Close releases the Redis pool.
 func (a *App) Close() {
+	if a.tracker != nil {
+		a.tracker.BeginDrain()
+	}
 	if a.runtimeStop != nil {
 		a.runtimeStop()
 	}
@@ -551,10 +555,10 @@ func (a *App) Close() {
 		a.secretStop()
 	}
 	if a.controlPool != nil {
-		a.controlPool.Close()
+		runtimedb.ClosePool(a.controlPool)
 	}
 	if a.pool != nil {
-		a.pool.Close()
+		runtimedb.ClosePool(a.pool)
 	}
 	if a.rpc != nil {
 		a.rpc.Close()
@@ -776,6 +780,8 @@ type gatewayConnectedRuntime struct {
 	purgeAge          atomic.Int64
 	purgeErrors       atomic.Uint64
 	failure           atomic.Pointer[error]
+	steps             [runtimeStepCount]atomic.Pointer[error]
+	checkDependencies func(context.Context) error
 	provider          sharedsecrets.Provider
 	secrets           map[string]string
 	logger            *slog.Logger
@@ -904,7 +910,7 @@ func prepareGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool
 		}
 		value, e := runtime.provider.GetRequired(ctx, reference)
 		if e != nil {
-			return "", errors.New("gateway runtime secret unavailable")
+			return "", fmt.Errorf("gateway runtime secret unavailable: %s", reference)
 		}
 		runtime.secrets[reference] = value
 		return value, nil
@@ -1095,7 +1101,11 @@ func newGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, co
 	if e != nil {
 		return nil, e
 	}
-	runtime.nc, e = nats.Connect(b.NATSURL, nats.UserCredentialBytes([]byte(credentials)), nats.Secure(clientTLS.Clone()), nats.Timeout(3*time.Second), nats.MaxReconnects(3), nats.ReconnectWait(time.Second), nats.Name("gateway-"+cfg.RuntimeInstanceID), nats.DisconnectErrHandler(func(_ *nats.Conn, e error) { runtime.fail(errors.New("identity durable broker disconnected")) }))
+	runtime.nc, e = nats.Connect(b.NATSURL, nats.UserCredentialBytes([]byte(credentials)), nats.Secure(clientTLS.Clone()), nats.Timeout(3*time.Second), nats.MaxReconnects(3), nats.ReconnectWait(time.Second), nats.Name("gateway-"+cfg.RuntimeInstanceID), nats.DisconnectErrHandler(func(_ *nats.Conn, e error) {
+		if _, permanent := runtimeStepErrorClass(e); permanent {
+			runtime.fail(e)
+		}
+	}))
 	if e != nil {
 		return nil, e
 	}
@@ -1163,13 +1173,26 @@ func (r *gatewayConnectedRuntime) configureAuditStores(pool *pgxpool.Pool, guard
 
 func (r *gatewayConnectedRuntime) fail(e error) {
 	if e != nil {
-		r.failure.CompareAndSwap(nil, &e)
+		if r.failure.CompareAndSwap(nil, &e) && r.logger != nil {
+			r.logger.Error("gateway runtime unavailable", slog.String("err", e.Error()))
+		}
 	}
 }
 func (r *gatewayConnectedRuntime) ready(ctx context.Context) error {
 	if failure := r.failure.Load(); failure != nil {
 		return *failure
 	}
+	for step := runtimeStep(0); step < runtimeStepCount; step++ {
+		if failure := r.steps[step].Load(); failure != nil {
+			return *failure
+		}
+	}
+	if r.checkDependencies != nil {
+		return r.checkDependencies(ctx)
+	}
+	return r.dependenciesReady(ctx)
+}
+func (r *gatewayConnectedRuntime) dependenciesReady(ctx context.Context) error {
 	if e := r.control.Ready(ctx); e != nil {
 		return e
 	}
@@ -1185,7 +1208,7 @@ func (r *gatewayConnectedRuntime) ready(ctx context.Context) error {
 	return nil
 }
 func (r *gatewayConnectedRuntime) start(identity *auth.Identity) {
-	r.wg.Add(8)
+	r.wg.Add(4)
 	go func() {
 		defer r.wg.Done()
 		if e := r.control.Run(r.ctx); e != nil && r.ctx.Err() == nil {
@@ -1194,62 +1217,24 @@ func (r *gatewayConnectedRuntime) start(identity *auth.Identity) {
 	}()
 	go func() { defer r.wg.Done(); r.runRestrictionIntake() }()
 	go func() { defer r.wg.Done(); r.runObjectWorkers() }()
-	go func() {
-		defer r.wg.Done()
-		e := r.consumer.Run(r.ctx, func(ctx context.Context, message *natsdriver.Message) error {
+	r.startStep(runtimeIdentityConsumer, true, func(ctx context.Context) error {
+		return r.consumer.Run(ctx, func(ctx context.Context, message *natsdriver.Message) error {
 			return identity.ConsumeIdentityRevision(ctx, r.binding.Durable, r.binding.ConsumerGeneration, message.Subject, message.Wire, message)
 		})
-		if r.ctx.Err() == nil {
-			r.fail(e)
-		}
-	}()
-	go func() {
-		defer r.wg.Done()
-		e := r.auditConsumer.Run(r.ctx, func(ctx context.Context, message *natsdriver.Message) error {
+	})
+	r.startStep(runtimeAuditConsumer, true, func(ctx context.Context) error {
+		return r.auditConsumer.Run(ctx, func(ctx context.Context, message *natsdriver.Message) error {
 			return r.auditSink.Consume(ctx, message.Wire, message)
 		})
-		if r.ctx.Err() == nil {
-			r.fail(e)
-		}
-	}()
+	})
 	auditRelay := delivery.Relay{Store: r.auditBridge.Delivery, Publisher: r.auditPublisher, Owner: r.binding.Audit.Durable, Batch: 32, LeaseDuration: 15 * time.Second, PublishTimeout: 5 * time.Second, RetryDelay: time.Second, MaxAttempts: 10}
-	go func() {
-		defer r.wg.Done()
-		ticker := time.NewTicker(250 * time.Millisecond)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-r.ctx.Done():
-				return
-			case <-ticker.C:
-				if _, e := r.auditBridge.Stage(r.ctx, 32); e != nil {
-					r.fail(e)
-					return
-				}
-				if e := auditRelay.RunOnce(r.ctx); e != nil {
-					r.fail(e)
-					return
-				}
-			}
-		}
-	}()
+	r.startStep(runtimeAuditStage, false, func(ctx context.Context) error {
+		_, err := r.auditBridge.Stage(ctx, 32)
+		return err
+	})
+	r.startStep(runtimeAuditRelay, false, auditRelay.RunOnce)
 	relay := delivery.Relay{Store: r.store, Publisher: r.publisher, Owner: r.binding.Durable, Batch: 32, LeaseDuration: 15 * time.Second, PublishTimeout: 5 * time.Second, RetryDelay: time.Second, MaxAttempts: 10}
-	go func() {
-		defer r.wg.Done()
-		ticker := time.NewTicker(250 * time.Millisecond)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-r.ctx.Done():
-				return
-			case <-ticker.C:
-				if e := relay.RunOnce(r.ctx); e != nil && r.ctx.Err() == nil {
-					r.fail(e)
-					return
-				}
-			}
-		}
-	}()
+	r.startStep(runtimeIdentityRelay, false, relay.RunOnce)
 	go func() {
 		defer r.wg.Done()
 		ticker := time.NewTicker(time.Second)
@@ -1262,7 +1247,7 @@ func (r *gatewayConnectedRuntime) start(identity *auth.Identity) {
 				if _, e := r.purge.RunOne(r.ctx); e != nil && r.ctx.Err() == nil {
 					r.purgeErrors.Add(1)
 					if r.logger != nil {
-						r.logger.Warn("media purge pending", slog.String("reason", "provider_or_authority_unavailable"))
+						r.logger.Warn("media purge pending", slog.String("reason", "provider_or_authority_unavailable"), slog.String("err", e.Error()))
 					}
 				}
 				probe, cancel := context.WithTimeout(r.ctx, 2*time.Second)
@@ -1278,6 +1263,7 @@ func (r *gatewayConnectedRuntime) start(identity *auth.Identity) {
 		}
 	}()
 }
+
 func (r *gatewayConnectedRuntime) close() {
 	r.stop()
 	if r.consumer != nil {
@@ -1384,7 +1370,7 @@ func (r *gatewayConnectedRuntime) newControlRuntime(ctx context.Context, cfg con
 	_ = consumed
 	configuration := control.RuntimeConfig{ControlPool: controlPool, IdentityPool: identityPool, ControlSchema: binding.Schema, AuthoritySchema: binding.AuthoritySchema, Observe: func(_ string, e error) {
 		if e != nil && r.logger != nil {
-			r.logger.Warn("control worker pending", slog.String("reason", "control_dependency_or_authority_unavailable"))
+			r.logger.Warn("control worker pending", slog.String("reason", "control_dependency_or_authority_unavailable"), slog.String("err", e.Error()))
 		}
 	}}
 	if binding.IncidentCredentialReference != "" {
@@ -1522,7 +1508,7 @@ func (r *gatewayConnectedRuntime) runRestrictionIntake() {
 				return r.objectCache.Evict(ctx, r.binding.ApprovedBucket, key)
 			})
 			if e != nil && r.ctx.Err() == nil && r.logger != nil {
-				r.logger.Warn("media restriction intake pending", slog.String("reason", "restriction_dependency_or_integrity_failure"))
+				r.logger.Warn("media restriction intake pending", slog.String("reason", "restriction_dependency_or_integrity_failure"), slog.String("err", e.Error()))
 			}
 		}
 	}
@@ -1543,7 +1529,7 @@ func (r *gatewayConnectedRuntime) runObjectWorkers() {
 		_, deleteError := worker.RunOne(bounded)
 		_, retentionError := worker.ExpireOriginal(bounded)
 		if (deletionIntakeError != nil || importError != nil || deleteError != nil || retentionError != nil) && r.ctx.Err() == nil && r.logger != nil {
-			r.logger.Warn("media object deletion pending", slog.String("reason", "object_dependency_or_retention_authority_failure"))
+			r.logger.Warn("media object deletion pending", slog.String("reason", "object_dependency_or_retention_authority_failure"), slog.Any("err", errors.Join(deletionIntakeError, importError, deleteError, retentionError)))
 		}
 		if !time.Now().Before(nextInventory) {
 			for _, object := range r.objects {
@@ -1552,7 +1538,7 @@ func (r *gatewayConnectedRuntime) runObjectWorkers() {
 					e = r.mediaAuthority.PersistInventory(bounded, object.binding.Bucket, object.binding.Prefix, report)
 				}
 				if e != nil && r.ctx.Err() == nil && r.logger != nil {
-					r.logger.Warn("media inventory pending", slog.String("reason", "inventory_dependency_unavailable"))
+					r.logger.Warn("media inventory pending", slog.String("reason", "inventory_dependency_unavailable"), slog.String("err", e.Error()))
 				}
 			}
 			nextInventory = time.Now().Add(time.Hour)
