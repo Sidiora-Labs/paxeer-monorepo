@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { V2ContractTypes } from '@kindle/sdk';
 import type { ConnectedL17Position, ConnectedPortfolioV3Response } from '@kindle/sdk-v2';
@@ -203,11 +203,6 @@ export function portfolioIssue(state: Loadable<unknown>, owner: boolean): Portfo
 
 export interface PortfolioRead { loadable: Loadable<TrackedPortfolio>; source: 'private' | 'public'; owner: boolean; refetch(): void }
 
-function sessionOwns(wallet: string): boolean {
-  const scope = accountSession();
-  return !!scope && scope.session.wallet.toLowerCase() === wallet.toLowerCase();
-}
-
 /**
  * Private portfolio for the signed-in owner, public projection for everyone
  * else. `isOwner` may be supplied by the page; otherwise it follows the session.
@@ -238,7 +233,7 @@ export const noPublicHistory: Unsupported = unsupported(historyOperation, null, 
 export function useValueHistory(wallet: string, window: PortfolioWindow, owner: boolean): Loadable<PnlHistoryResponse> {
   const query = usePrivateAccountQuery('portfolio-history', () => readValueHistory(window), [window], wallet);
   if (!owner) return noPublicHistory;
-  if (!query.owner) return { state: 'loading' };
+  if (!query.owner) return { state: 'error', error: new AccountApiError(401, 'AUTH_REQUIRED'), retry: () => { void query.refetch(); } };
   return loadable({ status: query.status, data: query.data, error: query.error, refetch: query.refetch }, historyOperation);
 }
 
@@ -251,20 +246,38 @@ export interface PositionPages { positions: PortfolioPosition[]; hasMore: boolea
  */
 export function usePositionPages(first: TrackedPortfolio | null, wallet: string, owner: boolean): PositionPages {
   const snapshot = first?.data.summary.snapshotId ?? null;
-  const [extra, setExtra] = useState<{ snapshot: string | null; pages: TrackedPortfolio[] }>({ snapshot: null, pages: [] });
+  const account = accountSession();
+  const key = `${wallet.toLowerCase()}:${owner}:${owner ? `${account?.session.sessionId}:${account?.epoch}` : ''}:${snapshot}`;
+  const current = useRef(key);
+  current.current = key;
+  const flight = useRef<object | null>(null);
+  const [extra, setExtra] = useState<{ key: string; pages: TrackedPortfolio[] }>({ key, pages: [] });
   const [loadingMore, setLoadingMore] = useState(false);
   const [moreError, setMoreError] = useState<Error | null>(null);
-  useEffect(() => { setExtra({ snapshot, pages: [] }); setMoreError(null); }, [snapshot]);
-  const pages = useMemo(() => (first ? [first, ...(extra.snapshot === snapshot ? extra.pages : [])] : []), [first, extra, snapshot]);
+  useEffect(() => {
+    current.current = key;
+    setExtra({ key, pages: [] }); setMoreError(null); setLoadingMore(false); flight.current = null;
+    return () => { current.current = ''; flight.current = null; };
+  }, [key]);
+  const pages = useMemo(() => (first ? [first, ...(extra.key === key ? extra.pages : [])] : []), [first, extra, key]);
   const next = pages.length ? pages[pages.length - 1].data.next : undefined;
   const loadMore = useCallback(() => {
-    if (!next || loadingMore || !first) return;
+    if (!next || flight.current || !first) return;
+    const request = {};
+    flight.current = request;
     setLoadingMore(true); setMoreError(null);
-    const read = owner && sessionOwns(wallet) ? readPortfolio(next) : readPublicPortfolio(wallet, next);
-    read.then(page => {
+    void Promise.resolve().then(() => {
+      if (owner) { requireAccount(wallet); return readPortfolio(next); }
+      return readPublicPortfolio(wallet, next);
+    }).then(page => {
+      if (current.current !== key || flight.current !== request) return;
       if (page.data.summary.snapshotId !== first.data.summary.snapshotId) throw new Error('Your positions changed. Refresh to see more');
-      setExtra(previous => ({ snapshot, pages: previous.snapshot === snapshot ? [...previous.pages, page] : [page] }));
-    }).catch((error: unknown) => setMoreError(error instanceof Error ? error : new Error("Couldn't load more positions"))).finally(() => setLoadingMore(false));
-  }, [next, loadingMore, first, owner, wallet, snapshot]);
+      setExtra(previous => ({ key, pages: previous.key === key ? [...previous.pages, page] : [page] }));
+    }).catch((error: unknown) => {
+      if (current.current === key && flight.current === request) setMoreError(error instanceof Error ? error : new Error("Couldn't load more positions"));
+    }).finally(() => {
+      if (current.current === key && flight.current === request) { flight.current = null; setLoadingMore(false); }
+    });
+  }, [next, first, owner, wallet, key]);
   return { positions: useMemo(() => pages.flatMap(page => page.data.positions), [pages]), hasMore: !!next, loadingMore, moreError, loadMore };
 }

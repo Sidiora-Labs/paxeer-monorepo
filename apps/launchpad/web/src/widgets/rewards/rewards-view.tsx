@@ -13,7 +13,7 @@ import {usePrivateAccountQuery} from '../profile/use-private-account-query';
 import {exactAmount} from '../profile/account-disclosure';
 import {rewardProgramView,rewardPrograms} from './reward-disclosure';
 import {useRuntimeAuthority} from '@/core/runtime-authority';
-import {validatedRewardClaim} from './reward-claim-state';
+import {isRewardClaimRejected,validatedRewardClaim} from './reward-claim-state';
 import {useRewardClaimRecovery} from './reward-claim-recovery';
 import {useAccountSession} from '../profile/use-account-session';
 import {clearAccountSession} from '../profile/account-transport';
@@ -81,7 +81,8 @@ export default function RewardsView({headingLevel=1}:RewardsViewProps){
    console.error('[rewards claim]',e);
    let saved;
    try{saved=recovery.restore();}catch(error){console.error('[rewards saved claim unavailable]',error);}
-   if(!scope.signal.aborted)setClaim({...current,kind:walletInvoked?'uncertain':'failed',...(saved?.hash?{hash:saved.hash}:{}),error:walletInvoked?'Something went wrong. Check your wallet activity before trying again':"Couldn't claim, try again"});
+   const rejected=isRewardClaimRejected(e)&&!saved;
+   if(!scope.signal.aborted)setClaim({...current,kind:walletInvoked&&!rejected?'uncertain':'failed',...(saved?.hash?{hash:saved.hash}:{}),error:rejected?'Claim cancelled in your wallet. You can try again':walletInvoked?'Something went wrong. Check your wallet activity before trying again':"Couldn't claim, try again"});
   } finally {operation.current=false;}
  }
 
@@ -108,6 +109,7 @@ export default function RewardsView({headingLevel=1}:RewardsViewProps){
    <RewardProgramList/>
   </DisclosureRow>
   {recoveryState.error&&<p role="alert" className="text-sm text-danger">{recoveryState.error}</p>}
+  {!recoveryState.ready&&!recoveryState.error&&<p role="status" className="text-sm text-danger">{unavailableReason??'Reconnect your wallet on Paxeer to claim rewards'}</p>}
   {rewards.isPending&&<Skeleton variant="rows" rows={3} label="rewards" className="rounded-lg bg-surface-1 p-4"/>}
   {rewards.error&&(isSignedOutError(rewards.error)?<SignedOutState title="Sign in to see your rewards" body="Sign in with your wallet to see your rewards again" className="rounded-lg bg-surface-1"/>:<ErrorState title="Rewards can't load right now" message="Something went wrong, try again" onRetry={()=>void rewards.refetch()} className="rounded-lg bg-surface-1"/>)}
   {rewards.data&&rewards.data.data.items.length===0&&<EmptyState icon={Gift} title="No rewards yet" body="Cup prizes, creator fees and bounty payouts show up here as soon as you earn them" action={<Button href="/bounties" variant="secondary" size="sm">Browse bounties</Button>} className="rounded-lg bg-surface-1"/>}

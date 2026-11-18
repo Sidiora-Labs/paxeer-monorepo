@@ -123,6 +123,7 @@ CREATE INDEX idx_pt_ts ON stats.pool_transactions (block_timestamp);
 CREATE SCHEMA IF NOT EXISTS indexer;
 CREATE TABLE indexer.pools (
 	pool_address  varchar(42) PRIMARY KEY NOT NULL,
+	home_chain    bigint      NOT NULL DEFAULT 0,
 	token_address varchar(42) NOT NULL,
 	creator       varchar(42) NOT NULL,
 	optical       varchar(42) NOT NULL,

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -117,6 +118,12 @@ func (a *SelectionAuthority) AuthorizeSourceSelection(ctx context.Context, id, s
 // Handler is the signed private incident operation, mounted by the app. Merely
 // restoring a transport cannot clear an incident fence or select a source.
 func (a *SelectionAuthority) Handler(s *CommittedSource) http.Handler {
+	return a.HandlerWithLogger(s, slog.Default())
+}
+
+// HandlerWithLogger records operational selection failures without disclosing
+// endpoint credentials or operator signatures in responses or logs.
+func (a *SelectionAuthority) HandlerWithLogger(s *CommittedSource, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.Header().Set("Allow", http.MethodPost)
@@ -125,6 +132,21 @@ func (a *SelectionAuthority) Handler(s *CommittedSource) http.Handler {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), s.opts.BulkDeadline)
 		defer cancel()
+		unavailable := func(operation string, err error) {
+			cause := "source_error"
+			var sourceFailure *SourceError
+			switch {
+			case err == nil:
+				cause = "authority_mismatch"
+			case errors.Is(err, context.Canceled):
+				cause = "canceled"
+			case errors.Is(err, context.DeadlineExceeded):
+				cause = "timeout"
+			case errors.As(err, &sourceFailure):
+				cause = string(sourceFailure.Kind)
+			}
+			logger.ErrorContext(ctx, "indexer source selection unavailable", slog.String("operation", operation), slog.String("cause", cause))
+		}
 		var signed SignedSourceSelection
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10))
 		decoder.DisallowUnknownFields()
@@ -144,12 +166,14 @@ func (a *SelectionAuthority) Handler(s *CommittedSource) http.Handler {
 		}
 		// The provider must use this exact verifier when it applies selection.
 		if s.opts.SelectionAuthority != a {
+			unavailable("selection_authority", nil)
 			http.Error(w, "selection unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		for _, health := range s.EndpointHealth() {
 			if health.SourceID == auth.SourceID && health.QuarantineReason != "" {
 				if err := s.RejoinEndpoint(ctx, auth.SourceID); err != nil {
+					unavailable("identity_verification", err)
 					http.Error(w, "identity verification failed", http.StatusConflict)
 					return
 				}
@@ -157,6 +181,7 @@ func (a *SelectionAuthority) Handler(s *CommittedSource) http.Handler {
 			}
 		}
 		if err := s.ApplySourceSelection(ctx, auth.ID, auth.SourceID, auth.Height, auth.Hash); err != nil {
+			unavailable("source_selection", err)
 			http.Error(w, "selection refused", http.StatusConflict)
 			return
 		}

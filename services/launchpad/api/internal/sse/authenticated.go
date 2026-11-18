@@ -33,22 +33,22 @@ func EncodeEvent(data []byte, cursor string) ([]byte, error) {
 
 func (h *Hub) authenticatedHandle(w http.ResponseWriter, r *http.Request) {
 	if h.privateStream == nil || !h.lifecycle.Ready() {
-		http.Error(w, "DEPENDENCY_UNAVAILABLE", http.StatusServiceUnavailable)
+		broker.WriteStreamHTTPError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
 		return
 	}
 	origin, originErr := broker.TrustedHTTPOrigin(r, h.allowedOrigins, h.trustedProxies)
 	if originErr != nil || len(r.URL.RawQuery) > 8192 {
-		http.Error(w, "FORBIDDEN", http.StatusForbidden)
+		broker.WriteStreamHTTPError(w, r, http.StatusForbidden, "FORBIDDEN")
 		return
 	}
 	q, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil || len(q) != 1 || len(q["topics"]) != 1 {
-		http.Error(w, "FIELD_INVALID", http.StatusUnprocessableEntity)
+		broker.WriteStreamHTTPError(w, r, http.StatusUnprocessableEntity, "FIELD_INVALID")
 		return
 	}
 	topics, err := broker.CanonicalTopics(strings.Split(q.Get("topics"), ","))
 	if err != nil {
-		http.Error(w, "FIELD_INVALID", http.StatusUnprocessableEntity)
+		broker.WriteStreamHTTPError(w, r, http.StatusUnprocessableEntity, "FIELD_INVALID")
 		return
 	}
 	binding := sharedauth.StreamTicketBinding{SchemaMajor: 2, Topics: topics, FilterDigest: sharedauth.StreamFilterDigest(topics), Origin: origin, Endpoint: "/v2/stream"}
@@ -61,12 +61,12 @@ func (h *Hub) authenticatedHandle(w http.ResponseWriter, r *http.Request) {
 		authRequest.Header.Set("Origin", origin)
 		principal, err = h.privateStream.AuthenticateRequest(r.Context(), authRequest)
 		if err != nil {
-			http.Error(w, "AUTH_REQUIRED", http.StatusUnauthorized)
+			broker.WriteStreamHTTPError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 			return
 		}
 	}
 	if sharedauth.ValidateStreamBinding(principal, binding) != nil {
-		http.Error(w, "FORBIDDEN", http.StatusForbidden)
+		broker.WriteStreamHTTPError(w, r, http.StatusForbidden, "FORBIDDEN")
 		return
 	}
 	var commits <-chan struct{}
@@ -74,20 +74,20 @@ func (h *Hub) authenticatedHandle(w http.ResponseWriter, r *http.Request) {
 		var unwatch func()
 		commits, unwatch, err = h.fanout.Watch(topics)
 		if err != nil {
-			http.Error(w, "FIELD_INVALID", http.StatusUnprocessableEntity)
+			broker.WriteStreamHTTPError(w, r, http.StatusUnprocessableEntity, "FIELD_INVALID")
 			return
 		}
 		defer unwatch()
 	}
 	drain, leave, err := h.lifecycle.Join()
 	if err != nil {
-		http.Error(w, "DEPENDENCY_UNAVAILABLE", http.StatusServiceUnavailable)
+		broker.WriteStreamHTTPError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
 		return
 	}
 	defer leave()
 	ip := clientIP(r)
 	if !h.acquire(ip) {
-		http.Error(w, "DEPENDENCY_UNAVAILABLE", http.StatusServiceUnavailable)
+		broker.WriteStreamHTTPError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
 		return
 	}
 	defer h.release(ip)

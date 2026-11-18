@@ -393,7 +393,9 @@ func TestSourceRecoveryAuthorizedIncidentSelection(t *testing.T) {
 	if _, err := s.FetchCommitted(context.Background(), FetchOptions{FromBlock: 129, ToBlock: 130}, false, nil); err == nil {
 		t.Fatal("transport restoration cleared incident fence")
 	}
-	api := httptest.NewServer(authority.Handler(s))
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logs, nil))
+	api := httptest.NewServer(authority.HandlerWithLogger(s, logger))
 	defer api.Close()
 	auth := SourceSelectionAuthorization{ID: "incident-128", Kind: "incident_recovery", Scope: "canonical", Reason: "verified canonical history", RequestedBy: "requester", ApprovedBy: "approver", State: "approved", Revision: 1, Expires: time.Now().Add(time.Hour), SourceID: "b-primary", Height: 128, Hash: committedFixtureHash(128)}
 	auth.PayloadHash = SourceSelectionPayloadHash(auth.Scope, auth.SourceID, auth.Height, auth.Hash)
@@ -433,7 +435,35 @@ func TestSourceRecoveryAuthorizedIncidentSelection(t *testing.T) {
 	if status := sourceRecoveryPost(t, api.URL, signed); status != http.StatusConflict {
 		t.Fatalf("wrong-chain rejoin status=%d", status)
 	}
+	var failure map[string]any
+	if err := json.Unmarshal(bytes.TrimSpace(logs.Bytes()), &failure); err != nil || failure["operation"] != "identity_verification" || failure["cause"] != string(IdentityError) {
+		t.Fatalf("source selection cause: %s: %v", logs.String(), err)
+	}
+	logs.Reset()
 	second.wrongChain.Store(false)
+	otherAuthority, err := NewSelectionAuthority("canonical", keys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unbound := httptest.NewServer(otherAuthority.HandlerWithLogger(s, logger))
+	defer unbound.Close()
+	if status := sourceRecoveryPost(t, unbound.URL, signed); status != http.StatusServiceUnavailable {
+		t.Fatalf("unbound selection status=%d", status)
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(logs.Bytes()), &failure); err != nil || failure["operation"] != "selection_authority" || failure["cause"] != "authority_mismatch" {
+		t.Fatalf("source selection authority cause: %s: %v", logs.String(), err)
+	}
+	logs.Reset()
+	unregistered := auth
+	unregistered.SourceID = "unregistered"
+	unregistered.PayloadHash = SourceSelectionPayloadHash(unregistered.Scope, unregistered.SourceID, unregistered.Height, unregistered.Hash)
+	if status := sourceRecoveryPost(t, api.URL, sourceRecoverySigned(t, unregistered, requesterKey, approverKey)); status != http.StatusConflict {
+		t.Fatalf("unregistered selection status=%d", status)
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(logs.Bytes()), &failure); err != nil || failure["operation"] != "source_selection" || failure["cause"] != string(IdentityError) {
+		t.Fatalf("source selection application cause: %s: %v", logs.String(), err)
+	}
+	logs.Reset()
 	if status := sourceRecoveryPost(t, api.URL, signed); status != http.StatusNoContent {
 		t.Fatalf("approved selection status=%d", status)
 	}

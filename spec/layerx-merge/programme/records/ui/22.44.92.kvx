@@ -1,0 +1,72 @@
+[manifest]
+task = "22.44.92"
+surface = "Paxscan explorer services"
+views = 21
+named_states = 0
+initial_states = 21
+unavailable_views = 19
+populated_views = ["/ecosystems", "/visualize/sol2uml"]
+fixture_sources = ["apps/explorer/mocks/multichain/stats.ts", "apps/explorer/stubs/contract.ts", "apps/explorer/mocks/contract/info.ts"]
+
+[coverage]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default"]
+renders_per_view = 22
+device_renders = 462
+
+[result]
+renders = 462
+unrendered = 0
+empty = 0
+findings = 0
+cancelled = 0
+retried = 0
+result = "pass"
+
+[findings.first_matrix]
+load = 836
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 2
+motion = 0
+scale = 0
+geometry = 0
+
+[findings.last_matrix]
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0
+
+[review]
+screenshots = 210
+distinct_images = 30
+widths = [360, 768, 1440, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+numeric_alignment = "Primary metrics share a right edge in tablet cards and desktop columns; percentage changes sit alongside them with tabular figures."
+phone_layout = "Narrow cards retain stacked labels and values."
+presentation = "Headings, text, icons, columns and footer content remain aligned within the light and dark schemes."
+
+[presentation]
+ecosystems = "Numeric columns align to the right and retain tabular figures; the desktop table scrolls within its labelled region."
+ecosystems_loading = "Initial metrics arrive with the page data; sorting retains the current rows while the next order loads."
+diagram = "The contract address selects the Solidity source and its UML diagram."
+diagram_loading = "Loading reserves the diagram's existing width and aspect ratio."
+missing_address = "A diagram request without a contract address returns the explorer's not-found view."
+unavailable = "Unavailable features return the explorer's not-found view and its corresponding data response."
+
+[guidance]
+ids = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "css-layout", "responsive-table"]

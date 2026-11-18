@@ -7,10 +7,12 @@ import { readFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import React, { act, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { expect, test } from 'vitest';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { hexToBytes, recoverMessageAddress, type EIP1193Provider, type Hex } from 'viem';
 import type { MetadataV2Data } from '@/core/clients/metadata';
+import { applyBrowserSurface } from '@/core/app-foundation/browser-surface.test-support';
 import type { FrozenAsset } from './frozen-adapter';
 import {
   metadataBrowserLabels, recordMetadataRequest, recordMetadataResponse,
@@ -161,7 +163,8 @@ async function metadata_routes_connect_editor_and_viewer() {
   }
   install('window', dom.window); install('document', dom.window.document); install('IS_REACT_ACT_ENVIRONMENT', true);
   install('CustomEvent', dom.window.CustomEvent);
-  const environment = ['DATA_API_URL', 'GATEWAY_URL', 'METADATA_API_URL', 'PNL_API_URL', 'EXPLORER_API', 'PAXEER_RPC_URL', 'STREAM_ORIGIN'].map(name => `NEXT_PUBLIC_${name}`);
+  const restoreBrowserSurface = applyBrowserSurface();
+  const environment = ['DATA_API_URL', 'GATEWAY_URL', 'METADATA_API_URL', 'PNL_API_URL', 'EXPLORER_API', 'RPC_URL', 'RPC_URL_FALLBACK', 'PAXEER_RPC_URL', 'STREAM_ORIGIN'].map(name => `NEXT_PUBLIC_${name}`);
   const savedEnvironment = new Map(environment.map(name => [name, process.env[name]]));
   for (const name of environment) process.env[name] = name.endsWith('STREAM_ORIGIN') ? origin.replace('https:', 'wss:') : origin;
   const { createRoot } = await import('react-dom/client');
@@ -175,6 +178,7 @@ async function metadata_routes_connect_editor_and_viewer() {
   const { SdkClient } = await import('@kindle/sdk');
   const { default: TokenMetadataPage } = await import('@/app/tokens/[tokenAddress]/metadata/page');
   const { default: CoinPage } = await import('@/app/coin/[address]/page');
+  await import('@/widgets/trading/trade-panel');
   const auth = await import('@/widgets/profile/account-transport');
   dom.reconfigure({ url: `${origin}/tokens/${tokenAddress}/metadata` });
   const events = new EventEmitter();
@@ -254,7 +258,7 @@ async function metadata_routes_connect_editor_and_viewer() {
     expect(approval.metadata_operation_id).not.toBe(operation);
     expect(uploadCount).toBe(3);
     expect(signatures).toHaveLength(2);
-    expect(region(metadataBrowserLabels.viewer)?.querySelector('textarea')).not.toBeNull();
+    expect(region(metadataBrowserLabels.viewer)!.querySelector('textarea')!.value).toBe(metadata.description);
 
     chainId = 1;
     await act(async () => { events.emit('chainChanged', '0x1'); });
@@ -266,6 +270,7 @@ async function metadata_routes_connect_editor_and_viewer() {
     await waitFor(() => document.body.textContent!.includes('Sign in with the creator wallet'), 'chain change invalidates session');
     expect(region(metadataBrowserLabels.editor)).toBeNull();
 
+    await act(async () => { await disconnect(config); });
     dom.reconfigure({ url: `${origin}/coin/${poolAddress}` });
     const coin = await CoinPage({ params: Promise.resolve({ address: poolAddress }), searchParams: Promise.resolve({}) });
     await render(coin);
@@ -303,11 +308,44 @@ async function metadata_routes_connect_editor_and_viewer() {
     const mobile = trading.querySelector('[data-mobile-trade-cta]')!;
     expect(button(mobile, 'Sign in to trade').disabled).toBe(false);
     expect(network.some(row => row.event === 'response' && row.status === 503 && row.url.endsWith('/metadata'))).toBe(true);
+    outage = false;
+    dom.reconfigure({ url: `${origin}/tokens/${tokenAddress}/metadata` });
+    await render(<TokenMetadataPage />);
+    await act(async () => { await connect(config, { connector: config.connectors[0]! }); });
+    await waitFor(() => document.body.textContent!.includes('Sign in with the creator wallet'), 'details editor requires a session');
+    expect(document.querySelector('#metadata-description')).toBeNull();
+    const detailsChallenge = await auth.loginChallenge(owner.address, new AbortController().signal);
+    const detailsSignature = await signMessage(config, { message: detailsChallenge.message });
+    const detailsLogin = await auth.loginProof(detailsChallenge.challengeId, owner.address.toLowerCase(), detailsSignature, 'eoa_eip191', new AbortController().signal);
+    await act(async () => auth.installAccountSession(detailsLogin.data.session, detailsLogin.data.accessToken, auth.accountEpoch()));
+    await waitFor(() => document.querySelector('#metadata-description') !== null, 'authenticated details editor');
+    const description = document.querySelector<HTMLTextAreaElement>('#metadata-description')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(dom.window.HTMLTextAreaElement.prototype, 'value')!.set!.call(description, 'Creator coin details');
+      description.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      flushSync(() => button(region(metadataBrowserLabels.viewer)!, 'Save').click());
+      button(region(metadataBrowserLabels.viewer)!, 'Cancel').click();
+    });
+    expect(region(metadataBrowserLabels.viewer)!.textContent).toContain('Save cancelled');
+    expect(description.disabled).toBe(false);
+    expect(button(region(metadataBrowserLabels.viewer)!, 'Save').disabled).toBe(false);
+    expect(metadata.revision).toBe('8');
+    await act(async () => button(region(metadataBrowserLabels.viewer)!, 'Save').click());
+    await waitFor(() => document.body.textContent!.includes('Coin details saved'), 'details save remains visible after the new revision renders');
+    expect(metadata.revision).toBe('9');
+    expect(metadata.description).toBe('Creator coin details');
+    expect(metadata.token.logoAssetId).toBe(operation);
+    const detailsWrite = requests.filter(row => row.method === 'PATCH').at(-1)!;
+    expect(detailsWrite.headers.authorization).toBe(`Bearer ${accessToken}`);
+    expect(JSON.parse(detailsWrite.body)).toMatchObject({ expectedRevision: '8', description: 'Creator coin details' });
     expect(failures).toEqual([]);
   } finally {
     await act(async () => root.unmount());
     queries.clear(); auth.clearAccountSession(false);
     await disconnect(config);
+    await restoreBrowserSurface();
     for (const [key, value] of savedGlobals) { if (value) Object.defineProperty(globalThis, key, value); else Reflect.deleteProperty(globalThis, key); }
     for (const [key, value] of savedEnvironment) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
     dom.window.close();

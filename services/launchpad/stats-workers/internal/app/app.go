@@ -424,13 +424,16 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 		secretChecks["projections"] = runtimeHealth.check
 		secretChecks["search"] = canonicalsearch.Store{Pool: pool}.Ready
 	}
+	for name, check := range secretChecks {
+		secretChecks[name] = loggedStatsCheck(logger, name, check)
+	}
 	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{
 		CORSOrigins: cfg.CORSAllowedOrigins,
 		Health: sharedhttp.HealthDeps{
 			Custom: secretChecks,
 			State:  tracker.Ready,
-			DB:     func(c context.Context) error { return cfg.CheckRuntimeSchema(c, pool) },
-			Redis:  func(c context.Context) error { return rdb.Ping(c).Err() },
+			DB:     loggedStatsCheck(logger, "database", func(c context.Context) error { return cfg.CheckRuntimeSchema(c, pool) }),
+			Redis:  loggedStatsCheck(logger, "redis", func(c context.Context) error { return rdb.Ping(c).Err() }),
 		},
 	})
 
@@ -570,6 +573,7 @@ func Run(parent context.Context) error {
 		return err
 	}
 	logger := sharedlog.New("stats", cfg.LogLevel)
+	slog.SetDefault(logger)
 	logger.Info("starting stats service")
 
 	ctx, cancel := context.WithCancel(parent)
@@ -796,6 +800,9 @@ func retryStatsJob(ctx context.Context, interval time.Duration, health *statsRun
 		err := run(bounded)
 		cancel()
 		health.set(name, err)
+		if err != nil && ctx.Err() == nil {
+			slog.ErrorContext(ctx, "statistics projection refresh failed", "projection", name, "error", err)
+		}
 		timer := time.NewTimer(interval)
 		select {
 		case <-ctx.Done():
@@ -978,4 +985,14 @@ func RefreshLegacyWindows(ctx context.Context, st *store.Store, now int64, curso
 		*cursor = next
 	}
 	return more, err
+}
+
+func loggedStatsCheck(logger *slog.Logger, name string, check sharedhttp.Check) sharedhttp.Check {
+	return func(ctx context.Context) error {
+		err := check(ctx)
+		if err != nil {
+			logger.ErrorContext(ctx, "statistics readiness check failed", "check", name, "error", err)
+		}
+		return err
+	}
 }

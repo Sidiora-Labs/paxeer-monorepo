@@ -188,8 +188,8 @@ async function runConsumerProof() {
     assert.notEqual(operationsFor(new SdkClient(client.config)), operations);
     const body = { poolAddress: pool, direction: 'crosses_above', cooldownSeconds: 300, threshold: price };
     const named = [IF_ALERT_CREATE, IF_ALERT_DELETE, IF_CUP_CURRENT, IF_CUP_GET, IF_CUP_RESULTS, IF_CUP_STANDINGS, IF_ORDER_CANCEL];
-    for (const name of named) assert.equal(routeStatus(name), 'development');
-    assert.equal(ROUTE_CORRECTIONS.IF_REWARD_CLAIM, '/v2/me/rewards/claim');
+    for (const name of named) assert.equal(routeStatus(name), [IF_ALERT_CREATE, IF_ALERT_DELETE].includes(name) ? 'served' : 'development');
+    assert.equal(ROUTE_CORRECTIONS.IF_REWARD_CLAIM, '/v2/me/rewards:prepare-claim');
 
     // Every named producer runs twice; changing domain records makes a cached
     // result visible. HTTP counts prove the consumers did not take a shortcut.
@@ -233,7 +233,7 @@ async function runConsumerProof() {
 
     const production = operationsFor(new SdkClient(config('https://api.example.com', true)));
     const before = app.requests.length;
-    for (const name of named) await assert.rejects(production.call(name, {}), error => error instanceof CapabilityUnavailableError && error.message === `Operation ${name} is development-only`);
+    for (const name of named) await assert.rejects(production.call(name, {}), error => [IF_ALERT_CREATE, IF_ALERT_DELETE].includes(name) ? error instanceof TypeError && error.message.startsWith(name === IF_ALERT_CREATE ? 'Invalid v2 contract AlertCreateBody:' : 'Invalid IF_ALERT_DELETE path') : error instanceof CapabilityUnavailableError && error.message === `Operation ${name} is development-only`);
     assert.equal(app.requests.length, before);
     await assert.rejects(operations.call(IF_CUP_GET, { path: { cupId: 'unknown' } }), /Invalid IF_CUP_GET path/);
     await assert.rejects(operations.call(IF_CUP_CURRENT, null), /Invalid IF_CUP_CURRENT input/);

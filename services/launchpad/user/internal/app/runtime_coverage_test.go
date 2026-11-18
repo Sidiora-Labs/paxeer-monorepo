@@ -1,13 +1,13 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -51,7 +51,8 @@ func TestAccountWorkersReportDisconnectedBroker(t *testing.T) {
 	done := make(chan struct{})
 	health := &accountRuntimeHealth{}
 	worker := account.Worker{Store: account.Store{DB: pool}, Runtime: &account.Runtime{}, Owner: "user-worker", LeaseDuration: time.Minute}
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logs, nil))
 	go runAccountWorkers(ctx, worker, delivery.Relay{}, &nats.Conn{}, health, done, logger)
 	deadline := time.After(4 * time.Second)
 	for {
@@ -70,6 +71,9 @@ func TestAccountWorkersReportDisconnectedBroker(t *testing.T) {
 	stop()
 	select {
 	case <-done:
+		if !strings.Contains(logs.String(), "account_broker_disconnected") || !strings.Contains(logs.String(), "invalid relay configuration") {
+			t.Fatalf("worker diagnostics omit the dependency cause: %s", logs.String())
+		}
 	case <-time.After(time.Second):
 		t.Fatal("worker did not stop after cancellation")
 	}

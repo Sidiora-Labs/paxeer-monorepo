@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, realpathSync, statSync } from 'node:fs';
-import { dirname, isAbsolute, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const requiredSources = Object.freeze([
@@ -29,7 +29,18 @@ export function repositoryRoot(start = dirname(fileURLToPath(import.meta.url))) 
 }
 
 function sourceDigest(root, name) {
-  const path = realpathSync(resolve(root, name));
+  const candidate = resolve(root, name);
+  const candidateWithin = relative(resolve(root), candidate);
+  if (
+    isAbsolute(name) ||
+    name.split(sep).includes('..') ||
+    candidateWithin === '..' ||
+    candidateWithin.startsWith(`..${sep}`) ||
+    isAbsolute(candidateWithin)
+  ) {
+    throw new Error('source candidate digest mismatch');
+  }
+  const path = realpathSync(candidate);
   const within = relative(realpathSync(root), path);
   if (within === '..' || within.startsWith('../') || isAbsolute(within) || !statSync(path).isFile()) {
     throw new Error('source candidate digest mismatch');

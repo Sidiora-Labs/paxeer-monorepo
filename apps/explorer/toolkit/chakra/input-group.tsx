@@ -71,7 +71,7 @@ export const InputGroup = React.forwardRef<HTMLDivElement, InputGroupProps>(
       };
     }, [ calculateInlinePaddings ]);
 
-    React.useEffect(() => {
+    React.useLayoutEffect(() => {
       calculateInlinePaddings();
 
       const resizeHandler = debounce(calculateInlinePaddings, 300);
@@ -85,6 +85,9 @@ export const InputGroup = React.forwardRef<HTMLDivElement, InputGroupProps>(
         resizeObserver.disconnect();
       };
     }, [ calculateInlinePaddings ]);
+
+    const hasInlinePaddings = Boolean(inlinePaddings) ||
+      Boolean((startElement || endElement) && (!startElement || startOffset !== undefined) && (!endElement || endOffset !== undefined));
 
     // Combine refs for the Group component
     const combinedRef = React.useCallback((node: HTMLDivElement) => {
@@ -110,9 +113,9 @@ export const InputGroup = React.forwardRef<HTMLDivElement, InputGroupProps>(
           return React.cloneElement(child, {
             ...(startElement && { ps: startOffset ?? (inlinePaddings?.start ? `${ inlinePaddings.start }px` : undefined) }),
             ...(endElement && { pe: endOffset ?? (inlinePaddings?.end ? `${ inlinePaddings.end }px` : undefined) }),
-            // hide input value and placeholder for the first render
-            value: inlinePaddings ? child.props.value : undefined,
-            placeholder: inlinePaddings ? child.props.placeholder : undefined,
+            // Show input content once the element spacing is available.
+            value: hasInlinePaddings ? child.props.value : undefined,
+            placeholder: hasInlinePaddings ? child.props.placeholder : undefined,
           });
         }) }
         { endElement && (

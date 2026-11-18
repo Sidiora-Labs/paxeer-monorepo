@@ -1095,11 +1095,13 @@ This feature enables cross-chain transaction tracking and visualization, allowin
 
 ### Paxeer X Network
 
-Enables Paxeer X navigation and the tenant-chain lists and feed. These views use the backend’s `/api/v2/paxeer-x` routes. Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`) and PAX with 18 decimals. A transaction receipt is final when its block is committed. Sub-chains are tenant domains in the network database. Configure `NEXT_PUBLIC_NETWORK_RPC_URL` with the node’s root-path JSON-RPC URL.
+Enables Paxeer X navigation and the tenant-chain lists and feed. The chain list and chain detail views read the network's chain indexer through the `paxeerXIndexer` API entry, using the host and optional base path below for its `/v1/chains` routes. Other tenant lists and feed use the backend’s `/api/v2/paxeer-x` routes. Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`) and PAX with 18 decimals. A transaction receipt is final when its block is committed. Sub-chains are tenant domains in the network database. Configure `NEXT_PUBLIC_NETWORK_RPC_URL` with the node’s root-path JSON-RPC URL.
 
 | Variable | Type| Description | Compulsoriness  | Default value | Example value |
 | --- | --- | --- | --- | --- | --- |
 | NEXT_PUBLIC_PAXEER_X_ENABLED | `boolean` | Set to `true` to enable the Paxeer X Network surfaces | - | `false` | `true` |
+| NEXT_PUBLIC_PAXEER_X_INDEXER_API_HOST | `string` | Network chain indexer API URL used by the chain list and chain detail views | Only with `NEXT_PUBLIC_PAXEER_X_ENABLED=true`; optional for validation, needed for chain reads | - | `https://example.com` |
+| NEXT_PUBLIC_PAXEER_X_INDEXER_API_BASE_PATH | `string` | Optional path prefix for the network chain indexer API; trailing slash is removed | Only with `NEXT_PUBLIC_PAXEER_X_ENABLED=true` | `''` | `/indexer` |
 
 &nbsp;
 

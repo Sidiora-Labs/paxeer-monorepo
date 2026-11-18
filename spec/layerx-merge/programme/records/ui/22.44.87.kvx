@@ -1,0 +1,56 @@
+[manifest]
+task = "22.44.87"
+surface = "Paxscan address and contract views"
+views = 10
+named_states = 3
+combinations = 13
+planned_renders = 394
+routes = ["/accounts", "/accounts/label/[slug]", "/address/[hash]/contract-verification", "/address/[hash]", "/contract-verification", "/hot-contracts", "/paxeer-x/account/[hash]", "/paxeer-x/inference", "/public-tags/submit", "/verified-contracts"]
+states = ["accounts empty", "accounts loading", "accounts error"]
+
+[coverage]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+default_only_routes = ["/accounts/label/[slug]", "/hot-contracts", "/public-tags/submit", "/verified-contracts"]
+
+[rendering]
+renders = 394
+views_with_content = 394
+findings = 0
+result = "pass"
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0
+
+[screenshots]
+count = 142
+widths = [360, 768, 1440, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+additional_modes = ["double-text", "keyboard"]
+wrapping = "Verification explanations keep the final phrase together. Percentage suffixes wrap within their value column."
+alignment = "Verification information icons align with their headings. Numeric columns align to the right."
+layout = "Content, controls and columns fit their containers in both schemes."
+
+[presentation]
+verification = "Contract verification retains its form for unverified contracts. Floating labels keep the required marker visible and selects show keyboard focus."
+layout = "The verification form fits its available grid track. Inference displays the shared content loader while its page loads."
+fixtures = "Contract bytecode uses the explorer unverified contract fixture."
+accounts = "Account supply is expressed in token units. Long mobile balances use numeric ellipsis with the full rounded value in a tooltip."
+loading = "Account placeholders include the percentage field, and pagination retains its layout box when there is no following page. Row controls become available with account data."
+headers = "Account counts wrap beside the download control. Account and verified-contract content loads with the page."
+contracts = "Contract counters use the statistics service where it is configured and the explorer API otherwise. Filters and pagination retain their layout boxes in loading, empty and error states."
+wrapping = "Percentages wrap within their available width. Verification headings balance their lines and explanatory text wraps without isolated final words."
+paxeer_x = "The canonical activity cursor retains the returned account page while new pages display their loading state."
+
+[guidance]
+ids = ["css", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance"]

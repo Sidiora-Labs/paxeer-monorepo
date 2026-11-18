@@ -3,7 +3,6 @@ import * as d3 from 'd3';
 import React from 'react';
 
 import { useColorModeValue } from '../../../chakra/color-mode';
-
 import { useReducedMotion } from '../../../hooks/useReducedMotion';
 import { motionDuration } from '../../../theme/motion';
 
@@ -35,18 +34,93 @@ export const ChartAxis = React.memo(({ type, scale, ticks, tickFormatGenerator, 
     }
 
     const axisGroup = d3.select(ref.current);
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    let animating = !noAnimation && !reducedMotion;
+    const fitLabels = () => {
+      const text = ref.current?.querySelector('text');
+      if (!text || !context || animating) {
+        return;
+      }
+
+      const style = window.getComputedStyle(text);
+      context.font = `${ style.fontWeight } ${ style.fontSize } ${ style.fontFamily }`;
+      const referenceWidth = context.measureText(text.textContent ?? '').width;
+      const widthRatio = referenceWidth > 0 ? text.getBBox().width / referenceWidth : 1;
+      const svg = ref.current?.ownerSVGElement;
+      const viewport = svg?.getBoundingClientRect();
+      const origin = ref.current?.getScreenCTM();
+      const left = Math.max(viewport?.left ?? -Infinity,
+        ...Array.from(svg?.querySelectorAll('[data-chart-axis="left"] .tick text') ?? [], (label) => label.getBoundingClientRect().right));
+      const right = viewport?.right ?? Infinity;
+      const format = axis.tickFormat();
+      const candidates = scale.ticks(ticks).sort((a, b) => scale(Number(a)) - scale(Number(b)));
+      const values: Array<d3.NumberValue> = [];
+      let previousEnd = -Infinity;
+      candidates.forEach((value, index) => {
+        const label = format ? format(value, index) : String(value);
+        const metrics = context.measureText(label);
+        const extent = type === 'bottom' ? metrics.width * widthRatio : text.getBBox().height;
+        const position = scale(Number(value)) + (type === 'bottom' ? origin?.e ?? 0 : origin?.f ?? 0);
+        const start = type === 'bottom' ? Math.max(left, Math.min(position - extent / 2, right - extent)) : position - extent / 2;
+        if (start >= previousEnd) {
+          values.push(value);
+          previousEnd = start + extent;
+        }
+      });
+      axisGroup.call(axis.tickValues(values));
+      axisGroup.select('.domain').remove();
+      axisGroup.selectAll('line').remove();
+      axisGroup.selectAll<SVGTextElement, d3.NumberValue>('text')
+        .filter(function() {
+          return !this.style.fontSize;
+        })
+        .style('font-size', style.fontSize)
+        .style('font-variant-numeric', 'tabular-nums')
+        .attr('color', textColor);
+
+      if (viewport) {
+        axisGroup.selectAll<SVGTextElement, d3.NumberValue>('text').each(function() {
+          this.removeAttribute('text-anchor');
+          this.removeAttribute('transform');
+          const box = this.getBoundingClientRect();
+          const minimumLeft = type === 'bottom' ? left : viewport.left;
+          const x = Math.max(minimumLeft - box.left, Math.min(0, viewport.right - box.right));
+          const y = Math.max(viewport.top - box.top, Math.min(0, viewport.bottom - box.bottom));
+          this.setAttribute('transform', `translate(${ x }, ${ y })`);
+        });
+      }
+    };
 
     if (noAnimation || reducedMotion) {
       axisGroup.call(axis);
     } else {
-      axisGroup.transition().duration(motionDuration('chart')).ease(d3.easeLinear).call(axis);
+      axisGroup.transition().duration(motionDuration('chart')).ease(d3.easeLinear).call(axis).on('end.fit', () => {
+        animating = false;
+        fitLabels();
+      });
     }
     axisGroup.select('.domain').remove();
     axisGroup.selectAll('line').remove();
     axisGroup.selectAll('text')
       .attr('opacity', 1)
       .attr('color', textColor)
-      .style('font-size', 'var(--chakra-font-sizes-text-xs)');
+      .style('font-size', 'var(--chakra-font-sizes-text-xs)')
+      .style('font-variant-numeric', 'tabular-nums');
+
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(fitLabels);
+    });
+    axisGroup.selectAll<SVGTextElement, d3.NumberValue>('text').each(function() {
+      observer.observe(this);
+    });
+    fitLabels();
+    return () => {
+      observer.disconnect();
+      window.cancelAnimationFrame(frame);
+    };
   }, [ scale, ticks, tickFormatGenerator, noAnimation, reducedMotion, type, textColor ]);
 
   React.useEffect(() => {
@@ -77,5 +151,5 @@ export const ChartAxis = React.memo(({ type, scale, ticks, tickFormatGenerator, 
     };
   }, [ anchorEl, scale ]);
 
-  return <g ref={ ref } { ...props }/>;
+  return <g ref={ ref } data-chart-axis={ type } { ...props }/>;
 });

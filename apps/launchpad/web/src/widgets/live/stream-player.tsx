@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Play, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, IconButton } from '@/ui/primitives';
-import { approvedPlaybackURL, createViewerSession, getStream, type StreamPublic, type ViewerSession } from '@/core/clients/livestream-api';
+import { approvedPlaybackURL, createViewerSession, getPlaybackStream, type StreamPublic, type ViewerSession } from '@/core/clients/livestream-api';
 import { heartbeatBackoffMs, heartbeatOrRenew, startHeartbeatLoop, viewerHeartbeatMs, type HeartbeatLoop } from './viewer-heartbeat';
 
 export type StreamPlayerState = 'loading' | 'connecting' | 'live' | 'buffering' | 'ended' | 'blocked' | 'failed' | 'unavailable';
@@ -62,7 +62,7 @@ export function playerLabel(state: StreamPlayerState, stream: StreamPublic | nul
   }
 }
 
-function usePolledStream(streamId: string | undefined): { stream: StreamPublic | null; unavailable: boolean } {
+function usePolledStream(streamId: string | undefined, accessToken: string | undefined): { stream: StreamPublic | null; unavailable: boolean } {
   const [stream, setStream] = useState<StreamPublic | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const revision = useRef<bigint | null>(null);
@@ -77,7 +77,7 @@ function usePolledStream(streamId: string | undefined): { stream: StreamPublic |
       if (pending) return;
       pending = true;
       try {
-        const next = await getStream(streamId);
+        const next = await getPlaybackStream(streamId, accessToken);
         if (disposed) return;
         if (!next) { setUnavailable(true); return; }
         const incoming = BigInt(next.revision ?? '0');
@@ -94,7 +94,7 @@ function usePolledStream(streamId: string | undefined): { stream: StreamPublic |
     void refresh();
     const timer = setInterval(() => void refresh(), streamPollMs);
     return () => { disposed = true; clearInterval(timer); };
-  }, [streamId]);
+  }, [streamId, accessToken]);
   return { stream, unavailable };
 }
 
@@ -111,7 +111,7 @@ function approvedSegment(requestUrl: string): URL {
  */
 export function StreamPlayer(props: StreamPlayerProps) {
   const { muted = true, autoplay = true, poster = null, accessToken, controls = true, statusLine = false, onStateChange, children, className } = props;
-  const polled = usePolledStream(props.stream ? undefined : props.streamId);
+  const polled = usePolledStream(props.stream ? undefined : props.streamId, accessToken);
   const stream = props.stream ?? polled.stream;
   const lifecycle = lifecycleState(stream, props.stream === undefined && polled.unavailable);
   const playable = lifecycle === 'playable';

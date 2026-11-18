@@ -20,6 +20,8 @@ config :explorer,
 
 config :explorer, Explorer.ChainSpec.GenesisData, enabled: true
 
+config :explorer, Explorer.Chain.PaxeerX.PriceFeed, update_count_24h_cache_period: :timer.seconds(60)
+
 config :explorer, Explorer.Chain.Cache.BlockNumber, enabled: true
 
 config :explorer, Explorer.Chain.Cache.Counters.AddressesCoinBalanceSum,

@@ -1124,88 +1124,92 @@ fn node_peer(
     Server::new(move |_, body| {
         let request: Value = serde_json::from_slice(body)
             .unwrap_or_else(|error| panic!("{}: {error:?}", "JSON-RPC request"));
-        let method = request["method"]
-            .as_str()
-            .unwrap_or_else(|| panic!("method"));
-        requests
-            .lock()
-            .unwrap_or_else(|error| panic!("{}: {error:?}", "request ledger"))
-            .push(method.to_owned());
-        let params = &request["params"];
-        let result = match method {
-            "status" => json!({"node_info":{"other":{"tx_index":index_status}},
-                "sync_info":{"latest_block_height":"3","catching_up":false}}),
-            "tx_search" => {
-                return (
-                    200,
-                    serde_json::to_vec(&json!({"jsonrpc":"2.0","id":request["id"],
-                "error":{"code":-32603,"data":layerx_indexer::paxeer::TX_INDEX_DISABLED}}))
-                    .unwrap_or_else(|error| panic!("{}: {error:?}", "disabled index transcript")),
-                )
-            }
-            "eth_chainId" => fixture["chain_id"].clone(),
-            "eth_blockNumber" => fixture["canonical"]["head"].clone(),
-            "eth_getBlockByNumber" => {
-                let height = u64::from_str_radix(
-                    params[0]
-                        .as_str()
-                        .unwrap_or_else(|| panic!("height"))
-                        .trim_start_matches("0x"),
-                    16,
-                )
-                .unwrap_or_else(|error| panic!("{}: {error:?}", "height quantity"));
-                let mut block = fixture["canonical"]["blocks"][height.to_string()].clone();
-                if omit_block_domain {
-                    for transaction in block["transactions"]
-                        .as_array_mut()
-                        .unwrap_or_else(|| panic!("transactions"))
-                    {
-                        transaction
-                            .as_object_mut()
-                            .unwrap_or_else(|| panic!("transaction object"))
-                            .remove("chainId");
-                    }
+        let answer = |request: &Value| {
+            let method = request["method"]
+                .as_str()
+                .unwrap_or_else(|| panic!("method"));
+            requests
+                .lock()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "request ledger"))
+                .push(method.to_owned());
+            let params = &request["params"];
+            let result = match method {
+                "status" => json!({"node_info":{"other":{"tx_index":index_status}},
+                    "sync_info":{"latest_block_height":"3","catching_up":false}}),
+                "tx_search" => {
+                    return json!({"jsonrpc":"2.0","id":request["id"],
+                        "error":{"code":-32603,"data":layerx_indexer::paxeer::TX_INDEX_DISABLED}})
                 }
-                block
-            }
-            "eth_getTransactionByHash" => {
-                let mut found = None;
-                for block in fixture["canonical"]["blocks"]
-                    .as_object()
-                    .unwrap_or_else(|| panic!("blocks"))
-                    .values()
-                {
-                    for tx in block["transactions"]
-                        .as_array()
-                        .unwrap_or_else(|| panic!("transactions"))
-                    {
-                        if tx["hash"] == params[0] {
-                            found = Some(tx.clone());
+                "eth_chainId" => fixture["chain_id"].clone(),
+                "eth_blockNumber" => fixture["canonical"]["head"].clone(),
+                "eth_getBlockByNumber" => {
+                    let height = u64::from_str_radix(
+                        params[0]
+                            .as_str()
+                            .unwrap_or_else(|| panic!("height"))
+                            .trim_start_matches("0x"),
+                        16,
+                    )
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "height quantity"));
+                    let mut block = fixture["canonical"]["blocks"][height.to_string()].clone();
+                    if omit_block_domain {
+                        for transaction in block["transactions"]
+                            .as_array_mut()
+                            .unwrap_or_else(|| panic!("transactions"))
+                        {
+                            transaction
+                                .as_object_mut()
+                                .unwrap_or_else(|| panic!("transaction object"))
+                                .remove("chainId");
                         }
                     }
+                    block
                 }
-                let mut transaction =
-                    found.unwrap_or_else(|| panic!("recorded transaction lookup"));
-                if unresolved {
+                "eth_getTransactionByHash" => {
+                    let mut found = None;
+                    for block in fixture["canonical"]["blocks"]
+                        .as_object()
+                        .unwrap_or_else(|| panic!("blocks"))
+                        .values()
+                    {
+                        for tx in block["transactions"]
+                            .as_array()
+                            .unwrap_or_else(|| panic!("transactions"))
+                        {
+                            if tx["hash"] == params[0] {
+                                found = Some(tx.clone());
+                            }
+                        }
+                    }
+                    let mut transaction =
+                        found.unwrap_or_else(|| panic!("recorded transaction lookup"));
+                    if unresolved {
+                        transaction
+                            .as_object_mut()
+                            .unwrap_or_else(|| panic!("transaction"))
+                            .remove("chainId");
+                    }
                     transaction
-                        .as_object_mut()
-                        .unwrap_or_else(|| panic!("transaction"))
-                        .remove("chainId");
                 }
-                transaction
-            }
-            "eth_getTransactionReceipt" => {
-                fixture["receipts"][params[0].as_str().unwrap_or_else(|| panic!("hash"))].clone()
-            }
-            other => panic!("unexpected node request {other}"),
+                "eth_getTransactionReceipt" => fixture["receipts"]
+                    [params[0].as_str().unwrap_or_else(|| panic!("hash"))]
+                .clone(),
+                other => panic!("unexpected node request {other}"),
+            };
+            json!({"jsonrpc":"2.0","id":request["id"],"result":result})
+        };
+        let response = match request.as_array() {
+            Some(batch) => Value::Array(batch.iter().map(answer).collect()),
+            None => answer(&request),
         };
         (
             200,
-            serde_json::to_vec(&json!({"jsonrpc":"2.0","id":request["id"],"result":result}))
+            serde_json::to_vec(&response)
                 .unwrap_or_else(|error| panic!("{}: {error:?}", "RPC transcript")),
         )
     })
 }
+
 fn ingester(server: &Server, comet: bool) -> Checked<PaxeerIngester> {
     Ok(PaxeerIngester::new(
         server.endpoint()?,
@@ -1313,7 +1317,7 @@ fn tenant_query_authenticates_database_domains_and_falls_back_to_node() -> Check
     assert!(rows.transactions.iter().all(|t| t.chain_id.is_none()));
     // Even a populated domain hint is untrusted database content.
     rows.transactions[0].chain_id = Some("125000999".into());
-    layerx_indexer::paxscan::resolve_transaction_domains(&mut rows, &node)?;
+    layerx_indexer::paxscan::resolve_transaction_domains(&mut rows, &node, 2, 2)?;
     assert!(rows
         .transactions
         .iter()
@@ -1361,7 +1365,7 @@ fn unresolved_transaction_domains_refuse_entire_backfill_range() -> Checked {
     let mut rows: BlockscoutRange =
         serde_json::from_str(include_str!("fixtures/backfill_blockscout.json"))?;
     let original = rows.clone();
-    assert!(layerx_indexer::paxscan::resolve_transaction_domains(&mut rows, &node).is_err());
+    assert!(layerx_indexer::paxscan::resolve_transaction_domains(&mut rows, &node, 2, 2).is_err());
     assert_eq!(rows, original, "domain lookup is all or nothing");
     let store = Store::open_in_memory()?;
     tenant(&store)?;

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -323,6 +324,9 @@ func referralError(w http.ResponseWriter, e error) {
 		status, code = http.StatusConflict, "IDEMPOTENCY_CONFLICT"
 	case errors.Is(e, pgx.ErrNoRows), errors.Is(e, ErrUnknownReferral):
 		status, code = http.StatusNotFound, "INVALID_ATTRIBUTION"
+	}
+	if status >= http.StatusInternalServerError {
+		slog.Error("referral request unavailable", slog.Any("err", e))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "private, no-store")

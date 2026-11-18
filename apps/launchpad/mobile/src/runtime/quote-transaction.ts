@@ -1,3 +1,4 @@
+import { approvalChainId } from './flow-state.ts';
 import {
   createPublicClient,
   http,
@@ -23,8 +24,11 @@ async function nativeRequestId() {
 }
 import type { MobileServices } from './service-client.ts';
 import { verifyRolePins, type RolePin } from './native-authority.ts';
-import { chainClient, homeRoute } from './chain-launch.ts';
-import type { TradeRequest } from './trade-recovery.ts';
+import { chainClient, homeRoute, chainRoute } from './chain-launch.ts';
+import {
+  decodeTradeRequest,
+  type TradeRequest,
+} from './trade-recovery.ts';
 export const nativeRouterAbi = parseAbi([
   'function buy(address pool,uint256 usdlAmountIn,uint256 minTokensOut,uint256 deadline) returns(uint256)',
   'function sell(address pool,uint256 tokenAmountIn,uint256 minUsdlOut,uint256 deadline) returns(uint256)',
@@ -86,7 +90,7 @@ async function verifyNativeAuthority(
   services: MobileServices,
   client: ReturnType<typeof chainClient>,
   signal: AbortSignal,
-  chainId = 125,
+  chainId = client.chain?.id ?? 125,
 ) {
   signal.throwIfAborted();
   if (services.config.manifestDigest !== authority.revision)
@@ -250,6 +254,7 @@ export type NativeApprovalState =
   | 'replaced_action';
 export type NativeApprovalIntent = {
   version: 2;
+  chainId: number;
   requestId: string;
   account: string;
   sessionId: string;
@@ -276,12 +281,15 @@ export type NativeApprovalIntent = {
 };
 const uint = (value: string) =>
   /^(0|[1-9][0-9]{0,77})$/.test(value) && BigInt(value) < 1n << 256n;
-function approvalIntent(value: unknown): NativeApprovalIntent {
+export function decodeApprovalIntent(
+  value: unknown,
+): NativeApprovalIntent {
   if (!value || typeof value !== 'object')
     throw new Error('Invalid native approval metadata');
   const p = value as NativeApprovalIntent;
   const fields = [
     'version',
+    'chainId',
     'requestId',
     'account',
     'sessionId',
@@ -308,6 +316,8 @@ function approvalIntent(value: unknown): NativeApprovalIntent {
   ];
   if (Object.keys(p).some((key) => !fields.includes(key)))
     throw new Error('Unapproved approval metadata field');
+  // Approval journals without a chain ID describe root-chain allowances.
+  const chainId = approvalChainId(p.chainId);
   if (
     p.version !== 2 ||
     !Number.isSafeInteger(p.startedAt) ||
@@ -342,7 +352,9 @@ function approvalIntent(value: unknown): NativeApprovalIntent {
       'nativeBalanceRaw',
       'inputBalanceRaw',
       'allowanceRaw',
-    ].every((key) => uint(p[key as keyof NativeApprovalIntent] as string)) ||
+    ].every((key) =>
+      uint(p[key as keyof NativeApprovalIntent] as string),
+    ) ||
     p.statusText.length > 256 ||
     !Number.isSafeInteger(p.nonce ?? 0) ||
     (p.nonce ?? 0) < 0 ||
@@ -356,7 +368,7 @@ function approvalIntent(value: unknown): NativeApprovalIntent {
     !/^[0-9a-f-]{36}$/i.test(p.requestId)
   )
     throw new Error('Invalid approval identity');
-  return p;
+  return { ...p, chainId };
 }
 function actualRevert(error: unknown) {
   let current = error;
@@ -371,7 +383,17 @@ export class NativeApprovalController {
   current: NativeApprovalIntent | undefined;
   notice: string | undefined;
   private busy = false;
-  private readonly client: ReturnType<typeof nativeClient>;
+  private activeChainId = 125;
+  private get client() {
+    const rootRPC = this.services.config.walletConnect?.rpcURL;
+    if (!rootRPC) throw new Error('Chain RPC unavailable');
+    return chainClient(
+      chainRoute(
+        this.activeChainId === 125 ? 0n : BigInt(this.activeChainId),
+        rootRPC,
+      ),
+    );
+  }
   constructor(
     readonly services: MobileServices,
     readonly session: SessionController,
@@ -380,14 +402,14 @@ export class NativeApprovalController {
     readonly changed: () => void,
     readonly canUnlock: () => boolean,
   ) {
-    this.client = nativeClient(services);
     services.setOperationWallet(
       {
         supportedChain: wallet.supportedChain,
         get connectedAccount() {
           return wallet.connectedAccount;
         },
-        signMessage: (message, signal) => wallet.signMessage(message, signal),
+        signMessage: (message, signal) =>
+          wallet.signMessage(message, signal),
       },
       canUnlock,
     );
@@ -403,7 +425,9 @@ export class NativeApprovalController {
   get hasOutstanding() {
     return (
       !!this.current &&
-      ['awaiting_wallet', 'submitted', 'unknown'].includes(this.current.state)
+      ['awaiting_wallet', 'submitted', 'unknown'].includes(
+        this.current.state,
+      )
     );
   }
   private fence(p: NativeApprovalIntent, requireUnlock = true) {
@@ -424,7 +448,10 @@ export class NativeApprovalController {
   }
   private async persist() {
     if (this.current)
-      await this.session.storage.set('approval', JSON.stringify(this.current));
+      await this.session.storage.set(
+        'approval',
+        JSON.stringify(this.current),
+      );
     else await this.session.storage.remove('approval');
     this.changed();
   }
@@ -440,7 +467,8 @@ export class NativeApprovalController {
       this.changed();
       return;
     }
-    this.current = approvalIntent(JSON.parse(stored));
+    this.current = decodeApprovalIntent(JSON.parse(stored));
+    this.activeChainId = this.current.chainId;
     if (this.current.state === 'awaiting_wallet')
       this.current = {
         ...this.current,
@@ -547,10 +575,20 @@ export class NativeApprovalController {
       )
         throw new Error('Fresh healthy quote required before approval');
       await this.session.validate(this.services);
+      const route = await homeRoute(
+        this.services,
+        quote.poolAddress,
+        this.session.signal,
+      );
+      this.activeChainId = route.chainId;
       const identity = this.session.current!.identity,
         account = getAddress(identity.wallet),
         signal = this.session.signal,
-        block = await verifyNativeAuthority(this.services, this.client, signal),
+        block = await verifyNativeAuthority(
+          this.services,
+          this.client,
+          signal,
+        ),
         asset = await nativeInputAsset(
           this.client,
           getAddress(quote.poolAddress),
@@ -589,6 +627,7 @@ export class NativeApprovalController {
       const requestId = await nativeRequestId();
       this.current = {
         version: 2,
+        chainId: route.chainId,
         requestId,
         account,
         sessionId: identity.sessionId,
@@ -625,12 +664,24 @@ export class NativeApprovalController {
       !p ||
       p.state !== 'ready' ||
       this.pending.current ||
-      !this.wallet.submitApproval
+      !(p.chainId === 125
+        ? this.wallet.submitApproval
+        : this.wallet.submitHomeApproval)
     )
       throw new Error('No reviewed native approval step is ready');
     this.busy = true;
     try {
       this.fence(p);
+      this.activeChainId = p.chainId;
+      const route = await homeRoute(
+        this.services,
+        p.pool,
+        this.session.signal,
+      );
+      if (route.chainId !== p.chainId)
+        throw new Error(
+          'Market home chain changed. Refresh the approval plan.',
+        );
       await this.session.validate(this.services);
       const detail = await this.details(
         getAddress(p.asset),
@@ -646,7 +697,9 @@ export class NativeApprovalController {
         detail.block,
       );
       if (!same(asset, p.asset) || detail.balance < BigInt(p.targetRaw))
-        throw new Error('Input token identity or verified balance changed');
+        throw new Error(
+          'Input token identity or verified balance changed',
+        );
       if (p.step > 0 && detail.allowance !== 0n)
         throw new Error(
           'Confirmed zero allowance required before the exact approval',
@@ -671,13 +724,13 @@ export class NativeApprovalController {
       await this.persist();
       await this.pending.begin({
         requestId: p.requestId,
-        chainId: 125,
+        chainId: p.chainId,
         startedAt: this.current.startedAt,
         returnRoute: '/portfolio',
         state: 'awaiting_wallet',
       });
-      const transaction = decodeContract('TransactionRequest', {
-        chainId: '125',
+      const transaction = decodeTradeRequest({
+        chainId: String(p.chainId),
         from: p.account,
         to: p.asset,
         data: detail.data,
@@ -686,11 +739,18 @@ export class NativeApprovalController {
         maxFeePerGasRaw: detail.fee.toString(),
         maxPriorityFeePerGasRaw: null,
       });
-      const result = await this.wallet.submitApproval(
-        transaction,
-        nonce,
-        this.session.signal,
-      );
+      const result =
+        p.chainId === 125
+          ? await this.wallet.submitApproval!(
+              decodeContract('TransactionRequest', transaction),
+              nonce,
+              this.session.signal,
+            )
+          : await this.wallet.submitHomeApproval!(
+              transaction,
+              nonce,
+              this.session.signal,
+            );
       this.fence(p, false);
       this.current = {
         ...p,
@@ -763,11 +823,13 @@ export class NativeApprovalController {
       return false;
     }
     this.fence(p, false);
+    this.activeChainId = p.chainId;
     await verifyNativeAuthority(this.services, this.client, signal);
     const transaction = await this.client.getTransaction({
       hash: p.transactionHash as Hash,
     });
     if (
+      transaction.chainId !== p.chainId ||
       !same(transaction.from, p.account) ||
       !transaction.to ||
       !same(transaction.to, p.asset) ||
@@ -794,7 +856,11 @@ export class NativeApprovalController {
       });
     } catch (error) {
       let current: unknown = error;
-      for (let i = 0; i < 8 && current && typeof current === 'object'; i++) {
+      for (
+        let i = 0;
+        i < 8 && current && typeof current === 'object';
+        i++
+      ) {
         if (
           'name' in current &&
           current.name === 'TransactionReceiptNotFoundError'
@@ -876,18 +942,28 @@ export class NativeApprovalController {
         'Outstanding approval nonce and real replacement hash required',
       );
     this.fence(p, false);
+    this.activeChainId = p.chainId;
     await verifyNativeAuthority(
       this.services,
       this.client,
       this.session.signal,
     );
     const tx = await this.client.getTransaction({ hash: hash as Hash });
-    if (!same(tx.from, p.account) || tx.nonce !== p.nonce)
-      throw new Error('Replacement does not replace the same sender nonce');
+    if (
+      tx.chainId !== p.chainId ||
+      !same(tx.from, p.account) ||
+      tx.nonce !== p.nonce
+    )
+      throw new Error(
+        'Replacement does not replace the same sender nonce',
+      );
     let unchanged = false;
     if (tx.to && same(tx.to, p.asset) && tx.value === 0n) {
       try {
-        const decoded = decodeFunctionData({ abi: erc20Abi, data: tx.input });
+        const decoded = decodeFunctionData({
+          abi: erc20Abi,
+          data: tx.input,
+        });
         unchanged =
           decoded.functionName === 'approve' &&
           same(decoded.args[0], authority.router) &&
@@ -912,14 +988,19 @@ export class NativeApprovalController {
     const receipt = await this.client.getTransactionReceipt({
         hash: hash as Hash,
       }),
-      block = await this.client.getBlock({ blockNumber: receipt.blockNumber });
+      block = await this.client.getBlock({
+        blockNumber: receipt.blockNumber,
+      });
     this.fence(p, false);
     if (block.hash !== receipt.blockHash || receipt.status !== 'success')
       throw new Error(
         'Changed replacement has no successful canonical receipt',
       );
     const cancelled =
-      tx.to && same(tx.to, p.account) && tx.value === 0n && tx.input === '0x';
+      tx.to &&
+      same(tx.to, p.account) &&
+      tx.value === 0n &&
+      tx.input === '0x';
     this.current = {
       ...p,
       transactionHash: hash,

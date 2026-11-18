@@ -58,7 +58,7 @@ func publicationRecoveryVisibilityPeer(t *testing.T, pki *testPKI, social, clien
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		observed := time.Now().UTC().Truncate(time.Second)
+		observed := time.Now().UTC()
 		if len(observedAt) > 0 {
 			observed = observedAt[0]
 		}

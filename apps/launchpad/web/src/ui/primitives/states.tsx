@@ -326,6 +326,11 @@ export function UnavailableState({
     return (
       <p role="status" className={cn('text-sm text-text-faint', className)}>
         {heading}
+        {onRetry ? (
+          <Button variant="secondary" size="sm" onClick={onRetry} className={retryOnSurface[surface]}>
+            Try again
+          </Button>
+        ) : null}
       </p>
     );
   }
@@ -532,6 +537,11 @@ export function ErrorState({
       >
         <CircleAlert aria-hidden="true" className="size-icon-sm shrink-0" />
         {message}
+        {onRetry ? (
+          <Button variant="secondary" size="sm" onClick={onRetry} loading={retrying}>
+            Retry
+          </Button>
+        ) : null}
       </p>
     );
   }

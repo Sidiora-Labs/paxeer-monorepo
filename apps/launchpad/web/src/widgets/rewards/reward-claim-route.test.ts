@@ -6,7 +6,7 @@ import { afterAll, beforeAll, expect, test } from 'vitest';
 import { operationDefinitions } from '../../../../../../sdk/launchpad/packages/sdk/src/operations.gen';
 import { ROUTE_STATUS } from '../../../../../../sdk/launchpad/packages/sdk/src/served-routes';
 import { prepareRewardClaim } from './rewards-view';
-import { AccountApiError, accountEpoch, clearAccountSession, installAccountSession, requireAccount } from '../profile/account-transport';
+import { AccountApiError, accountEpoch, accountRequest, clearAccountSession, installAccountSession, requireAccount } from '../profile/account-transport';
 
 interface Observation {
   method: string;
@@ -37,7 +37,7 @@ beforeAll(async () => {
   // every existing test remains intact. The overlay stays inside this task's
   // scope, never in the service's directory.
   const overlay = { Replace: {
-    [resolve(moduleRoot, 'internal/app/web_reward_claim_proof_test.go')]: resolve(__dirname, 'registered-reward-handler_test.go'),
+    [resolve(moduleRoot, 'internal/app/web_reward_claim_proof_test.go')]: resolve(__dirname, 'registered-reward-handler_test.go.txt'),
   } };
   overlayDirectory = mkdtempSync(resolve(__dirname, '.reward-route-'));
   const overlayPath = resolve(overlayDirectory, 'overlay.json');
@@ -121,6 +121,13 @@ async function reward_claim_route_reaches_registered_handler() {
     body: observations[0].body,
   });
   expect(legacy.status).toBe(404);
+  await expect(accountRequest(`${origin}/v2/me/rewards?limit=50`, {}, scope)).rejects.toMatchObject({
+    status: 503, code: 'DEPENDENCY_UNAVAILABLE',
+  });
+  await expect.poll(() => observations.some(item => item.method === 'GET' && item.path === '/v2/me/rewards')).toBe(true);
+  expect(observations.find(item => item.method === 'GET' && item.path === '/v2/me/rewards')).toMatchObject({
+    authorization: 'Bearer reward-route-access', status: 503, code: 'DEPENDENCY_UNAVAILABLE', body: '',
+  });
   clearAccountSession(false);
   await expect(prepareRewardClaim('creator:1', scope)).rejects.toBeInstanceOf(AccountApiError);
   await expect(prepareRewardClaim('creator:1', scope)).rejects.toMatchObject({ code: 'ACCOUNT_CHANGED' });

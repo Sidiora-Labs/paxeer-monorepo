@@ -217,28 +217,31 @@ registerTest('highlightsStatisticsRemainSeparate', async function highlightsStat
   expect(requests).toEqual([]);
 });
 
-registerTest('nullableUtilizationAndNumericBehavior', async function nullableUtilizationAndNumericBehavior() {
-  for (const [ value, expectedColor ] of [ [ null, undefined ], [ 0, 'positive' ], [ 55.1234, 'warning' ], [ 91.2345, 'negative' ] ] as const) {
-    utilization = value;
-    const { container, unmount } = render(React.createElement(HomeRpcDataContextProvider, null, React.createElement(LatestBlocks)));
-    await expect.poll(() => container.querySelectorAll('[data-latest-block]').length).toBe(2);
-    const note = container.querySelector('[data-note]') as HTMLElement;
-    await expect.poll(() => note.textContent).toContain('Current epoch: #42');
-    if (value === null) {
-      expect(note.textContent).not.toContain('Network utilization:');
-      expect(note.textContent).not.toContain('%');
-    } else {
-      await expect.poll(() => note.textContent).toContain(`${ value.toFixed(2) }%`);
-      const number = Array.from(note.querySelectorAll('span')).find((span) => span.textContent === `${ value.toFixed(2) }%`)!;
-      expect(number.className).toBeTruthy();
-      const rules = Array.from(document.querySelectorAll('style')).flatMap((style) => Array.from(style.sheet?.cssRules ?? []));
-      const colorClass = Array.from(number.classList).find((className) => className.startsWith('css-'));
-      const colorRule = rules.find((rule) => rule.cssText.includes(`.${ colorClass }`));
-      expect(colorRule?.cssText).toContain(`var(--chakra-colors-${ expectedColor })`);
-    }
-    expect(requests).toContain('/api/v2/stats');
-    unmount();
+registerTest.each([
+  [ null, undefined ],
+  [ 0, 'positive' ],
+  [ 55.1234, 'warning' ],
+  [ 91.2345, 'negative' ],
+] as const)('nullableUtilizationAndNumericBehavior %s', async function nullableUtilizationAndNumericBehavior(value, expectedColor) {
+  utilization = value;
+  const { container, unmount } = render(React.createElement(HomeRpcDataContextProvider, null, React.createElement(LatestBlocks)));
+  await expect.poll(() => container.querySelectorAll('[data-latest-block]').length).toBe(2);
+  const note = container.querySelector('[data-note]') as HTMLElement;
+  await expect.poll(() => note.textContent).toContain('Current epoch: #42');
+  if (value === null) {
+    expect(note.textContent).not.toContain('Network utilization:');
+    expect(note.textContent).not.toContain('%');
+  } else {
+    await expect.poll(() => note.textContent).toContain(`${ value.toFixed(2) }%`);
+    const number = Array.from(note.querySelectorAll('span')).find((span) => span.textContent === `${ value.toFixed(2) }%`)!;
+    expect(number.className).toBeTruthy();
+    const rules = Array.from(document.querySelectorAll('style')).flatMap((style) => Array.from(style.sheet?.cssRules ?? []));
+    const colorClass = Array.from(number.classList).find((className) => className.startsWith('css-'));
+    const colorRule = rules.find((rule) => rule.cssText.includes(`.${ colorClass }`));
+    expect(colorRule?.cssText).toContain(`var(--chakra-colors-${ expectedColor })`);
   }
+  expect(requests).toContain('/api/v2/stats');
+  unmount();
 });
 
 function widgetValues(container: HTMLElement) {

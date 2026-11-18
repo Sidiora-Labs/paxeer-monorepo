@@ -11,13 +11,13 @@ use layerx_indexer::backfill::Backfill;
 use layerx_indexer::blockscout::{rpc_blocks, BlockscoutRange};
 use layerx_indexer::follow::{FollowPolicy, StepOutcome};
 use layerx_indexer::paxeer::{AttributeEncoding, PaxeerIngester, TX_INDEX_DISABLED};
-use layerx_indexer::paxscan::{PaxscanDatabase, PaxscanTls};
+use layerx_indexer::paxscan::{resolve_transaction_domains, PaxscanDatabase, PaxscanTls};
 use layerx_indexer::store::{AssetRow, Store};
 use layerx_indexer::transport::{Endpoint, Security};
 use layerx_indexer::IndexError;
 use serde_json::{json, Value};
 
-type Handler = dyn Fn(&[u8]) -> Value + Send + Sync;
+type Handler = dyn Fn(&[u8]) -> (u16, Value) + Send + Sync;
 
 fn fixture_at(path: &Path) -> Value {
     let text =
@@ -118,6 +118,8 @@ struct NodeCounts {
     connections: AtomicUsize,
     requests: Mutex<Vec<(bool, Value)>>,
     batch_sizes: Mutex<Vec<usize>>,
+    failures: AtomicUsize,
+    batches: Mutex<Vec<(String, usize)>>,
 }
 
 #[derive(Clone, Copy)]
@@ -128,6 +130,15 @@ enum BatchReply {
     MissingReceipt,
     ErrorReceipt,
     ForeignId,
+    MissingDomain,
+    ErrorDomain,
+    DomainPosition(&'static str),
+    DomainWithoutChainId,
+    DomainsByIndex,
+    FailBatchOnce(&'static str),
+    FailLargeBatches(&'static str),
+    DecodeBatch(&'static str),
+    SourceDomainOnce,
 }
 
 fn serve(handler: Arc<Handler>, counts: Arc<NodeCounts>) -> String {
@@ -146,10 +157,11 @@ fn serve(handler: Arc<Handler>, counts: Arc<NodeCounts>) -> String {
                 let Some(body) = read_request(&mut stream) else {
                     return;
                 };
-                let body = handler(&body).to_string();
+                let (status, body) = handler(&body);
+                let body = body.to_string();
                 let _ = write!(
                     stream,
-                    "HTTP/1.1 200 Fixture\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    "HTTP/1.1 {status} Fixture\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
                     body.len()
                 );
                 let _ = stream.flush();
@@ -187,6 +199,7 @@ enum TxIndex {
     On,
     Off,
     Broken,
+    Recovering,
 }
 
 /// A JSON-RPC node answering from the recorded `paxeer_blocks.json` and
@@ -227,6 +240,43 @@ fn counted_node(
                     .unwrap_or_else(|error| panic!("{error}"))
                     .push(requests.len());
             }
+            if is_batch {
+                recorded
+                    .batches
+                    .lock()
+                    .unwrap_or_else(|error| panic!("{error}"))
+                    .push((
+                        requests[0]["method"]
+                            .as_str()
+                            .unwrap_or_else(|| panic!("method"))
+                            .to_owned(),
+                        requests.len(),
+                    ));
+            }
+            if is_batch {
+                match reply {
+                    BatchReply::FailBatchOnce(method)
+                        if requests.len() > 1
+                            && requests[0]["method"] == method
+                            && recorded
+                                .failures
+                                .compare_exchange(0, 1, Ordering::Relaxed, Ordering::Relaxed)
+                                .is_ok() =>
+                    {
+                        return (503, Value::Null)
+                    }
+                    BatchReply::FailLargeBatches(method)
+                        if requests.len() > 1 && requests[0]["method"] == method =>
+                    {
+                        recorded.failures.fetch_add(1, Ordering::Relaxed);
+                        return (503, Value::Null);
+                    }
+                    BatchReply::DecodeBatch(method) if requests[0]["method"] == method => {
+                        return (200, json!(false));
+                    }
+                    _ => {}
+                }
+            }
             let mut answers: Vec<Value> = requests
             .iter()
             .map(|request| {
@@ -259,6 +309,60 @@ fn counted_node(
                         }
                         answer(block)
                     }
+                    "eth_getTransactionByHash" => {
+                        let mut transaction = chain["canonical"]["blocks"]
+                            .as_object()
+                            .unwrap_or_else(|| panic!("blocks"))
+                            .values()
+                            .flat_map(|block| {
+                                block["transactions"]
+                                    .as_array()
+                                    .unwrap_or_else(|| panic!("transactions"))
+                            })
+                            .find(|transaction| transaction["hash"] == params[0])
+                            .cloned()
+                            .unwrap_or_else(|| panic!("transaction"));
+                        if params[0] == chain["canonical"]["blocks"]["3"]["transactions"][0]["hash"]
+                        {
+                            match reply {
+                                BatchReply::DomainPosition(field) => {
+                                    transaction[field] = if field == "hash" {
+                                        json!(format!("0x{:064x}", 99))
+                                    } else {
+                                        json!("0xff")
+                                    };
+                                }
+                                BatchReply::DomainWithoutChainId => {
+                                    transaction
+                                        .as_object_mut()
+                                        .unwrap_or_else(|| panic!("transaction"))
+                                        .remove("chainId");
+                                }
+                                BatchReply::SourceDomainOnce
+                                    if recorded.failures.load(Ordering::Relaxed) == 0 =>
+                                {
+                                    if !is_batch {
+                                        recorded.failures.fetch_add(1, Ordering::Relaxed);
+                                    }
+                                    return json!({"jsonrpc":"2.0", "id":request["id"],
+                                    "error":{"code":-32000,"message":"entry unavailable"}});
+                                }
+                                _ => {}
+                            }
+                        }
+                        if matches!(reply, BatchReply::DomainsByIndex) {
+                            let index = u64::from_str_radix(
+                                transaction["transactionIndex"]
+                                    .as_str()
+                                    .unwrap_or_else(|| panic!("index"))
+                                    .trim_start_matches("0x"),
+                                16,
+                            )
+                            .unwrap_or_else(|error| panic!("{error}"));
+                            transaction["chainId"] = json!(format!("0x{:x}", 229 + index));
+                        }
+                        answer(transaction)
+                    }
                     "eth_getTransactionReceipt" => {
                         let hash = params[0].as_str().unwrap_or_default();
                         answer(chain["receipts"].get(hash).cloned().unwrap_or(Value::Null))
@@ -274,7 +378,23 @@ fn counted_node(
                             "id": request["id"],
                             "error": {"code": -32603, "message": "Internal error", "data": "database is locked"}
                         }),
-                        TxIndex::On => {
+                        TxIndex::On | TxIndex::Recovering => {
+                            if matches!(tx_index, TxIndex::Recovering) {
+                                let calls = recorded
+                                    .requests
+                                    .lock()
+                                    .unwrap_or_else(|error| panic!("{error}"));
+                                let tries = calls
+                                    .iter()
+                                    .filter(|(_, call)| {
+                                        call["method"] == "tx_search" && call["params"] == *params
+                                    })
+                                    .count();
+                                if tries <= 5 {
+                                    return json!({"jsonrpc":"2.0", "id":request["id"],
+                                    "error":{"code":-32000,"message":"history unavailable"}});
+                                }
+                            }
                             let (low, high) = tx_search_range(params["query"].as_str().unwrap_or_default());
                             let matching: Vec<Value> = search["result"]["txs"]
                                 .as_array()
@@ -303,7 +423,8 @@ fn counted_node(
                     BatchReply::MissingReceipt | BatchReply::ErrorReceipt => {
                         "eth_getTransactionReceipt"
                     }
-                    BatchReply::Complete | BatchReply::ForeignId => "",
+                    BatchReply::MissingDomain | BatchReply::ErrorDomain => "eth_getTransactionByHash",
+                    _ => "",
                 };
                 if let Some(index) = requests.iter().position(|request| {
                     request["method"] == method
@@ -318,10 +439,10 @@ fn counted_node(
                         }
                 }) {
                     match reply {
-                        BatchReply::MissingBlock | BatchReply::MissingReceipt => {
+                        BatchReply::MissingBlock | BatchReply::MissingReceipt | BatchReply::MissingDomain => {
                             answers.remove(index);
                         }
-                        BatchReply::ErrorBlock | BatchReply::ErrorReceipt => {
+                        BatchReply::ErrorBlock | BatchReply::ErrorReceipt | BatchReply::ErrorDomain => {
                             answers[index] = json!({"jsonrpc":"2.0", "id":requests[index]["id"],
                             "error":{"code":-32000,"message":"entry unavailable"}});
                         }
@@ -332,9 +453,9 @@ fn counted_node(
                     answers.push(json!({"jsonrpc":"2.0","id":0,"result":null}));
                 }
                 answers.reverse();
-                Value::Array(answers)
+                (200, Value::Array(answers))
             } else {
-                answers.into_iter().next().unwrap_or(Value::Null)
+                (200, answers.into_iter().next().unwrap_or(Value::Null))
             }
         }),
         Arc::clone(&counts),
@@ -787,6 +908,390 @@ fn backfill_batch_hash_mismatch_and_foreign_ids_leave_store_rows_unchanged() {
         }
         assert_eq!(store.chain_rows(), before);
     }
+}
+
+fn domain_baseline() -> (BlockscoutRange, RangeStore) {
+    let mut rows = blockscout();
+    let (url, _) = counted_node(TxIndex::On, BatchReply::Complete, &rows);
+    let node = ingester(&url);
+    for row in &mut rows.transactions {
+        row.chain_id = Some(
+            node.transaction_domain(row)
+                .unwrap_or_else(|error| panic!("{error}"))
+                .to_string(),
+        );
+    }
+    let store = RangeStore::new();
+    Backfill::new(&node, 3, 3)
+        .apply_range(&store.store, 1, 3, &rows)
+        .unwrap_or_else(|error| panic!("{error}"));
+    (rows, store)
+}
+
+#[test]
+fn backfill_transaction_domains_use_bounded_batches_and_preserve_rows() {
+    let (expected, baseline) = domain_baseline();
+    let mut rows = blockscout();
+    for row in &mut rows.transactions {
+        row.chain_id = Some("125000999".to_owned());
+    }
+    assert!(
+        rows.transactions
+            .iter()
+            .filter(|row| row.block_number == 2)
+            .count()
+            > 1
+    );
+    let (url, counts) = counted_node(TxIndex::On, BatchReply::Complete, &rows);
+    let node = ingester(&url);
+    resolve_transaction_domains(&mut rows, &node, 2, 2).unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(rows, expected);
+    let batches = counts
+        .batches
+        .lock()
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(batches.len(), 3);
+    assert!(batches.len() < rows.transactions.len());
+    assert!(batches
+        .iter()
+        .all(|(method, size)| method == "eth_getTransactionByHash" && (1..=2).contains(size)));
+    assert_eq!(counts.connections.load(Ordering::Relaxed), batches.len());
+    drop(batches);
+    let store = RangeStore::new();
+    Backfill::with_options(&node, 3, 3, 2, 2)
+        .apply_range(&store.store, 1, 3, &rows)
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(store.chain_rows(), baseline.chain_rows());
+    let mut empty = BlockscoutRange::default();
+    let before = counts.connections.load(Ordering::Relaxed);
+    resolve_transaction_domains(&mut empty, &node, 2, 2).unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(counts.connections.load(Ordering::Relaxed), before);
+}
+
+#[test]
+fn backfill_transaction_domains_keep_each_answer_in_row_order() {
+    let mut rows = blockscout();
+    rows.transactions.reverse();
+    let (url, _) = counted_node(TxIndex::On, BatchReply::DomainsByIndex, &rows);
+    let node = ingester(&url);
+    let expected: Vec<_> = rows
+        .transactions
+        .iter()
+        .map(|row| Some((229 + row.index).to_string()))
+        .collect();
+    resolve_transaction_domains(&mut rows, &node, 2, 2).unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(
+        rows.transactions
+            .iter()
+            .map(|row| row.chain_id.clone())
+            .collect::<Vec<_>>(),
+        expected
+    );
+}
+
+#[test]
+fn backfill_missing_and_error_domain_entries_read_only_that_entry_alone() {
+    let (expected, baseline) = domain_baseline();
+    let target = fixture("paxeer_blocks.json")["canonical"]["blocks"]["2"]["transactions"][0]
+        ["hash"]
+        .clone();
+    for reply in [BatchReply::MissingDomain, BatchReply::ErrorDomain] {
+        let mut rows = blockscout();
+        let (url, counts) = counted_node(TxIndex::On, reply, &rows);
+        let node = ingester(&url);
+        resolve_transaction_domains(&mut rows, &node, 2, 2)
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(rows, expected);
+        let calls = counts
+            .requests
+            .lock()
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(calls.len(), rows.transactions.len() + 1);
+        let singles: Vec<_> = calls.iter().filter(|(batch, _)| !batch).collect();
+        assert_eq!(singles.len(), 1);
+        assert_eq!(singles[0].1["method"], "eth_getTransactionByHash");
+        assert_eq!(singles[0].1["params"], json!([target]));
+        drop(calls);
+        let store = RangeStore::new();
+        Backfill::with_options(&node, 3, 3, 2, 2)
+            .apply_range(&store.store, 1, 3, &rows)
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(store.chain_rows(), baseline.chain_rows());
+    }
+}
+
+#[test]
+fn backfill_invalid_domain_answers_leave_range_and_store_unchanged() {
+    for reply in [
+        BatchReply::DomainPosition("hash"),
+        BatchReply::DomainPosition("blockNumber"),
+        BatchReply::DomainPosition("transactionIndex"),
+        BatchReply::DomainWithoutChainId,
+    ] {
+        let mut rows = blockscout();
+        for row in &mut rows.transactions {
+            row.chain_id = None;
+        }
+        let original = rows.clone();
+        let (url, _) = counted_node(TxIndex::On, reply, &rows);
+        let node = ingester(&url);
+        let store = RangeStore::new();
+        let before = store.chain_rows();
+        let result = Backfill::with_options(&node, 3, 3, 1, 2).step(&store.store, |_, _| {
+            resolve_transaction_domains(&mut rows, &node, 2, 1)?;
+            Ok(rows.clone())
+        });
+        match reply {
+            BatchReply::DomainWithoutChainId => {
+                assert!(matches!(result, Err(IndexError::Decode(_))))
+            }
+            _ => assert!(matches!(result, Err(IndexError::Integrity(_)))),
+        }
+        assert_eq!(rows, original);
+        assert_eq!(store.chain_rows(), before);
+    }
+}
+
+#[test]
+fn backfill_source_failed_batches_split_and_commit_the_range() {
+    let (expected, baseline) = domain_baseline();
+    for method in [
+        "eth_getTransactionByHash",
+        "eth_getBlockByNumber",
+        "eth_getTransactionReceipt",
+    ] {
+        let mut rows = blockscout();
+        let (url, counts) = counted_node(TxIndex::On, BatchReply::FailBatchOnce(method), &rows);
+        let node = ingester(&url);
+        let store = RangeStore::new();
+        Backfill::with_options(&node, 3, 3, 1, 5)
+            .step(&store.store, |_, _| {
+                resolve_transaction_domains(&mut rows, &node, 5, 1)?;
+                Ok(rows.clone())
+            })
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(rows, expected);
+        assert_eq!(store.chain_rows(), baseline.chain_rows());
+        assert_eq!(counts.failures.load(Ordering::Relaxed), 1);
+        let batches = counts
+            .batches
+            .lock()
+            .unwrap_or_else(|error| panic!("{error}"));
+        let sizes: Vec<_> = batches
+            .iter()
+            .filter(|(name, _)| name == method)
+            .map(|(_, size)| *size)
+            .collect();
+        assert_eq!(
+            sizes,
+            if method == "eth_getBlockByNumber" {
+                vec![3, 1, 2]
+            } else {
+                vec![5, 2, 3]
+            }
+        );
+    }
+}
+
+#[test]
+fn backfill_source_failed_batches_split_down_to_single_entries() {
+    let (_, baseline) = domain_baseline();
+    for method in [
+        "eth_getTransactionByHash",
+        "eth_getBlockByNumber",
+        "eth_getTransactionReceipt",
+    ] {
+        let mut rows = blockscout();
+        let (url, counts) = counted_node(TxIndex::On, BatchReply::FailLargeBatches(method), &rows);
+        let node = ingester(&url);
+        let store = RangeStore::new();
+        Backfill::with_options(&node, 3, 3, 1, 5)
+            .step(&store.store, |_, _| {
+                resolve_transaction_domains(&mut rows, &node, 5, 1)?;
+                Ok(rows.clone())
+            })
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(store.chain_rows(), baseline.chain_rows());
+        let batches = counts
+            .batches
+            .lock()
+            .unwrap_or_else(|error| panic!("{error}"));
+        let sizes: Vec<_> = batches
+            .iter()
+            .filter(|(name, _)| name == method)
+            .map(|(_, size)| *size)
+            .collect();
+        assert_eq!(
+            sizes,
+            if method == "eth_getBlockByNumber" {
+                vec![3, 1, 2, 1, 1]
+            } else {
+                vec![5, 2, 1, 1, 3, 1, 2, 1, 1]
+            }
+        );
+        assert_eq!(
+            counts.failures.load(Ordering::Relaxed),
+            if method == "eth_getBlockByNumber" {
+                2
+            } else {
+                4
+            }
+        );
+    }
+}
+
+#[test]
+fn backfill_decode_failed_batches_are_not_split() {
+    for method in [
+        "eth_getTransactionByHash",
+        "eth_getBlockByNumber",
+        "eth_getTransactionReceipt",
+    ] {
+        let mut rows = blockscout();
+        let (url, counts) = counted_node(TxIndex::On, BatchReply::DecodeBatch(method), &rows);
+        let node = ingester(&url);
+        let store = RangeStore::new();
+        let before = store.chain_rows();
+        let result = Backfill::with_options(&node, 3, 3, 1, 5)
+            .with_retry_delay(Duration::ZERO)
+            .run(&store.store, |_, _| {
+                resolve_transaction_domains(&mut rows, &node, 5, 1)?;
+                Ok(rows.clone())
+            });
+        assert!(matches!(result, Err(IndexError::Decode(_))));
+        assert_eq!(store.chain_rows(), before);
+        let batches = counts
+            .batches
+            .lock()
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(batches.iter().filter(|(name, _)| name == method).count(), 1);
+    }
+}
+
+#[test]
+fn backfill_source_failed_step_repeats_the_same_range_and_commits() {
+    let (expected, baseline) = domain_baseline();
+    let rows = blockscout();
+    let (url, counts) = counted_node(TxIndex::On, BatchReply::SourceDomainOnce, &rows);
+    let node = ingester(&url);
+    let store = RangeStore::new();
+    let mut tries = Vec::new();
+    let cutover = Backfill::with_options(&node, 3, 3, 2, 2)
+        .with_retry_delay(Duration::from_millis(1))
+        .run(&store.store, |from, to| {
+            tries.push((from, to));
+            let mut rows = rows.clone();
+            resolve_transaction_domains(&mut rows, &node, 2, 2)?;
+            assert_eq!(rows, expected);
+            Ok(rows)
+        })
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(cutover, 3);
+    assert_eq!(tries, vec![(1, 3), (1, 3)]);
+    assert_eq!(counts.failures.load(Ordering::Relaxed), 1);
+    assert_eq!(
+        store
+            .store
+            .cursor("paxeer")
+            .unwrap_or_else(|error| panic!("{error}"))
+            .unwrap_or_else(|| panic!("live cursor"))
+            .position,
+        3
+    );
+    baseline
+        .store
+        .finish_backfill("paxeer", 3, 2)
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(history(&store.store), history(&baseline.store));
+}
+
+#[test]
+fn backfill_persistent_source_failure_stops_after_five_repeats() {
+    let rows = blockscout();
+    let (url, counts) = counted_node(TxIndex::Broken, BatchReply::Complete, &rows);
+    let node = ingester(&url);
+    let store = RangeStore::new();
+    let before = store.chain_rows();
+    let mut tries = Vec::new();
+    let result = Backfill::new(&node, 3, 3)
+        .with_retry_delay(Duration::ZERO)
+        .run(&store.store, |from, to| {
+            tries.push((from, to));
+            Ok(rows.clone())
+        });
+    assert!(matches!(result, Err(IndexError::Source(_))));
+    assert_eq!(tries, vec![(1, 3); 6]);
+    let calls = counts
+        .requests
+        .lock()
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(
+        calls
+            .iter()
+            .filter(|(_, call)| call["method"] == "tx_search")
+            .count(),
+        6
+    );
+    assert_eq!(store.chain_rows(), before);
+}
+
+#[test]
+fn backfill_success_resets_the_source_repeat_count() {
+    let rows = blockscout();
+    let (url, _) = counted_node(TxIndex::Recovering, BatchReply::Complete, &rows);
+    let node = ingester(&url);
+    let store = RangeStore::new();
+    let mut tries = Vec::new();
+    let cutover = Backfill::new(&node, 3, 1)
+        .with_retry_delay(Duration::ZERO)
+        .run(&store.store, |from, to| {
+            tries.push((from, to));
+            Ok(within(&rows, from, to, &[]))
+        })
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(cutover, 3);
+    assert_eq!(
+        tries,
+        (1..=3)
+            .flat_map(|height| vec![(height, height); 6])
+            .collect::<Vec<_>>()
+    );
+    let (_, baseline) = domain_baseline();
+    assert_eq!(
+        store
+            .store
+            .cursor("paxeer")
+            .unwrap_or_else(|error| panic!("{error}"))
+            .unwrap_or_else(|| panic!("live cursor"))
+            .position,
+        3
+    );
+    baseline
+        .store
+        .finish_backfill("paxeer", 3, 2)
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(history(&store.store), history(&baseline.store));
+}
+
+#[test]
+fn backfill_integrity_failed_step_is_tried_once() {
+    let mut rows = blockscout();
+    let (url, _) = counted_node(TxIndex::On, BatchReply::Complete, &rows);
+    let node = ingester(&url);
+    rows.blocks[2].hash[31] ^= 1;
+    let store = RangeStore::new();
+    let before = store.chain_rows();
+    let mut tries = 0;
+    let result = Backfill::with_options(&node, 3, 3, 2, 2)
+        .with_retry_delay(Duration::ZERO)
+        .run(&store.store, |from, to| {
+            tries += 1;
+            assert_eq!((from, to), (1, 3));
+            Ok(rows.clone())
+        });
+    assert!(matches!(result, Err(IndexError::Integrity(_))));
+    assert_eq!(tries, 1);
+    assert_eq!(store.chain_rows(), before);
 }
 
 #[test]

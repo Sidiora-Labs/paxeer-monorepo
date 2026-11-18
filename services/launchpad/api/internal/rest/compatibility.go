@@ -469,6 +469,7 @@ func streamSnapshot(o ProductionReadOptions) http.HandlerFunc {
 }
 
 func writeSnapshotError(w http.ResponseWriter, r *http.Request, err error) {
+	slog.ErrorContext(r.Context(), "API read unavailable", "path", r.URL.Path, "reason", err.Error(), "request_id", responseRequestID(w))
 	switch {
 	case errors.Is(err, broker.ErrExpired):
 		WriteV2APIError(w, r, 409, "RESNAPSHOT_REQUIRED")

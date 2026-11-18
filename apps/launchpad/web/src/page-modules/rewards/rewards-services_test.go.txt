@@ -1,0 +1,77 @@
+package rest_test
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"testing"
+	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/discovery"
+	"github.com/go-chi/chi/v5"
+)
+
+func TestRewardsWebServices(t *testing.T) {
+	f := newPoolReadsFixture(t, "")
+	raw, err := os.ReadFile("../../../../../migrations/60001.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.pool.Exec(context.Background(), string(raw)); err != nil {
+		t.Fatal(err)
+	}
+	insertCommittedHead(t, f.pool, 900, "healthy")
+	insertFeeDistribution(t, f.pool, f.first, 2, "1000000", 100, 0)
+	insertFeeDistribution(t, f.pool, poolReadsSecond, 2, "5000000", 110, 0)
+	insertFeeStrategyChange(t, f.pool, poolReadsSecond, 2, 1, 111, 0)
+	now := time.Now().Unix()
+	if _, err = f.pool.Exec(context.Background(), `CREATE TABLE indexer.indexer_token_transfers_v1(chain_id integer,token text,from_address text,to_address text,height bigint,payload jsonb)`); err != nil {
+		t.Fatal(err)
+	}
+	for i := 1; i <= 101; i++ {
+		wallet := fmt.Sprintf("0x%040x", i)
+		insertFrozenLeaderboardFill(t, f, 100+i*2, "buy", wallet, "1000000", "1000000", now-60)
+		insertFrozenLeaderboardFill(t, f, 101+i*2, "sell", wallet, "2000000", "1000000", now-30)
+	}
+	discoveryServer, discoveryPool := hsdDevServer(t, true)
+	for i := 1; i <= 51; i++ {
+		hsdPublishCallout(t, discoveryPool, discovery.Callout{ID: fmt.Sprintf("00000000-0000-4000-8000-%012x", i), AuthorAccountID: hsdDevWallet, PoolAddress: hsdDevPool, Body: fmt.Sprintf("Callout %d", i), Direction: "bullish", Disclosure: "organic", ModerationStatus: "approved", CreatedAt: time.Now().Add(-time.Duration(i) * time.Minute), Revision: 1})
+	}
+	admission, err := rest.NewAdmission(100, 100, 50*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unavailable := chi.NewRouter()
+	if err = rest.RegisterProductionReads(unavailable, rest.ProductionReadOptions{Model: f.model, Admission: admission}); err != nil {
+		t.Fatal(err)
+	}
+	absent := httptest.NewServer(unavailable)
+	defer absent.Close()
+	stop := make(chan struct{}, 1)
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /stop", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+		stop <- struct{}{}
+	})
+	mux.HandleFunc("POST /advance-head", func(w http.ResponseWriter, r *http.Request) {
+		insertCommittedHead(t, f.pool, 901, "healthy")
+		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.Handle("/", f.srv.Config.Handler)
+	server := httptest.NewServer(mux)
+	defer server.Close()
+	encoded, err := json.Marshal(map[string]string{"origin": server.URL, "unavailable": absent.URL, "pool": f.first, "discovery": discoveryServer.URL})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Printf("REWARDS_SERVICES %s\n", encoded)
+	select {
+	case <-stop:
+	case <-time.After(3 * time.Minute):
+		t.Fatal("Rewards session did not finish")
+	}
+}

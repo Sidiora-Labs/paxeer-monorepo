@@ -15,6 +15,7 @@ import AddressAddToWallet from 'ui/shared/address/AddressAddToWallet';
 import TokenEntity from 'ui/shared/entities/token/TokenEntity';
 import ListItemMobile from 'ui/shared/ListItemMobile/ListItemMobile';
 
+import { getTokenChange } from './tokenChange';
 import {
   getTokenVolume,
   TokenChangePercent,
@@ -28,6 +29,7 @@ type Props = {
   page: number;
   isLoading?: boolean;
   coinPrice?: string | null;
+  showChange?: boolean;
 };
 
 const PRICE_ACCURACY = 4;
@@ -39,6 +41,7 @@ const TokensListItem = ({
   page,
   index,
   isLoading,
+  showChange,
 }: Props) => {
 
   const {
@@ -95,22 +98,51 @@ const TokensListItem = ({
     </Skeleton>
   );
 
+  if (isLoading) {
+    return (
+      <ListItemMobile rowGap={ 3 } aria-busy="true">
+        <Flex w="100%" alignItems="center" gap={ 2 } flexWrap="wrap">
+          <Flex flex="1 1 auto" minW={ 0 } alignItems="center" gap={ 2 }>
+            <Skeleton loading minW={ 5 } h="1lh"/>
+            <Flex flex="1 1 auto" minW={ 0 } alignItems="center">
+              <Skeleton loading boxSize="20px" mr="8px" flexShrink={ 0 }/>
+              <Skeleton loading h="1lh" w={ 40 } minW={ 0 } maxW="100%"/>
+              <Skeleton loading boxSize="touchTarget" ml={ 1 } flexShrink={ 0 }/>
+            </Flex>
+          </Flex>
+          <Flex ml="auto" flexShrink={ 0 }>
+            <Tag loading variant="outlined">{ getTokenTypeName(type, chainInfo?.app_config) }</Tag>
+          </Flex>
+        </Flex>
+        { [ 'Price', 'Change 24h', 'Market cap', 'Volume 24h', 'Holders' ].map((label) => (
+          <HStack key={ label } gap={ 3 } justifyContent="space-between" w="100%" alignItems="flex-start">
+            <Skeleton loading textStyle="sm" fontWeight="medium">{ label }</Skeleton>
+            <Skeleton loading h="1lh" w={ 12 } maxW="100%"/>
+          </HStack>
+        )) }
+      </ListItemMobile>
+    );
+  }
+
   return (
     <ListItemMobile rowGap={ 3 }>
-      <Flex w="100%" alignItems="center" columnGap={ 2 }>
-        <Skeleton loading={ isLoading } textStyle="sm" color="text.secondary" minW={ 5 } data-token-rank>
-          <span>{ getItemIndex(index, page) }</span>
-        </Skeleton>
-        <TokenEntity
-          token={ token }
-          chain={ chainInfo }
-          isLoading={ isLoading }
-          jointSymbol
-          w="auto"
-          textStyle="sm"
-          fontWeight="semibold"
-          noLink={ type === 'NATIVE' }
-        />
+      <Flex w="100%" alignItems="center" gap={ 2 } flexWrap="wrap">
+        <Flex flex="1 1 auto" minW={ 0 } alignItems="center" gap={ 2 }>
+          <Skeleton loading={ isLoading } textStyle="sm" color="text.secondary" minW={ 5 } data-token-rank>
+            <span>{ getItemIndex(index, page) }</span>
+          </Skeleton>
+          <TokenEntity
+            token={ token }
+            chain={ chainInfo }
+            isLoading={ isLoading }
+            jointSymbol
+            w="auto"
+            flex={ 1 }
+            textStyle="sm"
+            fontWeight="semibold"
+            noLink={ type === 'NATIVE' }
+          />
+        </Flex>
         <Flex ml="auto" flexShrink={ 0 } columnGap={ 1 } alignItems="center">
           <Tag loading={ isLoading } variant="outlined">{ getTokenTypeName(type, chainInfo?.app_config) }</Tag>
           { bridgedChainTag && <Tag loading={ isLoading } variant="outlined">{ bridgedChainTag }</Tag> }
@@ -118,7 +150,7 @@ const TokensListItem = ({
         </Flex>
       </Flex>
       { renderRow('Price', price) }
-      { renderRow('Change 24h', <TokenChangePercent isLoading={ isLoading }/>) }
+      { showChange && !isLoading && renderRow('Change 24h', <TokenChangePercent value={ getTokenChange(token)?.toNumber() }/>) }
       { renderRow('Market cap', <TokenFiatValue value={ marketCap ? BigNumber(marketCap) : undefined } isLoading={ isLoading }/>) }
       { renderRow('Volume 24h', <TokenFiatValue value={ getTokenVolume(token) } isLoading={ isLoading }/>) }
       { renderRow('Holders', holders) }

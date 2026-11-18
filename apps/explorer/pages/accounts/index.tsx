@@ -5,19 +5,14 @@ import React from 'react';
 import PageNextJs from 'nextjs/PageNextJs';
 
 import config from 'configs/app';
+import Accounts from 'ui/pages/Accounts';
 
-const Accounts = dynamic(() => {
-  if (config.features.multichain.isEnabled) {
-    return import('ui/multichain/accounts/MultichainAccounts');
-  }
-
-  return import('ui/pages/Accounts');
-}, { ssr: false });
+const MultichainAccounts = dynamic(() => import('ui/multichain/accounts/MultichainAccounts'), { ssr: false });
 
 const Page: NextPage = () => {
   return (
     <PageNextJs pathname="/accounts">
-      <Accounts/>
+      { config.features.multichain.isEnabled ? <MultichainAccounts/> : <Accounts/> }
     </PageNextJs>
   );
 };

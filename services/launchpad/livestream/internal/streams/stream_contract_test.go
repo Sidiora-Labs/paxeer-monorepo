@@ -307,7 +307,7 @@ func TestStreamContractNormalizedStudioWebhookContract(t *testing.T) {
 	consumer := streamContractConsumer(t)
 	secret := strings.Repeat("s", 32)
 	now := time.Now().UTC().Truncate(time.Millisecond)
-	for _, tc := range []struct{ studio, state, event string }{{"stream.started", "LIVE", "active"}, {"stream.idle", "ENDED", "inactive"}} {
+	for _, tc := range []struct{ studio, state, event string }{{"stream.started", "LIVE", "active"}, {"stream.idle", "READY", "inactive"}} {
 		raw := []byte(fmt.Sprintf(`{"id":"studio_event","webhookId":"studio_callback","createdAt":%d,"timestamp":%d,"event":%q,"stream":{"id":"studio_provider"}}`, now.Add(-time.Minute).UnixMilli(), now.UnixMilli(), tc.studio))
 		mac := hmac.New(sha256.New, []byte(secret))
 		_, _ = mac.Write(raw)

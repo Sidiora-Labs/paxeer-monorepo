@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -124,14 +125,14 @@ func (r accountRPC) call(ctx context.Context, method, path string, input, output
 	request.Header.Set("Content-Type", "application/json")
 	response, e := r.client.Do(request)
 	if e != nil {
-		return ErrUnavailable
+		return fmt.Errorf("%w: authority %s %s: %w", ErrUnavailable, method, path, e)
 	}
 	defer func() { callErr = errors.Join(callErr, response.Body.Close()) }()
 	if response.StatusCode == 404 || response.StatusCode == 403 || response.StatusCode == 401 {
-		return ErrForbidden
+		return fmt.Errorf("%w: authority %s %s returned HTTP %d", ErrForbidden, method, path, response.StatusCode)
 	}
 	if response.StatusCode != 200 && response.StatusCode != 204 {
-		return ErrUnavailable
+		return fmt.Errorf("%w: authority %s %s returned HTTP %d", ErrUnavailable, method, path, response.StatusCode)
 	}
 	if output == nil {
 		return nil
@@ -139,11 +140,14 @@ func (r accountRPC) call(ctx context.Context, method, path string, input, output
 	decoder := json.NewDecoder(io.LimitReader(response.Body, 131073))
 	decoder.DisallowUnknownFields()
 	if e = decoder.Decode(output); e != nil {
-		return ErrUnavailable
+		return fmt.Errorf("%w: decode authority %s %s: %w", ErrUnavailable, method, path, e)
 	}
 	var extra any
 	if e = decoder.Decode(&extra); e != io.EOF {
-		return ErrUnavailable
+		if e != nil {
+			return fmt.Errorf("%w: decode trailing authority %s %s: %w", ErrUnavailable, method, path, e)
+		}
+		return fmt.Errorf("%w: authority %s %s returned trailing JSON", ErrUnavailable, method, path)
 	}
 	return nil
 }
@@ -168,22 +172,22 @@ func (c *AccountClient) CurrentDeliveryPreference(ctx context.Context, account s
 		return p, e
 	}
 	if p.AccountID != account || p.Revision == 0 || p.CategoryChannels == nil {
-		return p, ErrUnavailable
+		return p, fmt.Errorf("%w: delivery preference account, revision or category channels invalid", ErrUnavailable)
 	}
 	if _, e = time.LoadLocation(p.Timezone); e != nil {
-		return p, ErrUnavailable
+		return p, fmt.Errorf("%w: delivery preference timezone: %w", ErrUnavailable, e)
 	}
 	for category, channels := range p.CategoryChannels {
 		switch category {
 		case "trade", categoryWatchlist, "creator", "chat", "security", "marketing":
 		default:
-			return p, ErrUnavailable
+			return p, fmt.Errorf("%w: delivery preference category invalid", ErrUnavailable)
 		}
 		for channel := range channels {
 			switch channel {
 			case channelPush, "inapp", "email":
 			default:
-				return p, ErrUnavailable
+				return p, fmt.Errorf("%w: delivery preference channel invalid", ErrUnavailable)
 			}
 		}
 	}
@@ -203,8 +207,11 @@ func (c *AccountClient) Targets(ctx context.Context, account string) ([]PushTarg
 	}
 	seen := map[string]bool{}
 	for _, t := range targets {
-		if targetValid(t, account) != nil || seen[t.DeviceInstallationID] {
-			return nil, ErrUnavailable
+		if e := targetValid(t, account); e != nil {
+			return nil, e
+		}
+		if seen[t.DeviceInstallationID] {
+			return nil, fmt.Errorf("%w: duplicate push target installation", ErrUnavailable)
 		}
 		seen[t.DeviceInstallationID] = true
 	}
@@ -212,15 +219,15 @@ func (c *AccountClient) Targets(ctx context.Context, account string) ([]PushTarg
 }
 func targetValid(t PushTarget, account string) error {
 	if t.AccountID != account || t.DeviceInstallationID == "" || t.Revision == 0 || t.ConsentRevision == 0 || t.EncryptedEndpointRef == "" {
-		return ErrUnavailable
+		return fmt.Errorf("%w: push target identity, revision or endpoint reference invalid", ErrUnavailable)
 	}
 	switch t.Provider {
 	case providerAPNS, providerFCM, providerWebPush:
 	default:
-		return ErrUnavailable
+		return fmt.Errorf("%w: push target provider invalid", ErrUnavailable)
 	}
 	if t.Status != targetActive && t.Status != "revoked" && t.Status != "disabled" {
-		return ErrUnavailable
+		return fmt.Errorf("%w: push target status invalid", ErrUnavailable)
 	}
 	return nil
 }

@@ -171,7 +171,7 @@ export interface OperationTypes {
 "IF_PROFILE_PATCH":{input:{path:{"wallet":string};body:V2ContractTypes["ProfilePatchBody"]};response:V2ContractTypes["ProfilePatchResponse"]};
 "IF_QUOTE":{input:{body:V2ContractTypes["QuoteBody"]};response:V2ContractTypes["QuoteResponse"]};
 "IF_RANKINGS":{input:{path:{"category":"trending"|"breakout"|"volume"|"gainers"|"losers"|"movers"|"unusual"|"new"};query?:{"cursor"?:string|null;"limit"?:number}};response:V2ContractTypes["RankingsResponse"]};
-"IF_REFRESH":{input:{};response:V2ContractTypes["RefreshResponse"]};
+"IF_REFRESH":{input:{body:V2ContractTypes["RefreshRequest"]};response:V2ContractTypes["RefreshResponse"]};
 "IF_REPORT_CREATE":{input:{body:V2ContractTypes["ReportCreateBody"]};response:V2ContractTypes["ReportCreateResponse"]};
 "IF_REPORT_LIST":{input:{query:{"state":"open"|"reviewing"|"resolved"|"dismissed";"cursor"?:string;"limit"?:number}};response:V2ContractTypes["ReportListResponse"]};
 "IF_REWARDS":{input:{query?:{"programId"?:string;"cursor"?:string;"limit"?:number}};response:V2ContractTypes["RewardsResponse"]};
@@ -227,7 +227,7 @@ export const operationDefinitions = {
     "path": "/v2/me/deletion-requests",
     "public": false,
     "response": "AccountDeleteResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -264,7 +264,7 @@ export const operationDefinitions = {
     "path": "/v2/me/deletion-requests/{jobId}",
     "public": false,
     "response": "AccountDeleteStatusResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -282,7 +282,7 @@ export const operationDefinitions = {
     "path": "/v2/me/exports",
     "public": false,
     "response": "AccountExportResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -310,7 +310,7 @@ export const operationDefinitions = {
     "path": "/v2/me/exports/{jobId}",
     "public": false,
     "response": "AccountExportStatusResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -504,7 +504,7 @@ export const operationDefinitions = {
     "path": "/v2/bounties/stats",
     "public": true,
     "response": "BountiesStatsResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -541,7 +541,7 @@ export const operationDefinitions = {
     "path": "/v2/bounties/{bountyId}/submissions/{submissionId}:accept",
     "public": false,
     "response": "BountyAcceptResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -559,7 +559,7 @@ export const operationDefinitions = {
     "path": "/v2/bounties",
     "public": false,
     "response": "BountyCreateResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -587,7 +587,7 @@ export const operationDefinitions = {
     "path": "/v2/bounties/{bountyId}",
     "public": true,
     "response": "BountyGetResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -649,7 +649,7 @@ export const operationDefinitions = {
     "path": "/v2/bounties",
     "public": true,
     "response": "BountyListResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -698,7 +698,7 @@ export const operationDefinitions = {
     "path": "/v2/bounties/{bountyId}/submissions",
     "public": true,
     "response": "BountySubmissionsResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -726,7 +726,7 @@ export const operationDefinitions = {
     "path": "/v2/bounties/{bountyId}/submissions",
     "public": false,
     "response": "BountySubmitResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -744,7 +744,7 @@ export const operationDefinitions = {
     "path": "/v2/callouts",
     "public": false,
     "response": "CalloutCreateResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -793,7 +793,7 @@ export const operationDefinitions = {
     "path": "/v2/pools/{poolAddress}/callouts",
     "public": false,
     "response": "CalloutListResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -1020,7 +1020,17 @@ export const operationDefinitions = {
     "idempotencyKey": true,
     "idempotentRead": false,
     "method": "POST",
-    "parameters": [],
+    "parameters": [
+      {
+        "in": "header",
+        "name": "Idempotency-Key",
+        "required": true,
+        "schema": {
+          "format": "uuid",
+          "type": "string"
+        }
+      }
+    ],
     "path": "/v2/auth/challenges",
     "public": false,
     "response": "ChallengeResponse",
@@ -1073,7 +1083,7 @@ export const operationDefinitions = {
     "path": "/v2/pools/{poolAddress}/comments",
     "public": true,
     "response": "CommentsListResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -1101,7 +1111,7 @@ export const operationDefinitions = {
     "path": "/v2/pools/{poolAddress}/comments",
     "public": false,
     "response": "CommentCreateResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -1129,7 +1139,7 @@ export const operationDefinitions = {
     "path": "/v2/comments/{commentId}",
     "public": false,
     "response": null,
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -1157,7 +1167,7 @@ export const operationDefinitions = {
     "path": "/v2/comments/{commentId}",
     "public": false,
     "response": "CommentEditResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -1185,7 +1195,7 @@ export const operationDefinitions = {
     "path": "/v2/comments/{commentId}/likes/me",
     "public": false,
     "response": "CommentLikeResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -1213,7 +1223,7 @@ export const operationDefinitions = {
     "path": "/v2/comments/{commentId}/likes/me",
     "public": false,
     "response": null,
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -3852,7 +3862,7 @@ export const operationDefinitions = {
     "path": "/v2/me/devices/{deviceId}",
     "public": false,
     "response": "DeviceRegisterResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -3880,7 +3890,7 @@ export const operationDefinitions = {
     "path": "/v2/me/devices/{deviceId}",
     "public": false,
     "response": null,
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -3989,7 +3999,7 @@ export const operationDefinitions = {
         }
       }
     ],
-    "path": "/v2/events/stream",
+    "path": "/v2/stream/sse",
     "public": false,
     "response": null,
     "service": "api",
@@ -5301,7 +5311,7 @@ export const operationDefinitions = {
     "path": "/v2/me/preferences",
     "public": false,
     "response": "PreferencesReadResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -5319,7 +5329,7 @@ export const operationDefinitions = {
     "path": "/v2/me/preferences",
     "public": false,
     "response": "PreferencesUpdateResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -5502,7 +5512,7 @@ export const operationDefinitions = {
     "authenticated": true,
     "binaryBody": false,
     "binaryResponse": false,
-    "body": null,
+    "body": "RefreshRequest",
     "cookieSession": true,
     "emptyResponse": false,
     "idempotencyKey": false,
@@ -5560,7 +5570,7 @@ export const operationDefinitions = {
     "path": "/v2/reports",
     "public": false,
     "response": "ReportCreateResponse",
-    "service": "api",
+    "service": "media",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -5754,7 +5764,7 @@ export const operationDefinitions = {
         "name": "cursor",
         "required": false,
         "schema": {
-          "maxLength": 256,
+          "maxLength": 2048,
           "minLength": 1,
           "type": "string"
         }
@@ -6124,7 +6134,7 @@ export const operationDefinitions = {
     "wireMajor": 2
   },
   "IF_STREAM_TICKET_ISSUE": {
-    "authenticated": false,
+    "authenticated": true,
     "binaryBody": false,
     "binaryResponse": false,
     "body": "StreamTicketIssueBody",
@@ -6554,11 +6564,21 @@ export const operationDefinitions = {
     "idempotencyKey": true,
     "idempotentRead": false,
     "method": "POST",
-    "parameters": [],
+    "parameters": [
+      {
+        "in": "header",
+        "name": "Idempotency-Key",
+        "required": true,
+        "schema": {
+          "format": "uuid",
+          "type": "string"
+        }
+      }
+    ],
     "path": "/v2/me/wallet-links/challenges",
     "public": false,
     "response": "WalletLinkChallengeResponse",
-    "service": "api",
+    "service": "identity",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -6581,12 +6601,21 @@ export const operationDefinitions = {
           "format": "uuid",
           "type": "string"
         }
+      },
+      {
+        "in": "header",
+        "name": "Idempotency-Key",
+        "required": true,
+        "schema": {
+          "format": "uuid",
+          "type": "string"
+        }
       }
     ],
     "path": "/v2/me/wallet-links/{linkId}",
     "public": false,
     "response": null,
-    "service": "api",
+    "service": "identity",
     "timeoutMs": 1000,
     "wireMajor": 2
   },
@@ -6609,12 +6638,21 @@ export const operationDefinitions = {
           "format": "uuid",
           "type": "string"
         }
+      },
+      {
+        "in": "header",
+        "name": "Idempotency-Key",
+        "required": true,
+        "schema": {
+          "format": "uuid",
+          "type": "string"
+        }
       }
     ],
     "path": "/v2/me/wallet-links/{linkId}:verify",
     "public": false,
     "response": "WalletLinkVerifyResponse",
-    "service": "api",
+    "service": "identity",
     "timeoutMs": 1000,
     "wireMajor": 2
   },

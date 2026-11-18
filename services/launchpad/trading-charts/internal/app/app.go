@@ -339,7 +339,7 @@ func archiveBlockTime(ctx context.Context, rpc *ethclient.Client, height int64, 
 	}
 	block, err := (chainread.Reader{RPC: rpc}).Block(ctx, height)
 	if err != nil {
-		return 0, errors.New("charts: archive block timestamp unavailable")
+		return 0, fmt.Errorf("charts: archive block timestamp unavailable: %w", err)
 	}
 	if !strings.EqualFold(block.Hash, expected) {
 		return 0, errors.New("charts: archive block authority mismatch")
@@ -691,6 +691,7 @@ func registerSeriesRuntime(router chi.Router, exact *store.ExactStore, archive *
 		defer cancel()
 		bars, e := engine.ReadSeries(bounded, exact, pool, interval, from, to, dense)
 		if e != nil && !errors.Is(e, engine.ErrNoData) {
+			slog.ErrorContext(bounded, "canonical chart series read failed", "err", e)
 			http.Error(w, "canonical series unavailable", http.StatusServiceUnavailable)
 			return
 		}
@@ -723,6 +724,7 @@ func registerSeriesRuntime(router chi.Router, exact *store.ExactStore, archive *
 		defer cancel()
 		deleted, err := exact.DeleteRetainedRange(bounded, request.Pool, request.Interval, request.From, request.To)
 		if err != nil {
+			slog.ErrorContext(bounded, "chart retention rejected", "err", err)
 			http.Error(w, "retention authority rejected range", http.StatusConflict)
 			return
 		}
@@ -768,6 +770,7 @@ func registerSeriesRuntime(router chi.Router, exact *store.ExactStore, archive *
 		defer cancel()
 		report, err := engine.ReconstructArchive(bounded, exact, *archive, request.RunID, request.Pool, request.From, request.To, request.Manifests)
 		if err != nil {
+			slog.ErrorContext(bounded, "chart archive reconstruction failed", "err", err)
 			http.Error(w, "archive reconstruction failed", http.StatusServiceUnavailable)
 			return
 		}

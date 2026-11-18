@@ -86,6 +86,7 @@ def _docker_runtime_names() -> set[str]:
 
 def test_frontend_service_matches_container_and_deployment_sources():
     sections = _parse_definition()
+    assert set(sections) == {"service.frontend", "vars.frontend", "inputs.frontend"}
     service = sections["service.frontend"]
     assert service == {
         "kind": "repo",
@@ -137,4 +138,28 @@ def test_frontend_variables_follow_source_reads_and_inputs():
     definition_text = DEFINITION.read_text()
     for name in inputs:
         assert re.search(rf"(?m)^# .+\n{name} = \"(?:generated|provider|chain|operator)\"$", definition_text), name
-    assert not re.search(r"(?:password|secret|token|key)\s*=\s*\"(?!env:|\$\{\{)[^\"]+", definition_text, re.IGNORECASE)
+    variable_text = definition_text.split("[vars.frontend]", 1)[1].split("[inputs.frontend]", 1)[0]
+    assert not re.search(r"(?:password|secret|token|key)\s*=\s*\"(?!env:|\$\{\{)[^\"]+", variable_text, re.IGNORECASE)
+
+
+def test_frontend_server_settings_use_deployment_inputs():
+    sections = _parse_definition()
+    variables = sections["vars.frontend"]
+    inputs = sections["inputs.frontend"]
+    expected = {
+        "EXPLORER_INFERENCE_NODE_URL": (
+            "EXPLORER_FRONTEND_EXPLORER_INFERENCE_NODE_URL", "chain"
+        ),
+        "EXPLORER_ASSISTANT_BASE_URL": (
+            "EXPLORER_FRONTEND_EXPLORER_ASSISTANT_BASE_URL", "provider"
+        ),
+        "EXPLORER_ASSISTANT_API_KEY": (
+            "EXPLORER_FRONTEND_EXPLORER_ASSISTANT_API_KEY", "provider"
+        ),
+    }
+    assert expected.keys() <= _source_env_names()
+    for name, (input_name, category) in expected.items():
+        assert variables[name] == f"env:{input_name}"
+        assert inputs[input_name] == category
+    assert "EXPLORER_ASSISTANT_MODEL" not in variables
+    assert not any("ASSISTANT_MODEL" in name for name in inputs)

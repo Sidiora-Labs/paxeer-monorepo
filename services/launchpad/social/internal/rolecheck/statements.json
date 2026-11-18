@@ -1165,22 +1165,25 @@
     ],
     "sequences": [],
     "functions": [
+      "chat.social_canonical_pools",
       "pg_catalog.transaction_timestamp"
     ],
     "columns": [
       "expires_at",
       "g.revision",
       "g.wallet",
+      "p.pool",
+      "p.token",
       "resource",
       "revoked_at",
       "scope",
-      "status",
-      "target_id",
-      "target_type",
+      "v.status",
+      "v.target_id",
+      "v.target_type",
       "wallet"
     ],
     "bindings": {},
-    "sql": "SELECT g.revision,transaction_timestamp(),EXISTS(SELECT 1 FROM interaction_erased_wallets WHERE wallet=$1) OR EXISTS(SELECT 1 FROM safety_bans WHERE wallet=$1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>transaction_timestamp()) AND (scope='global' OR (scope='pool' AND resource=$2))) OR EXISTS(SELECT 1 FROM safety_visibility WHERE target_type IN ('pool','token') AND target_id=$2 AND status='removed') FROM interaction_graph_revisions g WHERE g.wallet=$1"
+    "sql": "SELECT g.revision,transaction_timestamp(),EXISTS(SELECT 1 FROM interaction_erased_wallets WHERE wallet=$1) OR EXISTS(SELECT 1 FROM safety_bans WHERE wallet=$1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>transaction_timestamp()) AND (scope='global' OR (scope='pool' AND resource=$2))) OR EXISTS(SELECT 1 FROM safety_visibility v JOIN chat.social_canonical_pools() p ON p.pool=$2 WHERE ((v.target_type='pool' AND v.target_id=p.pool) OR (v.target_type='token' AND v.target_id=p.token)) AND v.status='removed') FROM interaction_graph_revisions g WHERE g.wallet=$1"
   },
   {
     "id": "app/app.go:socialConnectedRuntime.contentVisibility:1",

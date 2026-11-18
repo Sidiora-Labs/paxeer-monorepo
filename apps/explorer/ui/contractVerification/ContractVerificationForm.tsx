@@ -139,7 +139,7 @@ const ContractVerificationForm = ({ method: methodFromQuery, config, hash }: Pro
           as="section"
           columnGap={ 8 }
           rowGap={{ base: 2, lg: 5 }}
-          templateColumns={{ base: '1fr', lg: 'minmax(auto, var(--chakra-sizes-2xl)) minmax(0, var(--chakra-sizes-80))' }}
+          templateColumns={{ base: 'minmax(0, 1fr)', lg: 'minmax(0, var(--chakra-sizes-2xl)) minmax(0, var(--chakra-sizes-80))' }}
         >
           { !hash && <ContractVerificationFieldAddress/> }
           <ContractVerificationFieldLicenseType/>

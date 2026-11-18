@@ -5,7 +5,12 @@ import React from 'react';
 
 import PageNextJs from 'nextjs/PageNextJs';
 
-const PaxeerXInference = dynamic(() => import('ui/pages/PaxeerXInference'), { ssr: false });
+import { ContentLoader } from 'toolkit/components/loaders/ContentLoader';
+
+const PaxeerXInference = dynamic(() => import('ui/pages/PaxeerXInference'), {
+  ssr: false,
+  loading: () => <ContentLoader/>,
+});
 
 const Page: NextPage = () => {
   const router = useRouter();
