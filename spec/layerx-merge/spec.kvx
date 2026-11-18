@@ -208515,7 +208515,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.931]
 title = "Let two cases of the launchpad web application wait for the state they assert inside the time limit of the suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
