@@ -16,6 +16,12 @@ export function assertControlEdges(markup: string): string {
       : element.classList.contains('border-transparent')
         ? ['border', 'border-transparent', 'hover:border-control-edge']
         : ['border', 'border-control-edge'];
+    if (
+      element.matches('button[role="radio"]') &&
+      element.classList.contains('border-control-edge')
+    ) {
+      expect(element.getAttribute('aria-checked')).toBe('true');
+    }
     expect(edges.sort()).toEqual(expected.sort());
     element.classList.remove(...edges);
   }
