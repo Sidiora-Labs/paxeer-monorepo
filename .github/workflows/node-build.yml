@@ -3,6 +3,9 @@ name: Node / Build
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - spec/**
+      - GOTCHA.kvx
   pull_request:
 
 permissions:
