@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
+import type { InferenceMethod } from 'lib/api/services/general/paxeerXInference';
 import { isInferenceId, isInferenceMethod, parseInferenceResult } from 'lib/api/services/general/paxeerXInference';
 
 import { isRecord } from './assistant';
@@ -47,7 +48,26 @@ export default async function inference(req: NextApiRequest, res: NextApiRespons
     });
     if (!response.ok) throw new Error('Inference upstream failed');
     const payload: unknown = await response.json();
-    if (!isRecord(payload) || payload.jsonrpc !== '2.0' || payload.id !== 1 || 'error' in payload || !('result' in payload)) {
+    const answer = inferenceResponse(method, params, payload);
+    res.status(answer.status).json(answer.body);
+  } catch (error) {
+    res.status(502).json({ error: 'Inference request failed. Please try again later.' });
+  }
+}
+
+export function inferenceResponse(method: InferenceMethod, params: Array<unknown>, payload: unknown) {
+  try {
+    if (!isRecord(payload) || payload.jsonrpc !== '2.0' || payload.id !== 1) {
+      throw new Error('Invalid inference response');
+    }
+    if ('error' in payload) {
+      if (!('result' in payload) && isRecord(payload.error) && isRecord(payload.error.data) &&
+        payload.error.data.code === 'inference_program_not_configured') {
+        return { status: 200, body: { state: 'not_active', code: 'inference_program_not_configured' } } as const;
+      }
+      throw new Error('Invalid inference response');
+    }
+    if (!('result' in payload)) {
       throw new Error('Invalid inference response');
     }
     const result = parseInferenceResult(method, payload.result);
@@ -57,9 +77,9 @@ export default async function inference(req: NextApiRequest, res: NextApiRespons
       (method === 'px_getInferenceReceipts' && Array.isArray(result) && result.some((receipt) => 'deal_id' in receipt && receipt.deal_id !== params[0]))) {
       throw new Error('Mismatched inference response');
     }
-    res.status(200).json({ result });
+    return { status: 200, body: { result } } as const;
   } catch (error) {
-    res.status(502).json({ error: 'Inference request failed. Please try again later.' });
+    return { status: 502, body: { error: 'Inference request failed. Please try again later.' } } as const;
   }
 }
 
