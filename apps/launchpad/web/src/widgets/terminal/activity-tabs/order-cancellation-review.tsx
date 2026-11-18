@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { encodeFunctionData } from 'viem';
+import { BaseError, InvalidParamsRpcError, TransactionRejectedRpcError, UserRejectedRequestError, encodeFunctionData } from 'viem';
 import type { Order, TransactionRequest } from '../../../../../../../sdk/launchpad/packages/production-contracts/src/types.gen';
 import { assertAccount, type AccountSession } from '@/widgets/profile/account-transport';
 import { advancedOrdersAbi, type AdvancedProvider, type ConnectedOrder } from '@/widgets/meta-ag/advanced-provider';
@@ -8,6 +8,12 @@ import { Button, NoticeBar } from '@/ui/primitives';
 import { userFacingMessage } from '@/core/user-facing-error';
 
 export class OrderCancellationUnavailableError extends Error {}
+
+export function cancellationReviewFailure(error: unknown, invoked: boolean, hash: string | null): { unresolved: boolean; message: string } {
+  const rejected = error instanceof BaseError && error.walk(cause => cause instanceof UserRejectedRequestError || cause instanceof TransactionRejectedRpcError || cause instanceof InvalidParamsRpcError);
+  const unresolved = hash !== null || (invoked && !rejected);
+  return { unresolved, message: unresolved ? 'The cancellation outcome is unresolved. Check its status before trying another cancellation.' : rejected ? 'The wallet did not accept the cancellation. You can try again or keep your order.' : userFacingMessage(error) };
+}
 
 /** Bind the API preparation to the reviewed provider's owned on-chain order. */
 export async function admitOrderCancellation(request: TransactionRequest, order: Order, scope: AccountSession, provider?: AdvancedProvider): Promise<ConnectedOrder> {
@@ -65,15 +71,18 @@ export function OrderCancellationReview({ request, order, scope, provider, onCon
   const submit = async () => {
     if (!review || !provider || active.current || confirmed.current) return;
     active.current = true; setBusy(true); setError(null);
+    let submittedHash = hash;
     try {
       assertAccount(scope);
       // The reviewed provider simulates and rechecks the exact admitted ABI call,
       // retains its recovery hash and refuses another dispatch while unresolved.
       const pending = await provider.pendingCancel(review);
       assertAccount(scope);
+      if (invoked.current && !pending) throw new Error('Cancellation signature outcome is unresolved');
       setStatus(pending ? 'Checking your cancellation…' : 'Confirm the cancellation in your wallet.');
       invoked.current = true;
       const attempt = pending ?? await provider.cancel(review);
+      submittedHash = attempt.txHash;
       setHash(attempt.txHash);
       assertAccount(scope);
       setStatus('Cancellation sent. Checking the confirmed outcome…');
@@ -88,7 +97,9 @@ export function OrderCancellationReview({ request, order, scope, provider, onCon
       }
     } catch (error) {
       setStatus('');
-      setError(invoked.current ? 'The cancellation outcome is unresolved. Check its status before trying another cancellation.' : userFacingMessage(error));
+      const failure = cancellationReviewFailure(error, invoked.current, submittedHash);
+      invoked.current = failure.unresolved;
+      setError(failure.message);
     } finally { active.current = false; setBusy(false); }
   };
 
@@ -104,7 +115,7 @@ export function OrderCancellationReview({ request, order, scope, provider, onCon
       {hash ? <p className="break-all text-xs">Transaction {hash}</p> : null}
       {error ? <NoticeBar tone="warning" announce>{error}</NoticeBar> : null}
       <div className="flex justify-end gap-2">
-        {!invoked.current ? <Button variant="secondary" size="sm" disabled={busy} onClick={onDismiss}>Keep order</Button> : null}
+        <Button variant="secondary" size="sm" disabled={busy} onClick={onDismiss}>{invoked.current ? 'Close review' : 'Keep order'}</Button>
         {review ? <Button variant="danger" size="sm" loading={busy} onClick={() => { void submit(); }}>{invoked.current ? 'Check cancellation status' : 'Continue in wallet'}</Button> : null}
       </div>
     </section>

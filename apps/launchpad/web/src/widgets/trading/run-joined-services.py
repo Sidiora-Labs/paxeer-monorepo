@@ -243,6 +243,10 @@ def prepare_fixture(owner):
         raise owner.readiness_error(postgres, 'PostgreSQL readiness timed out')
     owner.run(['psql', admin, '-v', 'ON_ERROR_STOP=1', '-c', 'CREATE DATABASE launchpad_joined'], 'joined-createdb')
     database = admin.replace('/postgres?', '/launchpad_joined?')
+    for migration in sorted((services / 'metadata/migrations').glob('*.sql')):
+        up = migration.read_text().split('-- +goose Down', 1)[0]
+        owner.run(['psql', database, '-v', 'ON_ERROR_STOP=1', '--single-transaction'],
+                  'joined-metadata-' + migration.stem, input=up)
     redis = owner.start(['redis-server', '--bind', '127.0.0.1', '--port', str(redis_port),
                          '--save', '', '--appendonly', 'no', '--dir', str(output)], 'joined-redis')
     redis_url = f'redis://127.0.0.1:{redis_port}/0'

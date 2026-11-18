@@ -1,4 +1,8 @@
 import {
+  BaseError,
+  InvalidParamsRpcError,
+  TransactionRejectedRpcError,
+  UserRejectedRequestError,
   decodeFunctionData,
   encodeFunctionData,
   decodeAbiParameters,
@@ -1144,7 +1148,11 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
     );
     if (candidates.length > 1)
       throw new Error('Conflicting cancellation attempts require reconciliation');
-    if (!candidates[0]) return null;
+    if (!candidates[0]) {
+      if (options.attempts.getItem(`${key}:signing`) !== null)
+        throw new Error('Cancellation signature outcome is unresolved; check the wallet transaction history');
+      return null;
+    }
     const fingerprint = JSON.parse(candidates[0].actionFingerprint);
     if (
       fingerprint.target !== address(manifest.orders!.address) ||
@@ -1194,14 +1202,34 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
         !['active', 'triggered'].includes(beforeSignature.state)
       )
         throw new Error('Order filled or ownership changed before cancellation signature');
-      const hash = await wallet.writeContract({
-        ...simulation.request,
-        account,
-        chain: wallet.chain,
-        // Keep room for the isolated vault refund and tracker calls after
-        // estimation; the mined receipt still decides whether it succeeded.
-        gas: (gas * 125n + 99n) / 100n,
+      const signingKey = `${key}:signing`;
+      const reservation = JSON.stringify({
+        owner: account,
+        family: item.family,
+        orderId: item.orderId,
+        revision: fresh.eventRevision.toString(),
       });
+      options.attempts.setItem(signingKey, reservation);
+      let hash: Hex;
+      try {
+        hash = await wallet.writeContract({
+          ...simulation.request,
+          account,
+          chain: wallet.chain,
+          // Keep room for the isolated vault refund and tracker calls after
+          // estimation; the mined receipt still decides whether it succeeded.
+          gas: (gas * 125n + 99n) / 100n,
+        });
+      } catch (error) {
+        const rejected = error instanceof BaseError && error.walk(cause =>
+          cause instanceof UserRejectedRequestError ||
+          cause instanceof TransactionRejectedRpcError ||
+          cause instanceof InvalidParamsRpcError
+        );
+        if (rejected && options.attempts.getItem(signingKey) === reservation)
+          options.attempts.removeItem(signingKey);
+        throw error;
+      }
       const attempt: CancelAttempt = {
         orderId: item.orderId,
         owner: account,
@@ -1226,6 +1254,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
           revision: fresh.eventRevision.toString(),
         }),
       });
+      options.attempts.removeItem(signingKey);
       return attempt;
     } finally {
       cancellationDispatches.delete(key);
@@ -1251,6 +1280,7 @@ export async function createAdvancedProvider(options: AdvancedProviderOptions) {
     if (outcome.state !== 'checking') {
       volatileCancels.delete(attemptKey(attempt.owner, item.family, item.orderId));
       options.attempts.removeItem(attemptKey(attempt.owner, item.family, item.orderId));
+      options.attempts.removeItem(`${attemptKey(attempt.owner, item.family, item.orderId)}:signing`);
       new PendingAttemptStore(options.attempts, attempt.owner).remove(attempt.txHash);
     }
     return { attempt: updated, order: latest, outcome };
