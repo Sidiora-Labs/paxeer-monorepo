@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -116,7 +117,7 @@ describe('CreatorConsoleView', () => {
     expect(out).toContain('Sign in with your wallet');
     expect(out).toContain('role="alert"');
     expect(out).not.toContain('Go live');
-    expect(BORDER.test(out)).toBe(false);
+    expect(assertControlEdges(out)).not.toMatch(BORDER);
   });
 
   it('shows the title form and no controls before a broadcast exists', () => {
@@ -124,7 +125,7 @@ describe('CreatorConsoleView', () => {
     expect(out).toContain('Create stream');
     expect(out).toContain('One live stream per coin');
     expect(out).not.toContain('Stream progress');
-    expect(BORDER.test(out)).toBe(false);
+    expect(assertControlEdges(out)).not.toMatch(BORDER);
   });
 
   it('enables Go live at ready and End while live', () => {
@@ -140,7 +141,8 @@ describe('CreatorConsoleView', () => {
     expect(live).toContain('You are live');
     expect(live).toContain('Viewers');
     expect(live).toContain('>12<');
-    expect(BORDER.test(ready) || BORDER.test(live)).toBe(false);
+    expect(assertControlEdges(ready)).not.toMatch(BORDER);
+    expect(assertControlEdges(live)).not.toMatch(BORDER);
   });
 
   it('renders the credential panel masked with copy controls and the hide countdown', () => {
@@ -153,7 +155,7 @@ describe('CreatorConsoleView', () => {
     expect(out).toContain('aria-label="Show key"');
     expect(out).toContain('Hides in');
     expect(out).toContain('Hide stream key');
-    expect(BORDER.test(out)).toBe(false);
+    expect(assertControlEdges(out)).not.toMatch(BORDER);
   });
 
   it('surfaces server rejections as dismissible messages', () => {

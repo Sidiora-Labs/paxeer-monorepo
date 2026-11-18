@@ -193,9 +193,13 @@ func TestCommittedSubdivisionAndSameBlockDiscovery(t *testing.T) {
 }
 
 func TestCommittedSingleBlockReceiptFallback(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 	address := "0x0000000000000000000000000000000000000001"
-	receiptsRoot := ethtypes.DeriveSha(ethtypes.Receipts{&ethtypes.Receipt{Status: 1, CumulativeGasUsed: 1, Logs: []*ethtypes.Log{}}}, trie.NewStackTrie(nil))
-	headerCalls := 0
+	receipt := &ethtypes.Receipt{Status: 1, CumulativeGasUsed: 1, Logs: []*ethtypes.Log{}, TxHash: common.HexToHash(fh), GasUsed: 1, EffectiveGasPrice: big.NewInt(1), BlockHash: committedFixtureHash(100), BlockNumber: big.NewInt(100)}
+	receipt.Bloom = ethtypes.CreateBloom(receipt)
+	receiptsRoot := ethtypes.DeriveSha(ethtypes.Receipts{receipt}, trie.NewStackTrie(nil))
+	var headerCalls, receiptCalls, logCalls atomic.Int64
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var q struct {
 			ID     uint64
@@ -208,31 +212,34 @@ func TestCommittedSingleBlockReceiptFallback(t *testing.T) {
 		case "eth_chainId":
 			result = "0x7d"
 		case "eth_getLogs":
+			logCalls.Add(1)
 			fmt.Fprint(w, strings.Repeat("x", 4097))
 			return
 		case "eth_getBlockByNumber":
-			headerCalls++
+			headerCalls.Add(1)
 			var tag string
 			json.Unmarshal(q.Params[0], &tag)
 			block := committedFixtureBlock(tag, []any{map[string]any{"hash": fh, "from": address}})
 			block["receiptsRoot"] = receiptsRoot.Hex()
+			block["logsBloom"] = hexutil.Encode(receipt.Bloom[:])
 			result = block
 		case "eth_getTransactionReceipt":
-			result = map[string]any{"type": "0x0", "root": "0x", "status": "0x1", "cumulativeGasUsed": "0x1", "logsBloom": "0x" + strings.Repeat("0", 512), "logs": []any{}, "transactionHash": fh, "gasUsed": "0x1", "effectiveGasPrice": "0x1", "blockHash": committedFixtureHash(100).Hex(), "blockNumber": "0x64", "transactionIndex": "0x0"}
+			receiptCalls.Add(1)
+			result = receipt
 		}
 		json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": q.ID, "result": result})
 	}))
 	defer srv.Close()
 	opts := fopts(srv.URL)
 	opts.MaxResponseBytes = 4096
-	s, err := NewCommittedSource(context.Background(), opts)
+	s, err := NewCommittedSource(ctx, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	r, err := s.FetchLogs(context.Background(), FetchOptions{FromBlock: 100, ToBlock: 100})
-	if err != nil || !r.Complete || len(r.Logs) != 0 || headerCalls != 2 {
-		t.Fatalf("receipt fallback %+v %v; header calls %d", r, err, headerCalls)
+	r, err := s.FetchLogs(ctx, FetchOptions{FromBlock: 100, ToBlock: 100})
+	if err != nil || !r.Complete || len(r.Logs) != 0 || headerCalls.Load() != 2 || receiptCalls.Load() != 1 || logCalls.Load() != 1 || len(r.Blocks) != 1 || len(r.CoveredRanges) != 1 {
+		t.Fatalf("receipt fallback %+v %v; header calls %d", r, err, headerCalls.Load())
 	}
 }
 

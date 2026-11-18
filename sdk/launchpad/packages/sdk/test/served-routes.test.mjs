@@ -66,7 +66,7 @@ function routeStatusCoversEveryOperation() {
     assert.equal(routeStatus(name), expected, name);
     counts[ROUTE_STATUS[name]] += 1;
   }
-  assert.deepEqual(counts, { served: 154, development: 15, unrouted: 32 });
+  assert.deepEqual(counts, { served: 157, development: 15, unrouted: 32 });
 }
 
 test(routeStatusCoversEveryOperation);

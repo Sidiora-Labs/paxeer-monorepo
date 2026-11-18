@@ -3,22 +3,17 @@ package store_test
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
 )
 
 func TestChainRegistryAndRevenuePages(t *testing.T) {
 	st, db, _ := newStore(t)
 	ctx := context.Background()
-	schema, err := os.ReadFile("../../../indexer/internal/migrate/chainlaunch.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Exec(ctx, string(schema)); err != nil {
-		t.Fatal(err)
-	}
+	internaltest.ApplyIndexerTables(t, db, "swaps")
+	internaltest.ApplyReadMigrations(t, db, "60000", "60003", "150006")
 	const pool = "0x1111111111111111111111111111111111111111"
 	const token = "0x2222222222222222222222222222222222222222"
 	const creator = "0x3333333333333333333333333333333333333333"
@@ -139,19 +134,19 @@ func TestChainRegistryAndRevenuePages(t *testing.T) {
 			}
 		})
 	}
-	if _, err := db.Exec(ctx, `DROP TABLE indexer.chain_revenue_claims`); err != nil {
+	if _, err := db.Exec(ctx, `DROP TABLE indexer.chain_revenue_claims CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := st.ChainRevenue(ctx, 7, holder, 10, 0); err == nil {
 		t.Fatal("revenue page ignored unavailable claims")
 	}
-	if _, err := db.Exec(ctx, `DROP TABLE indexer.chain_revenue_epochs`); err != nil {
+	if _, err := db.Exec(ctx, `DROP TABLE indexer.chain_revenue_epochs CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := st.ChainRevenue(ctx, 7, holder, 10, 0); err == nil {
 		t.Fatal("revenue page ignored unavailable epochs")
 	}
-	if _, err := db.Exec(ctx, `DROP TABLE indexer.launched_chains`); err != nil {
+	if _, err := db.Exec(ctx, `DROP TABLE indexer.launched_chains CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := st.LaunchedChains(ctx, 10, 0); err == nil {

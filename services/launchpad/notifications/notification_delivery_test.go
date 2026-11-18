@@ -354,10 +354,11 @@ func TestNotificationDeliveryRuntimePositivePath(t *testing.T) {
 	if _, e := db.Exec(`CREATE SCHEMA IF NOT EXISTS indexer;
  CREATE TABLE IF NOT EXISTS indexer.indexer_canonical_creations_v1(pool text PRIMARY KEY,token text,creator text,height bigint,block_hash text,transaction_hash text,log_index bigint,block_timestamp bigint);
  CREATE SCHEMA IF NOT EXISTS pnl;
- CREATE TABLE IF NOT EXISTS pnl.inventory_l16_wallet_ranges_v3(snapshot_id uuid PRIMARY KEY,wallet text,generation text,start_at timestamptz,end_at timestamptz,input_digest text,watermark jsonb);
- CREATE TABLE IF NOT EXISTS pnl.inventory_l16_wallet_intervals_v3(snapshot_id uuid REFERENCES pnl.inventory_l16_wallet_ranges_v3,interval text,bucket timestamptz,payload jsonb);`); e != nil {
+ CREATE TABLE IF NOT EXISTS pnl.inventory_l16_wallet_ranges_v3(snapshot_id uuid PRIMARY KEY,wallet text NOT NULL,generation text NOT NULL,start_at timestamptz NOT NULL,end_at timestamptz NOT NULL,release_digest text NOT NULL,input_digest text NOT NULL,watermark jsonb NOT NULL);
+ CREATE TABLE IF NOT EXISTS pnl.inventory_l16_wallet_intervals_v3(snapshot_id uuid NOT NULL REFERENCES pnl.inventory_l16_wallet_ranges_v3(snapshot_id),interval text NOT NULL CHECK(interval IN ('1h','1d')),bucket timestamptz NOT NULL,payload jsonb NOT NULL,PRIMARY KEY(snapshot_id,interval,bucket));`); e != nil {
 		t.Fatal(e)
 	}
+	notificationWalletRangeViews(t, db)
 	pool := "0x3333333333333333333333333333333333333333"
 	if _, e := db.Exec(`INSERT INTO indexer.indexer_canonical_creations_v1 VALUES($1,$2,$3,10,$4,$5,0,$6)`, pool, "0x4444444444444444444444444444444444444444", peer.account.Wallet, "0x"+strings.Repeat("a", 64), "0x"+strings.Repeat("b", 64), time.Now().Add(-time.Minute).Unix()); e != nil {
 		t.Fatal(e)

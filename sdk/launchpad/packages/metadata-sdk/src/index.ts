@@ -145,15 +145,21 @@ export const METADATA_RESPONSE_LIMITS = {
   error: 16 * 1024,
 } as const;
 export class MetadataTimeoutError extends Error {
-  constructor(readonly timeoutMs: number) {
+  readonly timeoutMs: number;
+  constructor(timeoutMs: number) {
     super(`Metadata request exceeded ${timeoutMs}ms deadline`);
     this.name = 'MetadataTimeoutError';
+    this.timeoutMs = timeoutMs;
   }
 }
 export class MetadataResponseTooLargeError extends RangeError {
-  constructor(readonly status: number, readonly limitBytes: number) {
+  readonly status: number;
+  readonly limitBytes: number;
+  constructor(status: number, limitBytes: number) {
     super(`Metadata HTTP ${status} response exceeds ${limitBytes} bytes`);
     this.name = 'MetadataResponseTooLargeError';
+    this.status = status;
+    this.limitBytes = limitBytes;
   }
 }
 export interface ClientConfig { baseUrl: string; timeoutMs?: number }

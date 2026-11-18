@@ -10,6 +10,7 @@ export const CHAIN_ROUTE_STATUS = Object.freeze({
 export type ChainRouteName = keyof typeof CHAIN_ROUTE_STATUS;
 
 export const ROUTE_STATUS = Object.freeze({
+  ...CHAIN_ROUTE_STATUS,
   IF_ACCOUNT_DELETE: 'unrouted',
   IF_ACCOUNT_DELETE_STATUS: 'unrouted',
   IF_ACCOUNT_EXPORT: 'unrouted',

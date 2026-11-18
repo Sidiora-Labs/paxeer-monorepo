@@ -208,6 +208,39 @@ func TestCoordinatorRuntimeCompleteDependencyMigrations(t *testing.T) {
 	// approved order. This is an offline contract check, not a SQL executor.
 	applied := map[int64]string{}
 	sources := map[string]string{"migration_control": production.MigrationControlDDL()}
+	var legacy struct {
+		Histories []struct {
+			Schema  string `json:"schema"`
+			Sources []struct {
+				Path     string `json:"path"`
+				SHA256   string `json:"source_sha256"`
+				UpSHA256 string `json:"up_sha256"`
+			} `json:"sources"`
+		} `json:"histories"`
+	}
+	raw, err := os.ReadFile(filepath.Join(root, "migrations/legacy-history-aliases.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &legacy); err != nil {
+		t.Fatal(err)
+	}
+	for _, history := range legacy.Histories {
+		if !schemas[history.Schema] {
+			continue
+		}
+		for _, source := range history.Sources {
+			raw, err := coordinatortest.ReadMigrationSource(root, source.Path, source.SHA256)
+			if err != nil {
+				t.Fatal(err)
+			}
+			up := strings.SplitN(string(raw), "-- +goose Down", 2)[0]
+			if production.Checksum([]byte(up)) != source.UpSHA256 {
+				t.Fatalf("legacy source %s differs", source.Path)
+			}
+			sources[history.Schema] += "\n" + up
+		}
+	}
 	for _, id := range registry.ApplicationOrder {
 		if !needed[id] {
 			continue

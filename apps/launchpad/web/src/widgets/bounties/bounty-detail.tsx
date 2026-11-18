@@ -27,10 +27,10 @@ function BountyHeader({ bounty }: { bounty: Bounty }) {
   const badge = bountiesContract.badgeFor(bounty);
   const creator = shortAddress(bounty.creatorWallet, 6, 4);
   return (
-    <header className="flex min-h-[var(--sl-bounty-header-min-height)] flex-col gap-4 rounded-lg bg-surface-1 p-4 md:p-6">
+    <header className="flex min-h-[var(--sl-bounty-header-min-height)] flex-col gap-4 rounded-lg bg-surface-1 p-4 @max-[18em]/bounty-content:min-h-[max(var(--sl-bounty-header-min-height),var(--sl-bounty-header-column-min-height))] md:p-6">
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge status={badge.status}>{badge.label}</StatusBadge>
-        {bounty.poolAddress ? <BountyTokenChip poolAddress={bounty.poolAddress} /> : null}
+        {bounty.poolAddress ? <span className="flex min-w-0 flex-1"><BountyTokenChip poolAddress={bounty.poolAddress} /></span> : null}
       </div>
       <h1 className="break-words text-2xl font-extrabold text-text">{bounty.title}</h1>
       <div className="flex flex-wrap items-center gap-2 text-sm text-text-muted">
@@ -95,14 +95,14 @@ function SubmissionsSection({ result, asset, wallet, bounty, creator }: { result
 function DetailSkeleton() {
   return (
     <>
-      <div aria-busy="true" className="flex min-h-[var(--sl-bounty-header-min-height)] flex-col gap-4 rounded-lg bg-surface-1 p-4 md:p-6">
+      <div aria-busy="true" className="flex min-h-[var(--sl-bounty-header-min-height)] flex-col gap-4 rounded-lg bg-surface-1 p-4 [overflow-anchor:none] @max-[18em]/bounty-content:min-h-[max(var(--sl-bounty-header-min-height),var(--sl-bounty-header-column-min-height))] md:p-6">
         <Skeleton variant="pill" width={surfaceSpacing(45)} height={surfaceSpacing(11)} label="Loading bounty" />
         <Skeleton width="70%" className="h-[1lh] text-2xl" />
         <Skeleton width={surfaceSpacing(40)} height={surfaceSpacing(11)} />
         <Skeleton width={surfaceSpacing(30)} height={surfaceSpacing(7)} />
         <Skeleton width="70%" className="h-[1lh] text-sm" />
       </div>
-      <section aria-busy="true" className="flex min-h-[var(--sl-bounty-description-min-height)] flex-col gap-2 rounded-lg bg-surface-1 p-4 md:p-6">
+      <section aria-busy="true" className="flex min-h-[var(--sl-bounty-description-min-height)] flex-col gap-2 rounded-lg bg-surface-1 p-4 [overflow-anchor:none] md:p-6">
         <Skeleton width={surfaceSpacing(30)} className="h-[1lh] text-md" label="Loading tasks and rules" />
         <Skeleton width="70%" className="h-[1lh] text-sm" />
       </section>
@@ -127,7 +127,7 @@ export function BountyDetail({ bountyId, className }: { bountyId: string; classN
     <div className={cn('@container/bounty-detail flex flex-col gap-6', className)}>
       <BackLink />
       <div className="grid gap-6 @max-[18em]/bounty-detail:[--sl-bounty-header-min-height:var(--sl-bounty-header-expanded-min-height)] @max-[18em]/bounty-detail:[--sl-bounty-description-min-height:var(--sl-bounty-description-expanded-min-height)] @max-[18em]/bounty-detail:[--sl-bounty-submissions-min-height:var(--sl-bounty-submissions-expanded-min-height)] @max-[18em]/bounty-detail:[--sl-bounty-entry-min-height:var(--sl-bounty-entry-expanded-min-height)] lg:grid-cols-[minmax(0,1fr)_minmax(0,var(--sl-dashboard-column-width))]">
-        <div className="flex min-w-0 flex-col gap-6">
+        <div className="@container/bounty-content flex min-w-0 flex-col gap-6">
           {detail.state === 'loading' ? <DetailSkeleton /> : null}
           {detail.state === 'unsupported' ? (
             <UnavailableState title="This bounty" operation={detail.operation} status={detail.status} message="Check back soon" className="rounded-lg bg-surface-1" />
@@ -144,7 +144,7 @@ export function BountyDetail({ bountyId, className }: { bountyId: string; classN
         </div>
         <aside aria-label="Take part" className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
           {detail.state === 'loading' ? (
-            <div aria-busy="true" className="flex min-h-[var(--sl-bounty-entry-min-height)] flex-col gap-4 rounded-lg bg-surface-1 p-4">
+            <div aria-busy="true" className="flex min-h-[var(--sl-bounty-entry-min-height)] flex-col gap-4 rounded-lg bg-surface-1 p-4 [overflow-anchor:none]">
               <Skeleton width={surfaceSpacing(30)} label="Loading participation" />
               <Skeleton variant="block" height={surfaceSpacing(24)} />
               <Skeleton variant="block" height={surfaceSpacing(30)} />

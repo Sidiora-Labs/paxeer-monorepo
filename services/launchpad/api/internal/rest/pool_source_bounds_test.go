@@ -67,7 +67,7 @@ func TestPoolReadsRejectInvalidSourceAndContinuation(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertV2Error(t, getV2(t, f.srv.URL+"/v2/pools/"+f.first), 503, "DEPENDENCY_UNAVAILABLE")
-	if _, err := f.pool.Exec(ctx, `DROP TABLE indexer.pool_state_snapshots`); err != nil {
+	if _, err := f.pool.Exec(ctx, `DROP TABLE indexer.pool_state_snapshots CASCADE`); err != nil {
 		t.Fatal(err)
 	}
 	assertV2Error(t, getV2(t, f.srv.URL+"/v2/pools/"+f.first), 503, "DEPENDENCY_UNAVAILABLE")

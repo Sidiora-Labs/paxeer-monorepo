@@ -32,8 +32,54 @@ function fail(message) {
 
 const whole = readJson(wholePath);
 const parts = partNames.map((name) => ({ name, file: path.join(partsDirectory, `${name}.json`), surface: readJson(path.join(partsDirectory, `${name}.json`)) }));
+function checkCoinRoutes(surface) {
+  const appDirectory = path.join(repositoryRoot, 'apps/launchpad/web/src/app');
+  for (const root of ['coin', 'token', 'tokens', 'create']) {
+    const directory = path.join(appDirectory, root);
+    const pages = fs.readdirSync(directory, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name === 'page.tsx');
+    for (const page of pages) {
+      const route = path.relative(appDirectory, page.parentPath).split(path.sep);
+      const covered = surface.views.some((view) => {
+        const segments = new URL(view.path, surface.address).pathname.split('/').filter(Boolean);
+        return route.length === segments.length && route.every((segment, index) =>
+          /^\[[^\]]+\]$/.test(segment) ? segments[index].length > 0 : segment === segments[index]);
+      });
+      if (!covered) fail(`coin part is missing route /${route.join('/')}`);
+    }
+  }
+  const modes = ['default', 'reduced-motion', 'double-text', 'keyboard'];
+  for (const view of surface.views) {
+    for (const state of [view, ...(view.states ?? [])]) {
+      const selected = state.modes ?? view.modes ?? modes;
+      if (modes.some((mode) => !selected.includes(mode))) {
+        fail(`coin view ${view.name}, state ${state === view ? 'default' : state.name} is missing a render mode`);
+      }
+    }
+  }
+}
+
+checkCoinRoutes(parts.find((part) => part.name === 'coin').surface);
+
 const seen = new Map();
 const sharedKeys = ['build', 'buildMs', 'start', 'address', 'readyPath', 'typeScale'];
+const communityPaths = [
+  '/bounties', '/bounties?render=empty', '/bounties?render=error', '/bounties?render=loading',
+  '/bounties/8e894db0-87e7-4d2a-9f1c-3a192a239ba0', '/bounties/new',
+  '/chat', '/chat/7f3b2a10-5c4d-4e8f-9a1b-2c3d4e5f6a7b',
+  '/docs', '/docs/dmca', '/docs/do-not-sell', '/docs/privacy', '/docs/terms', '/docs/trademark-guidelines',
+];
+const community = parts.find(part => part.name === 'community').surface;
+for (const route of communityPaths) {
+  const view = community.views.find(candidate => candidate.path === route);
+  if (!view) fail(`community is missing ${route}`);
+  else {
+    const modes = view.modes ?? ['default', 'reduced-motion', 'double-text', 'keyboard'];
+    for (const mode of ['default', 'reduced-motion', 'double-text', 'keyboard']) {
+      if (!modes.includes(mode)) fail(`community view ${view.name} is missing ${mode}`);
+    }
+  }
+}
 
 for (const part of parts) {
   const { surface } = part;

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import { applySurfaceTestStyle } from '@/core/app-foundation/surface-test-style';
 import React, { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -244,7 +245,9 @@ describe('top bar anatomy', () => {
     expect(classes(container.querySelector('a[aria-label="Create coin"]'))).toEqual(
       expect.arrayContaining(['hidden', 'md:inline-flex'])
     );
-    expect(container.querySelector('header')!.outerHTML).not.toMatch(NO_STROKES);
+    expect(assertControlEdges(container.querySelector('header')!.outerHTML)).not.toMatch(
+      NO_STROKES
+    );
     // Reference order on the right: paste, search icon, create, sign in.
     const order = labels(container).map((entry) => entry.label ?? '');
     const paste = order.indexOf('Open a coin from a pasted address');
