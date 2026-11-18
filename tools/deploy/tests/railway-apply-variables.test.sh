@@ -27,6 +27,9 @@ needed = [n for k, v in charts.items() if isinstance(v, list) and k not in ("sec
 values = {n: f"sentinel-value-{i:02d}" for i, n in enumerate(needed) if n != "RPC_URL"}
 values["WEBHOOK_HMAC_SECRET"] = "sentinel-webhook-secret-9d4e"
 values["DATABASE_URL"] = "postgresql://charts:sentinel-db-password-77@postgres.railway.internal:5432/railway"
+for document, path in charts["documentSources"].items():
+    values.pop(document, None)
+    values[path] = f"/app/prod/{path.lower()}.json"
 json.dump({"charts": values}, open(f"{sys.argv[2]}/values.json", "w"))
 bad = dict(values, REDIS_URL="redis://line-one\nline-two")
 json.dump({"charts": bad}, open(f"{sys.argv[2]}/newline.json", "w"))
@@ -34,7 +37,7 @@ json.dump({"charts": bad}, open(f"{sys.argv[2]}/newline.json", "w"))
 # Apply replay: the recorded reads plus the two writes the apply must send for charts.
 replay = json.load(open(sys.argv[3]))
 live = next(e for e in replay if e["op"] == "Variables")["data"]["variables"]
-want = dict(charts["fixed"], **values, RPC_URL="https://rpc.sentinel.invalid")
+want = {**charts["defaults"], **charts["fixed"], **values, "RPC_URL": "https://rpc.sentinel.invalid"}
 upsert = {k: v for k, v in want.items() if live.get(k) != v}
 ids = {"projectId": "proj-test", "environmentId": "env-prod", "serviceId": "svc-charts"}
 replay += [
@@ -62,7 +65,8 @@ grep -q '^  differs RUNTIME_PROFILE platform -> container$' "$tmp/plan.out" || f
 grep -q '^  differs DATABASE_URL \*\*\*\* -> \*\*\*\*$' "$tmp/plan.out" || fail "password URL not masked"
 grep -q '^  differs RPC_URL https://rpc.example.invalid -> https://rpc.sentinel.invalid$' "$tmp/plan.out" ||
 	fail "environment value not used"
-grep -q '^  extra CHART_FEATURES_CONFIG_FILE (kept)$' "$tmp/plan.out" || fail "extra name not reported"
+grep -q '^  extra LEGACY_CHART_SETTING (kept)$' "$tmp/plan.out" || fail "extra name not reported"
+grep -q 'extra CHART_FEATURES_CONFIG_FILE' "$tmp/plan.out" && fail "document source reported as extra"
 grep -q '^  registry credentials user=\$GHCR_USERNAME' "$tmp/plan.out" || fail "registry credentials not planned"
 grep -q '^  missing NODE_ENV' "$tmp/plan.out" && fail "unchanged name listed as missing"
 if grep -Eq 'sentinel-(webhook-secret|db-password)|live-(db|redis)-password|sentinel-railway-token' "$tmp/plan.out"; then
@@ -133,7 +137,7 @@ values["IDENTITY_MTLS_CLIENT_KEY_PEM"] = "-----BEGIN PRIVATE KEY-----\nsentinel-
 json.dump({"stats": values}, open(f"{sys.argv[2]}/stats-values.json", "w"))
 project = next(e for e in json.load(open(sys.argv[3])) if e["op"] == "Project")
 project["data"]["project"]["services"]["edges"] = [{"node": {"id": "svc-stats", "name": "stats"}}]
-want = dict(stats["fixed"], **values)
+want = {**stats["defaults"], **stats["fixed"], **values}
 json.dump([project,
            {"op": "Variables", "variables": {"p": "proj-test", "e": "env-prod", "s": "svc-stats"},
             "data": {"variables": {}}},
@@ -186,7 +190,7 @@ json.dump({"metadata": metadata}, open(directory / "metadata-manifest.json", "w"
 json.dump({"metadata": values}, open(directory / "metadata-values.json", "w"))
 project = next(e for e in json.load(open(sys.argv[3])) if e["op"] == "Project")
 project["data"]["project"]["services"]["edges"] = [{"node": {"id": "svc-metadata", "name": "metadata"}}]
-want = dict(metadata["fixed"], **values)
+want = {**metadata["defaults"], **metadata["fixed"], **values}
 json.dump([project,
     {"op": "Variables", "variables": {"p": "proj-test", "e": "env-prod", "s": "svc-metadata"},
      "data": {"variables": {}}},
@@ -235,7 +239,7 @@ json.dump([v for n, v in values.items() if n in user["secrets"]] + ["sentinel-li
           open(f"{sys.argv[2]}/user-secret-values.json", "w"))
 project = next(e for e in json.load(open(sys.argv[3])) if e["op"] == "Project")
 project["data"]["project"]["services"]["edges"] = [{"node": {"id": "svc-user", "name": "user"}}]
-want = dict(user["fixed"], **values)
+want = {**user["defaults"], **user["fixed"], **values}
 json.dump([project,
            {"op": "Variables", "variables": {"p": "proj-test", "e": "env-prod", "s": "svc-user"},
             "data": {"variables": {"ACCOUNT_SERVICE_SIGNING_SEED": "sentinel-live-seed-1c9b"}}},
@@ -333,6 +337,8 @@ assert sources == {
     "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE",
     "INDEXER_RECEIPT_CONFIG_DOCUMENT": "INDEXER_RECEIPT_CONFIG_FILE",
     "INDEXER_LIFECYCLE_CONFIG_DOCUMENT": "INDEXER_LIFECYCLE_CONFIG_FILE",
+    "DB_BUDGET_DOCUMENT": "DB_BUDGET_FILE",
+    "DELIVERY_CONFIG_DOCUMENT": "DELIVERY_CONFIG_FILE",
 }
 json.dump({"indexer": indexer}, open(f"{sys.argv[2]}/indexer.json", "w"))
 values = {n: f"sentinel-indexer-{i:02d}" for i, n in enumerate(indexer["required"])}
@@ -345,7 +351,7 @@ for form in ("document", "file"):
         selected[document if form == "document" else path] = (
             f"sentinel-{document}" if form == "document" else f"/run/launchpad/indexer/{path}.json")
     json.dump({"indexer": selected}, open(f"{sys.argv[2]}/indexer-{form}-values.json", "w"))
-    want = dict(indexer["fixed"], **selected)
+    want = {**indexer["defaults"], **indexer["fixed"], **selected}
     json.dump([project,
         {"op": "Variables", "variables": {"p": "proj-test", "e": "env-prod", "s": "svc-indexer"},
          "data": {"variables": {}}},
@@ -377,7 +383,7 @@ PY
 				--replay "$tmp/indexer-$form-replay.json" --values "$tmp/indexer-$form-values.json" \
 				"--$mode" >"$tmp/indexer-$form-$mode.out" 2>&1 ||
 				fail "indexer $form $mode exited $?: $(cat "$tmp/indexer-$form-$mode.out")"
-			for name in EXPECTED_SCHEMA INDEXER_RECEIPT_CONFIG INDEXER_LIFECYCLE_CONFIG; do
+			for name in EXPECTED_SCHEMA INDEXER_RECEIPT_CONFIG INDEXER_LIFECYCLE_CONFIG DB_BUDGET DELIVERY_CONFIG; do
 				if [ "$form" = document ]; then alternate=FILE; else alternate=DOCUMENT; fi
 				grep -q "^  missing ${name}_${form^^} = " "$tmp/indexer-$form-$mode.out" ||
 					fail "indexer $form $mode omitted $name"
@@ -389,7 +395,7 @@ PY
 		done
 		grep -q "^  applied $(cat "$tmp/indexer-$form-count") variables$" "$tmp/indexer-$form-apply.out" ||
 			fail "indexer $form apply did not upsert the selected variables"
-		for name in EXPECTED_SCHEMA INDEXER_RECEIPT_CONFIG INDEXER_LIFECYCLE_CONFIG; do
+		for name in EXPECTED_SCHEMA INDEXER_RECEIPT_CONFIG INDEXER_LIFECYCLE_CONFIG DB_BUDGET DELIVERY_CONFIG; do
 			set +e
 			python3 "$tool" proj-test production --manifest "$tmp/indexer.json" \
 				--replay "$tmp/indexer-$form-replay.json" \
@@ -401,7 +407,7 @@ PY
 			grep -q "${name}_SHA256 has no value" "$tmp/indexer-no-digest.out" || fail "indexer missing digest not named"
 		done
 	done
-	for name in EXPECTED_SCHEMA INDEXER_RECEIPT_CONFIG INDEXER_LIFECYCLE_CONFIG; do
+	for name in EXPECTED_SCHEMA INDEXER_RECEIPT_CONFIG INDEXER_LIFECYCLE_CONFIG DB_BUDGET DELIVERY_CONFIG; do
 		for invalid in both neither; do
 			for mode in plan apply; do
 				set +e
@@ -453,6 +459,10 @@ assert "API_PRIVATE_LISTEN_ADDRESS" not in api_sockets["fixed"]
 assert api["documentSources"] == {
     "EXPECTED_SCHEMA_DOCUMENT": "EXPECTED_SCHEMA_FILE",
     "NETWORK_AUTHORITY_CONFIG_DOCUMENT": "NETWORK_AUTHORITY_CONFIG_FILE",
+    "ACCOUNTING_READ_CONFIG_DOCUMENT": "ACCOUNTING_READ_CONFIG_FILE",
+    "DB_BUDGET_DOCUMENT": "DB_BUDGET_FILE",
+    "DISCOVERY_RUNTIME_CONFIG_DOCUMENT": "DISCOVERY_RUNTIME_CONFIG_FILE",
+    "STREAM_RELAY_CONFIG_DOCUMENT": "STREAM_RELAY_CONFIG_FILE",
 }
 required = set(api["required"])
 declared = required | set(api["documentSources"]) | set(api["documentSources"].values())
@@ -499,7 +509,7 @@ for service, entry in manifest.items():
                        if name not in entry["fixed"]}
     for document in entry.get("documentSources", {}):
         values[service][document] = "e30="
-    expected[service] = dict(values[service], **entry["fixed"])
+    expected[service] = {**entry["defaults"], **values[service], **entry["fixed"]}
     replay.extend([
         {"op": "Variables", "variables": {"p": "proj-test", "e": "env-prod", "s": f"svc-{service}"},
          "data": {"variables": {}}},
@@ -540,4 +550,138 @@ PY
 	echo PASS private-listen-address-contract
 }
 private_listen_address_contract
+
+optional_settings_and_defaults() {
+	python3 - "$tmp" "$replay" "$tool" <<'PY'
+import copy, json, os, subprocess, sys
+from pathlib import Path
+
+directory = Path(sys.argv[1])
+manifest_path = directory / "manifest.json"
+charts = json.loads(manifest_path.read_text())["charts"]
+values = json.loads((directory / "values.json").read_text())["charts"]
+values["RPC_URL"] = "https://rpc.sentinel.invalid"
+reads = json.load(open(sys.argv[2]))
+environment = dict(os.environ)
+for name in set(charts["optional"]) | set(charts["defaults"]):
+    environment.pop(name, None)
+base_want = {**charts["defaults"], **values, **charts["fixed"]}
+ids = {"projectId": "proj-test", "environmentId": "env-prod", "serviceId": "svc-charts"}
+
+
+def exercise(label, supplied, additions, env_values=None, from_env=False, existing=None):
+    replay = copy.deepcopy(reads)
+    have = next(entry for entry in replay if entry["op"] == "Variables")["data"]["variables"]
+    have.update(existing or {})
+    want = {**base_want, **additions}
+    upsert = {name: value for name, value in want.items() if have.get(name) != value}
+    replay.append({"op": "VariablesUpsert", "variables": {"i": dict(ids, variables=upsert, skipDeploys=True)},
+                   "data": {"variableCollectionUpsert": True}})
+    replay_path = directory / f"optional-{label}-replay.json"
+    values_path = directory / f"optional-{label}-values.json"
+    replay_path.write_text(json.dumps(replay))
+    values_path.write_text(json.dumps(supplied))
+    outputs = {}
+    for mode in ("plan", "apply"):
+        command = [sys.executable, sys.argv[3], "proj-test", "production", f"--{mode}",
+                   "--manifest", str(manifest_path), "--values", str(values_path), "--replay", str(replay_path)]
+        if from_env:
+            command.append("--from-env")
+        result = subprocess.run(command, capture_output=True, text=True,
+                                env={**environment, **(env_values or {})})
+        output = result.stdout + result.stderr
+        assert result.returncode == 0, f"{label} {mode}: {output}"
+        assert "unresolved" not in output, output
+        if mode == "apply":
+            assert f"  applied {len(upsert)} variables" in output, output
+        outputs[mode] = output
+    print(f"PASS optional-{label}")
+    return outputs
+
+
+token = "sentinel-optional-token-583a"
+scoped = {**values, "CORS_ALLOWED_ORIGINS": "https://scoped.example.invalid",
+          "CHART_OPERATOR_TOKEN": token, "LOG_LEVEL": "debug", "PORT": "9999"}
+outputs = exercise("values", {"charts": scoped, "CORS_ALLOWED_ORIGINS": "https://flat.example.invalid"},
+                   {"CORS_ALLOWED_ORIGINS": scoped["CORS_ALLOWED_ORIGINS"],
+                    "CHART_OPERATOR_TOKEN": token, "LOG_LEVEL": "debug"},
+                   env_values={"CORS_ALLOWED_ORIGINS": "https://env.example.invalid", "LOG_LEVEL": "warn"},
+                   from_env=True)
+for output in outputs.values():
+    assert "  missing CHART_OPERATOR_TOKEN = ****" in output, output
+    assert "  missing CORS_ALLOWED_ORIGINS = https://scoped.example.invalid" in output, output
+    assert "  missing LOG_LEVEL = debug" in output, output
+    assert "  missing PORT = 8080" in output, output
+    assert token not in output, output
+    assert "https://flat.example.invalid" not in output, output
+    assert "https://env.example.invalid" not in output, output
+
+outputs = exercise("global", {"charts": values, "CORS_ALLOWED_ORIGINS": "https://flat.example.invalid"},
+                   {"CORS_ALLOWED_ORIGINS": "https://flat.example.invalid"},
+                   env_values={"CORS_ALLOWED_ORIGINS": "https://env.example.invalid"}, from_env=True)
+for output in outputs.values():
+    assert "  missing CORS_ALLOWED_ORIGINS = https://flat.example.invalid" in output, output
+
+env_settings = {"CORS_ALLOWED_ORIGINS": "https://env.example.invalid", "CHART_OPERATOR_TOKEN": token,
+                "LOG_LEVEL": "warn"}
+outputs = exercise("environment", {"charts": values}, env_settings, env_values=env_settings, from_env=True)
+for output in outputs.values():
+    assert "  missing CORS_ALLOWED_ORIGINS = https://env.example.invalid" in output, output
+    assert "  missing CHART_OPERATOR_TOKEN = ****" in output, output
+    assert "  missing LOG_LEVEL = warn" in output, output
+    assert token not in output, output
+
+for existing in ({}, {"CORS_ALLOWED_ORIGINS": "https://existing.example.invalid", "CHART_OPERATOR_TOKEN": token}):
+    label = "kept" if existing else "absent"
+    outputs = exercise(label, {"charts": values}, {}, env_values=env_settings, existing=existing)
+    for output in outputs.values():
+        assert "CORS_ALLOWED_ORIGINS" not in output, output
+        assert "CHART_OPERATOR_TOKEN" not in output, output
+        assert token not in output, output
+        assert "  missing LOG_LEVEL = info" in output, output
+        assert "  missing DEPLOYMENT_REALM = production" in output, output
+        assert "  missing WS_MAX_CONNECTIONS = 10000" in output, output
+
+outputs = exercise("default", {"charts": values}, {}, existing={"LOG_LEVEL": "debug"})
+for output in outputs.values():
+    assert "  differs LOG_LEVEL debug -> info" in output, output
+
+outputs = exercise("empty", {"charts": {**values, "CORS_ALLOWED_ORIGINS": "", "LOG_LEVEL": ""}},
+                   {"CORS_ALLOWED_ORIGINS": "", "LOG_LEVEL": "", "CHART_OPERATOR_TOKEN": token},
+                   env_values=env_settings, from_env=True)
+for output in outputs.values():
+    assert "  missing CORS_ALLOWED_ORIGINS = \n" in output, output
+    assert "  missing LOG_LEVEL = \n" in output, output
+    assert "  missing CHART_OPERATOR_TOKEN = ****" in output, output
+    assert token not in output, output
+
+for label, supplied, message in (
+    ("unknown-scoped", {"charts": {**values, "UNDECLARED_SETTING": "sentinel-unknown-value"}},
+     "charts: unknown variable UNDECLARED_SETTING"),
+    ("unknown-global", {"charts": values, "UNDECLARED_SETTING": "sentinel-unknown-value"},
+     "--values: unknown variable UNDECLARED_SETTING"),
+    ("unknown-service", {"charts": values, "ghost": {}}, "--values: unknown service ghost"),
+    ("optional-type", {"charts": {**values, "CORS_ALLOWED_ORIGINS": False}},
+     "charts: CORS_ALLOWED_ORIGINS must be a string"),
+    ("optional-newline", {"charts": {**values, "CORS_ALLOWED_ORIGINS": "first\nsecond"}},
+     "CORS_ALLOWED_ORIGINS contains a newline"),
+):
+    path = directory / f"optional-{label}-values.json"
+    path.write_text(json.dumps(supplied))
+    for mode in ("plan", "apply"):
+        result = subprocess.run([
+            sys.executable, sys.argv[3], "proj-test", "production", f"--{mode}",
+            "--manifest", str(manifest_path), "--values", str(path), "--replay", sys.argv[2],
+        ], capture_output=True, text=True, env=environment)
+        output = result.stdout + result.stderr
+        expected_code = 3 if label == "optional-newline" and mode == "plan" else 2
+        assert result.returncode == expected_code, f"{label} {mode}: {output}"
+        assert message in output, output
+        assert "sentinel-unknown-value" not in output, output
+        assert "applied" not in output, output
+    print(f"PASS optional-{label}")
+PY
+	echo PASS optional-settings-and-defaults
+}
+optional_settings_and_defaults
 echo PASS railway-apply-variables

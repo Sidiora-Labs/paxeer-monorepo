@@ -15790,6 +15790,12 @@ value = "One. apps/launchpad/pnpm-lock.yaml holds for every manifest of the work
 basis = "Gotcha 4706. Decision 3778."
 affects = []
 
+[decision.3780]
+title = "The deployment contract of the launchpad carries the livestream in two forms and its readers follow it"
+value = "One. With a broadcast provider the livestream runs in the container profile with the connected configuration, and the web application reads the stream routes at the stream address of its own. Two. Without a broadcast provider the livestream runs in the platform profile with the provider mode unavailable; the settings of its private listener and the certificate digest of the gateway are required, the settings of the provider are absent, and the stream address of the web application equals its gateway address. Task 22.39.906. Three. The tool under tools/deploy that applies the variables of a deployment contract reads every kind of entry the contract holds: the fixed values, the lists of names, the secret list, the document source pairs, the optional settings and the defaults. Its case composes its inputs from the contract as the contract stands. Task 22.39.907."
+basis = "Gotcha 4707. Decision 3779."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45450,6 +45456,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.907]
+title = "Let the tool that applies the variables of a deployment contract read every kind of entry the contract holds"
+reqs = ["22998.1"]
+touches = ["tools/deploy"]
+tests = []
+verification_contract = "bash tools/deploy/tests/*-apply-variables.test.sh"
+do_1 = "do_1 Decision 3780. Read under tools/deploy the tool whose name ends in apply-variables.py, its case file under tools/deploy/tests whose name ends in apply-variables.test.sh and the replay fixture of that case, and the deployment contract of the launchpad under deploy/launchpad that the case reads."
+symbols = []
+
+[capability.22.39.906]
+title = "Carry the livestream without a broadcast provider in the deployment contract and the composer of the launchpad"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh"
+do_1 = "do_1 Gotcha 4707 and decision 3780. Read services/launchpad/livestream/internal/config/config.go, services/launchpad/livestream/internal/app/app.go and services/launchpad/livestream/internal/app/platform_private.go for what each runtime profile requires, refuses and serves, services/launchpad/gateway/internal/proxy/connected.go for the stream routes the gateway carries, and under deploy/launchpad the deployment contract, the values file, the composer under documents with documents/livestream.py and documents/values/livestream.example.json, and the README."
+symbols = []
 
 [capability.22.39.905]
 title = "Refresh the launchpad lock file so that it holds what the manifest of the client package users-sdk names"
@@ -208018,6 +208042,70 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.907]
+title = "Let the tool that applies the variables of a deployment contract read every kind of entry the contract holds"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.904"]
+reqs = ["22998.1"]
+capabilities = ["22.39.907"]
+interfaces = []
+do_1 = "do_1 Decision 3780. Read under tools/deploy the tool whose name ends in apply-variables.py, its case file under tools/deploy/tests whose name ends in apply-variables.test.sh and the replay fixture of that case, and the deployment contract of the launchpad under deploy/launchpad that the case reads."
+do_2 = "do_2 The tool takes from a service entry the fixed values, every list of names, the secret list and the document source pairs. The contract also holds optional settings as a mapping from a name to a flag, and defaults. Let the tool take an optional setting: a value given for it through the values file or the environment is applied and shown in the plan as any other value, with the same masking; without a value it is neither required nor removed, and a value the service already holds for it is kept; where the contract names a default and no value is given, the default is applied. A name of the values file that the entry holds in no kind stays refused."
+do_3 = "do_3 The case composes its inputs from the charts entry of the contract and replays recorded answers. The charts entry holds document source pairs, and of each pair exactly one name takes a value. Bring the values the case composes and the replay fixture to the charts entry as the contract holds it, so that the case and the fixture make the same choice for each pair. An expectation of the case changes only where the entry changed the fact it reads. No statement of an existing case is weakened or removed, and no case is removed, skipped or tagged out."
+do_4 = "do_4 Add cases to the same case file: an optional setting with a value is applied and masked where it is secret; an optional setting without a value is not required and an existing value of it is kept; a default is applied; an unknown name is refused. Run the case file once by hand before the counted verification and read its whole output; what does not pass is repaired inside tools/deploy."
+do_5 = "do_5 Nothing under deploy/launchpad changes in this task: the contract is the authority, and a fact of the contract that the tool cannot read is named in the final message with file and line. The files are inside the paths of this task and no approval is needed. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/deploy"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/*-apply-variables.py"
+verify_cmd = "bash tools/deploy/tests/*-apply-variables.test.sh"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.906]
+title = "Carry the livestream without a broadcast provider in the deployment contract and the composer of the launchpad"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.904"]
+reqs = ["22998.1"]
+capabilities = ["22.39.906"]
+interfaces = []
+do_1 = "do_1 Gotcha 4707 and decision 3780. Read services/launchpad/livestream/internal/config/config.go, services/launchpad/livestream/internal/app/app.go and services/launchpad/livestream/internal/app/platform_private.go for what each runtime profile requires, refuses and serves, services/launchpad/gateway/internal/proxy/connected.go for the stream routes the gateway carries, and under deploy/launchpad the deployment contract, the values file, the composer under documents with documents/livestream.py and documents/values/livestream.example.json, and the README."
+do_2 = "do_2 Add the form without a broadcast provider to the contract. The livestream entry states for each of the two forms which settings are fixed, which are required and which are absent: the runtime profile, the provider mode, the connected configuration and the provider settings, the address of the private listener, the certificate and key settings of the private listener, the certificate digest of the gateway and the key of the viewer token. Take every name and every rule from the configuration reader of the module and invent none. Express the two forms through the kinds of entry the contract already uses, so that a reader of the contract that knows those kinds reads both forms. The form with a broadcast provider keeps every value it holds today."
+do_3 = "do_3 In the form without a broadcast provider the build input NEXT_PUBLIC_LIVESTREAM_API_URL of the web application equals its NEXT_PUBLIC_GATEWAY_URL, and the gateway runtime document carries the livestream upstream at its private listener. The values file and the composer hold that rule: a composition that selects the form without a provider and gives the web application a stream address other than its gateway address is refused with a message that names both settings, and so is a composition that selects the form with a provider without the connected configuration."
+do_4 = "do_4 Add cases to deploy/launchpad/documents/test_compose.py and to the shell case file of the values under deploy/launchpad/tests: each form composes from example values, the composed livestream settings pass the rules of the configuration reader for that form as far as the composer holds them, and each refusal of do_3 is asserted with its message. No statement of an existing case is weakened or removed, and no case is removed, skipped or tagged out."
+do_5 = "do_5 State both forms briefly in the README under deploy/launchpad: what each needs and what the web application reads in each. Change nothing outside deploy/launchpad; a fact of a module that stands against the contract is named in the final message with file and line. The files are inside the paths of this task and no approval is needed. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/documents/compose.py deploy/launchpad/documents/livestream.py"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash deploy/launchpad/tests/*-values.test.sh"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.905]
 title = "Refresh the launchpad lock file so that it holds what the manifest of the client package users-sdk names"
 status = "pending"
@@ -208051,7 +208139,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.904]
 title = "Read the deployment contract and the composer of the launchpad against what every launchpad image reads at build and at start"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208144,7 +208232,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.901]
 title = "Close the protocol module of the launchpad against the contracts and the services that read it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208175,7 +208263,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.900]
 title = "Close the flows of the launchpad mobile application against the services they call"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208838,7 +208926,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.879]
 title = "Close the stats module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208966,7 +209054,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.875]
 title = "Close the pnl module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209253,7 +209341,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.866]
 title = "Let the playback measure of the gateway envelope hold for both forms of the progress report of the player"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
