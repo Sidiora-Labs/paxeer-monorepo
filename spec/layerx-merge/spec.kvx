@@ -15880,6 +15880,12 @@ value = "One. The configuration takes one rule that sets the linter goconst asid
 basis = "Gotcha 4721."
 affects = []
 
+[decision.3795]
+title = "The value of a select pill stands on the line of its label at every width, and the control keeps its touch height"
+value = "One. At every width of the device list the text of the value of a select pill and its arrow stand in the middle of the height of the control and on the line of the label. This holds for the pill with a label, for the pill without one and for the compact form. Two. At the widths up to 834 the select keeps a block size of at least 44 pixels, as decision 3708 states for a control that takes touch. Above 834 the pill keeps the height of the earlier state. Three. The correction stands in one place, in the shared control or in the rule of the native select, and holds for every view that shows a select pill. No view takes a correction of its own. Four. The menu, the keyboard handling, the accessible name, the states and the text of the control stay as they are, and a browser without the appearance base-select shows the control as before. Five. The proof is a measurement in a real browser: in a clip of the control the middle of the ink of the label and the middle of the ink of the value differ by one pixel at most. Task 22.44.114."
+basis = "Gotcha 4722."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45540,6 +45546,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.114]
+title = "Set the value of the select pill of the launchpad on the line of its label at the widths of phone and tablet"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.114.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4722 and decision 3795. Read the select pill in apps/launchpad/web/src/ui/primitives/controls.tsx, the rule of the touch height in apps/launchpad/web/src/app/tokens.css and the rules of the native select in apps/launchpad/web/src/app/globals.css. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/rewards.json. Start the web application the way the render check of the part starts it, open the view of the holder rewards in a real browser at 390 by 844 and at a width of 834, take a clip of the sort control and read where the value and the label stand."
+symbols = []
 
 [capability.22.39.947]
 title = "Keep the requests of the rate limit case of the wallet gateway inside one window of the limiter"
@@ -177585,6 +177600,37 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.114]
+title = "Set the value of the select pill of the launchpad on the line of its label at the widths of phone and tablet"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.114"]
+interfaces = []
+do_1 = "do_1 Gotcha 4722 and decision 3795. Read the select pill in apps/launchpad/web/src/ui/primitives/controls.tsx, the rule of the touch height in apps/launchpad/web/src/app/tokens.css and the rules of the native select in apps/launchpad/web/src/app/globals.css. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/rewards.json. Start the web application the way the render check of the part starts it, open the view of the holder rewards in a real browser at 390 by 844 and at a width of 834, take a clip of the sort control and read where the value and the label stand."
+do_2 = "do_2 Correct the control so that decision 3795 holds. The correction stands in one place and is as small as the cause: a statement of where the content of the select stands, in the control or in the rule of the native select. The select keeps a block size of at least 44 pixels at the widths up to 834, and above 834 the pill keeps its height of 28 pixels in the small size. No size of text, no line height, no distance and no height of a control grows. No token changes. The menu, the keyboard handling, the accessible name, the states and the text stay as they are."
+do_3 = "do_3 A select pill stands in the reward view, in the leaderboard and trending parts of the home view, in the profile views and in the composer of callouts. Read each of them after the correction at one width up to 834 and at one width above, with the label and in the compact form where a view uses it. Run the cases under apps/launchpad/web/src/ui/primitives by hand: a case that pins markup or a style changes with the change it pins, and no assertion on behaviour is weakened. Another task of this group can change the same shared file at the same time: change only the lines of the select pill and of the rule of the native select, keep every other line as it is, and where the main line holds a change of those lines take it and keep both. The part files and the files of answers stay as they are."
+do_4 = "do_4 Write the record spec/layerx-merge/programme/records/ui/22.44.114.kvx in present tense: for the sort control of the reward view at the widths 390, 834 and 1440 the block size of the pill and of the select, the middle of the ink of the label and the middle of the ink of the value, both measured in a clip taken in a real browser, and their difference in pixels; then the count of renders of the last run of the part with its result. Work with at most one full run by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.114.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.114.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
