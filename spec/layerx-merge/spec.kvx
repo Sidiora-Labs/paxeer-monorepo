@@ -15796,6 +15796,12 @@ value = "One. With a broadcast provider the livestream runs in the container pro
 basis = "Gotcha 4707. Decision 3779."
 affects = []
 
+[decision.3781]
+title = "The newest committed head is read in bounded work and the launchpad indexer releases its pause at the head"
+value = "One. A read of the newest committed head, through each view that offers it and with each role that reads it, visits a number of rows that does not grow with the number of committed heads, and its order is the numeric height. A case proves this through the plan of the statement on a table of at least three hundred thousand rows; that count is a least value. Task 22.39.908. Two. The control of historical reads releases its pause at a lag the indexer holds while it follows the head, measured in a form no coarser than the threshold it is compared with, and the readiness read of the canonical source does not wait on that pause. Task 22.39.909. Three. The catalogs of the client package of the launchpad follow the producers: a correction of a generated path stands only where a producer serves the corrected path, and the catalog of served routes names no route the gateway lists as retired. Task 22.39.910. Four. A case that starts a process and reads its result reads a state the process has reached, not a moment in time. Task 22.39.911."
+basis = "Gotcha 4708. Decisions 2893, 2917 and 3748."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45456,6 +45462,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.911]
+title = "Make the outcome of the case of the explorer migrator that deletes zero value calls independent of timing"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/test/explorer/migrator", "services/explorer/backend/apps/explorer/lib/explorer/migrator"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/migrator/delete_zero_value_internal_transactions_test.exs"
+do_1 = "do_1 Decision 3781, part four. Read services/explorer/backend/apps/explorer/test/explorer/migrator/delete_zero_value_internal_transactions_test.exs, the migrator services/explorer/backend/apps/explorer/lib/explorer/migrator/delete_zero_value_internal_transactions.ex with the modules it uses for its status row, its border and its batches, the helper wait_for_results of the data case, and the configuration the test environment gives the migrator."
+symbols = []
+
+[capability.22.39.910]
+title = "Bring the route corrections and the catalog of served routes of the launchpad client package in line with the producers"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/sdk"]
+tests = []
+verification_contract = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/sdk --fail-if-no-match run test)"
+do_1 = "do_1 Decision 3781, part three. Read in sdk/launchpad/packages/sdk/src the files route-corrections.ts, served-routes.ts and operations.gen.ts with the cases that read them, the function RetiredConnectedRoutes and the route table of services/launchpad/gateway/internal/proxy/connected.go, and for every corrected path the producer under services/launchpad that registers the route. Where the package already holds the target form of a step below, state it in the final message and change nothing for that step."
+symbols = []
+
+[capability.22.39.909]
+title = "Release the pause of historical reads of the launchpad indexer at the head and keep the readiness read off that pause"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/indexer && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4708 and decision 3781, part two. Read in services/launchpad/indexer the file internal/source/source.go with the control of historical reads, its functions ReportLiveLag, ReportDurableHeight and waitHistorical and every caller of them, internal/source/committed.go for the reads that wait on the pause, internal/source/historical.go for BlockAt, internal/app/canonical_source_readiness.go and the function verifyCanonicalRuntimeCheckpoint of internal/app/app.go with the place that reports the durable height, and the cases of internal/source and internal/app that cover them."
+symbols = []
+
+[capability.22.39.908]
+title = "Read the newest committed head of the launchpad in bounded work at any size of the committed heads"
+reqs = ["22998.1"]
+touches = ["migrations", "sdk/launchpad/shared", "services/launchpad/api", "services/launchpad/user", "services/launchpad/metadata"]
+tests = []
+verification_contract = "cd sdk/launchpad/shared && go test -count=1 -timeout 30m -run ^TestCommittedHeadRead ./db/production/coordinatortest/ && go test -count=1 -timeout 30m -run ^TestMigrationRegistryHonorsPredecessorOrder ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/ && go test -count=1 -timeout 30m -run ^TestRepositoryRegistryRequiresApproval ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/ && go test -count=1 -timeout 30m -run ^TestExpectedSchemaPrivilegeMatrix ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/ && go test -count=1 -timeout 30m -run ^TestPlatformRuntimeRolesPassReadiness ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/"
+do_1 = "do_1 Gotcha 4708 and decision 3781, part one. Read migrations/60001.sql for the table indexer.indexer_committed_heads and the views indexer.indexer_committed_heads_v2 and indexer.indexer_committed_heads_v1, migrations/340004.sql and migrations/390001.sql for the views users.auth_committed_blocks and metadata.auth_committed_blocks with their grants, every reader of these four views under services/launchpad and sdk/launchpad/shared, among them sdk/launchpad/shared/auth/contract.go, services/launchpad/api/internal/app/authority.go and services/launchpad/api/internal/store/holder_rewards_readmodel.go, the statement inventories under internal/rolecheck of the modules services/launchpad/api, services/launchpad/user and services/launchpad/metadata, the registry files migrations/registry.json, readiness.json and grants.json, the code of sdk/launchpad/shared/db/production that holds them equal to the registry, and the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest."
+symbols = []
 
 [capability.22.39.907]
 title = "Let the tool that applies the variables of a deployment contract read every kind of entry the contract holds"
@@ -208038,6 +208080,103 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.910]
+title = "Bring the route corrections and the catalog of served routes of the launchpad client package in line with the producers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.883"]
+reqs = ["22998.1"]
+capabilities = ["22.39.910"]
+interfaces = []
+do_1 = "do_1 Decision 3781, part three. Read in sdk/launchpad/packages/sdk/src the files route-corrections.ts, served-routes.ts and operations.gen.ts with the cases that read them, the function RetiredConnectedRoutes and the route table of services/launchpad/gateway/internal/proxy/connected.go, and for every corrected path the producer under services/launchpad that registers the route. Where the package already holds the target form of a step below, state it in the final message and change nothing for that step."
+do_2 = "do_2 The correction of the reward claim gives the path /v2/me/rewards/claim, while the generated operation and the producer in services/launchpad/pnl-tracker/internal/app/app.go hold /v2/me/rewards:prepare-claim. Remove a correction whose corrected path no producer and no gateway route serves, so that the client calls the generated path. Judge every entry of the corrections file in the same way and give in the final message, for each entry, the producer file and line that serves the path the client calls after this task."
+do_3 = "do_3 The catalog of served routes marks as served the read of an asset, the creation and the completion of an asset upload and the list and the sending of room messages, which the gateway lists as retired. Bring the catalog in line with the gateway: a route the gateway lists as retired is not marked as served, and a route the gateway carries is. Where the catalog is made by a tool of the package, change the tool or its input and run it; do not edit its output by hand. A consumer inside sdk/launchpad/packages/sdk that relied on a changed mark follows; a consumer outside it is named in the final message with file and line."
+do_4 = "do_4 Add cases to the existing case files of the package: every correction names a path a producer serves, read from a list the case holds beside its source file and line; the catalog marks no route of the retired list of the gateway as served, with that list held in the case as the gateway holds it. No assertion is weakened or removed, and no case is removed, skipped or tagged out. "
+do_5 = "do_5 Nothing outside sdk/launchpad/packages/sdk changes in this task; a manifest of the package stays as it is. The files are inside the paths of this task and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/sdk"]
+tests = []
+planned_paths = []
+build_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+verify_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/sdk --fail-if-no-match run test)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.909]
+title = "Release the pause of historical reads of the launchpad indexer at the head and keep the readiness read off that pause"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.909"]
+interfaces = []
+do_1 = "do_1 Gotcha 4708 and decision 3781, part two. Read in services/launchpad/indexer the file internal/source/source.go with the control of historical reads, its functions ReportLiveLag, ReportDurableHeight and waitHistorical and every caller of them, internal/source/committed.go for the reads that wait on the pause, internal/source/historical.go for BlockAt, internal/app/canonical_source_readiness.go and the function verifyCanonicalRuntimeCheckpoint of internal/app/app.go with the place that reports the durable height, and the cases of internal/source and internal/app that cover them."
+do_2 = "do_2 The lag the control receives from ReportDurableHeight is a whole number of seconds, so the release below 500 milliseconds needs sixty seconds in which the newest and the durable block carry the same second. An indexer that follows the head a few blocks behind does not reach that, and a pause once taken stays. Bring the measurement and the thresholds to one form: the pause is released when the indexer has followed the head for the release period within the distance it holds in steady state. The measure, observation times, a distance in blocks or a threshold no finer than the resolution of the timestamps, is your choice; state it and its reason in the final message. The pause still begins when the indexer falls behind for the period the code names, and the counters and metrics of the control keep their meaning."
+do_3 = "do_3 The readiness read of the canonical source reads one block at the durable height to compare it with the stored completeness. That read does not wait on the pause of historical reads: it is bounded by the timeout of the readiness refresh alone, and the reads of a replay or a backfill keep waiting on the pause as they do. State in the final message every other read that waits on the pause and whether a paused indexer can still report each of its readiness checks."
+do_4 = "do_4 Add cases to the existing packages internal/source and internal/app, with the clock and the source doubles those packages hold: a control that paused releases once the indexer follows the head at a steady distance of a few blocks for the release period; it stays paused while the indexer falls further behind; the readiness read returns its result while the pause is held and a historical read started in the same state waits; the readiness of the canonical source turns from failed to ready without a new process once the indexer is at the head again. Add no new package directory. No assertion is weakened or removed, and no case is removed, skipped or tagged out. "
+do_5 = "do_5 Prepare the environment of the job of the single modules before the verification, in the sense of decisions 2893 and 2917: every variable that job declares in .github/workflows/launchpad-test.yml is set in the shell that runs the verification and in the profile the counted verification reads, and the tools and services its steps prepare are present and running. Then run the verification command of the task once by hand in services/launchpad/indexer and read its whole output before the counted verification; what does not pass inside services/launchpad/indexer is repaired there. The files are inside the paths of this task and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/indexer && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/indexer && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.908]
+title = "Read the newest committed head of the launchpad in bounded work at any size of the committed heads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.908"]
+interfaces = []
+do_1 = "do_1 Gotcha 4708 and decision 3781, part one. Read migrations/60001.sql for the table indexer.indexer_committed_heads and the views indexer.indexer_committed_heads_v2 and indexer.indexer_committed_heads_v1, migrations/340004.sql and migrations/390001.sql for the views users.auth_committed_blocks and metadata.auth_committed_blocks with their grants, every reader of these four views under services/launchpad and sdk/launchpad/shared, among them sdk/launchpad/shared/auth/contract.go, services/launchpad/api/internal/app/authority.go and services/launchpad/api/internal/store/holder_rewards_readmodel.go, the statement inventories under internal/rolecheck of the modules services/launchpad/api, services/launchpad/user and services/launchpad/metadata, the registry files migrations/registry.json, readiness.json and grants.json, the code of sdk/launchpad/shared/db/production that holds them equal to the registry, and the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest."
+do_2 = "do_2 Add a registered migration so that a read of the newest committed head of a chain visits a bounded number of rows. The shape of the view, an index on the table and the form the coordinator admits for an index on a table that holds rows are your choice; state the choice and its reason in the final message. The meaning of the view stays: one row for each chain and height, the integrity quarantined where two hashes stand at one height, where a row is quarantined or where an unresolved required quarantine without a valid waiver stands at or below the height, and healthy otherwise. The four views keep their columns and their grants. The registry follows: the registration with its predecessor, the application order, the digests, the approval, the readiness and grants records, and every file the code of sdk/launchpad/shared/db/production and the command of the schema hold equal to the registry."
+do_3 = "do_3 Bring every reader of the newest head to a statement whose order is the numeric height and whose plan is bounded: the reader in sdk/launchpad/shared/auth/contract.go and the two readers in services/launchpad/api. The values the readers return stay as they are. The statement inventories under internal/rolecheck of services/launchpad/api, services/launchpad/user and services/launchpad/metadata follow by the means each module holds for making them; where a module makes its inventory with a tool, run the tool and do not edit its output by hand. A reader under services/launchpad outside these modules that orders by the text form or reads the views without a bound on the rows is named in the final message with file and line and stays as it is."
+do_4 = "do_4 Add cases in the existing package sdk/launchpad/shared/db/production/coordinatortest whose names start with TestCommittedHeadRead. They make a database with the helper Bootstrap, fill the table with at least three hundred thousand rows over one chain with a few quarantined rows and a few heights that hold two hashes, analyze it, and assert through EXPLAIN in a machine readable format with ANALYZE, for the statement of each reader with the connection of the runtime role that reads it, that the number of rows the plan reads from the table stays below a fixed small count and that no node of the plan sorts or aggregates the whole table. They assert that the row returned is the row of the highest numeric height, on a table that holds heights with different counts of digits, and that the integrity of that row is the one the earlier view gave for the same rows. Add no new package directory. No assertion is weakened or removed, and no case is removed, skipped or tagged out. "
+do_5 = "do_5 The cases of sdk/launchpad/shared/db/production need the variable COORDINATOR_TEST_POSTGRES_DSN and are skipped without it; a skipped case proves nothing. Prepare the environment of the job of the single modules before the verification, in the sense of decisions 2893 and 2917: every variable that job declares in .github/workflows/launchpad-test.yml is set in the shell that runs the verification and in the profile the counted verification reads, and the tools and services its steps prepare are present and running. Run by hand, with that variable set, the cases of sdk/launchpad/shared/db/production with its command and its coordinatortest package, the cases of sdk/launchpad/shared/auth, and the cases of internal/rolecheck, internal/app and internal/store of services/launchpad/api and of internal/rolecheck of services/launchpad/user and services/launchpad/metadata, and read their whole output; give in the final message the plan the new cases read for each reader."
+do_6 = "do_6 The files under migrations, sdk/launchpad/shared, services/launchpad/api, services/launchpad/user and services/launchpad/metadata are inside the paths of this task and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["migrations", "sdk/launchpad/shared", "services/launchpad/api", "services/launchpad/user", "services/launchpad/metadata"]
+tests = []
+planned_paths = []
+build_cmd = "cd sdk/launchpad/shared && go vet ./auth/... ./db/production/... && cd ../../../services/launchpad/api && go vet ./... && cd ../user && go vet ./... && cd ../metadata && go vet ./..."
+verify_cmd = "cd sdk/launchpad/shared && go test -count=1 -timeout 30m -run ^TestCommittedHeadRead ./db/production/coordinatortest/ && go test -count=1 -timeout 30m -run ^TestMigrationRegistryHonorsPredecessorOrder ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/ && go test -count=1 -timeout 30m -run ^TestRepositoryRegistryRequiresApproval ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/ && go test -count=1 -timeout 30m -run ^TestExpectedSchemaPrivilegeMatrix ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/ && go test -count=1 -timeout 30m -run ^TestPlatformRuntimeRolesPassReadiness ./db/production/ ./db/production/cmd/launchpad-schema/ ./db/production/coordinatortest/"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -474739,6 +474878,37 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.911]
+title = "Make the outcome of the case of the explorer migrator that deletes zero value calls independent of timing"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.911"]
+interfaces = []
+do_1 = "do_1 Decision 3781, part four. Read services/explorer/backend/apps/explorer/test/explorer/migrator/delete_zero_value_internal_transactions_test.exs, the migrator services/explorer/backend/apps/explorer/lib/explorer/migrator/delete_zero_value_internal_transactions.ex with the modules it uses for its status row, its border and its batches, the helper wait_for_results of the data case, and the configuration the test environment gives the migrator."
+do_2 = "do_2 The case named Deletes zero value calls inserts rows, starts the migrator as a process, waits until its status row reads completed and then reads the table once and counts the rows. Establish from the code every way in which that count can differ between two runs on the same rows: the moment the status row is written against the last deletion, the border the migrator takes from the blocks and the time, a process of an earlier case that still runs, and the order of the batches. Name each one you find in the final message with file and line."
+do_3 = "do_3 Remove each dependence. Where the migrator writes its completed status before its last deletion is committed, correct the migrator so that completed means that no row it selects remains. Where the case reads too early or shares a process or a setting with another case, correct the case: it waits on the state it asserts, starts and stops the process it owns, and sets the values it relies on. The assertions of the case keep their counts. No assertion is weakened or removed, and no case is removed, skipped or tagged out. "
+do_4 = "do_4 Run the case file fifty times in a row by hand, and once more together with the other case files of the same directory, and read every output; give the count of runs and their outcome in the final message. Change nothing outside services/explorer/backend/apps/explorer/test/explorer/migrator and services/explorer/backend/apps/explorer/lib/explorer/migrator. The files are inside the paths of this task and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/test/explorer/migrator", "services/explorer/backend/apps/explorer/lib/explorer/migrator"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/migrator/delete_zero_value_internal_transactions_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
