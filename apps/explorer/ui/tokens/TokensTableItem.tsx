@@ -18,6 +18,8 @@ import IconSvg from 'ui/shared/IconSvg';
 import SimpleValue from 'ui/shared/value/SimpleValue';
 import { DEFAULT_ACCURACY_USD } from 'ui/shared/value/utils';
 
+import { getTokenChange } from './tokenChange';
+
 export type TokensTableToken = TokenInfo | AggregatedTokenInfo;
 
 // The token list carries no figure for every column the scan layout shows, and a figure the payload
@@ -131,6 +133,7 @@ type Props = {
   page: number;
   isLoading?: boolean;
   coinPrice?: string | null;
+  showChange?: boolean;
 };
 
 const bridgedTokensFeature = config.features.bridgedTokens;
@@ -140,6 +143,7 @@ const TokensTableItem = ({
   page,
   index,
   isLoading,
+  showChange,
 }: Props) => {
 
   const {
@@ -209,9 +213,11 @@ const TokensTableItem = ({
           />
         </Flex>
       </TableCell>
-      <TableCell isNumeric data-market-field="change">
-        <TokenChangePercent isLoading={ isLoading }/>
-      </TableCell>
+      { showChange && !isLoading && (
+        <TableCell isNumeric data-market-field="change">
+          <TokenChangePercent value={ getTokenChange(token)?.toNumber() }/>
+        </TableCell>
+      ) }
       <TableCell isNumeric data-market-field="market-cap">
         <TokenFiatValue value={ marketCap ? BigNumber(marketCap) : undefined } isLoading={ isLoading }/>
       </TableCell>
