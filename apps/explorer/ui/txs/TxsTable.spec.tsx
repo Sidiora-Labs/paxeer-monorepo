@@ -2,6 +2,7 @@
 
 import React from 'react';
 
+import config from 'configs/app';
 import { SettingsContextProvider } from 'lib/contexts/settings';
 import * as txMock from 'mocks/txs/tx';
 import { TableBody, TableCell, TableRoot, TableRow } from 'toolkit/chakra/table';
@@ -93,13 +94,71 @@ describe('TxsTable', () => {
     expect(getComputedStyle(headers[2]).width).toBe('14rem');
   });
 
-  it('takes the action space from the counterparty column and preserves the other widths', function priceUpdateCounterpartyWidth() {
+  it('reserves counterparty space from the hash amount and fee columns and preserves the other widths', function priceUpdateCounterpartyWidth() {
     const { container } = renderTable();
     const headers = Array.from(container.querySelectorAll('thead th'));
 
-    expect(getComputedStyle(headers[5]).width).toBe('14.125rem');
+    expect(getComputedStyle(headers[5]).width).toBe('calc(100% - 56.5rem)');
     expect([ 0, 1, 3, 4, 6, 7 ].map((index) => getComputedStyle(headers[index]).width))
-      .toEqual([ 'var(--chakra-spacing-12)', 'var(--chakra-spacing-48)', 'var(--chakra-spacing-28)', 'var(--chakra-spacing-32)', '25%', '25%' ]);
+      .toEqual([
+        'var(--chakra-spacing-12)', 'var(--chakra-spacing-40)', 'var(--chakra-spacing-28)', 'var(--chakra-spacing-32)',
+        'var(--chakra-spacing-28)', '7.5rem',
+      ]);
+  });
+
+  it.each([
+    { block: true, value: true, fee: true, fixed: 56.5 },
+    { block: false, value: true, fee: true, fixed: 49.5 },
+    { block: true, value: false, fee: true, fixed: 49.5 },
+    { block: true, value: true, fee: false, fixed: 49 },
+    { block: false, value: false, fee: true, fixed: 42.5 },
+    { block: false, value: true, fee: false, fixed: 42 },
+    { block: true, value: false, fee: false, fixed: 42 },
+    { block: false, value: false, fee: false, fixed: 35 },
+  ])('gives the remaining width to counterparties with visible columns %j', function counterpartyWidthWithOptionalColumns({ block, value, fee, fixed }) {
+    const hiddenFields = config.UI.views.tx.hiddenFields!;
+    const previous = { ...hiddenFields };
+
+    try {
+      hiddenFields.value = !value;
+      hiddenFields.tx_fee = !fee;
+
+      for (const sortable of [ false, true ]) {
+        const { container, unmount } = render(
+          <TxsTable txs={ txs } sort="default" onSortToggle={ sortable ? noop : undefined } top={ 0 } showBlockInfo={ block } stickyHeader={ false }/>,
+        );
+        const headers = Array.from(container.querySelectorAll('thead th'));
+        const counterparty = headers.find((header) => header.textContent === 'From / To')!;
+
+        expect(getComputedStyle(counterparty).width).toBe(`calc(100% - ${ fixed }rem)`);
+        expect(getComputedStyle(headers[1]).width).toBe('var(--chakra-spacing-40)');
+        expect(getComputedStyle(headers[2]).width).toBe('14rem');
+        expect(headers.map((header) => getComputedStyle(header).width)).toEqual([
+          'var(--chakra-spacing-12)', 'var(--chakra-spacing-40)', '14rem',
+          ...(block ? [ 'var(--chakra-spacing-28)' ] : []),
+          'var(--chakra-spacing-32)', `calc(100% - ${ fixed }rem)`,
+          ...(value ? [ 'var(--chakra-spacing-28)' ] : []),
+          ...(fee ? [ '7.5rem' ] : []),
+        ]);
+        expect(headers).toHaveLength(5 + Number(block) + Number(value) + Number(fee));
+        unmount();
+      }
+    } finally {
+      Object.assign(hiddenFields, previous);
+    }
+  });
+
+  it('keeps both ends of each counterparty address and the price feed link', function counterpartyAddressText() {
+    const ordinary = { ...txMock.base, from: { ...txMock.base.from, ens_domain_name: null } };
+    const { container } = render(
+      <TxsTable txs={ [ txMock.priceUpdate, ordinary ] } sort="default" top={ 0 } showBlockInfo stickyHeader={ false }/>,
+    );
+    const cells = Array.from(container.querySelectorAll('tbody tr')).map((row) => row.querySelectorAll('td')[5]);
+
+    expect(Array.from(cells[0].querySelectorAll('[data-entity-content]')).map((content) => content.textContent)).toEqual([ '0x7c...9f01' ]);
+    expect(cells[0].querySelector('a[href="/feed"]')?.textContent).toBe('Price feed');
+    expect(Array.from(cells[1].querySelectorAll('[data-entity-content]')).map((content) => content.textContent))
+      .toEqual([ '0x04...84B9', '0xd7...5859' ]);
   });
 
   it.each([ 18, 999 ])('carries the full price update action in the title when clipped with %i markets', function priceUpdateActionTitle(count) {
