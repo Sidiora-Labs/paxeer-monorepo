@@ -45,7 +45,7 @@ export default function CopyAddress({
       aria-label={`Copy address ${short}`}
       className={cn(
         'inline-flex items-center gap-1 rounded-xs font-mono text-xs text-text-faint transition-colors hover:text-text',
-        variant === 'icon' && 'size-touch-target-min justify-center hover:bg-surface-hover',
+        variant === 'icon' && 'size-5 justify-center hover:bg-surface-hover',
         copied && 'text-accent',
         className
       )}
