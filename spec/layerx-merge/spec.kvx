@@ -176702,7 +176702,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.852]
 title = "Set the title of the proposer and its address on one centre line in the block view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
