@@ -15862,6 +15862,12 @@ value = "One. A case that reads one document twice across a wait or a restart as
 basis = "Gotcha 4718."
 affects = []
 
+[decision.3792]
+title = "The production authority accepts the web application behind its rewrite, answers its route from the kept envelope and accepts a recent committed head"
+value = "One. The preflight routes of the production authority follow the origin rule the authority outside production follows today, through one function both call: the trusted origin equals https:// followed by the Host, or the peer address lies inside the ranges of TRUSTED_PROXY_CIDRS, the first value of X-Forwarded-Proto is https and the first value of X-Forwarded-Host gives the origin. A forwarded value from a peer outside those ranges never counts, and with no range set the rule is the present one. Two. The route /v2/network/authority of the production authority answers with the envelope the refresh loop keeps while that envelope is not older than a bound. The bound is a named value, at least twenty seconds, which is the refresh interval plus the bound of one attestation, and never above authorityMaxAge. A request that finds no envelope inside the bound attests as today, and the requests of one moment share one attestation. The envelope keeps the times and the head of its own attestation: nothing in it is restated at the moment of the answer. Three. A preflight is accepted when its block hash is the hash of a committed head of chain 125 with integrity healthy, at a height not above the newest committed head, and the time of that block lies not further back than a bound. The bound is a named value, at least the one minute of authorityMaxAge, the age up to which the web application accepts an envelope. Every other hash is answered 409 REVISION_CONFLICT as today. The rule rests on the record of committed heads and on the chain and not on the memory of one process, so it holds the same on every process of the service. The authority outside production follows the same rule against its own source of the head. Four. The engine, the body of an answer, the codes of the routes, the readiness check and the contract of the web application do not change. Task 22.39.935."
+basis = "Gotcha 4719."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45522,6 +45528,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.935]
+title = "Accept the web application behind its rewrite on the preflight routes of the production authority of the launchpad API, answer its route from the kept envelope and accept a recent committed head"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4719 and decision 3792. Read services/launchpad/api/internal/app/authority.go and services/launchpad/api/internal/app/dev_authority.go whole, the function TrustedHTTPOrigin in services/launchpad/api/internal/broker/handoff.go, the test files of the package services/launchpad/api/internal/app that name the authority, the preflight and the committed head, the statement list of services/launchpad/api/internal/rolecheck with the means that package gives to enter a statement, the rewrites in apps/launchpad/web/src/core/next-build-config.ts and the functions readAuthority, committedHead and preflight in apps/launchpad/web/src/core/runtime-authority.ts. The two files under apps/launchpad/web are read only."
+symbols = []
 
 [capability.22.39.934]
 title = "Let the callouts case of the launchpad rewards flow assert the pages of the rail by the elements of its callouts"
@@ -208353,6 +208368,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.935]
+title = "Accept the web application behind its rewrite on the preflight routes of the production authority of the launchpad API, answer its route from the kept envelope and accept a recent committed head"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.935"]
+interfaces = []
+do_1 = "do_1 Gotcha 4719 and decision 3792. Read services/launchpad/api/internal/app/authority.go and services/launchpad/api/internal/app/dev_authority.go whole, the function TrustedHTTPOrigin in services/launchpad/api/internal/broker/handoff.go, the test files of the package services/launchpad/api/internal/app that name the authority, the preflight and the committed head, the statement list of services/launchpad/api/internal/rolecheck with the means that package gives to enter a statement, the rewrites in apps/launchpad/web/src/core/next-build-config.ts and the functions readAuthority, committedHead and preflight in apps/launchpad/web/src/core/runtime-authority.ts. The two files under apps/launchpad/web are read only."
+do_2 = "do_2 Origin. The function developmentPreflightOrigin becomes one function of the package under a name that fits both authorities, and the handler of the four preflight routes in services/launchpad/api/internal/app/authority.go calls it in place of its comparison with the Host. The authority outside production calls the same function. The rule is the one of decision 3792 point one, word for word, and nothing else of the request is trusted."
+do_3 = "do_3 Route. The handler of GET /v2/network/authority in services/launchpad/api/internal/app/authority.go answers with the kept envelope while it is inside the bound of decision 3792 point two. Outside the bound it attests under the present bound of ten seconds, keeps the result as the refresh does, and the requests of one moment share that one attestation. The refresh loop, the readiness check and the answer 503 DEPENDENCY_UNAVAILABLE with its log line for a failed attestation stay as they are. The cache of services/launchpad/api/internal/app/dev_authority.go may serve this where it fits, and its present behaviour outside production does not change."
+do_4 = "do_4 Head. The comparison of the block hash with the newest committed head in services/launchpad/api/internal/app/authority.go and in services/launchpad/api/internal/app/dev_authority.go gives way to the rule of decision 3792 point three. In the production authority the height and the time of the block of the hash come from a read of its header through the reader the authority holds, and the committed head at that height comes from the relation the newest head is read from, in one read bound in time like the present one. The hash is refused with 409 REVISION_CONFLICT when the chain does not know it, when the relation holds no healthy row with this hash at its height, when its height lies above the newest committed head and when its time lies further back than the bound. A read that fails for another cause is answered 503 DEPENDENCY_UNAVAILABLE as the head read is today. A statement the service gains enters the statement list of services/launchpad/api/internal/rolecheck by the means of that package."
+do_5 = "do_5 Add services/launchpad/api/internal/app/authority_recent_head_test.go in the package of the present authority cases, with cases whose names begin with TestProductionAuthority, built on the fixtures and helpers the present cases of the package use. Rewrite: on each of the four preflight routes a request whose Host is another name than its origin, from a peer inside a trusted range, with the forwarded scheme https and the forwarded host of the origin, passes the origin rule; the same request from a peer outside the ranges, with the forwarded scheme http, with a forwarded host that differs from the origin, and with no range set is answered 403 SCOPE_DENIED each. Kept envelope: after one refresh several reads of the route inside the bound give the kept envelope byte for byte and start no attestation, counted at the reader of the test; a read outside the bound attests once, and several reads of that one moment count one attestation between them. Recent head: with a head source that moves on by several heights between the read of the route and the preflight, a preflight with the hash of the envelope is served; a hash the chain does not know, a known hash with no healthy row, a hash above the newest committed head and a committed hash whose time lies further back than the bound are answered 409 REVISION_CONFLICT each. Moving head: with a head that moves on at every read, a read of the route followed by a preflight with its hash is served on every one of twenty rounds."
+do_6 = "do_6 No case of the module is removed, skipped or tagged out and no other assertion is weakened. A case that pins the present comparison with the Host or with the newest head changes with the rule and keeps every other assertion it holds. The whole case inventory of the module is the verification: run it once by hand before the counted run and read the whole output. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api"]
+tests = []
+planned_paths = ["services/launchpad/api/internal/app/authority_recent_head_test.go"]
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/api && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
