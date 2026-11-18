@@ -2,10 +2,10 @@
   "items": [
     {
       "address_hash": "0x0000000000000000000000000000000000000002",
-      "address_url": "/address/0x3714A8C7824B22271550894f7555f0a672f97809",
+      "address_url": "/address/0x0000000000000000000000000000000000000002",
       "name": "USDC",
       "symbol": "USDC",
-      "token_url": "/token/0x3714A8C7824B22271550894f7555f0a672f97809",
+      "token_url": "/token/0x0000000000000000000000000000000000000002",
       "type": "token",
       "icon_url": null,
       "is_verified_via_admin_panel": false,

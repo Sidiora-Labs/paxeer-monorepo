@@ -37,7 +37,6 @@ const PageTitle = ({
         alignItems="center"
       >
         <Flex
-          h={{ base: 'auto', lg: isLoading ? 10 : 'auto' }}
           maxW="100%"
           minW={ 0 }
           alignItems="center"

@@ -12,6 +12,7 @@ import getQueryParamString from 'lib/router/getQueryParamString';
 import { getTokenTypes, isFungibleTokenType, NFT_TOKEN_TYPE_IDS } from 'lib/token/tokenTypes';
 import { TOKEN_INFO_ERC_20 } from 'stubs/token';
 import { generateListStub } from 'stubs/utils';
+import { ContentLoader } from 'toolkit/components/loaders/ContentLoader';
 import PopoverFilter from 'ui/shared/filters/PopoverFilter';
 import TokenCategoryFilter from 'ui/shared/filters/TokenCategoryFilter';
 import type { TokenCategory } from 'ui/shared/filters/TokenCategoryFilter';
@@ -22,6 +23,7 @@ import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
 import { ScanShowRows } from 'ui/shared/scan';
 import getSortParamsFromValue from 'ui/shared/sort/getSortParamsFromValue';
 import getSortValueFromQuery from 'ui/shared/sort/getSortValueFromQuery';
+import useInitialLoadingReady from 'ui/shared/useInitialLoadingReady';
 import TokensList from 'ui/tokens/Tokens';
 import TokensActionBar from 'ui/tokens/TokensActionBar';
 import TokensBridgedChainsFilter from 'ui/tokens/TokensBridgedChainsFilter';
@@ -67,6 +69,8 @@ const TokensContent = () => {
       ),
     },
   });
+
+  const isInitialContentReady = useInitialLoadingReady(tokensQuery.isPlaceholderData);
 
   const handleSearchTermChange = React.useCallback((value: string) => {
     tab === 'bridged' ?
@@ -125,11 +129,27 @@ const TokensContent = () => {
   }, [ fungibleTypes, handleTokenTypesChange, router, searchTerm, tab ]);
 
   const filter = tab === 'bridged' ? (
-    <PopoverFilter contentProps={{ maxW: 'var(--chakra-spacing-80)' }} appliedFiltersNum={ bridgeChains?.length }>
+    <PopoverFilter
+      contentProps={{
+        maxW: 'var(--chakra-spacing-80)',
+        maxH: 'min(var(--available-height), calc(100dvh - var(--chakra-spacing-8)))',
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+      }}
+      appliedFiltersNum={ bridgeChains?.length }
+    >
       <TokensBridgedChainsFilter onChange={ handleBridgeChainsChange } defaultValue={ bridgeChains }/>
     </PopoverFilter>
   ) : (
-    <PopoverFilter contentProps={{ w: 'var(--chakra-spacing-40\\.5)' }} appliedFiltersNum={ tokenTypes?.length }>
+    <PopoverFilter
+      contentProps={{
+        w: 'var(--chakra-spacing-40\\.5)',
+        maxH: 'min(var(--available-height), calc(100dvh - var(--chakra-spacing-8)))',
+        overflowY: 'auto',
+        overscrollBehavior: 'contain',
+      }}
+      appliedFiltersNum={ tokenTypes?.length }
+    >
       <TokenTypeFilter<TokenType> key={ tokenTypes?.join(',') } onChange={ handleTokenTypesChange } defaultValue={ tokenTypes } nftOnly={ false }/>
     </PopoverFilter>
   );
@@ -185,6 +205,10 @@ const TokensContent = () => {
       rowsCount={ rowsCount }
     />
   );
+
+  if (!isInitialContentReady) {
+    return <ContentLoader/>;
+  }
 
   return (
     <>

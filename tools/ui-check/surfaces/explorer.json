@@ -1538,6 +1538,10 @@
           "name": "loading",
           "steps": [
             {
+              "action": "wait",
+              "text": "Search results"
+            },
+            {
               "action": "press",
               "selector": "body",
               "key": "Escape"
@@ -1630,14 +1634,53 @@
     },
     {
       "name": "/token/[hash]/instance/[id]",
-      "path": "/explorer/token/0x0000000000000000000000000000000000000002/instance/188882"
+      "path": "/explorer/token/0x0000000000000000000000000000000000000002/instance/188882",
+      "answers": [
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/tokens/0x0000000000000000000000000000000000000002",
+          "file": "explorer/token-nft.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/tokens/0x0000000000000000000000000000000000000002?*",
+          "file": "explorer/token-nft.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/tokens/0x0000000000000000000000000000000000000002/instances/188882/transfers",
+          "file": "explorer/token-instance-transfers.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/tokens/0x0000000000000000000000000000000000000002/instances/188882/transfers?*",
+          "file": "explorer/token-instance-transfers.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        }
+      ]
     },
     {
       "name": "/token-transfers",
-      "path": "/explorer/token-transfers",
-      "modes": [
-        "default"
-      ]
+      "path": "/explorer/token-transfers"
     },
     {
       "name": "/tokens",
@@ -1648,7 +1691,7 @@
           "steps": [
             {
               "action": "wait",
-              "text": "Tokens"
+              "text": "There are no tokens."
             }
           ],
           "answers": [
@@ -1679,6 +1722,10 @@
         {
           "name": "loading",
           "steps": [
+            {
+              "action": "wait",
+              "text": "More than 50 token contracts found"
+            },
             {
               "action": "press",
               "selector": "body",
@@ -1756,12 +1803,16 @@
           "name": "filter-open",
           "steps": [
             {
+              "action": "wait",
+              "text": "Showing 1 tokens with an ok or a neutral reputation"
+            },
+            {
               "action": "click",
               "selector": "button[aria-label=\"Filter\"]"
             },
             {
               "action": "wait",
-              "text": "ERC-20"
+              "text": "ERC-721"
             }
           ]
         }
