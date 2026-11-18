@@ -15730,6 +15730,12 @@ value = "The list in docker/explorer-elixir-builder/Dockerfile.dockerignore name
 basis = "Gotcha 4696. Decision 3764."
 affects = []
 
+[decision.3770]
+title = "The assistant of the explorer speaks from the facts of the product in plain text, and the search panel draws its answer as one readable block"
+value = "One. The system text of the assistant route holds a short part with facts of the product, each taken from README.md at the root, from docs/site/paxeer-docs/public/markdown/modules.md or from the code of the explorer and none from elsewhere: the LayerX kernel is the core of the network and runs inside every node; it executes each transaction when it arrives, assigns the next place in one sequence and returns a signed execution receipt before a block is voted; it builds every block, and validators check, replay and commit without selecting or ordering transactions; what runs on the kernel as the readme lists it; the price feed with its signed observations of index and mark prices, and that the explorer shows a price update as a transaction with the count of its markets and a view of the feed. The text tells the model to answer a question about a term of the product from these facts first and never to describe the network as a chain of another build. The rule that an answer is no chain data and that no fact of the chain is invented stays. Two. The system text asks for plain text in short paragraphs without marks of a markup, and the route removes from the answer pairs of double asterisks around a text of one line, heading marks at the start of a line and the lines of code fences before it gives the answer on; the text between the marks stays, and a hyphen at the start of a list line stays. Three. In the search panel the answer has no height bound and no scroll of its own, its lines keep a measure of at most 72 characters as a least value of care for reading, and the line of no results is not drawn while the block of the assistant is drawn and the search holds no item. While the block of the assistant is drawn, the panel of the desktop search bar is at least twice the spacing step 80 wide and never wider than the viewport less its gutters, and it stays inside the viewport; without that block it keeps the width of today. The text of the button of the question starts on the line where the text of the answer starts. Tasks 22.39.857 and 22.39.858."
+basis = "Gotcha 4697. Decisions 2652 and 3765."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45390,6 +45396,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.858]
+title = "Draw the answer of the assistant in the search panel as one readable block without the line of no results"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/snippets/searchBar"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.tsx ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.spec.tsx ui/snippets/searchBar/SearchBarDesktop.tsx ui/snippets/searchBar/SearchBarDesktop.spec.tsx && yarn vitest run ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.spec.tsx ui/snippets/searchBar/SearchBarDesktop.spec.tsx"
+do_1 = "do_1 Gotcha 4697 and decision 3770, point three. Read apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.tsx, apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.spec.tsx and apps/explorer/ui/snippets/searchBar/SearchBarDesktop.tsx in full, the other search bar that draws the component and the popover component the desktop bar uses."
+symbols = []
+
+[capability.22.39.857]
+title = "Give the assistant route of the explorer the facts of the product and a plain text answer"
+reqs = ["22998.1"]
+touches = ["apps/explorer/pages/api/assistant.ts", "apps/explorer/nextjs/pages-tests/api/assistant.spec.ts"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint pages/api/assistant.ts nextjs/pages-tests/api/assistant.spec.ts && yarn vitest run nextjs/pages-tests/api/assistant.spec.ts"
+do_1 = "do_1 Gotcha 4697 and decision 3770, points one and two. Read apps/explorer/pages/api/assistant.ts and apps/explorer/nextjs/pages-tests/api/assistant.spec.ts in full, the first part of README.md at the root up to the list of what runs on the kernel, the table of modules in docs/site/paxeer-docs/public/markdown/modules.md and apps/explorer/ui/txs/TxPriceUpdate.tsx."
+symbols = []
 
 [capability.22.39.856]
 title = "Name every file the builder image of the explorer backend copies in its build context list"
@@ -176620,6 +176644,72 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.858]
+title = "Draw the answer of the assistant in the search panel as one readable block without the line of no results"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.858"]
+interfaces = []
+do_1 = "do_1 Gotcha 4697 and decision 3770, point three. Read apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.tsx, apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.spec.tsx and apps/explorer/ui/snippets/searchBar/SearchBarDesktop.tsx in full, the other search bar that draws the component and the popover component the desktop bar uses."
+do_2 = "do_2 apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.tsx: the region of the answer has no height bound and no scroll of its own, so the panel around it scrolls as one; it stays the live region it is. The text of the answer keeps its line breaks and its wrap and takes at most 72 characters to a line. The line of the model stays under the answer. The button of the question keeps its touch target, and its text starts on the line where the text of the answer starts."
+do_3 = "do_3 apps/explorer/ui/snippets/searchBar/SearchBarDesktop.tsx: while the block of the assistant is drawn, the panel is at least twice the spacing step 80 wide, never wider than the viewport less its gutters, and stays inside the viewport at every width the desktop bar is drawn at; without that block the panel keeps the width of today. The search field does not change its width."
+do_4 = "do_4 apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.tsx: while the block of the assistant is drawn, be it for a question that can be asked, an answer or an error, and the search holds no item, the line of no results is not drawn. Without the block of the assistant the line is drawn as today, and the countdown of a block height stays."
+do_5 = "do_5 Cases in apps/explorer/ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.spec.tsx in the form the file holds: with an answer of the assistant and no item the text of the answer and the line of the model are drawn and the line of no results is not; with a question that can be asked and no item the line is not drawn; without the assistant and without an item the line is drawn; the region of the answer holds no height bound. A case in the case file of the desktop search bar: the panel holds the wider least width while the block of the assistant is drawn and the width of today without it. Every case the files hold stays and passes. A new case is registered in the form the lint rules of the application accept: a title in lower case that begins with a letter, a named function as the body and at least one expectation in it. The lint run over the changed files is part of the verification. Before the counted verification run the new cases once by hand and read for each expectation of a style the form the element holds, a token or a plain value, and write the expectation in that form. "
+do_6 = "do_6 Run the cases under ui/snippets/searchBar once by hand before the change and once after it and give in the final message every case whose result differs. A case of another file under that directory that expects the line of no results while the block of the assistant is drawn is brought to the new rule and named in the final message; no other case changes. Read the search panel with an answer once by hand in the browser of the render check at 1024 and 1440 px in both colour schemes, with the answer of the assistant given by a fixture, and give in the final message the width of the panel and whether it stays inside the viewport. Install the browser of the check first."
+do_7 = "do_7 No assertion is weakened or removed, and no case is removed, skipped or tagged out. No size of a text or a control grows. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under ui/snippets/searchBar are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No file outside ui/snippets/searchBar changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/snippets/searchBar"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.tsx ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.spec.tsx ui/snippets/searchBar/SearchBarDesktop.tsx ui/snippets/searchBar/SearchBarDesktop.spec.tsx && yarn vitest run ui/snippets/searchBar/SearchBarSuggest/SearchBarSuggest.spec.tsx ui/snippets/searchBar/SearchBarDesktop.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.857]
+title = "Give the assistant route of the explorer the facts of the product and a plain text answer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.857"]
+interfaces = []
+do_1 = "do_1 Gotcha 4697 and decision 3770, points one and two. Read apps/explorer/pages/api/assistant.ts and apps/explorer/nextjs/pages-tests/api/assistant.spec.ts in full, the first part of README.md at the root up to the list of what runs on the kernel, the table of modules in docs/site/paxeer-docs/public/markdown/modules.md and apps/explorer/ui/txs/TxPriceUpdate.tsx."
+do_2 = "do_2 apps/explorer/pages/api/assistant.ts: the system text gains the part with the facts of the product of decision 3770, point one, in sentences of its own that state only what the three sources state. It stays one constant of the file, below 2500 characters as a least value of care, and the sentences on the node names, on model output and on untrusted input stay as they are. It tells the model to answer from these facts first where a question names a term of the product, to say so where the facts do not hold the answer, and to write plain text in short paragraphs without marks of a markup."
+do_3 = "do_3 apps/explorer/pages/api/assistant.ts: one function of the file forms the plain text of an answer after the content was taken and the key was replaced: pairs of double asterisks around a text of one line are removed and the text stays; heading marks at the start of a line are removed; a line that holds only a code fence is removed; a hyphen at the start of a list line, single asterisks, underscores and everything else stay. An answer that is empty after that counts as an answer without content."
+do_4 = "do_4 Cases in apps/explorer/nextjs/pages-tests/api/assistant.spec.ts in the form the file holds: the system text of the request names the kernel, the signed receipt and the price feed; it holds the sentence on model output as before; an answer with emphasis marks, a heading mark and a code fence is given on without them and with its text; an answer with a single asterisk between two numbers and with underscores inside a name stays as it is; an answer that holds only marks gives 502. Every case the file holds stays and passes. A new case is registered in the form the lint rules of the application accept: a title in lower case that begins with a letter, a named function as the body and at least one expectation in it. The lint run over the changed files is part of the verification. "
+do_5 = "do_5 Before the counted verification run the cases of the file once by hand and read that each passes. No assertion is weakened or removed, and no case is removed, skipped or tagged out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The two files named above are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No other file changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/pages/api/assistant.ts", "apps/explorer/nextjs/pages-tests/api/assistant.spec.ts"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint pages/api/assistant.ts nextjs/pages-tests/api/assistant.spec.ts && yarn vitest run nextjs/pages-tests/api/assistant.spec.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.855]
 title = "Keep the rows of the recent blocks at the height of the touch target and set the link to all blocks on the line of the label"
 status = "pending"
@@ -176685,7 +176775,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.853]
 title = "Give the action column of the transactions table the room of the label of a price update"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176748,7 +176838,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.851]
 title = "Keep the hint of a detail row out of the height of the row and on the centre line of its label"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -392697,7 +392787,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.856]
 title = "Name every file the builder image of the explorer backend copies in its build context list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
