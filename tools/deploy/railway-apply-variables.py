@@ -58,6 +58,12 @@ def load_manifest(path):
         fixed = svc.get("fixed", {})
         if not isinstance(fixed, dict) or not all(isinstance(v, str) for v in fixed.values()):
             raise ValueError(f"{name}: fixed must map names to strings")
+        optional = svc.get("optional", {})
+        if not isinstance(optional, dict) or not all(isinstance(v, bool) for v in optional.values()):
+            raise ValueError(f"{name}: optional must map names to flags")
+        defaults = svc.get("defaults", {})
+        if not isinstance(defaults, dict) or not all(isinstance(v, str) for v in defaults.values()):
+            raise ValueError(f"{name}: defaults must map names to strings")
         # Every list of names other than the secret marker is a set of names that need a value.
         needed = []
         for key, value in svc.items():
@@ -79,16 +85,37 @@ def load_manifest(path):
             raise ValueError(f"{name}: invalid documentSources contract")
         # A document source pair is selected as a unit below, even when the
         # inline document name remains in the required list for the contract.
-        needed = [n for n in needed if n not in sources]
         alternatives = [n for pair in sources.items() for n in pair]
+        needed = [n for n in needed if n not in alternatives]
         # The explicit list is the authority; a name the pattern flags but the list omits is refused.
         unlisted = [n for n in [*fixed, *needed, *alternatives]
                     if SECRET.search(n) and not PUBLIC_LISTEN_ADDRESS.search(n) and n not in marked]
         if unlisted:
             raise ValueError(f"{name}: {', '.join(unlisted)} match the secret name pattern "
                              "but are not in the service's secrets list")
-        out[name] = {"fixed": fixed, "needed": needed, "secrets": set(marked), "sources": sources}
+        known = set(fixed) | set(needed) | set(marked) | set(alternatives) | set(optional) | set(defaults)
+        out[name] = {"fixed": fixed, "needed": needed, "secrets": set(marked), "sources": sources,
+                     "optional": known - set(fixed) - set(needed) - set(alternatives),
+                     "defaults": defaults, "known": known}
     return out
+
+
+def validate_values(values, manifest):
+    known = set().union(*(svc["known"] for svc in manifest.values()))
+    for name, value in values.items():
+        if isinstance(value, dict):
+            if name not in manifest:
+                raise ValueError(f"--values: unknown service {name}")
+            for key, setting in value.items():
+                if key not in manifest[name]["known"]:
+                    raise ValueError(f"{name}: unknown variable {key}")
+                if not isinstance(setting, str):
+                    raise ValueError(f"{name}: {key} must be a string")
+        else:
+            if name not in known:
+                raise ValueError(f"--values: unknown variable {name}")
+            if not isinstance(value, str):
+                raise ValueError(f"--values: {name} must be a string")
 
 
 def is_secret(svc, name, value):
@@ -112,6 +139,8 @@ def desired(name, svc, values, from_env):
         value = scoped.get(key, values.get(key) if isinstance(values.get(key), str) else None)
         if value is None and from_env:
             value = os.environ.get(key)
+        if value is None:
+            value = svc["defaults"].get(key)
         return value
 
     for key in svc["needed"]:
@@ -120,6 +149,10 @@ def desired(name, svc, values, from_env):
             problems.append(f"{key} has no value (manifest, --values{' or environment' if from_env else '; --from-env not given'})")
             continue
         want[key] = value
+    for key in sorted(svc["optional"]):
+        value = resolve(key)
+        if value is not None:
+            want[key] = value
     for document, path in svc["sources"].items():
         selected = []
         for key in (document, path):
@@ -175,6 +208,7 @@ def main(argv, transport=None):
         values = json.loads(Path(opts["--values"]).read_text()) if opts["--values"] else {}
         if not isinstance(values, dict):
             raise ValueError("--values must be a JSON object")
+        validate_values(values, manifest)
     except (OSError, ValueError, AttributeError) as e:
         say(f"bad input: {e}", file=sys.stderr)
         return 2
@@ -242,7 +276,7 @@ def main(argv, transport=None):
                     else:
                         lines.append(f"  differs {key} {show(svc, key, have[key])} -> {show(svc, key, want[key])}")
                     upsert[key] = want[key]
-            extra = set(have) - set(want) - set(svc["needed"])
+            extra = set(have) - svc["known"]
             lines += [f"  extra {key} (kept)" for key in sorted(extra)]
             say(f"service {name} {'update' if upsert else 'unchanged'} missing={sum(k not in have for k in upsert)} "
                   f"differs={sum(k in have for k in upsert)} extra={len(extra)}")

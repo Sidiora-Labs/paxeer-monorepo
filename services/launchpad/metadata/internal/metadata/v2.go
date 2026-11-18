@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -509,6 +510,7 @@ func v2Failure(w http.ResponseWriter, e error) {
 	case errors.Is(e, ErrConflict):
 		v2Error(w, 409, "conflict")
 	default:
+		LogFailure(slog.Default(), "metadata request unavailable", e)
 		v2Error(w, 503, metadataUnavailableQuality)
 	}
 }
