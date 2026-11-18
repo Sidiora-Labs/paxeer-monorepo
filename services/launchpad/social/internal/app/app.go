@@ -571,7 +571,7 @@ func Run(parent context.Context) error {
 
 func healthOnlyHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/health/live" && r.URL.Path != "/health/ready" {
+		if r.URL.Path != "/health/live" && r.URL.Path != "/health/ready" && r.URL.Path != metricsPath {
 			http.NotFound(w, r)
 			return
 		}
@@ -1522,6 +1522,7 @@ func (r *socialConnectedRuntime) authorityRoutes(w http.ResponseWriter, req *htt
 		return
 	}
 	if e != nil {
+		slog.ErrorContext(req.Context(), "social authority request failed", "method", req.Method, "path", req.URL.Path, "error", e)
 		sharedhttp.WriteJSON(w, 503, map[string]string{codeField: "SOCIAL_AUTHORITY_UNAVAILABLE"})
 		return
 	}
@@ -1762,7 +1763,7 @@ func (r *socialConnectedRuntime) reviewCallout(ctx context.Context, account, poo
 	var revision int64
 	var observed time.Time
 	var denied bool
-	e = tx.QueryRow(ctx, `SELECT g.revision,transaction_timestamp(),EXISTS(SELECT 1 FROM interaction_erased_wallets WHERE wallet=$1) OR EXISTS(SELECT 1 FROM safety_bans WHERE wallet=$1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>transaction_timestamp()) AND (scope='global' OR (scope='pool' AND resource=$2))) OR EXISTS(SELECT 1 FROM safety_visibility WHERE target_type IN ('pool','token') AND target_id=$2 AND status='removed') FROM interaction_graph_revisions g WHERE g.wallet=$1`, wallet, pool).Scan(&revision, &observed, &denied)
+	e = tx.QueryRow(ctx, `SELECT g.revision,transaction_timestamp(),EXISTS(SELECT 1 FROM interaction_erased_wallets WHERE wallet=$1) OR EXISTS(SELECT 1 FROM safety_bans WHERE wallet=$1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>transaction_timestamp()) AND (scope='global' OR (scope='pool' AND resource=$2))) OR EXISTS(SELECT 1 FROM safety_visibility v JOIN chat.social_canonical_pools() p ON p.pool=$2 WHERE ((v.target_type='pool' AND v.target_id=p.pool) OR (v.target_type='token' AND v.target_id=p.token)) AND v.status='removed') FROM interaction_graph_revisions g WHERE g.wallet=$1`, wallet, pool).Scan(&revision, &observed, &denied)
 	if e != nil {
 		return nil, e
 	}

@@ -1,0 +1,93 @@
+package account
+
+import (
+	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"testing"
+	"time"
+
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
+	"github.com/google/uuid"
+)
+
+func TestSDKUserProducer(t *testing.T) {
+	s := v2OwnerFixture(t)
+	s.Clock = time.Now
+	ctx := context.Background()
+	accountID, err := uuid.Parse(os.Getenv("SDK_ACCOUNT_ID"))
+	must(t, err)
+	sessionID, err := uuid.Parse(os.Getenv("SDK_SESSION_ID"))
+	must(t, err)
+	wallet := os.Getenv("SDK_WALLET")
+	must(t, s.Create(ctx, accountID, wallet))
+	principal := Principal{AccountID: accountID, ProofAt: time.Now()}
+	seedConnectedIdentity(t, s, principal, sessionID, wallet)
+	schema := s.DB.Config().ConnConfig.RuntimeParams["search_path"]
+	ddl, err := delivery.SchemaDDL(schema)
+	must(t, err)
+	_, err = s.DB.Exec(ctx, ddl)
+	must(t, err)
+	subjects := map[string]string{
+		"preferences.updated":      "paxeer.125.users.preferences.updated",
+		"endpoint.bound":           "paxeer.125.users.endpoint.bound",
+		"endpoint.revoked":         "paxeer.125.users.endpoint.revoked",
+		"account.export.requested": "paxeer.125.users.account.export.requested",
+	}
+	policy := delivery.Policy{Subjects: map[string]bool{}, EventTypes: map[string]bool{}}
+	for kind, subject := range subjects {
+		policy.Subjects[subject] = true
+		policy.EventTypes[kind] = true
+	}
+	publisher, err := delivery.NewStore(s.DB, schema, policy)
+	must(t, err)
+	endpointKey, fingerprintKey := make([]byte, 32), make([]byte, 32)
+	_, err = rand.Read(endpointKey)
+	must(t, err)
+	_, err = rand.Read(fingerprintKey)
+	must(t, err)
+	public, private, err := ed25519.GenerateKey(rand.Reader)
+	must(t, err)
+	deviceID := uuid.New()
+	tokenBytes := make([]byte, 32)
+	_, err = rand.Read(tokenBytes)
+	must(t, err)
+	token := hex.EncodeToString(tokenBytes)
+	proof := make([]byte, 107)
+	proof[0] = 2
+	copy(proof[1:17], accountID[:])
+	copy(proof[17:33], sessionID[:])
+	copy(proof[33:49], deviceID[:])
+	digest := sha256.Sum256([]byte(token))
+	copy(proof[49:81], digest[:])
+	_, err = rand.Read(proof[81:97])
+	must(t, err)
+	binary.BigEndian.PutUint64(proof[97:105], uint64(time.Now().Add(time.Minute).Unix()))
+	proof[105], proof[106] = 1, 1
+	body := DeviceBody{Platform: "web", Provider: "webpush", Token: token, DeviceProof: base64.RawURLEncoding.EncodeToString(append(proof, ed25519.Sign(private, proof)...))}
+	runtime := &Runtime{EndpointKey: endpointKey, EndpointFingerprintKey: fingerprintKey, DeviceVerifier: CompactDeviceProofVerifier(public), Delivery: publisher, Subjects: subjects}
+	authority := sharedauth.HTTPIdentityAuthority{Endpoint: os.Getenv("SDK_IDENTITY_ORIGIN"), ServiceToken: os.Getenv("SDK_IDENTITY_SERVICE_TOKEN")}
+	server := httptest.NewServer((HTTP{Store: s, Runtime: runtime}).ServiceHandler(authority))
+	defer server.Close()
+	stopped := make(chan struct{})
+	control := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { close(stopped); w.WriteHeader(http.StatusNoContent) }))
+	defer control.Close()
+	data, err := json.Marshal(map[string]any{"kind": "ready", "value": map[string]any{"origin": server.URL, "control": control.URL, "deviceId": deviceID.String(), "deviceBody": body}})
+	must(t, err)
+	fmt.Printf("SDK_SERVICE %s\n", data)
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Minute):
+		t.Fatal("account consumer did not finish")
+	}
+}

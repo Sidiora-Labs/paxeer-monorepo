@@ -1,4 +1,4 @@
-// Code generated; DO NOT EDIT. Schema SHA256: aa94c5fe048c58dce8fbf4f02c3d4b58f081dce719947e0cf8b26ee94026de2f
+// Code generated; DO NOT EDIT. Schema SHA256: a6558aafadee5453d25864b8e734e33f305c6ad829904d642b89329b68ce4e4b
 export type AccountDeleteBody = { "confirmAccountId": string; "expectedRevision": UInt256; "reauthProof": string };
 export type AccountDeleteData = { "job": AccountJob; "retentionSummary": Array<RetentionReason> };
 export type AccountDeleteRequest = { "confirmAccountId": string; "expectedRevision": UInt256; "reauthProof": string };
@@ -409,7 +409,7 @@ export type NotificationCategories = { "community": boolean; "mention": boolean;
 export type NotificationReadData = { "readAt": string };
 export type NotificationReadRequest = { "notificationId": string };
 export type NotificationReadResponse = { "data": NotificationReadData; "generatedAt": string; "nextCursor": string | null; "quality": "complete" | "partial" | "stale" | "quarantined"; "requestId": string; "revision": PositiveUInt256 | null; "watermark": Watermark | null };
-export type NotificationsData = { "items": Array<Notification> };
+export type NotificationsData = { "items": Array<NotificationListItem> };
 export type NotificationsEvent = { "coalesced": boolean; "eventId": string; "occurredAt": string; "payload": Notification; "revision": PositiveUInt256; "sequence": UInt63; "sourceSequenceFirst": UInt63 | null; "sourceSequenceLast": UInt63 | null; "topic": string; "watermark": Watermark | null };
 export type NotificationsRequest = { "cursor"?: string; "limit"?: number; "unreadOnly"?: boolean };
 export type NotificationsResponse = { "data": NotificationsData; "generatedAt": string; "nextCursor": string | null; "quality": "complete" | "partial" | "stale" | "quarantined"; "requestId": string; "revision": PositiveUInt256 | null; "watermark": Watermark | null };
@@ -694,6 +694,7 @@ export type ChainRevenueClaim = { "epoch": string; "holder": string; "amount": s
 export type ChainsResponse = { "requestId": string; "data": { "items": Array<Chain> }; "quality": "complete"; "nextCursor": string | null };
 export type ChainDetailResponse = { "requestId": string; "data": { "chain": Chain }; "quality": "complete"; "nextCursor": string | null };
 export type ChainRevenueResponse = { "requestId": string; "data": { "chain": string; "epochs": Array<ChainRevenueEpoch>; "holder"?: string; "claims"?: Array<ChainRevenueClaim> }; "quality": "complete"; "nextCursor": string | null };
+export type NotificationListItem = { "createdAt": string; "deliveryState": "pending" | "sent" | "failed"; "entityId": string; "kind": "trade_fill" | "price_alert" | "mention" | "reward" | "moderation"; "notificationId": string; "readAt": string | null; "wallet": string; "summary": string; "read": boolean };
 export type ResponseEnvelopeData = AccountDeleteData | AccountDeleteStatusData | AccountExportData | AccountExportStatusData | AlertCreateData | AssetGetData | AutomationActionData | AutomationCreateData | AutomationPublicDisclosureData | AutomationStatusData | BountiesStatsData | BountyAcceptData | BountyCreateData | BountyGetData | BountyListData | BountySubmissionsData | BountySubmitData | CalloutCreateData | CalloutListData | CandlesData | ChallengeData | CommentsListData | CommentCreateData | CommentEditData | CommentLikeData | CupCurrentData | CupGetData | CupResultsData | CupStandingsData | DeploymentData | DepositIntentData | DeviceRegisterData | DmCreateData | DmListData | FollowData | FollowersData | FollowStatsData | FundingRailsData | FundingStatusData | HoldersData | HolderRewardsPoolsData | HolderRewardsStatsData | LeaderboardsData | LiveWebhookData | LoginData | MessagesListData | MessageSendData | MetadataGetData | MetadataPatchData | ModerateData | NarrativesData | NarrativeFeedData | NotificationsData | NotificationReadData | OperatorDlqData | OperatorHealthData | OperatorJobStatusData | OperatorMetricsData | OperatorRedriveData | OperatorReplayData | OrderCancelData | OrderCreateData | OrderListData | PlatformData | PnlHistoryData | PoolDetailData | PoolListData | PortfolioData | PreferencesReadData | PreferencesUpdateData | ProfilesBatchData | ProfileGetData | ProfilePatchData | QuoteData | RankingsData | RefreshData | ReportCreateData | ReportListData | RewardsData | RewardClaimData | SearchData | SessionsData | SquadCreateData | SquadMembershipData | SquadReadData | StatsData | StatsBatchData | StreamCreateData | StreamEndData | StreamHeartbeatData | StreamIngestCredentialData | StreamListData | StreamOperationGetData | StreamStartData | StreamTicketIssueData | TopicSnapshotReadData | TradesData | TxStatusData | UploadCompleteData | UploadCreateData | VoiceCreateData | VoiceEndData | VoiceJoinTicketData | VoiceLeaveData | VoiceModerateData | VoiceReadData | WalletLinkChallengeData | WalletLinkVerifyData | WatchlistGetData | WatchlistPutData | WithdrawPrepareData | WithdrawStatusData;
 export type TopicSnapshotEntryPayload = Bounty | Candle | Price | Trade | Message | Notification | Order | PortfolioUpdate | RankingSnapshot | Reward | PoolStats | Stream;
 export interface ContractTypes {
@@ -1110,6 +1111,7 @@ export interface ContractTypes {
 "NarrativesResponse": NarrativesResponse;
 "Notification": Notification;
 "NotificationCategories": NotificationCategories;
+"NotificationListItem": NotificationListItem;
 "NotificationReadData": NotificationReadData;
 "NotificationReadRequest": NotificationReadRequest;
 "NotificationReadResponse": NotificationReadResponse;

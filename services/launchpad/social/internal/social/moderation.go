@@ -34,6 +34,9 @@ func moderation(r *http.Request) *safety.Store {
 	return s
 }
 func moderationError(w http.ResponseWriter, e error) {
+	if safety.HTTPStatus(e) == http.StatusServiceUnavailable {
+		slog.Error("social moderation request failed", "error", e)
+	}
 	sharedhttp.WriteError(w, safety.HTTPStatus(e), "Moderation rejected", e.Error())
 }
 func decodeModeration(w http.ResponseWriter, r *http.Request, v any) bool {

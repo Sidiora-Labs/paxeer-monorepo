@@ -1,0 +1,29 @@
+{
+  "apiMajor": 2,
+  "generatorSha256": "5a4d9d87fd42353e46d528ced46b3599f52ae5fbda774056b11d0577d5ac992c",
+  "inputs": {
+    "sdk/launchpad/packages/sdk-v2/release-manifest.json": "3f738a5a224742901f16fa4a6eb2a238920d90f6d241aa6bc435d55cfe61ee26",
+    "sdk/launchpad/packages/sdk-v2/src/schemas.gen.json": "b4a27915f9025e6d2a282a10eb119a8897a5fe7d0362852a304d795479ff7eae",
+    "sdk/launchpad/packages/sdk-v2/src/types.gen.ts": "9167c498622a33cac8fc0f88928e928d8b01b8e6226a3e483748f149f703c15d",
+    "sdk/launchpad/packages/sdk/release-manifest.json": "39628adb63bbdfbd3e20070392727b1245378f81d50701bd3f251bae9835f1cf",
+    "sdk/launchpad/packages/sdk/scripts/examples.py": "247a634b1c11419dc55325bd7092078134f8f053821aba2624104e44af71f4b6",
+    "sdk/launchpad/packages/sdk/scripts/generate.py": "5a4d9d87fd42353e46d528ced46b3599f52ae5fbda774056b11d0577d5ac992c",
+    "sdk/launchpad/packages/sdk/scripts/operation-catalog.json": "054c825a1f2246f503510bdd1221698d83ba431b13cfec73df1b190360fffe19",
+    "sdk/launchpad/packages/sdk/src/schemas.gen.json": "a2379b5862a29881c7fd9e764cd7c64ef3b92dc033986300fcca92606e8ff847",
+    "sdk/launchpad/packages/sdk/src/types.gen.ts": "bca299c66720baaeb8bd091a5abe8ea023050c826af335d0a399e88492f4f50a",
+    "services/launchpad/api/internal/rest/testdata/contracts/v2/openapi.json": "4ae88ae37c329814a1577199ac4205ffaaa9f3e821492b727205704f68b5aa17",
+    "tools/launchpad/production/interfaces/codegen.py": "61d7122716d50b1fa318aa2668c248b68e3c474d4e291f4f580c097562803009",
+    "tools/launchpad/production/interfaces/validator.go.txt": "ce8d79fe8b44163d19f5f9725397e93bccae21ec24eb34aefa25798216317ee0"
+  },
+  "outputs": {
+    "examples/pagination.mjs": "1337efb63a0bca9106c17f8ec1d5d603241653e012a41dca9238d0996712ca9b",
+    "examples/snapshot-resume.mjs": "fa170082780b19a7bf906ab921fa32bc763895330f5fb13b083adbd65f9facda",
+    "releases/0.1.0/types-v2.gen.ts": "ed911a0a52bc2bff9bc6d7a4c55423da3eb1ea5b336bd4b710fbb3e6ba60a7b2",
+    "src/operations.gen.ts": "9279c6ea49512bb8700ba50cc0b26f0d39093e544a87f0b1c57458f00f382550",
+    "src/schemas-v2.gen.json": "a6558aafadee5453d25864b8e734e33f305c6ad829904d642b89329b68ce4e4b",
+    "src/types-v2.gen.ts": "d241d898c707db682bee5c17f0c7f525b6e4c2e94fba339adde142a85d8c33ae"
+  },
+  "packageVersion": "0.1.2",
+  "streamMajor": 2,
+  "streamSubprotocol": "sidiora.v2"
+}

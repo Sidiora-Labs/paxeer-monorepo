@@ -8,17 +8,11 @@ function routeStatusCoversEveryOperation() {
   assert.deepEqual(Object.keys(ROUTE_STATUS).sort(), operationNames);
 
   const unrouted = new Set([
-    'IF_ACCOUNT_DELETE',
-    'IF_ACCOUNT_DELETE_STATUS',
-    'IF_ACCOUNT_EXPORT',
-    'IF_ACCOUNT_EXPORT_STATUS',
     'IF_AUTOMATION_ACTION',
     'IF_AUTOMATION_CREATE',
     'IF_AUTOMATION_PUBLIC_DISCLOSURE',
     'IF_AUTOMATION_STATUS',
     'IF_DEPOSIT_INTENT',
-    'IF_DEVICE_REGISTER',
-    'IF_DEVICE_REVOKE',
     'IF_DM_CREATE',
     'IF_DM_LIST',
     'IF_FUNDING_STATUS',
@@ -32,28 +26,17 @@ function routeStatusCoversEveryOperation() {
     'IF_OPERATOR_REPLAY',
     'IF_QUOTE',
     'IF_REPORT_LIST',
-    'IF_SQUAD_CREATE',
-    'IF_SQUAD_MEMBERSHIP',
-    'IF_SQUAD_READ',
-    'IF_VOICE_END',
-    'IF_VOICE_LEAVE',
-    'IF_VOICE_READ',
     'IF_WITHDRAW_PREPARE',
     'IF_WITHDRAW_STATUS',
   ]);
   const development = new Set([
-    'IF_ALERT_CREATE',
-    'IF_ALERT_DELETE',
     'IF_CUP_CURRENT',
     'IF_CUP_GET',
     'IF_CUP_RESULTS',
     'IF_CUP_STANDINGS',
-    'IF_EVENTS_SSE',
     'IF_FUNDING_RAILS',
     'IF_NARRATIVES',
     'IF_NARRATIVE_FEED',
-    'IF_NOTIFICATIONS',
-    'IF_NOTIFICATION_READ',
     'IF_ORDER_CANCEL',
     'IF_ORDER_CREATE',
     'IF_ORDER_LIST',
@@ -66,7 +49,7 @@ function routeStatusCoversEveryOperation() {
     assert.equal(routeStatus(name), expected, name);
     counts[ROUTE_STATUS[name]] += 1;
   }
-  assert.deepEqual(counts, { served: 157, development: 15, unrouted: 32 });
+  assert.deepEqual(counts, { served: 174, development: 10, unrouted: 20 });
 }
 
 test(routeStatusCoversEveryOperation);
