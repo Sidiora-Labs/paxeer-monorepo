@@ -88,9 +88,9 @@
     background: var(--sl-canvas);
     color: var(--sl-text);
     font-family: var(--sl-font-sans);
-    font-size: var(--sl-text-base);
+    font-size: var(--sl-text-md);
     font-weight: var(--sl-weight-semibold);
-    line-height: var(--sl-leading-base);
+    line-height: var(--sl-leading-md);
     font-size-adjust: var(--sl-font-size-adjust);
     overflow-wrap: anywhere;
   }
@@ -126,17 +126,18 @@
 }
 .prose-legal h1 {
   font-weight: var(--sl-weight-bold);
-  font-size: var(--sl-text-page-title);
+  font-size: 22px;
+  line-height: 33px;
   color: var(--sl-text);
   margin-bottom: var(--sl-space-1);
 }
 .prose-legal p.updated {
-  font-size: var(--sl-text-xs);
+  font-size: var(--sl-text-2xs);
   color: var(--sl-text-faint);
   margin-bottom: calc(var(--sl-space) * 5);
 }
 .prose-legal > p {
-  font-size: var(--sl-text-base);
+  font-size: var(--sl-text-sm);
   line-height: var(--sl-leading-prose);
   margin-bottom: var(--sl-space-3);
 }
@@ -159,7 +160,6 @@
 @layer components {
   .foundation-shell {
     --sl-header-height: var(--sl-header-layout-height);
-    --sl-ticker-height: var(--sl-shell-control-size);
     --sl-rail-width: var(--sl-rail-layout-width);
     --sl-rail-expanded-width: var(--sl-rail-layout-expanded-width);
     --sl-bottom-nav-height: var(--sl-bottom-nav-layout-height);
@@ -169,10 +169,6 @@
   .foundation-shell section[aria-label='Market ticker'],
   .foundation-shell > nav[aria-label='Mobile navigation'] {
     --sl-space: var(--sl-shell-layout-space);
-    --sl-touch-target-min: var(--sl-shell-control-size);
-    --sl-control-height-sm: var(--sl-shell-control-size);
-    --sl-control-height-md: var(--sl-shell-control-size);
-    --sl-control-height-lg: var(--sl-shell-control-size);
   }
   .sl-field {
     border: var(--sl-edge-width) solid var(--sl-control-edge);

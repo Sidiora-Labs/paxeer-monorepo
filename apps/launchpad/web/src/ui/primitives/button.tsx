@@ -9,9 +9,9 @@ export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dang
 export type ControlSize = 'sm' | 'md' | 'lg';
 
 const sizeClass: Record<ControlSize, string> = {
-  sm: 'min-h-control-height-sm px-3 py-2 text-sm gap-1.5',
-  md: 'min-h-control-height-md px-4 py-2 text-base gap-2',
-  lg: 'min-h-control-height-lg px-5 py-2 text-base gap-2',
+  sm: 'min-h-control-height-sm px-3 py-1 text-sm gap-1.5',
+  md: 'min-h-control-height-md px-4 py-1 text-base gap-2',
+  lg: 'min-h-control-height-lg px-5 py-1 text-base gap-2',
 };
 
 const variantClass: Record<ButtonVariant, string> = {
@@ -48,7 +48,7 @@ export function buttonClass(opts: {
 }) {
   const { variant = 'secondary', size = 'md', fullWidth, pill, className } = opts;
   return cn(
-    'relative inline-flex min-w-touch-target-min max-w-full flex-wrap select-none items-center justify-center text-center font-bold transition-[background-color] duration-fast',
+    'relative inline-flex max-w-full flex-wrap select-none items-center justify-center text-center font-bold transition-[background-color] duration-fast',
     'focus-visible:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
     'disabled:cursor-not-allowed aria-disabled:cursor-not-allowed aria-busy:cursor-progress',
     pill ? 'rounded-pill' : 'rounded-sm',
@@ -74,16 +74,17 @@ export function Button({
   ...rest
 }: ButtonProps) {
   const classes = buttonClass({ variant, size, fullWidth, pill, className });
-  const leading = loading && icon ? (
-    <LoaderCircle aria-hidden="true" className="size-icon-md animate-spin" />
-  ) : icon ? (
-    <span
-      aria-hidden="true"
-      className="inline-flex size-icon-md shrink-0 items-center justify-center [&>svg]:size-full"
-    >
-      {icon}
-    </span>
-  ) : null;
+  const leading =
+    loading && icon ? (
+      <LoaderCircle aria-hidden="true" className="size-icon-md animate-spin" />
+    ) : icon ? (
+      <span
+        aria-hidden="true"
+        className="inline-flex size-icon-md shrink-0 items-center justify-center [&>svg]:size-full"
+      >
+        {icon}
+      </span>
+    ) : null;
 
   if (href && !disabled && !loading) {
     return (
@@ -103,7 +104,9 @@ export function Button({
       {...rest}
     >
       {leading}
-      {loading && !icon ? <LoaderCircle aria-hidden="true" className="absolute size-icon-md animate-spin" /> : null}
+      {loading && !icon ? (
+        <LoaderCircle aria-hidden="true" className="absolute size-icon-md animate-spin" />
+      ) : null}
       <span className={cn('min-w-0 max-w-full', loading && !icon && 'opacity-0')}>{children}</span>
     </button>
   );
@@ -122,16 +125,18 @@ export interface IconButtonProps
 }
 
 const iconSizeClass: Record<ControlSize, string> = {
-  sm: 'size-control-height-sm min-w-touch-target-min [&_svg]:size-icon-sm',
-  md: 'size-control-height-md min-w-touch-target-min [&_svg]:size-icon-md',
-  lg: 'size-control-height-lg min-w-touch-target-min [&_svg]:size-icon-lg',
+  sm: 'size-control-height-sm [&_svg]:size-icon-sm',
+  md: 'size-control-height-md [&_svg]:size-icon-md',
+  lg: 'size-control-height-lg [&_svg]:size-icon-lg',
 };
 
 const iconVariantClass: Record<IconButtonVariant, string> = {
   ghost:
     'border border-transparent bg-transparent text-text-muted hover:border-control-edge hover:bg-surface-hover hover:text-text active:bg-surface-active rounded-sm',
-  raised: 'border border-control-edge bg-surface-2 text-text hover:bg-surface-hover active:bg-surface-active rounded-sm',
-  round: 'border border-control-edge bg-surface-2 text-text hover:bg-surface-hover active:bg-surface-active rounded-pill',
+  raised:
+    'border border-control-edge bg-surface-2 text-text hover:bg-surface-hover active:bg-surface-active rounded-sm',
+  round:
+    'border border-control-edge bg-surface-2 text-text hover:bg-surface-hover active:bg-surface-active rounded-pill',
   'on-media': 'bg-media-overlay text-on-media hover:bg-scrim active:bg-scrim rounded-sm',
 };
 
