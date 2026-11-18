@@ -87,7 +87,7 @@ defmodule Explorer.SmartContract.SolcDownloader do
   end
 
   defp file_path(version) do
-    Path.join(compiler_dir(), "#{version}.js")
+    CompilerDownload.file_path(compiler_dir(), "#{version}.js")
   end
 
   defp compiler_dir do
