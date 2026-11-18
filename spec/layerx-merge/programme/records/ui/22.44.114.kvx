@@ -1,0 +1,51 @@
+[select_pill]
+content_alignment = "The native select centers its content when base-select is supported."
+touch_height = "The select keeps its minimum block size of 44 pixels through width 834."
+desktop_height = "The small pill keeps its block size of 28 pixels above width 834."
+typography = "Text size, line height, padding and spacing retain their existing values."
+interaction = "The native menu, keyboard handling, accessible name, states and text retain their existing behavior."
+
+[sort_measurements]
+view = "Holder rewards"
+label = "Sort by:"
+value = "Holder rewards"
+scheme = "dark"
+viewport_height = 844
+units = "CSS pixels at device scale 1"
+ink_origin = "The top of each browser clip is zero; each middle is halfway between the outer edges of the first and last text-ink pixel rows."
+
+[sort.390]
+width = 390
+pill_block_size = 46
+select_block_size = 44
+label_ink_middle = 25.5
+value_ink_middle = 25
+ink_middle_difference = 0.5
+
+[sort.834]
+width = 834
+pill_block_size = 46
+select_block_size = 44
+label_ink_middle = 25.5
+value_ink_middle = 25
+ink_middle_difference = 0.5
+
+[sort.1440]
+width = 1440
+pill_block_size = 28
+select_block_size = 24
+label_ink_middle = 16.5
+value_ink_middle = 16
+ink_middle_difference = 0.5
+
+[shared_views]
+home = "At width 834 the callouts feed replaces the board. At width 1024 the compact trending select and the leaderboard window select center their values in 28-pixel pills with 24-pixel selects. At width 1440 trending uses segmented timeframes and the leaderboard select retains those dimensions."
+profile = "The activity filter centers its value in a 46-pixel pill with a 44-pixel select at width 834 and in a 38-pixel pill with a 36-pixel select at widths 1024 and 1440. At width 1440 the metric and window selects occupy 28-pixel pills with 24-pixel selects."
+composer = "The disclosure label and value share a line in a 46-pixel pill with a 44-pixel select at width 834 and in a 28-pixel pill with a 24-pixel select at width 1440."
+
+[rewards_part]
+views = 15
+views_and_states = 18
+renders = 612
+findings = 0
+result = "pass"
