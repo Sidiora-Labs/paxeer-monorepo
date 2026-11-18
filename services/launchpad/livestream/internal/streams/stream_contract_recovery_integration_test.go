@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/config"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/livepeer"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/testpki"
@@ -716,7 +717,60 @@ func TestStreamContractIntegrationNormalizedStudioWebhookRecovery(t *testing.T) 
 	var response v2.LiveWebhookResponse
 	consumer.decode("LiveWebhookResponse", f.exchange("POST", path, wire.Body, headers, http.StatusOK), &response)
 	current, err = f.store.Get(context.Background(), o.ID)
-	if err != nil || current.State != "ENDED" || current.Revision != o.Revision+2 {
+	if err != nil || current.State != "READY" || current.Revision != o.Revision+2 {
 		t.Fatalf("normalized idle event not applied: %+v %v", current, err)
+	}
+	var terminal bool
+	if err = f.database.QueryRow(context.Background(), "SELECT terminal_at IS NOT NULL FROM livestream.stream_operations WHERE id=$1", o.ID).Scan(&terminal); err != nil || terminal {
+		t.Fatalf("idle stream became terminal: %t %v", terminal, err)
+	}
+	f.close()
+	f.open()
+	f.exchange("POST", path, wire.Body, headers, http.StatusOK)
+	current, err = f.store.Get(context.Background(), o.ID)
+	if err != nil || current.State != "READY" || current.Revision != o.Revision+2 {
+		t.Fatalf("idle redelivery after restart: %+v %v", current, err)
+	}
+	raw, signature = studio("studio_reconnected_event", "stream.started", now.Add(time.Millisecond), now.Add(time.Millisecond))
+	f.exchange("POST", "/webhooks/livepeer", raw, map[string]string{"Content-Type": "application/json", "Livepeer-Signature": signature}, http.StatusOK)
+	current, err = f.store.Get(context.Background(), o.ID)
+	if err != nil || current.State != "LIVE" || current.ProviderID != o.ProviderID || current.Revision != o.Revision+3 {
+		t.Fatalf("reconnect did not reuse the provider stream: %+v %v", current, err)
+	}
+	current, err = f.store.Transition(context.Background(), current.ID, current.Wallet, endAction, current.Revision, ActionDecision{OperationID: current.ID, Wallet: current.Wallet, Action: endAction, Revision: current.Revision, Allowed: true, ExpiresAt: time.Now().Add(time.Minute)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, signature = studio("studio_ending_idle_event", "stream.idle", now.Add(2*time.Millisecond), now.Add(2*time.Millisecond))
+	f.exchange("POST", "/webhooks/livepeer", raw, map[string]string{"Content-Type": "application/json", "Livepeer-Signature": signature}, http.StatusOK)
+	ending, err := f.store.Get(context.Background(), o.ID)
+	if err != nil || ending.State != "ENDING" || ending.Revision != current.Revision {
+		t.Fatalf("idle callback certified termination: %+v %v", ending, err)
+	}
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer reconnect-provider" {
+			t.Error("provider authentication missing")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		switch {
+		case r.Method == http.MethodDelete && r.URL.Path == "/stream/"+o.ProviderID+"/terminate":
+			w.WriteHeader(http.StatusNoContent)
+		case r.Method == http.MethodGet && r.URL.Path == "/stream/"+o.ProviderID:
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(livepeer.Stream{ID: o.ProviderID, PlaybackID: "reconnected_playback", IsActive: false})
+		default:
+			t.Errorf("unexpected provider request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer provider.Close()
+	worker := ReconcileWorker{Store: f.store, Provider: livepeer.New("reconnect-provider", provider.URL, nil), Restrictions: &RestrictionReader{Pool: f.database}}
+	if err = worker.Step(context.Background(), o.ID); err != nil {
+		t.Fatal(err)
+	}
+	current, err = f.store.Get(context.Background(), o.ID)
+	if err != nil || current.State != "ENDED" || current.Revision != ending.Revision+1 {
+		t.Fatalf("reconciled termination: %+v %v", current, err)
 	}
 }
