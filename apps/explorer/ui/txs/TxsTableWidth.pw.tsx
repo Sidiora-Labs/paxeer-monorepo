@@ -1,4 +1,4 @@
-import type { TestInfo } from '@playwright/test';
+import type { Locator, TestInfo } from '@playwright/test';
 import React from 'react';
 
 import * as txMock from 'mocks/txs/tx';
@@ -12,6 +12,32 @@ const ordinary = { ...txMock.base, from: { ...txMock.base.from, ens_domain_name:
 const failed = { ...txMock.withDecodedRevertReason, hash: txMock.base2.hash };
 const pending = { ...txMock.pending, hash: txMock.base3.hash };
 const noop = () => undefined;
+
+async function expectColumnsToFillTable(table: Locator) {
+  const geometry = await table.evaluate((element) => ({
+    viewport: window.innerWidth,
+    width: element.getBoundingClientRect().width,
+    layout: getComputedStyle(element).tableLayout,
+    rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
+    columns: Array.from(element.querySelectorAll('thead th')).map((header) => {
+      const { left, right, width } = header.getBoundingClientRect();
+      return { left, right, width, fits: header.scrollWidth <= header.clientWidth };
+    }),
+  }));
+
+  expect(geometry.layout).toBe('fixed');
+  expect(Math.abs(geometry.columns.reduce((sum, column) => sum + column.width, 0) - geometry.width)).toBeLessThanOrEqual(1);
+  expect(geometry.columns[5].width).toBeGreaterThanOrEqual(19.5 * geometry.rem);
+  expect(geometry.columns[5].width).toBe(geometry.width - 904);
+  expect(geometry.columns.map((column) => column.width)).toEqual([ 48, 160, 224, 112, 128, geometry.width - 904, 112, 120 ]);
+  for (const [ index, column ] of geometry.columns.entries()) {
+    expect(column.fits).toBe(true);
+    if (index > 0) {
+      expect(geometry.columns[index - 1].right).toBeLessThanOrEqual(column.left);
+    }
+  }
+  await test.info().attach('column widths', { body: JSON.stringify(geometry), contentType: 'application/json' });
+}
 
 async function transactionCounterpartiesFit({ render, page }: TestFnArgs, testInfo: TestInfo) {
   const component = await render(
@@ -60,6 +86,7 @@ async function transactionCounterpartiesFit({ render, page }: TestFnArgs, testIn
   expect(await table.locator('thead th').nth(2).evaluate((element) => element.getBoundingClientRect().width)).toBe(224);
   expect(await table.locator('thead th').nth(5).evaluate((element) => element.getBoundingClientRect().width))
     .toBe(await table.evaluate((element) => element.getBoundingClientRect().width) - 904);
+  await expectColumnsToFillTable(table);
 
   for (const index of [ 6, 7 ]) {
     expect(await rows.nth(1).locator('td').nth(index).evaluate((element) => {
@@ -73,9 +100,66 @@ async function transactionCounterpartiesFit({ render, page }: TestFnArgs, testIn
   await testInfo.attach('transactions', { body: await page.screenshot(), contentType: 'image/png' });
 }
 
+async function priceUpdateColumnsFit({ render, page }: TestFnArgs, testInfo: TestInfo) {
+  const component = await render(
+    <MainColumn>
+      <TxsTable
+        txs={ [
+          txMock.priceUpdate,
+          { ...txMock.priceUpdate, hash: txMock.base2.hash, price_update: { ...txMock.priceUpdate.price_update, observation_count: 999 } },
+        ] }
+        sort="default"
+        onSortToggle={ noop }
+        top={ 0 }
+        showBlockInfo
+        stickyHeader={ false }
+      />
+    </MainColumn>,
+  );
+  await page.evaluate(() => document.fonts.ready);
+
+  const table = component.locator('table');
+  const region = component.getByRole('region', { name: 'Transactions' });
+
+  await expectColumnsToFillTable(table);
+  expect(await region.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await expect(table.getByRole('link', { name: 'Price feed', exact: true })).toHaveCount(2);
+  for (const content of await table.locator('[data-entity-content]').all()) {
+    expect(await content.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await testInfo.attach('price updates', { body: await page.screenshot(), contentType: 'image/png' });
+}
+
+async function transactionTableScrollsInRegion({ render, page }: TestFnArgs, testInfo: TestInfo) {
+  for (const txs of [ [ ordinary, failed, pending ], [ txMock.priceUpdate ] ]) {
+    const component = await render(
+      <MainColumn>
+        <TxsTable txs={ txs } sort="default" onSortToggle={ noop } top={ 0 } showBlockInfo stickyHeader={ false }/>
+      </MainColumn>,
+    );
+    await page.evaluate(() => document.fonts.ready);
+
+    const table = component.locator('table');
+    const region = component.getByRole('region', { name: 'Transactions' });
+
+    await expectColumnsToFillTable(table);
+    expect(await region.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await testInfo.attach('transactions at 1024px', { body: await page.screenshot(), contentType: 'image/png' });
+    await component.unmount();
+  }
+}
+
+test.describe('viewport 1024px', () => {
+  test.use({ viewport: { width: 1024, height: 900 } });
+  test('keeps horizontal scrolling inside the transaction region', transactionTableScrollsInRegion);
+});
+
 for (const width of [ 1280, 1440 ]) {
   test.describe(`viewport ${ width }px`, () => {
     test.use({ viewport: { width, height: 900 } });
     test('shows shortened counterparties and the price feed without horizontal scrolling', transactionCounterpartiesFit);
+    test('fills the table with price update columns without overlap', priceUpdateColumnsFit);
   });
 }

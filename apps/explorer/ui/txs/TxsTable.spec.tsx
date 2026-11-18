@@ -3,7 +3,9 @@
 import React from 'react';
 
 import config from 'configs/app';
+import { MultichainContext } from 'lib/contexts/multichain';
 import { SettingsContextProvider } from 'lib/contexts/settings';
+import { chainA } from 'mocks/multichain/chains';
 import * as txMock from 'mocks/txs/tx';
 import { TableBody, TableCell, TableRoot, TableRow } from 'toolkit/chakra/table';
 import { render } from 'ui/shared/layout/testWrapper';
@@ -30,6 +32,30 @@ const renderTable = () => render(
     stickyHeader={ false }
   />,
 );
+
+function tableStyleValues(table: HTMLTableElement, property = 'min-width') {
+  const values: Array<{ media: string; value: string }> = [];
+
+  function readRules(rules: CSSRuleList, media = '') {
+    for (const rule of Array.from(rules)) {
+      if (rule instanceof CSSStyleRule) {
+        const value = rule.style.getPropertyValue(property);
+        if (value && table.matches(rule.selectorText)) {
+          values.push({ media, value });
+        }
+      }
+      if ('cssRules' in rule) {
+        readRules((rule as CSSGroupingRule).cssRules, rule instanceof CSSMediaRule ? rule.conditionText : media);
+      }
+    }
+  }
+
+  for (const sheet of Array.from(document.styleSheets)) {
+    readRules(sheet.cssRules);
+  }
+
+  return values;
+}
 
 describe('TxsTable', () => {
   beforeEach(() => {
@@ -98,7 +124,8 @@ describe('TxsTable', () => {
     const { container } = renderTable();
     const headers = Array.from(container.querySelectorAll('thead th'));
 
-    expect(getComputedStyle(headers[5]).width).toBe('calc(100% - 56.5rem)');
+    expect(getComputedStyle(headers[5]).width).toBe('');
+    expect(getComputedStyle(container.querySelector('table')!).minWidth).toBe('76rem');
     expect([ 0, 1, 3, 4, 6, 7 ].map((index) => getComputedStyle(headers[index]).width))
       .toEqual([
         'var(--chakra-spacing-12)', 'var(--chakra-spacing-40)', 'var(--chakra-spacing-28)', 'var(--chakra-spacing-32)',
@@ -123,29 +150,58 @@ describe('TxsTable', () => {
       hiddenFields.value = !value;
       hiddenFields.tx_fee = !fee;
 
-      for (const sortable of [ false, true ]) {
-        const { container, unmount } = render(
-          <TxsTable txs={ txs } sort="default" onSortToggle={ sortable ? noop : undefined } top={ 0 } showBlockInfo={ block } stickyHeader={ false }/>,
-        );
-        const headers = Array.from(container.querySelectorAll('thead th'));
-        const counterparty = headers.find((header) => header.textContent === 'From / To')!;
+      for (const chain of [ undefined, chainA ]) {
+        for (const sortable of [ false, true ]) {
+          const { container, unmount } = render(
+            <MultichainContext.Provider value={ chain ? { chain } : null }>
+              <TxsTable txs={ txs } sort="default" onSortToggle={ sortable ? noop : undefined } top={ 0 } showBlockInfo={ block } stickyHeader={ false }/>
+            </MultichainContext.Provider>,
+          );
+          const headers = Array.from(container.querySelectorAll('thead th'));
+          const counterparty = headers.find((header) => header.textContent === 'From / To')!;
+          const table = container.querySelector('table')!;
+          const chainColumns = Number(Boolean(chain));
+          const minWidth = `${ fixed + chainColumns * 2 + 19.5 }rem`;
 
-        expect(getComputedStyle(counterparty).width).toBe(`calc(100% - ${ fixed }rem)`);
-        expect(getComputedStyle(headers[1]).width).toBe('var(--chakra-spacing-40)');
-        expect(getComputedStyle(headers[2]).width).toBe('14rem');
-        expect(headers.map((header) => getComputedStyle(header).width)).toEqual([
-          'var(--chakra-spacing-12)', 'var(--chakra-spacing-40)', '14rem',
-          ...(block ? [ 'var(--chakra-spacing-28)' ] : []),
-          'var(--chakra-spacing-32)', `calc(100% - ${ fixed }rem)`,
-          ...(value ? [ 'var(--chakra-spacing-28)' ] : []),
-          ...(fee ? [ '7.5rem' ] : []),
-        ]);
-        expect(headers).toHaveLength(5 + Number(block) + Number(value) + Number(fee));
-        unmount();
+          expect(getComputedStyle(counterparty).width).toBe('');
+          expect(getComputedStyle(table).minWidth).toBe(minWidth);
+          expect(tableStyleValues(table)).toEqual([
+            { media: '', value: minWidth },
+            { media: 'screen and (min-width: 62.5rem)', value: minWidth },
+          ]);
+          expect(getComputedStyle(headers[1 + chainColumns]).width).toBe('var(--chakra-spacing-40)');
+          expect(getComputedStyle(headers[2 + chainColumns]).width).toBe('14rem');
+          expect(headers.map((header) => getComputedStyle(header).width)).toEqual([
+            'var(--chakra-spacing-12)',
+            ...(chain ? [ 'var(--chakra-spacing-8)' ] : []),
+            'var(--chakra-spacing-40)', '14rem',
+            ...(block ? [ 'var(--chakra-spacing-28)' ] : []),
+            'var(--chakra-spacing-32)', '',
+            ...(value ? [ 'var(--chakra-spacing-28)' ] : []),
+            ...(fee ? [ '7.5rem' ] : []),
+          ]);
+          expect(headers).toHaveLength(5 + chainColumns + Number(block) + Number(value) + Number(fee));
+          unmount();
+        }
       }
     } finally {
       Object.assign(hiddenFields, previous);
     }
+  });
+
+  it('keeps the table fixed and full width for price updates only', function priceUpdateTableLayout() {
+    const { container } = render(
+      <TxsTable txs={ [ txMock.priceUpdate ] } sort="default" top={ 0 } showBlockInfo stickyHeader={ false }/>,
+    );
+    const table = container.querySelector('table')!;
+    const headers = table.querySelectorAll('thead th');
+
+    expect(tableStyleValues(table, 'table-layout')).toEqual([ { media: '', value: 'fixed' } ]);
+    expect(tableStyleValues(table, 'width')).toEqual([ { media: '', value: 'var(--chakra-sizes-full)' } ]);
+    expect(getComputedStyle(table).minWidth).toBe('76rem');
+    expect(getComputedStyle(headers[5]).width).toBe('');
+    expect(getComputedStyle(headers[0]).position).toBe('sticky');
+    expect(getComputedStyle(headers[0]).left).toBe('var(--chakra-spacing-0)');
   });
 
   it('keeps both ends of each counterparty address and the price feed link', function counterpartyAddressText() {
