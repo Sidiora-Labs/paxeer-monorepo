@@ -7,12 +7,13 @@ import { mdash } from 'toolkit/utils/htmlEntities';
 
 interface Props {
   symbol: string;
+  noWrap?: boolean;
   price?: GeneralApiMiscResourcePayload<'general:stats'>['secondary_coin_price'];
   change?: GeneralApiMiscResourcePayload<'general:stats'>['secondary_coin_price_change_percentage'];
   isLoading: boolean;
 }
 
-const TopBarCoinPrice = ({ symbol, price, change, isLoading }: Props) => {
+const TopBarCoinPrice = ({ symbol, price, change, isLoading, noWrap = false }: Props) => {
   const hasPrice = price != null && price !== '' && Number.isFinite(Number(price));
   const hasChange = change != null && Number.isFinite(change);
   let changeTrend = 'flat';
@@ -24,7 +25,17 @@ const TopBarCoinPrice = ({ symbol, price, change, isLoading }: Props) => {
   }
 
   return (
-    <Flex alignItems="baseline" gap={ 1 } flexWrap="wrap" minW={ 0 } maxW="100%" role="group" aria-label={ `${ symbol } market price` }>
+    <Flex
+      alignItems="baseline"
+      gap={ 1 }
+      flexWrap={ noWrap ? 'nowrap' : 'wrap' }
+      flexShrink={ noWrap ? 0 : undefined }
+      whiteSpace={ noWrap ? 'nowrap' : undefined }
+      minW={ 0 }
+      maxW="100%"
+      role="group"
+      aria-label={ `${ symbol } market price` }
+    >
       <Skeleton loading={ isLoading } minW={ 0 } maxW="100%">
         <chakra.span color="text.secondary">{ symbol } Price: </chakra.span>
         <chakra.span data-price whiteSpace="nowrap" textStyle="number" color={ hasPrice ? 'accent' : 'text.muted' }>

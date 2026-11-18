@@ -2,6 +2,7 @@
 
 import React from 'react';
 
+import { marketStyleRules } from 'ui/home/marketData.test-utils';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen } from 'vitest/lib';
@@ -18,13 +19,13 @@ vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper'))
 
 import TopBar from './TopBar';
 
-describe('TopBar', () => {
+describe('top bar', () => {
   beforeEach(() => {
     routerState.pathname = '/';
     routerState.query = {};
   });
 
-  it('keeps the utilities together inside the header', () => {
+  it('keeps the utilities together inside the header', function keepsUtilitiesTogether() {
     routerState.pathname = '/blocks';
 
     const { container } = render(<TopBar/>);
@@ -32,12 +33,14 @@ describe('TopBar', () => {
     const bar = container.querySelector('[data-label="header-utilities"]');
 
     expect(bar).toBeTruthy();
+    expect(marketStyleRules(bar!)).toContain('flex-wrap:nowrap');
+    expect(marketStyleRules(bar!)).toContain('flex-shrink:0');
     expect(Array.from(bar?.querySelectorAll('[data-label]') ?? []).map((element) => element.getAttribute('data-label')))
       .toEqual([]);
     expect(bar?.querySelector('button[aria-label="User settings"]')).toBeTruthy();
   });
 
-  it('carries the settings, the theme toggle and the network controls', () => {
+  it('carries the settings, the theme toggle and the network controls', function carriesSettingsAndControls() {
     routerState.pathname = '/blocks';
 
     render(<TopBar/>);
@@ -46,7 +49,7 @@ describe('TopBar', () => {
     expect(screen.getByLabelText(/^Switch to (dark|light) theme$/)).toBeTruthy();
   });
 
-  it('keeps the same utilities available on the home page', () => {
+  it('keeps the same utilities available on the home page', function keepsHomeUtilities() {
     const { container } = render(<TopBar/>);
 
     expect(container.querySelector('[data-label="header-utilities"]')).toBeTruthy();
