@@ -8,7 +8,7 @@ import { expect, test } from 'vitest';
 
 import { ColorModeProvider } from './color-mode';
 
-test('colorModeInitializationScriptsHaveCspHashes', () => {
+test('color mode initialization scripts have csp hashes', function colorModeInitializationScriptsHaveCspHashes() {
   const sources = app()['script-src'];
   for (const defaultTheme of [ 'system', 'light', 'dark' ]) {
     const markup = renderToStaticMarkup(createElement(ColorModeProvider, { defaultTheme }));
