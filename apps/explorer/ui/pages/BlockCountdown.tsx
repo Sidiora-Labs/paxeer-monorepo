@@ -73,7 +73,7 @@ const BlockCountdown = ({ hideCapybaraRunner }: Props) => {
     <Center h="100%" alignItems={{ base: 'flex-start', lg: 'center' }}>
       <Flex flexDir="column" w="fit-content" maxW={{ base: '100%', lg: 'var(--chakra-spacing-182)', xl: 'var(--chakra-spacing-200)' }}>
         <Flex gap={ 8 } alignItems="flex-start" justifyContent="space-between" w="100%" flexWrap="wrap">
-          <Box flex="1" minW={ 0 }>
+          <Box flex="1 1 max-content" minW={ 0 } maxW="full">
             <Heading
               level="1"
             >
@@ -104,6 +104,9 @@ const BlockCountdown = ({ hideCapybaraRunner }: Props) => {
                 color="link.primary"
                 _hover={{ color: 'link.primary.hover' }}
                 bgColor="link.underlaid.bg"
+                borderWidth="var(--chakra-border-widths-1)"
+                borderStyle="solid"
+                borderColor="border.strong"
                 display="inline-flex"
                 onClick={ handleAddToAppleCalClick }
               >

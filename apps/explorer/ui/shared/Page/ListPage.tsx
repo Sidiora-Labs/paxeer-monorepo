@@ -14,8 +14,10 @@ export const LIST_TABLE_STYLES: SystemStyleObject = {
   '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'inherit', zIndex: 1 },
   '& tbody tr:last-of-type td': { borderBottomWidth: '1px' },
   '& [data-entity-kind=address], & [data-entity-kind=tx], & [data-entity-kind=block]': { fontFamily: 'mono', fontVariantNumeric: 'tabular-nums' },
-  '& button[aria-label=copy]': { opacity: { base: 1, lg: 0 } },
-  '& tr:hover button[aria-label=copy], & tr:focus-within button[aria-label=copy]': { opacity: 1 },
+  '& button[aria-label=copy]': { opacity: 1 },
+  '& button[aria-label=copy] > svg': { opacity: { base: 1, lg: 0 } },
+  '& button[aria-label=copy]:focus-visible': { opacity: 1, transitionProperty: 'none' },
+  '& tr:hover button[aria-label=copy] > svg, & tr:focus-within button[aria-label=copy] > svg': { opacity: 1 },
 };
 
 interface Props extends ScanTableCardProps {

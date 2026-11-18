@@ -25,7 +25,7 @@ const BlocksTabSlot = () => {
   const networkUtilization = getNetworkUtilizationParams(statsQuery.data?.network_utilization_percentage ?? 0);
 
   return (
-    <Flex alignItems="center" columnGap={ 8 } display={{ base: 'none', lg: 'flex' }}>
+    <Flex alignItems="center" columnGap={ 8 } flexWrap="wrap" minW={ 0 } display={{ base: 'none', lg: 'flex' }}>
       { statsQuery.data?.network_utilization_percentage !== undefined && (
         <Box>
           <Text as="span" fontSize="sm">

@@ -15838,6 +15838,12 @@ value = "Part one. A view of a surface file takes an optional list named ready. 
 basis = "Gotcha 4714. Decisions 3587, 3681 and 3708."
 affects = []
 
+[decision.3788]
+title = "A primary without a standby renews its lease after the expiry, and a fence by the lease is logged"
+value = "One. The expiry of a lease is the moment from which a standby may hold a later lease. Where a standby is configured the present rule stays in every part: a primary that passes the expiry halts and fences. Two. Where no standby is configured no later lease can exist. There a renewal that comes at or after the expiry writes the lease with the same epoch and a new expiry through the replicator and the primary goes on; the lease loop, the admission and the start of the holder follow this rule. An error of the write itself halts and fences as before. Three. Every halt with a fence by the lease writes one line at error level with the epoch, the expiry, the time and the cause, and every renewal after the expiry writes one line at warning level with the epoch and the lateness. Four. The setting of the lease duration, the form of the lease entry and the behaviour of a standby do not change. Task 22.39.922."
+basis = "Gotcha 4715."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45498,6 +45504,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.922]
+title = "Renew the lease of a sequencing primary without a standby after the expiry and log a fence by the lease"
+reqs = ["22998.1"]
+touches = ["node/sequencer"]
+tests = []
+verification_contract = "go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestLease && go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestFenced"
+do_1 = "do_1 Gotcha 4715 and decision 3788. Read node/sequencer/lease.go and node/sequencer/lease_renew.go whole, the function startLease in node/sequencer/node.go, the function admission in node/sequencer/accepter.go, the type Replicator with its methods Standalone and Release in node/sequencer/standby.go, and the cases in node/sequencer/lease_test.go, node/sequencer/lease_renew_test.go and node/sequencer/fence_test.go with the helpers they use for a primary with and without a standby."
+symbols = []
 
 [capability.22.39.921]
 title = "Give the profile, reward and swap views of the launchpad web application one heading of level one in every state"
@@ -177413,7 +177428,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.861]
 title = "Let the label of a tile take a second line instead of being cut and keep the values of a row of tiles on one line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.89"]
@@ -179429,7 +179444,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.89]
 title = "Close the statistics, gas and validator views of the explorer on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.38"]
@@ -208250,7 +208265,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.920]
 title = "Give the chain launch view of the launchpad web application the presentation of the coin creation view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.890"]
@@ -208475,7 +208490,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.913]
 title = "End the loading state of the leaderboard views of the launchpad web application on every answer of the read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.894"]
@@ -209173,7 +209188,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.890]
 title = "Close the creation flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -257600,6 +257615,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.922]
+title = "Renew the lease of a sequencing primary without a standby after the expiry and log a fence by the lease"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.922"]
+interfaces = []
+do_1 = "do_1 Gotcha 4715 and decision 3788. Read node/sequencer/lease.go and node/sequencer/lease_renew.go whole, the function startLease in node/sequencer/node.go, the function admission in node/sequencer/accepter.go, the type Replicator with its methods Standalone and Release in node/sequencer/standby.go, and the cases in node/sequencer/lease_test.go, node/sequencer/lease_renew_test.go and node/sequencer/fence_test.go with the helpers they use for a primary with and without a standby."
+do_2 = "do_2 In node/sequencer/lease_renew.go the renewal of a holder whose replicator is standalone no longer returns the fenced error for the expiry: at or after the expiry it writes the lease with the same epoch and an expiry of the given time plus the duration through the replicator, takes that expiry and returns nil. The second comparison after the write does not apply to a standalone replicator. An error of the write is returned as before. With a standby nothing changes. In node/sequencer/lease.go the start of a holder whose replicator is standalone renews once in the same way instead of returning the fenced error when its write returns after the expiry."
+do_3 = "do_3 In node/sequencer/node.go the lease loop of a standalone primary no longer compares the time with the expiry before the renewal: it calls the renewal, and only an error of the renewal halts and fences. In node/sequencer/accepter.go the admission of a standalone primary whose lease is at or past the expiry renews the lease and admits, and halts and fences only on an error of the renewal. With a standby both places stay as they are."
+do_4 = "do_4 Every place that halts and fences for the lease writes one line at error level through the logger of the application, with the epoch, the expiry, the time and the cause. A renewal after the expiry writes one line at warning level with the epoch and the lateness. Where the node type holds no logger today it takes the one of the application it is built with, and a node built without one writes nothing."
+do_5 = "do_5 Add node/sequencer/lease_standalone_test.go in the package of the present lease cases, with cases whose names begin with TestLease. Standalone renewal: a holder on a standalone replicator, renewed at a time after its expiry, returns nil, keeps its epoch, holds the new expiry, and a replay of the log gives that lease. Standby renewal: the same call on a holder whose replicator has a standby returns the fenced error and writes nothing. Standalone admission: an accepter of a standalone primary whose lease is past the expiry admits a transaction, the executor is not fenced and the lease holds a later expiry. Standby admission: with a standby the same admission returns the fenced error and the executor refuses to open. Loop: a standalone primary started with a short lease duration whose loop is kept from its ticks beyond the expiry, by a means of the test, renews on the next tick and still opens and seals a layer afterwards. Log lines: a fence by the lease gives one line at error level and a renewal after the expiry gives one line at warning level."
+do_6 = "do_6 The setting of the lease duration, the form of the lease entry in the log, the handover and the standby role do not change, and no case of the package is weakened or removed. A case that pins the present rule for a standalone primary changes with the rule. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/sequencer"]
+tests = []
+planned_paths = ["node/sequencer/lease_standalone_test.go"]
+build_cmd = "go build ./node/..."
+verify_cmd = "go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestLease && go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestFenced"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.799]
 title = "Read the leader schedule of the node from the committed state of the application"

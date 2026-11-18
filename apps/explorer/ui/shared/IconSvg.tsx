@@ -20,7 +20,7 @@ const IconSvg = React.forwardRef(
     return (
       <Skeleton loading={ isLoading } display="inline-block" flexShrink={ 0 } asChild { ...props } ref={ ref }>
         <chakra.svg w="100%" h="100%" fill="currentColor">
-          <use href={ `${ href }#${ name }` }/>
+          <use href={ `${ href }#${ name }` } style={{ color: 'inherit', fill: 'currentColor' }}/>
         </chakra.svg>
       </Skeleton>
     );

@@ -625,6 +625,8 @@ export interface FormFieldProps {
   optional?: boolean;
   helper?: ReactNode;
   error?: string | null;
+  describedBy?: string;
+  invalid?: boolean;
   multiline?: boolean;
   size?: 'md' | 'lg';
   /** Surface the field sits on; the control takes the next step. */
@@ -652,6 +654,8 @@ export function FormField({
   optional = false,
   helper,
   error = null,
+  describedBy: externalDescription,
+  invalid = false,
   multiline = false,
   size = 'md',
   surface = 'surface-1',
@@ -669,7 +673,11 @@ export function FormField({
   const errorId = `${id}-error`;
   const counterId = `${id}-counter`;
   const describedBy =
-    [error ? errorId : helper ? helperId : null, counter ? counterId : null]
+    [
+      externalDescription,
+      error ? errorId : helper ? helperId : null,
+      counter ? counterId : null,
+    ]
       .filter(Boolean)
       .join(' ') || undefined;
   const disabled = Boolean(inputProps?.disabled ?? textareaProps?.disabled);
@@ -725,7 +733,7 @@ export function FormField({
             id={id}
             name={id}
             aria-describedby={describedBy}
-            aria-invalid={error ? true : undefined}
+            aria-invalid={error || invalid ? true : undefined}
             className={control}
             {...textareaProps}
           />
@@ -734,7 +742,7 @@ export function FormField({
             id={id}
             name={id}
             aria-describedby={describedBy}
-            aria-invalid={error ? true : undefined}
+            aria-invalid={error || invalid ? true : undefined}
             className={control}
             {...inputProps}
           />
