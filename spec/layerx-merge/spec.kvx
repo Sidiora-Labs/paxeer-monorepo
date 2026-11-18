@@ -208569,7 +208569,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.926]
 title = "Give the launchpad pnl module the sum entries its shared imports need and bring its catalog transcript in line with the bootstrap registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
