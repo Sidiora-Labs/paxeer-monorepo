@@ -172,6 +172,9 @@ func (c CalloutService) Edit(ctx context.Context, actor, id, body string, expect
 }
 func (c CalloutService) Read(ctx context.Context, id string) (Callout, error) {
 	var result Callout
+	if c.Store.DB == nil {
+		return result, ErrUnavailable
+	}
 	var b []byte
 	e := c.Store.DB.QueryRowContext(ctx, `SELECT document FROM narrative_discovery.callouts WHERE id=$1`, id).Scan(&b)
 	if e == nil {

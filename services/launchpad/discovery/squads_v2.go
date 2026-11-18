@@ -23,6 +23,10 @@ func AdaptV2SquadCreate(requestID string, q Squad, at time.Time) ([]byte, error)
 }
 
 func AdaptV2SquadRead(requestID string, q Squad, members []Membership, at time.Time) ([]byte, error) {
+	return adaptV2SquadRead(requestID, q, members, "", at)
+}
+
+func adaptV2SquadRead(requestID string, q Squad, members []Membership, actor string, at time.Time) ([]byte, error) {
 	if err := q.Validate(); err != nil {
 		return nil, err
 	}
@@ -38,11 +42,39 @@ func AdaptV2SquadRead(requestID string, q Squad, members []Membership, at time.T
 	revision := v2.PositiveUInt256(strconv.FormatUint(q.Revision, 10))
 	return marshalV2SquadEnvelope("SquadReadResponse", v2.SquadReadResponse{
 		RequestId:   requestID,
-		Data:        v2.SquadReadData{Squad: squadV2(q, count), AllowedActions: []string{}},
+		Data:        v2.SquadReadData{Squad: squadV2(q, count), AllowedActions: squadAllowedActions(q, members, actor)},
 		Revision:    &revision,
 		Quality:     qualityComplete,
 		GeneratedAt: at.UTC().Format("2006-01-02T15:04:05.000Z"),
 	})
+}
+
+func squadAllowedActions(q Squad, members []Membership, actor string) []string {
+	actions := []string{}
+	if actor == "" {
+		return actions
+	}
+	var current Membership
+	for _, m := range members {
+		if m.AccountID == actor {
+			current = m
+			break
+		}
+	}
+	if current.Status == statusActive {
+		if actor == q.OwnerAccountID || current.Role == roleModerator {
+			actions = append(actions, "invite")
+			if q.Policy == actionRequest {
+				actions = append(actions, "approve")
+			}
+			if actor == q.OwnerAccountID {
+				actions = append(actions, "remove", "ban", "promote", "demote")
+			}
+		}
+	} else if (current.Status == "" || current.Status == stateRemoved) && (q.Policy == policyOpen || q.Policy == actionRequest) {
+		actions = append(actions, actionRequest)
+	}
+	return actions
 }
 
 func AdaptV2SquadMembership(requestID string, m Membership, q Squad, at time.Time) ([]byte, error) {
