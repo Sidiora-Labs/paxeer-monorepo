@@ -395466,7 +395466,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.923]
 title = "Keep the node build, code scanning and wallet test workflows from starting on a push that changes only specification records"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
