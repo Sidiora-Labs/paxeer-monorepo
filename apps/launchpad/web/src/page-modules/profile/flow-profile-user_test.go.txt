@@ -1,0 +1,81 @@
+package account
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+func TestProfileFlowAnswers(t *testing.T) {
+	store := fixture(t)
+	store.Clock = time.Now
+	handler := (HTTP{Store: store, Runtime: &Runtime{ExtendedV3: true}}).Handler()
+	output := os.Getenv("PROFILE_FLOW_OUTPUT")
+	var lock sync.Mutex
+	var requests []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		lock.Lock()
+		requests = append(requests, request.Method+" "+request.URL.RequestURI())
+		raw, e := json.Marshal(requests)
+		if e == nil {
+			e = os.WriteFile(filepath.Join(output, "user-requests.pending"), raw, 0600)
+		}
+		if e == nil {
+			e = os.Rename(filepath.Join(output, "user-requests.pending"), filepath.Join(output, "user-requests.json"))
+		}
+		lock.Unlock()
+		if e != nil {
+			t.Error(e)
+		}
+		handler.ServeHTTP(w, request)
+	}))
+	defer server.Close()
+	raw, e := json.Marshal(map[string]string{"origin": server.URL})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = os.WriteFile(filepath.Join(output, "user-ready.json"), raw, 0600); e != nil {
+		t.Fatal(e)
+	}
+	published := false
+	deadline := time.Now().Add(6 * time.Minute)
+	for {
+		if _, e := os.Stat(filepath.Join(output, "stop")); e == nil {
+			return
+		}
+		if _, e := os.Stat(filepath.Join(output, "publish-profile")); e == nil && !published {
+			ctx := context.Background()
+			if _, e = store.DB.Exec(ctx, `CREATE SCHEMA indexer; CREATE TABLE indexer.indexer_canonical_creations_v1(token text NOT NULL,pool text NOT NULL,creator text NOT NULL,height bigint NOT NULL,transaction_index integer NOT NULL,log_index integer NOT NULL,block_timestamp bigint NOT NULL)`); e != nil {
+				t.Fatal(e)
+			}
+			id := uuid.New()
+			wallet := os.Getenv("PROFILE_FLOW_WALLET")
+			if e = store.Create(ctx, id, wallet); e != nil {
+				t.Fatal(e)
+			}
+			asset := uuid.NewString()
+			if e = store.PatchExtendedProfile(ctx, Principal{AccountID: id, ProofAt: time.Now()}, ExtendedProfilePatch{ProfilePatch: ProfilePatch{ExpectedRevision: "0", DisplayName: str("Paxeer builder")}}); e != nil {
+				t.Fatal(e)
+			}
+			if _, e = store.DB.Exec(ctx, `UPDATE account_state SET profile=jsonb_set(profile,'{avatarAssetId}',to_jsonb($2::text)) WHERE account_id=$1`, id, asset); e != nil {
+				t.Fatal(e)
+			}
+			published = true
+			if e = os.WriteFile(filepath.Join(output, "profile-published"), []byte("done"), 0600); e != nil {
+				t.Fatal(e)
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("Profile response consumer did not close")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}

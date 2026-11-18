@@ -91,7 +91,7 @@ export default function PositionsTab({ walletAddress, canShare, defaultOpen = fa
           <h3 className="text-sm font-bold text-text">Your trades</h3>
           <p className="text-xs text-text-muted">Prices are in USDL. Network fees are paid in PAX.</p>
           {portfolio.isPending ? <Skeleton variant="rows" rows={3} label="Loading PnL" /> : null}
-          {portfolio.error ? <p role="alert" className="text-sm text-danger">{humanError(portfolio.error)}</p> : null}
+          {portfolio.error ? <><p role="alert" className="text-sm text-danger">{humanError(portfolio.error)}</p><Button variant="secondary" size="sm" onClick={() => { void portfolio.refetch(); }}>Retry positions</Button></> : null}
           {value && summary ? (
             <dl className="flex flex-col gap-0.5">
               <KeyValueRow label="Method" value={`${value.algorithm} · history ${summary.basisQuality} · prices ${summary.pricingQuality}`} />
@@ -127,16 +127,13 @@ export default function PositionsTab({ walletAddress, canShare, defaultOpen = fa
             <FormField id={`${id}-to`} label="To (UTC)" surface="surface-2" inputProps={{ type: 'date', value: interval.to.slice(0, 10), onChange: event => setInterval({ ...interval, to: `${event.target.value}T00:00:00.000Z` }) }} />
           </div>
           <SegmentedControl label="Group by" options={granularity} value={interval.interval} onChange={next => setInterval({ ...interval, interval: next })} />
-          {history.error ? <p role="alert" className="text-sm text-danger">{humanError(history.error)}</p> : null}
+          {history.isPending ? <Skeleton variant="rows" rows={3} label="PnL history" /> : null}
+          {history.error ? <><p role="alert" className="text-sm text-danger">{humanError(history.error)}</p><Button variant="secondary" size="sm" onClick={() => { void history.refetch(); }}>Retry history</Button></> : null}
           {history.data ? <NetWorthChart series={history.data} /> : null}
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" size="sm" disabled={!history.data} onClick={() => void exportSelected()}>Export CSV</Button>
             {exportJob ? (
-              <>
-                <span className="text-xs text-text-muted" role="status">Export: {exportJob.state}</span>
-                <Button variant="ghost" size="sm" onClick={() => void refreshExport()}>Refresh</Button>
-                {exportJob.state === 'ready' ? <Button variant="primary" size="sm" onClick={() => void download()}>Download CSV</Button> : null}
-              </>
+              <ExportStatus job={exportJob} onRefresh={refreshExport} onDownload={download} />
             ) : null}
             {canShare && value && summary ? <ShareCardButton ownerAddress={walletAddress} poolAddress={value.data.positions[0]?.tokenAddress ?? walletAddress} snapshotId={summary.snapshotId} /> : null}
           </div>
@@ -144,6 +141,16 @@ export default function PositionsTab({ walletAddress, canShare, defaultOpen = fa
         </section>
       </section>
     </DisclosureRow>
+  );
+}
+
+export function ExportStatus({ job, onRefresh, onDownload }: { job: ExportJob; onRefresh: () => Promise<void>; onDownload: () => Promise<void> }) {
+  return (
+    <>
+      <span className="text-xs text-text-muted" role="status">Export: {job.state}</span>
+      <Button variant="ghost" size="sm" onClick={() => void onRefresh()}>Refresh</Button>
+      {job.state === 'complete' ? <Button variant="primary" size="sm" onClick={() => void onDownload()}>Download CSV</Button> : null}
+    </>
   );
 }
 

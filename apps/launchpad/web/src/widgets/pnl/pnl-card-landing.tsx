@@ -17,7 +17,7 @@ export function PublicShareFigures({ share }: { share: PublicShare }) {
         {share.fields.map(field => (
           <div key={field} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-baseline gap-4">
             <dt className="text-text-muted">{shareFieldLabel[field] ?? field}</dt>
-            <dd className="text-right tabular-nums">{field === 'historicalReturn' ? share.values.historicalReturn?.reason ?? share.values.historicalReturn?.method ?? '—' : exactAmount(share.values[field] ?? null, share.decimals, 'USDL')}</dd>
+            <dd className="text-right tabular-nums">{field === 'historicalReturn' ? share.values.historicalReturn?.return ? `${share.values.historicalReturn.return.numerator}/${share.values.historicalReturn.return.denominator}` : 'Not available yet' : exactAmount(share.values[field] ?? null, share.decimals, 'USDL')}</dd>
           </div>
         ))}
       </dl>
