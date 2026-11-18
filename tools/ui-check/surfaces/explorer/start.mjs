@@ -80,7 +80,12 @@ const server = createServer(async (request, response) => {
       return;
     }
     const apiPath = url.pathname.replace(/^\/explorer\/node-api\/proxy(?=\/api\/)/, '');
-    if (apiPath.startsWith('/api/v2/')) {
+    if (apiPath === '/api/v1/clusters/render/chain-metrics') {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(await readFile(new URL('./services/chain-metrics.json', import.meta.url)));
+      return;
+    }
+    if (apiPath.startsWith('/api/v2/') || apiPath === '/api/v1/solidity:visualize-contracts') {
       response.writeHead(307, { location: 'https://explorer.example.test' + apiPath + url.search });
       response.end();
       return;

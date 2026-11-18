@@ -34,6 +34,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/account/api-key",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/account/api-key.json",
+          "status": 404
         }
       ]
     },
@@ -47,6 +52,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/account/custom-abi",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/account/custom-abi.json",
           "status": 404
         }
       ]
@@ -62,6 +72,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/account/merits",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/account/merits.json",
+          "status": 404
         }
       ]
     },
@@ -75,6 +90,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/account/tag-address",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/account/tag-address.json",
           "status": 404
         }
       ]
@@ -90,6 +110,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/account/verified-addresses",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/account/verified-addresses.json",
+          "status": 404
         }
       ]
     },
@@ -103,6 +128,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/account/watchlist",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/account/watchlist.json",
           "status": 404
         }
       ]
@@ -331,6 +361,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/apps/1",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/apps/1.json",
+          "status": 404
         }
       ]
     },
@@ -345,6 +380,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/apps",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/apps.json",
+          "status": 404
         }
       ]
     },
@@ -358,6 +398,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/auth/profile",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/auth/profile.json",
           "status": 404
         }
       ]
@@ -826,6 +871,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/csv-export",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/csv-export.json",
+          "status": 404
         }
       ]
     },
@@ -872,6 +922,24 @@
       "path": "/explorer/ecosystems",
       "modes": [
         "default"
+      ],
+      "answers": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/api/v1/clusters/render/chain-metrics",
+          "file": "explorer/services/chain-metrics.json",
+          "headers": {
+            "content-type": "application/json"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/api/v1/clusters/render/chain-metrics?*",
+          "file": "explorer/services/chain-metrics.json",
+          "headers": {
+            "content-type": "application/json"
+          }
+        }
       ]
     },
     {
@@ -922,6 +990,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/essential-dapps/1",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/essential-dapps/1.json",
           "status": 404
         }
       ]
@@ -1138,6 +1211,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/mud-worlds",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/mud-worlds.json",
+          "status": 404
         }
       ]
     },
@@ -1151,6 +1229,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/name-services/clusters/example.eth",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/name-services/clusters/example.eth.json",
           "status": 404
         }
       ]
@@ -1166,6 +1249,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/name-services/domains/example.eth",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/name-services/domains/example.eth.json",
+          "status": 404
         }
       ]
     },
@@ -1179,6 +1267,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/name-services",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/name-services.json",
           "status": 404
         }
       ]
@@ -1213,6 +1306,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/operation/1",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/operation/1.json",
+          "status": 404
         }
       ]
     },
@@ -1226,6 +1324,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/operations",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/operations.json",
           "status": 404
         }
       ]
@@ -1294,6 +1397,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/pools/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/pools/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2.json",
+          "status": 404
         }
       ]
     },
@@ -1307,6 +1415,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/pools",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/pools.json",
           "status": 404
         }
       ]
@@ -1798,9 +1911,35 @@
     },
     {
       "name": "/visualize/sol2uml",
-      "path": "/explorer/visualize/sol2uml",
+      "path": "/explorer/visualize/sol2uml?address=0x0000000000000000000000000000000000000002",
       "modes": [
         "default"
+      ],
+      "answers": [
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/smart-contracts/0x0000000000000000000000000000000000000002",
+          "file": "explorer/services/contract.json",
+          "headers": {
+            "content-type": "application/json"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/smart-contracts/0x0000000000000000000000000000000000000002?*",
+          "file": "explorer/services/contract.json",
+          "headers": {
+            "content-type": "application/json"
+          }
+        },
+        {
+          "method": "POST",
+          "pattern": "https://explorer.example.test/api/v1/solidity:visualize-contracts",
+          "file": "explorer/services/diagram.json",
+          "headers": {
+            "content-type": "application/json"
+          }
+        }
       ]
     },
     {
