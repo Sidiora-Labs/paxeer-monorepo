@@ -15784,6 +15784,12 @@ value = "One. Each flow of the launchpad web application gets one task. A flow r
 basis = "Gotcha 4705. Decision 3777."
 affects = []
 
+[decision.3779]
+title = "A manifest of the launchpad workspace and the lock file change together"
+value = "One. apps/launchpad/pnpm-lock.yaml holds for every manifest of the workspace what that manifest names, at every revision. Two. A task whose paths hold a manifest of the workspace names the lock file among its paths where it adds, removes or moves a dependency. Its change of the lock file adds or removes the entries of that dependency and of the packages it needs, and no version of another entry moves. Three. The lock file takes the entry of viem 2.37.3 for the client package users-sdk with the packages that entry needs. Task 22.39.905."
+basis = "Gotcha 4706. Decision 3778."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45444,6 +45450,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.905]
+title = "Refresh the launchpad lock file so that it holds what the manifest of the client package users-sdk names"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/pnpm-lock.yaml"]
+tests = []
+verification_contract = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+do_1 = "do_1 Gotcha 4706 and decision 3779. Read apps/launchpad/pnpm-workspace.yaml, apps/launchpad/package.json, sdk/launchpad/packages/users-sdk/package.json and the importer entry of that package in apps/launchpad/pnpm-lock.yaml."
+symbols = []
 
 [capability.22.39.904]
 title = "Read the deployment contract and the composer of the launchpad against what every launchpad image reads at build and at start"
@@ -207999,6 +208014,37 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.905]
+title = "Refresh the launchpad lock file so that it holds what the manifest of the client package users-sdk names"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.905"]
+interfaces = []
+do_1 = "do_1 Gotcha 4706 and decision 3779. Read apps/launchpad/pnpm-workspace.yaml, apps/launchpad/package.json, sdk/launchpad/packages/users-sdk/package.json and the importer entry of that package in apps/launchpad/pnpm-lock.yaml."
+do_2 = "do_2 In apps/launchpad run pnpm install --lockfile-only with pnpm 9.15.0, the version the workspace names. Read the difference of apps/launchpad/pnpm-lock.yaml: it adds viem 2.37.3 to the importer entry of users-sdk and adds the package entries that entry needs. No version of an existing entry moves and no existing entry goes. Where the run moves or removes an existing entry, restore the file and add by hand the entries of the dependency alone, in the form the tool writes."
+do_3 = "do_3 The same run compares every other manifest of the workspace with its importer entry. Name in the final message each further importer entry that changed and the manifest line it follows."
+do_4 = "do_4 Run pnpm install --frozen-lockfile in apps/launchpad once by hand and read that it completes. Then run the cases of the package once by hand, pnpm --filter ./../../sdk/launchpad/packages/users-sdk run test, and give their result in the final message; a case that does not pass is named there with test, file and first message and is not repaired in this task. The lock file is the only file that changes: no manifest, no source file and no case file changes. The file is inside the paths of this task and no approval is needed. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/pnpm-lock.yaml"]
+tests = []
+planned_paths = []
+build_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile)"
+verify_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
