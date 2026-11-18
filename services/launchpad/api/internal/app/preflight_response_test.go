@@ -26,7 +26,7 @@ func TestPreflightResponseClassifiesRequestAndSource(t *testing.T) {
 		reports int
 	}{
 		{"invalid request", []byte(`{}`), 422, "FIELD_INVALID", 0},
-		{"incomplete projection", body(strings.Repeat("0", 64)), 500, "INTERNAL_ERROR", 1},
+		{"revision mismatch", body(strings.Repeat("0", 64)), 409, "REVISION_CONFLICT", 0},
 		{"source unavailable", body(authority.engine.Revision().RevisionSHA256), 503, "DEPENDENCY_UNAVAILABLE", 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
