@@ -176775,7 +176775,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.858]
 title = "Draw the answer of the assistant in the search panel as one readable block without the line of no results"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176809,7 +176809,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.857]
 title = "Give the assistant route of the explorer the facts of the product and a plain text answer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
