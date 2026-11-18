@@ -23355,3 +23355,8 @@ fix = "Decision 3778."
 title = "The frozen install of the launchpad workspace compares every manifest with the lock file"
 symptom = "The workspace under apps/launchpad takes the web application, the mobile application and every client package under sdk/launchpad/packages, and apps/launchpad/pnpm-lock.yaml holds one importer entry for each of them. The frozen install accepts the lock file only where every importer entry holds what its manifest names. The manifest of the client package users-sdk names the development dependency viem in the version 2.37.3, which its signing cases read, and the importer entry of that package holds typescript alone. A dependency that enters a manifest of the workspace therefore enters the lock file in the same change."
 fix = "Decision 3779."
+
+[gotcha.4707]
+title = "The livestream module of the launchpad serves its routes on the plain listener only outside the platform profile"
+symptom = "The module under services/launchpad/livestream knows the runtime profiles container, owned_local and platform. In the platform profile with the provider mode unavailable it serves the read surface over the lifecycle store, answers the routes bound to a broadcast provider as not provisioned, serves its routes on the private listener to the gateway and keeps health and metrics on the plain listener. A client of the stream routes in that profile therefore reaches them through the gateway, which carries them to the livestream upstream. The deployment contract under deploy/launchpad fixes the container profile for the livestream and gives the web application a stream address with a host of its own, which is the form with a broadcast provider."
+fix = "Decision 3780."
