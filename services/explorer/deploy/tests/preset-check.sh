@@ -145,13 +145,22 @@ check 'Paxeer X production preset names no application port' \
 check 'Paxeer X development preset names application port 3000' \
   grep -qFx 'NEXT_PUBLIC_APP_PORT=3000' "$repo/apps/explorer/configs/envs/paxeer-x-dev.env"
 
+for preset in paxeer-x paxeer-x-dev; do
+  check "$preset preset names no default theme" \
+    test "$(grep -c '^NEXT_PUBLIC_COLOR_THEME_DEFAULT' "$repo/apps/explorer/configs/envs/$preset.env")" -eq 0
+done
+
 cp "$repo/apps/explorer/configs/envs/paxeer-x.env" "$tmp/paxeer/configs/envs/paxeer-x.env"
 run_preset "$tmp/paxeer" paxeer-x
 check 'tracked Paxeer X preset loads successfully' test "$status" -eq 0
+check 'Paxeer X exports no default theme without a process value' not_exported NEXT_PUBLIC_COLOR_THEME_DEFAULT
 check 'Paxeer X exports no application port without a process value' not_exported NEXT_PUBLIC_APP_PORT
 check 'Paxeer X network ID is 125' exported_value_is NEXT_PUBLIC_NETWORK_ID 125
 check 'Paxeer X assistant defaults to false' exported_value_is NEXT_PUBLIC_ASSISTANT_ENABLED false
 check 'Paxeer X private assistant settings are not exported' not_exported EXPLORER_ASSISTANT_MODEL
+run_preset "$tmp/paxeer" paxeer-x NEXT_PUBLIC_COLOR_THEME_DEFAULT=dark
+check 'Paxeer X preset loads with a deployment default theme' test "$status" -eq 0
+check 'Paxeer X default theme keeps the deployment value' exported_value_is NEXT_PUBLIC_COLOR_THEME_DEFAULT dark
 run_preset "$tmp/paxeer" paxeer-x NEXT_PUBLIC_APP_PORT=8443
 check 'Paxeer X preset loads with a deployment application port' test "$status" -eq 0
 check 'Paxeer X application port keeps the deployment value' exported_value_is NEXT_PUBLIC_APP_PORT 8443
