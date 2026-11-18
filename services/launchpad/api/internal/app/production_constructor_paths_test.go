@@ -52,7 +52,7 @@ func productionConstructorSchema(t *testing.T, db internaltest.RuntimeDatabase) 
 	}
 	want := production.ExpectedSchema{Service: "core/api", RuntimeRole: db.RuntimeRole, RegistryDigest: production.Checksum(registry), InterfaceDigest: production.Checksum(roles), ReaderVersion: 1, Migrations: map[int64]string{}, Schemas: map[string]string{}, Epoch: db.Epoch, Region: db.Region}
 	for _, role := range grants.Roles {
-		if role.Service == "core/api" && role.RuntimeRole == "api_rest_runtime" {
+		if role.Service == "core/api" && strings.HasPrefix(db.RuntimeRole, role.RuntimeRole+"_") {
 			for _, grant := range role.Grants {
 				if grant.Schema == "api_stream" || grant.Schema == "recovery" || grant.Schema == "migration_control" {
 					want.Privileges = append(want.Privileges, grant)
@@ -159,7 +159,6 @@ func TestProductionGatewayRuntimeBindingAndStatus(t *testing.T) {
 		t.Fatalf("unbound production schema: app=%t err=%v", app != nil, err)
 	}
 	cfg.ExpectedSchemaFile, cfg.ExpectedSchemaSHA256 = productionConstructorSchema(t, database)
-	cfg.RuntimeInstanceID = "api_fixture_bound"
 	app, err = New(context.Background(), &cfg, logger)
 	if app != nil || err == nil || !strings.Contains(err.Error(), "IDENTITY_CA_FILE and IDENTITY_CA_PEM is required") {
 		t.Fatalf("bound production schema: app=%t err=%v", app != nil, err)
@@ -203,7 +202,6 @@ func TestProductionGatewayRuntimeBindingAndStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.AccountingReadSHA256 = production.Checksum(readDocument)
-	cfg.RuntimeInstanceID = "api_fixture_complete"
 	app, err = New(context.Background(), &cfg, logger)
 	if err != nil {
 		t.Fatal(err)
@@ -214,4 +212,16 @@ func TestProductionGatewayRuntimeBindingAndStatus(t *testing.T) {
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"status":"ok"`) || app.privateStream == nil || app.authority == nil || app.sqlDB == nil {
 		t.Fatalf("production runtime: status=%d body=%s stream=%t authority=%t sql=%t", response.Code, response.Body.String(), app.privateStream != nil, app.authority != nil, app.sqlDB != nil)
 	}
+	app.Close()
+	restarted, err := New(context.Background(), &cfg, logger)
+	if err != nil {
+		t.Fatalf("reopen runtime after close: %v", err)
+	}
+	defer restarted.Close()
+	response = httptest.NewRecorder()
+	restarted.Router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/status", nil))
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"status":"ok"`) {
+		t.Fatalf("reopened runtime status: %d %s", response.Code, response.Body)
+	}
+
 }

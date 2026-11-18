@@ -44,27 +44,27 @@ func streamProtocols(protocols []string) (string, error) {
 
 func (h *Hub) privateHandle(w http.ResponseWriter, r *http.Request) {
 	if h.privateStream == nil || !h.lifecycle.Ready() {
-		streamHTTPError(w, 503, "DEPENDENCY_UNAVAILABLE")
+		broker.WriteStreamHTTPError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
 		return
 	}
 	if r.URL.RawQuery != "" || !h.allowedOrigins[r.Header.Get("Origin")] {
-		streamHTTPError(w, 403, "FORBIDDEN")
+		broker.WriteStreamHTTPError(w, r, 403, "FORBIDDEN")
 		return
 	}
 	ticket, err := streamProtocols(websocket.Subprotocols(r))
 	if err != nil {
-		streamHTTPError(w, 401, "AUTH_REQUIRED")
+		broker.WriteStreamHTTPError(w, r, 401, "AUTH_REQUIRED")
 		return
 	}
 	drain, leave, err := h.lifecycle.Join()
 	if err != nil {
-		streamHTTPError(w, 503, "DEPENDENCY_UNAVAILABLE")
+		broker.WriteStreamHTTPError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
 		return
 	}
 	defer leave()
 	ip := clientIP(r)
 	if ok, _ := h.acquire(ip); !ok {
-		streamHTTPError(w, 503, "DEPENDENCY_UNAVAILABLE")
+		broker.WriteStreamHTTPError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
 		return
 	}
 	defer h.release(ip)
