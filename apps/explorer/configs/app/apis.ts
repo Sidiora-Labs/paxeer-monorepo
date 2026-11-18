@@ -147,6 +147,18 @@ const multichainStatsApi = (() => {
   });
 })();
 
+const paxeerXIndexerApi = (() => {
+  const apiHost = getEnvValue('NEXT_PUBLIC_PAXEER_X_INDEXER_API_HOST');
+  if (!apiHost) {
+    return;
+  }
+
+  return Object.freeze({
+    endpoint: apiHost,
+    basePath: stripTrailingSlash(getEnvValue('NEXT_PUBLIC_PAXEER_X_INDEXER_API_BASE_PATH') || ''),
+  });
+})();
+
 const statsApi = (() => {
   const apiHost = getEnvValue('NEXT_PUBLIC_STATS_API_HOST');
   if (!apiHost) {
@@ -236,6 +248,7 @@ const apis: Apis = Object.freeze({
   metadata: metadataApi,
   multichainAggregator: multichainAggregatorApi,
   multichainStats: multichainStatsApi,
+  paxeerXIndexer: paxeerXIndexerApi,
   rewards: rewardsApi,
   stats: statsApi,
   tac: tacApi,

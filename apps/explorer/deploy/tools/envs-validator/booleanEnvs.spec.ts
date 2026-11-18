@@ -69,6 +69,6 @@ async function envSchemaDuplicateKeyRejectsInvalidValues() {
     .rejects.toMatchObject({ name: 'ValidationError', errors: [ expect.stringContaining('Unknown ENV variables') ] });
 }
 
-test(envSchemaDuplicateKeyCompilesValidatorTarget, 30_000);
-test(envSchemaDuplicateKeyPreservesAcceptedBooleans);
-test(envSchemaDuplicateKeyRejectsInvalidValues);
+test(envSchemaDuplicateKeyCompilesValidatorTarget.name, envSchemaDuplicateKeyCompilesValidatorTarget, 30_000);
+test(envSchemaDuplicateKeyPreservesAcceptedBooleans.name, envSchemaDuplicateKeyPreservesAcceptedBooleans);
+test(envSchemaDuplicateKeyRejectsInvalidValues.name, envSchemaDuplicateKeyRejectsInvalidValues);
