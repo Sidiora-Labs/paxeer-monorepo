@@ -275,7 +275,14 @@ type backfillControl struct {
 }
 
 func (s *CommittedSource) ReportLiveLag(observedAt time.Time, lag time.Duration) error {
-	if observedAt.IsZero() || lag < 0 || observedAt.After(time.Now().Add(time.Second)) {
+	if lag < 0 {
+		return sourceError(InvalidError, "lag", nil)
+	}
+	return s.reportHistoricalLag(observedAt, lag > 2*time.Second, lag < 500*time.Millisecond)
+}
+
+func (s *CommittedSource) reportHistoricalLag(observedAt time.Time, behind, caughtUp bool) error {
+	if observedAt.IsZero() || observedAt.After(time.Now().Add(time.Second)) {
 		return sourceError(InvalidError, "lag", nil)
 	}
 	b := &s.backfill
@@ -286,7 +293,7 @@ func (s *CommittedSource) ReportLiveLag(observedAt time.Time, lag time.Duration)
 	}
 	b.observedAt = observedAt
 	if !b.paused {
-		if lag > 2*time.Second {
+		if behind {
 			if b.highSince.IsZero() {
 				b.highSince = observedAt
 			}
@@ -300,7 +307,7 @@ func (s *CommittedSource) ReportLiveLag(observedAt time.Time, lag time.Duration)
 			b.highSince = time.Time{}
 		}
 	} else {
-		if lag < 500*time.Millisecond {
+		if caughtUp {
 			if b.lowSince.IsZero() {
 				b.lowSince = observedAt
 			}
@@ -445,6 +452,8 @@ func (l *sourceLifecycle) beginRange(parent context.Context, options FetchOption
 	return context.WithValue(ctx, rangeTaskKey{}, task), done, nil
 }
 
+const historicalSteadyDistanceBlocks uint64 = 4
+
 func (s *CommittedSource) ReportDurableHeight(observedAt time.Time, durable uint64) error {
 	s.mu.Lock()
 	headHash, headKnown := s.accepted[s.authoritative.Height]
@@ -455,11 +464,8 @@ func (s *CommittedSource) ReportDurableHeight(observedAt time.Time, durable uint
 	if !headKnown || !durableKnown || !headCached || !committedCached || head.TimestampSeconds < committed.TimestampSeconds || head.Height < durable {
 		return sourceError(IncompleteError, "durable-lag", nil)
 	}
-	seconds := head.TimestampSeconds - committed.TimestampSeconds
-	if seconds > (1<<63-1)/int64(time.Second) {
-		return sourceError(InvalidError, "durable-lag", nil)
-	}
-	return s.ReportLiveLag(observedAt, time.Duration(seconds)*time.Second)
+	distance := head.Height - durable
+	return s.reportHistoricalLag(observedAt, distance > historicalSteadyDistanceBlocks, distance <= historicalSteadyDistanceBlocks)
 }
 
 func (s *CommittedSource) Ready() error {

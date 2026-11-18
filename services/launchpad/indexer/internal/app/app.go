@@ -1468,7 +1468,7 @@ func verifyCanonicalRuntimeCheckpoint(ctx context.Context, pool *pgxpool.Pool, p
 	if conversionErr != nil {
 		return conversionErr
 	}
-	original, err := provider.BlockAt(ctx, heightUint64)
+	original, err := provider.CheckpointBlockAt(ctx, heightUint64)
 	if err != nil {
 		return err
 	}
