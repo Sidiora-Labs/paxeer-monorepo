@@ -366,12 +366,19 @@ func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtim
 	if options.Transport != runtimedb.TransportDirect {
 		return nil, fmt.Errorf("runtime_transaction_pooler_seam_unavailable")
 	}
-	pool, err := runtimedb.NewPool(ctx, c.DatabaseURL, options)
+	connection, err := url.Parse(c.DatabaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("runtime_database_configuration_invalid: %w", err)
+	}
+	parameters := connection.Query()
+	parameters.Set("search_path", "users,pg_catalog")
+	connection.RawQuery = parameters.Encode()
+	pool, err := runtimedb.NewPool(ctx, connection.String(), options)
 	if err != nil {
 		return nil, err
 	}
 	if err = c.CheckRuntimeSchema(ctx, pool); err != nil {
-		pool.Close()
+		runtimedb.ClosePool(pool)
 		return nil, err
 	}
 	return pool, nil

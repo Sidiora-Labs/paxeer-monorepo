@@ -14,6 +14,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/account"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/internaltest"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/user"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	sharedredis "github.com/Sidiora-Technologies/KindleLaunch/shared/redis"
 	"github.com/google/uuid"
@@ -177,6 +178,11 @@ func TestImageDeletionOwnerClearsLegacyProfileAndCache(t *testing.T) {
 	if err := redis.Set(ctx, cacheKey, "legacy", 0).Err(); err != nil {
 		t.Fatal(err)
 	}
+	const publicURL = "https://profiles.example"
+	currentCacheKey := user.ProfileCacheKey(publicURL, wallet)
+	if err := redis.Set(ctx, currentCacheKey, "profile", 0).Err(); err != nil {
+		t.Fatal(err)
+	}
 	requested := make(chan struct{}, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete || r.URL.Path != "/internal/v2/accounts/"+wallet+"/assets" || r.URL.Query().Get("deletionId") != deletionID.String() {
@@ -191,8 +197,9 @@ func TestImageDeletionOwnerClearsLegacyProfileAndCache(t *testing.T) {
 		t.Fatal(err)
 	}
 	owner := accountImageDeletionOwner{
-		Redis:  redis,
-		Legacy: account.ImagePurger{Store: store, Objects: objects, Exports: objects},
+		PublicURL: publicURL,
+		Redis:     redis,
+		Legacy:    account.ImagePurger{Store: store, Objects: objects, Exports: objects},
 		Assets: accountAssetsAuthority{Store: store, Client: server.Client(), Endpoint: server.URL,
 			Signer: sharedauth.ServiceRequestIssuer{Issuer: "user", Audience: "metadata", Key: privateKey, Transport: sharedauth.AssertionTransport{AssertionHeader: "X-Test-Assertion", SignatureHeader: "X-Test-Signature"}}},
 	}
@@ -207,6 +214,9 @@ func TestImageDeletionOwnerClearsLegacyProfileAndCache(t *testing.T) {
 	var profiles int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM users.user_profiles WHERE wallet_address=$1`, wallet).Scan(&profiles); err != nil || profiles != 0 {
 		t.Fatalf("legacy profiles after deletion = %d, %v", profiles, err)
+	}
+	if count, err := redis.Exists(ctx, currentCacheKey).Result(); err != nil || count != 0 {
+		t.Fatalf("current profile cache after deletion = %d, %v", count, err)
 	}
 	if count, err := redis.Exists(ctx, cacheKey).Result(); err != nil || count != 0 {
 		t.Fatalf("profile cache after deletion = %d, %v", count, err)
