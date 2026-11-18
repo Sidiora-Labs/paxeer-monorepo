@@ -368,13 +368,23 @@ export class TradeJourney {
   }
   private wait(attempt: PendingAttemptRecord, scope: AccountScope): Promise<ReceiptEvidence> {
     return new Promise((resolve, reject) => {
+      let hash = attempt.txHash.toLowerCase();
       const inspect = () => {
         if (scope.signal.aborted || this.closed) {
           finish();
           reject(new Error('Wallet changed; review again'));
           return;
         }
-        const update = this.updates.get(attempt.txHash.toLowerCase());
+        let update = this.updates.get(hash);
+        while (update?.state === 'replaced' && update.attempt.replacementHash) {
+          hash = update.attempt.replacementHash.toLowerCase();
+          update = this.updates.get(hash);
+        }
+        if (update?.state === 'cancelled' || update?.state === 'changed_action') {
+          finish();
+          reject(new Error('Approval cancelled or changed in your wallet; review again'));
+          return;
+        }
         if (update?.error instanceof EvidenceIntegrityError) {
           finish();
           reject(update.error);
@@ -435,6 +445,8 @@ export class TradeJourney {
           action: 'approve',
         });
         const receipt = await this.wait(attempt, scope);
+        const confirmedAttempt = this.updates.get(receipt.transactionHash.toLowerCase())?.attempt;
+        if (!confirmedAttempt) throw new EvidenceIntegrityError('Approval receipt has no tracked attempt');
         this.assertContext(context, scope);
         const blockHeight = await this.provider.publicClient.getBlockNumber({ cacheTime: 0 });
         const allowanceRaw = await this.provider.readAllowance(context, blockHeight);
@@ -444,7 +456,7 @@ export class TradeJourney {
           !approvalMayContinue(
             plan,
             context,
-            { ...attempt, actionFingerprint: stepFingerprint },
+            { ...confirmedAttempt, actionFingerprint: stepFingerprint },
             receipt,
             {
               chainId: 125,
@@ -454,7 +466,7 @@ export class TradeJourney {
               allowanceRaw,
               blockHeight,
               observedAt: Date.now(),
-              approvalTxHash: hash,
+              approvalTxHash: receipt.transactionHash,
               stepFingerprint,
             },
             index
@@ -601,6 +613,7 @@ export class TradeJourney {
     if (prior)
       this.updates.set(originalHash.toLowerCase(), {
         ...prior,
+        attempt: { ...prior.attempt, replacementHash },
         state: verified.cancelled ? 'cancelled' : verified.changed ? 'changed_action' : 'replaced',
       });
     this.patch({
