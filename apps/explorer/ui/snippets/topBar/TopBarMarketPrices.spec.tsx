@@ -22,7 +22,7 @@ vi.hoisted(() => {
   };
 });
 
-function topBarShowsBothMarketPricesAndDayChanges() {
+test('shows both market prices and day changes', function topBarShowsBothMarketPricesAndDayChanges() {
   const client = createMarketQueryClient();
   const { container, unmount } = render(<QueryClientProvider client={ client }><TopBarStats/></QueryClientProvider>);
   try {
@@ -43,14 +43,15 @@ function topBarShowsBothMarketPricesAndDayChanges() {
     unmount();
     client.clear();
   }
-}
+});
 
-test(topBarShowsBothMarketPricesAndDayChanges.name, topBarShowsBothMarketPricesAndDayChanges);
-
-function absentMarketFieldsRenderDashes() {
+test('renders dashes for absent market fields', function absentMarketFieldsRenderDashes() {
   for (const stats of [
     { ...marketStats, coin_price: null, coin_price_change_percentage: null, secondary_coin_price: null, secondary_coin_price_change_percentage: null },
-    { ...marketStats, coin_price: null, coin_price_change_percentage: null, secondary_coin_price: undefined, secondary_coin_price_change_percentage: undefined },
+    {
+      ...marketStats, coin_price: null, coin_price_change_percentage: null,
+      secondary_coin_price: undefined, secondary_coin_price_change_percentage: undefined,
+    },
   ]) {
     const container = renderMarketData(<TopBarStats/>, createMarketQueryClient({ stats }));
     for (const symbol of [ 'PAX', 'SID' ]) {
@@ -62,11 +63,9 @@ function absentMarketFieldsRenderDashes() {
       expect(group.textContent).not.toContain('0.00%');
     }
   }
-}
+});
 
-test(absentMarketFieldsRenderDashes.name, absentMarketFieldsRenderDashes);
-
-function zeroMarketValuesRemainVisible() {
+test('keeps zero market values visible', function zeroMarketValuesRemainVisible() {
   const stats = { ...marketStats, coin_price: '0', coin_price_change_percentage: 0, secondary_coin_price: '0', secondary_coin_price_change_percentage: 0 };
   const container = renderMarketData(<TopBarStats/>, createMarketQueryClient({ stats }));
   for (const symbol of [ 'PAX', 'SID' ]) {
@@ -74,11 +73,9 @@ function zeroMarketValuesRemainVisible() {
     expect(group.querySelector('[data-price]')?.textContent).toBe('$0.00');
     expect(group.querySelector('[data-change]')?.textContent).toBe('0.00%');
   }
-}
+});
 
-test(zeroMarketValuesRemainVisible.name, zeroMarketValuesRemainVisible);
-
-function eachDayChangeIsIndependentOfItsPrice() {
+test('shows each day change independently of its price', function eachDayChangeIsIndependentOfItsPrice() {
   const stats = { ...marketStats, coin_price_change_percentage: null, secondary_coin_price: null };
   const container = renderMarketData(<TopBarStats/>, createMarketQueryClient({ stats }));
   const pax = within(container).getByRole('group', { name: 'PAX market price' });
@@ -87,11 +84,9 @@ function eachDayChangeIsIndependentOfItsPrice() {
   expect(pax.querySelector('[data-change]')?.textContent).toBe('—');
   expect(sid.querySelector('[data-price]')?.textContent).toBe('—');
   expect(sid.querySelector('[data-change]')?.textContent).toBe('-3.50%');
-}
+});
 
-test(eachDayChangeIsIndependentOfItsPrice.name, eachDayChangeIsIndependentOfItsPrice);
-
-function topBarCarriesMarketPricesOutsideSettings() {
+test('carries market prices outside settings', function topBarCarriesMarketPricesOutsideSettings() {
   const container = renderMarketData(<TopBar/>);
   const bar = container.querySelector('[data-label="header-utilities"]') as HTMLElement;
   const pax = within(bar).getByRole('group', { name: 'PAX market price' });
@@ -101,6 +96,25 @@ function topBarCarriesMarketPricesOutsideSettings() {
   expect(pax.closest('[role="dialog"]')).toBeNull();
   expect(sid.closest('[role="dialog"]')).toBeNull();
   expect(within(bar).getByLabelText('User settings')).toBeTruthy();
-}
+});
 
-test(topBarCarriesMarketPricesOutsideSettings.name, topBarCarriesMarketPricesOutsideSettings);
+test('keeps both header prices unbroken in a compact column', function headerPricesUseACompactColumn() {
+  const client = createMarketQueryClient();
+  const { container, unmount } = render(<QueryClientProvider client={ client }><TopBar/></QueryClientProvider>);
+  try {
+    const bar = container.querySelector('[data-label="header-utilities"]')!;
+    const pax = within(bar as HTMLElement).getByRole('group', { name: 'PAX market price' });
+    const sid = within(bar as HTMLElement).getByRole('group', { name: 'SID market price' });
+
+    expect(marketStyleRules(pax.parentElement!)).toContain('flex-direction:column');
+    expect(marketStyleRules(pax.parentElement!)).toContain('row-gap:var(--chakra-spacing-0)');
+    for (const group of [ pax, sid ]) {
+      expect(marketStyleRules(group)).toContain('flex-wrap:nowrap');
+      expect(marketStyleRules(group)).toContain('white-space:nowrap');
+      expect(marketStyleRules(group)).toContain('flex-shrink:0');
+    }
+  } finally {
+    unmount();
+    client.clear();
+  }
+});
