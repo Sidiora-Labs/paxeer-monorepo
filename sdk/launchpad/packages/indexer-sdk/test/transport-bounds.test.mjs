@@ -9,7 +9,7 @@ const route = `/stats/${pool}/transactions`;
 const successLimit = 1024 * 1024;
 const errorLimit = 16 * 1024;
 const trade = {
-  id: '1', sender: pool, isBuy: true,
+  id: '1', poolAddress: pool, sender: pool, isBuy: true,
   amountIn: '999999999999999999999999999999999999', amountOut: '1',
   price: '0.0000001', fee: '1', blockTimestamp: 123, txHash: '0x123',
 };
@@ -208,6 +208,7 @@ async function preservesHttpErrorsShapesAndListenerCleanupAcrossRequests() {
     for (const invalid of [
       null, { pool, trades: [trade] }, { transactions: null }, { transactions: {} },
       { transactions: [null] },
+      { transactions: [{ ...trade, poolAddress: undefined }] },
       ...Object.keys(trade).map(key => ({ transactions: [{ ...trade, [key]: null }] })),
       { transactions: [{ ...trade, amountIn: 123 }] },
       { transactions: [{ ...trade, blockTimestamp: 1.5 }] },
