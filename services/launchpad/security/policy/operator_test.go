@@ -161,6 +161,7 @@ func TestProductionOperatorRealMTLSAndPostgres(t *testing.T) {
 	if _, err = pool.Exec(ctx, "UPDATE "+pgx.Identifier{schema, "authorization_decisions"}.Sanitize()+" SET allowed=true"); err == nil {
 		t.Fatal("journal mutated")
 	}
+	t.Run("registered consumers and recovery", registeredSecurityConsumers)
 }
 
 func realPrivateOperatorServer(t *testing.T, pool *pgxpool.Pool, schema string, bind func(WorkloadVerifier) http.Handler) (*httptest.Server, *http.Client, ed25519.PrivateKey) {
