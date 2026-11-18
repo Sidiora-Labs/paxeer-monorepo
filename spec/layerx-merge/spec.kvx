@@ -15766,6 +15766,12 @@ value = "One. The case of the ticker in apps/explorer/ui/home/homepageLayout.spe
 basis = "Gotcha 4702. Decisions 3762, 3763 and 3766."
 affects = []
 
+[decision.3776]
+title = "The verification of task 22.39.865 lints the case file of the theme tokens and runs the cases of both files"
+value = "The verification command of task 22.39.865 runs the lint of the application over apps/explorer/toolkit/theme/foundations/tokens.spec.ts and then the cases of apps/explorer/ui/home/homepageLayout.spec.tsx and of apps/explorer/toolkit/theme/foundations/tokens.spec.ts. The file apps/explorer/ui/home/homepageLayout.spec.tsx keeps the form of registration it holds; that form is not a subject of the task, and the task changes in it only the expectations decision 3775 names. The steps of the task stay as they are."
+basis = "Gotcha 4703. Decision 3775."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -176755,7 +176761,7 @@ touches = ["apps/explorer/ui/home/homepageLayout.spec.tsx", "apps/explorer/toolk
 tests = []
 planned_paths = []
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
-verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/home/homepageLayout.spec.tsx toolkit/theme/foundations/tokens.spec.ts && yarn vitest run ui/home/homepageLayout.spec.tsx toolkit/theme/foundations/tokens.spec.ts"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint toolkit/theme/foundations/tokens.spec.ts && yarn vitest run ui/home/homepageLayout.spec.tsx toolkit/theme/foundations/tokens.spec.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
