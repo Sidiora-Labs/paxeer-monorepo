@@ -208152,7 +208152,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.917]
 title = "Try a periodic step of the connected runtime of the launchpad gateway again after an error and write a line at each change of its state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208216,7 +208216,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.915]
 title = "Name in the gateway examples of the launchpad deployment only schemas the registry of migrations holds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
