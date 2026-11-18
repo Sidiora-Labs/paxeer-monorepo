@@ -29,13 +29,20 @@ describe('semantic tokens on the data visualisation palette', () => {
     });
   });
 
-  it('greys every placeholder and field indicator with one neutral tone in both appearances', () => {
+  it('uses readable neutral text for field and select placeholders in each appearance', () => {
     [
       'colors.input.placeholder.DEFAULT.value',
-      'colors.input.element.DEFAULT.value',
       'colors.field.placeholder.DEFAULT.value',
-      'colors.select.indicator.fg.DEFAULT.value',
       'colors.select.placeholder.fg.DEFAULT.value',
+    ].forEach((path) => {
+      expect(walk(path)).toEqual({ _light: '{colors.text.muted}', _dark: '{colors.gray.500}' });
+    });
+  });
+
+  it('keeps field and select indicators on the neutral ramp', () => {
+    [
+      'colors.input.element.DEFAULT.value',
+      'colors.select.indicator.fg.DEFAULT.value',
     ].forEach((path) => {
       expect(walk(path)).toEqual({ _light: '{colors.gray.500}', _dark: '{colors.gray.500}' });
     });

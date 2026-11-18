@@ -6,6 +6,7 @@ import type { FormFields } from '../types';
 import { CONTRACT_LICENSES } from 'lib/contracts/licenses';
 import type { SelectOption } from 'toolkit/chakra/select';
 import { FormFieldSelect } from 'toolkit/components/forms/fields/FormFieldSelect';
+import { nbsp } from 'toolkit/utils/htmlEntities';
 
 import ContractVerificationFormRow from '../ContractVerificationFormRow';
 
@@ -25,7 +26,7 @@ const ContractVerificationFieldLicenseType = () => {
       />
       <span>
         For best practices, all contract source code holders, publishers and authors are encouraged to also
-        specify the accompanying license for their verified contract source code provided.
+        specify the accompanying license for their verified contract source code{ nbsp }provided.
       </span>
     </ContractVerificationFormRow>
   );
