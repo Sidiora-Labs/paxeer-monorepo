@@ -208389,7 +208389,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.936]
 title = "Read the committed head of the head acceptance of the launchpad API by its key under bounds of its own and answer a revision mismatch with 409 REVISION_CONFLICT"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
