@@ -155,14 +155,23 @@ separately under the metadata variable contract. The contract selects `mtls`
 with `METADATA_TLS_CERT_PEM`, `METADATA_TLS_KEY_PEM` and
 `METADATA_TLS_CLIENT_CA_PEM`; these materials are not publication documents.
 
-For `--service livestream`, the composer also writes `RPC_URL`,
+Livestream supports the provider and platform forms described in the
+[deployment README](../README.md#livestream-deployment-forms). The values'
+`environment.RUNTIME_PROFILE` selects the matching variable contract. Use
+`livestream.platform.example.json` as `livestream.json` to select the platform
+form, and compose `--service web` for its two public stream routing build
+inputs. Also copy `gateway.platform.example.json` as `gateway.json` to select the
+private livestream upstream on port `8443`.
+
+For the provider form of `--service livestream`, the composer also writes `RPC_URL`,
 `LIVEPEER_API_URL`, `LIVEPEER_API_KEY`, `BIND_ADDRESS`, `PORT`, `ZONE`,
 `MAX_STREAMS_PER_WALLET`, `MAX_GLOBAL_STREAMS`, `SECRETS_REFRESH_SECONDS` and
 `LIVEPEER_WEBHOOK_TIMESTAMP_UNIT` from their example values. The example API
 key is test data. The public endpoint in the values describes deployment routing;
 the service has no `PUBLIC_URL` setting. Connected broadcasting additionally
 uses the conditional budget, identity, vault, ingest, playback and audit inputs
-listed in the variable contract. A connected budget policy contains the vendor
+listed in the variable contract. The composer emits the connected budget policy
+and its SHA-256 binding. A connected budget policy contains the vendor
 identity, prices, monthly allowance, broadcast reserve, currency, peak duration
 and approval reference read by `streams.BudgetPolicy.ValidateVendor`.
 

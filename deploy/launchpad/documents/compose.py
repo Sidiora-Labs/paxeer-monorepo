@@ -31,11 +31,24 @@ def _ensure_module_path() -> None:
         sys.path.insert(0, root)
 
 
-def _contract() -> dict[str, dict[str, Any]]:
+def _contract(values: Path | None = None) -> dict[str, dict[str, Any]]:
     try:
         contract = json.loads(CONTRACT_PATH.read_bytes())
     except (OSError, json.JSONDecodeError) as exc:
         raise ComposeError("cannot read launchpad variable contract") from exc
+    if values is not None:
+        _ensure_module_path()
+        import livestream
+
+        try:
+            selected = livestream.selection(values)
+        except ValueError as exc:
+            raise ComposeError(str(exc)) from exc
+        if selected["environment"]["RUNTIME_PROFILE"] == "platform":
+            try:
+                contract.update(json.loads((CONTRACT_PATH.parent / "variables.platform.json").read_bytes()))
+            except (OSError, json.JSONDecodeError) as exc:
+                raise ComposeError("cannot read launchpad platform variable contract") from exc
     services = {}
     for name, entry in contract.items():
         required = entry.get("required", [])
@@ -163,6 +176,22 @@ def _compose_service(service: str, values: Path, entry: dict[str, Any]) -> tuple
             if name in entry.get("fixed", {}) and value != entry["fixed"][name]:
                 raise ComposeError(f"{service}: {name} differs from the fixed contract value")
         values_out.update(environment)
+    if service == "livestream":
+        values_out = dict(entry["fixed"]) | values_out
+    if service == "gateway":
+        import livestream
+
+        try:
+            selected = livestream.selection(values)
+            if selected["environment"]["RUNTIME_PROFILE"] == "platform":
+                from urllib.parse import urlparse
+
+                runtime = json.loads(base64.b64decode(values_out["GATEWAY_RUNTIME_DOCUMENT"]))
+                upstream = next(item for item in runtime["upstreams"] if item["name"] == "livestream")
+                if urlparse(upstream["url"]).port != livestream.private_port(selected["environment"]["LIVESTREAM_PRIVATE_LISTEN_ADDRESS"]):
+                    raise ComposeError("gateway: livestream upstream must use LIVESTREAM_PRIVATE_LISTEN_ADDRESS port")
+        except ValueError as exc:
+            raise ComposeError(str(exc)) from exc
     return values_out, digests
 
 
@@ -204,9 +233,14 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("one of --values or --examples is required")
     if not values.is_dir():
         raise ComposeError(f"missing values file {values}")
-    contract = _contract()
+    contract = _contract(values if not args.service or {"livestream", "gateway", "web"}.intersection(args.service) else None)
     services = args.service or list(contract)
     for service in services:
+        if service == "web":
+            import livestream
+
+            _write(args.out / "web.json", livestream.selection(values)["web"])
+            continue
         if service not in contract:
             raise ComposeError(f"unknown service {service}")
         files, digests = _compose_service(service, values, contract[service])

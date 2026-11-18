@@ -98,6 +98,14 @@ want="$tmp/want"
 		METADATA_TLS_CERT_PEM METADATA_TLS_KEY_PEM METADATA_TLS_CLIENT_CA_PEM METADATA_PUBLICATION_AUDIT_KEY METADATA_PUBLICATION_CONFIG_DOCUMENT \
 		METADATA_PUBLICATION_CONFIG_SHA256 PUBLIC_URL; do echo "metadata $n"; done
 	for n in IDENTITY_SERVICE_TOKEN LIVEPEER_API_KEY LIVEPEER_WEBHOOK_SECRET; do echo "livestream $n"; done
+	for n in ACTION_ENVIRONMENT ACTION_AUDIT_KEY LIVESTREAM_VIEWER_TOKEN_KEY \
+		LIVESTREAM_VAULT_TRANSIT_URL LIVESTREAM_VAULT_TRANSIT_TOKEN LIVESTREAM_VAULT_TRANSIT_KEY \
+		LIVESTREAM_INGEST_ENDPOINT IDENTITY_SERVICE_URL IDENTITY_ASSERTION_SIGNING_KEY \
+		IDENTITY_MTLS_CA_FILE IDENTITY_MTLS_CLIENT_CERT_FILE IDENTITY_MTLS_CLIENT_KEY_FILE \
+		IDENTITY_MTLS_PEER_CERT_SHA256 LIVEPEER_PLAYBACK_WEBHOOK_ID LIVEPEER_PLAYBACK_WEBHOOK_URL \
+		LIVEPEER_PLAYBACK_WEBHOOK_SECRET LIVESTREAM_BUDGET_ALERT_URL LIVESTREAM_BUDGET_ALERT_KEY \
+		LIVESTREAM_BUDGET_POLICY_DOCUMENT LIVESTREAM_BUDGET_POLICY_SHA256 \
+		LIVEPEER_WEBHOOK_TIMESTAMP_UNIT MAX_GLOBAL_STREAMS; do echo "livestream $n"; done
 	for n in SUPABASE_PUBLISHABLE_KEY SUPABASE_URL WALLETCONNECT_PROJECT_ID WALLET_IFRAME_ORIGIN; do echo "web NEXT_PUBLIC_$n"; done
 } | sort >"$want"
 awk '/^service /{svc=$2} /^  unresolved /{print svc, $2}' "$tmp/plan.out" | sort >"$tmp/got"
@@ -138,5 +146,87 @@ assert all(args.get(f"NEXT_PUBLIC_{n}") == v == web.get(f"NEXT_PUBLIC_{n}") for 
 assert set(args) <= declared, f"build args Dockerfile.web does not declare: {set(args) - declared}"
 assert declared - set(args) == undecided, f"unfilled build args differ from the decision list: {(declared - set(args)) ^ undecided}"
 assert all(v and not any(c.isspace() for c in v) for v in args.values()), "a build arg is empty or has whitespace"
+PY
+
+# Both livestream forms use the same manifest vocabulary and composer.
+python3 - "$root" "$tmp" <<'PY'
+import base64
+import importlib.util
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+root, temporary = map(Path, sys.argv[1:])
+documents = root / "deploy/launchpad/documents"
+sys.path.insert(0, str(documents))
+sys.path.insert(0, str(root / "tools/deploy"))
+from test_compose import _schema
+
+spec = importlib.util.spec_from_file_location("railway_variables", root / "tools/deploy/railway-apply-variables.py")
+apply = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(apply)
+values = temporary / "livestream-values"
+shutil.copytree(documents / "values", values)
+schemas = values / "expected-schema"
+schemas.mkdir(exist_ok=True)
+for service in ("livestream", "gateway"):
+    (schemas / f"{service}.json").write_text(json.dumps(_schema(service)))
+composer = documents / "compose.py"
+for profile in ("container", "platform"):
+    suffix = ".platform" if profile == "platform" else ""
+    manifest_path = root / f"deploy/launchpad/railway/variables{suffix}.json"
+    manifest = json.loads(manifest_path.read_bytes())
+    deployment = json.loads((root / f"deploy/launchpad/railway-values{suffix}.json").read_bytes())
+    loaded = apply.load_manifest(manifest_path)
+    contract = manifest["livestream"]
+    assert contract["fixed"]["RUNTIME_PROFILE"] == profile
+    assert contract["fixed"]["LIVEPEER_PROVIDER_MODE"] == ("unavailable" if suffix else "available")
+    assert contract["fixed"]["LIVESTREAM_CONNECTED_ENABLED"] == ("false" if suffix else "true")
+    selected = json.loads((documents / f"values/livestream{suffix}.example.json").read_bytes())
+    (values / "gateway.json").write_bytes((documents / f"values/gateway{suffix}.example.json").read_bytes())
+    (values / "livestream.json").write_text(json.dumps(selected))
+    out = temporary / profile
+    command = ["python3", str(composer), "--values", str(values), "--out", str(out),
+               "--service", "livestream", "--service", "gateway", "--service", "web"]
+    result = subprocess.run(command, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    env = json.loads((out / "livestream.json").read_bytes())
+    web = json.loads((out / "web.json").read_bytes())
+    planned, problems = apply.desired("livestream", loaded["livestream"], {"livestream": env | {
+        "DATABASE_URL": "postgres://livestream@postgres.kindlelaunch.example/launchpad",
+        "REDIS_URL": "redis://redis.kindlelaunch.example:6379",
+        "DB_POOL_ID": "livestreamd_pool", "INSTANCE_ID": "livestreamd-1",
+        "IDENTITY_SERVICE_TOKEN": "example-identity-service-token",
+    }}, False)
+    assert not problems, problems
+    assert all(planned[name] == value for name, value in contract["fixed"].items())
+    assert env["LIVESTREAM_VIEWER_TOKEN_KEY"] and len(env["LIVESTREAM_VIEWER_TOKEN_KEY"].encode()) >= 32
+    assert env["RUNTIME_PROFILE"] == deployment["livestream"]["RUNTIME_PROFILE"]
+    for name in ("NEXT_PUBLIC_GATEWAY_URL", "NEXT_PUBLIC_LIVESTREAM_API_URL"):
+        assert web[name] == deployment["web"][name] == manifest["web"]["buildArgs"][name]
+    if suffix:
+        assert web["NEXT_PUBLIC_LIVESTREAM_API_URL"] == web["NEXT_PUBLIC_GATEWAY_URL"]
+        assert env["LIVESTREAM_PRIVATE_LISTEN_ADDRESS"] == "[::]:8443"
+        assert all(env[name] == "" for name in ("LIVEPEER_API_KEY", "LIVEPEER_WEBHOOK_SECRET", "LIVESTREAM_BUDGET_POLICY_DOCUMENT"))
+        for part in ("CERT", "KEY", "CLIENT_CA"):
+            assert env[f"LIVESTREAM_TLS_{part}_PEM"] and not env[f"LIVESTREAM_TLS_{part}_FILE"]
+        gateway = json.loads((out / "gateway.json").read_bytes())
+        runtime = json.loads(base64.b64decode(gateway["GATEWAY_RUNTIME_DOCUMENT"]))
+        assert next(upstream["url"] for upstream in runtime["upstreams"] if upstream["name"] == "livestream") == "https://livestream.kindlelaunch.example:8443"
+        selected["web"]["NEXT_PUBLIC_LIVESTREAM_API_URL"] = "https://live.sidiora.fun"
+        expected = "NEXT_PUBLIC_LIVESTREAM_API_URL must equal NEXT_PUBLIC_GATEWAY_URL"
+    else:
+        assert env["LIVEPEER_API_KEY"] == "test"
+        assert env["LIVESTREAM_CONNECTED_ENABLED"] == "true"
+        assert len(env["LIVEPEER_WEBHOOK_SECRET"].encode()) >= 32
+        assert env["LIVESTREAM_BUDGET_POLICY_DOCUMENT"]
+        selected["environment"].pop("LIVESTREAM_CONNECTED_ENABLED")
+        expected = "LIVEPEER_PROVIDER_MODE=available requires LIVESTREAM_CONNECTED_ENABLED=true"
+    (values / "livestream.json").write_text(json.dumps(selected))
+    refused = subprocess.run(command, capture_output=True, text=True)
+    assert refused.returncode == 2, refused.stderr
+    assert expected in refused.stderr
 PY
 echo PASS railway-values
