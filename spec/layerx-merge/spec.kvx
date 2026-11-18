@@ -15772,6 +15772,12 @@ value = "The verification command of task 22.39.865 runs the lint of the applica
 basis = "Gotcha 4703. Decision 3775."
 affects = []
 
+[decision.3777]
+title = "The launchpad is closed module by module against its deployment contract and its consumers"
+value = "One. Each module of the launchpad under services/launchpad and sdk/launchpad/shared and each client package under sdk/launchpad/packages gets one task that reads it whole beside what it produces and consumes: the deployment contract and the composer under deploy/launchpad, the registered migrations and the grants document, the stream document of the event broker, and the service or the client on the other side. Two. Such a task repairs inside its module what a user or an operator of the launchpad can meet: an answer that producer and consumer read differently, a path that answers with a placeholder or a fixed sample, an error whose cause the log does not name, a setting the module reads and the contract does not carry, a readiness check that cannot turn ok in a deployment that follows the contract, a statement the runtime role may not run. It does not restyle, rename or restructure code that works, adds no rules or checks of form, and leaves the form of a route, a subject or a document that a consumer outside the module reads as it is. A defect whose repair lies outside the module is named in the final message and becomes a task of its own. Three. A module that starts a process of its own holds its start from the deployment contract with a case: settings and documents by the composer from its example values, the database by the registered migrations under the runtime role, streams and durables by the provisioning command, then the readiness answer and one answer of its main route or subject. Four. The playback measure of the gateway envelope holds for the releases of the player from 6.1 on: it counts the media time to the end of the last shown frame whichever of the two forms the release reports, and the parse of the progress report is held by a case that feeds it recorded reports of both forms. Five. The validation of a source manifest of the chat cases of the web application refuses a name that is absolute or leaves the source root by the form of the name, before the file system is read."
+basis = "Gotcha 4704."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45432,6 +45438,222 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.889]
+title = "Bring the client package users-sdk of the launchpad in line with the routes it calls and hold each call with a case"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/users-sdk"]
+tests = []
+verification_contract = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/users-sdk --fail-if-no-match run test)"
+do_1 = "do_1 Decision 3777, points one and two. Read sdk/launchpad/packages/users-sdk whole, the routes and subjects it calls in the user module services/launchpad/user at this revision, and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+symbols = []
+
+[capability.22.39.888]
+title = "Bring the client package stats-sdk of the launchpad in line with the routes it calls and hold each call with a case"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/stats-sdk"]
+tests = []
+verification_contract = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/stats-sdk --fail-if-no-match run test)"
+do_1 = "do_1 Decision 3777, points one and two. Read sdk/launchpad/packages/stats-sdk whole, the routes and subjects it calls in the stats module under services/launchpad at this revision, and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+symbols = []
+
+[capability.22.39.887]
+title = "Bring the client package ranking-algo-sdk of the launchpad in line with the routes it calls and hold each call with a case"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/ranking-algo-sdk"]
+tests = []
+verification_contract = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/ranking-algo-sdk --fail-if-no-match run test)"
+do_1 = "do_1 Decision 3777, points one and two. Read sdk/launchpad/packages/ranking-algo-sdk whole, the routes and subjects it calls in the ranking module services/launchpad/ranking-algo at this revision, and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+symbols = []
+
+[capability.22.39.886]
+title = "Bring the client package metadata-sdk of the launchpad in line with the routes it calls and hold each call with a case"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/metadata-sdk"]
+tests = []
+verification_contract = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/metadata-sdk --fail-if-no-match run test)"
+do_1 = "do_1 Decision 3777, points one and two. Read sdk/launchpad/packages/metadata-sdk whole, the routes and subjects it calls in the metadata module services/launchpad/metadata at this revision, and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+symbols = []
+
+[capability.22.39.885]
+title = "Bring the client package indexer-sdk of the launchpad in line with the routes it calls and hold each call with a case"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/indexer-sdk"]
+tests = []
+verification_contract = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/indexer-sdk --fail-if-no-match run test)"
+do_1 = "do_1 Decision 3777, points one and two. Read sdk/launchpad/packages/indexer-sdk whole, the routes and subjects it calls in the indexer module services/launchpad/indexer at this revision, and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+symbols = []
+
+[capability.22.39.884]
+title = "Bring the client package candles-sdk of the launchpad in line with the routes it calls and hold each call with a case"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/candles-sdk"]
+tests = []
+verification_contract = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/candles-sdk --fail-if-no-match run test)"
+do_1 = "do_1 Decision 3777, points one and two. Read sdk/launchpad/packages/candles-sdk whole, the routes and subjects it calls in the charts module services/launchpad/trading-charts at this revision, and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+symbols = []
+
+[capability.22.39.883]
+title = "Bring the client package sdk of the launchpad in line with the routes it calls and hold each call with a case"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/sdk"]
+tests = []
+verification_contract = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/sdk --fail-if-no-match run test)"
+do_1 = "do_1 Decision 3777, points one and two. Read sdk/launchpad/packages/sdk whole, the routes and subjects it calls in the api module services/launchpad/api and the gateway routes in front of it at this revision, and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+symbols = []
+
+[capability.22.39.882]
+title = "Close the shared module of the launchpad against its deployment contract and its consumers"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd sdk/launchpad/shared && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Decision 3777, points one to three. Read sdk/launchpad/shared whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+symbols = []
+
+[capability.22.39.881]
+title = "Close the user module of the launchpad against its deployment contract and its consumers"
+reqs = ["22998.1"]
+touches = ["services/launchpad/user"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/user && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/user whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+symbols = []
+
+[capability.22.39.880]
+title = "Close the charts module of the launchpad against its deployment contract and its consumers"
+reqs = ["22998.1"]
+touches = ["services/launchpad/trading-charts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/trading-charts && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/trading-charts whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+symbols = []
+
+[capability.22.39.879]
+title = "Close the stats module of the launchpad against its deployment contract and its consumers"
+reqs = ["22998.1"]
+touches = ["services/launchpad"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Decision 3777, points one to three. The module of this task is the stats module, the one directory under services/launchpad that the build command enters; every change stays inside that directory. Read the stats module under services/launchpad whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+symbols = []
+
+[capability.22.39.878]
+title = "Close the social module of the launchpad against its deployment contract and its consumers"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/social && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/social whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+symbols = []
+
+[capability.22.39.877]
+title = "Close the security module of the launchpad against its deployment contract and its consumers"
+reqs = ["22998.1"]
+touches = ["services/launchpad/security"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/security && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/security whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+symbols = []
+
+[capability.22.39.876]
+title = "Close the ranking module of the launchpad against its deployment contract and its consumers"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/ranking-algo && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/ranking-algo whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+symbols = []
+
+[capability.22.39.875]
+title = "Close the pnl module of the launchpad against its deployment contract and its consumers"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker/internal/app/testdata/reward_schema && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/launchpad/pnl-tracker && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/pnl-tracker whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+symbols = []
+
+[capability.22.39.874]
+title = "Close the metadata module of the launchpad against its deployment contract and its consumers"
+reqs = ["22998.1"]
+touches = ["services/launchpad/metadata"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/metadata && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/metadata whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+symbols = []
+
+[capability.22.39.873]
+title = "Close the livestream module of the launchpad against its deployment contract and its consumers"
+reqs = ["22998.1"]
+touches = ["services/launchpad/livestream"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/livestream && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/livestream whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+symbols = []
+
+[capability.22.39.872]
+title = "Close the indexer module of the launchpad against its deployment contract and its consumers"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/indexer && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/indexer whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+symbols = []
+
+[capability.22.39.871]
+title = "Close the gateway module of the launchpad against its deployment contract and its consumers"
+reqs = ["22998.1"]
+touches = ["services/launchpad/gateway"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/gateway && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/gateway whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+symbols = []
+
+[capability.22.39.870]
+title = "Close the notifications module of the launchpad against its deployment contract and its consumers"
+reqs = ["22998.1"]
+touches = ["services/launchpad/notifications"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/notifications && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/notifications whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+symbols = []
+
+[capability.22.39.869]
+title = "Close the discovery module of the launchpad against its deployment contract and its consumers"
+reqs = ["22998.1"]
+touches = ["services/launchpad/discovery"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/discovery && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/discovery whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+symbols = []
+
+[capability.22.39.868]
+title = "Close the api module of the launchpad against its deployment contract and its consumers"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd contracts/launchpad && pnpm install --ignore-workspace --frozen-lockfile && pnpm compile) && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/api whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+symbols = []
+
+[capability.22.39.867]
+title = "Refuse a name outside the source root in the source manifest of the chat cases by its form"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test conversation-read-markers.test.ts"
+do_1 = "do_1 Decision 3777, point five. Under apps/launchpad/web/src read the file qualification-sources.mjs of the chat directory and the case file conversation-read-markers.test.ts beside it in full."
+symbols = []
+
+[capability.22.39.866]
+title = "Let the playback measure of the gateway envelope hold for both forms of the progress report of the player"
+reqs = ["22998.1"]
+touches = ["services/launchpad/gateway/internal/storage"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/gateway && go test -count=1 -timeout 20m ./internal/storage/)"
+do_1 = "do_1 Gotcha 4704 and decision 3777, point four. Read the playback function of services/launchpad/gateway/internal/storage/envelope.go, the two cases the gotcha names and the configuration type of the envelope in full."
+symbols = []
 
 [capability.22.39.865]
 title = "Bring the ticker case of the home view and the preset case of the theme tokens to the forms the product holds"
@@ -207636,6 +207858,765 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.889]
+title = "Bring the client package users-sdk of the launchpad in line with the routes it calls and hold each call with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.889"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one and two. Read sdk/launchpad/packages/users-sdk whole, the routes and subjects it calls in the user module services/launchpad/user at this revision, and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+do_2 = "do_2 Establish for every call of the package that path, method, parameters, request body, answer shape, error codes, paging and stream frames agree with what the service reads and writes at this revision, and that every type the package exports for an answer equals what the service writes, field by field, with the encodings of amounts, addresses, hashes and times."
+do_3 = "do_3 Repair every disagreement inside sdk/launchpad/packages/users-sdk by the smallest change, each with a case that reads an answer written in the form the service writes at this revision. Where a caller under apps/launchpad reads a field the service does not write, name caller, file and field in the final message and change nothing there. Where the service is at fault and the package is not, the service stays as it is and the final message names route, file, line, what was observed and what is expected."
+do_4 = "do_4 Do not restyle, rename or restructure code that works, add no rules or checks of form, and remove no export a caller under apps/launchpad uses. No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every call of the package with its route and its verdict in one line each. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/users-sdk"]
+tests = []
+planned_paths = []
+build_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+verify_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/users-sdk --fail-if-no-match run test)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.888]
+title = "Bring the client package stats-sdk of the launchpad in line with the routes it calls and hold each call with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.888"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one and two. Read sdk/launchpad/packages/stats-sdk whole, the routes and subjects it calls in the stats module under services/launchpad at this revision, and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+do_2 = "do_2 Establish for every call of the package that path, method, parameters, request body, answer shape, error codes, paging and stream frames agree with what the service reads and writes at this revision, and that every type the package exports for an answer equals what the service writes, field by field, with the encodings of amounts, addresses, hashes and times."
+do_3 = "do_3 Repair every disagreement inside sdk/launchpad/packages/stats-sdk by the smallest change, each with a case that reads an answer written in the form the service writes at this revision. Where a caller under apps/launchpad reads a field the service does not write, name caller, file and field in the final message and change nothing there. Where the service is at fault and the package is not, the service stays as it is and the final message names route, file, line, what was observed and what is expected."
+do_4 = "do_4 Do not restyle, rename or restructure code that works, add no rules or checks of form, and remove no export a caller under apps/launchpad uses. No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every call of the package with its route and its verdict in one line each. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/stats-sdk"]
+tests = []
+planned_paths = []
+build_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+verify_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/stats-sdk --fail-if-no-match run test)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.887]
+title = "Bring the client package ranking-algo-sdk of the launchpad in line with the routes it calls and hold each call with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.887"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one and two. Read sdk/launchpad/packages/ranking-algo-sdk whole, the routes and subjects it calls in the ranking module services/launchpad/ranking-algo at this revision, and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+do_2 = "do_2 Establish for every call of the package that path, method, parameters, request body, answer shape, error codes, paging and stream frames agree with what the service reads and writes at this revision, and that every type the package exports for an answer equals what the service writes, field by field, with the encodings of amounts, addresses, hashes and times."
+do_3 = "do_3 Repair every disagreement inside sdk/launchpad/packages/ranking-algo-sdk by the smallest change, each with a case that reads an answer written in the form the service writes at this revision. Where a caller under apps/launchpad reads a field the service does not write, name caller, file and field in the final message and change nothing there. Where the service is at fault and the package is not, the service stays as it is and the final message names route, file, line, what was observed and what is expected."
+do_4 = "do_4 Do not restyle, rename or restructure code that works, add no rules or checks of form, and remove no export a caller under apps/launchpad uses. No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every call of the package with its route and its verdict in one line each. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/ranking-algo-sdk"]
+tests = []
+planned_paths = []
+build_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+verify_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/ranking-algo-sdk --fail-if-no-match run test)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.886]
+title = "Bring the client package metadata-sdk of the launchpad in line with the routes it calls and hold each call with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.886"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one and two. Read sdk/launchpad/packages/metadata-sdk whole, the routes and subjects it calls in the metadata module services/launchpad/metadata at this revision, and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+do_2 = "do_2 Establish for every call of the package that path, method, parameters, request body, answer shape, error codes, paging and stream frames agree with what the service reads and writes at this revision, and that every type the package exports for an answer equals what the service writes, field by field, with the encodings of amounts, addresses, hashes and times."
+do_3 = "do_3 Repair every disagreement inside sdk/launchpad/packages/metadata-sdk by the smallest change, each with a case that reads an answer written in the form the service writes at this revision. Where a caller under apps/launchpad reads a field the service does not write, name caller, file and field in the final message and change nothing there. Where the service is at fault and the package is not, the service stays as it is and the final message names route, file, line, what was observed and what is expected."
+do_4 = "do_4 Do not restyle, rename or restructure code that works, add no rules or checks of form, and remove no export a caller under apps/launchpad uses. No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every call of the package with its route and its verdict in one line each. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/metadata-sdk"]
+tests = []
+planned_paths = []
+build_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+verify_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/metadata-sdk --fail-if-no-match run test)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.885]
+title = "Bring the client package indexer-sdk of the launchpad in line with the routes it calls and hold each call with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.885"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one and two. Read sdk/launchpad/packages/indexer-sdk whole, the routes and subjects it calls in the indexer module services/launchpad/indexer at this revision, and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+do_2 = "do_2 Establish for every call of the package that path, method, parameters, request body, answer shape, error codes, paging and stream frames agree with what the service reads and writes at this revision, and that every type the package exports for an answer equals what the service writes, field by field, with the encodings of amounts, addresses, hashes and times."
+do_3 = "do_3 Repair every disagreement inside sdk/launchpad/packages/indexer-sdk by the smallest change, each with a case that reads an answer written in the form the service writes at this revision. Where a caller under apps/launchpad reads a field the service does not write, name caller, file and field in the final message and change nothing there. Where the service is at fault and the package is not, the service stays as it is and the final message names route, file, line, what was observed and what is expected."
+do_4 = "do_4 Do not restyle, rename or restructure code that works, add no rules or checks of form, and remove no export a caller under apps/launchpad uses. No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every call of the package with its route and its verdict in one line each. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/indexer-sdk"]
+tests = []
+planned_paths = []
+build_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+verify_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/indexer-sdk --fail-if-no-match run test)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.884]
+title = "Bring the client package candles-sdk of the launchpad in line with the routes it calls and hold each call with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.884"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one and two. Read sdk/launchpad/packages/candles-sdk whole, the routes and subjects it calls in the charts module services/launchpad/trading-charts at this revision, and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+do_2 = "do_2 Establish for every call of the package that path, method, parameters, request body, answer shape, error codes, paging and stream frames agree with what the service reads and writes at this revision, and that every type the package exports for an answer equals what the service writes, field by field, with the encodings of amounts, addresses, hashes and times."
+do_3 = "do_3 Repair every disagreement inside sdk/launchpad/packages/candles-sdk by the smallest change, each with a case that reads an answer written in the form the service writes at this revision. Where a caller under apps/launchpad reads a field the service does not write, name caller, file and field in the final message and change nothing there. Where the service is at fault and the package is not, the service stays as it is and the final message names route, file, line, what was observed and what is expected."
+do_4 = "do_4 Do not restyle, rename or restructure code that works, add no rules or checks of form, and remove no export a caller under apps/launchpad uses. No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every call of the package with its route and its verdict in one line each. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/candles-sdk"]
+tests = []
+planned_paths = []
+build_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+verify_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/candles-sdk --fail-if-no-match run test)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.883]
+title = "Bring the client package sdk of the launchpad in line with the routes it calls and hold each call with a case"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.883"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one and two. Read sdk/launchpad/packages/sdk whole, the routes and subjects it calls in the api module services/launchpad/api and the gateway routes in front of it at this revision, and the places under apps/launchpad/web and apps/launchpad/mobile that call the package."
+do_2 = "do_2 Establish for every call of the package that path, method, parameters, request body, answer shape, error codes, paging and stream frames agree with what the service reads and writes at this revision, and that every type the package exports for an answer equals what the service writes, field by field, with the encodings of amounts, addresses, hashes and times."
+do_3 = "do_3 Repair every disagreement inside sdk/launchpad/packages/sdk by the smallest change, each with a case that reads an answer written in the form the service writes at this revision. Where a caller under apps/launchpad reads a field the service does not write, name caller, file and field in the final message and change nothing there. Where the service is at fault and the package is not, the service stays as it is and the final message names route, file, line, what was observed and what is expected."
+do_4 = "do_4 Do not restyle, rename or restructure code that works, add no rules or checks of form, and remove no export a caller under apps/launchpad uses. No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every call of the package with its route and its verdict in one line each. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/sdk"]
+tests = []
+planned_paths = []
+build_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+verify_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/sdk --fail-if-no-match run test)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.882]
+title = "Close the shared module of the launchpad against its deployment contract and its consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.882"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one to three. Read sdk/launchpad/shared whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+do_2 = "do_2 Establish for every route, subject, document and setting of the module that producer and consumer agree on names, types, shapes, encodings, error codes and lifecycle, with restart and recovery where the module keeps state. Establish that every path a user or an operator can reach answers in a finished form: no placeholder answer, no fixed sample in place of a read, no error whose cause the log does not name, no setting the module reads that the contract and the composer do not carry, no readiness check that cannot turn ok in a deployment that follows the contract, no statement the runtime role of the module may not run."
+do_3 = "do_3 Where the module has no process of its own, hold the entries the mounting services call with a case in an existing package directory of the module that uses the real database, cache or event broker of the test environment where the entry reads one, prepared by the registered migrations with the runtime role of the mounting service. Where a case of the module already does this, extend that case and add no second one. Where the module does start a process of its own, hold its start instead as decision 3777, point three, states."
+do_4 = "do_4 Repair every defect the reading and the case show by the smallest change inside the module, each with a case that holds it. A defect whose repair lies outside the module stays as it is and is named in the final message with file, line, what was observed and what is expected. Do not restyle, rename or restructure code that works, add no rules or checks of form, and leave the form of a route, a subject or a document that a consumer outside the module reads as it is. New cases go into existing package directories of the module, so that the inventory tests/ci/data/launchpad_go_tests.py stays as it is."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every repair with file and cause, every defect left outside the module, and every route, subject and setting read with its verdict in one line each. The verification runs the suite of the module by the inventory command. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.881]
+title = "Close the user module of the launchpad against its deployment contract and its consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.881"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/user whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+do_2 = "do_2 Establish for every route, subject, document and setting of the module that producer and consumer agree on names, types, shapes, encodings, error codes and lifecycle, with restart and recovery where the module keeps state. Establish that every path a user or an operator can reach answers in a finished form: no placeholder answer, no fixed sample in place of a read, no error whose cause the log does not name, no setting the module reads that the contract and the composer do not carry, no readiness check that cannot turn ok in a deployment that follows the contract, no statement the runtime role of the module may not run."
+do_3 = "do_3 Hold the start of the module with a case in an existing package directory of the module, decision 3777, point three: the case composes the settings and documents of the module by the composer from its example values, prepares a database by the registered migrations with the runtime role of the module and the streams and durables by the provisioning command, starts the module the way its container starts it and reads its readiness answer and one answer of its main route or its main subject. Where a case of the module already does this, extend that case and add no second one. A service the module calls and the case cannot start is answered by the smallest stand-in inside the case, and the final message names each stand-in."
+do_4 = "do_4 Repair every defect the reading and the case show by the smallest change inside the module, each with a case that holds it. A defect whose repair lies outside the module stays as it is and is named in the final message with file, line, what was observed and what is expected. Do not restyle, rename or restructure code that works, add no rules or checks of form, and leave the form of a route, a subject or a document that a consumer outside the module reads as it is. New cases go into existing package directories of the module, so that the inventory tests/ci/data/launchpad_go_tests.py stays as it is."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every repair with file and cause, every defect left outside the module, and every route, subject and setting read with its verdict in one line each. The verification runs the suite of the module by the inventory command. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/user"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/user && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/user && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.880]
+title = "Close the charts module of the launchpad against its deployment contract and its consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.880"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/trading-charts whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+do_2 = "do_2 Establish for every route, subject, document and setting of the module that producer and consumer agree on names, types, shapes, encodings, error codes and lifecycle, with restart and recovery where the module keeps state. Establish that every path a user or an operator can reach answers in a finished form: no placeholder answer, no fixed sample in place of a read, no error whose cause the log does not name, no setting the module reads that the contract and the composer do not carry, no readiness check that cannot turn ok in a deployment that follows the contract, no statement the runtime role of the module may not run."
+do_3 = "do_3 Hold the start of the module with a case in an existing package directory of the module, decision 3777, point three: the case composes the settings and documents of the module by the composer from its example values, prepares a database by the registered migrations with the runtime role of the module and the streams and durables by the provisioning command, starts the module the way its container starts it and reads its readiness answer and one answer of its main route or its main subject. Where a case of the module already does this, extend that case and add no second one. A service the module calls and the case cannot start is answered by the smallest stand-in inside the case, and the final message names each stand-in."
+do_4 = "do_4 Repair every defect the reading and the case show by the smallest change inside the module, each with a case that holds it. A defect whose repair lies outside the module stays as it is and is named in the final message with file, line, what was observed and what is expected. Do not restyle, rename or restructure code that works, add no rules or checks of form, and leave the form of a route, a subject or a document that a consumer outside the module reads as it is. New cases go into existing package directories of the module, so that the inventory tests/ci/data/launchpad_go_tests.py stays as it is."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every repair with file and cause, every defect left outside the module, and every route, subject and setting read with its verdict in one line each. The verification runs the suite of the module by the inventory command. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/trading-charts"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/trading-charts && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/trading-charts && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.879]
+title = "Close the stats module of the launchpad against its deployment contract and its consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.879"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one to three. The module of this task is the stats module, the one directory under services/launchpad that the build command enters; every change stays inside that directory. Read the stats module under services/launchpad whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+do_2 = "do_2 Establish for every route, subject, document and setting of the module that producer and consumer agree on names, types, shapes, encodings, error codes and lifecycle, with restart and recovery where the module keeps state. Establish that every path a user or an operator can reach answers in a finished form: no placeholder answer, no fixed sample in place of a read, no error whose cause the log does not name, no setting the module reads that the contract and the composer do not carry, no readiness check that cannot turn ok in a deployment that follows the contract, no statement the runtime role of the module may not run."
+do_3 = "do_3 Hold the start of the module with a case in an existing package directory of the module, decision 3777, point three: the case composes the settings and documents of the module by the composer from its example values, prepares a database by the registered migrations with the runtime role of the module and the streams and durables by the provisioning command, starts the module the way its container starts it and reads its readiness answer and one answer of its main route or its main subject. Where a case of the module already does this, extend that case and add no second one. A service the module calls and the case cannot start is answered by the smallest stand-in inside the case, and the final message names each stand-in."
+do_4 = "do_4 Repair every defect the reading and the case show by the smallest change inside the module, each with a case that holds it. A defect whose repair lies outside the module stays as it is and is named in the final message with file, line, what was observed and what is expected. Do not restyle, rename or restructure code that works, add no rules or checks of form, and leave the form of a route, a subject or a document that a consumer outside the module reads as it is. New cases go into existing package directories of the module, so that the inventory tests/ci/data/launchpad_go_tests.py stays as it is."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every repair with file and cause, every defect left outside the module, and every route, subject and setting read with its verdict in one line each. The verification runs the suite of the module by the inventory command. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/stats-*ers && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.878]
+title = "Close the social module of the launchpad against its deployment contract and its consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.878"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/social whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+do_2 = "do_2 Establish for every route, subject, document and setting of the module that producer and consumer agree on names, types, shapes, encodings, error codes and lifecycle, with restart and recovery where the module keeps state. Establish that every path a user or an operator can reach answers in a finished form: no placeholder answer, no fixed sample in place of a read, no error whose cause the log does not name, no setting the module reads that the contract and the composer do not carry, no readiness check that cannot turn ok in a deployment that follows the contract, no statement the runtime role of the module may not run."
+do_3 = "do_3 Hold the start of the module with a case in an existing package directory of the module, decision 3777, point three: the case composes the settings and documents of the module by the composer from its example values, prepares a database by the registered migrations with the runtime role of the module and the streams and durables by the provisioning command, starts the module the way its container starts it and reads its readiness answer and one answer of its main route or its main subject. Where a case of the module already does this, extend that case and add no second one. A service the module calls and the case cannot start is answered by the smallest stand-in inside the case, and the final message names each stand-in."
+do_4 = "do_4 Repair every defect the reading and the case show by the smallest change inside the module, each with a case that holds it. A defect whose repair lies outside the module stays as it is and is named in the final message with file, line, what was observed and what is expected. Do not restyle, rename or restructure code that works, add no rules or checks of form, and leave the form of a route, a subject or a document that a consumer outside the module reads as it is. New cases go into existing package directories of the module, so that the inventory tests/ci/data/launchpad_go_tests.py stays as it is."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every repair with file and cause, every defect left outside the module, and every route, subject and setting read with its verdict in one line each. The verification runs the suite of the module by the inventory command. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/social && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/social && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.877]
+title = "Close the security module of the launchpad against its deployment contract and its consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.877"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/security whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+do_2 = "do_2 Establish for every route, subject, document and setting of the module that producer and consumer agree on names, types, shapes, encodings, error codes and lifecycle, with restart and recovery where the module keeps state. Establish that every path a user or an operator can reach answers in a finished form: no placeholder answer, no fixed sample in place of a read, no error whose cause the log does not name, no setting the module reads that the contract and the composer do not carry, no readiness check that cannot turn ok in a deployment that follows the contract, no statement the runtime role of the module may not run."
+do_3 = "do_3 Where the module has no process of its own, hold the entries the mounting services call with a case in an existing package directory of the module that uses the real database, cache or event broker of the test environment where the entry reads one, prepared by the registered migrations with the runtime role of the mounting service. Where a case of the module already does this, extend that case and add no second one. Where the module does start a process of its own, hold its start instead as decision 3777, point three, states."
+do_4 = "do_4 Repair every defect the reading and the case show by the smallest change inside the module, each with a case that holds it. A defect whose repair lies outside the module stays as it is and is named in the final message with file, line, what was observed and what is expected. Do not restyle, rename or restructure code that works, add no rules or checks of form, and leave the form of a route, a subject or a document that a consumer outside the module reads as it is. New cases go into existing package directories of the module, so that the inventory tests/ci/data/launchpad_go_tests.py stays as it is."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every repair with file and cause, every defect left outside the module, and every route, subject and setting read with its verdict in one line each. The verification runs the suite of the module by the inventory command. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/security"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/security && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/security && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.876]
+title = "Close the ranking module of the launchpad against its deployment contract and its consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.876"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/ranking-algo whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+do_2 = "do_2 Establish for every route, subject, document and setting of the module that producer and consumer agree on names, types, shapes, encodings, error codes and lifecycle, with restart and recovery where the module keeps state. Establish that every path a user or an operator can reach answers in a finished form: no placeholder answer, no fixed sample in place of a read, no error whose cause the log does not name, no setting the module reads that the contract and the composer do not carry, no readiness check that cannot turn ok in a deployment that follows the contract, no statement the runtime role of the module may not run."
+do_3 = "do_3 Hold the start of the module with a case in an existing package directory of the module, decision 3777, point three: the case composes the settings and documents of the module by the composer from its example values, prepares a database by the registered migrations with the runtime role of the module and the streams and durables by the provisioning command, starts the module the way its container starts it and reads its readiness answer and one answer of its main route or its main subject. Where a case of the module already does this, extend that case and add no second one. A service the module calls and the case cannot start is answered by the smallest stand-in inside the case, and the final message names each stand-in."
+do_4 = "do_4 Repair every defect the reading and the case show by the smallest change inside the module, each with a case that holds it. A defect whose repair lies outside the module stays as it is and is named in the final message with file, line, what was observed and what is expected. Do not restyle, rename or restructure code that works, add no rules or checks of form, and leave the form of a route, a subject or a document that a consumer outside the module reads as it is. New cases go into existing package directories of the module, so that the inventory tests/ci/data/launchpad_go_tests.py stays as it is."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every repair with file and cause, every defect left outside the module, and every route, subject and setting read with its verdict in one line each. The verification runs the suite of the module by the inventory command. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/ranking-algo && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/ranking-algo && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.875]
+title = "Close the pnl module of the launchpad against its deployment contract and its consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.875"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/pnl-tracker whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+do_2 = "do_2 Establish for every route, subject, document and setting of the module that producer and consumer agree on names, types, shapes, encodings, error codes and lifecycle, with restart and recovery where the module keeps state. Establish that every path a user or an operator can reach answers in a finished form: no placeholder answer, no fixed sample in place of a read, no error whose cause the log does not name, no setting the module reads that the contract and the composer do not carry, no readiness check that cannot turn ok in a deployment that follows the contract, no statement the runtime role of the module may not run."
+do_3 = "do_3 Hold the start of the module with a case in an existing package directory of the module, decision 3777, point three: the case composes the settings and documents of the module by the composer from its example values, prepares a database by the registered migrations with the runtime role of the module and the streams and durables by the provisioning command, starts the module the way its container starts it and reads its readiness answer and one answer of its main route or its main subject. Where a case of the module already does this, extend that case and add no second one. A service the module calls and the case cannot start is answered by the smallest stand-in inside the case, and the final message names each stand-in."
+do_4 = "do_4 Repair every defect the reading and the case show by the smallest change inside the module, each with a case that holds it. A defect whose repair lies outside the module stays as it is and is named in the final message with file, line, what was observed and what is expected. Do not restyle, rename or restructure code that works, add no rules or checks of form, and leave the form of a route, a subject or a document that a consumer outside the module reads as it is. New cases go into existing package directories of the module, so that the inventory tests/ci/data/launchpad_go_tests.py stays as it is."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every repair with file and cause, every defect left outside the module, and every route, subject and setting read with its verdict in one line each. The verification runs the suite of the module by the inventory command. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker/internal/app/testdata/reward_schema && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/launchpad/pnl-tracker && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker/internal/app/testdata/reward_schema && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/launchpad/pnl-tracker && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.874]
+title = "Close the metadata module of the launchpad against its deployment contract and its consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.874"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/metadata whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+do_2 = "do_2 Establish for every route, subject, document and setting of the module that producer and consumer agree on names, types, shapes, encodings, error codes and lifecycle, with restart and recovery where the module keeps state. Establish that every path a user or an operator can reach answers in a finished form: no placeholder answer, no fixed sample in place of a read, no error whose cause the log does not name, no setting the module reads that the contract and the composer do not carry, no readiness check that cannot turn ok in a deployment that follows the contract, no statement the runtime role of the module may not run."
+do_3 = "do_3 Hold the start of the module with a case in an existing package directory of the module, decision 3777, point three: the case composes the settings and documents of the module by the composer from its example values, prepares a database by the registered migrations with the runtime role of the module and the streams and durables by the provisioning command, starts the module the way its container starts it and reads its readiness answer and one answer of its main route or its main subject. Where a case of the module already does this, extend that case and add no second one. A service the module calls and the case cannot start is answered by the smallest stand-in inside the case, and the final message names each stand-in."
+do_4 = "do_4 Repair every defect the reading and the case show by the smallest change inside the module, each with a case that holds it. A defect whose repair lies outside the module stays as it is and is named in the final message with file, line, what was observed and what is expected. Do not restyle, rename or restructure code that works, add no rules or checks of form, and leave the form of a route, a subject or a document that a consumer outside the module reads as it is. New cases go into existing package directories of the module, so that the inventory tests/ci/data/launchpad_go_tests.py stays as it is."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every repair with file and cause, every defect left outside the module, and every route, subject and setting read with its verdict in one line each. The verification runs the suite of the module by the inventory command. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/metadata"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/metadata && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/metadata && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.873]
+title = "Close the livestream module of the launchpad against its deployment contract and its consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.873"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/livestream whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+do_2 = "do_2 Establish for every route, subject, document and setting of the module that producer and consumer agree on names, types, shapes, encodings, error codes and lifecycle, with restart and recovery where the module keeps state. Establish that every path a user or an operator can reach answers in a finished form: no placeholder answer, no fixed sample in place of a read, no error whose cause the log does not name, no setting the module reads that the contract and the composer do not carry, no readiness check that cannot turn ok in a deployment that follows the contract, no statement the runtime role of the module may not run."
+do_3 = "do_3 Hold the start of the module with a case in an existing package directory of the module, decision 3777, point three: the case composes the settings and documents of the module by the composer from its example values, prepares a database by the registered migrations with the runtime role of the module and the streams and durables by the provisioning command, starts the module the way its container starts it and reads its readiness answer and one answer of its main route or its main subject. Where a case of the module already does this, extend that case and add no second one. A service the module calls and the case cannot start is answered by the smallest stand-in inside the case, and the final message names each stand-in."
+do_4 = "do_4 Repair every defect the reading and the case show by the smallest change inside the module, each with a case that holds it. A defect whose repair lies outside the module stays as it is and is named in the final message with file, line, what was observed and what is expected. Do not restyle, rename or restructure code that works, add no rules or checks of form, and leave the form of a route, a subject or a document that a consumer outside the module reads as it is. New cases go into existing package directories of the module, so that the inventory tests/ci/data/launchpad_go_tests.py stays as it is."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every repair with file and cause, every defect left outside the module, and every route, subject and setting read with its verdict in one line each. The verification runs the suite of the module by the inventory command. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/livestream"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/livestream && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/livestream && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.872]
+title = "Close the indexer module of the launchpad against its deployment contract and its consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.872"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/indexer whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+do_2 = "do_2 Establish for every route, subject, document and setting of the module that producer and consumer agree on names, types, shapes, encodings, error codes and lifecycle, with restart and recovery where the module keeps state. Establish that every path a user or an operator can reach answers in a finished form: no placeholder answer, no fixed sample in place of a read, no error whose cause the log does not name, no setting the module reads that the contract and the composer do not carry, no readiness check that cannot turn ok in a deployment that follows the contract, no statement the runtime role of the module may not run."
+do_3 = "do_3 Hold the start of the module with a case in an existing package directory of the module, decision 3777, point three: the case composes the settings and documents of the module by the composer from its example values, prepares a database by the registered migrations with the runtime role of the module and the streams and durables by the provisioning command, starts the module the way its container starts it and reads its readiness answer and one answer of its main route or its main subject. Where a case of the module already does this, extend that case and add no second one. A service the module calls and the case cannot start is answered by the smallest stand-in inside the case, and the final message names each stand-in."
+do_4 = "do_4 Repair every defect the reading and the case show by the smallest change inside the module, each with a case that holds it. A defect whose repair lies outside the module stays as it is and is named in the final message with file, line, what was observed and what is expected. Do not restyle, rename or restructure code that works, add no rules or checks of form, and leave the form of a route, a subject or a document that a consumer outside the module reads as it is. New cases go into existing package directories of the module, so that the inventory tests/ci/data/launchpad_go_tests.py stays as it is."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every repair with file and cause, every defect left outside the module, and every route, subject and setting read with its verdict in one line each. The verification runs the suite of the module by the inventory command. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/indexer && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/indexer && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 420
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.871]
+title = "Close the gateway module of the launchpad against its deployment contract and its consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.866"]
+reqs = ["22998.1"]
+capabilities = ["22.39.871"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/gateway whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+do_2 = "do_2 Establish for every route, subject, document and setting of the module that producer and consumer agree on names, types, shapes, encodings, error codes and lifecycle, with restart and recovery where the module keeps state. Establish that every path a user or an operator can reach answers in a finished form: no placeholder answer, no fixed sample in place of a read, no error whose cause the log does not name, no setting the module reads that the contract and the composer do not carry, no readiness check that cannot turn ok in a deployment that follows the contract, no statement the runtime role of the module may not run."
+do_3 = "do_3 Hold the start of the module with a case in an existing package directory of the module, decision 3777, point three: the case composes the settings and documents of the module by the composer from its example values, prepares a database by the registered migrations with the runtime role of the module and the streams and durables by the provisioning command, starts the module the way its container starts it and reads its readiness answer and one answer of its main route or its main subject. Where a case of the module already does this, extend that case and add no second one. A service the module calls and the case cannot start is answered by the smallest stand-in inside the case, and the final message names each stand-in."
+do_4 = "do_4 Repair every defect the reading and the case show by the smallest change inside the module, each with a case that holds it. A defect whose repair lies outside the module stays as it is and is named in the final message with file, line, what was observed and what is expected. Do not restyle, rename or restructure code that works, add no rules or checks of form, and leave the form of a route, a subject or a document that a consumer outside the module reads as it is. New cases go into existing package directories of the module, so that the inventory tests/ci/data/launchpad_go_tests.py stays as it is."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every repair with file and cause, every defect left outside the module, and every route, subject and setting read with its verdict in one line each. The verification runs the suite of the module by the inventory command. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/gateway"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/gateway && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/gateway && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.870]
+title = "Close the notifications module of the launchpad against its deployment contract and its consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.870"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/notifications whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+do_2 = "do_2 Establish for every route, subject, document and setting of the module that producer and consumer agree on names, types, shapes, encodings, error codes and lifecycle, with restart and recovery where the module keeps state. Establish that every path a user or an operator can reach answers in a finished form: no placeholder answer, no fixed sample in place of a read, no error whose cause the log does not name, no setting the module reads that the contract and the composer do not carry, no readiness check that cannot turn ok in a deployment that follows the contract, no statement the runtime role of the module may not run."
+do_3 = "do_3 Where the module has no process of its own, hold the entries the mounting services call with a case in an existing package directory of the module that uses the real database, cache or event broker of the test environment where the entry reads one, prepared by the registered migrations with the runtime role of the mounting service. Where a case of the module already does this, extend that case and add no second one. Where the module does start a process of its own, hold its start instead as decision 3777, point three, states."
+do_4 = "do_4 Repair every defect the reading and the case show by the smallest change inside the module, each with a case that holds it. A defect whose repair lies outside the module stays as it is and is named in the final message with file, line, what was observed and what is expected. Do not restyle, rename or restructure code that works, add no rules or checks of form, and leave the form of a route, a subject or a document that a consumer outside the module reads as it is. New cases go into existing package directories of the module, so that the inventory tests/ci/data/launchpad_go_tests.py stays as it is."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every repair with file and cause, every defect left outside the module, and every route, subject and setting read with its verdict in one line each. The verification runs the suite of the module by the inventory command. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/notifications"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/notifications && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/notifications && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.869]
+title = "Close the discovery module of the launchpad against its deployment contract and its consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.869"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/discovery whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+do_2 = "do_2 Establish for every route, subject, document and setting of the module that producer and consumer agree on names, types, shapes, encodings, error codes and lifecycle, with restart and recovery where the module keeps state. Establish that every path a user or an operator can reach answers in a finished form: no placeholder answer, no fixed sample in place of a read, no error whose cause the log does not name, no setting the module reads that the contract and the composer do not carry, no readiness check that cannot turn ok in a deployment that follows the contract, no statement the runtime role of the module may not run."
+do_3 = "do_3 Where the module has no process of its own, hold the entries the mounting services call with a case in an existing package directory of the module that uses the real database, cache or event broker of the test environment where the entry reads one, prepared by the registered migrations with the runtime role of the mounting service. Where a case of the module already does this, extend that case and add no second one. Where the module does start a process of its own, hold its start instead as decision 3777, point three, states."
+do_4 = "do_4 Repair every defect the reading and the case show by the smallest change inside the module, each with a case that holds it. A defect whose repair lies outside the module stays as it is and is named in the final message with file, line, what was observed and what is expected. Do not restyle, rename or restructure code that works, add no rules or checks of form, and leave the form of a route, a subject or a document that a consumer outside the module reads as it is. New cases go into existing package directories of the module, so that the inventory tests/ci/data/launchpad_go_tests.py stays as it is."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every repair with file and cause, every defect left outside the module, and every route, subject and setting read with its verdict in one line each. The verification runs the suite of the module by the inventory command. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/discovery"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/discovery && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/discovery && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.868]
+title = "Close the api module of the launchpad against its deployment contract and its consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.868"]
+interfaces = []
+do_1 = "do_1 Decision 3777, points one to three. Read services/launchpad/api whole, test files aside: its configuration reads, its listeners and routes, its statements, its subjects and durables on the event broker, its readiness and health checks and its start and stop paths. Read beside it what it produces and consumes: the deployment contract and the composer under deploy/launchpad for its settings and documents, the client package or the service that calls it, the registered migrations and the grants document under migrations for its role, and the stream document of the event broker."
+do_2 = "do_2 Establish for every route, subject, document and setting of the module that producer and consumer agree on names, types, shapes, encodings, error codes and lifecycle, with restart and recovery where the module keeps state. Establish that every path a user or an operator can reach answers in a finished form: no placeholder answer, no fixed sample in place of a read, no error whose cause the log does not name, no setting the module reads that the contract and the composer do not carry, no readiness check that cannot turn ok in a deployment that follows the contract, no statement the runtime role of the module may not run."
+do_3 = "do_3 Hold the start of the module with a case in an existing package directory of the module, decision 3777, point three: the case composes the settings and documents of the module by the composer from its example values, prepares a database by the registered migrations with the runtime role of the module and the streams and durables by the provisioning command, starts the module the way its container starts it and reads its readiness answer and one answer of its main route or its main subject. Where a case of the module already does this, extend that case and add no second one. A service the module calls and the case cannot start is answered by the smallest stand-in inside the case, and the final message names each stand-in."
+do_4 = "do_4 Repair every defect the reading and the case show by the smallest change inside the module, each with a case that holds it. A defect whose repair lies outside the module stays as it is and is named in the final message with file, line, what was observed and what is expected. Do not restyle, rename or restructure code that works, add no rules or checks of form, and leave the form of a route, a subject or a document that a consumer outside the module reads as it is. New cases go into existing package directories of the module, so that the inventory tests/ci/data/launchpad_go_tests.py stays as it is."
+do_5 = "do_5 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The final message lists every repair with file and cause, every defect left outside the module, and every route, subject and setting read with its verdict in one line each. The verification runs the suite of the module by the inventory command. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd contracts/launchpad && pnpm install --ignore-workspace --frozen-lockfile && pnpm compile) && (cd services/launchpad/api && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd contracts/launchpad && pnpm install --ignore-workspace --frozen-lockfile && pnpm compile) && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.867]
+title = "Refuse a name outside the source root in the source manifest of the chat cases by its form"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.867"]
+interfaces = []
+do_1 = "do_1 Decision 3777, point five. Under apps/launchpad/web/src read the file qualification-sources.mjs of the chat directory and the case file conversation-read-markers.test.ts beside it in full."
+do_2 = "do_2 The validation of a manifest today resolves every name against the source root and reads the file system on the way, so a relative name that leaves the root answers by what the machine holds at that place: the reason of the digest comparison where the place exists, a reason of the file system where it does not. Target form: before any read the validation refuses a name that is absolute, that holds a parent step or that resolves outside the source root, always with the reason source candidate digest mismatch. Names inside the root behave as today."
+do_3 = "do_3 The case chat_qualification_paths_reject_drift_and_escape keeps its expectations. Add to it names that leave the root by one, by three and by twelve parent steps, so that the answer does not follow the depth of the checkout on the machine."
+do_4 = "do_4 No assertion is weakened or removed, and no case is removed, skipped or tagged out. Only the two files named above change. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test conversation-read-markers.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.866]
+title = "Let the playback measure of the gateway envelope hold for both forms of the progress report of the player"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.866"]
+interfaces = []
+do_1 = "do_1 Gotcha 4704 and decision 3777, point four. Read the playback function of services/launchpad/gateway/internal/storage/envelope.go, the two cases the gotcha names and the configuration type of the envelope in full."
+do_2 = "do_2 Move the parse of the progress report into a function of its own that takes a reader and returns the frames shown, the media time and whether the report ended. The media time counts to the end of the last shown frame: where the largest out_time_us lies under the bound by no more than the duration of one frame at the frame rate the report or the frame count over the time gives, the bound counts as reached. A report that did not end, shows no frame or stops earlier than one frame duration under the bound still ends with the reason it has today. The event the function writes keeps its fields."
+do_3 = "do_3 Add cases in the package that feed the parse recorded reports as text: one where the last out_time_us equals the bound, one where it lies one frame duration under it at 15 frames a second, one that stops half way, one without the end line, one without a frame. Recorded reports are written into the case file by hand from the fields a release prints, key and value by line."
+do_4 = "do_4 No assertion is weakened or removed, and no case is removed, skipped or tagged out. The two cases the gotcha names stay as they are and pass with the player of this machine. Changes stay inside services/launchpad/gateway/internal/storage. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/gateway/internal/storage"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/gateway && go vet ./internal/storage/)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/gateway && go test -count=1 -timeout 20m ./internal/storage/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
