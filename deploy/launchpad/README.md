@@ -234,8 +234,10 @@ The web build arguments are:
 - Telemetry inputs: `NEXT_PUBLIC_ANALYTICS_KEY`, `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_ENV`, `NEXT_PUBLIC_SENTRY_RELEASE`, `NEXT_PUBLIC_SENTRY_REPLAY_ERROR_SAMPLE_RATE`, `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`.
 - Server upstream origins: `WEB_API_UPSTREAM`, `WEB_CHARTS_UPSTREAM`, `WEB_GATEWAY_UPSTREAM`, `WEB_SOCKETS_UPSTREAM`.
 
-`web-build-env.sh` sets `NODE_OPTIONS` and unsets empty `NEXT_PUBLIC_*` and `WEB_*`
-variables. The web runtime sets `NODE_ENV`, `NEXT_TELEMETRY_DISABLED`, `HOSTNAME`
+`web-build-env.sh` unsets empty `NEXT_PUBLIC_*` and `WEB_*` variables so application
+defaults apply. The build stage of `Dockerfile.web` sets `NODE_OPTIONS` to
+`--max-old-space-size=4096`, a heap bound of 4096 megabytes.
+The web runtime sets `NODE_ENV`, `NEXT_TELEMETRY_DISABLED`, `HOSTNAME`
 and `PORT`.
 
 `docker-compose.strangler.yml` reads these service-specific image, environment
