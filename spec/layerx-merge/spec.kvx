@@ -15742,6 +15742,12 @@ value = "One. The blocks view draws the list of blocks only. It draws no tab str
 basis = "Gotcha 4698. Decisions 2587, 3592 and 3767."
 affects = []
 
+[decision.3772]
+title = "The list of bundled compilers holds every version of vyper a verification case compiles with and none a download case asks for, and a download case removes what it leaves"
+value = "One. The list docker/explorer-elixir-builder/compilers.tsv holds vyper v0.2.12 beside v0.3.10, with the address of the release file and its sha256 digest in the form of the file. Two. The cases of services/explorer/backend/apps/explorer/test/repair/contract_reader_and_compiler_download_test.exs ask their downloaders only for versions the list does not hold. Their expectations stay as they are; only the version and the data of a case that names it change. Three. The setup and the exit step of that file remove every entry a case can leave at the path of the compiler, at its download path and at its earlier temporary path, be it a file or a directory, so that a case that ends early leaves every later case its start. Four. tests/ci/test_explorer_test_step.py holds both rules as cases that read files only: no version the download case file asks a downloader for stands in the list, and every version of vyper that a request of services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/verification_controller_test.exs names as its compiler version stands in it. The lookup in services/explorer/backend/apps/explorer/lib/explorer/smart_contract/compiler_download.ex, the downloaders and the tool stay as they are. Task 22.39.862."
+basis = "Gotcha 4699. Decision 3764."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45402,6 +45408,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.862]
+title = "Hold the vyper version the verification case compiles with in the builder and keep the download cases apart from the bundled compilers"
+reqs = ["22998.1"]
+touches = ["docker/explorer-elixir-builder/compilers.tsv", "services/explorer/backend/apps/explorer/test/repair/contract_reader_and_compiler_download_test.exs", "tests/ci/test_explorer_test_step.py"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/contract_reader_and_compiler_download_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/controllers/api/v2/verification_controller_test.exs"
+do_1 = "do_1 Gotcha 4699 and decision 3772. Read docker/explorer-elixir-builder/compilers.tsv, the script install-compilers.sh beside it, services/explorer/deploy/tools/mix-in-builder.sh, services/explorer/backend/apps/explorer/lib/explorer/smart_contract/compiler_download.ex, services/explorer/backend/apps/explorer/lib/explorer/smart_contract/vyper_downloader.ex, the downloader of solc beside it, services/explorer/backend/apps/explorer/test/repair/contract_reader_and_compiler_download_test.exs, services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/verification_controller_test.exs and tests/ci/test_explorer_test_step.py in full. List every version services/explorer/backend/apps/explorer/test/repair/contract_reader_and_compiler_download_test.exs asks a downloader for and every version of vyper a request of services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/verification_controller_test.exs names."
+symbols = []
 
 [capability.22.39.861]
 title = "Let the label of a tile take a second line instead of being cut and keep the values of a row of tiles on one line"
@@ -176775,7 +176790,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.858]
 title = "Draw the answer of the assistant in the search panel as one readable block without the line of no results"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176809,7 +176824,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.857]
 title = "Give the assistant route of the explorer the facts of the product and a plain text answer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176999,7 +177014,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.850]
 title = "Keep the value of a statistics tile, the large search text and the head of the recent blocks table whole at phone width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -472845,6 +472860,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.862]
+title = "Hold the vyper version the verification case compiles with in the builder and keep the download cases apart from the bundled compilers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.862"]
+interfaces = []
+do_1 = "do_1 Gotcha 4699 and decision 3772. Read docker/explorer-elixir-builder/compilers.tsv, the script install-compilers.sh beside it, services/explorer/deploy/tools/mix-in-builder.sh, services/explorer/backend/apps/explorer/lib/explorer/smart_contract/compiler_download.ex, services/explorer/backend/apps/explorer/lib/explorer/smart_contract/vyper_downloader.ex, the downloader of solc beside it, services/explorer/backend/apps/explorer/test/repair/contract_reader_and_compiler_download_test.exs, services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/verification_controller_test.exs and tests/ci/test_explorer_test_step.py in full. List every version services/explorer/backend/apps/explorer/test/repair/contract_reader_and_compiler_download_test.exs asks a downloader for and every version of vyper a request of services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/verification_controller_test.exs names."
+do_2 = "do_2 docker/explorer-elixir-builder/compilers.tsv: add one line for vyper v0.2.12 in the form of the line for v0.3.10: the address of the release file for the platform of the builder image and the sha256 digest of the file as read from that address. No other line changes. Build the image once through the tool and read that the store holds the new file with the mode of the other one and that it answers its version inside the image. Neither the Dockerfile nor the script changes."
+do_3 = "do_3 services/explorer/backend/apps/explorer/test/repair/contract_reader_and_compiler_download_test.exs: the version of vyper the file asks its downloaders for is one the list does not hold, and the data of the cases that names the version follows it. The version of solc stays while the list does not hold it. The expectations of the cases stay as they are. The setup and the exit step remove every entry at the path of the compiler, at its download path and at its earlier temporary path, be it a file or a directory. Do not run the formatter over the whole file; format only the lines you change."
+do_4 = "do_4 tests/ci/test_explorer_test_step.py: two cases in the form the file holds, which read files only. The first fails with the name of the version for each version that services/explorer/backend/apps/explorer/test/repair/contract_reader_and_compiler_download_test.exs asks a downloader for and the list holds. The second fails with the name of the version for each version of vyper that a request of services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/verification_controller_test.exs names as its compiler version and the list does not hold. The cases the file holds stay."
+do_5 = "do_5 Run by hand once before the counted verification: the tool with the path apps/explorer/test/repair/contract_reader_and_compiler_download_test.exs and the tool with the path apps/block_scout_web/test/block_scout_web/controllers/api/v2/verification_controller_test.exs, and read every case that does not pass. Every case of both files passes, in the order of the files and in a second run with another order. Run tests/ci/test_explorer_test_step.py once with python3 -m pytest where the environment holds it; where it does not, call the two new functions from python3 directly, and say in the final message which of the two ran and with what result. Give in the final message the count of the cases of each of the two case files and the lines of the list for vyper."
+do_6 = "do_6 No assertion is weakened or removed, and no case is removed, skipped or tagged out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files docker/explorer-elixir-builder/compilers.tsv, services/explorer/backend/apps/explorer/test/repair/contract_reader_and_compiler_download_test.exs and tests/ci/test_explorer_test_step.py are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No file under services/explorer/backend/apps/explorer/lib/explorer/smart_contract, no file under .github and no other file changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docker/explorer-elixir-builder/compilers.tsv", "services/explorer/backend/apps/explorer/test/repair/contract_reader_and_compiler_download_test.exs", "tests/ci/test_explorer_test_step.py"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/contract_reader_and_compiler_download_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/controllers/api/v2/verification_controller_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
