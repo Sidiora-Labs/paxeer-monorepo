@@ -2,6 +2,7 @@ import { act, type ComponentType } from 'react';
 import { renderToString } from 'react-dom/server';
 import { afterAll, expect, test, vi } from 'vitest';
 import { builtinEnvironments } from 'vitest/environments';
+import { applyBrowserSurface } from '@/core/app-foundation/browser-surface.test-support';
 import { cookieToInitialState, serialize } from 'wagmi';
 
 type AppModules = {
@@ -48,7 +49,8 @@ async function chain_wizard_hydrates_without_a_mismatch() {
   expect(afterVisitor).toContain('Use 3 to 32 lowercase letters');
 
   const env = await builtinEnvironments.jsdom.setup(globalThis, { jsdom: { url: 'http://localhost/create/chain' } });
-  teardown = env.teardown;
+  const restoreBrowserSurface = applyBrowserSurface();
+  teardown = async global => { await restoreBrowserSurface(); await env.teardown(global); };
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   vi.resetModules();
   const browser = await loadApp();
