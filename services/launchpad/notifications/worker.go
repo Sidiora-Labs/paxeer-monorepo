@@ -3,6 +3,7 @@ package notifications
 import (
 	"context"
 	"errors"
+	"log"
 	"net/url"
 	"time"
 )
@@ -60,12 +61,14 @@ func (w Worker) Once(ctx context.Context, limit int) error {
 			d.NextAt = now.Add(time.Minute)
 			pref, err := w.Authority.CurrentDeliveryPreference(attemptCtx, item.Notification.Identity.AccountID)
 			if err != nil {
+				log.Printf("notification delivery preference failed: %v", err)
 				d.State = stateRetry
 				d.Reason = reasonConsentUnavailable
 			} else {
 				decision, de := Decide(pref, item.Notification, d.Channel, now)
 				d.ConsentRevision = decision.ConsentRevision
 				if de != nil {
+					log.Printf("notification delivery decision failed: %v", de)
 					d.State = stateRetry
 					d.Reason = reasonConsentUnavailable
 				} else if !decision.Send {
@@ -77,6 +80,7 @@ func (w Worker) Once(ctx context.Context, limit int) error {
 				} else {
 					target, te := w.Authority.CurrentTarget(attemptCtx, item.Notification.Identity.AccountID, d.TargetID)
 					if te != nil && !errors.Is(te, ErrForbidden) {
+						log.Printf("notification delivery target failed: %v", te)
 						d.State = stateRetry
 						d.Reason = "target_unavailable"
 					} else if te != nil || !validDeliveryTarget(target, item.Notification.Identity.AccountID, d, pref) {
@@ -99,6 +103,7 @@ func (w Worker) Once(ctx context.Context, limit int) error {
 							result, se := adapter.Send(sendCtx, target, payload)
 							cancel()
 							if se != nil {
+								log.Printf("notification provider %s failed: %v", target.Provider, se)
 								result = SendResult{State: stateUnknown, Reason: reasonProviderUncertain}
 							}
 							if ValidateResult(result) != nil {

@@ -3,14 +3,17 @@ package notifications
 import (
 	"context"
 	"crypto/tls"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/discovery"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production/coordinatortest"
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/testpki"
 	"github.com/google/uuid"
@@ -52,8 +55,12 @@ func TestHTTPRuntimeRoutesFrozenNotificationPaths(t *testing.T) {
 
 func TestInternalHandlerServesOnlyNotificationRoutes(t *testing.T) {
 	ctx := context.Background()
-	db, _ := notificationDeliveryOpen(t, t.TempDir())
-	notificationDeliverySchema(t, db)
+	database := coordinatortest.Bootstrap(t, os.Getenv("NOTIFICATIONS_TEST_DATABASE_URL"), "api_rest_runtime")
+	db, err := sql.Open("pgx", database.Runtimes["api_rest_runtime"].DSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
 	peer := notificationDeliveryAuthorities(t)
 	credentials, err := NewCredentials(ctx, notificationDeliveryCredentials(t), "REPAIR958_D11", "REPAIR958_INTERNAL")
 	if err != nil {
@@ -96,6 +103,9 @@ func TestInternalHandlerServesOnlyNotificationRoutes(t *testing.T) {
 	if err != nil || !created || id == "" {
 		t.Fatalf("chat intent: id=%q created=%v err=%v", id, created, err)
 	}
+	if replayID, replayCreated, err := chatClient.EnqueueChat(ctx, "chat-event", peer.account.AccountID, "message-1", time.Now().UTC()); err != nil || replayCreated || replayID != id {
+		t.Fatalf("chat replay: id=%q created=%v err=%v", replayID, replayCreated, err)
+	}
 	items, err := store.List(ctx, peer.account.AccountID, 10)
 	if err != nil || len(items) != 1 || items[0].ID != id {
 		t.Fatalf("chat inbox: %+v err=%v", items, err)
@@ -119,6 +129,9 @@ func TestInternalHandlerServesOnlyNotificationRoutes(t *testing.T) {
 	items, err = store.List(ctx, peer.account.AccountID, 10)
 	if err != nil || len(items) != 0 {
 		t.Fatalf("removed inbox: %+v err=%v", items, err)
+	}
+	if _, _, err := chatClient.EnqueueChat(ctx, "late-chat-event", peer.account.AccountID, "message-2", time.Now().UTC()); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("chat after account removal: %v", err)
 	}
 	for _, path := range []string{
 		"/", "/internal", "/internal/v2/unknown", "/internal/v2/notifications/other",
