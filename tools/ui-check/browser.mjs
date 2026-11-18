@@ -283,7 +283,8 @@ export function focusSnapshot() {
     })));
   };
   window.__uiCheck.appearance = appearance;
-  window.__uiCheck.focusBefore = new Map(all.filter(visible).map((element) => [element, appearance(element)]));
+  window.__uiCheck.focusBefore = new Map(all.filter((element) => visible(element) ||
+    (element.tabIndex >= 0 && !element.matches(":disabled,[inert], [inert] *"))).map((element) => [element, appearance(element)]));
   window.__uiCheck.focusSelector = selector;
   return all.filter((element) => (!modal || withinModal(element)) && visible(element) && element.tabIndex >= 0 && !element.matches(":disabled,[inert], [inert] *")).map(selector);
 }
