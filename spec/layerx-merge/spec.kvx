@@ -208036,7 +208036,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.903]
 title = "Bring the contract package sidiora-launchpad-v3 of the launchpad in line with the interfaces and the deployment it names and hold each entry with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208067,7 +208067,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.902]
 title = "Bring the contract package production-contracts of the launchpad in line with the interfaces and the deployment it names and hold each entry with a case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208888,7 +208888,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.876]
 title = "Close the ranking module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
