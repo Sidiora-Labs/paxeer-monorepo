@@ -208437,7 +208437,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.933]
 title = "Let the composed start case of the launchpad charts module hold when the interval ends between its two reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208707,7 +208707,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.921]
 title = "Give the profile, reward and swap views of the launchpad web application one heading of level one in every state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.890"]
