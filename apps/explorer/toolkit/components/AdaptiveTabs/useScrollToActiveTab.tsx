@@ -14,11 +14,15 @@ export default function useScrollToActiveTab({ activeTabIndex, tabsRefs, listRef
       return;
     }
 
-    if (activeTabIndex < tabsRefs.length && isMobile) {
+    if (activeTabIndex >= 0 && activeTabIndex < tabsRefs.length && tabsRefs[activeTabIndex]?.current && isMobile) {
       window.setTimeout(() => {
+        if (activeTabIndex < 0 || activeTabIndex >= tabsRefs.length) {
+          return;
+        }
+
         const activeTabRef = tabsRefs[activeTabIndex];
 
-        if (activeTabRef.current && listRef.current) {
+        if (activeTabRef?.current && listRef.current) {
           const containerWidth = listRef.current.getBoundingClientRect().width;
           const activeTabWidth = activeTabRef.current.getBoundingClientRect().width;
           const left = tabsRefs.slice(0, activeTabIndex)
