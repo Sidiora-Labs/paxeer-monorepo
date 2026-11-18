@@ -173,6 +173,9 @@ func newRuntime(ctx context.Context, cfg config.Config, logger *slog.Logger, sec
 	var legacyReads *metadata.ProductionLegacyReads
 	edge := cfg.NodeEnv == metadataProductionEnv && cfg.Ingress == config.IngressEdge
 	if cfg.NodeEnv == metadataProductionEnv {
+		if strings.TrimSpace(cfg.CanonicalStreamID) == "" {
+			return nil, fmt.Errorf("metadata_canonical_stream_required: CANONICAL_STREAM_ID is required")
+		}
 		if !edge {
 			serverTLS, err = metadataServerTLS(cfg)
 			if err != nil {
@@ -216,11 +219,12 @@ func newRuntime(ctx context.Context, cfg config.Config, logger *slog.Logger, sec
 		worker := raster.ProcessWorker{Executable: cfg.RasterExecutable, CgroupParent: cfg.RasterCgroupParent, Isolation: cfg.RasterIsolation}
 		var identity metadata.RequestIdentityAuthority
 		var identityEndpoint string
-		var identityClient *http.Client
+		var identityReady sharedhttp.Check
 		var clientTLS *tls.Config
 		if edge {
 			identityEndpoint = strings.TrimRight(strings.TrimSpace(cfg.IdentityServiceURL), "/")
 			identity = sharedauth.HTTPIdentityAuthority{Endpoint: identityEndpoint, ServiceToken: cfg.IdentityServiceToken, AllowPlainHTTP: strings.HasPrefix(identityEndpoint, "http://")}
+			identityReady = func(c context.Context) error { return probeServiceReady(c, identityEndpoint, nil) }
 		} else {
 			clientTLS = serverTLS.Clone()
 			clientTLS.ClientAuth = tls.NoClientCert
@@ -234,7 +238,7 @@ func newRuntime(ctx context.Context, cfg config.Config, logger *slog.Logger, sec
 			if e != nil {
 				return nil, fmt.Errorf("metadata_identity_transport_unavailable")
 			}
-			identity, identityEndpoint, identityClient = mtlsIdentity, cfg.IdentityEndpoint, mtlsIdentity.Client
+			identity, identityReady = mtlsIdentity, mtlsIdentity.Probe
 		}
 		var moderation metadata.VisibilityAuthority
 		var moderationReady sharedhttp.Check
@@ -277,7 +281,7 @@ func newRuntime(ctx context.Context, cfg config.Config, logger *slog.Logger, sec
 		checks["media_objects"] = mediaReadinessCheck(logger, "media_objects", instance.Objects.Ready)
 		checks["media_scanner"] = mediaReadinessCheck(logger, "media_scanner", mediaScannerReady(instance.Scanner))
 		checks["media_worker"] = mediaReadinessCheck(logger, "media_worker", mediaRasterReady(worker))
-		checks["media_identity"] = func(c context.Context) error { return probeServiceReady(c, identityEndpoint, identityClient) }
+		checks["media_identity"] = mediaReadinessCheck(logger, "media_identity", identityReady)
 		checks["media_moderation"] = moderationReady
 		checks["media_rpc"] = func(c context.Context) error {
 			chain, e := rpc.ChainID(c)
@@ -508,7 +512,8 @@ func newRuntime(ctx context.Context, cfg config.Config, logger *slog.Logger, sec
 					if e != nil && logger != nil {
 						// Development keeps readiness unaffected and logs the cause.
 						if cfg.NodeEnv == metadataProductionEnv {
-							logger.Error("metadata retention unavailable")
+							_, reason := StartupFailure(e)
+							metadata.LogFailure(logger, "metadata retention unavailable", e, slog.String("reason", reason))
 						} else {
 							logger.Error("development media maintenance failed", slog.String("err", e.Error()))
 						}
@@ -576,10 +581,13 @@ func mediaReadinessCheck(logger *slog.Logger, name string, check sharedhttp.Chec
 		if err == nil || logger == nil {
 			return err
 		}
+		_, reason := StartupFailure(err)
+		attrs := []slog.Attr{slog.String("check", name), slog.String("reason", reason)}
 		var mediaErr *metadata.MediaReadinessError
 		if errors.As(err, &mediaErr) {
-			logger.Error("metadata readiness check failed", slog.String("check", name), slog.String("part", mediaErr.Part), slog.String("step", mediaErr.Step))
+			attrs = append(attrs, slog.String("part", mediaErr.Part), slog.String("step", mediaErr.Step))
 		}
+		metadata.LogFailure(logger, "metadata readiness check failed", err, attrs...)
 		return err
 	}
 }
