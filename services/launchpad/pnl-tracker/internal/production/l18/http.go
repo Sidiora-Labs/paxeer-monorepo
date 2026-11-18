@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -85,7 +86,7 @@ func (h HTTP) Rewards(w http.ResponseWriter, r *http.Request) {
 		e = iface.ValidateJSON("RewardsResponse", raw)
 	}
 	if e != nil {
-		writeJourneyError(w, ErrUnavailable)
+		writeJourneyError(w, e)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -151,6 +152,9 @@ func writeJourneyError(w http.ResponseWriter, e error) {
 		message = capability.Reason
 		detail = map[string]any{"capability": capability.Capability}
 		code = "FEATURE_UNAVAILABLE"
+	}
+	if status >= http.StatusInternalServerError {
+		slog.Error("reward request unavailable", slog.Any("err", e))
 	}
 	if status == http.StatusServiceUnavailable {
 		w.Header().Set("Retry-After", "5")
