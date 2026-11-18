@@ -28,6 +28,7 @@ export interface HolderRewardsTableProps {
   loadMoreFailed?: boolean;
   onLoadMore(): void;
   pricesUnavailable?: Unsupported | null;
+  pricesPending?: boolean;
   hoveredPool?: string | null;
   onHoverPool?(pool: string | null): void;
   airdrop?: AirdropHover | null;
@@ -98,6 +99,7 @@ export default function HolderRewardsTable({
   loadMoreFailed = false,
   onLoadMore,
   pricesUnavailable = null,
+  pricesPending = false,
   hoveredPool = null,
   onHoverPool,
   airdrop = null,
@@ -201,7 +203,7 @@ export default function HolderRewardsTable({
                       <span className="text-text-faint" aria-label="Market cap not available yet">{'—'}</span>
                     </Tooltip>
                   ) : (
-                    <span className="text-text-faint" aria-label="Loading market cap">{'—'}</span>
+                    <span className="text-text-faint" aria-label={pricesPending ? 'Loading market cap' : 'Market cap not available yet'}>{'—'}</span>
                   )}
                 </td>
                 <td className="hidden px-3 text-right align-middle md:table-cell">
@@ -213,9 +215,9 @@ export default function HolderRewardsTable({
         </tbody>
       </table>
       </div>
-      {rows.length > 0 ? (
+      {rows.length > 0 || hasMore ? (
         <>
-          {hasMore ? <p className="px-3 text-xs text-text-faint">Ranked across the {rows.length} coins shown</p> : null}
+          {hasMore && rows.length > 0 ? <p className="px-3 text-xs text-text-faint">Ranked across the {rows.length} coins shown</p> : null}
           <LoadMore hasMore={hasMore} loading={loadingMore} error={loadMoreFailed} onLoadMore={onLoadMore} auto={false} />
         </>
       ) : null}
