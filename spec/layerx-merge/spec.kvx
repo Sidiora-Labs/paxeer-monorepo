@@ -176238,7 +176238,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.104]
 title = "Measure the launchpad web application against its state before the tasks of series 22.44"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
