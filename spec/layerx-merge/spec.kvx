@@ -15640,6 +15640,12 @@ value = "The configuration of the settings validator is brought in line with the
 basis = "Gotcha 4681. Decision 3750."
 affects = []
 
+[decision.3755]
+title = "The chain reads of the indexer reach a browser through the hosted gateway"
+value = "The gateway serves /v1/chains, /v1/chains/:id, /v1/chains/:id/summary, /v1/chains/:id/transfers and /v1/chains/:id/events with the method GET as public reads and answers them from the indexer origin it is configured with, in the form its public reads have: exact paths, a checked chain number, the read budget of the public reads, JSON answers only, and the status and the document of the indexer kept. The indexer gets no cross-origin handling and no public listener for these reads. The setting NEXT_PUBLIC_PAXEER_X_INDEXER_API_HOST of the explorer names the public address of the gateway on a deployment, and the origin of the explorer stands in the allowed origins of the route bindings. The read of a chain by its name is not part of these routes. The budget values are the values of the public reads and are a least protection, not a measured bound."
+basis = "Gotcha 4682. Decision 3750."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45300,6 +45306,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.828]
+title = "Serve the chain reads of the indexer as public reads of the hosted gateway"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway", "docs/wiki/HostedGateway.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway chain_reads_ && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway public_read"
+do_1 = "do_1 Gotcha 4682 and decision 3755. Read in services/platform/hosted/gateway/src the files public_reads.rs with its targets, its budget and its route, history.rs with the indexer origin and the type Source, main.rs with the function route_with_peer and the place where the public reads are routed, and routes.rs with the rule of the allowed origins. Read the chain routes in services/platform/hosted/indexer/src/api.rs with their refusals, the chain resources in apps/explorer/lib/api/resources.ts and the section Public routes in docs/wiki/HostedGateway.md."
+symbols = []
 
 [capability.22.39.827]
 title = "Bring the TypeScript configuration of the settings validator of the explorer in line with the application files its target compiles"
@@ -218438,6 +218453,40 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.828]
+title = "Serve the chain reads of the indexer as public reads of the hosted gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.828"]
+interfaces = []
+do_1 = "do_1 Gotcha 4682 and decision 3755. Read in services/platform/hosted/gateway/src the files public_reads.rs with its targets, its budget and its route, history.rs with the indexer origin and the type Source, main.rs with the function route_with_peer and the place where the public reads are routed, and routes.rs with the rule of the allowed origins. Read the chain routes in services/platform/hosted/indexer/src/api.rs with their refusals, the chain resources in apps/explorer/lib/api/resources.ts and the section Public routes in docs/wiki/HostedGateway.md."
+do_2 = "do_2 The gateway answers the method GET on /v1/chains, /v1/chains/:id, /v1/chains/:id/summary, /v1/chains/:id/transfers and /v1/chains/:id/events as public reads from the indexer origin of LAYERX_GATEWAY_INDEXER_URL, through the client the history methods use. The chain number is a decimal number that fits 32 bits without sign; another value is refused with status 400 in the form of the public reads before any upstream request. The reads of transfers and events pass the query string to the indexer where it is at most 512 bytes of the characters a query of cursor, limit and kind holds, and refuse it with status 400 otherwise; the other three reads refuse a query string that is not empty with status 400. Another method on these paths is answered with status 405."
+do_3 = "do_3 Each read spends the read budget of the public reads and is answered with status 429 in their form where the budget is spent. The status and the JSON document of the indexer are passed on as they are, among them the refusals and the answer for an unknown chain. An answer that is not JSON gives status 502, and an indexer that is not configured or not reachable gives status 503, both in the form of the refusals of the gateway. No header of the request is passed to the indexer, and the read of a chain by its name is not served."
+do_4 = "do_4 The cross-origin answer follows the rule the gateway has for every route: an origin of the allowed origins of the route bindings is answered with its headers, another origin is refused as today. Nothing of that rule changes."
+do_5 = "do_5 Add cases to the module of the binary whose names begin with chain_reads_: each of the five reads answered from an indexer of the test in the form the history cases use; the refused chain number without an upstream request; the query rules; the method rule; the spent budget; the answer that is not JSON; the indexer that is not configured. The cases do not depend on the speed of the machine."
+do_6 = "do_6 State the five routes, their source, their budget and their refusals in the section Public routes of docs/wiki/HostedGateway.md, and name the chain reads in the row of LAYERX_GATEWAY_INDEXER_URL of its table of config keys. Where a check of the package of the gateway compares the routes it serves with a list in its own directory, bring that list in line in the form the public reads have there."
+do_7 = "do_7 No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway", "docs/wiki/HostedGateway.md"]
+tests = []
+planned_paths = []
+build_cmd = "cargo check --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway chain_reads_ && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway public_read"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
