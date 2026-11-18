@@ -15748,6 +15748,12 @@ value = "One. The list docker/explorer-elixir-builder/compilers.tsv holds vyper 
 basis = "Gotcha 4699. Decision 3764."
 affects = []
 
+[decision.3773]
+title = "The column From / To of the transactions table carries no width of its own and takes what the other columns leave, and the least width of the table keeps its room"
+value = "One. In the transactions table the column From / To carries no width. The table keeps its fixed layout and its full width, so the column takes the room the other columns leave. No column of the table has a width that mixes a share of the table with a length. Two. The widths decision 3771 gave the other columns stay. Three. The least width of the table at every breakpoint is the sum of the widths of the other columns that are drawn plus 19.5 rem for the column From / To, as a least value of care; that is the room of two shortened addresses with their icons, the copy control and the arrow. Below that width the region of the table scrolls sideways as it does today, and the page gains no horizontal overflow. Four. The rule holds for every set of columns the table draws: with and without the columns of the block, the amount, the fee and the chain. Five. The cases of apps/explorer/ui/txs/TxsTable.spec.tsx and apps/explorer/ui/txs/TxsTableWidth.pw.tsx that expected the mixed width follow this form; the case of the browser also holds that the widths of the columns add up to the width of the table and that no head stands over another. Task 22.39.863."
+basis = "Gotcha 4700. Decisions 3767 and 3771."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45408,6 +45414,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.863]
+title = "Let the column From / To of the transactions table take the room the other columns leave"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/txs"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/txs/TxsTable.tsx ui/txs/TxsTable.spec.tsx ui/txs/TxsTableItem.tsx ui/txs/TxsTableWidth.pw.tsx && yarn vitest run ui/txs"
+do_1 = "do_1 Gotcha 4700 and decision 3773. Read apps/explorer/ui/txs/TxsTable.tsx, apps/explorer/ui/txs/TxsTable.spec.tsx, apps/explorer/ui/txs/TxsTableWidth.pw.tsx, the row component TxsTableItem.tsx and ActivityTable.tsx beside them and the table parts of the toolkit in full. List every place that draws the table and the set of columns each draws."
+symbols = []
 
 [capability.22.39.862]
 title = "Hold the vyper version the verification case compiles with in the builder and keep the download cases apart from the bundled compilers"
@@ -176688,6 +176703,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.863]
+title = "Let the column From / To of the transactions table take the room the other columns leave"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.863"]
+interfaces = []
+do_1 = "do_1 Gotcha 4700 and decision 3773. Read apps/explorer/ui/txs/TxsTable.tsx, apps/explorer/ui/txs/TxsTable.spec.tsx, apps/explorer/ui/txs/TxsTableWidth.pw.tsx, the row component TxsTableItem.tsx and ActivityTable.tsx beside them and the table parts of the toolkit in full. List every place that draws the table and the set of columns each draws."
+do_2 = "do_2 apps/explorer/ui/txs/TxsTable.tsx: the head of the column From / To carries no width, and the value that subtracted the sum of the other columns from the full width goes. The table keeps its fixed layout and its full width. The least width of the table follows decision 3773, point three, for each set of columns the table draws and at both breakpoints the file names; it is computed in the file from the widths of the columns that are drawn, in rem, and holds no share of the table. The widths of the other columns, the heads, the sorting and the sticky first column stay."
+do_3 = "do_3 apps/explorer/ui/txs/TxsTable.spec.tsx: the cases that expected the mixed width expect the new form: no width on the head of the column From / To, the widths of the other heads as before, and the least width of the table for each set of columns the cases list. They are changed, not removed. Every other case of the file stays and passes. A new case is registered in the form the lint rules of the application accept: a title in lower case that begins with a letter, a named function as the body and at least one expectation in it. The lint run over the changed files is part of the verification. Before the counted verification run the new cases once by hand and read for each expectation of a style the form the element holds, a token or a plain value, and write the expectation in that form. "
+do_4 = "do_4 apps/explorer/ui/txs/TxsTableWidth.pw.tsx: the case holds at 1280 and at 1440 px, in addition to what it holds: the widths of the heads add up to the width of the table within one px; the head From / To is at least 19.5 rem wide; no head overlaps the next one; and the same holds for a table whose rows are price updates only. The expectation that named the width of the column as the width of the table less a number stays in the form of a measured width."
+do_5 = "do_5 Read the table once by hand in the browser of the render check, which is the newer of the two browser versions of the repository, at 1024, 1280 and 1440 px with rows of price updates and with ordinary rows from the fixtures of the case files, and give in the final message the width of the table and of every column at each of the three widths and the version of the browser. Install the browser of the check first. At 1024 px the region of the table may scroll sideways; the page must not."
+do_6 = "do_6 No assertion is weakened, and no case is removed, skipped or tagged out; the cases of do_3 and do_4 change their expectation to the form of decision 3773 and no further. No size of a text or a control grows. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under ui/txs are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No file outside ui/txs changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/txs"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/txs/TxsTable.tsx ui/txs/TxsTable.spec.tsx ui/txs/TxsTableItem.tsx ui/txs/TxsTableWidth.pw.tsx && yarn vitest run ui/txs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
