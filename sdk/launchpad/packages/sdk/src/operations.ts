@@ -58,6 +58,7 @@ export class Operations {
       }
     }
     const suppliedHeaders = new Headers(options.headers);
+    if (name === 'IF_EVENTS_SSE' && !suppliedHeaders.has('Accept')) suppliedHeaders.set('Accept', 'text/event-stream');
     for (const parameter of definition.parameters.filter(p => p.in === 'header' && !['origin','x-csrf-token'].includes(p.name.toLowerCase()))) {
       const value = suppliedHeaders.get(parameter.name);
       if (value === null) { if (parameter.required) throw new TypeError(`Missing ${name} operation header ${parameter.name}`); continue; }
@@ -67,8 +68,12 @@ export class Operations {
     else if (supplied.body !== undefined && !definition.binaryBody) throw new TypeError('Undocumented operation body');
     if (Object.keys(options.headers ?? {}).some(key => key.toLowerCase() === 'idempotency-key') && !definition.idempotencyKey) throw new TypeError('Operation has no idempotency key contract');
     if (query.size) path += '?' + query.toString();
+    const topicRead = name === 'IF_TOPIC_SNAPSHOT_READ' || name === 'IF_EVENTS_SSE';
+    const authenticated = name === 'IF_ACCOUNT_DELETE_STATUS' && !!suppliedHeaders.get('X-Recovery-Receipt')
+      ? false
+      : definition.authenticated || (topicRead && Array.isArray(supplied.query?.topics) && supplied.query.topics.some(topic => typeof topic === 'string' && topic.startsWith('private.')));
     const load = async (signal?: AbortSignal): Promise<unknown> => {
-      const request: RequestOptions = { method: definition.method, service: definition.service, authenticated: definition.authenticated, cookieSession: definition.cookieSession, idempotentRead: definition.idempotentRead, ...(supplied.body === undefined ? {} : definition.binaryBody ? {rawBody: supplied.body as Blob} : {body: supplied.body}), ...options, timeoutMs: operationTimeoutMs(definition, options.timeoutMs), ...(signal ? {signal} : {}) };
+      const request: RequestOptions = { method: definition.method, service: definition.service, authenticated, cookieSession: definition.cookieSession, idempotentRead: definition.idempotentRead, ...(supplied.body === undefined ? {} : definition.binaryBody ? {rawBody: supplied.body as Blob} : {body: supplied.body}), ...options, headers: Object.fromEntries(suppliedHeaders), timeoutMs: operationTimeoutMs(definition, options.timeoutMs), ...(signal ? {signal} : {}) };
       if (definition.binaryResponse) return this.client.requestGeneratedBinary(path, request, definition.wireMajor);
       if (!definition.response) { await this.client.requestV2Empty(path, request); return undefined; }
       return definition.wireMajor === 3 ? this.client.requestV3(path, definition.response as keyof V2ContractTypes, request) : definition.wireMajor === 1 ? this.client.requestV1Generated(path, definition.response as keyof V2ContractTypes, request) : this.client.requestV2(path, definition.response as keyof V2ContractTypes, request);
