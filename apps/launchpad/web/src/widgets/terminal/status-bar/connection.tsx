@@ -24,7 +24,7 @@ function Pill({ status }: { status: ConnectionStatus }) {
   return (
     <Tooltip content={status.detail} align="start">
       <span tabIndex={0} role="status" aria-label={`Connection ${status.label}. ${status.detail}`}
-        className={cn('inline-flex h-5 shrink-0 items-center gap-1.5 rounded-pill bg-surface-3 px-2 text-xs font-bold', textTone[status.tone])}>
+        className={cn('inline-flex min-h-touch-target-min min-w-touch-target-min shrink-0 items-center gap-1.5 rounded-pill bg-surface-3 px-2 text-xs font-bold', textTone[status.tone])}>
         <span aria-hidden="true" className={cn('size-1.5 rounded-pill', dotTone[status.tone])} />
         {status.label}
       </span>

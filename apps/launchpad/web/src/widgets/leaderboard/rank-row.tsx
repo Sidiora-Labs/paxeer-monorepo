@@ -47,7 +47,7 @@ export function RankRow({ rank, wallet, identity, metricSigned, metricLabel = 'P
   return (
     <li
       className={cn(
-        'relative flex items-center gap-3 rounded-sm px-3 transition-colors duration-fast hover:bg-surface-hover',
+        'relative grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-sm sm:grid-cols-[auto_auto_minmax(0,1fr)_minmax(0,auto)_auto] px-3 transition-colors duration-fast hover:bg-surface-hover',
         // components.md 36 / layout.md: leaderboard rows are 48 (board) and 64 (cup results).
         large ? 'min-h-list-row-lg py-2' : 'min-h-12 py-1',
         self && 'bg-accent-soft',
@@ -60,17 +60,17 @@ export function RankRow({ rank, wallet, identity, metricSigned, metricLabel = 'P
       <Avatar src={identity?.avatarUrl ?? null} name={handle ?? short} size={large ? 'xl' : 'md'} decorative />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
-          <Link
+          <Link prefetch={false}
             href={profileHref(address)}
-            className="truncate text-md font-bold leading-[var(--sl-leading-base)] text-text after:absolute after:inset-0 after:content-['']"
+            className="inline-flex min-h-touch-target-min min-w-touch-target-min flex-1 items-center text-md font-bold leading-[var(--sl-leading-base)] text-text after:absolute after:inset-0 after:content-['']"
           >
-            {handle ?? short}
+            <span className="min-w-0 truncate">{handle ?? short}</span>
           </Link>
           {self ? <span className="inline-flex h-5 shrink-0 items-center rounded-xs bg-surface-3 px-1.5 text-2xs font-bold uppercase tracking-wide text-text-muted">You</span> : null}
         </div>
         {handle ? <p className="truncate font-mono text-xs leading-[var(--sl-leading-base)] text-text-muted">{short}</p> : null}
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+      <div className="col-span-2 col-start-3 row-start-2 flex min-w-0 flex-col items-end gap-1 text-right sm:col-span-1 sm:col-start-auto sm:row-auto">
         <span className={cn('text-md font-bold leading-[var(--sl-leading-base)] tabular-nums', toneClass[tone])} data-numeric>
           <span className="sr-only">{metricLabel} </span>
           {metricSigned === null ? <span aria-label="no data yet">&mdash;</span> : formatUsdl(metricSigned, { signed: true })}
@@ -83,7 +83,7 @@ export function RankRow({ rank, wallet, identity, metricSigned, metricLabel = 'P
           </span>
         ) : null}
       </div>
-      {actions ? <div className="relative z-10 flex shrink-0 items-center">{actions}</div> : null}
+      {actions ? <div className="relative z-10 col-start-4 row-start-1 flex items-center sm:col-start-auto sm:row-auto">{actions}</div> : null}
     </li>
   );
 }

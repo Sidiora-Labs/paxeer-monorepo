@@ -26,7 +26,7 @@
   src: url('/fonts/manrope-medium.otf') format('opentype');
   font-weight: 500;
   font-style: normal;
-  font-display: swap;
+  font-display: optional;
 }
 
 @font-face {
@@ -34,7 +34,7 @@
   src: url('/fonts/manrope-semibold.otf') format('opentype');
   font-weight: 600;
   font-style: normal;
-  font-display: swap;
+  font-display: optional;
 }
 
 @font-face {
@@ -42,7 +42,7 @@
   src: url('/fonts/manrope-bold.otf') format('opentype');
   font-weight: 700;
   font-style: normal;
-  font-display: swap;
+  font-display: optional;
 }
 
 @font-face {
@@ -50,7 +50,7 @@
   src: url('/fonts/manrope-extrabold.otf') format('opentype');
   font-weight: 800;
   font-style: normal;
-  font-display: swap;
+  font-display: optional;
 }
 
 /* Motion utilities: Tailwind v4 has no --duration-* theme namespace, so these map to the motion tokens. */
@@ -97,7 +97,7 @@
   :where(h1, h2, h3, h4, h5, h6) {
     text-wrap: balance;
   }
-  :where(p) {
+  :where(p, li) {
     text-wrap: pretty;
   }
   :where(img, video, svg) {
@@ -157,6 +157,23 @@
 }
 
 @layer components {
+  .foundation-shell {
+    --sl-header-height: var(--sl-header-layout-height);
+    --sl-ticker-height: var(--sl-shell-control-size);
+    --sl-rail-width: var(--sl-rail-layout-width);
+    --sl-rail-expanded-width: var(--sl-rail-layout-expanded-width);
+    --sl-bottom-nav-height: var(--sl-bottom-nav-layout-height);
+  }
+  .sl-top-bar,
+  .foundation-shell > aside,
+  .foundation-shell section[aria-label='Market ticker'],
+  .foundation-shell > nav[aria-label='Mobile navigation'] {
+    --sl-space: var(--sl-shell-layout-space);
+    --sl-touch-target-min: var(--sl-shell-control-size);
+    --sl-control-height-sm: var(--sl-shell-control-size);
+    --sl-control-height-md: var(--sl-shell-control-size);
+    --sl-control-height-lg: var(--sl-shell-control-size);
+  }
   .sl-field {
     border: var(--sl-edge-width) solid var(--sl-control-edge);
   }
@@ -293,10 +310,15 @@
   }
 }
 
-.foundation-shell [data-shell-content] :focus-visible {
+.foundation-shell [data-shell-main] :focus-visible {
   scroll-margin-block-end: var(--sl-bottom-nav-height);
 }
 
 :focus-visible {
-  outline-style: solid;
+  outline: var(--sl-focus-width) solid var(--sl-focus);
+  outline-offset: var(--sl-focus-offset);
+}
+
+.sl-chat-log:focus-visible {
+  outline-offset: calc(-1 * var(--sl-focus-width));
 }

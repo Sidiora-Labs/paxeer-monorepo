@@ -89,7 +89,7 @@ export function TrendingRow({ row, density = 'comfortable', starred = false, onT
       <Avatar src={row.image} name={row.name} size={compact ? 'sm' : 'lg'} shape="square" decorative badge={row.stage && !compact ? <StageBadge stage={row.stage} size={14} surface={1} /> : undefined} />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex min-w-0 items-baseline gap-1.5">
-          <Link href={row.href} className="truncate text-sm font-bold text-text after:absolute after:inset-0 after:content-['']">
+          <Link prefetch={false} href={row.href} className="truncate text-sm font-bold text-text after:absolute after:inset-0 after:content-['']">
             {row.name}
           </Link>
           <span className="truncate text-xs text-text-muted">{row.symbol}</span>

@@ -1,3 +1,4 @@
+import { applySurfaceTestStyle } from '@/core/app-foundation/surface-test-style';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
@@ -76,6 +77,7 @@ let view: { root: Root; container: HTMLDivElement; queries: QueryClient } | unde
 const originalMetadataOrigin = process.env.NEXT_PUBLIC_METADATA_API_URL;
 
 beforeAll(async () => {
+  applySurfaceTestStyle();
   server = createServer((request, response) => {
     const url = new URL(request.url ?? '/', 'http://localhost');
     requests.push(url);

@@ -1,12 +1,14 @@
-import {
-  Popover,
-  SimpleDialog,
-} from "../../../ui-connector/src/platformOverlays";
 import React, { useState } from "react";
 import { WalletAdapter } from "@solana/wallet-adapter-base";
 import { Connector } from "wagmi";
 import { useTranslation } from "@paxeer-network/i18n";
-import { ChainIcon, cn, useScreen } from "@paxeer-network/ui";
+import {
+  ChainIcon,
+  cn,
+  Popover,
+  SimpleDialog,
+  useScreen,
+} from "@paxeer-network/ui";
 import { useWalletConnectorPrivy } from "../provider";
 import { getWalletIcon } from "../util";
 
@@ -22,28 +24,17 @@ export function RenderPrivyTypeIcon({
   if (type === "email") {
     return (
       <img
-        height={size}
-        alt=""
         src={`/assets/static/sdk/privy/email${black ? "-black" : ""}.svg`}
         width={size}
       />
     );
   }
   if (type === "google_oauth") {
-    return (
-      <img
-        height={size}
-        alt=""
-        src="/assets/static/sdk/privy/google.svg"
-        width={size}
-      />
-    );
+    return <img src="/assets/static/sdk/privy/google.svg" width={size} />;
   }
   if (type === "twitter_oauth") {
     return (
       <img
-        height={size}
-        alt=""
         src={`/assets/static/sdk/privy/twitter${black ? "-black" : ""}.svg`}
         width={size}
       />
@@ -60,15 +51,13 @@ export function RenderPrivyTypeIcon({
       >
         <path
           d="M2.652 8.12916L15.0683 4.04929C15.6468 3.87358 16.1499 4.16929 15.9587 4.91069L13.8458 13.3962C13.6898 13.9961 13.2672 14.1461 12.6836 13.859L9.46384 11.8362L7.90929 13.109C7.73824 13.2547 7.59234 13.379 7.2603 13.379L7.4867 10.5891L13.4584 5.99923C13.72 5.80638 13.398 5.69495 13.0559 5.8878L5.68061 9.8434L2.50107 8.99914C1.81687 8.81058 1.80178 8.41201 2.652 8.12916Z"
-          fill="currentColor"
+          fill={black ? "black" : "white"}
         />
       </svg>
     );
   }
   return (
     <img
-      height={size}
-      alt=""
       src={`/assets/static/sdk/privy/email${black ? "-black" : ""}.svg`}
       width={size}
     />
@@ -83,11 +72,13 @@ export function RenderWalletIcon({
     ? connector.icon
     : getWalletIcon((connector as Connector).type);
   return (
-    <div className="oui-w-5 oui-h-5 oui-flex oui-items-center oui-justify-center">
+    <div className="oui-w-[18px] oui-h-[18px] oui-flex oui-items-center oui-justify-center">
       <img
-        width={12}
-        height={12}
-        className={cn(connector.icon ? "oui-w-3 oui-h-3" : "oui-w-5 oui-h-5")}
+        className={cn(
+          connector.icon
+            ? "oui-w-[12px] oui-h-[12px]"
+            : "oui-w-[18px] oui-h-[18px]",
+        )}
         src={icon}
         alt={connector.name}
       />
@@ -115,7 +106,7 @@ export function EVMChainPopover({ children }: { children: React.ReactNode }) {
           }}
           title={t("connector.privy.supportedEvmChain")}
         >
-          <div className="oui-p-1 oui-grid oui-grid-cols-2 oui-gap-x-2 oui-gap-y-3 oui-text-2xs oui-text-base-contrast-80">
+          <div className="oui-p-1 oui-grid oui-grid-cols-2 oui-gap-x-2 oui-gap-y-3 oui-text-2xs oui-text-base-contrast-54">
             {chains.map((item, key) => (
               <div
                 key={key}
@@ -127,14 +118,7 @@ export function EVMChainPopover({ children }: { children: React.ReactNode }) {
             ))}
           </div>
         </SimpleDialog>
-        <button
-          type="button"
-          className="oui-shell-icon-button"
-          aria-label={t("connector.privy.supportedEvmChain")}
-          onClick={() => setOpen(true)}
-        >
-          {children}
-        </button>
+        <button onClick={() => setOpen(true)}>{children}</button>
       </>
     );
   }
@@ -146,7 +130,7 @@ export function EVMChainPopover({ children }: { children: React.ReactNode }) {
           <div className="oui-text-2xs oui-font-semibold oui-text-base-contrast">
             {t("connector.privy.supportedEvmChain")}
           </div>
-          <div className="oui-mt-3 oui-grid oui-grid-cols-3 oui-gap-x-2 oui-gap-y-3 oui-text-2xs oui-text-base-contrast-80">
+          <div className="oui-mt-3 oui-grid oui-grid-cols-3 oui-gap-x-2 oui-gap-y-3 oui-text-2xs oui-text-base-contrast-54">
             {chains.map((item, key) => (
               <div
                 key={key}
@@ -166,13 +150,7 @@ export function EVMChainPopover({ children }: { children: React.ReactNode }) {
         className: "oui-p-2 oui-z-[65]",
       }}
     >
-      <button
-        type="button"
-        className="oui-shell-icon-button"
-        aria-label={t("connector.privy.supportedEvmChain")}
-      >
-        {children}
-      </button>
+      <button>{children}</button>
     </Popover>
   );
 }

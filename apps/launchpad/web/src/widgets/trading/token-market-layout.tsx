@@ -23,10 +23,20 @@ import ChainRevenue from '@/widgets/holder-rewards/chain-revenue';
 import CoinTabs from '@/widgets/coin/coin-tabs';
 import TokenDescription from './token-description';
 import { MetadataViewer } from '@/features/metadata-media/viewer';
+import type { InitialPoolStreams } from '@/core/clients/livestream-api';
+import type { InitialChainRevenue } from '@/widgets/holder-rewards/chain-revenue-reader';
+import TradePanel from './trade-panel';
+import LiveStream from './live-stream';
+import TvChart from './tv-chart';
 
-const TvChart = dynamic(() => import('./tv-chart'), { ssr: false });
-const TradePanel = dynamic(() => import('./trade-panel'), { ssr: false });
-const LiveStream = dynamic(() => import('./live-stream'), { ssr: false });
+function PriceChartSkeleton() {
+  return <Skeleton variant="block" className="h-[calc(var(--sl-space)*164)] lg:h-[calc(var(--sl-space)*150)]" label="price chart" />;
+}
+
+function TradePanelSkeleton() {
+  return <Skeleton variant="block" height={surfaceSpacing(80)} label="trade panel" />;
+}
+
 const MobileTradeDrawer = dynamic(() => import('./mobile-trade-drawer'), { ssr: false });
 
 const gridClass = [
@@ -41,6 +51,33 @@ const gridClass = [
  * main's top padding and pushes this column below the other two instead of keeping it flush.
  */
 const calloutColumnClass = '@min-market-three/market:flex @min-market-three/market:max-h-[calc(100dvh-var(--shell-top))] @min-market-three/market:flex-col @min-market-three/market:overflow-y-auto';
+
+/** The coin route keeps its market sections in place while the server resolves the address. */
+export function TokenMarketLoading() {
+  return (
+    <div aria-busy="true" aria-label="Loading coin market" className="@container/market flex w-full min-w-0 flex-col gap-2 p-2 pb-36 motion-reduce:[&_*]:animate-none motion-reduce:[&_*]:transition-none sm:p-3 lg:pb-3">
+      <div className={gridClass}>
+        <aside aria-label="Loading hot callouts" className={`hidden min-w-0 @min-market-three/market:col-start-1 @min-market-three/market:row-start-1 @min-market-three/market:row-span-2 ${calloutColumnClass}`}>
+          <Skeleton variant="rows" rows={4} label="hot callouts" />
+        </aside>
+        <div className="flex min-w-0 flex-col gap-2 @min-market-two/market:col-start-1 @min-market-two/market:row-start-1 @min-market-three/market:col-start-2">
+          <header className="flex min-h-80 items-center gap-3 rounded-md bg-surface-1 p-3 sm:min-h-48">
+            <Skeleton variant="block" width={surfaceSpacing(16)} height={surfaceSpacing(16)} label="coin image" />
+            <div className="flex min-w-0 flex-1 flex-col gap-2 [&>*]:max-w-full"><Skeleton variant="text" width={surfaceSpacing(40)} /><Skeleton variant="text" width={surfaceSpacing(60)} /></div>
+          </header>
+          <PriceChartSkeleton />
+        </div>
+        <aside aria-label="Loading trade and coin details" className="grid min-w-0 grid-cols-1 gap-2 @min-market-two/market:col-start-2 @min-market-two/market:row-start-1 @min-market-two/market:row-span-2 @min-market-three/market:col-start-3">
+          <div className="hidden min-w-0 lg:block"><TradePanelSkeleton /></div>
+          <Skeleton variant="rows" rows={4} label="coin details" />
+        </aside>
+        <div className="min-w-0 @min-market-two/market:col-start-1 @min-market-two/market:row-start-2 @min-market-three/market:col-start-2">
+          <Skeleton variant="block" height={surfaceSpacing(60)} label="coin activity" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /** Holder count row (rail position 2, after the trade panel); live stats first, then the snapshot rows. */
 function RailHolders({ poolAddress, liveStats }: { poolAddress: string; liveStats: PoolStats | null }) {
@@ -88,7 +125,7 @@ export function CoinNotFound({ poolAddress }: { poolAddress: string }) {
 }
 
 /** Coin page: hot callouts column, main column (header, chart, tabs) and the right rail; stacks to a single column with the trade drawer on small screens. */
-export default function TokenMarketLayout({ poolAddress }: { poolAddress: string }) {
+export default function TokenMarketLayout({ poolAddress, initialStreams, initialRevenue }: { poolAddress: string; initialStreams?: InitialPoolStreams; initialRevenue?: InitialChainRevenue }) {
   const snapshot = usePoolSnapshot(poolAddress);
   const data = snapshot.data ?? null;
   const pool = data?.pool.poolAddress ?? null;
@@ -122,8 +159,8 @@ export default function TokenMarketLayout({ poolAddress }: { poolAddress: string
   const trading = <>
     <div className="hidden min-w-0 lg:block">
       <PremiumErrorBoundary area="TradePanel">
-        <Suspense fallback={<Skeleton variant="block" height={surfaceSpacing(80)} label="trade panel" />}>
-          {marketPool ? <TradePanel poolAddress={marketPool} /> : <Skeleton variant="block" height={surfaceSpacing(80)} label="trade panel" />}
+        <Suspense fallback={<TradePanelSkeleton />}>
+          {marketPool ? <TradePanel poolAddress={marketPool} /> : <TradePanelSkeleton />}
         </Suspense>
       </PremiumErrorBoundary>
     </div>
@@ -147,17 +184,17 @@ export default function TokenMarketLayout({ poolAddress }: { poolAddress: string
         <div className="flex min-w-0 flex-col gap-2 @min-market-two/market:col-start-1 @min-market-two/market:row-start-1 @min-market-three/market:col-start-2">
           <PremiumErrorBoundary area="Token header"><TokenHeader poolAddress={poolAddress} liveStats={liveStats} livePrice={price} now={live.now} notice={notice} /></PremiumErrorBoundary>
           <PremiumErrorBoundary area="TvChart">
-            <Suspense fallback={<Skeleton variant="block" height={surfaceSpacing(95)} label="price chart" />}>
-              {marketPool ? <TvChart poolAddress={marketPool} symbol={data?.token?.symbol} /> : <Skeleton variant="block" height={surfaceSpacing(95)} label="price chart" />}
+            <Suspense fallback={<PriceChartSkeleton />}>
+              {marketPool ? <TvChart poolAddress={marketPool} symbol={data?.token?.symbol} /> : <PriceChartSkeleton />}
             </Suspense>
           </PremiumErrorBoundary>
         </div>
         <aside aria-label="Trade and coin details" className="grid min-w-0 grid-cols-1 gap-2 @min-market-two/market:col-start-2 @min-market-two/market:row-start-1 @min-market-two/market:row-span-2 @min-market-three/market:col-start-3">
-          {data ? <MetadataViewer key={data.pool.tokenAddress} tokenAddress={data.pool.tokenAddress} tradePanel={trading} /> : trading}
+          {snapshot.isError ? trading : <MetadataViewer tokenAddress={data?.pool.tokenAddress ?? ''} tradePanel={trading} />}
           {pool ? (
             <PremiumErrorBoundary area="LiveStream">
               <Suspense fallback={null}>
-                <div className="min-w-0 empty:hidden"><LiveStream poolAddress={pool} /></div>
+                <div className="min-w-0 empty:hidden"><LiveStream poolAddress={pool} initial={initialStreams} /></div>
               </Suspense>
             </PremiumErrorBoundary>
           ) : null}
@@ -168,7 +205,7 @@ export default function TokenMarketLayout({ poolAddress }: { poolAddress: string
           <PremiumErrorBoundary area="Market cap"><McAthCard poolAddress={poolAddress} liveStats={liveStats} /></PremiumErrorBoundary>
           <PremiumErrorBoundary area="Description"><DescriptionCard poolAddress={poolAddress} /></PremiumErrorBoundary>
           <PremiumErrorBoundary area="Creator rewards"><CreatorRewardsCard poolAddress={poolAddress} /></PremiumErrorBoundary>
-          <PremiumErrorBoundary area="Chain revenue"><ChainRevenue poolAddress={poolAddress} /></PremiumErrorBoundary>
+          <PremiumErrorBoundary area="Chain revenue"><ChainRevenue poolAddress={pool ?? poolAddress} initial={initialRevenue} /></PremiumErrorBoundary>
         </aside>
         <div className="min-w-0 @min-market-two/market:col-start-1 @min-market-two/market:row-start-2 @min-market-three/market:col-start-2">
           {marketPool ? (

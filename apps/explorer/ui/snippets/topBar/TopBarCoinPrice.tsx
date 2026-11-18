@@ -24,14 +24,14 @@ const TopBarCoinPrice = ({ symbol, price, change, isLoading }: Props) => {
   }
 
   return (
-    <Flex alignItems="baseline" gap={ 1 } whiteSpace="nowrap" role="group" aria-label={ `${ symbol } market price` }>
-      <Skeleton loading={ isLoading }>
+    <Flex alignItems="baseline" gap={ 1 } flexWrap="wrap" minW={ 0 } maxW="100%" role="group" aria-label={ `${ symbol } market price` }>
+      <Skeleton loading={ isLoading } minW={ 0 } maxW="100%">
         <chakra.span color="text.secondary">{ symbol } Price: </chakra.span>
-        <chakra.span data-price textStyle="number" color={ hasPrice ? 'accent' : 'text.muted' }>
+        <chakra.span data-price whiteSpace="nowrap" textStyle="number" color={ hasPrice ? 'accent' : 'text.muted' }>
           { hasPrice ? '$' + Number(price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : mdash }
         </chakra.span>
       </Skeleton>
-      <Skeleton loading={ isLoading }>
+      <Skeleton loading={ isLoading } minW={ 0 } maxW="100%">
         <chakra.span
           data-change
           data-trend={ changeTrend }

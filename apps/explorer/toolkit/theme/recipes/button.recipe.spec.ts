@@ -23,7 +23,7 @@ describe('button recipe, scan_control variant', () => {
     expect(control?._disabled).toMatchObject({ color: 'text.muted', borderColor: 'border.divider' });
   });
 
-  it('draws the outlined variants on a hairline ring and pads the pill like the product', () => {
+  it('draws outlined variants with contrasting borders and the product padding', () => {
     expect(recipe.base?.fontWeight).toBe('medium');
     expect(recipe.variants?.variant.outline).toMatchObject({ borderWidth: 'var(--chakra-border-widths-1)', borderColor: 'border.strong' });
     expect(recipe.variants?.variant.dropdown).toMatchObject({ borderWidth: 'var(--chakra-border-widths-1)' });

@@ -1,0 +1,20 @@
+{
+  "items": [
+    {
+      "coin_balance": "11886682377162664596540805",
+      "transactions_count": "1835",
+      "hash": "0x0000000000000000000000000000000000000004",
+      "implementations": null,
+      "is_contract": false,
+      "is_verified": null,
+      "name": null,
+      "private_tags": [],
+      "public_tags": [],
+      "watchlist_names": [],
+      "ens_domain_name": null
+    }
+  ],
+  "next_page_params": null,
+  "exchange_rate": null,
+  "total_supply": "100000000000000000000000000"
+}

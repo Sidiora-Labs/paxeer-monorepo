@@ -81,7 +81,12 @@ function TokenResponseState() {
 
 async function tickerUsesOnlyReturnedRatesAndSignedChanges() {
   const { container } = render(<TickerStrip/>);
+  const pendingStrip = screen.getByRole('region', { name: 'Token prices' });
+  expect(pendingStrip.getAttribute('aria-busy')).toBe('true');
+  expect(pendingStrip.querySelector('[data-ticker-token]')).toBeNull();
   await screen.findByText('UP');
+  expect(screen.getByRole('region', { name: 'Token prices' })).toBe(pendingStrip);
+  expect(pendingStrip.getAttribute('aria-busy')).toBe('false');
   const chips = container.querySelectorAll('[data-ticker-token]');
   expect(chips).toHaveLength(2);
   expect(chips[0].querySelector('[data-price]')?.textContent).toBe('$1.25');

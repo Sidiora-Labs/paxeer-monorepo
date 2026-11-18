@@ -1,6 +1,5 @@
 'use client';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import { Avatar, ShortAddress, Skeleton, UnavailableState } from '@/ui/primitives';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import { useWalletIdentities } from '@/core/market/use-wallet-identities';
@@ -9,8 +8,7 @@ import { FollowButton } from '@/widgets/social/follow-button';
 import { shortAddress } from '@/utils/format';
 import { formatShare, statsShare } from '@/core/market/pool-stats-display';
 import { StatDash } from '@/ui/shared/stat-value';
-
-const GoLiveEntry = dynamic(() => import('@/widgets/live/go-live-entry'), { ssr: false });
+import GoLiveEntry from '@/widgets/live/go-live-entry';
 
 /** Creator attribution: avatar, display name linked to the profile, wallet, follow control and the creator-only broadcast entry. */
 export default function CreatorCard({ poolAddress }: { poolAddress: string }) {
@@ -31,11 +29,11 @@ export default function CreatorCard({ poolAddress }: { poolAddress: string }) {
       {snapshot.isError ? <UnavailableState variant="chip" wrap title="Creator info" plural="auto" operation="IF_POOL_STATS" status={null} onRetry={() => { void snapshot.refetch(); }} className="self-start" /> : null}
       {creator ? (
         <div className="flex flex-wrap items-center gap-3">
-          <Link href={`/profile/${creator}`} className="shrink-0 rounded-pill focus-visible:outline-2 focus-visible:outline-accent" aria-label={`${name} profile`}>
+          <Link prefetch={false} href={`/profile/${creator}`} className="inline-flex min-h-touch-target-min min-w-touch-target-min items-center justify-center shrink-0 rounded-pill focus-visible:outline-2 focus-visible:outline-accent" aria-label={`${name} profile`}>
             <Avatar src={avatar} name={name} size="lg" decorative loading={identity?.resolution === 'pending'} />
           </Link>
           <div className="flex min-w-0 flex-1 basis-40 flex-col gap-0.5">
-            <Link href={`/profile/${creator}`} className="truncate text-sm font-bold text-text hover:underline">{name}</Link>
+            <Link prefetch={false} href={`/profile/${creator}`} className="inline-flex min-h-touch-target-min items-center truncate text-sm font-bold text-text hover:underline">{name}</Link>
             <ShortAddress address={creator} explorerHref={safeExternalDestination(`https://paxscan.paxeer.app/address/${creator}`)} />
             {share ? (
               <span data-creator-share className="inline-flex items-center gap-1 text-xs text-text-faint">

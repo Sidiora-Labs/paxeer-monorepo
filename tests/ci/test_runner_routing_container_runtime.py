@@ -15,6 +15,15 @@ ROUTED = (
     "github.event.pull_request.head.repo.full_name != github.repository) && "
     "'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}"
 )
+CONTAINER_SETUP = """if ! docker version >/dev/null 2>&1; then
+  sudo apt-get update
+  sudo apt-get install --yes docker.io acl
+  sudo systemctl start docker
+  if [ ! -r /var/run/docker.sock ] || [ ! -w /var/run/docker.sock ]; then
+    sudo setfacl -m "u:$(id -u):rw" /var/run/docker.sock
+  fi
+fi
+docker version --format '{{.Server.Version}}'"""
 
 
 class RunnerRoutingContainerRuntime(unittest.TestCase):
@@ -131,24 +140,35 @@ class RunnerRoutingContainerRuntime(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stderr, "")
 
-        setup_command = (
+        unguarded_setup = (
             "sudo apt-get update\n"
             "sudo apt-get install --yes docker.io acl\n"
             "sudo systemctl start docker\n"
             'sudo setfacl -m "u:$(id -u):rw" /var/run/docker.sock\n'
             "docker version --format '{{.Server.Version}}'"
         )
-        for variant in ("ready", "conditional", "partial", "late", "ignored-error"):
+        for variant in (
+            "ready", "conditional", "partial", "late", "ignored-error",
+            "name-only", "missing-version", "unguarded", "extra-command",
+        ):
             with self.subTest(runtime_setup=variant):
                 consumer = self.autobahn_job()
                 consumer["runs-on"] = ROUTED
-                setup_step = {"name": "Set up Docker", "run": setup_command}
+                setup_step = {"name": "Set up Docker", "run": CONTAINER_SETUP}
                 if variant == "conditional":
                     setup_step["if"] = "github.event_name != 'pull_request'"
                 elif variant == "partial":
                     setup_step["run"] = "sudo apt-get install --yes docker.io acl"
                 elif variant == "ignored-error":
                     setup_step["continue-on-error"] = True
+                elif variant == "name-only":
+                    setup_step.pop("run")
+                elif variant == "missing-version":
+                    setup_step["run"] = CONTAINER_SETUP.rsplit("\n", 1)[0]
+                elif variant == "unguarded":
+                    setup_step["run"] = unguarded_setup
+                elif variant == "extra-command":
+                    setup_step["run"] += "\nexit 0"
                 if variant == "late":
                     consumer["steps"].append(setup_step)
                 else:
@@ -182,6 +202,36 @@ class RunnerRoutingContainerRuntime(unittest.TestCase):
         result = self.run_check()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stderr, "")
+
+    def test_launchpad_go_jobs_share_the_conditional_runtime_setup(self):
+        workflow = yaml.safe_load(
+            (ROOT / ".github/workflows/launchpad-test.yml").read_text(encoding="utf-8")
+        )
+        explorer = yaml.safe_load(
+            (ROOT / ".github/workflows/explorer-images.yml").read_text(encoding="utf-8")
+        )
+        (explorer_setup,) = [
+            step for step in explorer["jobs"]["explorer-backend-test"]["steps"]
+            if step.get("name") == "Ensure the container runtime is available"
+        ]
+        setups = []
+        for name in ("launchpad-go-test", "launchpad-go-ci"):
+            steps = workflow["jobs"][name]["steps"]
+            (setup,) = [
+                step for step in steps
+                if step.get("name") == "Install and verify the container runtime"
+            ]
+            self.assertEqual(setup["run"], CONTAINER_SETUP + "\n")
+            self.assertEqual(setup["run"], explorer_setup["run"])
+            self.assertNotIn("if", setup)
+            self.assertNotIn("continue-on-error", setup)
+            (go,) = [
+                step for step in steps
+                if step.get("uses", "").startswith("actions/setup-go@")
+            ]
+            self.assertLess(steps.index(setup), steps.index(go))
+            setups.append(setup)
+        self.assertIs(setups[0], setups[1])
 
     def test_routed_matrix_leg_reaching_the_mix_builder_is_refused(self):
         self.write_workflow(

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
+import { useMarketStore } from "@paxeer-network/hooks/paxeer-network/useMarket/market.store";
 import { MarketsType, useMarkets } from "@paxeer-network/hooks";
 import { TableSort, usePagination } from "@paxeer-network/ui";
 import { searchBySymbol, useSort } from "../../utils";
@@ -27,7 +28,7 @@ export const useMarketsListFullScript = (
   options: UseMarketsListFullScriptOptions,
 ) => {
   const { type = "all", dataFilter } = options;
-  const [loading, setLoading] = useState(true);
+  const loading = useMarketStore((state) => state.quotesPending);
   const { setPage, pagination } = usePagination({
     pageSize: 100,
   });
@@ -52,10 +53,6 @@ export const useMarketsListFullScript = (
       isHiddenByLowVolumeFilter: allHidden,
     };
   }, [data, dataFilter, getSortedList, searchValue, showLowVolume]);
-
-  useEffect(() => {
-    setLoading(false);
-  }, [data]);
 
   useEffect(() => {
     setPage(1);

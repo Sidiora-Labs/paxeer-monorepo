@@ -44,6 +44,7 @@ const FilterButton = ({ isLoading, appliedFiltersNum, ...rest }: Props, ref: Rea
       flexShrink={ 0 }
       pointerEvents="all"
       px={{ base: 1, lg: 3 }}
+      aria-label="Filter"
       { ...rest }
     >
       <IconSvg name="filter" boxSize={ 5 }/>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { API, SDKError } from "@paxeer-network/types";
-import { Decimal } from "@paxeer-network/utils";
+import { priceWindowChange } from "@paxeer-network/paxeer-backend/core/perps/priceWindow";
 import { useQuery } from "../useQuery";
 import { useWS } from "../useWS";
 import { useIndexPrice } from "./useIndexPrice";
@@ -67,7 +67,7 @@ export const useTickerStream = (symbol: string) => {
       ...info,
       mark_price: markPrice,
       index_price: indexPrice,
-      open_interest: openInterest || marketMap?.[symbol]?.open_interest,
+      open_interest: openInterest ?? marketMap?.[symbol]?.open_interest,
     };
 
     if (ticker.open !== undefined) {
@@ -91,16 +91,10 @@ export const useTickerStream = (symbol: string) => {
       config["24h_volume"] = ticker.volume;
     }
 
-    if (ticker.close !== undefined && ticker.open !== undefined) {
-      config["change"] = new Decimal(ticker.close)
-        .minus(ticker.open)
-        .div(ticker.open)
-        .toNumber();
-
-      config["24h_change"] = new Decimal(ticker.close)
-        .minus(ticker.open)
-        .toNumber();
-    }
+    const change = priceWindowChange(ticker.close, ticker.open);
+    config["change"] = change === null ? undefined : change / 100;
+    config["24h_change"] =
+      change === null ? undefined : ticker.close - ticker.open;
     return config;
   }, [info, symbol, ticker, openInterest, marketMap]);
 

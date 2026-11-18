@@ -37,7 +37,6 @@ export const SimpleSheet: FC<PropsWithChildren<SimpleSheetProps>> = (props) => {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        onOpenAutoFocus={(event) => event.preventDefault()}
         className={classNames?.content}
         overlayClassName={classNames?.overlay}
         closeable={closable}

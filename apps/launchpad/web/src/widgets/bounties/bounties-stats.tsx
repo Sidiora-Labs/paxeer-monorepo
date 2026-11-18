@@ -40,9 +40,10 @@ export function bountyTotals({ stats, openCount, openLoading = false, serviceDow
 }
 
 function Value({ total, className }: { total: BountyTotal; className?: string }) {
-  if (total.loading) return <span aria-hidden="true" className={cn('sl-skeleton inline-block h-[var(--sl-skeleton-text-height)] w-10 align-middle', className)} />;
-  if (total.value === null) return <span aria-label="No data" className={cn('text-text-faint', className)}>{EM_DASH}</span>;
-  return <span data-numeric className={cn('tabular-nums', total.positive ? 'text-success' : 'text-text', className)}>{total.value}</span>;
+  const width = total.positive ? 'min-w-24' : 'min-w-16';
+  if (total.loading) return <span aria-hidden="true" className={cn('sl-skeleton inline-block h-[var(--sl-skeleton-text-height)] align-middle', width, className)} />;
+  if (total.value === null) return <span aria-label="No data" className={cn('inline-block text-right text-text-faint', width, className)}>{EM_DASH}</span>;
+  return <span data-numeric className={cn('inline-block text-right tabular-nums', width, total.positive ? 'text-success' : 'text-text', className)}>{total.value}</span>;
 }
 
 /**
@@ -59,18 +60,16 @@ export function BountiesStats({ stats, openCount, openLoading = false, serviceDo
     : null;
 
   if (variant === 'inline') {
-    const [live, pool, submissions, paid] = totals;
     const item = (total: BountyTotal) => (
-      <div key={total.key} className="inline-flex flex-row-reverse items-baseline gap-1">
-        <dt className="text-text-muted">{total.inlineLabel}</dt>
-        <dd className="font-bold"><Value total={total} /></dd>
+      <div key={total.key} className="grid grid-cols-[max-content_minmax(0,1fr)] items-baseline gap-2">
+        <dt className="col-start-2 text-text-muted">{total.inlineLabel}</dt>
+        <dd className="col-start-1 row-start-1 font-bold"><Value total={total} className="min-w-24" /></dd>
       </div>
     );
     return (
       <div className={cn('flex flex-col gap-1', className)}>
         <dl aria-label="Bounty totals" className="flex flex-col gap-0.5 text-sm">
-          <div className="flex flex-wrap items-baseline gap-x-2">{item(live)}<span aria-hidden="true" className="text-text-faint">·</span>{item(pool)}</div>
-          <div className="flex flex-wrap items-baseline gap-x-2">{item(submissions)}<span aria-hidden="true" className="text-text-faint">·</span>{item(paid)}</div>
+          {totals.map(item)}
         </dl>
         {note}
       </div>
@@ -79,7 +78,7 @@ export function BountiesStats({ stats, openCount, openLoading = false, serviceDo
 
   return (
     <div className={cn('flex flex-col items-end gap-1', className)}>
-      <dl aria-label="Bounty totals" className="flex flex-nowrap items-stretch gap-2">
+      <dl aria-label="Bounty totals" className="flex flex-wrap items-stretch justify-end gap-2">
         {totals.map(total => (
           <div key={total.key} data-stat={total.key} className="flex min-w-16 flex-col-reverse justify-center gap-0.5 rounded-md bg-surface-1 px-3 py-1.5">
             <dt className="whitespace-nowrap text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">{total.label}</dt>

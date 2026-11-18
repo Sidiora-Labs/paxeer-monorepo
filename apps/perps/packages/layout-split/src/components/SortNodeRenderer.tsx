@@ -77,7 +77,7 @@ function SortableSortChild({
         >
           <IndicatorIcon
             className={cn(
-              "oui-text-base-contrast-80 hover:oui-text-base-contrast-80",
+              "oui-text-base-contrast-20 hover:oui-text-base-contrast-80",
             )}
           />
         </button>

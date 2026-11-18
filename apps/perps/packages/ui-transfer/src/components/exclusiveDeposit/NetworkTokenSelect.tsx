@@ -44,7 +44,7 @@ export const NetworkTokenSelect: FC<NetworkTokenSelectProps> = ({
     <>
       {/* Network */}
       <Flex className="oui-w-full" justify="between" itemAlign="center">
-        <Text size="xs" intensity={80}>
+        <Text size="xs" intensity={36}>
           {t("common.network")}
         </Text>
         <Box className="oui-ms-auto">
@@ -72,7 +72,7 @@ export const NetworkTokenSelect: FC<NetworkTokenSelectProps> = ({
 
       {/* Token */}
       <Flex className="oui-w-full" justify="between" itemAlign="center">
-        <Text size="xs" intensity={80}>
+        <Text size="xs" intensity={36}>
           {t("common.token")}
         </Text>
         <Box className="oui-ms-auto">

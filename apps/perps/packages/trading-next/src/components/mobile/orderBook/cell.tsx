@@ -71,7 +71,7 @@ export const OrderBookCell: FC<OrderBookCellProps> = (props) => {
   return (
     <Box
       className={cn(
-        "oui-relative oui-w-full oui-cursor-pointer oui-overflow-hidden oui-text-2xs oui-tabular-nums",
+        "oui-relative oui-w-full oui-cursor-pointer oui-overflow-auto oui-text-2xs oui-tabular-nums",
       )}
       style={{ height: `${cellHeight}px` }}
       onClick={() => {

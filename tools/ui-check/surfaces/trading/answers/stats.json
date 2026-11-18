@@ -1,0 +1,15 @@
+{
+  "data": {
+    "protocolStats": {
+      "totalUsers": 0,
+      "totalVolume": "0",
+      "totalTrades": 0,
+      "totalFees": "0",
+      "netTraderPnl": "0"
+    },
+    "collateralTokens": [],
+    "dailyStats": [],
+    "oiSnapshots": [],
+    "fundingRates": []
+  }
+}

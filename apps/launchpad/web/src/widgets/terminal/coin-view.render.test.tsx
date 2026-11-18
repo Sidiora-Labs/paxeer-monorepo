@@ -1,3 +1,5 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
+import { applyBrowserSurface } from '@/core/app-foundation/browser-surface.test-support';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
@@ -25,6 +27,7 @@ browserGlobals.CustomEvent = dom.window.CustomEvent;
 browserGlobals.window = dom.window;
 browserGlobals.document = dom.window.document;
 browserGlobals.IS_REACT_ACT_ENVIRONMENT = true;
+const closeBrowserSurface = applyBrowserSurface();
 
 // The real chain-125 pool, identified by core/api's recorded IF_POOL_DETAIL bytes (core-api-wire.json `v2Reads`).
 const pool = v2Reads.pools.real;
@@ -41,6 +44,7 @@ const server: Server = createServer((request, response) => {
       response.end(JSON.stringify(poolDetail.body));
       return;
     }
+    console.warn(`Unanswered request: ${request.method} ${url}`);
     response.statusCode = 404;
     response.end();
   });
@@ -119,7 +123,7 @@ describe('terminal coin view, rendered end to end with real providers', () => {
     expect(view.commits() - before).toBeLessThan(60);
     expect(view.container.textContent).toContain('Coin info and safety');
     expect(view.container.querySelector('[aria-label="Active trade preset"]')).not.toBeNull();
-    expect(view.container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(view.container.innerHTML)).not.toMatch(BORDER);
     expect(view.errors.filter(line => /Maximum update depth|is not mounted|Cannot read prop/.test(line))).toEqual([]);
     unmount(view);
   });
@@ -148,8 +152,10 @@ describe('terminal coin view, rendered end to end with real providers', () => {
     expect(text).toContain('Trades');
     expect(view.container.querySelector('[aria-label="Terminal status bar"]')).not.toBeNull();
     expect(view.container.querySelector('[role="status"][aria-label^="Connection"]')?.getAttribute('aria-label')).not.toContain('No pair stream is open');
-    expect(view.container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(view.container.innerHTML)).not.toMatch(BORDER);
     expect(view.errors.filter(line => /Maximum update depth|is not mounted|Cannot read prop/.test(line))).toEqual([]);
     unmount(view);
   });
 });
+
+afterAll(closeBrowserSurface);

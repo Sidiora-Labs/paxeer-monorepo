@@ -1,4 +1,3 @@
-import styles from "../../presentation.module.css";
 import { FC, useMemo } from "react";
 import { useIndexPricesStream, useWithdraw } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -92,8 +91,8 @@ export const AvailableQuantity: FC<AvailableQuantityProps> = (props) => {
   }, [quantity, token?.symbol, props.notional]);
 
   return (
-    <Flex px={2} className={styles.available}>
-      <Text size="2xs" intensity={80}>
+    <Flex px={2}>
+      <Text size="2xs" intensity={36}>
         $
         <Text.numeral dp={2} padding={false} rm={Decimal.ROUND_DOWN}>
           {notional}
@@ -103,16 +102,12 @@ export const AvailableQuantity: FC<AvailableQuantityProps> = (props) => {
       <Flex
         gapX={2}
         itemAlign="center"
-        className={cn(
-          styles.availableGroup,
-          "oui-ms-auto",
-          isRTL && "oui-flex-row-reverse",
-        )}
+        className={cn("oui-ms-auto", isRTL && "oui-flex-row-reverse")}
       >
         <Flex
           gapX={1}
           itemAlign="center"
-          className={cn(styles.availableGroup, isRTL && "oui-flex-row-reverse")}
+          className={cn(isRTL && "oui-flex-row-reverse")}
         >
           {props.tooltipContent ? (
             isMobile ? (
@@ -145,17 +140,20 @@ export const AvailableQuantity: FC<AvailableQuantityProps> = (props) => {
               >
                 <Text
                   size="2xs"
-                  intensity={80}
+                  intensity={36}
                   className="oui-cursor-pointer oui-border-b oui-border-dashed oui-border-line-12"
                 >
                   {`${t("common.available")}: `}
                 </Text>
               </button>
             ) : (
-              <Tooltip content={props.tooltipContent} className="oui-max-w-72">
+              <Tooltip
+                content={props.tooltipContent}
+                className="oui-max-w-[274px]"
+              >
                 <Text
                   size="2xs"
-                  intensity={80}
+                  intensity={36}
                   className="oui-cursor-pointer oui-border-b oui-border-dashed oui-border-line-12"
                 >
                   {`${t("common.available")}: `}
@@ -163,7 +161,7 @@ export const AvailableQuantity: FC<AvailableQuantityProps> = (props) => {
               </Tooltip>
             )
           ) : (
-            <Text size="2xs" intensity={80}>
+            <Text size="2xs" intensity={36}>
               {`${t("common.available")}: `}
             </Text>
           )}
@@ -173,7 +171,7 @@ export const AvailableQuantity: FC<AvailableQuantityProps> = (props) => {
           ) : (
             <Text.numeral
               size="2xs"
-              intensity={80}
+              intensity={36}
               rm={Decimal.ROUND_DOWN}
               dp={dp}
               padding={false}
@@ -183,24 +181,18 @@ export const AvailableQuantity: FC<AvailableQuantityProps> = (props) => {
             </Text.numeral>
           )}
 
-          <Text size="2xs" intensity={80}>
+          <Text size="2xs" intensity={36}>
             {` ${name}`}
           </Text>
         </Flex>
 
         <Text
-          asChild
           size="2xs"
           color="primary"
           className={cn("oui-cursor-pointer oui-select-none")}
+          onClick={props.onClick}
         >
-          <button
-            type="button"
-            onClick={props.onClick}
-            className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
-          >
-            {t("common.max")}
-          </button>
+          {t("common.max")}
         </Text>
       </Flex>
     </Flex>

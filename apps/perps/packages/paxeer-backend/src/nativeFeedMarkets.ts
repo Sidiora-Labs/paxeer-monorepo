@@ -1,29 +1,79 @@
 import { MARKET_DATA_URL } from "./core/feeds";
 import { fetchJsonWithPolicy } from "./core/net/fetch";
-import type { MarketSnapshot } from "./hooks/perps/useMarketsStream";
+import { priceWindowChange } from "./core/perps/priceWindow";
+import {
+  marketFundingHourly,
+  type MarketSnapshot,
+} from "./hooks/perps/useMarketsStream";
 
-interface FeedTicker {
+export interface FeedTicker {
   paxeerSymbol: string;
   symbol: string;
-  mark_price: number;
-  open_interest: number;
-  est_funding_rate: number;
-  last_funding_rate: number;
-  updated_at: number;
-  "24h_open": number;
-  "24h_close": number;
-  "24h_high": number;
-  "24h_low": number;
+  mark_price: number | null;
+  index_price: number | null;
+  price_24h: number | null;
+  open_interest: number | null;
+  last_funding_rate: number | null;
+  last_funding_rate_hourly: string | null;
+  updated_at: number | null;
+  "24h_open": number | null;
+  "24h_close": number | null;
+  "24h_high": number | null;
+  "24h_low": number | null;
   "24h_amount": number;
   "24h_volume": number;
 }
-type FeedMarket = Omit<
+export type FeedMarket = Omit<
   MarketSnapshot,
   "volume_7d" | "volume_30d" | "trades_count"
 >;
-function rateWei(value: number): bigint | null {
-  return Number.isFinite(value) ? BigInt(Math.trunc(value * 1e18)) : null;
+
+export function normalizeFeedMarkets(
+  rows: FeedTicker[],
+  now = Date.now(),
+): FeedMarket[] {
+  return rows.flatMap((row) => {
+    if (
+      row.mark_price === null ||
+      !Number.isFinite(row.mark_price) ||
+      row.mark_price <= 0 ||
+      row.updated_at == null ||
+      !Number.isFinite(row.updated_at) ||
+      now - row.updated_at > 30_000 ||
+      row.updated_at > now + 5_000
+    )
+      return [];
+    const hourly = marketFundingHourly(
+      row.paxeerSymbol,
+      "last_funding_rate_hourly",
+      row.last_funding_rate_hourly,
+    );
+    return [
+      {
+        symbol: row.paxeerSymbol,
+        symbol_full: row.symbol,
+        price: row.mark_price,
+        index_price: row.index_price,
+        price_updated_at: row.updated_at,
+        last_updated: row.updated_at,
+        change_24h: priceWindowChange(row.mark_price, row.price_24h),
+        volume_24h: row["24h_volume"],
+        reported_volume_24h: row["24h_volume"],
+        open_interest: row.open_interest ?? 0,
+        reported_open_interest: row.open_interest ?? 0,
+        funding_8h: hourly === null ? null : hourly * 8n,
+        perp_funding_rate: hourly,
+        last_funding_rate_hourly: hourly,
+        price_24h:
+          row.price_24h != null && row.price_24h > 0 ? row.price_24h : 0,
+        high_24h: row["24h_high"],
+        low_24h: row["24h_low"],
+        amount_24h: row["24h_amount"],
+      },
+    ];
+  });
 }
+
 let pending: Promise<FeedMarket[]> | null = null;
 export function readAuthenticatedFeedMarkets(): Promise<FeedMarket[]> {
   if (!pending) {
@@ -34,39 +84,7 @@ export function readAuthenticatedFeedMarkets(): Promise<FeedMarket[]> {
       .then((body) => {
         if (!body.success || !Array.isArray(body.data))
           throw new Error("Ticker feed unavailable");
-        const now = Date.now();
-        return body.data
-          .filter(
-            (row) =>
-              Number.isFinite(row.mark_price) &&
-              row.mark_price > 0 &&
-              Number.isFinite(row.updated_at) &&
-              now - row.updated_at <= 30_000 &&
-              row.updated_at <= now + 5_000,
-          )
-          .map((row) => ({
-            symbol: row.paxeerSymbol,
-            symbol_full: row.symbol,
-            price: row.mark_price,
-            price_updated_at: row.updated_at,
-            last_updated: row.updated_at,
-            change_24h:
-              row["24h_open"] > 0
-                ? (row.mark_price / row["24h_open"] - 1) * 100
-                : 0,
-            volume_24h: row["24h_volume"],
-            reported_volume_24h: row["24h_volume"],
-            open_interest: row.open_interest,
-            reported_open_interest: row.open_interest,
-            funding_8h: rateWei(row.last_funding_rate),
-            est_funding_rate: row.est_funding_rate,
-            perp_funding_rate: rateWei(row.est_funding_rate),
-            last_funding_rate_hourly: rateWei(row.last_funding_rate),
-            price_24h: row["24h_open"],
-            high_24h: row["24h_high"],
-            low_24h: row["24h_low"],
-            amount_24h: row["24h_amount"],
-          }));
+        return normalizeFeedMarkets(body.data);
       })
       .finally(() => {
         pending = null;

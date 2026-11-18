@@ -9,6 +9,7 @@ import {
 import { getNativeSnapshot, updateNativeSnapshot } from "./runtime";
 import { executeNativeOrder, cancelNativeOrder } from "./nativeTrading";
 import { COLLATERAL_TOKENS, PERPS_MARKETS } from "./core/perps/config";
+import { highestPerpsFeeTier } from "./core/perps/feeTier";
 import {
   subgraphQuery,
   ORDERS_QUERY,
@@ -23,10 +24,8 @@ import {
   getLockedBalance,
   getWalletBalance,
   createVault,
-  approveToken,
   deposit,
   withdraw,
-  getAllowance,
 } from "./hooks/perps/useVault";
 const ZERO = "0x0000000000000000000000000000000000000000";
 export class NativeCapabilityError extends Error {
@@ -84,12 +83,16 @@ export function nativeAccountInfo() {
     max_leverage: 1000,
     account_mode: "FUTURES",
     margin_mode: state.marginMode,
-    imr_factor: {},
+    imr_factor: Object.fromEntries(
+      nativeSymbols().map((symbol) => [symbol.symbol, symbol.imr_factor]),
+    ),
     account_group: "PAXEER",
-    futures_taker_fee_rate: undefined,
-    futures_maker_fee_rate: undefined,
-    taker_fee_rate: undefined,
-    maker_fee_rate: undefined,
+    futures_taker_fee_rate:
+      state.feeTier?.takerBps ?? highestPerpsFeeTier.takerBps,
+    futures_maker_fee_rate:
+      state.feeTier?.makerBps ?? highestPerpsFeeTier.makerBps,
+    taker_fee_rate: 0,
+    maker_fee_rate: 0,
   };
 }
 export async function nativeRequest(
@@ -412,9 +415,6 @@ export async function nativeDeposit(inputs: {
   const vault = await getNativeVault(true);
   const amount = parseUnits(inputs.amount, token.decimals);
   if (amount <= 0n) throw new Error("Enter a positive deposit amount.");
-  const address = getNativeSnapshot().address!;
-  if ((await getAllowance(token.address, address, vault)) < amount)
-    await approveToken(token.address, vault, amount);
   const receipt = await deposit(vault, token.address, amount);
   return { ...receipt, hash: receipt.transactionHash };
 }

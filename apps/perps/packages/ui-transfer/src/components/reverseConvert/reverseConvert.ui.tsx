@@ -1,4 +1,3 @@
-import styles from "../../presentation.module.css";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Box, Flex, Text } from "@paxeer-network/ui";
 import { AvailableQuantity } from "../availableQuantity";
@@ -29,7 +28,7 @@ export const ReverseConvertUI = (
     );
   }
   return (
-    <Box className={styles.surface}>
+    <Box>
       <QuantityInput
         token={props.token}
         value={props.quantity}
@@ -62,7 +61,7 @@ export const ReverseConvertUI = (
         targetSymbol={props.targetToken?.token}
         precision={props.targetToken?.precision ?? 6}
       />
-      <Text as="div" size="xs" intensity={80} className="oui-my-3">
+      <Text as="div" size="xs" intensity={54} className="oui-my-3">
         {t("transfer.reverseConvert.estimate")}
       </Text>
       {!props.reverseAllowed && (

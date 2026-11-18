@@ -12,7 +12,7 @@
   --font-heading-lg-size: clamp(1.75rem, 1.62rem + .45vw, 2.25rem);
   --font-title-size: clamp(2rem, 1.75rem + .8vw, 2.75rem);
   --font-display-size: clamp(2.375rem, 2rem + 1.4vw, 4.375rem);
-  --font-code-size: .9em;
+  --font-code-size: var(--font-text-sm-size);
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;

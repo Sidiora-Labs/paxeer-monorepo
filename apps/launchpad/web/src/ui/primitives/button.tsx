@@ -18,9 +18,9 @@ const variantClass: Record<ButtonVariant, string> = {
   primary:
     'bg-accent text-on-accent hover:bg-accent-hover active:bg-accent-active disabled:bg-accent-soft-strong disabled:text-text-disabled aria-disabled:bg-accent-soft-strong aria-disabled:text-text-disabled',
   secondary:
-    'bg-surface-2 text-text hover:bg-surface-hover active:bg-surface-active disabled:text-text-disabled aria-disabled:text-text-disabled',
+    'border border-control-edge bg-surface-2 text-text hover:bg-surface-hover active:bg-surface-active disabled:text-text-disabled aria-disabled:text-text-disabled',
   ghost:
-    'bg-transparent text-text-muted hover:bg-surface-hover hover:text-text active:bg-surface-active disabled:text-text-disabled aria-disabled:text-text-disabled',
+    'border border-transparent bg-transparent text-text-muted hover:border-control-edge hover:bg-surface-hover hover:text-text active:bg-surface-active disabled:text-text-disabled aria-disabled:text-text-disabled',
   danger:
     'bg-danger-strong text-on-danger hover:bg-danger active:bg-danger-strong disabled:text-text-disabled aria-disabled:text-text-disabled',
   'danger-text':
@@ -48,7 +48,8 @@ export function buttonClass(opts: {
 }) {
   const { variant = 'secondary', size = 'md', fullWidth, pill, className } = opts;
   return cn(
-    'inline-flex min-w-0 max-w-full flex-wrap select-none items-center justify-center text-center font-bold transition-colors duration-fast',
+    'relative inline-flex min-w-touch-target-min max-w-full flex-wrap select-none items-center justify-center text-center font-bold transition-[background-color] duration-fast',
+    'focus-visible:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
     'disabled:cursor-not-allowed aria-disabled:cursor-not-allowed aria-busy:cursor-progress',
     pill ? 'rounded-pill' : 'rounded-sm',
     sizeClass[size],
@@ -73,7 +74,7 @@ export function Button({
   ...rest
 }: ButtonProps) {
   const classes = buttonClass({ variant, size, fullWidth, pill, className });
-  const leading = loading ? (
+  const leading = loading && icon ? (
     <LoaderCircle aria-hidden="true" className="size-icon-md animate-spin" />
   ) : icon ? (
     <span
@@ -86,7 +87,7 @@ export function Button({
 
   if (href && !disabled && !loading) {
     return (
-      <Link href={href} className={classes} aria-disabled={disabled || undefined}>
+      <Link prefetch={false} href={href} className={classes} aria-disabled={disabled || undefined}>
         {leading}
         <span className="min-w-0 max-w-full">{children}</span>
       </Link>
@@ -102,7 +103,8 @@ export function Button({
       {...rest}
     >
       {leading}
-      <span className="min-w-0 max-w-full">{children}</span>
+      {loading && !icon ? <LoaderCircle aria-hidden="true" className="absolute size-icon-md animate-spin" /> : null}
+      <span className={cn('min-w-0 max-w-full', loading && !icon && 'opacity-0')}>{children}</span>
     </button>
   );
 }
@@ -127,9 +129,9 @@ const iconSizeClass: Record<ControlSize, string> = {
 
 const iconVariantClass: Record<IconButtonVariant, string> = {
   ghost:
-    'bg-transparent text-text-muted hover:bg-surface-hover hover:text-text active:bg-surface-active rounded-sm',
-  raised: 'bg-surface-2 text-text hover:bg-surface-hover active:bg-surface-active rounded-sm',
-  round: 'bg-surface-2 text-text hover:bg-surface-hover active:bg-surface-active rounded-pill',
+    'border border-transparent bg-transparent text-text-muted hover:border-control-edge hover:bg-surface-hover hover:text-text active:bg-surface-active rounded-sm',
+  raised: 'border border-control-edge bg-surface-2 text-text hover:bg-surface-hover active:bg-surface-active rounded-sm',
+  round: 'border border-control-edge bg-surface-2 text-text hover:bg-surface-hover active:bg-surface-active rounded-pill',
   'on-media': 'bg-media-overlay text-on-media hover:bg-scrim active:bg-scrim rounded-sm',
 };
 

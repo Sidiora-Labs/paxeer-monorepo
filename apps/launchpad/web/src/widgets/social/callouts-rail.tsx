@@ -45,39 +45,49 @@ export function CalloutsRail({ title = 'Best callouts', initialWindow = '1d', ma
     return () => node.removeEventListener('scroll', onScroll);
   }, [feed.state]);
 
+  const emptyCard = (
+    <div className="rounded-md bg-surface-1">
+      <EmptyState icon={Megaphone} title={all.length === 0 ? 'No callouts yet' : `No callouts in the last ${range === '1d' ? 'day' : 'week'}`} body={all.length === 0 ? 'Callouts from traders show up here' : range === '1d' ? 'Try the last week' : 'Check back soon'} action={all.length === 0 ? <Button variant="secondary" size="sm" href="/explore">Browse coins</Button> : range === '1d' ? <Button variant="secondary" size="sm" onClick={() => setRange('1w')}>Show the last week</Button> : null} announce={feed.state === 'ready' && callouts.length === 0} />
+    </div>
+  );
+
   function scrollToTop() {
     listRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     listRef.current?.focus();
   }
 
   return (
-    <aside aria-label={title} className={cn('relative flex min-h-0 flex-col gap-3', className)}>
+    <aside aria-label={title} className={cn('relative flex min-h-96 flex-col gap-3', className)}>
       <SectionHeader
         title={title}
         count={feed.state === 'ready' ? callouts.length : undefined}
         loading={feed.state === 'loading'}
-        description={feed.state === 'ready' ? `Top calls from the last ${range === '1d' ? 'day' : 'week'}` : undefined}
+        description={`Top calls from the last ${range === '1d' ? 'day' : 'week'}`}
+        className="[&_h2]:min-h-[2lh]"
         action={<SegmentedControl label="Time range" options={windowOptions} value={range} onChange={setRange} />}
       />
       <div ref={listRef} tabIndex={-1} style={maxHeight !== undefined ? { maxHeight } : undefined} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto outline-none">
-        {feed.state === 'loading' ? (
-          <div aria-busy="true" className="flex flex-col gap-2">
-            <span className="sr-only">Loading callouts</span>
-            <CalloutCardSkeleton /><CalloutCardSkeleton />
+        <div className="grid min-w-0">
+          <div aria-hidden={feed.state !== 'ready' || callouts.length > 0 || undefined} inert={feed.state !== 'ready' || callouts.length > 0 || undefined} className={cn('col-start-1 row-start-1 min-w-0', (feed.state !== 'ready' || callouts.length > 0) && 'invisible')}>
+            {emptyCard}
           </div>
-        ) : feed.state === 'unsupported' ? (
-          <div className="rounded-md bg-surface-1">
-            <UnavailableState title="Callouts" plural="auto" operation={feed.operation} status={feed.status} message={feed.status === 503 ? 'Check back in a bit' : undefined} onRetry={() => { void queryClient.invalidateQueries({ queryKey: queryKeys.feed('relevance', null, 50) }); }} />
+          <div className="col-start-1 row-start-1 flex min-w-0 flex-col gap-2">
+            {feed.state === 'loading' ? (
+              <div aria-busy="true" className="flex flex-col gap-2">
+                <span className="sr-only">Loading callouts</span>
+                <CalloutCardSkeleton />
+              </div>
+            ) : feed.state === 'unsupported' ? (
+              <div className="rounded-md bg-surface-1">
+                <UnavailableState title="Callouts" plural="auto" operation={feed.operation} status={feed.status} message={feed.status === 503 ? 'Check back in a bit' : undefined} onRetry={() => { void queryClient.invalidateQueries({ queryKey: queryKeys.feed('relevance', null, 50) }); }} />
+              </div>
+            ) : feed.state === 'error' ? (
+              <div className="rounded-md bg-surface-1"><ErrorState title="Can't load callouts right now" message="Check your connection and try again" onRetry={feed.retry} /></div>
+            ) : callouts.length === 0 ? null : (
+              callouts.map(callout => <CalloutCard key={callout.id} callout={callout} stats={statsFor(callout.poolAddress)} variant="rail" />)
+            )}
           </div>
-        ) : feed.state === 'error' ? (
-          <div className="rounded-md bg-surface-1"><ErrorState title="Can't load callouts right now" message="Check your connection and try again" onRetry={feed.retry} /></div>
-        ) : callouts.length === 0 ? (
-          <div className="rounded-md bg-surface-1">
-            <EmptyState icon={Megaphone} title={all.length === 0 ? 'No callouts yet' : `No callouts in the last ${range === '1d' ? 'day' : 'week'}`} body={all.length === 0 ? 'Callouts from traders show up here' : range === '1d' ? 'Try the last week' : 'Check back soon'} action={all.length === 0 ? <Button variant="secondary" size="sm" href="/explore">Browse coins</Button> : range === '1d' ? <Button variant="secondary" size="sm" onClick={() => setRange('1w')}>Show the last week</Button> : null} announce />
-          </div>
-        ) : (
-          callouts.map(callout => <CalloutCard key={callout.id} callout={callout} stats={statsFor(callout.poolAddress)} variant="rail" />)
-        )}
+        </div>
       </div>
       {scrolled ? (
         <IconButton label="Back to top" icon={<ArrowUp />} variant="round" size="md" onClick={scrollToTop} className="absolute bottom-3 right-3 shadow-pop" />

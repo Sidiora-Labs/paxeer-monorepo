@@ -1,4 +1,3 @@
-import styles from "../../presentation.module.css";
 import { FC } from "react";
 import { Trans, useTranslation } from "@paxeer-network/i18n";
 import { Box, Button, Flex, textVariants, Text, cn } from "@paxeer-network/ui";
@@ -46,10 +45,7 @@ export const TransferForm: FC<TransferFormProps> = (props) => {
   const buttonSize = { initial: "md", lg: "lg" } as const;
 
   return (
-    <Box
-      id="oui-deposit-form"
-      className={`${styles.surface} ${textVariants({ weight: "semibold" })}`}
-    >
+    <Box id="oui-deposit-form" className={textVariants({ weight: "semibold" })}>
       <Box className="oui-mb-6 lg:oui-mb-8">
         <Text size="sm" intensity={98}>
           {t("transfer.internalTransfer.from")}
@@ -62,7 +58,7 @@ export const TransferForm: FC<TransferFormProps> = (props) => {
           />
           <QuantityInput
             classNames={{
-              root: "oui-mt-0.5 oui-rounded-t-sm oui-rounded-b-xl",
+              root: "oui-mt-[2px] oui-rounded-t-sm oui-rounded-b-xl",
             }}
             value={quantity}
             onValueChange={onQuantityChange}
@@ -96,23 +92,17 @@ export const TransferForm: FC<TransferFormProps> = (props) => {
 
         <ExchangeDivider
           icon={
-            <button
-              type="button"
+            <TransferVerticalIcon
+              // TODO: determines if the current paxeer-network key is the main account
+              // className={cn(
+              //   isMainAccount
+              //     ? "oui-cursor-pointer oui-text-primary"
+              //     : " oui-cursor-not-allowed oui-text-base-contrast-20",
+              // )}
+              // onClick={isMainAccount ? onExchange : undefined}
+              className="oui-cursor-pointer oui-text-primary"
               onClick={onExchange}
-              aria-label="Swap accounts"
-              className="oui-inline-flex oui-min-h-12 oui-min-w-12 oui-items-center oui-justify-center oui-rounded hover:oui-bg-base-contrast-4 focus-visible:oui-outline focus-visible:oui-outline-2 focus-visible:oui-outline-primary disabled:oui-cursor-not-allowed"
-            >
-              <TransferVerticalIcon
-                // TODO: determines if the current paxeer-network key is the main account
-                // className={cn(
-                //   isMainAccount
-                //     ? "oui-cursor-pointer oui-text-primary"
-                //     : " oui-cursor-not-allowed oui-text-base-contrast-80",
-                // )}
-                // onClick={isMainAccount ? onExchange : undefined}
-                className="oui-cursor-pointer oui-text-primary"
-              />
-            </button>
+            />
           }
         />
 
@@ -127,7 +117,7 @@ export const TransferForm: FC<TransferFormProps> = (props) => {
           />
           <Flex
             className={cn(
-              "oui-mt-0.5 oui-h-8 oui-text-base-contrast-80 oui-bg-base-6",
+              "oui-mt-[2px] oui-h-[31px] oui-text-base-contrast-54 oui-bg-base-6",
               "oui-rounded-b-xl oui-rounded-t-sm",
             )}
             justify="between"
@@ -139,7 +129,7 @@ export const TransferForm: FC<TransferFormProps> = (props) => {
             </Text>
             <Text.numeral
               size="2xs"
-              intensity={80}
+              intensity={54}
               unit={` ${token.symbol}`}
               dp={token?.precision}
               padding={false}
@@ -151,7 +141,7 @@ export const TransferForm: FC<TransferFormProps> = (props) => {
       </Box>
 
       <Flex justify="center">
-        <Box className="oui-w-full lg:oui-w-auto lg:oui-min-w-44">
+        <Box className="oui-w-full lg:oui-w-auto lg:oui-min-w-[184px]">
           <AuthGuard
             networkId={networkId}
             buttonProps={{

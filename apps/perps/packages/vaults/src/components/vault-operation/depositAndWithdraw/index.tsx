@@ -1,4 +1,3 @@
-import styles from "../../../presentation.module.css";
 import { FC, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -34,7 +33,6 @@ export const VaultDepositAndWithdraw: FC<VaultDepositAndWithdrawProps> = (
 
   return (
     <Tabs
-      className={styles.surface}
       value={activeTab}
       onValueChange={setActiveTab}
       variant="contained"
@@ -68,7 +66,7 @@ registerSimpleDialog(
   {
     size: "md",
     classNames: {
-      content: `${styles.surface} oui-border oui-border-line-6`,
+      content: "oui-border oui-border-line-6",
     },
   },
 );

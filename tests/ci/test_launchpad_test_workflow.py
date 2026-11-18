@@ -182,6 +182,36 @@ def test_launchpad_service_health_commands_use_container_option_quoting():
     }
 
 
+def test_launchpad_web_fixtures_use_the_go_jobs_version():
+    workflow = launchpad_workflow()
+    job = workflow["jobs"]["launchpad-test"]
+    steps = job["steps"]
+    (setup,) = [
+        step for step in steps
+        if step.get("uses", "").startswith("actions/setup-go@")
+    ]
+    assert setup["name"] == "Set up Go for launchpad services"
+    assert setup["if"] == "matrix.package == 'apps/launchpad/web'"
+    assert setup["with"] == {"go-version": "1.27.3", "cache": "false"}
+    assert job["env"]["GOTOOLCHAIN"] == "go" + setup["with"]["go-version"]
+    for name in ("launchpad-go-test", "launchpad-go-ci", "launchpad-go-wiring"):
+        go_job = workflow["jobs"][name]
+        (go_setup,) = [
+            step for step in go_job["steps"]
+            if step.get("uses", "").startswith("actions/setup-go@")
+        ]
+        assert setup["uses"] == go_setup["uses"]
+        assert setup["with"]["go-version"] == go_setup["with"]["go-version"]
+        assert job["env"]["GOTOOLCHAIN"] == go_job["env"]["GOTOOLCHAIN"]
+    for name in (
+        "Install the joined event broker", "Prepare chain fixtures and run web Vitest",
+    ):
+        (consumer,) = [step for step in steps if step.get("name") == name]
+        assert steps.index(setup) < steps.index(consumer)
+        assert consumer["if"] == setup["if"]
+        assert "GOTOOLCHAIN" not in consumer.get("env", {})
+
+
 def test_launchpad_workflow_triggers_on_launchpad_paths():
     triggers = launchpad_workflow()["on"]
     assert {"pull_request", "push"} <= triggers.keys()
@@ -194,3 +224,77 @@ def test_launchpad_workflow_triggers_on_launchpad_paths():
         assert "branches-ignore" not in triggers[event]
     assert "branches" not in triggers["pull_request"]
     assert "types" not in triggers["pull_request"]
+
+
+def test_launchpad_go_jobs_share_every_ci_preparation_step():
+    jobs = launchpad_workflow()["jobs"]
+    module_job = jobs["launchpad-go-test"]
+    ci_job = jobs["launchpad-go-ci"]
+    assert module_job["env"] == ci_job["env"]
+    assert module_job["services"] == ci_job["services"]
+    assert module_job["steps"][-1]["name"] == "Test Go module"
+    assert ci_job["steps"][-1]["run"] == "make -C services/launchpad ci"
+    preparation = module_job["steps"][:-1]
+    previous = -1
+    for step in ci_job["steps"][:-1]:
+        assert step in preparation, step["name"]
+        position = preparation.index(step)
+        assert position > previous, step["name"]
+        assert step is preparation[position], step["name"]
+        previous = position
+    for job in (module_job, ci_job):
+        assert "continue-on-error" not in job
+        for step in job["steps"]:
+            assert "continue-on-error" not in step
+
+
+@pytest.mark.parametrize("job_name", ("launchpad-go-test", "launchpad-go-ci"))
+def test_launchpad_object_storage_publishes_its_binary_directory(job_name):
+    steps = launchpad_workflow()["jobs"][job_name]["steps"]
+    (storage,) = [
+        step for step in steps if step["name"] == "Start object storage fixture"
+    ]
+    command = storage["run"]
+    install = (
+        'GOBIN="$RUNNER_TEMP/launchpad-fixture-bin" GOFLAGS= '
+        'go install github.com/minio/minio@RELEASE.2025-04-22T22-12-26Z'
+    )
+    publish = 'echo "$RUNNER_TEMP/launchpad-fixture-bin" >> "$GITHUB_PATH"'
+    assert install in command.splitlines()
+    assert publish in command.splitlines()
+    assert command.index(install) < command.index(publish)
+    assert steps.index(storage) < len(steps) - 1
+
+
+@pytest.mark.parametrize("job_name", ("launchpad-go-test", "launchpad-go-ci"))
+def test_launchpad_go_jobs_enable_commit_timestamps_after_database_creation(job_name):
+    steps = launchpad_workflow()["jobs"][job_name]["steps"]
+    (database,) = [
+        step for step in steps if step["name"] == "Create the pool test database"
+    ]
+    timestamps = steps[steps.index(database) + 1]
+    assert timestamps["name"] == "Enable database commit timestamps"
+    assert timestamps["env"] == database["env"]
+    command = timestamps["run"]
+    configure = "ALTER SYSTEM SET track_commit_timestamp = on"
+    restart = 'docker restart "${{ job.services.postgres.id }}"'
+    ready = "pg_isready --host 127.0.0.1 --port 25432 --username kindle_fixture"
+    check = "SHOW track_commit_timestamp"
+    assert command.index(configure) < command.index(restart)
+    assert command.index(restart) < command.index(ready) < command.index(check)
+    assert (
+        "--tuples-only --no-align --command 'SHOW track_commit_timestamp')\" = on"
+        in command
+    )
+    assert command.rstrip().endswith("exit 1")
+
+
+def test_launchpad_module_job_has_at_least_sixty_minutes():
+    jobs = launchpad_workflow()["jobs"]
+    assert set(jobs) == {
+        "launchpad-test", "launchpad-go-test", "launchpad-go-ci", "launchpad-go-wiring",
+    }
+    assert int(jobs["launchpad-go-test"]["timeout-minutes"]) >= 60
+    assert jobs["launchpad-test"]["timeout-minutes"] == "30"
+    assert jobs["launchpad-go-ci"]["timeout-minutes"] == "360"
+    assert "timeout-minutes" not in jobs["launchpad-go-wiring"]

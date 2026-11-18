@@ -1,4 +1,3 @@
-import surface from "../../../surface.module.css";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -24,13 +23,13 @@ export const Rebates: FC<RebatesReturns> = (props) => {
       width={"100%"}
       gap={4}
       direction={"column"}
-      className={`${surface.surface} oui-bg-base-9 oui-tabular-nums`}
+      className="oui-bg-base-9 oui-tabular-nums"
     >
       <Title {...props} />
       <Flex
         width={"100%"}
         className="oui-border-y-2 oui-border-line-6"
-        height={"calc(var(--oui-space-1) * 12.25)"}
+        height={49}
         direction={"row"}
         itemAlign={"center"}
       >
@@ -85,6 +84,7 @@ const List: FC<RebatesReturns> = (props) => {
           })}
         </Text>
       ),
+      width: 127,
     },
     {
       title: `${t("affiliate.trader.tradingVol")} (USDC)`,
@@ -96,6 +96,7 @@ const List: FC<RebatesReturns> = (props) => {
           padEnd: true,
           prefix: "$",
         }),
+      width: 127,
     },
     {
       title: t("common.date"),
@@ -103,6 +104,7 @@ const List: FC<RebatesReturns> = (props) => {
       render: (value) => (
         <Text.formatted formatString="yyyy-MM-dd">{value}</Text.formatted>
       ),
+      width: 127,
     },
   ];
 
@@ -110,7 +112,7 @@ const List: FC<RebatesReturns> = (props) => {
     return (
       <ListView<RebatesItem, RebatesItem[]>
         dataSource={props.dataSource}
-        className="oui-w-full !oui-overflow-visible"
+        className="oui-h-[197px] oui-w-full"
         renderItem={(item, index) => {
           return <Cell item={item} />;
         }}
@@ -119,27 +121,20 @@ const List: FC<RebatesReturns> = (props) => {
   }
 
   return (
-    <div
-      role="region"
-      aria-label="Referral data"
-      tabIndex={0}
-      className={surface.scrollRegion}
-    >
-      <AuthGuardDataTable
-        bordered
-        loading={props.isLoading}
-        columns={columns}
-        dataSource={props.dataSource}
-        ignoreLoadingCheck={true}
-        onRow={(record) => {
-          return {
-            className: "oui-h-10",
-          };
-        }}
-        pagination={props.pagination}
-        manualPagination={false}
-      />
-    </div>
+    <AuthGuardDataTable
+      bordered
+      loading={props.isLoading}
+      columns={columns}
+      dataSource={props.dataSource}
+      ignoreLoadingCheck={true}
+      onRow={(record) => {
+        return {
+          className: "oui-h-[41px]",
+        };
+      }}
+      pagination={props.pagination}
+      manualPagination={false}
+    />
   );
 };
 
@@ -151,7 +146,7 @@ const Cell = (props: { item: RebatesItem }) => {
       <Flex width={"100%"} gap={1}>
         <Statistic
           label={`${t("affiliate.trader.rebates")} (USDC)`}
-          className="oui-text-xs oui-text-base-contrast-54 oui-flex-1 oui-min-w-[calc(var(--oui-space-24)*1)]"
+          className="oui-text-xs oui-text-base-contrast-54 oui-flex-1 oui-min-w-[105px]"
         >
           <Text size="sm" intensity={80}>
             {commifyOptional(props.item.referee_rebate, {

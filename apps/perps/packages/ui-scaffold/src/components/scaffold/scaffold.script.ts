@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useLocalStorage } from "@paxeer-network/hooks";
 import { useAppContext } from "@paxeer-network/react-app";
 import { useObserverElement, useScreen } from "@paxeer-network/ui";
 import { type ScaffoldProps } from "./scaffold.widget";
+
+const EMPTY_DEPENDENCIES: React.DependencyList = [];
 
 export type ScaffoldScriptReturn = ReturnType<typeof useScaffoldScript>;
 
@@ -54,7 +56,7 @@ export const useScaffoldScript = (options: ScaffoldScriptOptions) => {
 
 const useRefAndHeight = (
   defaultHeight: number,
-  deps: React.DependencyList = [],
+  deps: React.DependencyList = EMPTY_DEPENDENCIES,
 ) => {
   const ref = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(defaultHeight);
@@ -63,7 +65,7 @@ const useRefAndHeight = (
     setHeight(entry.contentRect.height);
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!ref.current) {
       return;
     }

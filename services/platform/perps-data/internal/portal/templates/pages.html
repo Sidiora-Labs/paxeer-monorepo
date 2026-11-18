@@ -32,9 +32,9 @@
 <section id="markets">
 <h2>Markets</h2>
 {{if .Markets}}<table>
-<thead><tr><th>Market</th><th>Name</th><th>Price</th><th>Mark price</th><th>Change 24h</th><th>Volume 24h (USD)</th><th>Open interest (USD)</th><th>Funding 8h</th><th>Trades</th></tr></thead>
+<thead><tr><th>Market</th><th>Name</th><th>Price</th><th>Mark price</th><th>Change 24h</th><th>Price 24h ago</th><th>Volume 24h (USD)</th><th>Open interest (USD)</th><th>Funding 8h</th><th>Trades</th></tr></thead>
 <tbody>
-{{range .Markets}}<tr><td><a href="/markets/{{lower .Symbol}}">{{.Symbol}}</a></td><td>{{.SymbolFull}}</td><td>{{optnum .Price}}</td><td>{{optnum .PerpMarkPrice}}</td><td>{{optnum .Change24h}}</td><td>{{num .Volume24h}}</td><td>{{num .OpenInterest}}</td><td>{{with .Funding8h}}{{.}}{{else}}-{{end}}</td><td>{{.TradesCount}}</td></tr>
+{{range .Markets}}<tr><td><a href="/markets/{{lower .Symbol}}">{{.Symbol}}</a></td><td>{{.SymbolFull}}</td><td>{{optnum .Price}}</td><td>{{optnum .PerpMarkPrice}}</td><td>{{optnum .Change24h}}</td><td>{{optnum .Price24h}}</td><td>{{num .Volume24h}}</td><td>{{num .OpenInterest}}</td><td>{{with .Funding8h}}{{.}}{{else}}-{{end}}</td><td>{{.TradesCount}}</td></tr>
 {{end}}</tbody>
 </table>{{else}}<p class="empty">No markets are listed.</p>{{end}}
 </section>
@@ -49,6 +49,7 @@
 <tr><th>Index price</th><td>{{optnum .PerpIndexPrice}}</td></tr>
 <tr><th>Basis (bps)</th><td>{{optnum .PerpBasisBps}}</td></tr>
 <tr><th>Change 24h</th><td>{{optnum .Change24h}}</td></tr>
+<tr><th>Price 24h ago</th><td>{{optnum .Price24h}}</td></tr>
 <tr><th>Volume 24h (USD)</th><td>{{num .Volume24h}}</td></tr>
 <tr><th>Volume 7d (USD)</th><td>{{num .Volume7d}}</td></tr>
 <tr><th>Volume 30d (USD)</th><td>{{num .Volume30d}}</td></tr>

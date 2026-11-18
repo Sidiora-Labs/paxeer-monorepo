@@ -8,8 +8,6 @@ interface PageProps {
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = { title: 'Sidiora referral' };
-
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
   const { cardId } = await searchParams;
   if (cardId) {

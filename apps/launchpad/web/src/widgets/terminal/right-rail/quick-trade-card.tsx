@@ -180,6 +180,8 @@ export function QuickTradeCard({ poolAddress, preset, onSlippageChange }: { pool
           ) : null}
           {t.approvalError ? (
             <NoticeBar tone="danger" surface={1} wrap action={<Button size="sm" variant="secondary" onClick={t.retryQuote}>Refresh</Button>}>{plainTradeError(t.approvalError)}</NoticeBar>
+          ) : t.poolInspectionPending ? (
+            <NoticeBar surface={1} wrap action={<Button size="sm" variant="secondary" disabled onClick={t.retryQuote}>Refresh</Button>}>Loading...</NoticeBar>
           ) : null}
         </div>
 

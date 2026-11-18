@@ -19,6 +19,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/admin"
@@ -645,6 +646,7 @@ type App struct {
 	commitListener        func(height int64, appHash []byte) error
 	lastBlockIDMutex      sync.RWMutex
 	committedBlockID      tmproto.BlockID
+	committedLeaders      atomic.Pointer[committedLeaderSchedule]
 	committingBlockID     tmproto.BlockID
 	committingBlockHeight int64
 }
@@ -1419,6 +1421,9 @@ func New(
 		// Host construction precedes LoadLatestVersion, so select from the store
 		// only now; BeginBlock observes it again through applyNamedUpgrade.
 		ctx := app.NewUncachedContext(true, tmproto.Header{})
+		if app.LastBlockHeight() > 0 {
+			app.publishLeaderSchedule()
+		}
 		app.refreshHostedKernelProgramsABI(ctx)
 		if bz := ctx.KVStore(app.GetKey(upgradetypes.StoreKey)).Get(committedBlockIdentityKey); len(bz) != 0 {
 			if err := app.committedBlockID.Unmarshal(bz); err != nil {
@@ -3048,18 +3053,17 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 		return nil, fmt.Errorf("marshal tx msg data: %w", txMarshalErr)
 	}
 
-	resultLog := vmError
-	var resultEvents []abci.Event
-	if execResult.Err == nil {
-		events := ctx.EventManager().Events()
-		messageEvents := sdk.Events{
-			sdk.NewEvent(sdk.EventTypeMessage, sdk.NewAttribute(sdk.AttributeKeyAction, sdk.MsgTypeURL(msg))),
-		}
-		messageEvents = append(messageEvents, events[anteEventCount:]...)
-		resultLog = (sdk.ABCIMessageLogs{sdk.NewABCIMessageLog(0, "", messageEvents)}).String()
-		txEvents := append(sdk.Events{}, events[:anteEventCount]...)
-		txEvents = append(txEvents, messageEvents...)
-		resultEvents = sdk.MarkEventsToIndex(txEvents.ToABCIEvents(), app.IndexEvents)
+	events := ctx.EventManager().Events()
+	messageEvents := sdk.Events{
+		sdk.NewEvent(sdk.EventTypeMessage, sdk.NewAttribute(sdk.AttributeKeyAction, sdk.MsgTypeURL(msg))),
+	}
+	messageEvents = append(messageEvents, events[anteEventCount:]...)
+	resultLog := (sdk.ABCIMessageLogs{sdk.NewABCIMessageLog(0, "", messageEvents)}).String()
+	txEvents := append(sdk.Events{}, events[:anteEventCount]...)
+	txEvents = append(txEvents, messageEvents...)
+	resultEvents := sdk.MarkEventsToIndex(txEvents.ToABCIEvents(), app.IndexEvents)
+	if execResult.Err != nil {
+		codespace, code, resultLog = sdkerrors.ABCIInfo(sdkerrors.Wrap(sdkerrors.ErrEVMVMError, vmError), app.Trace())
 	}
 
 	return &abci.ExecTxResult{

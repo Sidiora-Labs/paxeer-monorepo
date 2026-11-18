@@ -34,6 +34,28 @@ declare global {
   }
 }
 
+/** Delegate the chart frame's lifecycle permission before its first navigation. */
+function prepareChartFrames(container: HTMLElement): () => void {
+  const html = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  if (!html?.get || !html.set) throw new Error('Chart container requires the HTML element accessors');
+  const read = html.get;
+  const write = html.set;
+  Object.defineProperty(container, 'innerHTML', {
+    configurable: true,
+    get: () => read.call(container),
+    set: (markup: string) => {
+      const template = document.createElement('template');
+      template.innerHTML = markup;
+      for (const frame of template.content.querySelectorAll('iframe')) {
+        frame.allow = 'unload';
+        frame.tabIndex = -1;
+      }
+      write.call(container, template.innerHTML);
+    },
+  });
+  return () => { Reflect.deleteProperty(container, 'innerHTML'); };
+}
+
 const TV_LIB_URL = '/charting_library/charting_library.standalone.js';
 const TV_LIB_PATH = '/charting_library/';
 
@@ -102,6 +124,8 @@ function verifiedSupplyKey(token: { supplyQuality: string; totalSupplyRaw: strin
 
 export default function TvChart({ poolAddress, symbol, height: heightProp, onHeightChange }: TvChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const symbolRef = useRef(symbol);
+  symbolRef.current = symbol;
   const widgetRef = useRef<IChartingLibraryWidget | null>(null);
   const chartReadyRef = useRef(false);
   const datafeedRef = useRef<ReturnType<typeof createReplayUdfDatafeed> | null>(null);
@@ -112,7 +136,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
   const accessibleIntervalRef = useRef<ChartInterval | null>(null);
   const presentationRef = useRef<ChartMarkPresentation>({ enabled: true });
 
-  const [darkScheme, setDarkScheme] = useState(false);
+  const [darkScheme, setDarkScheme] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return;
     const media = window.matchMedia('(prefers-color-scheme: dark)');
@@ -215,8 +239,6 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
 
   useEffect(() => {
     if (!containerRef.current) return;
-    if (widgetRef.current) { try { widgetRef.current.remove(); } catch {} widgetRef.current = null; }
-    chartReadyRef.current = false;
 
     let active = true;
     const startInterval = intervalRef.current;
@@ -245,23 +267,64 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
     accessibleIntervalRef.current = null;
     const now = Math.floor(Date.now() / 1000);
     const range = viewportRef.current?.pool === poolAddress ? viewportRef.current : { from: Math.max(0, now - resolutionToSeconds(startInterval) * 50), to: now + 60 };
-    datafeed.getBars({}, startInterval, { from: Math.floor(range.from), to: Math.ceil(range.to) }, () => { if (active) setAnswer('answered'); }, reason => { if (active) { setAnswer('answered'); setFreshness(value => ({ ...value, connectionStatus: 'degraded', lagReason: reason })); } });
+    const startAccessibleStream = () => {
+      if (!active || widgetRef.current || accessibleIntervalRef.current !== null) return;
+      const resolution = intervalRef.current;
+      datafeed.subscribeBars({}, resolution, () => {}, 'accessible-chart');
+      accessibleIntervalRef.current = resolution;
+    };
+    datafeed.getBars({}, startInterval, { from: Math.floor(range.from), to: Math.ceil(range.to) }, () => {
+      if (!active) return;
+      setAnswer('answered');
+      startAccessibleStream();
+    }, reason => {
+      if (!active) return;
+      setAnswer('answered');
+      setFreshness(value => ({ ...value, connectionStatus: 'degraded', lagReason: reason }));
+      startAccessibleStream();
+    });
     retryRef.current = datafeed.retry;
+    return () => {
+      active = false;
+      clearTimeout(stallTimer);
+      retryRef.current = null;
+      datafeedRef.current = null;
+      accessibleIntervalRef.current = null;
+      datafeed.dispose();
+    };
+  }, [poolAddress, mode, feedSupply, retryGeneration]);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const datafeed = datafeedRef.current;
     const constructor: { widget: ChartingLibraryWidgetConstructor } | undefined = window.TradingView;
-    if (!loaded || !constructor) {
-      datafeed.subscribeBars({}, startInterval, () => {}, 'accessible-chart');
-      accessibleIntervalRef.current = startInterval;
-      return () => { active = false; clearTimeout(stallTimer); retryRef.current = null; datafeedRef.current = null; datafeed.dispose(); };
-    }
+    if (!datafeed || !loaded || !constructor) return;
+    let active = true;
+    const startInterval = intervalRef.current;
+    datafeed.unsubscribeBars('accessible-chart');
+    accessibleIntervalRef.current = null;
+    chartReadyRef.current = false;
     setError(null);
 
+    const container = containerRef.current;
+    const restoreContainer = prepareChartFrames(container);
+    let frame: HTMLIFrameElement | null = null;
+    const syncFrameFocus = () => {
+      container.toggleAttribute('data-chart-focus', frame !== null && document.activeElement === frame && frame.contentDocument?.hasFocus() === true);
+    };
+    const leaveChart = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      container.focus();
+    };
     try {
       const palette = readPalette();
       const feed: IBasicDataFeed = datafeed;
       const widget = new constructor.widget({
         container: containerRef.current,
         datafeed: feed,
-        symbol: symbol || poolAddress,
+        symbol: symbolRef.current || poolAddress,
         interval: startInterval as ResolutionString,
         library_path: TV_LIB_PATH,
         locale: 'en',
@@ -287,6 +350,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
           'use_localstorage_for_settings',
         ],
         enabled_features: [
+          'iframe_loading_same_origin',
           'move_logo_to_main_pane',
           'hide_left_toolbar_by_default',
           'timeframes_toolbar',
@@ -300,6 +364,12 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
       widget.onChartReady(() => {
         if (!active || widgetRef.current !== widget) return;
         chartReadyRef.current = true;
+        frame = container.querySelector('iframe');
+        frame?.contentWindow?.addEventListener('focus', syncFrameFocus);
+        frame?.contentWindow?.addEventListener('blur', syncFrameFocus);
+        frame?.contentDocument?.addEventListener('focusin', syncFrameFocus);
+        frame?.contentDocument?.addEventListener('focusout', syncFrameFocus);
+        frame?.contentWindow?.addEventListener('keydown', leaveChart, true);
         for (const [property, role] of Object.entries(launchpadChartRoles)) {
           const color = surfaceColor(role);
           if (color) widget.setCSSCustomProperty(property, color);
@@ -333,15 +403,21 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
     }
 
     return () => {
-      active = false; clearTimeout(stallTimer); retryRef.current = null; datafeedRef.current = null;
+      active = false;
       if (widgetRef.current && chartReadyRef.current) {
         try { const current = widgetRef.current.activeChart().getVisibleRange(); if (Number.isFinite(current.from) && Number.isFinite(current.to) && current.to > current.from) viewportRef.current = { pool: poolAddress, from: current.from, to: current.to }; } catch {}
       }
       chartReadyRef.current = false;
-      datafeed.dispose();
       if (widgetRef.current) { try { widgetRef.current.remove(); } catch {} widgetRef.current = null; }
+      frame?.contentWindow?.removeEventListener('focus', syncFrameFocus);
+      frame?.contentWindow?.removeEventListener('blur', syncFrameFocus);
+      frame?.contentDocument?.removeEventListener('focusin', syncFrameFocus);
+      frame?.contentDocument?.removeEventListener('focusout', syncFrameFocus);
+      frame?.contentWindow?.removeEventListener('keydown', leaveChart, true);
+      container.removeAttribute('data-chart-focus');
+      restoreContainer();
     };
-  }, [loaded, poolAddress, symbol, mode, feedSupply, retryGeneration, update, darkScheme]);
+  }, [loaded, poolAddress, mode, feedSupply, retryGeneration, update, darkScheme]);
 
   useEffect(() => {
     const widget = widgetRef.current;
@@ -403,7 +479,10 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
         onRetry={() => retryRef.current?.()}
       />
       <ChartSplit height={height} onHeightChange={setHeight} min={CHART_MIN_HEIGHT} max={CHART_MAX_HEIGHT} defaultHeight={CHART_DEFAULT_HEIGHT}>
-        <div ref={containerRef} inert={!loaded || !!error || stalled || noTrades || valuationBlocked} aria-hidden={!loaded || !!error || stalled || noTrades || valuationBlocked} className="absolute inset-0 h-full w-full" />
+        <div ref={containerRef} role="group" tabIndex={0} aria-label="Interactive price chart. Press Enter to explore the chart and Escape to return to the page."
+          onKeyDown={event => { if (event.key === 'Enter' && event.target === event.currentTarget) { event.preventDefault(); event.currentTarget.querySelector('iframe')?.focus(); } }}
+          inert={!loaded || !!error || stalled || noTrades || valuationBlocked} aria-hidden={!loaded || !!error || stalled || noTrades || valuationBlocked}
+          className="absolute inset-0 h-full w-full outline-none after:pointer-events-none after:absolute after:inset-0 after:z-20 after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-focus data-[chart-focus]:after:outline-2 data-[chart-focus]:after:-outline-offset-2 data-[chart-focus]:after:outline-focus" />
         {!loaded && !error && !stalled ? (
           <div role="status" className="absolute inset-0 flex items-center justify-center bg-canvas text-sm text-text-faint">Loading chart...</div>
         ) : null}

@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import React from 'react';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -94,7 +95,7 @@ describe('live chips and badge', () => {
       html(<LiveBadge />), html(<LiveBadge variant="dot" />),
       html(<ViewerCountChip count={0} quality="verified" />), html(<ViewerCountChip count={1} variant="media" />), html(<ViewerCountChip count={null} quality="unavailable" />),
       html(<MarketCapChip raw="9230000000" variant="media" />), html(<MarketCapChip raw={null} />),
-    ]) expect(markup).not.toMatch(BORDER);
+    ]) expect(assertControlEdges(markup)).not.toMatch(BORDER);
     expect(html(<LiveBadge />)).toContain('LIVE');
     expect(html(<LiveBadge variant="dot" />)).toContain('Live');
     expect(html(<ViewerCountChip count={0} quality="verified" />)).toContain('0 viewers');
@@ -103,7 +104,7 @@ describe('live chips and badge', () => {
     expect(html(<ViewerCountChip count={null} quality="unavailable" />)).toContain('No viewer count yet');
     const media = html(<MarketCapChip raw="9230000000" variant="media" />);
     expect(media).toContain('$9.23K');
-    expect(media).toContain('text-success');
+    expect(media).toContain('text-on-media-success');
     expect(html(<MarketCapChip raw={null} />)).toContain('not available yet');
   });
 });

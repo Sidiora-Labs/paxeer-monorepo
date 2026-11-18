@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
-	"encoding/pem"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,7 +14,20 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/testpki"
 )
+
+func envelopePlaybackServer(t *testing.T, handler http.Handler) (*httptest.Server, string) {
+	t.Helper()
+	pki := testpki.New(t)
+	leaf := pki.Leaf("cdn", "localhost")
+	server := httptest.NewUnstartedServer(handler)
+	server.TLS = &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{leaf.Pair}}
+	server.StartTLS()
+	t.Cleanup(server.Close)
+	return server, pki.CAFile
+}
 
 func TestEnvelopePlaybackDecodesBoundMedia(t *testing.T) {
 	const player = "/usr/bin/ffmpeg"
@@ -32,7 +45,7 @@ func TestEnvelopePlaybackDecodesBoundMedia(t *testing.T) {
 	if err != nil || len(video) == 0 {
 		t.Fatalf("generated media: bytes=%d err=%v", len(video), err)
 	}
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server, ca := envelopePlaybackServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/movie.mp4" {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -40,10 +53,6 @@ func TestEnvelopePlaybackDecodesBoundMedia(t *testing.T) {
 		http.ServeContent(w, r, "movie.mp4", time.Now(), bytes.NewReader(video))
 	}))
 	defer server.Close()
-	ca := filepath.Join(t.TempDir(), "root.pem")
-	if err := os.WriteFile(ca, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}), 0600); err != nil {
-		t.Fatal(err)
-	}
 	runner := envelopeTestRunner(t, server, EnvelopeConfig{
 		PlaybackBinary:   EnvelopeFile{Path: player, SHA256: hex.EncodeToString(programHash[:])},
 		PlaybackSeconds:  1,

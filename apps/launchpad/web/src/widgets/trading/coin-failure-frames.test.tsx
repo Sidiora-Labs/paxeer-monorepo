@@ -6,6 +6,7 @@
  * Runs the real TokenMarketLayout with the app providers against a real local HTTP origin that
  * answers every market route with a non-retryable 503.
  */
+import { applyBrowserSurface } from '@/core/app-foundation/browser-surface.test-support';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import React, { act } from 'react';
@@ -23,6 +24,7 @@ vi.mock('next/image', async importOriginal => {
 // Next selects its client-only loader when its module initializes. Let Vitest
 // install the browser environment before imports, as it does in the browser.
 (globalThis as unknown as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+const closeBrowserSurface = applyBrowserSurface();
 
 const pool = '0xce20da50f92d21d8bee497910c782e9aa25b6263';
 const outage = { code: 'DEPENDENCY_UNAVAILABLE', message: 'no backing service', requestId: '0f0e2a8e-5b3c-4d8a-9a1e-2c6d7b8f9a01', retryable: false, retryAfterMs: null, fieldErrors: [], details: null };
@@ -144,3 +146,5 @@ describe('coin page when the snapshot fails', () => {
     expect(container.querySelector('[data-market-snapshot="failed"]')).not.toBeNull();
   }, 30_000);
 });
+
+afterAll(closeBrowserSurface);

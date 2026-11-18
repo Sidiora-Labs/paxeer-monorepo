@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,9 +23,13 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	perpskeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/keeper"
+	perpstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
+	pricefeedtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
+	perpsabi "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps/abi"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	sdked25519 "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/ed25519"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -33,8 +38,13 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking"
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
+	chainutils "github.com/Sidiora-Labs/Paxeer-X-Network/utils"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
 )
@@ -48,7 +58,7 @@ type applyCheckFixture struct {
 	time     time.Time
 }
 
-func newApplyCheckFixture(t *testing.T, active bool) applyCheckFixture {
+func newApplyCheckFixture(t *testing.T, active bool, prepare ...func(*app.TestWrapper, utils.TestAcct)) applyCheckFixture {
 	t.Helper()
 	previous := app.EnableOCC
 	app.EnableOCC = false
@@ -93,6 +103,9 @@ func newApplyCheckFixture(t *testing.T, active bool) applyCheckFixture {
 	require.NoError(t, os.WriteFile(filepath.Join(home, "config", "app.toml"), []byte(configuration), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(home, "config", "genesis.json"), []byte(`{"chain_id":"pax-test"}`), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(home, app.ApplyCheckMarker), nil, 0o600))
+	for _, setup := range prepare {
+		setup(w, payer)
+	}
 	_, err = a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{Header: &tmproto.Header{ChainID: "pax-test", Height: 1, Time: at, ProposerAddress: validator.Address()}})
 	require.NoError(t, err)
 	_, err = a.Commit(context.Background())
@@ -328,4 +341,185 @@ func TestApplyCheckInput(t *testing.T) {
 	require.ErrorContains(t, err, "at least one transaction")
 	_, err = app.ApplyCheckHome(context.Background(), fixture.home, fixture.txs, fixture.time, sequencer.ApplyCheck{})
 	require.ErrorContains(t, err, "after the last committed block")
+}
+
+func newApplyCheckCollateralFixture(t *testing.T, active, native, unregistered bool) (applyCheckFixture, app.ApplyCheckCredit) {
+	t.Helper()
+	var trader utils.TestAcct
+	token := common.HexToAddress(perpstypes.DefaultCollateralToken)
+	fixture := newApplyCheckFixture(t, active, func(w *app.TestWrapper, payer utils.TestAcct) {
+		a, ctx := w.App, w.Ctx
+		trader = payer
+		if native {
+			require.NoError(t, a.EvmKeeper.RunWithOneOffEVMInstance(ctx, func(evm *vm.EVM) error {
+				var err error
+				token, err = a.EvmKeeper.UpsertERCNativePointer(ctx, evm, "ucheck", chainutils.ERCMetadata{Name: "Check collateral", Symbol: "CHECK", Decimals: 6})
+				return err
+			}, func(_, _ string) {}))
+			if unregistered {
+				_, version, exists := a.EvmKeeper.GetERC20NativePointer(ctx, "ucheck")
+				require.True(t, exists)
+				a.EvmKeeper.DeleteERC20NativePointer(ctx, "ucheck", version)
+			}
+		} else {
+			raw, err := os.ReadFile("../precompiles/perps/testdata/usdl_runtime.hex")
+			require.NoError(t, err)
+			a.EvmKeeper.SetCode(ctx, token, common.FromHex(strings.TrimSpace(string(raw))))
+		}
+		params := perpstypes.DefaultParams()
+		params.CollateralToken = token
+		require.NoError(t, a.PerpsKeeper.UpdateParams(ctx, a.PerpsKeeper.Authority(), params))
+		require.NoError(t, a.PerpsKeeper.SetMarket(ctx, a.PerpsKeeper.Authority(), perpstypes.Market{
+			ID: 0, Symbol: "BTC", Name: "Bitcoin", OracleSymbol: "BTC", SzDecimals: 5, PxDecimals: 1,
+			MaxLeverage: 1000, TierClass: perpstypes.TierClassA, ImpactNotionalUsd: sdk.NewIntWithDecimal(20_000, 18),
+			OiCapUsd: sdk.NewIntWithDecimal(500_000_000, 18), FundingCapPpmPerHour: 40_000, Enabled: true,
+		}))
+		aggregate, err := json.Marshal(pricefeedtypes.Aggregate{IndexPrice: sdk.NewIntWithDecimal(60_000, 18), MarkPrice: sdk.NewIntWithDecimal(60_000, 18),
+			Basis: sdk.ZeroInt(), TimestampMs: uint64(ctx.BlockTime().UnixMilli()), Height: 1, Sources: 1})
+		require.NoError(t, err)
+		ctx.KVStore(a.GetKey(pricefeedtypes.StoreKey)).Set(pricefeedtypes.AggregateKey(0), aggregate)
+		_, err = a.PerpsKeeper.UpdatePrices(ctx)
+		require.NoError(t, err)
+		maker := utils.NewSigner().EvmAddress
+		_, err = a.PerpsKeeper.Deposit(ctx, maker, *uint256.NewInt(100_000_000_000))
+		require.NoError(t, err)
+		module := a.PerpsKeeper.ModuleEVMAddress()
+		if native {
+			funds := sdk.NewCoins(sdk.NewInt64Coin("ucheck", 100_000_000_000))
+			require.NoError(t, a.BankKeeper.MintCoins(ctx, "evm", funds))
+			require.NoError(t, a.BankKeeper.SendCoinsFromModuleToAccount(ctx, "evm", a.EvmKeeper.GetPaxAddressOrDefault(ctx, module), funds))
+		} else {
+			a.EvmKeeper.SetState(ctx, token, gigaPerpsTokenSlot(module, 0), common.BigToHash(big.NewInt(100_000_000_000)))
+		}
+		_, err = a.PerpsKeeper.PlaceOrder(ctx, maker, perpskeeper.OrderParams{MarketID: 0, IsLong: false,
+			OrderType: uint8(perpstypes.OrderTypeLimit), TimeInForce: uint8(perpstypes.TimeInForceGTC),
+			SizeUsd: gigaPerpsWord(gigaPerpsUSD(200_000)), Leverage: gigaPerpsWord(gigaPerpsUSD(20)), LimitPrice: gigaPerpsWord(gigaPerpsUSD(60_100))})
+		require.NoError(t, err)
+		// The trader holds gas currency but starts without collateral.
+		data := append(crypto.Keccak256([]byte("balanceOf(address)"))[:4], common.LeftPadBytes(trader.EvmAddress.Bytes(), 32)...)
+		held, err := a.EvmKeeper.StaticCallEVM(ctx, trader.AccountAddress, &token, data)
+		require.NoError(t, err)
+		require.Len(t, held, 32)
+		require.Zero(t, new(big.Int).SetBytes(held).Sign())
+	})
+	parsed, err := perpsabi.ABI()
+	require.NoError(t, err)
+	tokenABI, err := abi.JSON(strings.NewReader(`[{"type":"function","name":"approve","inputs":[{"type":"address"},{"type":"uint256"}],"outputs":[{"type":"bool"}]}]`))
+	require.NoError(t, err)
+	approve, err := tokenABI.Pack("approve", gigaPerpsAddress, big.NewInt(1_000_000_000))
+	require.NoError(t, err)
+	deposit, err := parsed.Pack("deposit", token, big.NewInt(1_000_000_000))
+	require.NoError(t, err)
+	order := gigaPerpsOrder{MarketId: new(big.Int), IsLong: true, OrderType: uint8(perpstypes.OrderTypeMarket),
+		TimeInForce: uint8(perpstypes.TimeInForceIOC), SizeUsd: gigaPerpsUSD(600), Leverage: gigaPerpsUSD(10), LimitPrice: new(big.Int),
+		TriggerPrice: new(big.Int), AcceptablePrice: gigaPerpsUSD(60_300), CollateralAmount: new(big.Int), TakeProfitPrice: new(big.Int), StopLossPrice: new(big.Int)}
+	place, err := parsed.Pack("placeOrder", order)
+	require.NoError(t, err)
+	chainID := fixture.signed[0].ChainId()
+	fixture.txs, fixture.signed = nil, nil
+	for i, call := range []struct {
+		to   common.Address
+		data []byte
+	}{{token, approve}, {gigaPerpsAddress, deposit}, {gigaPerpsAddress, place}} {
+		signed, err := ethtypes.SignTx(ethtypes.NewTx(&ethtypes.LegacyTx{Nonce: uint64(i), GasPrice: big.NewInt(500_000_000_000), Gas: gigaPerpsGas,
+			To: &call.to, Value: new(big.Int), Data: call.data}), ethtypes.LatestSignerForChainID(chainID), trader.EvmPrivateKey)
+		require.NoError(t, err)
+		raw, err := signed.MarshalBinary()
+		require.NoError(t, err)
+		encoded, err := app.DecodeApplyCheckTransaction(hex.EncodeToString(raw))
+		require.NoError(t, err)
+		fixture.txs = append(fixture.txs, encoded)
+		fixture.signed = append(fixture.signed, signed)
+	}
+	return fixture, app.ApplyCheckCredit{Token: token, Account: trader.EvmAddress, Amount: big.NewInt(1_000_000_000)}
+}
+
+func TestApplyCheckStandInCredit(t *testing.T) {
+	for _, active := range []bool{false, true} {
+		for _, native := range []bool{false, true} {
+			t.Run(fmt.Sprintf("sequencing_%t_native_%t", active, native), func(t *testing.T) {
+				fixture, credit := newApplyCheckCollateralFixture(t, active, native, false)
+				before := applyCheckHomeContents(t, fixture.home)
+				run := func(credits []app.ApplyCheckCredit) *app.ApplyCheckReport {
+					key, err := sequencer.NewApplyCheckReceiptKey()
+					require.NoError(t, err)
+					report, err := app.ApplyCheckHomeWithOptions(context.Background(), fixture.home, fixture.txs, time.Time{},
+						sequencer.ApplyCheck{ReceiptKey: key}, app.ApplyCheckOptions{StandInReceiptKey: true, StandInCredits: credits})
+					require.NoError(t, err)
+					data, err := json.Marshal(report)
+					require.NoError(t, err)
+					require.True(t, report.Comparison.Equal, "%s", data)
+					require.Len(t, report.Forms, 3)
+					return report
+				}
+				refused := run(nil)
+				for _, form := range refused.Forms {
+					require.Len(t, form.Results, 3)
+					require.Equal(t, uint32(1), *form.Results[0].Status)
+					require.Equal(t, uint32(0), *form.Results[1].Status)
+					require.Equal(t, uint32(0), *form.Results[2].Status)
+					require.Empty(t, form.StandInCredits)
+				}
+				credited := run([]app.ApplyCheckCredit{credit})
+				for _, form := range credited.Forms {
+					require.Empty(t, form.Error)
+					require.Empty(t, form.Panic)
+					require.Len(t, form.Results, 3)
+					for _, result := range form.Results {
+						require.Zero(t, result.Code)
+						require.Empty(t, result.ReceiptError)
+						require.NotNil(t, result.Status)
+						require.Equal(t, uint32(1), *result.Status)
+					}
+					require.Len(t, form.StandInCredits, 1)
+					got := form.StandInCredits[0]
+					require.Equal(t, credit.Token, got.Token)
+					require.Equal(t, credit.Account, got.Account)
+					require.Equal(t, credit.Amount.String(), got.Amount)
+					require.Equal(t, "0", got.BalanceBefore)
+					require.Equal(t, credit.Amount.String(), got.BalanceAfter)
+					require.Equal(t, !native, got.TotalSupplyMayBeUnchanged)
+					require.Equal(t, map[bool]string{true: "ledger", false: "contract_storage"}[native], got.BalanceSource)
+					require.Equal(t, credited.Forms[0].StandInCredits, form.StandInCredits)
+					require.Equal(t, credited.Forms[0].AppHash, form.AppHash)
+					require.NotEqual(t, refused.Forms[0].AppHash, form.AppHash)
+				}
+				require.Equal(t, before, applyCheckHomeContents(t, fixture.home))
+				require.NoError(t, os.Remove(filepath.Join(fixture.home, app.ApplyCheckMarker)))
+				_, err := app.ApplyCheckHomeWithOptions(context.Background(), fixture.home, fixture.txs, time.Time{}, sequencer.ApplyCheck{}, app.ApplyCheckOptions{StandInCredits: []app.ApplyCheckCredit{credit}})
+				require.ErrorContains(t, err, "regular marker file")
+			})
+		}
+	}
+}
+
+func TestApplyCheckStandInCreditStorageNotFound(t *testing.T) {
+	fixture, credit := newApplyCheckCollateralFixture(t, false, true, true)
+	before := applyCheckHomeContents(t, fixture.home)
+	report, err := app.ApplyCheckHomeWithOptions(context.Background(), fixture.home, fixture.txs, time.Time{}, sequencer.ApplyCheck{}, app.ApplyCheckOptions{StandInCredits: []app.ApplyCheckCredit{credit}})
+	require.ErrorContains(t, err, credit.Token.Hex())
+	require.ErrorContains(t, err, "balance storage not found")
+	require.Nil(t, report)
+	require.Equal(t, before, applyCheckHomeContents(t, fixture.home))
+	reopened := app.New(dbm.NewMemDB(), nil, true, map[int64]bool{}, fixture.home, 0, true, tmconfig.TestConfig(), app.MakeEncodingConfig(), nil, app.TestAppOpts{}, app.EmptyWasmOpts, nil)
+	require.Equal(t, fixture.commit, reopened.LastCommitID())
+	require.Zero(t, reopened.EvmKeeper.GetNonce(reopened.GetCheckCtx(), credit.Account))
+	require.NoError(t, reopened.Close())
+}
+
+func TestApplyCheckCreditValidation(t *testing.T) {
+	token := common.HexToAddress(perpstypes.DefaultCollateralToken)
+	account := common.HexToAddress("0x0000000000000000000000000000000000001234")
+	for _, amount := range []*big.Int{nil, new(big.Int), big.NewInt(-1), new(big.Int).Lsh(big.NewInt(1), 256)} {
+		_, err := app.ApplyCheckHomeWithOptions(context.Background(), filepath.Join(t.TempDir(), "unopened"), [][]byte{{1}}, time.Time{}, sequencer.ApplyCheck{}, app.ApplyCheckOptions{
+			StandInCredits: []app.ApplyCheckCredit{{Token: token, Account: account, Amount: amount}},
+		})
+		require.ErrorContains(t, err, "positive uint256")
+	}
+	credit := fmt.Sprintf("%s:%s:1", token, account)
+	_, err := app.ParseApplyCheckCredits([]string{credit, strings.ToLower(credit)})
+	require.ErrorContains(t, err, "repeated")
+	parsed, err := app.ParseApplyCheckCredits([]string{credit})
+	require.NoError(t, err)
+	require.Equal(t, []app.ApplyCheckCredit{{Token: token, Account: account, Amount: big.NewInt(1)}}, parsed)
 }

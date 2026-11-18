@@ -1,0 +1,38 @@
+{
+  "currency_codes": [
+    {
+      "code": "USDL",
+      "description": "USDL Stablecoin",
+      "id": "USDL"
+    }
+  ],
+  "exchanges": [
+    {
+      "desc": "Sidiora Launchpad",
+      "name": "Sidiora",
+      "value": "sidiora"
+    }
+  ],
+  "supported_resolutions": [
+    "1",
+    "5",
+    "15",
+    "60",
+    "240",
+    "1D",
+    "D",
+    "1W",
+    "W"
+  ],
+  "supports_group_request": false,
+  "supports_marks": false,
+  "supports_search": true,
+  "supports_time": true,
+  "supports_timescale_marks": false,
+  "symbols_types": [
+    {
+      "name": "token",
+      "value": "token"
+    }
+  ]
+}

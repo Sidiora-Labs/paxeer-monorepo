@@ -224,10 +224,27 @@ func (p *LiveKit) End(ctx context.Context, room string) error {
 	if e = p.call(ctx, "RoomService", "ListRooms", "", map[string]any{"names": []string{room}}, &result); e != nil {
 		return e
 	}
-	if len(result.Rooms) != 0 {
-		return ErrUnavailable
+	if len(result.Rooms) == 0 {
+		return nil
 	}
-	return nil
+	confirmation, cancel := context.WithTimeout(ctx, 4*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-confirmation.Done():
+			return ErrUnavailable
+		case <-ticker.C:
+		}
+		result.Rooms = nil
+		if e = p.call(confirmation, "RoomService", "ListRooms", "", map[string]any{"names": []string{room}}, &result); e != nil {
+			return e
+		}
+		if len(result.Rooms) == 0 {
+			return nil
+		}
+	}
 }
 func (p *LiveKit) Revoke(ctx context.Context, room, wallet string) error {
 	e := p.call(ctx, "RoomService", "RemoveParticipant", room, map[string]string{roomResource: room, "identity": wallet, "revoke_token_ts": strconv.FormatInt(p.now().Unix()+1, 10)}, nil)

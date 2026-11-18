@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useSWR } from "@paxeer-network/hooks";
 import { API } from "@paxeer-network/types";
+import { paxeerChain } from "@paxeer-network/paxeer-backend/core/chain";
 import { fetcher } from "../utils";
 import { useSwapSupportedChains } from "./useSwapSupportedChains";
 
@@ -20,7 +21,11 @@ export const useSwapTokens = (
 ) => {
   const { chain: swapSupportedChain } = useSwapSupportedChains(chainId);
   const url = useMemo(() => {
-    if (enableSwapDeposit && swapSupportedChain) {
+    if (
+      Number(chainId) !== paxeerChain.id &&
+      enableSwapDeposit &&
+      swapSupportedChain
+    ) {
       return `https://widget-api.woofi.com/1inch_tokens?network=${swapSupportedChain.chain_key}`;
     }
 

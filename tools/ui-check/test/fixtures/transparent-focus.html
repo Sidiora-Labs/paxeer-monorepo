@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Control focus</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/base.css">
+<style>
+  #control { opacity: 0; outline: none; }
+  html.visible #control { opacity: 1; }
+  html.marked #control:focus-visible { opacity: 1; outline: 3px solid blue; outline-offset: 2px; }
+</style>
+<body>
+<h1>Surface</h1>
+<button id="control" type="button">Continue</button>
+<script>
+  const options = new URLSearchParams(location.search);
+  document.documentElement.classList.toggle("marked", !options.has("unmarked"));
+  document.documentElement.classList.toggle("visible", options.has("visible"));
+</script>
+</body>
+</html>

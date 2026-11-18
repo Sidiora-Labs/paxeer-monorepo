@@ -93,7 +93,7 @@ export function EmbeddedSignIn({ onBack }: EmbeddedSignInProps) {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight">Check Your Inbox</h1>
-            <p className="text-sm text-pax-muted mt-2 text-pretty max-w-xs">
+            <p className="text-sm text-pax-muted mt-2 text-pretty max-w-size-260">
               Enter the code we emailed you, or open the sign-in link on this device.
             </p>
           </div>

@@ -358,19 +358,9 @@ func proveLaunchpadPnLTracker(t *testing.T) {
 
 type proofLaunchpadFixture struct{ Pool, Alice, Bob string }
 
-func proofLaunchpadRewardRegistry(root string) (production.MigrationRegistry, error) {
-	raw, err := os.ReadFile(filepath.Join(root, "migrations/registry.json"))
-	if err != nil {
-		return production.MigrationRegistry{}, err
-	}
-	approval, err := os.ReadFile(filepath.Join(root, "migrations/pnl-reward-approval.json"))
-	if err != nil {
-		return production.MigrationRegistry{}, err
-	}
-	reader, err := os.ReadFile(filepath.Join(root, "sdk/launchpad/shared/interfaces/v2/validators.gen.go"))
-	if err != nil {
-		return production.MigrationRegistry{}, err
-	}
+func proofLaunchpadRewardRegistry(t *testing.T, root string) (production.MigrationRegistry, error) {
+
+	raw, approval, reader := internaltest.RewardRegistryFixture(t, root)
 	return migrate.LoadRewardRegistry(raw, approval, reader)
 }
 
@@ -378,7 +368,7 @@ func proofLaunchpadRewardRegistry(root string) (production.MigrationRegistry, er
 // coordinator runs, as the shared coordinator fixture does for legacy services.
 func proofLaunchpadBootstrapRewardCoordinator(t *testing.T, ctx context.Context, pool *pgxpool.Pool, root string) {
 	t.Helper()
-	registry, err := proofLaunchpadRewardRegistry(root)
+	registry, err := proofLaunchpadRewardRegistry(t, root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -426,21 +416,11 @@ func proofLaunchpadBootstrapRewardCoordinator(t *testing.T, ctx context.Context,
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
-	exec("DROP ROLE IF EXISTS pnl_owner")
 	exec("CREATE ROLE pnl_owner NOLOGIN; GRANT USAGE, CREATE ON SCHEMA pnl TO pnl_owner")
-	t.Cleanup(func() {
-		cleanup, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-		if _, err := pool.Exec(cleanup, "DROP OWNED BY pnl_owner"); err != nil {
-			t.Errorf("remove pnl owner grants: %v", err)
-		}
-		if _, err := pool.Exec(cleanup, "DROP ROLE IF EXISTS pnl_owner"); err != nil {
-			t.Errorf("remove pnl owner role: %v", err)
-		}
-	})
+
 	for _, id := range []int64{80003, 160000, 180000} {
 		m := catalog[id]
-		sql, err := os.ReadFile(filepath.Join(root, "launchpad", m.Path))
+		sql, err := os.ReadFile(filepath.Join(root, m.Path))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -477,7 +457,7 @@ func proofLaunchpadBootstrapRewardCoordinator(t *testing.T, ctx context.Context,
 
 func proofLaunchpadApplyRegisteredRewardMigration(t *testing.T, ctx context.Context, pool *pgxpool.Pool, root string) {
 	t.Helper()
-	registry, err := proofLaunchpadRewardRegistry(root)
+	registry, err := proofLaunchpadRewardRegistry(t, root)
 	if err != nil {
 		t.Fatalf("production reward migration registry: %v", err)
 	}
@@ -489,7 +469,7 @@ func proofLaunchpadApplyRegisteredRewardMigration(t *testing.T, ctx context.Cont
 	if !ok || migration.Service != "core/pnl-tracker" || migration.Schema != "pnl" {
 		t.Fatal("production registry does not register reward migration 180001 for core/pnl-tracker")
 	}
-	sql, err := os.ReadFile(filepath.Join(root, "launchpad", migration.Path))
+	sql, err := os.ReadFile(filepath.Join(root, migration.Path))
 	if err != nil {
 		t.Fatal(err)
 	}

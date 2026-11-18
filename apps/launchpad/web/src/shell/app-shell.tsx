@@ -1,6 +1,6 @@
 'use client';
 
-import { type CSSProperties, type ReactNode, useState, useEffect, useRef } from 'react';
+import { type ReactNode, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePathname } from 'next/navigation';
 import { clearPrivateFoundationCache } from '@/core/app-foundation/private-cache';
@@ -20,18 +20,23 @@ import { ShellFooter } from './platform-metrics';
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
   const queryClient = useQueryClient();
   const [privateEpoch, setPrivateEpoch] = useState(0);
   const [linkBlocked, setLinkBlocked] = useState(false);
   const previousPath = useRef(pathname);
   const { expanded: railExpanded } = useRailState();
+  const shellRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLDivElement>(null);
-  const [topHeight, setTopHeight] = useState<number | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = topRef.current;
     if (!element) return;
-    const update = () => setTopHeight(element.offsetHeight);
+    const update = () => {
+      const height = element.offsetHeight;
+      shellRef.current?.style.setProperty('--shell-top', `${height}px`);
+    };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(element);
@@ -103,27 +108,31 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const route = routeForPath(pathname);
   // --shell-top is the fixed header stack height: measured once mounted, and
   // before that the CSS default (top bar, plus the ticker from md up).
-  const shellTop =
-    topHeight === null ? undefined : ({ '--shell-top': `${topHeight}px` } as CSSProperties);
 
   return (
     <div
+      ref={shellRef}
       onFocusCapture={(event) => {
         const control = event.target;
-        if (!(control instanceof HTMLElement) || !control.closest('[data-shell-content]') || !control.matches(':focus-visible')) return;
+        if (!(control instanceof HTMLElement) || !control.closest('[data-shell-main]') || !control.matches(':focus-visible')) return;
         if (typeof control.scrollIntoView !== 'function') return;
         requestAnimationFrame(() => {
           control.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
           const headerBottom = topRef.current?.getBoundingClientRect().bottom ?? 0;
-          const controlTop = control.getBoundingClientRect().top;
-          if (controlTop < headerBottom) {
-            window.scrollBy({ top: controlTop - headerBottom, behavior: 'instant' });
+          const rect = control.getBoundingClientRect();
+          const navigation = document.querySelector('nav[aria-label="Mobile navigation"]');
+          const navigationTop = navigation instanceof HTMLElement && navigation.getClientRects().length > 0
+            ? navigation.getBoundingClientRect().top : window.innerHeight;
+          if (rect.top < headerBottom || rect.height > navigationTop - headerBottom) {
+            window.scrollBy({ top: rect.top - headerBottom, behavior: 'instant' });
+          } else if (rect.bottom > navigationTop) {
+            window.scrollBy({ top: rect.bottom - navigationTop, behavior: 'instant' });
           }
         });
       }}
+      data-shell-ready={ready ? '' : undefined}
       data-shell-pathname={pathname}
       data-shell-route-id={route?.id || 'unknown'}
-      style={shellTop}
       className={cn('foundation-shell min-w-0 max-w-full bg-canvas text-text', SHELL_TOP_VARS)}
     >
       <a
@@ -136,16 +145,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <SidebarNav />
       <div
         className={cn(
-          'flex min-h-screen flex-col transition-[margin] duration-base md:ml-rail-width',
+          'flex min-h-screen flex-col md:ml-rail-width',
           railExpanded && 'xl:ml-rail-expanded-width'
         )}
       >
         <div
           ref={topRef}
-          className={cn(
-            'fixed left-0 right-0 top-0 z-[var(--sl-z-header)] flex flex-col bg-canvas transition-[left] duration-base md:left-rail-width',
-            railExpanded && 'xl:left-rail-expanded-width'
-          )}
+          className="sticky top-0 z-[var(--sl-z-header)] flex flex-col bg-canvas"
         >
           <TopBar />
           <TickerStrip />
@@ -155,11 +161,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           id="main-content"
           tabIndex={-1}
           data-shell-main=""
-          // Sticky-footer layout: main is at least one viewport tall (its
-          // padding covers the header stack and, below md, the bottom tab bar),
-          // the page grows into the free space and the slim footer row sits at
-          // the viewport bottom on short pages, or after the content on long ones.
-          className="flex min-h-dvh min-w-0 flex-1 flex-col pb-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom,0rem))] pt-[var(--shell-top)] md:pb-0"
+          className="flex min-h-[calc(100dvh-var(--shell-top))] min-w-0 flex-1 flex-col pb-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom,0rem))] md:pb-0"
         >
           {linkBlocked ? (
             <p
@@ -173,7 +175,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             </p>
           ) : null}
           {route ? (
-            <div key={privateEpoch} data-shell-content="" className="flex min-w-0 flex-1 flex-col">
+            <div key={privateEpoch} data-shell-content="" className="flex min-h-[calc(100dvh-var(--shell-top))] min-w-0 flex-1 flex-col">
               {children}
             </div>
           ) : (

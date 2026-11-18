@@ -31,7 +31,7 @@ function ChatMessage({ msg, onReply, replyTarget, onRetry, onRevise, wallet }: {
       <Avatar src={null} name={shortAddress(msg.sender)} size="sm" decorative className="mt-0.5" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <Link href={`/profile/${msg.sender}`} className="font-mono text-xs font-bold text-accent hover:underline">{shortAddress(msg.sender)}</Link>
+          <Link prefetch={false} href={`/profile/${msg.sender}`} className="font-mono text-xs font-bold text-accent hover:underline">{shortAddress(msg.sender)}</Link>
           <time dateTime={new Date(msg.createdAt * 1000).toISOString()} className="text-2xs text-text-faint">{relativeAge(msg.createdAt)}</time>
           <button type="button" onClick={() => onReply(msg)} className="ml-auto text-2xs text-text-faint opacity-0 transition-opacity hover:text-text focus-visible:opacity-100 group-hover:opacity-100">Reply</button>
         </div>
@@ -93,7 +93,7 @@ export default function PoolChat({ poolAddress }: PoolChatProps) {
   return (
     <div className="flex flex-col overflow-hidden rounded-md bg-surface-2">
       <div role="status" aria-live="polite" className={cn('px-3 text-xs text-warning', status ? 'py-2' : 'sr-only')}>{status}</div>
-      <div ref={containerRef} role="log" aria-label="Coin chat" tabIndex={0} onScroll={handleScroll} className="overflow-y-auto p-1 outline-none focus-visible:outline-2 focus-visible:outline-focus" style={{ maxHeight: 'var(--sl-chat-max-height)' }}>
+      <div ref={containerRef} role="log" aria-label="Coin chat" tabIndex={0} onScroll={handleScroll} className="sl-chat-log overflow-y-auto p-1 outline-none focus-visible:outline-2 focus-visible:outline-focus" style={{ maxHeight: 'var(--sl-chat-max-height)' }}>
         {loading ? (
           <div role="status" aria-busy="true" className="p-6 text-center text-xs text-text-faint">Loading messages...</div>
         ) : error ? (

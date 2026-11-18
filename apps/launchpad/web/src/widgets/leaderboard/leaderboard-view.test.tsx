@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 /**
  * The real LeaderboardView against a real local HTTP origin that serves none
  * of the cup, ranking or feed routes (404 everywhere, as on a box with no
@@ -95,7 +96,7 @@ describe('leaderboard view without a backend', () => {
     await waitFor(() => hero(view.container)?.getAttribute('data-cup-state') === 'unsupported');
     expect(seen.some(url => url.startsWith('/v2/cups/current'))).toBe(true);
     const frame = hero(view.container)!;
-    expect(frame.className).toContain('md:aspect-[16/7]');
+    expect(frame.className).toContain('md:before:aspect-[16/7]');
     const control = frame.querySelector('[role=radiogroup][aria-label="Ranking period"]')!;
     expect(control.querySelectorAll('[role=radio]')).toHaveLength(4);
     expect(control.querySelector<HTMLButtonElement>('[aria-label="Competition"]')!.disabled).toBe(true);
@@ -108,7 +109,7 @@ describe('leaderboard view without a backend', () => {
     expect(frame.querySelector('button:not([role=radio])')!.textContent).toBe('Try again');
     // The rolling board follows the hero.
     expect(view.container.querySelector('#traders-board-title')).not.toBeNull();
-    expect(classesOf(view.container).join(' ')).not.toMatch(BORDER);
+    expect(assertControlEdges(view.container.innerHTML)).not.toMatch(BORDER);
     unmount(view);
   });
 

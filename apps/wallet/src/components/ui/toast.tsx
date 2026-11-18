@@ -54,10 +54,14 @@ export function ToastItem({ toast, onClose }: ToastItemProps) {
       <Icon className={cn('mt-0.5 w-4 h-4 shrink-0', VARIANT_ICON_CLASS[variant])} />
       <div className="flex-1 min-w-0 space-y-0.5">
         {toast.title && (
-          <div className="text-sm font-semibold leading-tight text-pax-light">{toast.title}</div>
+          <div className="text-size-13 font-semibold leading-tight text-pax-light">
+            {toast.title}
+          </div>
         )}
         {toast.description && (
-          <div className="text-xs leading-snug text-pax-muted break-words">{toast.description}</div>
+          <div className="text-size-11 leading-snug text-pax-muted break-words">
+            {toast.description}
+          </div>
         )}
         {toast.action && <div className="pt-1">{toast.action}</div>}
       </div>

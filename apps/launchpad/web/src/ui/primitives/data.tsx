@@ -78,7 +78,7 @@ export function StatTile({
         aria-busy={loading || undefined}
       >
         {loading ? (
-          <span aria-hidden="true" className="sl-skeleton inline-block h-[var(--sl-skeleton-text-height)] w-20 align-middle" />
+          <span aria-hidden="true" className="sl-skeleton inline-block h-[1lh] w-20 align-top" />
         ) : masked ? (
           <span aria-label="Hidden">{MASK}</span>
         ) : empty ? (

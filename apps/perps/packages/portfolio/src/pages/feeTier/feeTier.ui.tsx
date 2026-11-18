@@ -15,11 +15,7 @@ import {
 } from "@paxeer-network/ui";
 import type { FeeDataType, useFeeTierScriptReturn } from "./feeTier.script";
 
-const LazyFeeTierHeader = React.lazy(() =>
-  import("./feeTierHeader").then((mod) => {
-    return { default: mod.FeeTierHeader };
-  }),
-);
+import { FeeTierHeader } from "./feeTierHeader";
 
 export type FeeTierProps = useFeeTierScriptReturn;
 
@@ -69,14 +65,14 @@ export const FeeTierTable: React.FC<FeeTierTableProps> = (props) => {
         return {
           "data-state": "active",
           className: cn(
-            "oui-pointer-events-none oui-h-13 oui-text-base-contrast-80 oui-gradient-brand",
+            "oui-pointer-events-none oui-h-[54px] oui-text-base-contrast-80 oui-gradient-brand",
           ),
           ...config.active,
         };
       } else {
         return {
           "data-state": "none",
-          className: cn("oui-h-13"),
+          className: cn("oui-h-[54px]"),
           ...config.normal,
         };
       }
@@ -141,7 +137,7 @@ const CardTitle: React.FC = () => {
   if (isMobile) {
     return (
       <Flex itemAlign={"center"} justify={"center"} gap={2}>
-        <Text size="xs" intensity={80}>
+        <Text size="xs" intensity={54}>
           {t("portfolio.feeTier.updatedDailyBy")}
         </Text>
         <Text size="xs" intensity={80}>
@@ -154,7 +150,7 @@ const CardTitle: React.FC = () => {
     <Flex itemAlign={"center"} justify={"between"}>
       <Text size={"lg"}>{t("portfolio.feeTier")}</Text>
       <Flex itemAlign={"center"} justify={"center"} gap={1}>
-        <Text size="xs" intensity={80}>
+        <Text size="xs" intensity={54}>
           {t("portfolio.feeTier.updatedDailyBy")}
         </Text>
         <Text size="xs" intensity={80}>
@@ -180,7 +176,7 @@ export const FeeTier: React.FC<FeeTierProps> = (props) => {
     >
       {!isMobile && <Divider />}
       <React.Suspense fallback={null}>
-        <LazyFeeTierHeader
+        <FeeTierHeader
           vol={vol}
           tier={tier}
           headerDataAdapter={headerDataAdapter}
