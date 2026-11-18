@@ -33,13 +33,28 @@ const TokenTransferListItem = ({
   chainData,
 }: Props) => {
   return (
-    <ListItemMobile rowGap={ 3 }>
-      <Flex justifyContent="space-between" alignItems="center" lineHeight="h2" width="100%">
+    <ListItemMobile rowGap={ 3 } containerType="inline-size" containerName="token-transfer-row">
+      <Flex
+        justifyContent="space-between"
+        alignItems="center"
+        lineHeight="h2"
+        width="100%"
+        css={{
+          '@container token-transfer-row (max-width: 18rem)': {
+            flexWrap: 'wrap',
+            rowGap: 3,
+            '& [data-entity-kind="tx"]': { flexBasis: '100%' },
+          },
+        }}
+      >
         { txHash && (
           <TxEntity
             isLoading={ isLoading }
             hash={ txHash }
-            truncation="constant_long"
+            truncation="dynamic"
+            flex={ 1 }
+            minW={ 0 }
+            maxW="100%"
             fontWeight="bold"
             chain={ chainData }
           />
@@ -52,6 +67,7 @@ const TokenTransferListItem = ({
           fontWeight="normal"
           fontSize="sm"
           display="inline-block"
+          flexShrink={ 0 }
         />
       </Flex>
       { method && <Badge loading={ isLoading }>{ method }</Badge> }
@@ -59,10 +75,21 @@ const TokenTransferListItem = ({
         from={ from }
         to={ to }
         isLoading={ isLoading }
+        truncation="dynamic"
         tokenHash={ token?.address_hash }
         tokenSymbol={ token?.symbol ?? undefined }
         w="100%"
         fontWeight="medium"
+        css={{
+          '@container token-transfer-row (max-width: 18rem)': {
+            gridTemplateColumns: '20px minmax(0, 1fr)',
+            columnGap: 2,
+            rowGap: 3,
+            '& > :first-child': { gridColumn: 2, marginRight: 0, width: '100%' },
+            '& > :nth-child(2)': { gridColumn: 1, gridRow: 1, transform: 'rotate(90deg)' },
+            '& > :nth-child(3)': { gridColumn: 2, marginLeft: 0, width: '100%' },
+          },
+        }}
       />
       { total && 'value' in total && token && (hasTokenTransferValue(token.type)) && !isConfidentialTokenType(token.type) && (
         <Flex alignItems="center" columnGap={ 2 } maxW="100%" w="full">

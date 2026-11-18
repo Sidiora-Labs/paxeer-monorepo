@@ -41,14 +41,15 @@ const TokenTransferTableItem = ({
         </TableCell>
       ) }
       <TableCell>
-        <Flex flexDirection="column" alignItems="flex-start" mt="1.25" rowGap={ 3 }>
+        <Flex flexDirection="column" alignItems="flex-start" mt="1.25" rowGap={ 3 } minW={ 0 } maxW="100%">
           { txHash ? (
             <TxEntity
               hash={ txHash }
               isLoading={ isLoading }
               fontWeight="semibold"
               noIcon
-              truncation="constant_long"
+              truncation="dynamic"
+              maxW="100%"
             />
           ) : <Skeleton loading={ isLoading }>-</Skeleton> }
           <TimeWithTooltip
@@ -74,6 +75,7 @@ const TokenTransferTableItem = ({
           to={ to }
           isLoading={ isLoading }
           mt="1.25"
+          truncation="dynamic"
           mode={{ lg: 'compact', xl: 'long' }}
           tokenHash={ token?.address_hash }
           tokenSymbol={ token?.symbol ?? undefined }

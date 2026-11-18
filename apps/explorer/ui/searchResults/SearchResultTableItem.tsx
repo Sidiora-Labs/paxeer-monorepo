@@ -59,6 +59,22 @@ const SearchResultTableItem = ({ data, searchTerm, isLoading, addressFormat }: P
 
   const { colorMode } = useColorMode();
 
+  if (isLoading) {
+    return (
+      <TableRow aria-busy="true">
+        <TableCell>
+          <Flex alignItems="center">
+            <Skeleton loading boxSize="20px" mr={ 2 } flexShrink={ 0 }/>
+            <Skeleton loading h="1lh" flex={ 1 } minW={ 0 }/>
+          </Flex>
+        </TableCell>
+        <TableCell verticalAlign="middle"><Skeleton loading h="1lh" w="100%"/></TableCell>
+        <TableCell verticalAlign="middle" isNumeric><Skeleton loading h="1lh" w={ 12 } ml="auto" maxW="100%"/></TableCell>
+        <TableCell verticalAlign="middle"><Skeleton loading h="1lh" w={ 10 } maxW="100%"/></TableCell>
+      </TableRow>
+    );
+  }
+
   const content = (() => {
     switch (data.type) {
       case 'token': {

@@ -35,7 +35,14 @@ const ListPage = ({ title, note, actions, pagination, showRows, children, classN
         { pagination && <Box hideBelow="md" data-header-pagination>{ pagination }</Box> }
       </Flex>
     </Flex>
-    <Box data-body overflowX="auto" maxW="100%">{ children }</Box>
+    <Box
+      data-body
+      overflowX="auto"
+      maxW="100%"
+      _focusVisible={{ outline: 'var(--chakra-border-widths-2) solid', outlineColor: 'focusRing', outlineOffset: 'calc(-1 * var(--chakra-border-widths-2))' }}
+    >
+      { children }
+    </Box>
     { (showRows || pagination) && (
       <Flex data-footer alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={ 3 } py={ 4 } visibility={ isLoading ? 'hidden' : undefined }>
         <Box data-footer-rows>{ showRows }</Box>

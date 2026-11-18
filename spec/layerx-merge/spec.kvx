@@ -15814,6 +15814,18 @@ value = "One. A periodic step of the connected runtime of the launchpad gateway 
 basis = "Gotcha 4710. Decision 3780. Decision 3782."
 affects = []
 
+[decision.3784]
+title = "The counted check of the transactions part of the explorer runs with two renders at a time"
+value = "The verification command of task 22.44.86 calls the check of the part file tools/ui-check/surfaces/explorer/parts/transactions.json with the option --jobs 2, under decision 3783 part three. Every limit of a view, every time bound of a render and the whole matrix of devices, schemes and modes stay as they are. The steps of the task stay as they are."
+basis = "Gotcha 4711. Decision 3783."
+affects = []
+
+[decision.3785]
+title = "The heap bound of the launchpad web build is stated once, its lint loads under the minimatch floor as a script of its own, and the statistics part of the explorer is checked with two renders at a time"
+value = "One. The heap bound of the build of the launchpad web image is stated in one place, the build stage of the image definition. It is 4096 megabytes, and that is a least value. The script sourced before the build sets none. Task 22.39.918. Two. The floor of minimatch in the workspace of the launchpad stays: the override stays in the manifest and the lock file holds no release below 11.0.1. The lint of the web application loads under that floor by a change on the side of what reads minimatch, and its script runs over the sources to its end and exits zero. A rule with more than fifty findings of level error over the sources may stand at level warn. Task 22.39.919. Three. The build of the launchpad web application does not run the lint. The lint is a script of its own, and the steps of the image build stay what they were. Task 22.39.919. Four. The counted check of the statistics part of the explorer in task 22.44.89 runs with two renders at a time under decision 3783 part three. Every limit of a view, every time bound of a render and the whole matrix of devices, schemes and modes stay as they are, and the steps of the task stay as they are."
+basis = "Gotcha 4712. Decision 3779. Decision 3783."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45474,6 +45486,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.919]
+title = "Load the lint of the launchpad web application under the minimatch floor of its workspace and run it as a script of its own"
+reqs = ["22998.1"]
+touches = ["apps/launchpad"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run lint && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4712 part three and decision 3785 parts two and three. Read apps/launchpad/package.json with its overrides and its patched dependencies, apps/launchpad/web/eslint.config.mjs, the scripts of apps/launchpad/web/package.json and apps/launchpad/web/next.config.ts. After the install read in the installed tree every place where eslint, the packages eslintrc and config-array of the eslint scope and the plugins of the configuration read minimatch, and name each with package, file and line in the final message."
+symbols = []
+
+[capability.22.39.918]
+title = "State the heap bound of the build of the launchpad web image in one place and bring the shell case of its arguments in line with the image definition"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad/web-build-env.sh", "deploy/launchpad/README.md", "tools/deploy/tests/dockerfile-web-args.test.sh", "tests/ci/test_frontend_asset_names.py"]
+tests = []
+verification_contract = "bash tools/deploy/tests/dockerfile-web-args.test.sh"
+do_1 = "do_1 Gotcha 4712 parts one and two and decision 3785 part one. Read deploy/launchpad/Dockerfile.web with the ENV line of its build stage and the last two lines of that stage, deploy/launchpad/web-build-env.sh, the two places of deploy/launchpad/README.md that name the script, the shell case tools/deploy/tests/dockerfile-web-args.test.sh and the text at the head of tests/ci/test_frontend_asset_names.py."
+symbols = []
 
 [capability.22.39.917]
 title = "Try a periodic step of the connected runtime of the launchpad gateway again after an error and write a line at each change of its state"
@@ -179381,7 +179411,7 @@ touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.89.kvx"]
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.89.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/statistics.json --out /tmp/ui-check/explorer-statistics && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.89.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/statistics.json --out /tmp/ui-check/explorer-statistics && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -179396,7 +179426,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.88]
 title = "Close the token and search views of the explorer on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.38"]
@@ -179480,7 +179510,7 @@ touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.86.kvx"]
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
-verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.86.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/transactions.json --out /tmp/ui-check/explorer-transactions && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.86.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/transactions.json --out /tmp/ui-check/explorer-transactions && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -208150,9 +208180,73 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.919]
+title = "Load the lint of the launchpad web application under the minimatch floor of its workspace and run it as a script of its own"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.890", "22.39.892", "22.39.893", "22.39.897"]
+reqs = ["22998.1"]
+capabilities = ["22.39.919"]
+interfaces = []
+do_1 = "do_1 Gotcha 4712 part three and decision 3785 parts two and three. Read apps/launchpad/package.json with its overrides and its patched dependencies, apps/launchpad/web/eslint.config.mjs, the scripts of apps/launchpad/web/package.json and apps/launchpad/web/next.config.ts. After the install read in the installed tree every place where eslint, the packages eslintrc and config-array of the eslint scope and the plugins of the configuration read minimatch, and name each with package, file and line in the final message."
+do_2 = "do_2 Make the configuration of the lint load with minimatch 11.0.1 in place. The floor stays: the override stays in the manifest and the lock file holds no release of minimatch below 11.0.1. Choose the least change that holds and name it in the final message: a release of a reading package that reads the named exports, a configuration in the flat form without the class FlatCompat where that ends the reading, or a patch of a reading package under the patched dependencies of the manifest with its file under apps/launchpad/patches. Every rule of the configuration that reads minimatch while a file is read runs to its end. The lock file follows every change of a manifest."
+do_3 = "do_3 The script lint of apps/launchpad/web runs the lint over the sources of the application to its end and exits zero. It may call the eslint command in place of next lint where it reads the same configuration and the same directories. A finding of level error is corrected in the source where the correction changes no behaviour; a correction never changes what a case states. Where a correction would change behaviour, the line takes a comment that sets the rule aside for that line with the reason in words. A rule whose findings of level error number more than fifty over the sources is set to level warn in the configuration and named with its count in the final message. No rule is switched off beyond those the configuration switches off today, and no file takes a comment that sets the lint aside for the whole file."
+do_4 = "do_4 The build of the web application does not run the lint: apps/launchpad/web/next.config.ts states that with the setting ignoreDuringBuilds of its eslint entry, so the build of the image keeps the steps it had and the lint stays a script of its own. The type check of the build stays as it is."
+do_5 = "do_5 Run the script lint by hand until it exits zero, then the type check, then the script test of the web application once and read its summary: no case changes its state for a correction of this task. Change nothing outside apps/launchpad. A fact outside the paths that stands against this task is named in the final message with file and line. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run lint && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.918]
+title = "State the heap bound of the build of the launchpad web image in one place and bring the shell case of its arguments in line with the image definition"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.918"]
+interfaces = []
+do_1 = "do_1 Gotcha 4712 parts one and two and decision 3785 part one. Read deploy/launchpad/Dockerfile.web with the ENV line of its build stage and the last two lines of that stage, deploy/launchpad/web-build-env.sh, the two places of deploy/launchpad/README.md that name the script, the shell case tools/deploy/tests/dockerfile-web-args.test.sh and the text at the head of tests/ci/test_frontend_asset_names.py."
+do_2 = "do_2 The script deploy/launchpad/web-build-env.sh sets no heap bound: the line that exports NODE_OPTIONS goes, and the rest of the script stays as it is. The bound of the build is the one the build stage of the image definition sets, 4096 megabytes. The image definition stays as it is."
+do_3 = "do_3 In deploy/launchpad/README.md the sentence that says the script sets NODE_OPTIONS says what the script does now, and one sentence states where the heap bound of the build is set and its value. The text at the head of tests/ci/test_frontend_asset_names.py that names the heap of the build environment names the bound of the image definition. No case of that file changes."
+do_4 = "do_4 In the shell case bring the two statements of gotcha 4712 part two to what the image definition holds: the line that copies the script, and the count of the build arguments with the prefixes NEXT_PUBLIC and WEB. Add two statements: the script holds no line that names NODE_OPTIONS, and the image definition sets NODE_OPTIONS with the bound 4096 on exactly one line. Every other statement of the case stays as it is; the correction of the two statements is this task and no other statement is weakened or removed."
+do_5 = "do_5 Run the shell case, and run python3 -m pytest -q tests/ci/test_frontend_asset_names.py once by hand and read its whole output. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad/web-build-env.sh", "deploy/launchpad/README.md", "tools/deploy/tests/dockerfile-web-args.test.sh", "tests/ci/test_frontend_asset_names.py"]
+tests = []
+planned_paths = []
+build_cmd = "sh -n deploy/launchpad/web-build-env.sh && python3 -m py_compile tests/ci/test_frontend_asset_names.py"
+verify_cmd = "bash tools/deploy/tests/dockerfile-web-args.test.sh"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.917]
 title = "Try a periodic step of the connected runtime of the launchpad gateway again after an error and write a line at each change of its state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208185,7 +208279,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.916]
 title = "Pass over the annotation names of a values file in the tool that applies the variables of a deployment contract"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208216,7 +208310,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.915]
 title = "Name in the gateway examples of the launchpad deployment only schemas the registry of migrations holds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208785,7 +208879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.896]
 title = "Close the rewards flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208817,7 +208911,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.895]
 title = "Close the profile and account flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208945,7 +209039,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.891]
 title = "Close the chain launch flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

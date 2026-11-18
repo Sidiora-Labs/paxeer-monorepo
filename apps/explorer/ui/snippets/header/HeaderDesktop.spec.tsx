@@ -44,7 +44,7 @@ describe('desktop header', () => {
   });
 });
 
-it('holds brand menu search and controls in one row from 1280', function headerRowUsesOneLineFrom1280() {
+it('wraps header groups when their content exceeds the row', function headerRowWrapsAtIntrinsicWidth() {
   const { container } = render(<HeaderDesktop/>);
   const row = container.querySelector('[data-label="header-row"]')!;
   const classes = Array.from(row.classList);
@@ -52,8 +52,8 @@ it('holds brand menu search and controls in one row from 1280', function headerR
     .map((rule) => rule.cssText).filter((rule) => classes.some((name) => rule.includes(`.${ name }`)))
     .join('').replace(/\s+/g, '');
 
-  expect(rules).toContain('@media(min-width:1280px)');
-  expect(rules).toMatch(/@media\(min-width:1280px\)\{[^}]*flex-wrap:nowrap/);
+  expect(rules).toContain('flex-wrap:wrap');
+  expect(rules).not.toContain('flex-wrap:nowrap');
   expect(Array.from(row.children).map((child) => child.getAttribute('data-label')))
     .toEqual([ 'header-brand', 'header-menu', 'header-search', 'header-controls' ]);
   for (const label of [ 'header-brand', 'header-menu', 'header-controls' ]) {
