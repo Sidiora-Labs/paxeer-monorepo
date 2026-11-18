@@ -208185,7 +208185,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.916]
 title = "Pass over the annotation names of a values file in the tool that applies the variables of a deployment contract"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
