@@ -12,9 +12,10 @@ import type { InferenceDeal, InferenceRoom, InferenceReceipt } from 'lib/api/ser
 import {
   GENERAL_API_PAXEER_X_INFERENCE_RESOURCES,
   inferenceQueryKey,
+  parseInferencePayload,
   parseInferenceResult,
 } from 'lib/api/services/general/paxeerXInference';
-import inference, { config } from 'pages/api/inference';
+import inference, { config, inferenceResponse } from 'pages/api/inference';
 import theme from 'toolkit/theme/theme';
 import { expect, test } from 'vitest';
 
@@ -49,7 +50,7 @@ function renderMarkup(children: React.ReactNode) {
   return renderToStaticMarkup(<ChakraProvider value={ theme }>{ children }</ChakraProvider>);
 }
 
-function inferencePageRendersProducerRoomList() {
+test('inference page renders producer room list', function inferencePageRendersProducerRoomList() {
   const client = new QueryClient();
   const rooms = parseInferenceResult('px_getInferenceRooms', [ room ]);
   client.setQueryData(inferenceQueryKey('px_getInferenceRooms'), rooms);
@@ -69,9 +70,9 @@ function inferencePageRendersProducerRoomList() {
   } finally {
     client.clear();
   }
-}
+});
 
-function inferencePageRendersEmptyRoomList() {
+test('inference page renders empty room list', function inferencePageRendersEmptyRoomList() {
   const client = new QueryClient();
   client.setQueryData(inferenceQueryKey('px_getInferenceRooms'), parseInferenceResult('px_getInferenceRooms', []));
   try {
@@ -81,9 +82,9 @@ function inferencePageRendersEmptyRoomList() {
   } finally {
     client.clear();
   }
-}
+});
 
-function inferenceDealPanelRendersLayerAndPayoutSplit() {
+test('inference deal panel renders layer and payout split', function inferenceDealPanelRendersLayerAndPayoutSplit() {
   const html = renderMarkup(<InferenceDealPanel deal={ parseInferenceResult('px_getInferenceDeal', deal) } room={ room }/>);
   expect(html).toContain(`data-deal="${ deal.deal_id }"`);
   expect(html).toContain('Payout split');
@@ -97,9 +98,9 @@ function inferenceDealPanelRendersLayerAndPayoutSplit() {
   expect(html).toContain('Settled tokens: 9,007,199,254,740,993');
   expect(html).toContain('Amount owed: 1,329,227,995,784,915,872,903,807,060,280,344,583');
   expect(renderMarkup(<InferenceDealPanel deal={ deal }/>)).toContain('Payout shares are unavailable');
-}
+});
 
-function inferenceReceiptBatchesRenderExactCounters() {
+test('inference receipt batches render exact counters', function inferenceReceiptBatchesRenderExactCounters() {
   const receipts = parseInferenceResult('px_getInferenceReceipts', [ receipt ]);
   const html = renderMarkup(<InferenceReceiptsTable receipts={ receipts }/>);
   expect(html).toContain('1 receipt batches');
@@ -110,9 +111,9 @@ function inferenceReceiptBatchesRenderExactCounters() {
   expect(html).toContain('Countersign quorum');
   expect(html).toMatch(/<td[^>]*>2<\/td>/);
   expect(renderMarkup(<InferenceReceiptsTable receipts={ [] }/>)).toContain('There are no receipt batches for this deal.');
-}
+});
 
-function inferenceResourcesUseTheFiveProducerNames() {
+test('inference resources use the five producer names', function inferenceResourcesUseTheFiveProducerNames() {
   const resources = Object.values(GENERAL_API_PAXEER_X_INFERENCE_RESOURCES);
   expect(resources.map((resource) => resource.rpcMethod)).toEqual([
     'px_getInferenceRooms', 'px_getInferenceRoom', 'px_getInferenceDeal', 'px_getInferencePeer', 'px_getInferenceReceipts',
@@ -122,18 +123,18 @@ function inferenceResourcesUseTheFiveProducerNames() {
     expect(producer).toContain(`func (a *pxInferenceAPI) ${ resource.rpcMethod.slice(3).replace(/^g/, 'G') }(`);
     expect(resource.path).toBe('/api/inference');
   }
-}
+});
 
-function inferenceDecodingRejectsMalformedDataAndStripsPrivateFields() {
+test('inference decoding rejects malformed data and strips private fields', function inferenceDecodingRejectsMalformedDataAndStripsPrivateFields() {
   expect(parseInferenceResult('px_getInferenceRoom', { ...room, node_url: 'http://private.invalid/' })).toEqual(room);
   expect(() => parseInferenceResult('px_getInferenceRooms', { items: [ room ] })).toThrow('Invalid inference response');
   expect(() => parseInferenceResult('px_getInferenceRoom', { ...room, host_key: 'http://private.invalid/' })).toThrow('Invalid inference response');
   expect(() => parseInferenceResult('px_getInferenceDeal', { ...deal, settled_tokens: 9007199254740992 })).toThrow('Invalid inference response');
   expect(() => parseInferenceResult('px_getInferenceDeal', { ...deal, layers: [] })).toThrow('Invalid inference response');
   expect(() => parseInferenceResult('px_getInferenceReceipts', [ { ...receipt, last_lap_index: '3' } ])).toThrow('Invalid inference response');
-}
+});
 
-async function inferenceRouteRefusesMethodsOutsideTheFive() {
+test('inference route refuses methods outside the five', async function inferenceRouteRefusesMethodsOutsideTheFive() {
   const previousRoot = env.EXPLORER_INFERENCE_NODE_URL;
   delete env.EXPLORER_INFERENCE_NODE_URL;
   const server = createServer((req, res) => {
@@ -185,12 +186,45 @@ async function inferenceRouteRefusesMethodsOutsideTheFive() {
     if (previousRoot === undefined) delete env.EXPLORER_INFERENCE_NODE_URL;
     else env.EXPLORER_INFERENCE_NODE_URL = previousRoot;
   }
-}
+});
 
-test(inferencePageRendersProducerRoomList);
-test(inferencePageRendersEmptyRoomList);
-test(inferenceDealPanelRendersLayerAndPayoutSplit);
-test(inferenceReceiptBatchesRenderExactCounters);
-test(inferenceResourcesUseTheFiveProducerNames);
-test(inferenceDecodingRejectsMalformedDataAndStripsPrivateFields);
-test(inferenceRouteRefusesMethodsOutsideTheFive);
+test('inference route returns inactive only for an unconfigured program', function inferenceRouteReturnsInactiveOnlyForUnconfiguredProgram() {
+  const error = { code: -32001, message: 'Paxeer read unavailable', data: { code: 'inference_program_not_configured' } };
+  const answer = inferenceResponse('px_getInferenceRooms', [], { jsonrpc: '2.0', id: 1, error });
+  expect(answer.status).toBe(200);
+  expect(answer.body).toEqual({ state: 'not_active', code: 'inference_program_not_configured' });
+  expect(answer.body).not.toHaveProperty('result');
+  expect(parseInferencePayload('px_getInferenceRooms', answer.body)).toEqual(answer.body);
+
+  for (const payload of [
+    { jsonrpc: '2.0', id: 1, error: { ...error, data: { code: 'inference_reader_unbound' } } },
+    { jsonrpc: '2.0', id: 1, error: { ...error, data: null } },
+    { jsonrpc: '2.0', id: 1, error, result: [] },
+    { jsonrpc: '2.0', id: 2, error },
+    { jsonrpc: '1.0', id: 1, error },
+    { jsonrpc: '2.0', id: 1 },
+    { jsonrpc: '2.0', id: 1, result: null },
+  ]) {
+    const rejected = inferenceResponse('px_getInferenceRooms', [], payload);
+    expect(rejected.status).toBe(502);
+    expect(rejected.body).toEqual({ error: 'Inference request failed. Please try again later.' });
+    expect(() => parseInferencePayload('px_getInferenceRooms', rejected.body)).toThrow('Invalid inference response');
+  }
+  const active = inferenceResponse('px_getInferenceRooms', [], { jsonrpc: '2.0', id: 1, result: [ room ] });
+  expect(active.status).toBe(200);
+  expect(parseInferencePayload('px_getInferenceRooms', active.body)).toEqual([ room ]);
+});
+
+test('inference reader rejects invalid inactive states', function inferenceReaderRejectsInvalidInactiveStates() {
+  for (const payload of [
+    { state: 'not_active', code: 'inference_reader_unbound' },
+    { state: 'active', code: 'inference_program_not_configured' },
+    { state: 'not_active' },
+    { code: 'inference_program_not_configured' },
+    { state: 'not_active', code: 'inference_program_not_configured', result: null },
+    null,
+  ]) {
+    expect(() => parseInferencePayload('px_getInferenceRooms', payload)).toThrow('Invalid inference response');
+  }
+  expect(parseInferencePayload('px_getInferenceDeal', { result: deal })).toEqual(deal);
+});
