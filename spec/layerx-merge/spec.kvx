@@ -208214,7 +208214,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.918]
 title = "State the heap bound of the build of the launchpad web image in one place and bring the shell case of its arguments in line with the image definition"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
