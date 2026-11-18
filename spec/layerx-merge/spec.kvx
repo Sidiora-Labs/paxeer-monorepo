@@ -208108,7 +208108,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.905]
 title = "Refresh the launchpad lock file so that it holds what the manifest of the client package users-sdk names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208862,7 +208862,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.881]
 title = "Close the user module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208990,7 +208990,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.877]
 title = "Close the security module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209150,7 +209150,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.872]
 title = "Close the indexer module of the launchpad against its deployment contract and its consumers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
