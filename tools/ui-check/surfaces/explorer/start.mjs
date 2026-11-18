@@ -108,16 +108,28 @@ sockets.on('connection', (client) => {
     }
   });
 });
-server.listen(4173, 'localhost', async () => {
-  const response = await fetch('http://localhost:4173/explorer/404');
-  await response.arrayBuffer();
-  if (response.status !== 404) throw new Error('Explorer not-found route must answer with status 404');
-  ready = true;
-  if (process.argv.includes('--prepare')) {
-    flushCompileCache();
-    await close();
-  }
+server.listen(4173, 'localhost', () => {
+  prepare().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 });
+async function prepare() {
+  const preparing = process.argv.includes('--prepare');
+  try {
+    const response = await fetch('http://localhost:4173/explorer/404', { signal: AbortSignal.timeout(10000) });
+    await response.arrayBuffer();
+    if (response.status !== 404) throw new Error('Explorer not-found route must answer with status 404');
+    ready = true;
+    if (preparing) {
+      const { assertRollupPages } = await import('./rollup.mjs');
+      await assertRollupPages();
+      flushCompileCache();
+    }
+  } finally {
+    if (preparing || !ready) await close();
+  }
+}
 async function close() {
   for (const client of sockets.clients) client.terminate();
   sockets.close();

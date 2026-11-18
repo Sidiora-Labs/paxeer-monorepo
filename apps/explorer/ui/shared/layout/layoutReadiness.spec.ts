@@ -152,7 +152,9 @@ test('error_layout_wrong_subject: screenshots the production error layout and er
   ));
   const main = await within(container).findByRole('main', undefined, { timeout: 15_000 });
   expect(within(main).getByText('Oops! Something went wrong')).toBeTruthy();
-  expect(within(main).getByRole('button', { name: 'Back to home' })).toBeTruthy();
+  const homeLink = within(main).getByRole('link', { name: 'Back to home' });
+  expect(homeLink.getAttribute('href')).toBe('/');
+  expect(homeLink.querySelector('button, a, [tabindex]')).toBeNull();
   expect(container.querySelector('[data-label="hero-band"]')).toBeNull();
   expect(container.querySelector('footer')).toBeTruthy();
   expect(await within(container).findByText(/10% Blocks Indexed/, undefined, { timeout: 15_000 })).toBeTruthy();
