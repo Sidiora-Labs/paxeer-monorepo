@@ -208629,7 +208629,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.924]
 title = "Bring the statement inventory and the composed start case of the launchpad stats module in line with the producers they read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
