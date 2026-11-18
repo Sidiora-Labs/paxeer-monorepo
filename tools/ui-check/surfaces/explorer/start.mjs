@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
+import { tokenServerAnswer } from './tokens.mjs';
+
 const directory = fileURLToPath(new URL('../../../../apps/explorer/', import.meta.url));
 const compileCache = enableCompileCache();
 if (!compileCache.directory) throw new Error(compileCache.message);
@@ -86,6 +88,12 @@ const server = createServer(async (request, response) => {
       return;
     }
     if (apiPath.startsWith('/api/v2/') || apiPath === '/api/v1/solidity:visualize-contracts') {
+      const answer = !request.headers['user-agent']?.startsWith('Mozilla/') && tokenServerAnswer(request.method, apiPath, url.search);
+      if (answer) {
+        response.writeHead(answer.status ?? 200, answer.headers);
+        response.end(answer.body);
+        return;
+      }
       response.writeHead(307, { location: 'https://explorer.example.test' + apiPath + url.search });
       response.end();
       return;
@@ -129,6 +137,8 @@ async function prepare() {
     if (preparing) {
       const { assertRollupPages } = await import('./rollup.mjs');
       await assertRollupPages();
+      const { assertTokenPages } = await import('./tokens.mjs');
+      await assertTokenPages();
       flushCompileCache();
     }
   } finally {

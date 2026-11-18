@@ -31,6 +31,7 @@ const AddressFromTo = ({
   to,
   current,
   mode: modeProp,
+  truncation = 'constant',
   className, isLoading, tokenHash = '', tokenSymbol = '', noIcon }: Props) => {
   const mode = useBreakpointValue(
     {
@@ -90,7 +91,7 @@ const AddressFromTo = ({
             noIcon={ noIcon }
             tokenHash={ tokenHash }
             tokenSymbol={ tokenSymbol }
-            truncation="constant"
+            truncation={ truncation }
             maxW="calc(100% - var(--chakra-spacing-7))"
             w="min-content"
             chainId={ fromChainId }
@@ -105,7 +106,7 @@ const AddressFromTo = ({
             noIcon={ noIcon }
             tokenHash={ tokenHash }
             tokenSymbol={ tokenSymbol }
-            truncation="constant"
+            truncation={ truncation }
             maxW="calc(100% - var(--chakra-spacing-7))"
             w="min-content"
             ml={ 7 }
@@ -122,7 +123,7 @@ const AddressFromTo = ({
     <Grid
       className={ className }
       alignItems="center"
-      gridTemplateColumns={ `minmax(auto, min-content) ${ direction ? 'max-content' : `${ iconSize }px` } minmax(auto, min-content)` }
+      gridTemplateColumns={ `minmax(0, min-content) ${ direction ? 'max-content' : `${ iconSize }px` } minmax(0, min-content)` }
     >
       <EntityFrom
         address={ from }
@@ -132,7 +133,7 @@ const AddressFromTo = ({
         noIcon={ noIcon }
         tokenHash={ tokenHash }
         tokenSymbol={ tokenSymbol }
-        truncation="constant"
+        truncation={ truncation }
         mr={ isOutgoing ? 4 : 2 }
         chainId={ fromChainId }
         w="auto"
@@ -154,7 +155,7 @@ const AddressFromTo = ({
           noIcon={ noIcon }
           tokenHash={ tokenHash }
           tokenSymbol={ tokenSymbol }
-          truncation="constant"
+          truncation={ truncation }
           ml={ 3 }
           chainId={ toChainId }
           w="auto"

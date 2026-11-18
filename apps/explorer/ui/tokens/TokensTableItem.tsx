@@ -170,6 +170,27 @@ const TokensTableItem = ({
     return chain;
   }, [ chainInfos ]);
 
+  if (isLoading) {
+    return (
+      <TableRow data-token-row aria-busy="true">
+        <TableCell isNumeric><Skeleton loading display="inline-block" w={ 5 } h="1lh"/></TableCell>
+        <TableCell>
+          <Flex alignItems="center" gap={ 2 }>
+            <Skeleton loading boxSize="20px" flexShrink={ 0 }/>
+            <Skeleton loading h="1lh" flex={ 1 } minW={ 0 }/>
+            <Tag loading variant="outlined">{ getTokenTypeName(type, chainInfo?.app_config) }</Tag>
+            <Skeleton loading boxSize="touchTarget" flexShrink={ 0 }/>
+          </Flex>
+        </TableCell>
+        { [ 'price', 'change', 'market-cap', 'volume', 'holders' ].map((field) => (
+          <TableCell key={ field } isNumeric data-market-field={ field }>
+            <Skeleton loading display="inline-block" h="1lh" w={ 12 } maxW="100%"/>
+          </TableCell>
+        )) }
+      </TableRow>
+    );
+  }
+
   return (
     <TableRow className="group" data-token-row>
       <TableCell isNumeric>
