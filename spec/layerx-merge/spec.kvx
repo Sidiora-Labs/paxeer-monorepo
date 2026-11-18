@@ -179429,7 +179429,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.89]
 title = "Close the statistics, gas and validator views of the explorer on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.38"]
@@ -209173,7 +209173,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.890]
 title = "Close the creation flow of the launchpad web application against the services it calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
