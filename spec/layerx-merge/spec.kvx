@@ -15754,6 +15754,12 @@ value = "One. In the transactions table the column From / To carries no width. T
 basis = "Gotcha 4700. Decisions 3767 and 3771."
 affects = []
 
+[decision.3774]
+title = "The notice row of the transactions table spans exactly the columns the table draws"
+value = "One. A row of a table of fixed layout that holds one cell for the whole width spans exactly the columns the table draws and never a greater number. Two. The transactions table follows the rule for every set of columns it draws: the table hands the count of its columns to the notice of new items, and the two notices under apps/explorer/ui/txs/socket draw their row for the place table with that span through the default export of apps/explorer/ui/shared/SocketNewItemsNotice.tsx with a function as its child, with the properties the Desktop form of that file sets, so the notice looks as before. The shared file stays as it is. Three. With decision 3773 the column From / To then takes the whole room the other columns leave, with the notice row and without it. Four. The case of the browser in apps/explorer/ui/txs/TxsTableWidth.pw.tsx draws the table with the notice row as well and holds for it what decision 3773, point five, names; a case of apps/explorer/ui/txs/TxsTable.spec.tsx holds that the span of the notice cell equals the count of the heads. Task 22.39.864."
+basis = "Gotchas 4700 and 4701. Decision 3773."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45414,6 +45420,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.864]
+title = "Let the notice row of the transactions table span exactly the columns the table draws"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/txs"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/txs/TxsTable.tsx ui/txs/TxsTable.spec.tsx ui/txs/TxsTableWidth.pw.tsx ui/txs/socket/TxsSocketNotice.tsx ui/txs/socket/TxsSocketNoticeTypeAll.tsx ui/txs/socket/TxsSocketNoticeTypeAddress.tsx && yarn vitest run ui/txs"
+do_1 = "do_1 Gotcha 4701 and decision 3774. Read apps/explorer/ui/shared/SocketNewItemsNotice.tsx, the files under apps/explorer/ui/txs/socket, and apps/explorer/ui/txs/TxsTable.tsx, apps/explorer/ui/txs/TxsTable.spec.tsx and apps/explorer/ui/txs/TxsTableWidth.pw.tsx as task 22.39.863 left them, in full. List every place that draws a notice of new items inside a transactions table and the set of columns of each."
+symbols = []
 
 [capability.22.39.863]
 title = "Let the column From / To of the transactions table take the room the other columns leave"
@@ -176703,6 +176718,40 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.864]
+title = "Let the notice row of the transactions table span exactly the columns the table draws"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.863"]
+reqs = ["22998.1"]
+capabilities = ["22.39.864"]
+interfaces = []
+do_1 = "do_1 Gotcha 4701 and decision 3774. Read apps/explorer/ui/shared/SocketNewItemsNotice.tsx, the files under apps/explorer/ui/txs/socket, and apps/explorer/ui/txs/TxsTable.tsx, apps/explorer/ui/txs/TxsTable.spec.tsx and apps/explorer/ui/txs/TxsTableWidth.pw.tsx as task 22.39.863 left them, in full. List every place that draws a notice of new items inside a transactions table and the set of columns of each."
+do_2 = "do_2 apps/explorer/ui/txs/TxsTable.tsx: the table computes the count of the columns it draws from the same conditions that draw its heads, so that the two cannot part, and hands the count to the notice of new items. Nothing else of the file changes."
+do_3 = "do_3 apps/explorer/ui/txs/socket/TxsSocketNotice.tsx takes the count and hands it on. apps/explorer/ui/txs/socket/TxsSocketNoticeTypeAll.tsx and apps/explorer/ui/txs/socket/TxsSocketNoticeTypeAddress.tsx draw, for the place table, one row with one cell that spans the count, through the default export of apps/explorer/ui/shared/SocketNewItemsNotice.tsx with a function as its child, and set the properties the Desktop form of that file sets, in the loading state as well, so that the notice looks as before. The cell keeps no padding. The place list stays as it is. apps/explorer/ui/shared/SocketNewItemsNotice.tsx does not change."
+do_4 = "do_4 apps/explorer/ui/txs/TxsTable.spec.tsx: cases in the form the file holds, with the data of the notice replaced in the way the case files of the application do it: the table drawn with its notice row holds one cell in that row, and its span equals the count of the heads, for each set of columns the cases of the file list. Every case the file holds stays and passes. A new case is registered in the form the lint rules of the application accept: a title in lower case that begins with a letter, a named function as the body and at least one expectation in it. The lint run over the changed files is part of the verification. Before the counted verification run the new cases once by hand and read for each expectation of a style the form the element holds, a token or a plain value, and write the expectation in that form. "
+do_5 = "do_5 apps/explorer/ui/txs/TxsTableWidth.pw.tsx: the case of the browser draws the table with the notice row as well, at 1280 and at 1440 px, and holds for it: the widths of the heads add up to the width of the table within one px; the head From / To is at least 19.5 rem wide; no head overlaps the next one; the notice cell is as wide as the table. Run the case of the browser once by hand and give its result in the final message."
+do_6 = "do_6 Read the table once by hand in the browser of the render check, which is the newer of the two browser versions of the repository, at 1280 and 1440 px with the notice row drawn and rows of price updates, and give in the final message the width of the table, of every column and of the notice cell at both widths and the version of the browser. Install the browser of the check first."
+do_7 = "do_7 No assertion is weakened or removed, and no case is removed, skipped or tagged out. No size of a text or a control grows. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under ui/txs are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. No file outside ui/txs changes. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/txs"]
+tests = []
+planned_paths = []
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn eslint ui/txs/TxsTable.tsx ui/txs/TxsTable.spec.tsx ui/txs/TxsTableWidth.pw.tsx ui/txs/socket/TxsSocketNotice.tsx ui/txs/socket/TxsSocketNoticeTypeAll.tsx ui/txs/socket/TxsSocketNoticeTypeAddress.tsx && yarn vitest run ui/txs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
