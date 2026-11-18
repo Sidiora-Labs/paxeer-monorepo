@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -182,4 +183,84 @@ func reflectEqualJSON(a, b any) bool {
 	left, errA := json.Marshal(a)
 	right, errB := json.Marshal(b)
 	return errA == nil && errB == nil && string(left) == string(right)
+}
+
+func TestLeaderboardEmptyAccountingProductionRead(t *testing.T) {
+	f := newPoolReadsFixture(t, "")
+	ctx := context.Background()
+	internaltest.ApplyReadMigrations(t, f.pool, "60001")
+	if _, err := f.pool.Exec(ctx, `DELETE FROM stats.accounting_market_commits`); err != nil {
+		t.Fatal(err)
+	}
+	for _, category := range []string{"trader", "creator", "volume"} {
+		for _, window := range []string{"24h", "7d", "30d"} {
+			assertV2Error(t, getV2(t, f.srv.URL+"/v2/leaderboards/"+category+"?window="+window), 503, "DEPENDENCY_UNAVAILABLE")
+		}
+	}
+	insertCommittedHead(t, f.pool, 900, "healthy")
+	insertCommittedHead(t, f.pool, 1001, "healthy")
+	type emptyScope struct {
+		path, snapshotID, cursor string
+	}
+	scopes := []emptyScope{}
+	before := time.Now().UTC().Truncate(time.Millisecond)
+	for _, category := range []string{"trader", "creator", "volume"} {
+		for _, window := range []string{"24h", "7d", "30d"} {
+			t.Run(category+"/"+window, func(t *testing.T) {
+				path := "/v2/leaderboards/" + category + "?window=" + window
+				envelope := assertV2Success(t, getV2(t, f.srv.URL+path), "LeaderboardsResponse")
+				entries, snapshot := leaderboardEntries(t, envelope)
+				if len(entries) != 0 || envelope["nextCursor"] != nil || envelope["quality"] != "complete" || envelope["revision"] != "1001" || snapshot["category"] != category || snapshot["window"] != window || snapshot["methodologyVersion"] == "" {
+					t.Fatalf("empty leaderboard: %s", mustMarshal(envelope))
+				}
+				watermark := snapshot["watermark"].(map[string]any)
+				observed, err := time.Parse("2006-01-02T15:04:05.000Z", watermark["observedAt"].(string))
+				if err != nil || observed.Before(before) || observed.After(time.Now()) || watermark["chainId"] != "125" || watermark["height"] != "1001" || watermark["blockHash"] != "0x"+strings.Repeat("ab", 32) || watermark["projectionRevision"] != "1001" || watermark["integrity"] != "healthy" || !reflectEqualJSON(envelope["watermark"], watermark) {
+					t.Fatalf("empty watermark: %v, %v", watermark, err)
+				}
+				cursorJSON, err := json.Marshal(map[string]any{"snapshotId": snapshot["snapshotId"], "offset": 0, "windowEnd": observed.Unix()})
+				if err != nil {
+					t.Fatal(err)
+				}
+				cursor := base64.RawURLEncoding.EncodeToString(cursorJSON)
+				replay := assertV2Success(t, getV2(t, f.srv.URL+path+"&cursor="+cursor), "LeaderboardsResponse")
+				replayedEntries, replayed := leaderboardEntries(t, replay)
+				if replayed["snapshotId"] != snapshot["snapshotId"] || len(replayedEntries) != 0 || replay["nextCursor"] != nil {
+					t.Fatalf("empty snapshot replay: %s", mustMarshal(replay))
+				}
+				scopes = append(scopes, emptyScope{path: path, snapshotID: snapshot["snapshotId"].(string), cursor: cursor})
+			})
+		}
+	}
+	if len(scopes) != 9 {
+		t.Fatalf("empty scopes: %+v", scopes)
+	}
+	stats := assertV2Success(t, getV2(t, f.srv.URL+"/v2/holder-rewards/stats"), "HolderRewardsStatsResponse")
+	data := stats["data"].(map[string]any)
+	if data["cumulativeDistributedRaw"] != "0" || data["walletsRewarded"] != float64(0) {
+		t.Fatalf("empty holder rewards: %s", mustMarshal(stats))
+	}
+	for _, sort := range []string{"rewards", "mcap", "holders", "age"} {
+		envelope := assertV2Success(t, getV2(t, f.srv.URL+"/v2/holder-rewards/pools?sort="+sort), "HolderRewardsPoolsResponse")
+		if len(holderRewardItems(t, envelope)) != 0 || envelope["nextCursor"] != nil {
+			t.Fatalf("empty holder reward pools: %s", mustMarshal(envelope))
+		}
+	}
+	wallet := leaderboardWalletA
+	insertWindowFill(t, f.pool, f.first, 1, "buy", "1000000", "500000000000000000000", "3000", wallet, &wallet, before.Unix()-1)
+	for _, scope := range scopes {
+		envelope := assertV2Success(t, getV2(t, f.srv.URL+scope.path), "LeaderboardsResponse")
+		_, snapshot := leaderboardEntries(t, envelope)
+		if snapshot["snapshotId"] == scope.snapshotID || envelope["revision"] != "1" {
+			t.Fatalf("first fill snapshot: %s", mustMarshal(envelope))
+		}
+		assertV2Error(t, getV2(t, f.srv.URL+scope.path+"&cursor="+scope.cursor), 409, "RESNAPSHOT_REQUIRED")
+	}
+	if _, err := f.pool.Exec(ctx, `DELETE FROM stats.accounting_market_commits`); err != nil {
+		t.Fatal(err)
+	}
+	insertCommittedHead(t, f.pool, 1002, "quarantined")
+	for _, scope := range scopes {
+		assertV2Error(t, getV2(t, f.srv.URL+scope.path), 503, "INTEGRITY_QUARANTINED")
+	}
 }
