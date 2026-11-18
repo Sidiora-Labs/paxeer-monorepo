@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -24,13 +23,10 @@ import (
 )
 
 func TestDirectPublicationExhaustionSurvivesReopen(t *testing.T) {
+	natsURL := internaltest.RankingBroker(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	db := internaltest.NewRankingRuntimeDatabase(t)
-	natsURL := os.Getenv("RANKING_TEST_NATS_URL")
-	if natsURL == "" {
-		t.Fatal("RANKING_TEST_NATS_URL is required")
-	}
 	conn, err := nats.Connect(natsURL, nats.NoReconnect(), nats.Timeout(time.Second))
 	if err != nil {
 		t.Fatal(err)
@@ -45,7 +41,6 @@ func TestDirectPublicationExhaustionSurvivesReopen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = js.DeleteStream(context.Background(), streamName) }()
 	publisher, err := natsdriver.NewPublisher(conn, streamName)
 	if err != nil {
 		t.Fatal(err)
@@ -120,7 +115,7 @@ func TestPublicationBoundRetriesDrainInCategoryOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pace := 100 * time.Millisecond
+	pace := 2 * time.Second
 	if err = publication.SetRetryInterval(pace); err != nil {
 		t.Fatal(err)
 	}
@@ -165,15 +160,18 @@ func TestPublicationBoundRetriesDrainInCategoryOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	writer := delivery.StreamWriter{Schema: "api_stream"}
+	var lastAttempt time.Time
 	for i := 0; i < 2; i++ {
+		lastAttempt = time.Now()
 		result, e := publication.CommitStreamOnceWithStatus(ctx, writer, 2)
 		if e == nil || !strings.Contains(e.Error(), "publication unavailable") || result.Published || result.Category != "breakout" || result.ReachedBound != (i == 1) {
 			t.Fatalf("failure %d: %+v %v", i, result, e)
 		}
 	}
-	lastFailure := time.Now()
+	lastFailure := lastAttempt
 	failures := 2
 	for {
+		attemptAt := time.Now()
 		result, e := publication.CommitStreamOnceWithStatus(ctx, writer, 2)
 		if e != nil {
 			if !strings.Contains(e.Error(), "publication unavailable") || !result.AtBound || result.ReachedBound || result.Category != "breakout" {
@@ -186,7 +184,7 @@ func TestPublicationBoundRetriesDrainInCategoryOrder(t *testing.T) {
 			if failures > 3 {
 				t.Fatalf("append still failing after availability returned: %v", e)
 			}
-			lastFailure = time.Now()
+			lastFailure = attemptAt
 		}
 		if result.Published && result.AtBound {
 			if failures != 3 || time.Since(lastFailure) < pace {
