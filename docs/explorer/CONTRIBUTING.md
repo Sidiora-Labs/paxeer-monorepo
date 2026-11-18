@@ -59,7 +59,7 @@ Create `.env.local` in `apps/explorer` using the [environment reference](./ENVS.
 
 Run `yarn dev` and open `http://localhost:3000/explorer` when using the preset's port. `NEXT_PUBLIC_APP_PORT` selects the development port; Next.js serves the frontend under `/explorer`.
 
-`yarn dev:preset <name>` reads `configs/envs/.env.<name>` and optional `configs/envs/.env.secrets`. The tracked `paxeer-x.env` and `paxeer-x-dev.env` files use the `.env.local` loading method above.
+`yarn dev:preset <name>` reads `configs/envs/.env.<name>` and optional `configs/envs/.env.secrets`. The tracked `paxeer-x.env` and `paxeer-x-dev.env` files use the `.env.local` loading method above. The image reads these tracked files directly with `ENVS_PRESET=paxeer-x` or `ENVS_PRESET=paxeer-x-dev`; no copy is needed.
 
 
 &nbsp;
