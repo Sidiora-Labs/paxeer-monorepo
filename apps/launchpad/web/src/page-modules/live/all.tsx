@@ -8,7 +8,7 @@ import { LoadMore, SegmentedControl } from '@/ui/primitives';
 import { StreamCard, StreamCardPlaceholder, StreamCardSkeleton } from '@/widgets/live/stream-card';
 import { LiveUnavailable } from '@/widgets/live/live-unavailable';
 import { liveSortLabels, parseLiveSort, streamGridClass, type LiveSort } from '@/widgets/live/ranked-row';
-import { rankByMarketCap, rankByViewers, useLiveDirectory, useLiveDirectoryContinuation, type LiveDirectoryEntry } from '@/widgets/live/use-live-directory';
+import { mergeLiveEntries, rankByMarketCap, rankByViewers, useLiveDirectory, useLiveDirectoryContinuation } from '@/widgets/live/use-live-directory';
 import { DirectoryNotices, NobodyLive, directoryFailure } from './index';
 
 export const liveAllPageSize = 24;
@@ -28,10 +28,9 @@ function LiveAllView() {
   const failure = directoryFailure(directory.state);
   const cursor = directory.state.state === 'ready' ? directory.state.data.nextCursor : null;
   const [start, setStart] = useState<string | null>(null);
-  const more = useLiveDirectoryContinuation(start);
+  const more = useLiveDirectoryContinuation(start, cursor);
   const ranked = useMemo(() => {
-    const seen = new Set(directory.entries.map(entry => entry.stream.id));
-    const combined: LiveDirectoryEntry[] = [...directory.entries, ...more.entries.filter(entry => !seen.has(entry.stream.id))];
+    const combined = mergeLiveEntries(directory.entries, more.entries);
     return sort === 'mcap' ? rankByMarketCap(combined) : rankByViewers(combined);
   }, [directory.entries, more.entries, sort]);
   const visible = ranked.slice(0, shown);

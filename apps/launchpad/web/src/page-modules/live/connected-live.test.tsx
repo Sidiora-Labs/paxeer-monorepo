@@ -1,4 +1,7 @@
-import {describe,it,expect} from 'vitest';
+import {describe,it,expect,test} from 'vitest';
+import {randomUUID} from 'node:crypto';
+import {readFileSync} from 'node:fs';
+import {Operations,SdkClient} from '@kindle/sdk';
 import {privateKeyToAccount} from 'viem/accounts';
 import type {StreamSigningContext} from '../../core/clients/livestream-api';
 
@@ -26,3 +29,22 @@ describe.skipIf(missing.length>0)(`actual connected livestream service and signe
   for(const entry of entries){expect(entry.mcapRaw).toBeNull();expect(card.streamTile(entry).kind).toBe(entry.thumbnailUrl?'thumbnail':'none')}
  });
 });
+
+async function live_enrichment_reports_partial_coin_detail_failures_from_joined_services() {
+  const configPath = process.env.JOINED_CONFIG_FILE;
+  const chainPath = process.env.JOINED_CHAIN_FILE;
+  if (!configPath || !chainPath) throw new Error('Joined launchpad services are required');
+  const config = JSON.parse(readFileSync(configPath, 'utf8')) as { api_origin: string };
+  const chain = JSON.parse(readFileSync(chainPath, 'utf8')) as { pool: string; token: string };
+  const client = new SdkClient({ apiOrigin: config.api_origin, identityOrigin: config.api_origin, mediaOrigin: config.api_origin, streamOrigin: config.api_origin.replace(/^http/, 'ws'), approvedStreamOrigins: [config.api_origin.replace(/^http/, 'ws')], production: false });
+  const missingPool = `0x${randomUUID().replaceAll('-', '')}${randomUUID().replaceAll('-', '').slice(0, 8)}`;
+  const {resolveTokens}=await import('../../widgets/live/use-live-directory');
+  const {degradedSources}=await import('./index');
+  const result = await resolveTokens(new Operations(client), [chain.pool.toLowerCase(), missingPool]);
+  expect(result.tokens.get(chain.pool.toLowerCase())).toBe(chain.token.toLowerCase());
+  expect(result.tokens.has(missingPool)).toBe(false);
+  expect(['error', 'unsupported']).toContain(result.state.state);
+  const data = {entries:[],fetchedAt:new Date().toISOString(),pages:1,truncated:false,nextCursor:null,sources:{stats:{state:'skipped' as const},identity:result.state,metadata:{state:'skipped' as const}}};
+  expect(degradedSources(data)).toEqual(['Coin details']);
+}
+test(live_enrichment_reports_partial_coin_detail_failures_from_joined_services, live_enrichment_reports_partial_coin_detail_failures_from_joined_services, 20_000);

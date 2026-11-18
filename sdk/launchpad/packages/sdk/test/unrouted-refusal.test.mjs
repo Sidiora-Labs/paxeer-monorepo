@@ -77,5 +77,41 @@ async function servedOperationStillReachesNetwork() {
   }
 }
 
+async function retiredOperationsRefusedBeforeNetwork() {
+  const calls = [];
+  const client = new SdkClient({
+    ...transportConfig('http://127.0.0.1:1'),
+    session: { mode: 'bearer', token: () => 'test-session' },
+  }, (input, init) => {
+    calls.push({ input, init });
+    return globalThis.fetch(input, init);
+  });
+  const operations = new Operations(client);
+  const assetId = randomUUID();
+  const roomId = randomUUID();
+  const sha256 = '0x' + 'a'.repeat(64);
+  const inputs = {
+    IF_ASSET_GET: { path: { assetId } },
+    IF_UPLOAD_CREATE: { body: { mediaType: 'image/png', bytes: 1, sha256 } },
+    IF_UPLOAD_COMPLETE: { path: { assetId }, body: { sha256 } },
+    IF_MESSAGES_LIST: { path: { roomId }, query: { limit: 50 } },
+    IF_MESSAGE_SEND: { path: { roomId }, body: { body: 'Hello', clientMessageId: randomUUID() } },
+  };
+  for (const [name, input] of Object.entries(inputs)) {
+    await assert.rejects(
+      operations.call(name, input, { headers: { 'Idempotency-Key': randomUUID() } }),
+      error => {
+        assert.ok(error instanceof CapabilityUnavailableError);
+        assert.equal(error.code, 'capability_unavailable');
+        assert.equal(error.status, 501);
+        assert.equal(error.message, `Operation ${name} has no served route`);
+        return true;
+      },
+    );
+    assert.deepEqual(calls, [], name);
+  }
+}
+
 test(unroutedOperationRefusedBeforeNetwork);
+test(retiredOperationsRefusedBeforeNetwork);
 test(servedOperationStillReachesNetwork);
