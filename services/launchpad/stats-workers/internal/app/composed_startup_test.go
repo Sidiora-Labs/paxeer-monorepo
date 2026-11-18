@@ -76,6 +76,27 @@ func TestComposedStatsContainerStartupAndRecovery(t *testing.T) {
 	}
 	examples := filepath.Join(root, "deploy/launchpad/documents/values")
 	common := read(filepath.Join(examples, "common.example.json"))
+	var budget production.ConnectionBudget
+	if err := json.Unmarshal(common, &budget); err != nil {
+		t.Fatal(err)
+	}
+	route, err := pgx.ParseConfig(runtime.DSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	budget.Targets[0].Host, budget.Targets[0].Port = route.Host, route.Port
+	var exampleAlias, exampleUser string
+	for i := range budget.Clients {
+		c := &budget.Clients[i]
+		if c.Role == "statsd" {
+			exampleAlias, exampleUser = c.Alias, c.User
+			c.Alias, c.User, c.QueryClass = route.Database, route.User, shareddb.Batch
+		}
+	}
+	common, err = json.Marshal(budget)
+	if err != nil {
+		t.Fatal(err)
+	}
 	write(filepath.Join(values, "common.example.json"), common)
 	var document statsRuntimeDocument
 	if err := json.Unmarshal(read(filepath.Join(examples, "stats.example.json")), &document); err != nil {
@@ -161,35 +182,31 @@ func TestComposedStatsContainerStartupAndRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pool, err := cfg.OpenRuntimePool(ctx, "statsd", shareddb.PoolOptions{}); err == nil {
-		pool.Close()
-		t.Fatal("transaction transport requires an admitted runtime transaction boundary")
-	} else if err.Error() != "runtime_transaction_pooler_seam_unavailable" {
+	pool, err := cfg.OpenRuntimePool(ctx, "statsd", shareddb.PoolOptions{})
+	if err != nil {
 		t.Fatalf("example transport: %v", err)
 	}
-	// The direct route uses the provisioned role and the example's single connection.
-	var budget production.ConnectionBudget
-	if err := json.Unmarshal(common, &budget); err != nil {
-		t.Fatal(err)
-	}
-	route, err := pgx.ParseConfig(runtime.DSN)
-	if err != nil {
-		t.Fatal(err)
-	}
-	budget.Targets[0].Host, budget.Targets[0].Port = route.Host, route.Port
+	shareddb.ClosePool(pool)
 	for i := range budget.Clients {
 		c := &budget.Clients[i]
 		if c.Role == "statsd" {
-			c.Transport, c.Pooler, c.Alias, c.User, c.QueryClass = shareddb.TransportDirect, "", route.Database, route.User, shareddb.Batch
+			c.Transport, c.Pooler = shareddb.TransportTransactionPooler, budget.Poolers[0].ID
+			c.Alias, c.User = exampleAlias, exampleUser
 		}
 	}
 	raw, err = json.Marshal(budget)
 	if err != nil {
 		t.Fatal(err)
 	}
-	write(filepath.Join(values, "common.example.json"), raw)
-	for name, value := range compose() {
-		t.Setenv(name, value)
+	transactionConfig := cfg
+	transactionConfig.RuntimeBudgetFile = ""
+	transactionConfig.RuntimeBudgetDocument = base64.StdEncoding.EncodeToString(raw)
+	transactionConfig.RuntimeBudgetSHA256 = production.Checksum(raw)
+	if pool, err := transactionConfig.OpenRuntimePool(ctx, "statsd", shareddb.PoolOptions{}); err == nil {
+		shareddb.ClosePool(pool)
+		t.Fatal("transaction transport requires an admitted runtime transaction boundary")
+	} else if err.Error() != "runtime_transaction_pooler_seam_unavailable" {
+		t.Fatalf("transaction transport: %v", err)
 	}
 	var provision brokerprovision.Document
 	if err := json.Unmarshal(read(filepath.Join(examples, "broker.example.json")), &provision); err != nil {
