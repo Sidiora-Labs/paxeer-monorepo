@@ -176745,7 +176745,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.865]
 title = "Bring the ticker case of the home view and the preset case of the theme tokens to the forms the product holds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
