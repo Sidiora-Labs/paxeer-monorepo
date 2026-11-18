@@ -780,6 +780,8 @@ type gatewayConnectedRuntime struct {
 	purgeAge          atomic.Int64
 	purgeErrors       atomic.Uint64
 	failure           atomic.Pointer[error]
+	steps             [runtimeStepCount]atomic.Pointer[error]
+	checkDependencies func(context.Context) error
 	provider          sharedsecrets.Provider
 	secrets           map[string]string
 	logger            *slog.Logger
@@ -1099,7 +1101,11 @@ func newGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, co
 	if e != nil {
 		return nil, e
 	}
-	runtime.nc, e = nats.Connect(b.NATSURL, nats.UserCredentialBytes([]byte(credentials)), nats.Secure(clientTLS.Clone()), nats.Timeout(3*time.Second), nats.MaxReconnects(3), nats.ReconnectWait(time.Second), nats.Name("gateway-"+cfg.RuntimeInstanceID), nats.DisconnectErrHandler(func(_ *nats.Conn, e error) { runtime.fail(errors.New("identity durable broker disconnected")) }))
+	runtime.nc, e = nats.Connect(b.NATSURL, nats.UserCredentialBytes([]byte(credentials)), nats.Secure(clientTLS.Clone()), nats.Timeout(3*time.Second), nats.MaxReconnects(3), nats.ReconnectWait(time.Second), nats.Name("gateway-"+cfg.RuntimeInstanceID), nats.DisconnectErrHandler(func(_ *nats.Conn, e error) {
+		if _, permanent := runtimeStepErrorClass(e); permanent {
+			runtime.fail(e)
+		}
+	}))
 	if e != nil {
 		return nil, e
 	}
@@ -1176,6 +1182,17 @@ func (r *gatewayConnectedRuntime) ready(ctx context.Context) error {
 	if failure := r.failure.Load(); failure != nil {
 		return *failure
 	}
+	for step := runtimeStep(0); step < runtimeStepCount; step++ {
+		if failure := r.steps[step].Load(); failure != nil {
+			return *failure
+		}
+	}
+	if r.checkDependencies != nil {
+		return r.checkDependencies(ctx)
+	}
+	return r.dependenciesReady(ctx)
+}
+func (r *gatewayConnectedRuntime) dependenciesReady(ctx context.Context) error {
 	if e := r.control.Ready(ctx); e != nil {
 		return e
 	}
@@ -1191,7 +1208,7 @@ func (r *gatewayConnectedRuntime) ready(ctx context.Context) error {
 	return nil
 }
 func (r *gatewayConnectedRuntime) start(identity *auth.Identity) {
-	r.wg.Add(8)
+	r.wg.Add(4)
 	go func() {
 		defer r.wg.Done()
 		if e := r.control.Run(r.ctx); e != nil && r.ctx.Err() == nil {
@@ -1200,62 +1217,24 @@ func (r *gatewayConnectedRuntime) start(identity *auth.Identity) {
 	}()
 	go func() { defer r.wg.Done(); r.runRestrictionIntake() }()
 	go func() { defer r.wg.Done(); r.runObjectWorkers() }()
-	go func() {
-		defer r.wg.Done()
-		e := r.consumer.Run(r.ctx, func(ctx context.Context, message *natsdriver.Message) error {
+	r.startStep(runtimeIdentityConsumer, true, func(ctx context.Context) error {
+		return r.consumer.Run(ctx, func(ctx context.Context, message *natsdriver.Message) error {
 			return identity.ConsumeIdentityRevision(ctx, r.binding.Durable, r.binding.ConsumerGeneration, message.Subject, message.Wire, message)
 		})
-		if r.ctx.Err() == nil {
-			r.fail(e)
-		}
-	}()
-	go func() {
-		defer r.wg.Done()
-		e := r.auditConsumer.Run(r.ctx, func(ctx context.Context, message *natsdriver.Message) error {
+	})
+	r.startStep(runtimeAuditConsumer, true, func(ctx context.Context) error {
+		return r.auditConsumer.Run(ctx, func(ctx context.Context, message *natsdriver.Message) error {
 			return r.auditSink.Consume(ctx, message.Wire, message)
 		})
-		if r.ctx.Err() == nil {
-			r.fail(e)
-		}
-	}()
+	})
 	auditRelay := delivery.Relay{Store: r.auditBridge.Delivery, Publisher: r.auditPublisher, Owner: r.binding.Audit.Durable, Batch: 32, LeaseDuration: 15 * time.Second, PublishTimeout: 5 * time.Second, RetryDelay: time.Second, MaxAttempts: 10}
-	go func() {
-		defer r.wg.Done()
-		ticker := time.NewTicker(250 * time.Millisecond)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-r.ctx.Done():
-				return
-			case <-ticker.C:
-				if _, e := r.auditBridge.Stage(r.ctx, 32); e != nil {
-					r.fail(e)
-					return
-				}
-				if e := auditRelay.RunOnce(r.ctx); e != nil {
-					r.fail(e)
-					return
-				}
-			}
-		}
-	}()
+	r.startStep(runtimeAuditStage, false, func(ctx context.Context) error {
+		_, err := r.auditBridge.Stage(ctx, 32)
+		return err
+	})
+	r.startStep(runtimeAuditRelay, false, auditRelay.RunOnce)
 	relay := delivery.Relay{Store: r.store, Publisher: r.publisher, Owner: r.binding.Durable, Batch: 32, LeaseDuration: 15 * time.Second, PublishTimeout: 5 * time.Second, RetryDelay: time.Second, MaxAttempts: 10}
-	go func() {
-		defer r.wg.Done()
-		ticker := time.NewTicker(250 * time.Millisecond)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-r.ctx.Done():
-				return
-			case <-ticker.C:
-				if e := relay.RunOnce(r.ctx); e != nil && r.ctx.Err() == nil {
-					r.fail(e)
-					return
-				}
-			}
-		}
-	}()
+	r.startStep(runtimeIdentityRelay, false, relay.RunOnce)
 	go func() {
 		defer r.wg.Done()
 		ticker := time.NewTicker(time.Second)
@@ -1284,6 +1263,7 @@ func (r *gatewayConnectedRuntime) start(identity *auth.Identity) {
 		}
 	}()
 }
+
 func (r *gatewayConnectedRuntime) close() {
 	r.stop()
 	if r.consumer != nil {
