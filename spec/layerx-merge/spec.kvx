@@ -208650,7 +208650,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.949]
 title = "Hold the native profile cases of the wallet attestor over repeated runs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
