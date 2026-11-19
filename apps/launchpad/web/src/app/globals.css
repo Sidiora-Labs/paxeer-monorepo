@@ -21,38 +21,6 @@
   line-gap-override: 0%;
 }
 
-@font-face {
-  font-family: 'Manrope';
-  src: url('/fonts/manrope-medium.otf') format('opentype');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Manrope';
-  src: url('/fonts/manrope-semibold.otf') format('opentype');
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Manrope';
-  src: url('/fonts/manrope-bold.otf') format('opentype');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Manrope';
-  src: url('/fonts/manrope-extrabold.otf') format('opentype');
-  font-weight: 800;
-  font-style: normal;
-  font-display: swap;
-}
-
 /* Motion utilities: Tailwind v4 has no --duration-* theme namespace, so these map to the motion tokens. */
 @utility duration-instant {
   transition-duration: var(--sl-duration-instant);

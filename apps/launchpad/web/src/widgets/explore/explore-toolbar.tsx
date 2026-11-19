@@ -30,7 +30,7 @@ const toolPressed = 'bg-surface-3 text-text';
 export function ExploreToolbar({ leading, filterOpen, filterCount, filterPanelId, onToggleFilter, view, onViewChange, settingsOpen, settingsPanelId, onToggleSettings }: ExploreToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="min-w-0 flex-1 basis-64">{leading}</div>
+      <div className="min-w-0 flex-1">{leading}</div>
       <div className="flex shrink-0 items-center gap-2">
         <button
           type="button"
