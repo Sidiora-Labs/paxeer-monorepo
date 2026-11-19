@@ -111,6 +111,7 @@ The directory may also be absolute. A typical surface file has this form:
   "start": "npm run start -- --port 4173",
   "address": "http://localhost:4173",
   "readyPath": "/",
+  "readyMs": 60000,
   "views": [
     {
       "name": "home",
@@ -162,7 +163,10 @@ are rejected with the view's name.
 Commands run in `directory`. The optional `buildMs` is a whole number from 1000
 to 1800000 milliseconds, inclusive. It bounds the build; without it the bound is
 120000 milliseconds (120 seconds). Invalid values are rejected with the surface
-name, and a build timeout message names the applied bound.
+name, and a build timeout message names the applied bound. The optional `readyMs`
+is a whole number from 1000 to 120000 milliseconds, inclusive. It bounds the wait
+for the readiness path; without it the bound is 15000 milliseconds (15 seconds).
+Invalid values are rejected with the surface name and the bounds.
 
 The optional `outputs` is a list of one to sixteen nonempty paths relative to
 `directory`, and requires a `build` command. Absolute paths, paths outside the
@@ -172,11 +176,12 @@ symlinks, including links in parent directories of outputs that do not yet exist
 Before building, the check recursively removes only the named outputs; absent
 outputs are allowed. A named symlink is removed without removing its target.
 The order is remove outputs, build, start. Without `outputs`, nothing is removed.
-The report records the applied `buildMs` and an `outputs` list of the named paths
-that were present and removed, including when the build fails.
+The report records the applied `buildMs` and `readyMs`, and an `outputs` list of
+the named paths that were present and removed, including when the build fails.
 
-The start command stays running while readiness is polled for up to
-15 seconds. Navigation, state steps and viewport captures have a 10-second bound.
+The start command stays running while readiness is polled for up to `readyMs`
+milliseconds, or 15000 milliseconds (15 seconds) when `readyMs` is absent.
+Navigation, state steps and viewport captures have a 10-second bound.
 Full-page capture reads the document height and allows 10 seconds per viewport
 of height, rounded up, with a minimum of 10 seconds and a maximum of 60 seconds.
 The overall render deadline still applies. A failed full-page capture leaves the

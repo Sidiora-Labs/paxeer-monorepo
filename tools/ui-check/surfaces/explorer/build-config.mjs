@@ -18,4 +18,6 @@ const walletPackages = ['@dynamic-labs/sdk-react-core', '@dynamic-labs/ethereum'
 config.experimental.optimizePackageImports = [
   ...(config.experimental.optimizePackageImports ?? []), '@chakra-ui/react', '@ark-ui/react', ...walletPackages,
 ];
+config.experimental.webpackBuildWorker = true;
+config.experimental.parallelServerBuildTraces = true;
 config.transpilePackages = [...config.transpilePackages, '@ark-ui/react'];
