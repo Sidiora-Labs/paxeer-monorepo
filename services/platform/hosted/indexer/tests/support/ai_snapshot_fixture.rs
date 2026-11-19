@@ -1729,6 +1729,7 @@ fn assert_disabled_index_result(
         3
     );
     assert!(!store.transfers("paxeer")?.is_empty());
+    store.record_source_success("paxeer", Some(3), Some(3))?;
     assert_eq!(
         store
             .chain(1)?
@@ -1740,17 +1741,22 @@ fn assert_disabled_index_result(
         .source_observation("comet")?
         .unwrap_or_else(|| panic!("Comet observation"));
     assert_eq!(comet.source_head, Some(3));
-    assert_eq!(comet.last_error.as_deref(), Some("tx_index_disabled"));
-    assert!(comet.last_success_at.is_none());
+    assert!(comet.last_error.is_none());
+    assert!(comet.last_error_at.is_none());
+    assert!(comet.last_success_at.is_some());
+    assert_eq!(comet.consecutive_failures, 0);
+    assert!(comet.tx_index_disabled);
     let readiness = layerx_indexer::api::Readiness {
-        sources: vec!["comet"],
+        sources: vec!["comet", "paxeer"],
         stall_after_secs: 30,
+        max_units_per_step: 16,
         started_at: 0,
         explorer: None,
     };
     let document = layerx_indexer::api::readiness_document(&store, &readiness)?;
-    assert_eq!(document.status, "unavailable");
-    assert_ne!(document.sources[0].state, "ready");
+    assert_eq!(document.status, "ready");
+    assert_eq!(document.sources[0].state, "index_disabled");
+    assert_eq!(document.sources[1].state, "ready");
     let transfers = store.transfers("paxeer")?;
     let events = store.events("paxeer")?;
     drop(store);
@@ -1774,8 +1780,15 @@ fn assert_disabled_index_result(
     let comet = reopened
         .source_observation("comet")?
         .unwrap_or_else(|| panic!("recovered Comet observation"));
-    assert_eq!(comet.last_error.as_deref(), Some("tx_index_disabled"));
-    assert!(comet.last_success_at.is_none());
+    assert!(comet.last_error.is_none());
+    assert!(comet.last_error_at.is_none());
+    assert!(comet.last_success_at.is_some());
+    assert_eq!(comet.consecutive_failures, 0);
+    assert!(comet.tx_index_disabled);
+    let recovered = layerx_indexer::api::readiness_document(&reopened, &readiness)?;
+    assert_eq!(recovered.status, "ready");
+    assert_eq!(recovered.sources[0].state, "index_disabled");
+    assert_eq!(recovered.sources[1].state, "ready");
     Ok(())
 }
 

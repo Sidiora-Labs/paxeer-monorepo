@@ -1326,12 +1326,13 @@ impl PaxeerIngester {
                 .and_then(Value::as_str)
             {
                 Some("off") => {
-                    store.record_source_failure("comet", "tx_index_disabled")?;
+                    let indexed = store.cursor(CHAIN)?.map(|cursor| cursor.position);
+                    store.record_comet_success(head, indexed, true)?;
                     Ok(CometObservation::IndexDisabled)
                 }
                 Some("on") => {
                     let indexed = store.cursor(CHAIN)?.map(|cursor| cursor.position);
-                    store.record_source_success("comet", Some(head), indexed)?;
+                    store.record_comet_success(head, indexed, false)?;
                     Ok(CometObservation::Ready)
                 }
                 _ => Err(IndexError::Source(
