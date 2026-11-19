@@ -224,7 +224,7 @@ jobs:
           echo "NATS_SERVER_BINARY=$(go env GOPATH)/bin/nats-server" >> "$GITHUB_ENV"
       - name: Install local database and TLS tools
         if: matrix.package == 'apps/launchpad/web'
-        run: sudo apt-get update && sudo apt-get install --yes postgresql postgresql-client redis-server openssl
+        run: bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" --yes postgresql postgresql-client redis-server openssl
       - name: Allow the owned loopback issuer to bind standard HTTPS
         if: matrix.package == 'apps/launchpad/web'
         run: sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0
@@ -234,7 +234,7 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Install PostgreSQL for the candles producer
         if: matrix.package == 'sdk/launchpad/packages/candles-sdk'
-        run: sudo apt-get update && sudo apt-get install --yes postgresql
+        run: bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" --yes postgresql
       - name: Create the pool test database
         if: >-
           contains(fromJSON('["sdk/launchpad/packages/indexer-sdk", "sdk/launchpad/packages/metadata-sdk", "sdk/launchpad/packages/sdk", "sdk/launchpad/packages/stats-sdk", "sdk/launchpad/packages/users-sdk"]'), matrix.package)
@@ -263,7 +263,7 @@ jobs:
             --request PUT http://localhost:9000/launchpad-user-test
       - name: Install the users scanner
         if: matrix.package == 'sdk/launchpad/packages/users-sdk'
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends --yes clamav-daemon
+        run: bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" --no-install-recommends --yes clamav-daemon
       - name: Build SDK packages
         run: pnpm run build:packages
       - name: Prepare chain fixtures and run web Vitest
@@ -315,8 +315,7 @@ jobs:
         name: Install and verify the container runtime
         run: |
           if ! docker version >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install --yes docker.io acl
+            bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" --yes docker.io acl
             sudo systemctl start docker
             if [ ! -r /var/run/docker.sock ] || [ ! -w /var/run/docker.sock ]; then
               sudo setfacl -m "u:$(id -u):rw" /var/run/docker.sock
@@ -375,10 +374,9 @@ jobs:
         name: Install fixture binaries
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends --yes redis-server
+          bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" --no-install-recommends --yes redis-server
           go install github.com/nats-io/nats-server/v2@v2.11.6
-          sudo apt-get install --no-install-recommends --yes nginx unzip ffmpeg clamav clamav-daemon
+          bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" --no-install-recommends --yes nginx unzip ffmpeg clamav clamav-daemon
           fixture_bin="$RUNNER_TEMP/launchpad-fixture-bin"
           mkdir -p "$fixture_bin"
           cd "$fixture_bin"
