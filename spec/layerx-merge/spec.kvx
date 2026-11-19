@@ -15916,6 +15916,12 @@ value = "One. The live step reads the blocks and receipts of a step of more than
 basis = "Gotcha 4727. Decision 3758."
 affects = []
 
+[decision.3801]
+title = "The five remaining places of the launchpad web application take the values of the earlier state, and an edge of a control lies inside the box the control held before"
+value = "One. Above the width 834 the strip under the top bar holds the height of the earlier state on one line: the group of mode buttons measures 132 by 28 with 2 pixels of inner distance, the link of the feed is 16 pixels high, and the middle of the feed line stands on the middle of the buttons within one pixel. At the widths up to 834 the touch rule holds as it does today. Two. An edge of a control lies inside the box the control held in the earlier state: a control with an edge has the height and the width it had without one, within one pixel. The decline button of the cookie notice measures 28 pixels in height above 834 and the text of the notice has a line height of 18; the button that selects a coin in the swap view measures 32. Three. The mark of a select pill is the chevron of the surface in the colour of its text, never the default mark of the browser, in every size and form of the pill; the period control of the home view measures 69 by 28 at 1440. The menu, the keyboard handling and the accessible name of the select stay as they are. Four. The heading of the reward view has the weight 500. A total of the reward view has 36 pixels with a line height of 40 below the width 640 and 44 pixels with a line height of 48 from it, at the weight 700; the tiles keep their least heights. Five. The row of the heading of the creation view is 24 pixels high with the link inside it at the widths above 834, and the amount of the cost line has 16 pixels with a line height of 24 at the weight 700. Six. Decision 3708 holds for everything else: the edges of controls, the mark of the selected segment, the touch rule at the widths up to 834 and the track of the scroll bar stay. These values are the values of the earlier state; none of them is a bound that a later task may grow. Tasks 22.44.115 to 22.44.118."
+basis = "Gotcha 4728. Decision 3708."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45576,6 +45582,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.118]
+title = "Keep the edge of the coin button of the swap view of the launchpad inside the box the button held before"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.118.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4728 part two, decision 3801 point two. Read the amount fields and the button that selects a coin in apps/launchpad/web/src/widgets/swap/swap-panel.tsx and the cases under apps/launchpad/web/src/widgets/swap. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/terminal.json. Start the web application the way the render check of the part starts it, open the swap view in a real browser at 1440 by 900, at 834 and at 390 by 844, and measure both buttons that select a coin, with and without a selected coin, and the two fields."
+symbols = []
+
+[capability.22.44.117]
+title = "Set the row of the heading and the amount of the cost line of the creation view of the launchpad at the values of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.117.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4728 part five, decision 3801 point five. Read the head and the cost part of apps/launchpad/web/src/widgets/create/create-wizard.tsx and the cases under apps/launchpad/web/src/widgets/create. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/coin.json. Start the web application the way the render check of the part starts it, open the creation view in a real browser at 1440 by 900, at 834 and at 390 by 844, and measure the row of the heading with its link, the first heading of the form below it, and the amount of the cost line."
+symbols = []
+
+[capability.22.44.116]
+title = "Set the heading and the totals of the reward view of the launchpad at the values of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.116.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4728 part four, decision 3801 point four. Read apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-header.tsx, apps/launchpad/web/src/widgets/holder-rewards/stats-row.tsx and the cases under apps/launchpad/web/src/widgets/holder-rewards. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/rewards.json. Start the web application the way the render check of the part starts it, open the reward view in a real browser at 1440 by 900, at 834 and at 390 by 844, and measure the heading, the three totals with their units and their captions, and the tiles."
+symbols = []
+
+[capability.22.44.115]
+title = "Set the strip under the top bar, the cookie notice and the mark of the select pill of the launchpad at the values of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.115.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4728 parts one to three, decision 3801 points one to three. Read apps/launchpad/web/src/shell/ticker-strip.tsx, apps/launchpad/web/src/ui/shared/cookie-banner.tsx, the select pill in apps/launchpad/web/src/ui/primitives/controls.tsx and the rules of the native select in apps/launchpad/web/src/app/globals.css. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/home.json. Start the web application the way the render check of the part starts it, open the home view in a real browser at 1440 by 900, at 834 and at 390 by 844, and measure the group of mode buttons, the link and the line of the feed of the strip, the two buttons and the text of the cookie notice, and the period control."
+symbols = []
 
 [capability.22.39.957]
 title = "Let the client reader of the freshness part of a history answer follow the readiness rule of the hosted indexer"
@@ -177720,6 +177762,131 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.118]
+title = "Keep the edge of the coin button of the swap view of the launchpad inside the box the button held before"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.118"]
+interfaces = []
+do_1 = "do_1 Gotcha 4728 part two, decision 3801 point two. Read the amount fields and the button that selects a coin in apps/launchpad/web/src/widgets/swap/swap-panel.tsx and the cases under apps/launchpad/web/src/widgets/swap. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/terminal.json. Start the web application the way the render check of the part starts it, open the swap view in a real browser at 1440 by 900, at 834 and at 390 by 844, and measure both buttons that select a coin, with and without a selected coin, and the two fields."
+do_2 = "do_2 Correct the button so that its edge lies inside its earlier box and it measures 32 pixels in height above 834, with a selected coin and without one; the lower field then stands where the earlier state holds it. Read the other controls of the swap view and of the views of the same part that take the edge of a control, and where one grows by its edge against its earlier size, correct it in the same form. The cookie notice and the shared controls under apps/launchpad/web/src/ui are not part of this task. Decision 3708 holds for the correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above. No token changes. No behaviour, no route, no data flow and no text changes; the marks of focus, the labels, roles and landmarks, the states of controls and the track the page reserves for the scroll bar stay as they are. "
+do_3 = "do_3 Another task of this group can change a shared file at the same time: change only the lines this task names, keep every other line as it is, and where the main line holds a change of those lines take it and keep both. The part files and the files of answers stay as they are. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened. "
+do_4 = "do_4 Run the cases under apps/launchpad/web/src/widgets/swap by hand. Write the record spec/layerx-merge/programme/records/ui/22.44.118.kvx in present tense: for each element this task names the width of the render, the measured value before the correction and the measured value after it, each read in a real browser, then the count of renders of the last run of the part with its result. Work with at most one full run by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part; start it in the foreground and never detached. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.118.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.118.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.117]
+title = "Set the row of the heading and the amount of the cost line of the creation view of the launchpad at the values of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.117"]
+interfaces = []
+do_1 = "do_1 Gotcha 4728 part five, decision 3801 point five. Read the head and the cost part of apps/launchpad/web/src/widgets/create/create-wizard.tsx and the cases under apps/launchpad/web/src/widgets/create. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/coin.json. Start the web application the way the render check of the part starts it, open the creation view in a real browser at 1440 by 900, at 834 and at 390 by 844, and measure the row of the heading with its link, the first heading of the form below it, and the amount of the cost line."
+do_2 = "do_2 Correct the row of the heading so that it is 24 pixels high above 834 with the link to the chain launch inside it: the link keeps its text, its target and its mark of focus, and at the widths up to 834 it keeps its touch height. Correct the amount of the cost line so that it has 16 pixels with a line height of 24 at the weight 700. Read the head of the view of the chain launch as well, and where its row grows in the same way give it the same form. Decision 3708 holds for the correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above. No token changes. No behaviour, no route, no data flow and no text changes; the marks of focus, the labels, roles and landmarks, the states of controls and the track the page reserves for the scroll bar stay as they are. "
+do_3 = "do_3 Read the creation view after the correction at 1440: the first heading of the form stands 40 pixels below the top of the heading of the view. Another task of this group can change a shared file at the same time: change only the lines this task names, keep every other line as it is, and where the main line holds a change of those lines take it and keep both. The part files and the files of answers stay as they are. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened. "
+do_4 = "do_4 Run the cases under apps/launchpad/web/src/widgets/create by hand. Write the record spec/layerx-merge/programme/records/ui/22.44.117.kvx in present tense: for each element this task names the width of the render, the measured value before the correction and the measured value after it, each read in a real browser, then the count of renders of the last run of the part with its result. Work with at most one full run by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part; start it in the foreground and never detached. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.117.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.117.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.116]
+title = "Set the heading and the totals of the reward view of the launchpad at the values of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.116"]
+interfaces = []
+do_1 = "do_1 Gotcha 4728 part four, decision 3801 point four. Read apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-header.tsx, apps/launchpad/web/src/widgets/holder-rewards/stats-row.tsx and the cases under apps/launchpad/web/src/widgets/holder-rewards. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/rewards.json. Start the web application the way the render check of the part starts it, open the reward view in a real browser at 1440 by 900, at 834 and at 390 by 844, and measure the heading, the three totals with their units and their captions, and the tiles."
+do_2 = "do_2 Correct the heading so that it has the weight 500 at both of its sizes. Correct the totals so that a total has 36 pixels with a line height of 40 below the width 640 and 44 pixels with a line height of 48 from it, at the weight 700, in every state of a tile: with a value, without one and while it loads. Where the surface holds no token for such a size, the view states the value in the form the heading of the same view states its own. The tiles keep their least heights, a long total stays inside its tile at 390, and the unit stands on the line of its total. Decision 3708 holds for the correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above. No token changes. No behaviour, no route, no data flow and no text changes; the marks of focus, the labels, roles and landmarks, the states of controls and the track the page reserves for the scroll bar stay as they are. "
+do_3 = "do_3 Read the loading, empty and error states of the reward view after the correction: the placeholder of a total has the height of the total it stands for, so that nothing moves when the value arrives. Another task of this group can change a shared file at the same time: change only the lines this task names, keep every other line as it is, and where the main line holds a change of those lines take it and keep both. The part files and the files of answers stay as they are. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened. "
+do_4 = "do_4 Run the cases under apps/launchpad/web/src/widgets/holder-rewards by hand. Write the record spec/layerx-merge/programme/records/ui/22.44.116.kvx in present tense: for each element this task names the width of the render, the measured value before the correction and the measured value after it, each read in a real browser, then the count of renders of the last run of the part with its result. Work with at most one full run by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part; start it in the foreground and never detached. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.116.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.116.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.115]
+title = "Set the strip under the top bar, the cookie notice and the mark of the select pill of the launchpad at the values of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.115"]
+interfaces = []
+do_1 = "do_1 Gotcha 4728 parts one to three, decision 3801 points one to three. Read apps/launchpad/web/src/shell/ticker-strip.tsx, apps/launchpad/web/src/ui/shared/cookie-banner.tsx, the select pill in apps/launchpad/web/src/ui/primitives/controls.tsx and the rules of the native select in apps/launchpad/web/src/app/globals.css. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/home.json. Start the web application the way the render check of the part starts it, open the home view in a real browser at 1440 by 900, at 834 and at 390 by 844, and measure the group of mode buttons, the link and the line of the feed of the strip, the two buttons and the text of the cookie notice, and the period control."
+do_2 = "do_2 Correct the strip so that point one holds. Above 834 the section holds its height on one line, the group has its inner distance of 2 pixels and measures 132 by 28, the link of the feed is 16 pixels high, and the middle of the feed line stands on the middle of the buttons. The feed keeps its content, its modes and its behaviour, and nothing of the strip is cut where a text is long: the feed line shortens inside its own block. At the widths up to 834 the strip stays as it is today. The case in apps/launchpad/web/src/widgets/leaderboard/leaderboard-states.test.tsx that pins the class list of the section changes with it. Decision 3708 holds for the correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above. No token changes. No behaviour, no route, no data flow and no text changes; the marks of focus, the labels, roles and landmarks, the states of controls and the track the page reserves for the scroll bar stay as they are. "
+do_3 = "do_3 Correct the cookie notice so that point two holds: the edge of the decline button lies inside its earlier box, the button measures 28 pixels in height above 834, and the text of the notice has a line height of 18. Read every other control of apps/launchpad/web/src/ui/shared and apps/launchpad/web/src/ui/primitives that takes the edge of a control, and where one grows by its edge against the size its size token states, correct it in the same form. The swap view is not part of this task."
+do_4 = "do_4 Correct the mark of the select pill so that point three holds. The statement stands in one place, in the control or in the rule of the native select, and holds for the pill with a label and for the compact form. Read the pill after the correction in the home view, the reward view and one profile view at 1440 and at 390: the chevron shows once, the value and the label stand on one line, and the pill has its earlier size. Another task of this group can change a shared file at the same time: change only the lines this task names, keep every other line as it is, and where the main line holds a change of those lines take it and keep both. The part files and the files of answers stay as they are. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened. "
+do_5 = "do_5 Run the cases under apps/launchpad/web/src/shell, apps/launchpad/web/src/ui and the case file apps/launchpad/web/src/widgets/leaderboard/leaderboard-states.test.tsx by hand. Write the record spec/layerx-merge/programme/records/ui/22.44.115.kvx in present tense: for each element this task names the width of the render, the measured value before the correction and the measured value after it, each read in a real browser, then the count of renders of the last run of the part with its result. Work with at most one full run by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part; start it in the foreground and never detached. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.115.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.115.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
