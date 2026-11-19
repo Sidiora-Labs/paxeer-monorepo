@@ -155,7 +155,7 @@ interface TrenchColumnProps {
 function TrenchColumn({ title, count, control, children }: TrenchColumnProps) {
   return (
     <section aria-label={title} className="flex min-h-0 flex-col overflow-hidden rounded-md bg-surface-1">
-      <header className="flex min-h-touch-target-min shrink-0 flex-wrap items-center justify-between gap-2 px-2 py-1">
+      <header className="flex min-h-8 shrink-0 flex-wrap items-center justify-between gap-2 px-2">
         <h2 className="flex flex-wrap items-center gap-1.5 text-sm font-bold text-text">
           {title}
           {count !== null ? <span data-numeric className="text-xs font-semibold tabular-nums text-text-faint">{formatCount(count)}</span> : null}

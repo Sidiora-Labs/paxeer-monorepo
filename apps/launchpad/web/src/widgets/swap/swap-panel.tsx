@@ -152,7 +152,7 @@ function TokenSelectorModal({
       <div className="shrink-0 p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 id="swap-selector-title" className="text-base font-bold text-text">Select a coin</h2>
-          <button type="button" onClick={onClose} aria-label="Close coin selector" className="min-h-touch-target-min min-w-touch-target-min p-1 text-text-faint transition hover:text-text">
+          <button type="button" onClick={onClose} aria-label="Close coin selector" className="p-1 text-text-faint transition hover:text-text">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
               <path d="M4.5 4.5L13.5 13.5M13.5 4.5L4.5 13.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
@@ -748,7 +748,7 @@ export default function SwapPanel() {
       : null;
 
   return (
-    <div className="relative mx-auto w-full max-w-md">
+    <div className="relative mx-auto w-full max-w-[calc(var(--sl-space)*115)]">
       <div className="rounded-2xl bg-surface-1 overflow-hidden">
         {/* Header */}
         <div className="px-5 pt-5 pb-3 flex flex-wrap items-center justify-between gap-3">

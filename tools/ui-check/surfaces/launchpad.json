@@ -1351,11 +1351,51 @@
     },
     {
       "name": "meta-ag-orders",
-      "path": "/meta-ag/orders"
+      "path": "/meta-ag/orders",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        },
+        {
+          "action": "wait",
+          "text": "Orders are not available yet"
+        }
+      ]
     },
     {
       "name": "meta-ag-swap",
-      "path": "/meta-ag/swap"
+      "path": "/meta-ag/swap",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        },
+        {
+          "action": "wait",
+          "text": "Swaps are not available yet"
+        }
+      ]
     },
     {
       "name": "new",
@@ -1804,6 +1844,31 @@
             }
           ]
         }
+      ],
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        },
+        {
+          "action": "wait",
+          "text": "You receive"
+        },
+        {
+          "action": "press",
+          "selector": "html:not(:has([role=\"status\"]:text-is(\"Loading tokens...\")))",
+          "key": "Shift"
+        }
       ]
     },
     {
@@ -1844,31 +1909,216 @@
             }
           ]
         }
+      ],
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-terminal-frame] > div[aria-busy=\"false\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Workspace\"] table tbody tr a[href^=\"/terminal/0x\"]):has(section[aria-label=\"Workspace\"] table tbody :text(\"< $0.01\"))",
+          "key": "Shift"
+        }
       ]
     },
     {
       "name": "terminal-coin",
-      "path": "/terminal/0x1111111111111111111111111111111111111111"
+      "path": "/terminal/0x1111111111111111111111111111111111111111",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-terminal-frame] > div[aria-busy=\"false\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(aside[aria-label=\"Pair discovery\"] li[data-pool])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "This coin is not available yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(aside[aria-label=\"Pair discovery\"] :text(\"Prices can't load right now\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Pair activity\"] [role=\"alert\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Trade\"] :text(\"Something went wrong, try again\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Window stats\"] :text(\"Since\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-labelledby=\"terminal-accordion-similar\"] :text(\"Similar coins can't load right now\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Price chart\"]):not(:has(section[aria-label=\"Price chart\"] [role=\"status\"]:text-is(\"Loading chart...\")))",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "terminal-portfolio",
-      "path": "/terminal/portfolio"
+      "path": "/terminal/portfolio",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-terminal-frame] > div[aria-busy=\"false\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Sign in to see your portfolio"
+        }
+      ]
     },
     {
       "name": "terminal-rewards",
-      "path": "/terminal/rewards"
+      "path": "/terminal/rewards",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-terminal-frame] > div[aria-busy=\"false\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Connect your wallet to view rewards"
+        }
+      ]
     },
     {
       "name": "terminal-track",
-      "path": "/terminal/track"
+      "path": "/terminal/track",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-terminal-frame] > div[aria-busy=\"false\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Sign in to track wallets"
+        }
+      ]
     },
     {
       "name": "terminal-trenches",
-      "path": "/terminal/trenches"
+      "path": "/terminal/trenches",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-terminal-frame] > div[aria-busy=\"false\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(ul[aria-label=\"New pairs\"] li :text(\"< 0.01\"))",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "terminal-slug",
-      "path": "/terminal/trending"
+      "path": "/terminal/trending",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-terminal-frame] > div[aria-busy=\"false\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Workspace\"] table tbody tr a[href^=\"/terminal/0x\"]):has(section[aria-label=\"Workspace\"] table tbody :text(\"< $0.01\"))",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "token",

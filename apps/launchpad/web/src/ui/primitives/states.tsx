@@ -541,7 +541,7 @@ export function ErrorState({
         <CircleAlert aria-hidden="true" className="size-icon-sm shrink-0" />
         {message}
         {onRetry ? (
-          <Button variant="secondary" size="sm" onClick={onRetry} loading={retrying}>
+          <Button variant="secondary" size="sm" className="shrink-0" onClick={onRetry} loading={retrying}>
             Retry
           </Button>
         ) : null}

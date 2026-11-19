@@ -15,7 +15,7 @@ export default function MetaAgOrdersPage() {
   }, []);
 
   return (
-    <main className="mx-auto min-h-dvh max-w-content-narrow-max-width px-4 pb-20 pt-6">
+    <main className="mx-auto min-h-[calc(100dvh-var(--sl-space-8)*2)] max-w-[calc(var(--sl-space)*275)] px-4 pb-20 pt-6">
       <div className="mb-5">
         <div className="flex items-baseline gap-3">
           <h1 className="text-lg font-bold text-text">Orders</h1>
@@ -26,7 +26,7 @@ export default function MetaAgOrdersPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[var(--sl-modal-width-sm)_minmax(0,1fr)]">
         <div>
           <OrderForm onPlaced={handlePlaced} />
           <KeeperHealthHint />
