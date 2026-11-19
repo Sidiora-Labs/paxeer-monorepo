@@ -93,13 +93,11 @@ export const ItemLabel = ({ hint, children, isLoading, id, hasScroll, ...rest }:
               boxSize={ 5 }
               flexShrink={ 0 }
               mt="calc((1lh - var(--chakra-spacing-5)) / 2)"
-              mx="calc((var(--chakra-sizes-touch-target) - var(--chakra-spacing-5)) / 2)"
+              css={{ '@media (max-width: 834px)': { mx: 'calc((var(--chakra-sizes-touch-target) - var(--chakra-spacing-5)) / 2)' } }}
             >
               <Hint
                 label={ hint }
                 isLoading={ isLoading }
-                minW="touchTarget"
-                minH="touchTarget"
                 position="absolute"
                 top="50%"
                 left="50%"

@@ -68,10 +68,10 @@ it('places text after the search mark before measurement in header and hero fiel
 
     expect(input.value).toBe('PAX');
     expect(input.placeholder).toBe(isHeroBanner ? 'Search or ask: a transaction, address, block or token' : 'Search or ask…');
-    expect(styles).toContain('padding-inline-start:var(--chakra-spacing-10)');
-    expect(styles).toContain('padding-inline-end:calc(var(--chakra-spacing-16)+var(--chakra-spacing-12))');
-    const startPadding = parseFloat(spacing['10'].value);
+    expect(styles).toContain('padding-inline-start:var(--chakra-spacing-9)');
+    expect(styles).toContain('padding-inline-end:calc(var(--chakra-spacing-20)+var(--chakra-spacing-7)/4)');
+    const startPadding = parseFloat(spacing['9'].value);
     const markWidthWithMargins = parseFloat(spacing['5'].value) + 2 * parseFloat(spacing['2'].value);
-    expect(startPadding).toBeGreaterThan(markWidthWithMargins);
+    expect(startPadding).toBe(markWidthWithMargins);
   }
 });

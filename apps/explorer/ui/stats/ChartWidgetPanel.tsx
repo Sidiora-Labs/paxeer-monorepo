@@ -84,8 +84,7 @@ const ChartWidgetPanel = ({
       p={ 4 }
       minH="var(--chakra-spacing-75)"
 
-      css={{ '& button, & a': { minWidth: 'touchTarget',
-        minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } }, '& .tick text': { color: 'text.muted' } }}
+      css={{ '& button, & a': { _motionReduce: { transitionProperty: 'none' } }, '& .tick text': { color: 'text.muted' } }}
     >
       <Flex data-chart-card-header alignItems="flex-start" justifyContent="space-between" columnGap={ 3 } flexWrap="wrap">
         <Flex alignItems="center" columnGap={ 1.5 } minW={ 0 } flex="1 1 18ch">

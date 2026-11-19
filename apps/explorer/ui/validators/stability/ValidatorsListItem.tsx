@@ -19,7 +19,7 @@ const ValidatorsListItem = ({ data, isLoading }: Props) => {
       css={{
         '& > *': { minWidth: 0, overflowWrap: 'anywhere' },
         '& a': { display: 'inline-flex', alignItems: 'center' },
-        '& a, & button': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } },
+        '& a, & button': { _motionReduce: { transitionProperty: 'none' } },
         '& [data-status="error"] > span': { color: 'text.primary' },
       }}
     >

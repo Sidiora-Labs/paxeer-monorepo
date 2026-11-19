@@ -35,7 +35,7 @@ const TableScrollArea = ({ label, children }: Props) => {
       _focusVisible={{ outlineWidth: '2', outlineStyle: 'solid', outlineColor: 'focusRing', outlineOffset: 'calc(var(--chakra-border-widths-2) * -1)' }}
       css={{
         '& a': { display: 'inline-flex', alignItems: 'center' },
-        '& a, & button': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } },
+        '& a, & button': { _motionReduce: { transitionProperty: 'none' } },
         '& table': { minWidth: 'full', width: 'full', tableLayout: 'auto' },
         '& thead': { top: 0 },
         '& th:first-of-type, & td:first-of-type': { position: { base: 'static', lg: 'sticky' }, insetInlineStart: 0, bg: 'canvas', zIndex: 1 },

@@ -26,7 +26,6 @@ const NavLinkGroup = ({ item, groupName, onNavLinkClick }: Props) => {
         <chakra.summary
           onClick={ handleSummaryClick }
           cursor="pointer"
-          minH="touchTarget"
           py={ 3 }
           px={ 2 }
           borderRadius="control"

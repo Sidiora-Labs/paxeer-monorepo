@@ -29,7 +29,7 @@ const ActivityViews = ({ list, table, tableView = false, tableBreakpoint = 'lg' 
 
   return (
     <Box ref={ containerRef } containerType="inline-size" containerName="activity-views" minW={ 0 } w="full">
-      <Box css={{ '& button': { minW: 'touchTarget', minH: 'touchTarget' } }}>
+      <Box css={{ '& button': { } }}>
         { !showTable && <Box data-activity-list minW={ 0 }>{ list }</Box> }
         { showTable && <Box data-activity-table minW={ 0 }>{ table }</Box> }
       </Box>

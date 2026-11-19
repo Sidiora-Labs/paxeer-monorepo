@@ -47,7 +47,7 @@ const UserProfileButton = ({ selected, email, ...rest }: Props) => {
   })();
 
   return (
-    <Button minH="touchTarget" minW="touchTarget"
+    <Button
       px={{ base: 2.5, lg: 3 }}
       selected={ selected }
       highlighted={ isAutoConnectDisabled }

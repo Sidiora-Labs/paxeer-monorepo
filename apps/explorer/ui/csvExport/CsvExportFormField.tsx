@@ -44,7 +44,7 @@ const CsvExportFormField = ({ formApi, name }: Props) => {
   return (
     <FormFieldText<FormFields, typeof name>
       name={ name }
-      inputProps={{ type: 'datetime-local', max: dayjs().format('YYYY-MM-DDTHH:mm'), autoComplete: 'on', minH: 'touchTarget' }}
+      inputProps={{ type: 'datetime-local', max: dayjs().format('YYYY-MM-DDTHH:mm'), autoComplete: 'on' }}
       placeholder={ capitalize(name) }
       label={ capitalize(name) }
       floating={ false }

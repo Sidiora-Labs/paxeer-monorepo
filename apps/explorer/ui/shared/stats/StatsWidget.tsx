@@ -26,10 +26,11 @@ export type Props = {
   isFallback?: boolean;
 };
 
-const Container = ({ href, children, className }: { href?: Route; children: React.JSX.Element; className?: string }) => {
+const Container = ({ href, isLoading, children, className }: { href?: Route; isLoading?: boolean; children: React.JSX.Element; className?: string }) => {
   if (href) {
     return (
-      <Link href={ route(href) } variant="plain" className={ className } display="block" w="100%" h="100%" minW={ 0 } maxW="100%">
+      <Link href={ isLoading ? undefined : route(href) } inert={ isLoading } variant="plain" className={ className }
+        display="block" w="100%" h="100%" minW={ 0 } maxW="100%">
         { children }
       </Link>
     );
@@ -59,7 +60,7 @@ const StatsWidget = ({
     diffColor = Number(diff) > 0 ? 'positive' : 'negative';
   }
   return (
-    <Container href={ !isLoading ? href : undefined } className={ href ? className : undefined }>
+    <Container href={ href } isLoading={ isLoading } className={ href ? className : undefined }>
       <Flex
         className={ href ? undefined : className }
         alignItems="center"
@@ -113,10 +114,13 @@ const StatsWidget = ({
               <chakra.span
                 minW={ 0 }
                 maxW="100%"
-                whiteSpace="normal"
+                whiteSpace="nowrap"
+                overflow="hidden"
+                textOverflow="ellipsis"
+                css={{ '& wbr': { display: 'contents' } }}
                 wordBreak="normal"
                 overflowWrap="anywhere"
-                fontSize={ `clamp(0.875rem, calc(100cqi / ${ Math.max(String(value).length, 1) * 0.625 }), var(--chakra-font-sizes-stat-value))` }
+                fontSize="statValue"
               >
                 { typeof value === 'string' ? value.split(/(?<=,)/).map((group, index) => (
                   <React.Fragment key={ index }>{ index > 0 && <wbr/> }{ group }</React.Fragment>

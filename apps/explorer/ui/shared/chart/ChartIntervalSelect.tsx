@@ -66,8 +66,6 @@ const ChartIntervalSelect = ({ interval, onIntervalChange, isLoading, selectTagS
               variant="plain"
               size={ selectTagSize === 'lg' ? 'sm' : 'xs' }
               h="auto"
-              minH="touchTarget"
-              minW="touchTarget"
               bg={ interval === item.id ? 'selected.option.bg' : 'transparent' }
               color="text.primary"
               _hover={{ bg: 'bg.raised', color: 'text.primary' }}

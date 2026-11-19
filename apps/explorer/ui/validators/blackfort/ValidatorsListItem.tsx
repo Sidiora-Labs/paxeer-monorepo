@@ -17,7 +17,7 @@ const ValidatorsListItem = ({ data, isLoading }: Props) => {
   return (
     <ListItemMobileGrid.Container gridTemplateColumns="minmax(0, 1fr)" borderColor="hairline"
       css={{ '& a': { display: 'inline-flex', alignItems: 'center' },
-        '& a, & button': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } } }}>
+        '& a, & button': { _motionReduce: { transitionProperty: 'none' } } }}>
 
       <ListItemMobileGrid.Label isLoading={ isLoading }>Validator</ListItemMobileGrid.Label>
       <ListItemMobileGrid.Value>

@@ -14,7 +14,7 @@ export const Container = (props: GridProps) => (
       templateColumns="minmax(0, 1fr)"
       textStyle="body"
       css={{
-        '& button': { minW: 'touchTarget', minH: 'touchTarget' },
+        '& button': { },
         '& > [data-detailed-info-label]': { borderTopWidth: 'var(--chakra-border-widths-1)', pt: 2, minW: 0, minH: 8 },
         '& > [data-detailed-info-value]': {
           borderTopWidth: 0, py: 2, minH: 8, lineHeight: 'body', whiteSpace: 'normal', overflowWrap: 'anywhere', flexWrap: 'wrap',

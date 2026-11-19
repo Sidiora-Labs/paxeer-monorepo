@@ -61,7 +61,7 @@ const ScanPagination = (props: ScanPaginationProps) => {
         aria-label="Previous page"
         variant="scan_control"
         borderRadius="sm"
-        boxSize="touchTarget"
+        boxSize={ 8 }
         onClick={ onPrevPageClick }
         disabled={ !canGoBackwards || isLoading || isFirstPage }
         data-control="prev"
@@ -86,7 +86,7 @@ const ScanPagination = (props: ScanPaginationProps) => {
         aria-label="Next page"
         variant="scan_control"
         borderRadius="sm"
-        boxSize="touchTarget"
+        boxSize={ 8 }
         onClick={ onNextPageClick }
         disabled={ !hasNextPage || isLoading }
         data-control="next"

@@ -142,7 +142,6 @@ const Stats = () => {
                   borderRadius="md"
                   px={ 3 }
                   py={ 2 }
-                  minH="touchTarget"
                   color="link.navigation.fg"
                   _hover={{ color: 'link.navigation.fg.hover' }}
                   css={{

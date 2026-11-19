@@ -41,8 +41,6 @@ const EpochElectionRewardsListItem = ({ data, isLoading, type }: Props) => {
               aria-controls={ detailsId }
               disabled={ isLoading }
               variant="link"
-              minH="touchTarget"
-              minW="touchTarget"
             >
               <IconSvg
                 name="arrows/east-mini"

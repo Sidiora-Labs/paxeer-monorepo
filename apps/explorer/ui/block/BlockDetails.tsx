@@ -186,7 +186,7 @@ const BlockDetails = ({ query }: Props) => {
       data-block-details
       css={{
         '& a': { display: 'inline-flex', alignItems: 'center' },
-        '& button, & a': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } },
+        '& button, & a': { _motionReduce: { transitionProperty: 'none' } },
         '& [data-control]': { borderColor: 'border.strong', color: 'text.primary', '& svg': { color: 'text.primary' } },
         '& button[role="combobox"]': { focusVisibleRing: 'outside', focusRingColor: 'focusRing' },
         '& [data-detailed-info-label], & [data-detailed-info-label] > div > div': { minWidth: 0, overflowWrap: 'anywhere' },

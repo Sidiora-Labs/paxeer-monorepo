@@ -3,6 +3,7 @@
 import React from 'react';
 
 import * as blockMock from 'mocks/blocks/block';
+import globalCss from 'toolkit/theme/globalCss';
 import { render } from 'ui/shared/layout/testWrapper';
 import { beforeEach, expect, test } from 'vitest';
 import { screen } from 'vitest/lib';
@@ -87,7 +88,7 @@ test('keeps body cells free of vertical padding', async function keepsBodyCellsF
   expect(matchingDeclaration(table.querySelector('thead')!, 'height')).toBe('var(--chakra-spacing-9)');
 });
 
-test('keeps block links at the theme touch target', async function keepsBlockLinksAtTheThemeTouchTarget(): Promise<void> {
+test('keeps block links intrinsic above the touch widths', async function keepsBlockLinksIntrinsicAboveTheTouchWidths(): Promise<void> {
   render(<RecentBlocks/>);
   await screen.findByText(String(blockMock.base.height));
   const links = screen.getByRole('table').querySelectorAll('tbody a');
@@ -95,10 +96,17 @@ test('keeps block links at the theme touch target', async function keepsBlockLin
   expect(links).toHaveLength(2);
   for (const link of links) {
     const style = window.getComputedStyle(link);
-    expect(style.minHeight).toBe('var(--chakra-sizes-touch-target)');
-    expect(matchingDeclaration(link, 'min-width', ' a')).toBe('var(--chakra-sizes-touch-target)');
+    expect(style.minHeight).toBe('');
+    expect(style.minWidth).toBe('');
     expect(style.marginBlock).toBe('calc(var(--chakra-border-widths-1) / -2)');
   }
+  const selector = Object.keys(globalCss!).find((key) => key.startsWith(':where(a[href], button,'))!;
+  expect(globalCss![selector]).toEqual({
+    '@media (max-width: 834px)': {
+      minBlockSize: 'var(--chakra-sizes-touch-target) !important',
+      minInlineSize: 'var(--chakra-sizes-touch-target) !important',
+    },
+  });
 });
 
 test('keeps the section label and all blocks link on one line', function keepsTheSectionLabelAndAllBlocksLinkOnOneLine(): void {
@@ -118,7 +126,7 @@ test('keeps the section label and all blocks link on one line', function keepsTh
   expect(window.getComputedStyle(heading).textTransform).toBe('uppercase');
   expect(window.getComputedStyle(link).flexShrink).toBe('0');
   expect(window.getComputedStyle(link).whiteSpace).toBe('nowrap');
-  expect(window.getComputedStyle(link).minHeight).toBe('var(--chakra-sizes-touch-target)');
+  expect(window.getComputedStyle(link).minHeight).toBe('');
   expect(link.getAttribute('href')).toBe('/blocks');
   expect(heading.closest('section')?.getAttribute('aria-labelledby')).toBe(heading.id);
 });
