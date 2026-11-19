@@ -178168,7 +178168,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.118]
 title = "Keep the edge of the coin button of the swap view of the launchpad inside the box the button held before"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209227,7 +209227,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.119]
 title = "Let the waiting form of the ranking table of the launchpad reserve the row of its loaded form, and let the case of the trending tabs pin the padding its control holds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
