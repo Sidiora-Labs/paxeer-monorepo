@@ -119,12 +119,26 @@ async function waitFor(check: () => boolean, timeoutMs = 4000): Promise<void> {
 const settle = (ms: number) => act(async () => { await new Promise(resolve => setTimeout(resolve, ms)); });
 const hits = (path: string) => served.paths.filter(entry => entry.split('?')[0] === `GET ${path}`).length;
 
+async function tickerUnavailableFeedStaysEmpty() {
+  served.script.set(LEADERBOARD, [{ status: 503, body: envelope('DEPENDENCY_UNAVAILABLE', false, null), headers: { 'Retry-After': '0' } }]);
+  const { container, seen } = mount(<TickerStrip />);
+  expect(container.querySelector('[aria-busy="true"]')?.textContent).toContain('Loading top earners');
+  await waitFor(() => hits(LEADERBOARD) > 0 && container.querySelector('[aria-busy="true"]') === null);
+  const feed = container.querySelector('section[aria-label="Market ticker"] > div:last-child');
+  expect(feed).not.toBeNull();
+  expect(feed!.childNodes).toHaveLength(0);
+  expect(container.querySelector('[aria-label="Top earners"]')?.getAttribute('aria-checked')).toBe('true');
+  expect(seen.filter(text => ERROR_COPY.test(text))).toEqual([]);
+}
+
 describe('shell reads against a real HTTP origin that answers a transient failure first', () => {
   afterEach(() => { cleanup?.(); cleanup = null; served.paths.length = 0; served.script.clear(); window.localStorage.clear(); });
   afterAll(async () => {
     await new Promise<void>(resolve => served.server.close(() => resolve()));
     dom.window.close();
   });
+
+  it(tickerUnavailableFeedStaysEmpty.name, tickerUnavailableFeedStaysEmpty);
 
   it('keeps the top earners strip loading through retryable 503s and lands on the ready state without ever showing an error', async () => {
     // Three 503s exhaust the SDK's in-transport retries, so the 200 is only reached by the shared React Query retry.

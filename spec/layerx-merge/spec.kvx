@@ -15940,6 +15940,24 @@ value = "One. The script apps/launchpad/web/src/widgets/meta-ag/prepare-owned-de
 basis = "Gotcha 4731."
 affects = []
 
+[decision.3805]
+title = "A block that opens releases the held transactions whose nonce has become the next one, a send without an open block is answered before its nonce is compared, and held transactions get a lifetime setting of their own"
+value = "One. When a block opens, after the expiry of the queue, the node releases for every sender with held transactions those whose nonce equals the next nonce on the state of the open block: in nonce order, through the accept path of a direct send, each with its receipt, until the next nonce of the sender meets no held transaction. A held transaction that the accept path refuses is dropped and recorded as the drain does it today, and the block opens all the same. Two. A send that arrives while no block is open is not compared with a nonce from before the sealed block. It is answered as a send without an open block is answered today, so that the send path waits for the next open block and tries once more. A transaction with the next nonce of its sender is not answered as held. Where the block is sealed between that check and the hold, point one releases the transaction at the next open. Three. The order of a sender is kept: no transaction executes before the transaction with the nonce below it, and none executes twice. The bounds per sender and in total, the refusal of a nonce that is too low and the refusal of a pair that is held or receipted stay as they are. A transaction with a nonce above the next one is held as today. Four. Held transactions get a setting of their own for their lifetime: sequencer.nonce-queue-lifetime in the sequencer section of the application configuration, with a start flag of the same name. It is a duration, it must be positive when the sequencer is enabled, and it is three seconds when the setting is omitted. The lease duration no longer sets the lifetime. Five. A node with an enabled sequencer writes one line at start that names the lease duration and the three settings of the nonce queue in effect. Tasks 22.39.961 and 22.39.962."
+basis = "Gotcha 4732."
+affects = []
+
+[decision.3806]
+title = "Release 7.0.2 keeps plan v7.0, takes its version from the version file, and its notes state behaviour only"
+value = "One. The release after 7.0.1 is 7.0.2. It replaces the binary of 7.0.1 on every node without a new upgrade plan and keeps plan v7.0. tools/release/version.json holds version v7.0.2 and upgrade v7.0. Two. Every file that names the current release names 7.0.2: CITATION.cff with the release date 2026-11-19, RELEASE.md, tools/release/README.md and docs/release/README.md. Three. The info section of the two API documents of the node and the default tag of the node image file follow the version file, and the case file compares them with the file and holds no literal of the release version for that comparison. Four. docs/release/7.0.2-release-notes.md has the form of docs/release/7.0.1-release-notes.md and states each change as the behaviour of 7.0.2 in the present tense. It describes the product only and names no network, operator or date other than the release date. Five. The documents of 7.0.0 and of 7.0.1 stay unchanged, and the task sets no tag. Task 22.39.963."
+basis = "Gotcha 4733."
+affects = []
+
+[decision.3807]
+title = "The reset and the cleanup of the streams in the ranking case helper take one deadline form stated once"
+value = "One. The helper states the deadline of its stream work once: the present time plus three minutes, shortened to the deadline of the test binary less thirty seconds where the binary has a deadline and that time is earlier. The three minutes and the thirty seconds each stand once as a constant of the package. Two. The reset takes that deadline when it starts, and the cleanup of the streams takes it at the time it runs, in place of the twenty seconds. Three. The behaviour of the cleanup stays: it removes the ranking streams and every stream that did not exist at the reset, it waits after each removal until the broker no longer knows the stream, and an error of it fails the case with the present message. Four. The cleanup of the lock connection keeps its ten seconds, no assertion changes, no case is skipped and no caller changes. Task 22.39.964."
+basis = "Gotcha 4734."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45600,6 +45618,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.964]
+title = "Give the stream cleanup of the ranking case helper the deadline form of its reset"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=ranking-algo"
+do_1 = "do_1 Gotcha 4734, decision 3807. Read services/launchpad/ranking-algo/internal/internaltest/broker.go whole and the three places that call RankingBroker: services/launchpad/ranking-algo/internal/app/app_test.go, services/launchpad/ranking-algo/internal/store/production_universe_test.go, services/launchpad/ranking-algo/internal/store/publication_bound_test.go. Read the targets lint, race, cover and cover-check of services/launchpad/Makefile."
+symbols = []
+
+[capability.22.39.963]
+title = "Set release 7.0.2, add its release notes and let the API documents and the node image file follow the version file"
+reqs = ["22998.1"]
+touches = ["tools/release", "CITATION.cff", "RELEASE.md", "docs/release/README.md", "tests/ci/test_core_version_identity.py", "consensus/rpc/openapi/openapi.yaml", "tools/paxctl/sidecar/api/openapi.yaml", "docker/paxeer/Dockerfile.paxd"]
+tests = []
+verification_contract = "bash tools/release/tests/identity.test.sh && bash tools/release/tests/preflight.test.sh && bash tools/release/tests/postflight.test.sh && python3 -m pytest -q tools/release/tests/test_upgrade_info.py tests/ci/test_core_version_identity.py"
+do_1 = "do_1 Gotcha 4733, decision 3806. Set tools/release/version.json to version v7.0.2 and keep upgrade v7.0. Read tools/release/preflight.sh and tools/release/postflight.sh and the cases under tools/release/tests that compare with the release version: they read the file. Where one of them still compares with a literal of the release version, make it follow the file. A fixture that names an artifact or a tag of an earlier release as an example and is not compared with the file may stay. Change nothing under .github: the workflows read the file, and a comment there that names a version of an action is not a release version."
+symbols = []
+
+[capability.22.39.962]
+title = "Give held transactions a lifetime setting of their own and write the sequencer settings in effect at start"
+reqs = ["22998.1"]
+touches = ["node/sequencer", "daemon/paxd/cmd", "tools/release/preflight.sh", "docs/wiki/Sequencing.md", "docs/release/variables/chain-node.md", "docs/runbooks/paxeer-x-fork.md"]
+tests = []
+verification_contract = "go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestNonceLifetime && go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestSequencerConfig && go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestAddStartFlags && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run ^TestStartCommandRegistersSequencerFlags"
+do_1 = "do_1 Gotcha 4732 part six, decision 3805 points four and five. Read node/sequencer/config.go with its flag names, the registration of the start flags, the validation, the reading of the lease duration with its test for an explicit value, and the template of the sequencer section. Read the place in node/sequencer/node.go that builds the admission, and the cases of the configuration in the package and under daemon/paxd/cmd. Find every place of the repository that names the two bounds of the nonce queue with a search for nonce-queue-max-total, among them tools/release/preflight.sh, docs/wiki/Sequencing.md, docs/release/variables/chain-node.md and docs/runbooks/paxeer-x-fork.md."
+symbols = []
+
+[capability.22.39.961]
+title = "Release the held transactions whose nonce has become the next one when a block opens, and answer a send without an open block before its nonce is compared"
+reqs = ["22998.1"]
+touches = ["node/sequencer", "node/app.go", "rpc", "docs/wiki/Sequencing.md"]
+tests = []
+verification_contract = "go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestNonceOpen && go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestNonceQueue && go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestNonceAdmission"
+do_1 = "do_1 Gotcha 4732 parts one to five, decision 3805 points one to three. Read node/sequencer/nonce_queue.go with its hold, its drain and its expiry, node/sequencer/nonce_admission.go, the place in node/sequencer/driver.go that opens the next block after a commit, the reader of the next nonce and the function Accept of the node in node/sequencer/node.go, the function LatestCtx in node/app.go, the function in rpc/send.go that accepts on the sequencer with its one further try, and the cases of the queue and of the admission. Read the sentences in docs/wiki/Sequencing.md and in rpc/AGENTS.md that describe held transactions. Write the case of part two first and run it by hand before the change: a sender sends nonce N, the block is sealed, the sender sends nonce N plus one before the commit. Note its answer and that the transaction is still held after the next block has opened, and name both in the final message."
+symbols = []
 
 [capability.22.39.960]
 title = "Let every install step of the launchpad test workflow read the package index and fetch again before it ends its job"
@@ -178254,7 +178308,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.116]
 title = "Set the heading and the totals of the reward view of the launchpad at the values of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209249,9 +209303,75 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.964]
+title = "Give the stream cleanup of the ranking case helper the deadline form of its reset"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.964"]
+interfaces = []
+do_1 = "do_1 Gotcha 4734, decision 3807. Read services/launchpad/ranking-algo/internal/internaltest/broker.go whole and the three places that call RankingBroker: services/launchpad/ranking-algo/internal/app/app_test.go, services/launchpad/ranking-algo/internal/store/production_universe_test.go, services/launchpad/ranking-algo/internal/store/publication_bound_test.go. Read the targets lint, race, cover and cover-check of services/launchpad/Makefile."
+do_2 = "do_2 Point one. Give the package one function that is not exported and returns the deadline of the stream work: the present time plus three minutes, shortened to the deadline of the test binary less thirty seconds where the binary has a deadline and that time is earlier. Shape it so that a case can give it the present time and the deadline of the binary as values. The three minutes and the thirty seconds each stand once as a constant of the package that is not exported."
+do_3 = "do_3 Point two. The reset takes its deadline from that function in place of the lines that compute it now. The cleanup of the streams takes its deadline from the same function at the time it runs, in place of the twenty seconds. The connection of the lock keeps the deadline of the reset as it has it now, and the cleanup of that connection keeps its ten seconds."
+do_4 = "do_4 Points three and four. The cleanup removes the ranking streams and every stream that did not exist at the reset, waits after each removal until the broker no longer knows the stream, and an error of it fails the case with the present message. Change no assertion, skip no case, change no caller and change no file outside the directory of the helper."
+do_5 = "do_5 Add one case beside the helper that needs no broker and no database. It gives the function a present time and compares the result for a binary without a deadline, for a deadline further away than three minutes and thirty seconds, and for a nearer deadline."
+do_6 = "do_6 Run the targets lint, race and cover-check of services/launchpad/Makefile with MODULES=ranking-algo once by hand and read every line of the output. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/ranking-algo && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=ranking-algo"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.963]
+title = "Set release 7.0.2, add its release notes and let the API documents and the node image file follow the version file"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.962"]
+reqs = ["22998.1"]
+capabilities = ["22.39.963"]
+interfaces = []
+do_1 = "do_1 Gotcha 4733, decision 3806. Set tools/release/version.json to version v7.0.2 and keep upgrade v7.0. Read tools/release/preflight.sh and tools/release/postflight.sh and the cases under tools/release/tests that compare with the release version: they read the file. Where one of them still compares with a literal of the release version, make it follow the file. A fixture that names an artifact or a tag of an earlier release as an example and is not compared with the file may stay. Change nothing under .github: the workflows read the file, and a comment there that names a version of an action is not a release version."
+do_2 = "do_2 Point two. CITATION.cff names version v7.0.2 with the release date 2026-11-19. RELEASE.md, tools/release/README.md and docs/release/README.md name 7.0.2 where they name the current release and say that the version comes from tools/release/version.json and that 7.0.2 keeps plan v7.0. Sentences about plan v7.0 itself stay."
+do_3 = "do_3 Point three. The info section of consensus/rpc/openapi/openapi.yaml and of tools/paxctl/sidecar/api/openapi.yaml names version 7.0.2, each in the form the file has now, and the first line of docker/paxeer/Dockerfile.paxd names the tag v7.0.2. In tests/ci/test_core_version_identity.py the first case takes the version from the file in place of the literal v7.0.0. Its other cases and the stand-in versions of the scratch repository in that file stay as they are. Change no other line of the two documents and of the image file."
+do_4 = "do_4 Point four. Add docs/release/7.0.2-release-notes.md in the form of docs/release/7.0.1-release-notes.md and link it from docs/release/README.md in a row below the row of the notes of 7.0.1, in the form of that row. It says that 7.0.2 replaces the binary of 7.0.1 on every node without a new upgrade plan and keeps plan v7.0, and it holds these items and no others, each as the behaviour of 7.0.2 in the present tense. The fast execution path takes the storage gas value of the ordinary path when the parameter holds no value. The decimal parameters of the virtual machine take the default of the parameter set when no value is stored. The prefix purge of the keeper of the fast path has the form of the keeper of the ordinary path. The result of a transaction in the fast execution path carries its message log, its events and its codespace. The eth namespace holds the receipts of a block equal to the transactions the block lists. The node tool has the command applycheck: it applies given transactions on a copy of a home in every form and compares the results, it runs on a copy that holds no receipt key, and it can credit an account with a token inside the copy before it applies the transactions. The node reads its leader schedule from the committed state of the application. A sequencing primary without a standby renews its lease after the expiry, and a fence by the lease writes an error line. A block that opens releases the held transactions whose nonce has become the next one, and a send without an open block is answered before its nonce is compared. Held transactions have a lifetime setting of their own, sequencer.nonce-queue-lifetime with three seconds when it is omitted, and a node with an enabled sequencer writes at start the lease duration and the settings of the nonce queue in effect."
+do_5 = "do_5 Read the place of the code behind each item of do_4 before you write its sentence, and keep each sentence to what the code does. Where the code does not carry an item as it is written here, write what the code does in the fewest words and name the difference in the final message. Each sentence states behaviour only: no cause, no history and no earlier state. The notes describe the product only and name no network, operator or date other than the release date. The documents of 7.0.0 and of 7.0.1 stay unchanged. Set no tag."
+do_6 = "do_6 Run every test script and Python test under tools/release/tests once by hand, and the cases of tests/ci/test_core_version_identity.py. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/release", "CITATION.cff", "RELEASE.md", "docs/release/README.md", "tests/ci/test_core_version_identity.py", "consensus/rpc/openapi/openapi.yaml", "tools/paxctl/sidecar/api/openapi.yaml", "docker/paxeer/Dockerfile.paxd"]
+tests = []
+planned_paths = ["docs/release/7.0.2-release-notes.md"]
+build_cmd = "bash -n tools/release/preflight.sh && bash -n tools/release/postflight.sh"
+verify_cmd = "bash tools/release/tests/identity.test.sh && bash tools/release/tests/preflight.test.sh && bash tools/release/tests/postflight.test.sh && python3 -m pytest -q tools/release/tests/test_upgrade_info.py tests/ci/test_core_version_identity.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.959]
 title = "Give the oracle publications of the web suite preparation a gas limit that covers the longer path of the price write"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -259742,6 +259862,71 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.962]
+title = "Give held transactions a lifetime setting of their own and write the sequencer settings in effect at start"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.961"]
+reqs = ["22998.1"]
+capabilities = ["22.39.962"]
+interfaces = []
+do_1 = "do_1 Gotcha 4732 part six, decision 3805 points four and five. Read node/sequencer/config.go with its flag names, the registration of the start flags, the validation, the reading of the lease duration with its test for an explicit value, and the template of the sequencer section. Read the place in node/sequencer/node.go that builds the admission, and the cases of the configuration in the package and under daemon/paxd/cmd. Find every place of the repository that names the two bounds of the nonce queue with a search for nonce-queue-max-total, among them tools/release/preflight.sh, docs/wiki/Sequencing.md, docs/release/variables/chain-node.md and docs/runbooks/paxeer-x-fork.md."
+do_2 = "do_2 Point four. Add the setting sequencer.nonce-queue-lifetime: a flag name beside the two bounds, a start flag of type duration, a field of the configuration, the reading from the options, and the validation that it is positive when the sequencer is enabled. Where the setting is omitted the lifetime is three seconds, stated once as a constant. A flag default that the options return for a flag that was not set counts as omitted, as the reading of the lease duration does it. A value that is no duration is refused with the error form of the other settings. The node passes this field as the lifetime when it builds the admission, and the lease duration no longer reaches the queue."
+do_3 = "do_3 Add the setting to the template of the sequencer section beside the two bounds as a commented line with its meaning in one sentence, and to docs/wiki/Sequencing.md, docs/release/variables/chain-node.md and docs/runbooks/paxeer-x-fork.md beside the two bounds in the form of their neighbours. Where tools/release/preflight.sh lists the keys of the section with their types, add the key in a form that leaves a file without the key valid. Change no file under docs/release that describes an earlier release. Name in the final message every further place the search of do_1 finds that this task does not change."
+do_4 = "do_4 Point five. A node with an enabled sequencer writes one line at start through its logger with the lease duration, the lifetime of held transactions and the two bounds in effect, as values. The line is written once, after the configuration is validated, and holds no key and no path."
+do_5 = "do_5 Write node/sequencer/nonce_lifetime_test.go with cases whose names begin with TestNonceLifetime. The setting read from the options reaches the configuration. An omitted setting gives three seconds whatever the lease duration is. Zero and a negative value are refused when the sequencer is enabled, and a value that is no duration is refused. A queue built from a configuration with a lease duration of ten seconds and no lifetime setting drops a held transaction after three seconds and not after ten, measured with the time argument of the expiry and not with a wait. The line of point five holds the four values. Extend the cases that read the registered start flags where they list them."
+do_6 = "do_6 Run by hand once before the counted run the cases of the package whose names begin with TestSequencerConfig, TestAddStartFlags, TestNonceQueue, TestNonceAdmission and TestNonceOpen and the case TestStartCommandRegistersSequencerFlags. Run by hand the case files that read tools/release/preflight.sh, docs/wiki/Sequencing.md, docs/release/variables/chain-node.md or docs/runbooks/paxeer-x-fork.md where there are any, and name them. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/sequencer", "daemon/paxd/cmd", "tools/release/preflight.sh", "docs/wiki/Sequencing.md", "docs/release/variables/chain-node.md", "docs/runbooks/paxeer-x-fork.md"]
+tests = []
+planned_paths = ["node/sequencer/nonce_lifetime_test.go"]
+build_cmd = "go build ./node/... ./daemon/..."
+verify_cmd = "go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestNonceLifetime && go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestSequencerConfig && go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestAddStartFlags && go test -count=1 -timeout 20m ./daemon/paxd/cmd/ -run ^TestStartCommandRegistersSequencerFlags"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.961]
+title = "Release the held transactions whose nonce has become the next one when a block opens, and answer a send without an open block before its nonce is compared"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.961"]
+interfaces = []
+do_1 = "do_1 Gotcha 4732 parts one to five, decision 3805 points one to three. Read node/sequencer/nonce_queue.go with its hold, its drain and its expiry, node/sequencer/nonce_admission.go, the place in node/sequencer/driver.go that opens the next block after a commit, the reader of the next nonce and the function Accept of the node in node/sequencer/node.go, the function LatestCtx in node/app.go, the function in rpc/send.go that accepts on the sequencer with its one further try, and the cases of the queue and of the admission. Read the sentences in docs/wiki/Sequencing.md and in rpc/AGENTS.md that describe held transactions. Write the case of part two first and run it by hand before the change: a sender sends nonce N, the block is sealed, the sender sends nonce N plus one before the commit. Note its answer and that the transaction is still held after the next block has opened, and name both in the final message."
+do_2 = "do_2 Point one. Give the queue a release over all senders that the open of a block calls after the expiry: for each sender with held transactions it hands the held transaction with the next nonce to the accept path and goes on in nonce order until the next nonce meets no held transaction. Keep the locks as the drain keeps them today: the accept runs without the lock of the queue, and one sender is released by one caller at a time. A refusal by the accept path drops the held transaction, is recorded as a drain failure and never stops the open of the block. Read the locks the commit listener holds at that place and the locks of the accept path. Where the accept path cannot run inside the listener, start the release right after the listener has opened the block, and name the form in the final message."
+do_3 = "do_3 Point two. A send that arrives while no block is open is answered with the error of a send without an open block before the queue compares its nonce, so that the function in rpc/send.go waits for the next open block and tries once more. A transaction with the next nonce of its sender is not answered as held. Where the code carries another form with the same result and a smaller change, take it and name it in the final message. Point three holds in every form."
+do_4 = "do_4 Write node/sequencer/nonce_open_test.go with cases whose names begin with TestNonceOpen. First: the case of do_1 now ends with nonce N plus one executed in the block after the sealed one without a second send, and its receipt is read by its hash. Second: a held transaction whose nonce becomes the next one through a transaction that the queue did not accept itself is released when the next block opens. Third: three held transactions with the nonces N plus one to N plus three are released in order at one open after N. Fourth: a held transaction that the accept path refuses at the release is dropped and recorded as a drain failure, the block opens, and a later held nonce of the sender stays held. Fifth: a transaction with a nonce above the next one is still held, and the expiry still drops it after the lifetime. Sixth: a send with the next nonce of the sender while no block is open is not answered as held. Seventh: no transaction executes twice where a direct send and the release meet for one sender. Use the node of the package cases where a case needs the seal and the commit, and the queue with a reader of the case where it does not."
+do_5 = "do_5 Run by hand once before the counted run the cases of the package whose names begin with TestNonceQueue, TestNonceAdmission and TestSequencerRPC and the cases of the package rpc that read the send path. Correct in the fewest words the sentences in docs/wiki/Sequencing.md and in rpc/AGENTS.md about held transactions that the change makes untrue. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/sequencer", "node/app.go", "rpc", "docs/wiki/Sequencing.md"]
+tests = []
+planned_paths = ["node/sequencer/nonce_open_test.go"]
+build_cmd = "go build ./node/... ./rpc/..."
+verify_cmd = "go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestNonceOpen && go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestNonceQueue && go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestNonceAdmission"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.922]
 title = "Renew the lease of a sequencing primary without a standby after the expiry and log a fence by the lease"
@@ -397578,7 +397763,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.960]
 title = "Let every install step of the launchpad test workflow read the package index and fetch again before it ends its job"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

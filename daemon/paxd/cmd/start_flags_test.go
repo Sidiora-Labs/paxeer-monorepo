@@ -46,10 +46,14 @@ func TestStartCommandRegistersSequencerFlags(t *testing.T) {
 		sequencer.FlagWALRetainBlocks,
 		sequencer.FlagNonceQueueMaxPerSender,
 		sequencer.FlagNonceQueueMaxTotal,
+		sequencer.FlagNonceQueueLifetime,
 		sequencer.FlagLeaseDuration,
 	} {
 		t.Run(name, func(t *testing.T) {
 			require.NotNil(t, startCmd.Flags().Lookup(name), "paxd start must define --%s", name)
 		})
 	}
+	flag := startCmd.Flags().Lookup(sequencer.FlagNonceQueueLifetime)
+	require.Equal(t, "duration", flag.Value.Type())
+	require.Equal(t, sequencer.DefaultNonceQueueLifetime.String(), flag.DefValue)
 }
