@@ -54,7 +54,7 @@ export function RankedRow({ sort, entries, creatorLabel, loading = false, placeh
         level={2}
         loading={loading}
         action={
-          <Link prefetch={false} href={showAllHref(sort)} className="inline-flex min-h-touch-target-min items-center gap-1 rounded-sm px-2 text-sm font-bold text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text">
+          <Link prefetch={false} href={showAllHref(sort)} className="inline-flex min-h-8 items-center gap-1 rounded-sm px-2 text-sm font-bold text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text">
             Show all
             <span className="sr-only"> {liveSortLabels[sort].toLowerCase()} streams</span>
             <ChevronRight aria-hidden="true" className="size-4" />

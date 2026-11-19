@@ -213,7 +213,7 @@ export function HeroFramePlaceholder({ children, className }: HeroFramePlacehold
   return (
     <section data-live-hero aria-label="Featured live streams" className={cn(heroStageClass, className)}>
       <div data-live-hero-frame className={cn(heroFrameClass, 'mx-auto max-w-250')}>
-        <div className="grid min-w-0 w-full grid-cols-1 bg-surface-2">
+        <div className="grid min-h-56 min-w-0 w-full grid-cols-1 bg-surface-2">
           <span aria-hidden="true" className="col-start-1 row-start-1 aspect-video" />
           <div className="col-start-1 row-start-1 flex min-w-0 items-center justify-center p-4">
             {children}

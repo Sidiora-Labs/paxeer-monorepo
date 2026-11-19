@@ -14,6 +14,12 @@ const sizeClass: Record<ControlSize, string> = {
   lg: 'min-h-control-height-lg px-5 py-1 text-base gap-2',
 };
 
+const edgePaddingClass: Record<ControlSize, string> = {
+  sm: 'px-[calc(var(--sl-space-3)-var(--sl-edge-width))]',
+  md: 'px-[calc(var(--sl-space-4)-var(--sl-edge-width))]',
+  lg: 'px-[calc(var(--sl-space)*5-var(--sl-edge-width))]',
+};
+
 const variantClass: Record<ButtonVariant, string> = {
   primary:
     'bg-accent text-on-accent hover:bg-accent-hover active:bg-accent-active disabled:bg-accent-soft-strong disabled:text-text-disabled aria-disabled:bg-accent-soft-strong aria-disabled:text-text-disabled',
@@ -54,6 +60,7 @@ export function buttonClass(opts: {
     pill ? 'rounded-pill' : 'rounded-sm',
     sizeClass[size],
     variantClass[variant],
+    (variant === 'secondary' || variant === 'ghost') && edgePaddingClass[size],
     fullWidth && 'w-full',
     className
   );
