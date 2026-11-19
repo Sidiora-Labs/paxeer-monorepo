@@ -33,19 +33,47 @@ const MultichainEcosystemsTable = ({ data, isLoading, sort, setSorting }: Props)
       <TableHeaderSticky>
         <TableRow>
           <TableColumnHeader width="30%">Chain name</TableColumnHeader>
-          <TableColumnHeaderSortable isNumeric width="17.5%" sortField="active_accounts" sortValue={ sort } onSortToggle={ onSortToggle }>
+          <TableColumnHeaderSortable
+            isNumeric
+            textAlign="start"
+            width="17.5%"
+            sortField="active_accounts"
+            sortValue={ sort }
+            onSortToggle={ onSortToggle }
+          >
             Active addresses
             <chakra.span color="text.secondary" whiteSpace="pre"> 7D</chakra.span>
           </TableColumnHeaderSortable>
-          <TableColumnHeaderSortable isNumeric width="17.5%" sortField="new_addresses" sortValue={ sort } onSortToggle={ onSortToggle }>
+          <TableColumnHeaderSortable
+            isNumeric
+            textAlign="start"
+            width="17.5%"
+            sortField="new_addresses"
+            sortValue={ sort }
+            onSortToggle={ onSortToggle }
+          >
             New addresses
             <chakra.span color="text.secondary" whiteSpace="pre"> 7D</chakra.span>
           </TableColumnHeaderSortable>
-          <TableColumnHeaderSortable isNumeric width="17.5%" sortField="daily_transactions" sortValue={ sort } onSortToggle={ onSortToggle }>
+          <TableColumnHeaderSortable
+            isNumeric
+            textAlign="start"
+            width="17.5%"
+            sortField="daily_transactions"
+            sortValue={ sort }
+            onSortToggle={ onSortToggle }
+          >
             Daily txs
             <chakra.span color="text.secondary" whiteSpace="pre"> 7D</chakra.span>
           </TableColumnHeaderSortable>
-          <TableColumnHeaderSortable isNumeric width="17.5%" sortField="tps" sortValue={ sort } onSortToggle={ onSortToggle }>
+          <TableColumnHeaderSortable
+            isNumeric
+            textAlign="start"
+            width="17.5%"
+            sortField="tps"
+            sortValue={ sort }
+            onSortToggle={ onSortToggle }
+          >
             TPS
           </TableColumnHeaderSortable>
         </TableRow>

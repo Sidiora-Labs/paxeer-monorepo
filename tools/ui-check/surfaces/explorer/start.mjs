@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { createRequire, enableCompileCache, flushCompileCache } from 'node:module';
 import { readFile, readdir } from 'node:fs/promises';
@@ -5,6 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
+import { watchSurfaceOwner } from './lifecycle.mjs';
 import { tokenServerAnswer } from './tokens.mjs';
 
 const directory = fileURLToPath(new URL('../../../../apps/explorer/', import.meta.url));
@@ -231,6 +233,10 @@ async function close() {
   server.closeAllConnections();
   server.close();
   await application.close();
+}
+if (!process.argv.includes('--prepare')) {
+  const ownerPid = Number(execFileSync('ps', ['-o', 'ppid=', '-p', String(process.ppid)], { encoding: 'utf8' }).trim());
+  watchSurfaceOwner(ownerPid, () => void close());
 }
 process.on('SIGTERM', () => void close());
 process.on('SIGINT', () => void close());
