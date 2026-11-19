@@ -178019,7 +178019,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.127]
 title = "Close the batch, deposit and withdrawal views of the explorer again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.120"]
