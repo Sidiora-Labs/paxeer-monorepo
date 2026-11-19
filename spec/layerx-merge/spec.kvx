@@ -15904,6 +15904,12 @@ value = "One. The spender of an allowance that a flow of the launchpad web appli
 basis = "Gotcha 4725."
 affects = []
 
+[decision.3799]
+title = "A record that binds a source follows the source in the change that moves it"
+value = "One. A record that binds a source of another module by its bytes is refreshed in the same task that changes the source: by its recorder where one exists, and by the value its case computes where none exists. A task that changes a file of the shared module of the launchpad reads which records of the service modules name that file and runs their cases. Two. A refresh changes the bound value alone. The statements, the routes, the migrations and their order stay, and a difference beyond the bound source is read and named, not recorded over. Three. A case that proves a registration in a source of another module states the file and the text of the registration and finds the line: exactly one line of the file holds the text. It states no line number. Tasks 22.39.953 and 22.39.954."
+basis = "Gotcha 4726."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45564,6 +45570,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.954]
+title = "Let the route corrections case of the launchpad client package find the registration it proves"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/sdk"]
+tests = []
+verification_contract = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/sdk --fail-if-no-match run test)"
+do_1 = "do_1 Gotcha 4726 part four, decision 3799 point three. Read the case everyRouteCorrectionHasRegisteredProducer in sdk/launchpad/packages/sdk/test/route-corrections.test.mjs with its list of producers, and the registration of the route in services/launchpad/pnl-tracker/internal/app/app.go."
+symbols = []
+
+[capability.22.39.953]
+title = "Refresh the records of the pnl-tracker and stats modules of the launchpad that bind the shared migrations source"
+reqs = ["22998.1"]
+touches = ["services/launchpad"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .) && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4726 parts one to three, decision 3799 points one and two. Read the helper rewardHistoryBootstrap in services/launchpad/pnl-tracker/internal/production/l18/rewards_database_test.go, the catalog services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/catalog.json with its Sources and the recorder record_catalog.py beside it, the case TestRuntimeRoleAnalyticsTables of the stats module with the function that reads its statement inventory and how it derives the value it compares, and the change task 22.39.938 made to sdk/launchpad/shared/db/production/migrations.go."
+symbols = []
 
 [capability.22.39.952]
 title = "Grant and read the allowances of the trade and swap flows of the launchpad web application at the spender of the deployment"
@@ -208597,6 +208621,67 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.954]
+title = "Let the route corrections case of the launchpad client package find the registration it proves"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.954"]
+interfaces = []
+do_1 = "do_1 Gotcha 4726 part four, decision 3799 point three. Read the case everyRouteCorrectionHasRegisteredProducer in sdk/launchpad/packages/sdk/test/route-corrections.test.mjs with its list of producers, and the registration of the route in services/launchpad/pnl-tracker/internal/app/app.go."
+do_2 = "do_2 The row of a producer states operation, method, path, file and the text of the registration, and no line number. The case reads the file and expects exactly one line whose trimmed text equals the registration; the message of the assertion names the file. Every other assertion of the case stays: the set of operations, the form of the registration for method and path, the method of the operation and the corrected path."
+do_3 = "do_3 Read the other case files under sdk/launchpad/packages/sdk/test for a line number of a source outside the package and settle each one the same way. Name each changed case in the final message. Only test files change. No case is removed, skipped or weakened beyond the stated line number. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/sdk"]
+tests = []
+planned_paths = []
+build_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages)"
+verify_cmd = "(cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/sdk --fail-if-no-match run test)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.953]
+title = "Refresh the records of the pnl-tracker and stats modules of the launchpad that bind the shared migrations source"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.953"]
+interfaces = []
+do_1 = "do_1 Gotcha 4726 parts one to three, decision 3799 points one and two. Read the helper rewardHistoryBootstrap in services/launchpad/pnl-tracker/internal/production/l18/rewards_database_test.go, the catalog services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/catalog.json with its Sources and the recorder record_catalog.py beside it, the case TestRuntimeRoleAnalyticsTables of the stats module with the function that reads its statement inventory and how it derives the value it compares, and the change task 22.39.938 made to sdk/launchpad/shared/db/production/migrations.go."
+do_2 = "do_2 The catalog of the pnl-tracker module holds the checksum of the present bytes of sdk/launchpad/shared/db/production/migrations.go. Refresh it by the recorder in the way the recorder states. Where the recorder needs a database that the environment does not give, set the value of that one path to the checksum the helper computes and name this in the final message. Read every other path of the Sources against its file; a further difference is named in the final message with path and cause before it is refreshed."
+do_3 = "do_3 The statement inventory of the stats module holds the value of the present bytes of that file in every entry that names it. No statement, table or order of the inventory changes. Where the case then reports a difference that is not the bound source, read it and repair it inside the paths."
+do_4 = "do_4 Other records under services/launchpad name the same file. Change one of them only where its own case does not pass for the bytes of that file, and name it in the final message. No product file changes, and no case is removed, skipped or weakened. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && go vet ./...) && (cd services/launchpad/stats-*ers && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .) && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
