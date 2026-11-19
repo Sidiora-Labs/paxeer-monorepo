@@ -97,7 +97,7 @@ const CodeEditorSearch = ({ models, data, onFileSelect, isInputStuck, isActive, 
 
   const buttonProps: HTMLChakraProps<'button'> = {
     type: 'button',
-    boxSize: 'touchTarget',
+    boxSize: 5,
     p: 0.25,
     cursor: 'pointer',
     borderRadius: 'control',
@@ -169,7 +169,7 @@ const CodeEditorSearch = ({ models, data, onFileSelect, isInputStuck, isActive, 
       <Box
         px={ 2 }
         position="sticky"
-        top="var(--chakra-sizes-touch-target)"
+        top="calc(var(--chakra-spacing-8) + var(--chakra-spacing-3) / 4)" css={{ '@media (max-width: 834px)': { top: 'var(--chakra-sizes-touch-target)' } }}
         left="0"
         zIndex="2"
         bgColor={ themeColors['sideBar.background'] }
@@ -190,7 +190,6 @@ const CodeEditorSearch = ({ models, data, onFileSelect, isInputStuck, isActive, 
             bgColor={ themeColors['input.background'] }
             borderRadius="none"
             height="auto"
-            minH="touchTarget"
             textStyle="sm"
             borderWidth="var(--chakra-border-widths-1)"
             borderColor={ themeColors['input.background'] }

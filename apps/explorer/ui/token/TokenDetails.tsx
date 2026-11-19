@@ -179,7 +179,7 @@ const TokenDetails = ({ tokenQuery }: Props) => {
 
       { (type !== 'ERC-20' && config.UI.views.nft.marketplaces.length === 0 && appActionData) && (
         <ScanKeyValue label="Dapp" hint="Link to the dapp">
-          <AppActionButton data={ appActionData } height="touchTarget" source="NFT collection"/>
+          <AppActionButton data={ appActionData } height="var(--chakra-spacing-7\\.5)" source="NFT collection"/>
         </ScanKeyValue>
       ) }
 

@@ -39,8 +39,6 @@ const EpochElectionRewardsTableItem = ({ isLoading, data, type }: Props) => {
                 aria-expanded={ section.open }
                 aria-controls={ detailsId }
                 disabled={ isLoading }
-                minH="touchTarget"
-                minW="touchTarget"
                 variant="link"
               >
                 <IconSvg

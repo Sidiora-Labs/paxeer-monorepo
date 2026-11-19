@@ -59,7 +59,7 @@ export function ChainsList() {
         <Text fontWeight="semibold">{ paxeerX.navigation.text }</Text>
         { paxeerX.navigation.items.map((item) => (
           <Link key={ item.href } href={ item.href }
-            aria-current="page" minH="touchTarget" minW="touchTarget" display="inline-flex" alignItems="center">{ item.text }</Link>
+            aria-current="page" display="inline-flex" alignItems="center">{ item.text }</Link>
         )) }
       </Flex>
       <PageTitle title="Chains"/>

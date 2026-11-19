@@ -148,8 +148,8 @@ describe('DetailedInfo', () => {
     const hint = container.querySelector('button[aria-label="hint"]') as HTMLButtonElement;
     const box = hint.parentElement as HTMLElement;
 
-    expect(declarationsOf(hint)).toContain('min-width:var(--chakra-sizes-touch-target)');
-    expect(declarationsOf(hint)).toContain('min-height:var(--chakra-sizes-touch-target)');
+    expect(window.getComputedStyle(hint).width).toBe('var(--chakra-sizes-5)');
+    expect(window.getComputedStyle(hint).height).toBe('var(--chakra-sizes-5)');
     expect(declarationsOf(box)).toContain('margin-inline:calc((var(--chakra-sizes-touch-target)-var(--chakra-spacing-5))/2)');
     expect(container.querySelectorAll('a')).toHaveLength(2);
   });

@@ -34,7 +34,7 @@ const ActivityTable = React.forwardRef<HTMLTableElement, Props>(function Activit
           '& [data-is-numeric]': { fontVariantNumeric: 'tabular-nums', textAlign: 'end' },
           '& [data-is-numeric] :is(a, span, div)': { fontVariantNumeric: 'tabular-nums' },
           '& tr': { _motionReduce: { animation: 'none' } },
-          '& button': { minW: 'touchTarget', minH: 'touchTarget' },
+          '& button': { },
         }}
       >
         <chakra.caption srOnly>{ label }</chakra.caption>

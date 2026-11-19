@@ -38,7 +38,6 @@ const CodeEditorSearchResultItem = ({ lineContent, filePath, onClick, startLineN
       display="block"
       w="100%"
       minW={ 0 }
-      minH="touchTarget"
       textAlign="left"
       pr={ 2 }
       pl={ 9 }

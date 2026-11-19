@@ -18,8 +18,7 @@ const RecentBlocks = () => {
 
   return (
     <Box mb={ 8 } data-network-recent-blocks
-      css={{ '& a': { minWidth: 'touchTarget',
-        minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } } }}>
+      css={{ '& a': { _motionReduce: { transitionProperty: 'none' } } }}>
       <Box as="section" aria-labelledby={ headingId } minW={ 0 } data-section-group="Recent blocks">
         <Flex alignItems="center" justifyContent="space-between" flexWrap="nowrap" gap={ 2 } mb={ 2 }>
           <Text as="h2" id={ headingId } textStyle="label" color="text.muted" textTransform="uppercase" whiteSpace="nowrap">Recent blocks</Text>

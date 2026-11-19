@@ -24,7 +24,6 @@ const MetadataItemArray = ({ name, value, level }: Props) => {
       py={ 0 }
     >
       <AccordionItemTrigger
-        minH="touchTarget"
         px={ 0 }
         py={ 2 }
         _hover={{ bgColor: 'inherit' }}
