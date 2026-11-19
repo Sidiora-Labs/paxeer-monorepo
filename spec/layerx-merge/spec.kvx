@@ -208619,7 +208619,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.950]
 title = "Let the leaderboard state cases and the other cases of the launchpad web suite read the class tokens their components hold"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
