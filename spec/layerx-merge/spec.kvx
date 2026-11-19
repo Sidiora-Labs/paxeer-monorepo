@@ -15910,6 +15910,12 @@ value = "One. A record that binds a source of another module by its bytes is ref
 basis = "Gotcha 4726."
 affects = []
 
+[decision.3800]
+title = "The live step of the hosted indexer reads in bounded batches, a source is ready within one step of its head, and a consensus source without a transaction index is a declared state"
+value = "One. The live step reads the blocks and receipts of a step of more than one height through the bounded batches and readers the backfill uses, with the batch size and the number of readers of the two existing settings, their defaults and their bounds. No setting is added and no default changes. Every check of the step stays: the position of each unit, the parent link, the handling of a reorganisation, and one commit per height in ascending order. Where a node does not answer the batches of a step, the step reads its heights by the single requests it uses today. Two. A chain source, and a consensus source whose node states its index on, is in the state ready while its observation is fresh and reconciled without a failure and its indexed cursor is at the observed head or below it by no more than the heights of one step, the max units per step of the policy. A cursor further below the head, or above it, is in the state catching_up as before. The states starting, stalled, retrying and failing keep their rules and come first. Three. A consensus source whose node states its transaction index off is observed and not failed: the daemon records the head and the success of the observation, the document holds the source in the state index_disabled, and that state does not lower the status of the document. The word says that the transactions of the consensus source are not ingested while it stands. A node that states the index on returns the source to the states of point two, and a node that states neither stays a source failure. Four. Version 1 of the document keeps its fields. Every reader of the document follows in the same series: the reader of the gateway and the reader of the client accept the state ready with a cursor at or below the head, and the state index_disabled for the consensus source alone, with the demands on reconciled, success, freshness and failures the state ready has. Every other word stays refused, and the gateway counts the indexer as a ready backend for the status available as before. A later change of a state word or of a rule of the document names its readers and changes them in the same series. Tasks 22.39.955 to 22.39.957."
+basis = "Gotcha 4727. Decision 3758."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45570,6 +45576,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.957]
+title = "Let the client reader of the freshness part of a history answer follow the readiness rule of the hosted indexer"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-client"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test history_rpc --test sequencer_reads"
+do_1 = "do_1 Gotcha 4727 part four, decision 3800 points two to four. Read in services/agent/crates/layerx-client/src/sequencer.rs the function validate_history_readiness with the function that decodes a history page and every caller, and the case files services/agent/crates/layerx-client/tests/history_rpc.rs and services/agent/crates/layerx-client/tests/sequencer_reads.rs with the function recorded_freshness and the fixture it reads."
+symbols = []
+
+[capability.22.39.956]
+title = "Hold a source of the hosted indexer ready within one step of its head, declare a consensus source without a transaction index, and let the reader of the gateway follow"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/indexer", "services/platform/hosted/gateway", "docs/wiki/HostedGateway.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway history:: && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway chain_reads_ && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway public_read"
+do_1 = "do_1 Gotcha 4727 parts two to four, decision 3800 points two to four. Read services/platform/hosted/indexer/src/api.rs with readiness_document and the type Readiness, in services/platform/hosted/indexer/src/paxeer.rs observe_comet and daemon_step, in services/platform/hosted/indexer/src/store.rs the table source_observations with the functions that record a head, a success and a failure and the place that adds the column source_head_at to an existing store, in services/platform/hosted/indexer/src/main.rs the place that builds the readiness of the daemon, the case daemon_callback_reaches_evm_fallback_and_keeps_comet_unready in services/platform/hosted/indexer/tests/snapshot_runtime.rs, the two places in services/platform/hosted/indexer/tests/support/ai_snapshot_fixture.rs that assert the text tx_index_disabled, in services/platform/hosted/gateway/src/history.rs the functions readiness_status and status with every caller, and the sentence on the indexer in the readiness section of docs/wiki/HostedGateway.md."
+symbols = []
+
+[capability.22.39.955]
+title = "Read the heights of a live step of the hosted indexer through the bounded batches and readers"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/indexer"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests"
+do_1 = "do_1 Gotcha 4727 parts one and two, decision 3800 point one. Read in services/platform/hosted/indexer/src/paxeer.rs the functions step, block, receipts, blocks_with_receipts and read_block_batch and the constructor of the ingester, in services/platform/hosted/indexer/src/config.rs the policy, the backfill configuration and the two settings with their defaults and bounds, in services/platform/hosted/indexer/src/main.rs the function follow and the place that builds the ingester of the daemon, and the stand-ins for the node in services/platform/hosted/indexer/tests/ingest.rs, services/platform/hosted/indexer/tests/snapshot_runtime.rs and services/platform/hosted/indexer/tests/support/ai_snapshot_fixture.rs."
+symbols = []
 
 [capability.22.39.954]
 title = "Let the route corrections case of the launchpad client package find the registration it proves"
@@ -223562,6 +223595,102 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.957]
+title = "Let the client reader of the freshness part of a history answer follow the readiness rule of the hosted indexer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.957"]
+interfaces = []
+do_1 = "do_1 Gotcha 4727 part four, decision 3800 points two to four. Read in services/agent/crates/layerx-client/src/sequencer.rs the function validate_history_readiness with the function that decodes a history page and every caller, and the case files services/agent/crates/layerx-client/tests/history_rpc.rs and services/agent/crates/layerx-client/tests/sequencer_reads.rs with the function recorded_freshness and the fixture it reads."
+do_2 = "do_2 The function validate_history_readiness accepts the state ready where the demands of today hold and source_head and indexed_cursor are both numbers with the cursor at or below the head, and accepts the state index_disabled for the source comet alone with the demands on reconciled, last_success_at, freshness_secs and consecutive_failures the state ready has, as a state that does not lower the status. A ready source with a cursor above the head, the state index_disabled on another source and every unknown word stay refused, and every field of the freshness part is still passed on as it was served. This task does not wait for task 22.39.956: the rule is the one decision 3800 states."
+do_3 = "do_3 Cases in services/agent/crates/layerx-client/tests/history_rpc.rs: a history answer whose freshness part holds a ready source with the cursor below the head decodes and carries the freshness part unchanged; one with the consensus source in the state index_disabled beside a ready chain source decodes; a ready source with the cursor above the head, the state index_disabled on the chain source and an unknown word are each refused as malformed. The fixture under apps/web that recorded_freshness reads is read only. No public type or function of the crate changes its form, and no file outside services/agent/crates/layerx-client changes. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-client"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test history_rpc --test sequencer_reads"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.956]
+title = "Hold a source of the hosted indexer ready within one step of its head, declare a consensus source without a transaction index, and let the reader of the gateway follow"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.956"]
+interfaces = []
+do_1 = "do_1 Gotcha 4727 parts two to four, decision 3800 points two to four. Read services/platform/hosted/indexer/src/api.rs with readiness_document and the type Readiness, in services/platform/hosted/indexer/src/paxeer.rs observe_comet and daemon_step, in services/platform/hosted/indexer/src/store.rs the table source_observations with the functions that record a head, a success and a failure and the place that adds the column source_head_at to an existing store, in services/platform/hosted/indexer/src/main.rs the place that builds the readiness of the daemon, the case daemon_callback_reaches_evm_fallback_and_keeps_comet_unready in services/platform/hosted/indexer/tests/snapshot_runtime.rs, the two places in services/platform/hosted/indexer/tests/support/ai_snapshot_fixture.rs that assert the text tx_index_disabled, in services/platform/hosted/gateway/src/history.rs the functions readiness_status and status with every caller, and the sentence on the indexer in the readiness section of docs/wiki/HostedGateway.md."
+do_2 = "do_2 The rule of the state ready in readiness_document: the type Readiness holds the heights of one step, given in services/platform/hosted/indexer/src/main.rs from the max units per step of the policy and never below one. A source is ready where the rules of today hold and its indexed cursor is at the observed head or below it by no more than that number; a cursor further below the head, a cursor above the head and an absent head or cursor are catching_up. The order of the rules before it stays: starting, stalled, failing and retrying come first. The fields of the document and its version do not change."
+do_3 = "do_3 A consensus source whose node states its transaction index off: observe_comet records the head and the success of the observation and no failure, and still returns the answer that lets the daemon go on with the EVM source alone. The store keeps with the observation of the source that its node stated the index off, in a column that is added to an existing store the way source_head_at was added, so that a store written before the change opens unchanged; an observation that states the index on clears it. In readiness_document such a source has the state index_disabled, which does not lower the status of the document; the rules for starting and stalled still come first, and the state is given to the consensus source alone. A node that states neither on nor off stays the source failure of today, and a consensus source that is catching up stays a failure of the step."
+do_4 = "do_4 The reader of the gateway: readiness_status in services/platform/hosted/gateway/src/history.rs accepts the state ready where the demands of today hold and source_head and indexed_cursor are both numbers with the cursor at or below the head, and accepts the state index_disabled for the source comet alone with the demands on reconciled, last_success_at, freshness_secs and consecutive_failures the state ready has, as a state that does not lower the status. A ready source with a cursor above the head, the state index_disabled on another source and every unknown word stay refused. The function status and the entry of the gateway keep their mapping. The sentence of docs/wiki/HostedGateway.md on the indexer states the rule of decision 3800 points two and three; nothing else of that page changes."
+do_5 = "do_5 Cases of the indexer, in services/platform/hosted/indexer/tests/snapshot_runtime.rs or a case file of their own under services/platform/hosted/indexer/tests: a source one height and one whole step below its head is ready, one height further is catching_up, a cursor above the head is catching_up, and the number follows the policy the case sets; a consensus source with the index off gives the state index_disabled and the status ready beside a ready chain source, returns to the rule of point two when the node states the index on, and stays starting before its first observation; a store file written without the new column opens, and the state survives a close and a reopen of the store. The case daemon_callback_reaches_evm_fallback_and_keeps_comet_unready and the two places in services/platform/hosted/indexer/tests/support/ai_snapshot_fixture.rs follow the decision: they assert the recorded success, no failure streak and no error text, the state index_disabled and the status of the document for the sources of the case, and keep every other assertion, among them the order of the calls, the EVM progress, the recovery after a reopen and the refusal of an invalid status. The name of the case may follow its new meaning."
+do_6 = "do_6 Cases of the gateway in the test module of services/platform/hosted/gateway/src/history.rs, with names that begin with readiness_status_: a document with a ready source whose cursor is below the head gives available, a document with the consensus source in the state index_disabled beside a ready chain source gives available, and each refusal of do_4 is asserted with a document of its own. A history answer whose freshness part holds such a document is passed on unchanged."
+do_7 = "do_7 The function step in services/platform/hosted/indexer/src/paxeer.rs and the reads of the live step belong to task 22.39.955, and the reader in services/agent/crates/layerx-client/src/sequencer.rs belongs to task 22.39.957: leave them as they are. No assertion is weakened or removed other than those do_5 names, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/indexer", "services/platform/hosted/gateway", "docs/wiki/HostedGateway.md"]
+tests = []
+planned_paths = []
+build_cmd = "cargo check --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer -p layerx-platform-gateway --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway history:: && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway chain_reads_ && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway public_read"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.955]
+title = "Read the heights of a live step of the hosted indexer through the bounded batches and readers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.955"]
+interfaces = []
+do_1 = "do_1 Gotcha 4727 parts one and two, decision 3800 point one. Read in services/platform/hosted/indexer/src/paxeer.rs the functions step, block, receipts, blocks_with_receipts and read_block_batch and the constructor of the ingester, in services/platform/hosted/indexer/src/config.rs the policy, the backfill configuration and the two settings with their defaults and bounds, in services/platform/hosted/indexer/src/main.rs the function follow and the place that builds the ingester of the daemon, and the stand-ins for the node in services/platform/hosted/indexer/tests/ingest.rs, services/platform/hosted/indexer/tests/snapshot_runtime.rs and services/platform/hosted/indexer/tests/support/ai_snapshot_fixture.rs."
+do_2 = "do_2 The ingester of the daemon holds a batch size and a number of readers. The configuration of the daemon reads them from LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS and LAYERX_INDEXER_BACKFILL_READERS with the defaults and the bounds the backfill has, and a value outside the bounds refuses the start of the daemon as it refuses the backfill. No setting is added and no default changes. The comments of the environment example file of the indexer directory and the text inside services/platform/hosted/indexer that states the two settings say that both bound the reads of the live step as well."
+do_3 = "do_3 The function step: for a step of more than one height it reads the blocks and the receipts of the heights by blocks_with_receipts with the two bounds, and a step of one height is read as today. The requests before the reads stay in their order: chain id, head, the hash of the cursor, the transaction search. Each unit is decoded, checked for its position and its parent link and committed alone, in ascending order, exactly as today, and a parent that differs leads to the reorganisation path as today. A height the node does not hold ends the step with the source failure of today after the heights below it are committed. Where the batches of a step fail as a whole with a source or decode failure, the step reads its heights by the single requests of today, so a node that answers no batch is followed as before. The step holds no more than the heights of one step in memory."
+do_4 = "do_4 Cases with the stand-in for the node, in services/platform/hosted/indexer/tests/ingest.rs or services/platform/hosted/indexer/tests/snapshot_runtime.rs: a step over at least twenty heights with several transactions per height stores the same rows as the same heights read one step of one height at a time, and sends fewer requests than it holds heights and receipts, with the count asserted; an entry of a batch that is missing or an error is read again alone and the step commits; a height in the middle that the node does not hold leaves the cursor at the height below it and returns a source failure; a parent that differs inside a batch takes the reorganisation path; a node that answers no batch is followed by single requests and stores the same rows; a step of one height sends the requests of today; a value of a bound outside its range refuses the start. Every existing case keeps what it asserts; where one counts single requests, it counts the entries the stand-in answered."
+do_5 = "do_5 The function observe_comet, the function readiness_document in services/platform/hosted/indexer/src/api.rs and the assertions on the consensus source in services/platform/hosted/indexer/tests/snapshot_runtime.rs and services/platform/hosted/indexer/tests/support/ai_snapshot_fixture.rs belong to task 22.39.956: leave them as they are. No file outside services/platform/hosted/indexer changes. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cargo check --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
