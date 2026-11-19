@@ -208627,7 +208627,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.954]
 title = "Let the route corrections case of the launchpad client package find the registration it proves"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
