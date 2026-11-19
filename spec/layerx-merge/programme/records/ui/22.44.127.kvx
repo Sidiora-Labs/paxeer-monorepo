@@ -1,0 +1,668 @@
+[meta]
+task = "22.44.127"
+title = "Explorer rollup dimensions"
+reference = "22.44.105"
+shared_dimensions = "22.44.120"
+
+[coverage]
+views = 14
+named_states = 0
+initial_states = 14
+routes = ["/batches/[number]", "/batches/celestia/[height]/[commitment]", "/batches", "/blobs/[hash]", "/deposits", "/dispute-games", "/epochs/[number]", "/epochs", "/interop-messages", "/op/[hash]", "/ops", "/output-roots", "/txn-withdrawals", "/withdrawals"]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default"]
+renders_per_view = 22
+requested_renders = 308
+
+[render]
+first_renders = 0
+last_renders = 308
+last_with_content = 308
+last_without_content = 0
+last_not_rendered = 0
+last_retried = 0
+result = "All 14 views render with content at each of their 22 size and scheme combinations; presentation findings are absent."
+first_geometry_part_width_pairs = 0
+last_geometry_part_width_pairs = 700
+
+[findings.load]
+first = 1
+last = 0
+
+[findings.sideways]
+first = 0
+last = 0
+
+[findings.cut]
+first = 0
+last = 0
+
+[findings.contrast]
+first = 0
+last = 0
+
+[findings.touch]
+first = 0
+last = 0
+
+[findings.focus]
+first = 0
+last = 0
+
+[findings.shift]
+first = 0
+last = 0
+
+[findings.motion]
+first = 0
+last = 0
+
+[findings.scale]
+first = 0
+last = 0
+
+[findings.geometry]
+first = 0
+last = 672
+
+[presentation]
+heading = "32px / 36px at every width."
+icon = "200px by 100px."
+body = "14px / 20px."
+home_action = "One native link uses the md outline appearance, 16px / 24px text, a 32px top margin, 40px desktop height and the 44px touch minimum through 834px."
+spacing = "The error content starts 52px below the main region on smaller screens and 104px below it from the large breakpoint."
+navigation = "The named main landmark, heading and home destination remain available."
+
+[geometry]
+widths = [390, 1280, 1440, 1920, 2560]
+parts_per_view = 10
+views = 14
+part_width_pairs = 700
+differing_part_width_pairs = 672
+differing_parts = 140
+scope = "Each geometry group applies to all 14 listed views."
+fields = ["left", "top", "width", "height", "fontSize", "lineHeight"]
+
+[cause.scrollbar_track]
+description = "The reserved 15px scrollbar track reduces the available width and moves centered content 7.5px left. At 1280px the footer column origins follow the reduced three-column track."
+
+[cause.touch_target]
+description = "Controls through 834px measure at least 44px. The menu expands around its mark, the home action adds 4px to the main region, and footer links and utilities retain their touch areas. Above 834px their desktop dimensions apply."
+
+[cause.native_home_action]
+description = "The primary-control selector measures the single native home link. Its earlier outer link includes a nested 40px control and its 32px top margin in a 72px box, with outer 14px / 20px text metrics. The visible control retains 16px / 24px text and 155px width; the native link measures 40px high above 834px and 44px through 834px."
+
+[view.batches-number]
+name = "/batches/[number]"
+named_states = 0
+renders = 22
+content_renders = 22
+presentation_findings = 0
+differing_parts = 10
+differing_parts_by_width = [10, 8, 10, 10, 10]
+differing_part_width_pairs = 48
+
+[view.batches-celestia-height-commitment]
+name = "/batches/celestia/[height]/[commitment]"
+named_states = 0
+renders = 22
+content_renders = 22
+presentation_findings = 0
+differing_parts = 10
+differing_parts_by_width = [10, 8, 10, 10, 10]
+differing_part_width_pairs = 48
+
+[view.batches]
+name = "/batches"
+named_states = 0
+renders = 22
+content_renders = 22
+presentation_findings = 0
+differing_parts = 10
+differing_parts_by_width = [10, 8, 10, 10, 10]
+differing_part_width_pairs = 48
+
+[view.blobs-hash]
+name = "/blobs/[hash]"
+named_states = 0
+renders = 22
+content_renders = 22
+presentation_findings = 0
+differing_parts = 10
+differing_parts_by_width = [10, 8, 10, 10, 10]
+differing_part_width_pairs = 48
+
+[view.deposits]
+name = "/deposits"
+named_states = 0
+renders = 22
+content_renders = 22
+presentation_findings = 0
+differing_parts = 10
+differing_parts_by_width = [10, 8, 10, 10, 10]
+differing_part_width_pairs = 48
+
+[view.dispute-games]
+name = "/dispute-games"
+named_states = 0
+renders = 22
+content_renders = 22
+presentation_findings = 0
+differing_parts = 10
+differing_parts_by_width = [10, 8, 10, 10, 10]
+differing_part_width_pairs = 48
+
+[view.epochs-number]
+name = "/epochs/[number]"
+named_states = 0
+renders = 22
+content_renders = 22
+presentation_findings = 0
+differing_parts = 10
+differing_parts_by_width = [10, 8, 10, 10, 10]
+differing_part_width_pairs = 48
+
+[view.epochs]
+name = "/epochs"
+named_states = 0
+renders = 22
+content_renders = 22
+presentation_findings = 0
+differing_parts = 10
+differing_parts_by_width = [10, 8, 10, 10, 10]
+differing_part_width_pairs = 48
+
+[view.interop-messages]
+name = "/interop-messages"
+named_states = 0
+renders = 22
+content_renders = 22
+presentation_findings = 0
+differing_parts = 10
+differing_parts_by_width = [10, 8, 10, 10, 10]
+differing_part_width_pairs = 48
+
+[view.op-hash]
+name = "/op/[hash]"
+named_states = 0
+renders = 22
+content_renders = 22
+presentation_findings = 0
+differing_parts = 10
+differing_parts_by_width = [10, 8, 10, 10, 10]
+differing_part_width_pairs = 48
+
+[view.ops]
+name = "/ops"
+named_states = 0
+renders = 22
+content_renders = 22
+presentation_findings = 0
+differing_parts = 10
+differing_parts_by_width = [10, 8, 10, 10, 10]
+differing_part_width_pairs = 48
+
+[view.output-roots]
+name = "/output-roots"
+named_states = 0
+renders = 22
+content_renders = 22
+presentation_findings = 0
+differing_parts = 10
+differing_parts_by_width = [10, 8, 10, 10, 10]
+differing_part_width_pairs = 48
+
+[view.txn-withdrawals]
+name = "/txn-withdrawals"
+named_states = 0
+renders = 22
+content_renders = 22
+presentation_findings = 0
+differing_parts = 10
+differing_parts_by_width = [10, 8, 10, 10, 10]
+differing_part_width_pairs = 48
+
+[view.withdrawals]
+name = "/withdrawals"
+named_states = 0
+renders = 22
+content_renders = 22
+presentation_findings = 0
+differing_parts = 10
+differing_parts_by_width = [10, 8, 10, 10, 10]
+differing_part_width_pairs = 48
+
+[geometry.group_1]
+width = 390
+part = "first-heading"
+views = 14
+earlier = [16, 252, 358, 36, 32, 36]
+present = [16, 252, 343, 36, 32, 36]
+different_fields = ["width"]
+causes = ["scrollbar_track"]
+
+[geometry.group_2]
+width = 390
+part = "footer"
+views = 14
+earlier = [0, 900, 390, 645, 14, 20]
+present = [0, 900, 375, 849, 14, 20]
+different_fields = ["width", "height"]
+causes = ["scrollbar_track", "touch_target"]
+
+[geometry.group_3]
+width = 390
+part = "footer-column-1-first-link"
+views = 14
+earlier = [16, 1094, 40, 28, 13, 18]
+present = [16, 1138, 44, 44, 13, 18]
+different_fields = ["top", "width", "height"]
+causes = ["touch_target"]
+
+[geometry.group_4]
+width = 390
+part = "footer-column-2-first-link"
+views = 14
+earlier = [16, 1259, 73, 28, 13, 18]
+present = [16, 1367, 73, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch_target"]
+
+[geometry.group_5]
+width = 390
+part = "footer-column-3-first-link"
+views = 14
+earlier = [16, 1396, 54, 28, 13, 18]
+present = [16, 1552, 54, 44, 13, 18]
+different_fields = ["top", "height"]
+causes = ["touch_target"]
+
+[geometry.group_6]
+width = 390
+part = "header"
+views = 14
+earlier = [0, 0, 390, 56, 14, 20]
+present = [0, 0, 375, 56, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar_track"]
+
+[geometry.group_7]
+width = 390
+part = "main"
+views = 14
+earlier = [16, 68, 358, 344, 14, 20]
+present = [16, 68, 343, 348, 14, 20]
+different_fields = ["width", "height"]
+causes = ["scrollbar_track", "touch_target"]
+
+[geometry.group_8]
+width = 390
+part = "navigation"
+views = 14
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar_track", "touch_target"]
+
+[geometry.group_9]
+width = 390
+part = "navigation-first-item"
+views = 14
+earlier = [334, 7.5, 40, 40, 16, 24]
+present = [315, 5.5, 44, 44, 16, 24]
+different_fields = ["left", "top", "width", "height"]
+causes = ["scrollbar_track", "touch_target"]
+
+[geometry.group_10]
+width = 390
+part = "primary-control"
+views = 14
+earlier = [16, 340, 155, 72, 14, 20]
+present = [16, 372, 155, 44, 16, 24]
+different_fields = ["top", "height", "fontSize", "lineHeight"]
+causes = ["touch_target", "native_home_action"]
+
+[geometry.group_11]
+width = 1280
+part = "footer"
+views = 14
+earlier = [0, 901, 1280, 339, 14, 20]
+present = [0, 901, 1265, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar_track"]
+
+[geometry.group_12]
+width = 1280
+part = "footer-column-2-first-link"
+views = 14
+earlier = [442.65625, 1059, 73, 28, 13, 18]
+present = [437.65625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_13]
+width = 1280
+part = "footer-column-3-first-link"
+views = 14
+earlier = [861.328125, 1059, 54, 28, 13, 18]
+present = [851.328125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_14]
+width = 1280
+part = "header"
+views = 14
+earlier = [0, 0, 1280, 57, 14, 20]
+present = [0, 0, 1265, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar_track"]
+
+[geometry.group_15]
+width = 1280
+part = "main"
+views = 14
+earlier = [24, 81, 1232, 376, 14, 20]
+present = [24, 81, 1217, 376, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar_track"]
+
+[geometry.group_16]
+width = 1280
+part = "navigation"
+views = 14
+earlier = [215.75, 12, 408, 32, 14, 20]
+present = [208.25, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_17]
+width = 1280
+part = "navigation-first-item"
+views = 14
+earlier = [215.75, 12, 88, 32, 14, 20]
+present = [208.25, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_18]
+width = 1280
+part = "primary-control"
+views = 14
+earlier = [24, 385, 155, 72, 14, 20]
+present = [24, 417, 155, 40, 16, 24]
+different_fields = ["top", "height", "fontSize", "lineHeight"]
+causes = ["native_home_action"]
+
+[geometry.group_19]
+width = 1440
+part = "first-heading"
+views = 14
+earlier = [104, 317, 800, 36, 32, 36]
+present = [96.5, 317, 800, 36, 32, 36]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_20]
+width = 1440
+part = "footer"
+views = 14
+earlier = [0, 901, 1440, 339, 14, 20]
+present = [0, 901, 1425, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar_track"]
+
+[geometry.group_21]
+width = 1440
+part = "footer-column-1-first-link"
+views = 14
+earlier = [104, 1059, 40, 28, 13, 18]
+present = [96.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_22]
+width = 1440
+part = "footer-column-2-first-link"
+views = 14
+earlier = [522.65625, 1059, 73, 28, 13, 18]
+present = [515.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_23]
+width = 1440
+part = "footer-column-3-first-link"
+views = 14
+earlier = [941.328125, 1059, 54, 28, 13, 18]
+present = [933.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_24]
+width = 1440
+part = "header"
+views = 14
+earlier = [0, 0, 1440, 57, 14, 20]
+present = [0, 0, 1425, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar_track"]
+
+[geometry.group_25]
+width = 1440
+part = "main"
+views = 14
+earlier = [104, 81, 1232, 376, 14, 20]
+present = [96.5, 81, 1232, 376, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_26]
+width = 1440
+part = "navigation"
+views = 14
+earlier = [318.25, 12, 408, 32, 14, 20]
+present = [310.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_27]
+width = 1440
+part = "navigation-first-item"
+views = 14
+earlier = [318.25, 12, 88, 32, 14, 20]
+present = [310.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_28]
+width = 1440
+part = "primary-control"
+views = 14
+earlier = [104, 385, 155, 72, 14, 20]
+present = [96.5, 417, 155, 40, 16, 24]
+different_fields = ["left", "top", "height", "fontSize", "lineHeight"]
+causes = ["scrollbar_track", "native_home_action"]
+
+[geometry.group_29]
+width = 1920
+part = "first-heading"
+views = 14
+earlier = [344, 317, 800, 36, 32, 36]
+present = [336.5, 317, 800, 36, 32, 36]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_30]
+width = 1920
+part = "footer"
+views = 14
+earlier = [0, 901, 1920, 339, 14, 20]
+present = [0, 901, 1905, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar_track"]
+
+[geometry.group_31]
+width = 1920
+part = "footer-column-1-first-link"
+views = 14
+earlier = [344, 1059, 40, 28, 13, 18]
+present = [336.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_32]
+width = 1920
+part = "footer-column-2-first-link"
+views = 14
+earlier = [762.65625, 1059, 73, 28, 13, 18]
+present = [755.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_33]
+width = 1920
+part = "footer-column-3-first-link"
+views = 14
+earlier = [1181.328125, 1059, 54, 28, 13, 18]
+present = [1173.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_34]
+width = 1920
+part = "header"
+views = 14
+earlier = [0, 0, 1920, 57, 14, 20]
+present = [0, 0, 1905, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar_track"]
+
+[geometry.group_35]
+width = 1920
+part = "main"
+views = 14
+earlier = [344, 81, 1232, 376, 14, 20]
+present = [336.5, 81, 1232, 376, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_36]
+width = 1920
+part = "navigation"
+views = 14
+earlier = [558.25, 12, 408, 32, 14, 20]
+present = [550.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_37]
+width = 1920
+part = "navigation-first-item"
+views = 14
+earlier = [558.25, 12, 88, 32, 14, 20]
+present = [550.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_38]
+width = 1920
+part = "primary-control"
+views = 14
+earlier = [344, 385, 155, 72, 14, 20]
+present = [336.5, 417, 155, 40, 16, 24]
+different_fields = ["left", "top", "height", "fontSize", "lineHeight"]
+causes = ["scrollbar_track", "native_home_action"]
+
+[geometry.group_39]
+width = 2560
+part = "first-heading"
+views = 14
+earlier = [664, 317, 800, 36, 32, 36]
+present = [656.5, 317, 800, 36, 32, 36]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_40]
+width = 2560
+part = "footer"
+views = 14
+earlier = [0, 901, 2560, 339, 14, 20]
+present = [0, 901, 2545, 339, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar_track"]
+
+[geometry.group_41]
+width = 2560
+part = "footer-column-1-first-link"
+views = 14
+earlier = [664, 1059, 40, 28, 13, 18]
+present = [656.5, 1059, 40, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_42]
+width = 2560
+part = "footer-column-2-first-link"
+views = 14
+earlier = [1082.65625, 1059, 73, 28, 13, 18]
+present = [1075.15625, 1059, 73, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_43]
+width = 2560
+part = "footer-column-3-first-link"
+views = 14
+earlier = [1501.328125, 1059, 54, 28, 13, 18]
+present = [1493.828125, 1059, 54, 28, 13, 18]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_44]
+width = 2560
+part = "header"
+views = 14
+earlier = [0, 0, 2560, 57, 14, 20]
+present = [0, 0, 2545, 57, 14, 20]
+different_fields = ["width"]
+causes = ["scrollbar_track"]
+
+[geometry.group_45]
+width = 2560
+part = "main"
+views = 14
+earlier = [664, 81, 1232, 376, 14, 20]
+present = [656.5, 81, 1232, 376, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_46]
+width = 2560
+part = "navigation"
+views = 14
+earlier = [878.25, 12, 408, 32, 14, 20]
+present = [870.75, 12, 408, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_47]
+width = 2560
+part = "navigation-first-item"
+views = 14
+earlier = [878.25, 12, 88, 32, 14, 20]
+present = [870.75, 12, 88, 32, 14, 20]
+different_fields = ["left"]
+causes = ["scrollbar_track"]
+
+[geometry.group_48]
+width = 2560
+part = "primary-control"
+views = 14
+earlier = [664, 385, 155, 72, 14, 20]
+present = [656.5, 417, 155, 40, 16, 24]
+different_fields = ["left", "top", "height", "fontSize", "lineHeight"]
+causes = ["scrollbar_track", "native_home_action"]

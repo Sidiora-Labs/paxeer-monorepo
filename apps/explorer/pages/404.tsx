@@ -4,16 +4,13 @@ import type { NextPageWithLayout } from 'nextjs/types';
 
 import PageNextJs from 'nextjs/PageNextJs';
 
-import AppError from 'ui/shared/AppError/AppError';
+import NotFound from 'ui/pages/NotFound';
 import LayoutError from 'ui/shared/layout/LayoutError';
-
-const NOT_FOUND_STATUS = 404;
-const error = new Error('Not found', { cause: { status: NOT_FOUND_STATUS } });
 
 const Page: NextPageWithLayout = () => {
   return (
     <PageNextJs pathname="/404">
-      <AppError error={ error }/>
+      <NotFound/>
     </PageNextJs>
   );
 };
