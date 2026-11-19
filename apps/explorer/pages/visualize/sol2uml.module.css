@@ -1,0 +1,9 @@
+.contractSummary {
+  align-items: center;
+}
+
+@media (max-width: 834px) {
+  .contractSummary [data-entity-link] {
+    margin-block: calc((1lh - var(--chakra-sizes-touch-target)) / 2);
+  }
+}
