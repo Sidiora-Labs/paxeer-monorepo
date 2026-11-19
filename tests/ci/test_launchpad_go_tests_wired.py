@@ -166,8 +166,14 @@ def test_launchpad_go_job_provides_api_services_and_contracts():
     steps = job["steps"]
     (install_nats,) = [step for step in steps if
                        "go install github.com/nats-io/nats-server/v2@v2.11.6" in step.get("run", "")]
-    assert "sudo apt-get install --no-install-recommends --yes redis-server" in install_nats["run"]
-    assert "sudo apt-get install --no-install-recommends --yes nginx unzip ffmpeg clamav clamav-daemon" in install_nats["run"]
+    assert (
+        'bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" '
+        '--no-install-recommends --yes redis-server'
+    ) in install_nats["run"]
+    assert (
+        'bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" '
+        '--no-install-recommends --yes nginx unzip ffmpeg clamav clamav-daemon'
+    ) in install_nats["run"]
     assert job["env"]["L13_PHASE3_REDIS_SERVER"] == "/usr/bin/redis-server"
     (start_nats,) = [step for step in steps if step["name"] == "Start API NATS fixture"]
     assert 'nats-server --addr 127.0.0.1 --port 24222 --jetstream ' in start_nats["run"]
@@ -829,7 +835,10 @@ def test_launchpad_go_job_provides_remaining_module_fixtures():
     assert job["env"]["L13_PHASE3_REDIS_SERVER"] == "/usr/bin/redis-server"
     (install,) = [step for step in job["steps"]
                   if step["name"] == "Install fixture binaries"]
-    assert "sudo apt-get install --no-install-recommends --yes redis-server" in install["run"]
+    assert (
+        'bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" '
+        '--no-install-recommends --yes redis-server'
+    ) in install["run"]
 
 
 def test_launchpad_remaining_package_inventory_matches_module_sources():

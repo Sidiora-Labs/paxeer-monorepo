@@ -203,6 +203,10 @@ func (n *Node) Accept(txBytes []byte) (evmrpc.AcceptedSend, error) {
 	if err != nil {
 		return evmrpc.AcceptedSend{}, err
 	}
+	openCtx, err := n.Executor.Snapshot()
+	if err != nil {
+		return evmrpc.AcceptedSend{}, err
+	}
 	tx, err := n.App.GetTxConfig().TxDecoder()(txBytes)
 	if err != nil {
 		return evmrpc.AcceptedSend{}, err
@@ -215,7 +219,7 @@ func (n *Node) Accept(txBytes []byte) (evmrpc.AcceptedSend, error) {
 	if etx == nil {
 		return evmrpc.AcceptedSend{}, inputErr("missing EVM transaction")
 	}
-	if _, err := ante.ResolveTransactionChain(n.App.LatestCtx(), etx, n.App.EvmKeeper.ChainID(n.App.GetCheckCtx()), n.App.LayerXChainsKeeper); err != nil {
+	if _, err := ante.ResolveTransactionChain(openCtx, etx, n.App.EvmKeeper.ChainID(openCtx), n.App.LayerXChainsKeeper); err != nil {
 		return evmrpc.AcceptedSend{}, err
 	}
 	sender, err := ethtypes.Sender(ethtypes.LatestSignerForChainID(etx.ChainId()), etx)

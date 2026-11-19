@@ -24,6 +24,10 @@ CONTAINER_SETUP = """if ! docker version >/dev/null 2>&1; then
   fi
 fi
 docker version --format '{{.Server.Version}}'"""
+CONTAINER_SETUP_RETRY = CONTAINER_SETUP.replace(
+    "sudo apt-get update\n  sudo apt-get install --yes docker.io acl",
+    'bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" --yes docker.io acl',
+)
 
 
 class RunnerRoutingContainerRuntime(unittest.TestCase):
@@ -221,8 +225,15 @@ class RunnerRoutingContainerRuntime(unittest.TestCase):
                 step for step in steps
                 if step.get("name") == "Install and verify the container runtime"
             ]
-            self.assertEqual(setup["run"], CONTAINER_SETUP + "\n")
-            self.assertEqual(setup["run"], explorer_setup["run"])
+            self.assertEqual(setup["run"], CONTAINER_SETUP_RETRY + "\n")
+            self.assertEqual(
+                setup["run"].replace(
+                    'bash "$GITHUB_WORKSPACE/scripts/ci/install-system-packages.sh" '
+                    '--yes docker.io acl',
+                    "sudo apt-get update\n  sudo apt-get install --yes docker.io acl",
+                ),
+                explorer_setup["run"],
+            )
             self.assertNotIn("if", setup)
             self.assertNotIn("continue-on-error", setup)
             (go,) = [

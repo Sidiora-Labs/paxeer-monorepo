@@ -32,8 +32,11 @@ func (a *NonceAdmission) Receipted(sender common.Address) {
 }
 
 func (a *NonceAdmission) Open(now time.Time) []HeldTx {
-	return a.queue.Expire(now)
+	dropped := a.queue.Expire(now)
+	a.queue.Release()
+	return dropped
 }
+
 
 func (a *NonceAdmission) Sealed() {
 	a.queue.Sealed()

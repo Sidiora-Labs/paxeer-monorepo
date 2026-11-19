@@ -60,6 +60,12 @@ The node implementation in `rpc/sequencer_receipt.go` defines
 | `receipted` | Signed execution receipt; its batch is not yet committed |
 | `committed` | The receipt's sequence is covered by a committed block's batch; the result includes block number and hash |
 
+Held transactions release in sender nonce order when a gap fills. Opening a
+block expires held transactions, then releases each sender's consecutive next
+nonces. A refusal drops that transaction and records a drain failure; later
+nonces wait. Sends between seal and open wait for the next block and retry
+acceptance once before their nonce is compared.
+
 Receipt release follows execution and durable WAL acknowledgement through
 `Accepter.Accept`. A signed early receipt is useful execution evidence, but the
 BFT block commit supplies finality. Pending reads observe the open speculative

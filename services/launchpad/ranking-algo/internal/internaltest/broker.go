@@ -16,6 +16,19 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
+const (
+	rankingStreamTimeout         = 3 * time.Minute
+	rankingStreamDeadlineReserve = 30 * time.Second
+)
+
+func rankingStreamDeadline(now, binaryDeadline time.Time, hasDeadline bool) time.Time {
+	deadline := now.Add(rankingStreamTimeout)
+	if end := binaryDeadline.Add(-rankingStreamDeadlineReserve); hasDeadline && end.Before(deadline) {
+		deadline = end
+	}
+	return deadline
+}
+
 func RankingBroker(t *testing.T) string {
 	t.Helper()
 	brokerURL := os.Getenv("RANKING_TEST_NATS_URL")
@@ -23,10 +36,8 @@ func RankingBroker(t *testing.T) string {
 	if brokerURL == "" || admin == "" {
 		t.Fatal("RANKING_TEST_NATS_URL and RANKING_TEST_POSTGRES_DSN are required")
 	}
-	deadline := time.Now().Add(3 * time.Minute)
-	if end, ok := t.Deadline(); ok && end.Add(-30*time.Second).Before(deadline) {
-		deadline = end.Add(-30 * time.Second)
-	}
+	end, ok := t.Deadline()
+	deadline := rankingStreamDeadline(time.Now(), end, ok)
 	ctx, cancel := context.WithDeadline(context.Background(), deadline)
 	defer cancel()
 	lock, err := pgx.Connect(ctx, admin)
@@ -103,7 +114,8 @@ func RankingBroker(t *testing.T) string {
 		t.Fatalf("reset ranking broker streams: %v", err)
 	}
 	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		end, ok := t.Deadline()
+		ctx, cancel := context.WithDeadline(context.Background(), rankingStreamDeadline(time.Now(), end, ok))
 		defer cancel()
 		if err := clean(ctx, false); err != nil {
 			t.Errorf("clean ranking broker streams: %v", err)
