@@ -477917,7 +477917,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.968]
 title = "Hold the sends of the renewed ban case of the rate limit cases inside one rate window"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
