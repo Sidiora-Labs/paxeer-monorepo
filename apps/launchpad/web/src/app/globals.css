@@ -276,6 +276,9 @@
   .sl-native-select::picker(select) {
     appearance: base-select;
   }
+  .sl-native-select {
+    align-items: center;
+  }
   .sl-native-select::picker(select) {
     background: var(--sl-surface-3);
     color: var(--sl-text);

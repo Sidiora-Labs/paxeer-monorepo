@@ -86,7 +86,7 @@ export default function ProfileHeader({ wallet, displayName, bio, avatarUrl, ban
           <ShortAddress address={wallet} head={4} tail={4} explorerHref={`https://paxscan.paxeer.app/address/${wallet}`} className="self-start text-xs text-text-faint" />
         </div>
         {stats}
-        <div className="min-h-6">
+        <div className="min-h-[var(--sl-leading-sm)]">
           {loading ? <Skeleton className="max-w-prose h-[1lh] text-sm" /> : bio ? <p className="max-w-prose whitespace-pre-line text-sm text-text">{bio}</p> : null}
         </div>
         {!loading && linkEntries.length > 0 ? (
