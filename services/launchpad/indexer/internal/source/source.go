@@ -76,11 +76,12 @@ func ParallelBatchRead[T any](ctx context.Context, count, concurrency int, read 
 		wg.Add(1)
 		go worker()
 	}
+dispatch:
 	for index := range count {
 		select {
 		case jobs <- index:
 		case <-readCtx.Done():
-			break
+			break dispatch
 		}
 		if readCtx.Err() != nil {
 			break
