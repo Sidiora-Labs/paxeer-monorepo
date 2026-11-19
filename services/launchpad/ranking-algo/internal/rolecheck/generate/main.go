@@ -223,6 +223,6 @@ func main() {
 	raw := bytes.ReplaceAll(out.Bytes(), []byte("), statement("), []byte("),\n\tstatement("))
 	raw, err = format.Source(raw)
 	must(err)
-	must(os.WriteFile(path, raw, 0644))
+	must(os.WriteFile(path, raw, 0644)) //nolint:gosec // The generated inventory is repository Go source readable by other build users.
 	fmt.Println("Updated runtime SQL statement locations and clock privileges")
 }
