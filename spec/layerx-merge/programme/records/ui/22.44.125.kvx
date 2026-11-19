@@ -1,0 +1,539 @@
+[meta]
+task = "22.44.125"
+title = "Explorer statistics, gas and validator dimensions"
+reference = "22.44.105"
+
+[surface]
+views = 7
+named_states = 0
+routes = ["/api-docs", "/gas-tracker", "/stats/[id]", "/stats", "/uptime", "/validators/[id]", "/validators"]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+full_mode_views = ["/api-docs", "/gas-tracker", "/stats/[id]", "/stats"]
+default_mode_views = ["/uptime", "/validators/[id]", "/validators"]
+
+[presentation]
+statistics = "The sidebar measures 200px on desktop. Chart grids use two desktop columns and reflow with enlarged text; plots retain a 230px minimum and default cards measure 324px."
+recent_blocks = "The section heading precedes a separate right-aligned View all line. The table retains a 480px minimum inside its focusable scrolling region and keeps its sticky first column."
+intervals = "Desktop interval buttons retain 26px default and 34px large heights; mobile selectors retain 44px touch areas."
+gas = "Price cards use one column below the desktop breakpoint and three above it. The chart link centers its mobile touch area on the existing text line."
+chart_detail = "The plot uses its 50dvh track, including landscape viewports."
+retained = "Focus marks, labels, roles, landmarks, loading and empty states, reduced motion, contrast colors, scrollbar space and current statistics content remain."
+
+[measurements.first_rendered]
+renders = 202
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 372
+
+[measurements.last_manual]
+renders = 202
+rendered = 201
+result = "201 of 202 rendered"
+load = 1
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 370
+
+[geometry]
+samples = 35
+measured_parts = 390
+widths = [390, 1280, 1440, 1920, 2560]
+scheme = "dark"
+mode = "default"
+different_measured_parts = 370
+description = "Each differing part is listed by view and width with its retained cause."
+
+[geometry_cause.scrollbar]
+description = "The reserved scrollbar track narrows the available width by 15px and shifts centered content by 7.5px."
+
+[geometry_cause.touch]
+description = "Controls through 834px retain 44px touch areas; inline controls center that area on their earlier text line."
+
+[geometry_cause.footer_touch]
+description = "Footer links retain 44px mobile heights, including the resulting column and footer height."
+
+[geometry_cause.labels]
+description = "Visible statistics filter labels retain their text lines and spacing above the controls."
+
+[geometry_cause.home_control]
+description = "The native home anchor measures the visible 16px / 24px control with a 32px top margin; the earlier selected wrapper includes that margin around a nested button with the same visible text size."
+
+[view.1]
+path = "/api-docs"
+renders = 34
+rendered = 34
+different_measured_parts = 51
+
+[view.1.width_390]
+different_parts = 10
+
+[view.1.width_390.group_1]
+parts = ["endpoint-group-card", "navigation", "navigation-first-item"]
+causes = ["scrollbar", "touch"]
+
+[view.1.width_390.group_2]
+parts = ["footer", "footer-column-1-first-link"]
+causes = ["scrollbar", "footer_touch"]
+
+[view.1.width_390.group_3]
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+causes = ["footer_touch"]
+
+[view.1.width_390.group_4]
+parts = ["header", "main"]
+causes = ["scrollbar"]
+
+[view.1.width_390.group_5]
+parts = ["primary-control"]
+causes = ["touch"]
+
+[view.1.width_1280]
+different_parts = 8
+
+[view.1.width_1280.group_1]
+parts = ["endpoint-group-card", "footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+
+[view.1.width_1440]
+different_parts = 11
+
+[view.1.width_1440.group_1]
+parts = ["endpoint-group-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+
+[view.1.width_1920]
+different_parts = 11
+
+[view.1.width_1920.group_1]
+parts = ["endpoint-group-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+
+[view.1.width_2560]
+different_parts = 11
+
+[view.1.width_2560.group_1]
+parts = ["endpoint-group-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+
+[view.2]
+path = "/gas-tracker"
+renders = 34
+rendered = 34
+different_measured_parts = 57
+
+[view.2.width_390]
+different_parts = 11
+
+[view.2.width_390.group_1]
+parts = ["chart-card", "gas-estimates-card", "header", "main"]
+causes = ["scrollbar"]
+
+[view.2.width_390.group_2]
+parts = ["footer", "footer-column-1-first-link"]
+causes = ["scrollbar", "footer_touch"]
+
+[view.2.width_390.group_3]
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+causes = ["footer_touch"]
+
+[view.2.width_390.group_4]
+parts = ["navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar", "touch"]
+
+[view.2.width_1280]
+different_parts = 10
+
+[view.2.width_1280.group_1]
+parts = ["chart-card", "footer", "footer-column-2-first-link", "footer-column-3-first-link", "gas-estimates-card", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+
+[view.2.width_1440]
+different_parts = 12
+
+[view.2.width_1440.group_1]
+parts = ["chart-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "gas-estimates-card", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+
+[view.2.width_1920]
+different_parts = 12
+
+[view.2.width_1920.group_1]
+parts = ["chart-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "gas-estimates-card", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+
+[view.2.width_2560]
+different_parts = 12
+
+[view.2.width_2560.group_1]
+parts = ["chart-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "gas-estimates-card", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+
+[view.3]
+path = "/stats/[id]"
+renders = 34
+rendered = 33
+different_measured_parts = 51
+
+[view.3.width_390]
+different_parts = 10
+
+[view.3.width_390.group_1]
+parts = ["chart-card", "navigation", "navigation-first-item"]
+causes = ["scrollbar", "touch"]
+
+[view.3.width_390.group_2]
+parts = ["footer", "footer-column-1-first-link"]
+causes = ["scrollbar", "footer_touch"]
+
+[view.3.width_390.group_3]
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+causes = ["footer_touch"]
+
+[view.3.width_390.group_4]
+parts = ["header", "main"]
+causes = ["scrollbar"]
+
+[view.3.width_390.group_5]
+parts = ["primary-control"]
+causes = ["touch"]
+
+[view.3.width_1280]
+different_parts = 8
+
+[view.3.width_1280.group_1]
+parts = ["chart-card", "footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+
+[view.3.width_1440]
+different_parts = 11
+
+[view.3.width_1440.group_1]
+parts = ["chart-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+
+[view.3.width_1920]
+different_parts = 11
+
+[view.3.width_1920.group_1]
+parts = ["chart-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+
+[view.3.width_2560]
+different_parts = 11
+
+[view.3.width_2560.group_1]
+parts = ["chart-card", "first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+
+[view.4]
+path = "/stats"
+renders = 34
+rendered = 34
+different_measured_parts = 67
+
+[view.4.width_390]
+different_parts = 12
+
+[view.4.width_390.group_1]
+parts = ["chart-card", "counter-card", "main"]
+causes = ["scrollbar", "labels", "touch"]
+
+[view.4.width_390.group_2]
+parts = ["footer", "footer-column-1-first-link"]
+causes = ["scrollbar", "footer_touch", "labels", "touch"]
+
+[view.4.width_390.group_3]
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+causes = ["footer_touch", "labels", "touch"]
+
+[view.4.width_390.group_4]
+parts = ["header", "recent-blocks-card"]
+causes = ["scrollbar"]
+
+[view.4.width_390.group_5]
+parts = ["navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar", "touch"]
+
+[view.4.width_1280]
+different_parts = 13
+
+[view.4.width_1280.group_1]
+parts = ["chart-card", "counter-card", "footer", "footer-column-2-first-link", "footer-column-3-first-link", "main"]
+causes = ["scrollbar", "labels"]
+
+[view.4.width_1280.group_2]
+parts = ["footer-column-1-first-link"]
+causes = ["labels"]
+
+[view.4.width_1280.group_3]
+parts = ["header", "navigation", "navigation-first-item", "primary-control", "recent-blocks-card", "recent-blocks-first-row"]
+causes = ["scrollbar"]
+
+[view.4.width_1440]
+different_parts = 14
+
+[view.4.width_1440.group_1]
+parts = ["chart-card", "counter-card", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "main"]
+causes = ["scrollbar", "labels"]
+
+[view.4.width_1440.group_2]
+parts = ["first-heading", "header", "navigation", "navigation-first-item", "primary-control", "recent-blocks-card", "recent-blocks-first-row"]
+causes = ["scrollbar"]
+
+[view.4.width_1920]
+different_parts = 14
+
+[view.4.width_1920.group_1]
+parts = ["chart-card", "counter-card", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "main"]
+causes = ["scrollbar", "labels"]
+
+[view.4.width_1920.group_2]
+parts = ["first-heading", "header", "navigation", "navigation-first-item", "primary-control", "recent-blocks-card", "recent-blocks-first-row"]
+causes = ["scrollbar"]
+
+[view.4.width_2560]
+different_parts = 14
+
+[view.4.width_2560.group_1]
+parts = ["chart-card", "counter-card", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "main"]
+causes = ["scrollbar", "labels"]
+
+[view.4.width_2560.group_2]
+parts = ["first-heading", "header", "navigation", "navigation-first-item", "primary-control", "recent-blocks-card", "recent-blocks-first-row"]
+causes = ["scrollbar"]
+
+[view.5]
+path = "/uptime"
+renders = 22
+rendered = 22
+different_measured_parts = 48
+
+[view.5.width_390]
+different_parts = 10
+
+[view.5.width_390.group_1]
+parts = ["first-heading", "header"]
+causes = ["scrollbar"]
+
+[view.5.width_390.group_2]
+parts = ["footer", "footer-column-1-first-link"]
+causes = ["scrollbar", "footer_touch"]
+
+[view.5.width_390.group_3]
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+causes = ["footer_touch"]
+
+[view.5.width_390.group_4]
+parts = ["main", "navigation", "navigation-first-item"]
+causes = ["scrollbar", "touch"]
+
+[view.5.width_390.group_5]
+parts = ["primary-control"]
+causes = ["touch", "home_control"]
+
+[view.5.width_1280]
+different_parts = 8
+
+[view.5.width_1280.group_1]
+parts = ["footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+
+[view.5.width_1280.group_2]
+parts = ["primary-control"]
+causes = ["home_control"]
+
+[view.5.width_1440]
+different_parts = 10
+
+[view.5.width_1440.group_1]
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+
+[view.5.width_1440.group_2]
+parts = ["primary-control"]
+causes = ["scrollbar", "home_control"]
+
+[view.5.width_1920]
+different_parts = 10
+
+[view.5.width_1920.group_1]
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+
+[view.5.width_1920.group_2]
+parts = ["primary-control"]
+causes = ["scrollbar", "home_control"]
+
+[view.5.width_2560]
+different_parts = 10
+
+[view.5.width_2560.group_1]
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+
+[view.5.width_2560.group_2]
+parts = ["primary-control"]
+causes = ["scrollbar", "home_control"]
+
+[view.6]
+path = "/validators/[id]"
+renders = 22
+rendered = 22
+different_measured_parts = 48
+
+[view.6.width_390]
+different_parts = 10
+
+[view.6.width_390.group_1]
+parts = ["first-heading", "header"]
+causes = ["scrollbar"]
+
+[view.6.width_390.group_2]
+parts = ["footer", "footer-column-1-first-link"]
+causes = ["scrollbar", "footer_touch"]
+
+[view.6.width_390.group_3]
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+causes = ["footer_touch"]
+
+[view.6.width_390.group_4]
+parts = ["main", "navigation", "navigation-first-item"]
+causes = ["scrollbar", "touch"]
+
+[view.6.width_390.group_5]
+parts = ["primary-control"]
+causes = ["touch", "home_control"]
+
+[view.6.width_1280]
+different_parts = 8
+
+[view.6.width_1280.group_1]
+parts = ["footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+
+[view.6.width_1280.group_2]
+parts = ["primary-control"]
+causes = ["home_control"]
+
+[view.6.width_1440]
+different_parts = 10
+
+[view.6.width_1440.group_1]
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+
+[view.6.width_1440.group_2]
+parts = ["primary-control"]
+causes = ["scrollbar", "home_control"]
+
+[view.6.width_1920]
+different_parts = 10
+
+[view.6.width_1920.group_1]
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+
+[view.6.width_1920.group_2]
+parts = ["primary-control"]
+causes = ["scrollbar", "home_control"]
+
+[view.6.width_2560]
+different_parts = 10
+
+[view.6.width_2560.group_1]
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+
+[view.6.width_2560.group_2]
+parts = ["primary-control"]
+causes = ["scrollbar", "home_control"]
+
+[view.7]
+path = "/validators"
+renders = 22
+rendered = 22
+different_measured_parts = 48
+
+[view.7.width_390]
+different_parts = 10
+
+[view.7.width_390.group_1]
+parts = ["first-heading", "header"]
+causes = ["scrollbar"]
+
+[view.7.width_390.group_2]
+parts = ["footer", "footer-column-1-first-link"]
+causes = ["scrollbar", "footer_touch"]
+
+[view.7.width_390.group_3]
+parts = ["footer-column-2-first-link", "footer-column-3-first-link"]
+causes = ["footer_touch"]
+
+[view.7.width_390.group_4]
+parts = ["main", "navigation", "navigation-first-item"]
+causes = ["scrollbar", "touch"]
+
+[view.7.width_390.group_5]
+parts = ["primary-control"]
+causes = ["touch", "home_control"]
+
+[view.7.width_1280]
+different_parts = 8
+
+[view.7.width_1280.group_1]
+parts = ["footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+
+[view.7.width_1280.group_2]
+parts = ["primary-control"]
+causes = ["home_control"]
+
+[view.7.width_1440]
+different_parts = 10
+
+[view.7.width_1440.group_1]
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+
+[view.7.width_1440.group_2]
+parts = ["primary-control"]
+causes = ["scrollbar", "home_control"]
+
+[view.7.width_1920]
+different_parts = 10
+
+[view.7.width_1920.group_1]
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+
+[view.7.width_1920.group_2]
+parts = ["primary-control"]
+causes = ["scrollbar", "home_control"]
+
+[view.7.width_2560]
+different_parts = 10
+
+[view.7.width_2560.group_1]
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+
+[view.7.width_2560.group_2]
+parts = ["primary-control"]
+causes = ["scrollbar", "home_control"]
