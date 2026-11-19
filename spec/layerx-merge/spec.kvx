@@ -223798,7 +223798,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.956]
 title = "Hold a source of the hosted indexer ready within one step of its head, declare a consensus source without a transaction index, and let the reader of the gateway follow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
