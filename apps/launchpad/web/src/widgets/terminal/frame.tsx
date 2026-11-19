@@ -47,19 +47,19 @@ function isEditable(target: EventTarget | null): boolean {
   );
 }
 
-/** Height of the fixed shell top stack, read from the inline padding app-shell puts on <main>. */
+/** Height of the shell top stack, from the main region's resolved top padding. */
 function useShellTop(): number | null {
   const [top, setTop] = useState<number | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const main = document.getElementById('main-content');
     if (!main) return;
     const read = () => {
-      const value = Number.parseFloat(main.style.paddingTop);
+      const value = Number.parseFloat(getComputedStyle(main).paddingTop);
       setTop(Number.isFinite(value) && value > 0 ? value : null);
     };
     read();
-    const observer = new MutationObserver(read);
-    observer.observe(main, { attributes: true, attributeFilter: ['style'] });
+    const observer = new ResizeObserver(read);
+    observer.observe(main);
     return () => observer.disconnect();
   }, []);
   return top;
@@ -382,9 +382,9 @@ export default function TerminalFrame({
       data-terminal-frame
       className="flex min-w-0 flex-col bg-canvas lg:h-[calc(100dvh-var(--terminal-top))] lg:overflow-hidden"
     >
-      <header className="flex min-h-10 shrink-0 flex-wrap items-center gap-2 px-2 py-1">
+      <header className="flex min-h-10 shrink-0 flex-wrap items-center gap-2 px-2">
         <h1 className="shrink-0 px-1 text-sm font-extrabold text-text">Terminal</h1>
-        <div className="order-last min-w-0 basis-full lg:order-none lg:flex-1 lg:basis-0">
+        <div className="order-last min-w-0 basis-full min-[835px]:order-none min-[835px]:flex-1 min-[835px]:basis-0">
           <TerminalSubNav active={active} />
         </div>
         <div className="flex max-w-full flex-wrap items-center gap-1">
