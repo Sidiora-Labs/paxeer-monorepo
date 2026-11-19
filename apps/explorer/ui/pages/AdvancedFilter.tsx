@@ -245,7 +245,7 @@ const AdvancedFilter = () => {
       <Flex mb={ 4 } justifyContent="space-between" alignItems="start" flexWrap="wrap" gap={ 3 }>
         <Text fontSize="lg" mr={ 3 } lineHeight="h2" w="var(--chakra-spacing-24)">Filtered by:</Text>
         { filterTags.length !== 0 && (
-          <Button type="button" variant="link" onClick={ clearAllFilters } gap={ 2 } textStyle="sm" minH="touchTarget">
+          <Button type="button" variant="link" onClick={ clearAllFilters } gap={ 2 } textStyle="sm">
             <IconSvg name="repeat" boxSize={ 5 }/>
             Reset filters
           </Button>

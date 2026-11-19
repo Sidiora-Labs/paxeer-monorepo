@@ -24,14 +24,13 @@ const SettingsPoorReputationTokens = () => {
   }
 
   return (
-    <Switch
+    <Switch minH="calc(var(--chakra-spacing-8) + var(--chakra-spacing-0\\.5))"
       id="poor-reputation-tokens"
       checked={ isChecked }
       onChange={ handleChange }
       direction="rtl"
       justifyContent="space-between"
       w="100%"
-      minH="touchTarget"
     >
       Hide poor reputation tokens
     </Switch>

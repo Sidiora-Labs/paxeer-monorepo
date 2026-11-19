@@ -8,7 +8,6 @@ export const recipe = defineRecipe({
     position: 'relative',
     appearance: 'textfield',
     textAlign: 'start',
-    minH: 'touchTarget',
     borderRadius: 'base',
     height: 'var(--input-height)',
     minW: 'var(--input-height)',

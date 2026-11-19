@@ -80,7 +80,7 @@ const TokenNftMarketplaces = ({ hash, id, isLoading, appActionData, source }: Pr
           { appActionData && (
             <>
               <TextSeparator/>
-              <AppActionButton data={ appActionData } height="touchTarget" source={ source }/>
+              <AppActionButton data={ appActionData } height="var(--chakra-spacing-7\\.5)" source={ source }/>
             </>
           ) }
         </Skeleton>

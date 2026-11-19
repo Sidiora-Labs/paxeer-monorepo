@@ -10,7 +10,6 @@ const GasTrackerFaqItem = ({ question, answer }: Props) => {
     <Box as="details" borderBottomWidth="1" borderColor="hairline">
       <chakra.summary
         cursor="pointer"
-        minH="touchTarget"
         py={ 3 }
         textStyle="body"
         fontWeight="semibold"

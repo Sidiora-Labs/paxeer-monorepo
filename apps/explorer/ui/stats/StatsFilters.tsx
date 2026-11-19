@@ -65,7 +65,7 @@ const StatsFilters = ({
   return (
     <Flex
       data-stats-filters
-      css={{ '& button, & input': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } } }}
+      css={{ '& button, & input': { _motionReduce: { transitionProperty: 'none' } } }}
       gap={{ base: 2, lg: 3 }}
       flexDirection={{ base: 'column', lg: 'row' }}
       flexWrap="wrap"
@@ -150,8 +150,6 @@ const StatsFilters = ({
                 borderColor={ interval === id ? 'accent' : 'border.strong' }
                 onClick={ handleIntervalClick }
                 disabled={ isLoading }
-                minH="touchTarget"
-                minW="touchTarget"
               >
                 { STATS_INTERVALS[id].shortTitle }
               </Button>

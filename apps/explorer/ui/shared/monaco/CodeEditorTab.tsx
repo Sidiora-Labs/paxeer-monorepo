@@ -59,7 +59,6 @@ const CodeEditorTab = ({ isActive, isMainFile, path, onClick, onClose, isCloseDi
         type="button"
         display="flex"
         alignItems="center"
-        minH="touchTarget"
         minW={ 0 }
         flexGrow={ 1 }
         onClick={ handleClick }
@@ -74,7 +73,7 @@ const CodeEditorTab = ({ isActive, isMainFile, path, onClick, onClose, isCloseDi
       <chakra.button
         type="button"
         className="codicon codicon-close"
-        boxSize="touchTarget"
+        boxSize={ 5 }
         flexShrink={ 0 }
         ml={ 1 }
         p={ 0.5 }

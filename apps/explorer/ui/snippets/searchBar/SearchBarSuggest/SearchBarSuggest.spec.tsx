@@ -150,7 +150,7 @@ describe('SearchBarSuggest', () => {
     expect(answerStyle.whiteSpace).toBe('pre-wrap');
     expect(answerStyle.overflowWrap).toBe('anywhere');
     expect(questionStyle.paddingInline).toBe('var(--chakra-spacing-0)');
-    expect(questionStyle.minHeight).toBe('var(--chakra-sizes-touch-target)');
+    expect(questionStyle.minHeight).toBe('var(--chakra-sizes-11)');
     expect(window.getComputedStyle(region.parentElement!).flexShrink).toBe('0');
   });
 

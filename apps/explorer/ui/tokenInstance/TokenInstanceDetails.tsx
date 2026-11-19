@@ -143,7 +143,7 @@ const TokenInstanceDetails = ({ data, token, scrollRef, isLoading }: Props) => {
 
           { (config.UI.views.nft.marketplaces.length === 0 && appActionData) && (
             <ScanKeyValue label="Dapp" hint="Link to the dapp">
-              <AppActionButton data={ appActionData } height="touchTarget" source="NFT item"/>
+              <AppActionButton data={ appActionData } height="var(--chakra-spacing-7\\.5)" source="NFT item"/>
             </ScanKeyValue>
           ) }
 

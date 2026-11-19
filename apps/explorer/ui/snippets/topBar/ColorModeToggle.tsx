@@ -45,7 +45,7 @@ const ColorModeToggle = () => {
 
   return (
     <Tooltip content={ label } disableOnMobile>
-      <IconButton minH="touchTarget" minW="touchTarget"
+      <IconButton
         variant="link"
         size="2xs"
         borderRadius="sm"

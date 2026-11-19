@@ -69,7 +69,7 @@ const EpochDetails = ({ data, isLoading }: Props) => {
   return (
     <Box display="flex" flexDirection="column" gap={ 8 } overflowWrap="anywhere" css={{
       '& a': { display: 'inline-flex', alignItems: 'center' },
-      '& a, & button': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } },
+      '& a, & button': { _motionReduce: { transitionProperty: 'none' } },
       '& button[role="combobox"]': { focusVisibleRing: 'outside', focusRingColor: 'focusRing' },
       '& [data-detailed-info-label], & [data-detailed-info-label] > div > div': { minWidth: 0, overflowWrap: 'anywhere' },
       '& [data-detailed-info-value]': { overflowWrap: 'anywhere' },

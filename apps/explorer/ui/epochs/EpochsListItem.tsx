@@ -24,7 +24,7 @@ const EpochsListItem = ({ item, isLoading }: Props) => {
       rowGap={ 1 } py={ 3 } borderColor="hairline" w="full" textStyle="body" fontWeight="medium"
       alignItems="stretch"
       css={{ '& a': { display: 'inline-flex', alignItems: 'center' },
-        '& a, & button': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } } }}>
+        '& a, & button': { _motionReduce: { transitionProperty: 'none' } } }}>
       <HStack minH="var(--chakra-spacing-7\.5)" gap={ 3 }>
         <EpochEntity number={ String(item.number) } isLoading={ isLoading }/>
         <Skeleton loading={ isLoading } color="text.secondary" fontWeight="normal" ml="auto"><span>{ item.type }</span></Skeleton>

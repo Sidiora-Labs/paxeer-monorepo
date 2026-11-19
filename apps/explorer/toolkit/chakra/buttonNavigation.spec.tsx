@@ -13,7 +13,7 @@ import { Link } from './link';
 test('button navigation has one native link', function buttonNavigationHasOneNativeLink() {
   const { container, unmount } = render(
     <ChakraProvider value={ theme }>
-      <Button asChild display="inline-flex" variant="outline" minW="touchTarget" minH="touchTarget">
+      <Button asChild display="inline-flex" variant="outline">
         <Link href="/" variant="plain">Back to home</Link>
       </Button>
     </ChakraProvider>,

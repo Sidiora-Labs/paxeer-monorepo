@@ -4,8 +4,6 @@ export const recipe = defineRecipe({
   base: {
     display: 'flex',
     gap: 0,
-    minH: 'touchTarget',
-    minW: 'touchTarget',
     fontWeight: 'medium',
     focusRingColor: 'focusRing',
     overflow: 'hidden',

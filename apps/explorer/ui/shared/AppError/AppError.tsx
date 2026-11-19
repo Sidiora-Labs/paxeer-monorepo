@@ -98,8 +98,6 @@ const AppError = ({ error, className }: Props) => {
               display="inline-flex"
               mt={ 8 }
               variant="outline"
-              minW="touchTarget"
-              minH="touchTarget"
             >
               <Link href={ route({ pathname: '/' }) } variant="plain">
                 Back to home
@@ -113,7 +111,7 @@ const AppError = ({ error, className }: Props) => {
   })();
 
   return (
-    <Box className={ className } mt={{ base: 12, lg: 24 }} maxW="var(--chakra-spacing-200)">
+    <Box className={ className } mt={{ base: 'calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))', lg: 'calc(var(--chakra-spacing-24) + var(--chakra-spacing-2))' }} maxW="var(--chakra-spacing-200)">
       { content }
     </Box>
   );

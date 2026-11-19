@@ -199,7 +199,7 @@ describe('Stats', () => {
     expect(column.querySelector('[data-title]')?.textContent).toBe('Blockscout transaction history in 14 days');
   });
 
-  it('fits home tile values with bounded container sizing', async function fitsHomeTileValuesWithBoundedContainerSizing(): Promise<void> {
+  it('fits home tile values with fixed text and a bounded line', async function fitsHomeTileValuesWithBoundedContainerSizing(): Promise<void> {
     const { container } = render(<Stats/>);
     await screen.findByText('30,215,608');
 
@@ -208,10 +208,10 @@ describe('Stats', () => {
     for (const value of values) {
       const style = window.getComputedStyle(value);
       expect(window.getComputedStyle(value.parentElement!.parentElement!).containerType).toBe('inline-size');
-      expect(style.fontSize).toBe(
-        `clamp(0.875rem, calc(100cqi / ${ value.textContent!.length * 0.625 }), var(--chakra-font-sizes-stat-value))`,
-      );
-      expect(style.whiteSpace).toBe('normal');
+      expect(style.fontSize).toBe('var(--chakra-font-sizes-stat-value)');
+      expect(style.whiteSpace).toBe('nowrap');
+      expect(style.overflow).toBe('hidden');
+      expect(style.textOverflow).toBe('ellipsis');
       expect(style.maxWidth).toBe('100%');
     }
     expect(container.querySelector('[data-stat="total_blocks"] [data-value] wbr')).not.toBeNull();

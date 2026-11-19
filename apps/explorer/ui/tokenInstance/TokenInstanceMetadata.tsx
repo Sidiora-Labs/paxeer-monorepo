@@ -60,7 +60,7 @@ const TokenInstanceMetadata = ({ data, isPlaceholderData }: Props) => {
         <Select
           collection={ collection }
           placeholder="Select type"
-          triggerProps={{ 'aria-label': 'Select type', minH: 'touchTarget', minW: 'touchTarget' }}
+          triggerProps={{ 'aria-label': 'Select type' }}
           value={ format }
           onValueChange={ handleValueChange }
           ml={ 5 }

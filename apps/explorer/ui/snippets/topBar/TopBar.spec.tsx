@@ -33,7 +33,9 @@ describe('top bar', () => {
     const bar = container.querySelector('[data-label="header-utilities"]');
 
     expect(bar).toBeTruthy();
+    expect(marketStyleRules(bar!)).toContain('flex-wrap:wrap');
     expect(marketStyleRules(bar!)).toContain('flex-wrap:nowrap');
+    expect(marketStyleRules(bar!)).toContain('max-width:100%');
     expect(marketStyleRules(bar!)).toContain('flex-shrink:0');
     expect(Array.from(bar?.querySelectorAll('[data-label]') ?? []).map((element) => element.getAttribute('data-label')))
       .toEqual([]);
