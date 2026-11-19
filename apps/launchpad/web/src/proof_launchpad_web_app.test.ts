@@ -29,7 +29,7 @@ import { resolveAnvilBinary } from './core/test-anvil';
 import { ChainTradeProvider, OpticalRejection, opticalRejection, productionTradeDeployment, tradeRouterAbi } from './widgets/trading/transaction-controls/providers';
 import type { TradeContext } from './widgets/trading/transaction-controls/domain';
 
-let RootLayout: typeof import('./app/layout').default;
+let RootLayout: typeof import('./app/root-layout').default;
 const { CookieJar, JSDOM } = createRequire(import.meta.url)('jsdom');
 let AppProviders: typeof import('./ui/providers/app-providers').default;
 let createPrivateFixtureWagmiConfig: typeof import('./ui/providers/app-providers').createPrivateFixtureWagmiConfig;
@@ -51,7 +51,7 @@ beforeAll(async () => {
   const { createWorkStore } = await import('next/dist/server/async-storage/work-store');
   const { workAsyncStorage } = await import('next/dist/server/app-render/work-async-storage.external');
   const { workUnitAsyncStorage } = await import('next/dist/server/app-render/work-unit-async-storage.external');
-  ({ default: RootLayout } = await import('./app/layout'));
+  ({ default: RootLayout } = await import('./app/root-layout'));
   ({ default: AppProviders, createPrivateFixtureWagmiConfig } = await import('./ui/providers/app-providers'));
   requestLayout = cookie => {
     const request = new NextRequest('https://localhost:3050/', { headers: { cookie } });
@@ -168,8 +168,8 @@ function deploymentFlowsIntoContractsAndTradeCalldata() {
   expect([ROUTER_ADDRESS, QUOTER_ADDRESS, FEES_ROUTER_ADDRESS, OPTICAL_REGISTRY_ADDRESS, USDL_ADDRESS, PROTOCOL_CONFIG_ADDRESS]).toEqual([
     CORE_DEPLOYMENT.router, CORE_DEPLOYMENT.quoter, CORE_DEPLOYMENT.feesRouter, CORE_DEPLOYMENT.opticalRegistry, CORE_DEPLOYMENT.usdl, CORE_DEPLOYMENT.protocolConfig,
   ]);
-  const approval = erc20ApprovalRequest({ token: USDL_ADDRESS, spender: ROUTER_ADDRESS, amount: 1_000_000n });
-  expect(approval).toMatchObject({ address: USDL_ADDRESS, chainId: 125, functionName: 'approve', args: [ROUTER_ADDRESS, 1_000_000n] });
+  const approval = erc20ApprovalRequest({ token: USDL_ADDRESS, spender: CORE_DEPLOYMENT.launchpadPrecompile, amount: 1_000_000n });
+  expect(approval).toMatchObject({ address: USDL_ADDRESS, chainId: 125, functionName: 'approve', args: [CORE_DEPLOYMENT.launchpadPrecompile, 1_000_000n] });
   expect(() => erc20ApprovalRequest({ token: USDL_ADDRESS, spender: QUOTER_ADDRESS, amount: 1_000_000n })).toThrow('Approval spender is unavailable');
   expect(productionTradeDeployment.pins).toHaveLength(CORE_TRADE_EXECUTION_ROLES.length);
   CORE_TRADE_EXECUTION_ROLES.forEach((role, index) => {

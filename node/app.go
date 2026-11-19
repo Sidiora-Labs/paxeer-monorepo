@@ -3657,6 +3657,7 @@ func (app *App) LastBlockID() tmproto.BlockID {
 
 // LatestCtx is the ante read context. In sequencer mode it is a branch of L_open while a block
 // is open, so reads see every receipted transaction; otherwise it is the check context.
+// Send admission checks for an open block before comparing nonces.
 func (app *App) LatestCtx() sdk.Context {
 	if app.openBlock != nil {
 		if ctx, err := app.openBlock.Snapshot(); err == nil {

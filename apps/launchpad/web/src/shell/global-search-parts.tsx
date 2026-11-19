@@ -98,10 +98,10 @@ export function PaletteInput({
   pasteState: 'idle' | 'denied' | 'empty';
 }) {
   return (
-    <div className="@container/search-field sl-field flex min-w-0 flex-wrap items-center gap-2 rounded-md bg-surface-3 px-2 focus-within:outline-2 focus-within:outline-focus">
+    <div className="sl-field flex min-w-0 flex-wrap items-center gap-2 rounded-md bg-surface-3 px-[calc(var(--sl-space-3)-var(--sl-edge-width))] focus-within:outline-2 focus-within:outline-focus [&>button]:-my-[var(--sl-edge-width)]">
       <Search
         aria-hidden="true"
-        className="hidden size-icon-md shrink-0 text-text-faint @xs/search-field:block"
+        className="size-icon-md shrink-0 text-text-faint"
       />
       <input
         ref={inputRef}
@@ -119,7 +119,7 @@ export function PaletteInput({
         spellCheck={false}
         maxLength={80}
         placeholder="Search coins and users"
-        className="min-h-control-height-lg min-w-0 flex-1 basis-40 bg-transparent text-base text-text placeholder:text-text-faint outline-none"
+        className="-my-[var(--sl-edge-width)] min-h-control-height-lg min-w-0 flex-1 bg-transparent text-base text-text placeholder:text-text-faint outline-none"
       />
       {value ? (
         <IconButton label="Clear search" icon={<X />} size="sm" onClick={() => onChange('')} />

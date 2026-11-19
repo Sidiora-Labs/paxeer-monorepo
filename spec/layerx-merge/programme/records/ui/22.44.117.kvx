@@ -1,0 +1,99 @@
+[meta]
+task = "22.44.117"
+view = "Coin creation"
+measurement = "Browser layout in CSS pixels"
+scheme = "dark"
+
+[render.1440]
+width = 1440
+height = 900
+heading_row_height_before = 28
+heading_row_height_after = 24
+heading_height_before = 24
+heading_height_after = 24
+chain_link_height_before = 28
+chain_link_height_after = 24
+first_form_heading_height_before = 20
+first_form_heading_height_after = 20
+first_form_heading_offset_before = 42
+first_form_heading_offset_after = 40
+cost_amount_font_size_before = "14px"
+cost_amount_font_size_after = "16px"
+cost_amount_line_height_before = "20px"
+cost_amount_line_height_after = "24px"
+cost_amount_weight_before = 700
+cost_amount_weight_after = 700
+chain_heading_height_before = 24
+chain_heading_height_after = 24
+chain_heading_font_size_before = "16px"
+chain_heading_font_size_after = "16px"
+chain_heading_line_height_before = "24px"
+chain_heading_line_height_after = "24px"
+
+[render.834]
+width = 834
+height = 900
+heading_row_height_before = 44
+heading_row_height_after = 44
+heading_height_before = 24
+heading_height_after = 24
+chain_link_height_before = 44
+chain_link_height_after = 44
+first_form_heading_height_before = 20
+first_form_heading_height_after = 20
+first_form_heading_offset_before = 50
+first_form_heading_offset_after = 50
+cost_amount_font_size_before = "14px"
+cost_amount_font_size_after = "16px"
+cost_amount_line_height_before = "20px"
+cost_amount_line_height_after = "24px"
+cost_amount_weight_before = 700
+cost_amount_weight_after = 700
+chain_heading_height_before = 24
+chain_heading_height_after = 24
+chain_heading_font_size_before = "16px"
+chain_heading_font_size_after = "16px"
+chain_heading_line_height_before = "24px"
+chain_heading_line_height_after = "24px"
+
+[render.390]
+width = 390
+height = 844
+heading_row_height_before = 44
+heading_row_height_after = 44
+heading_height_before = 24
+heading_height_after = 24
+chain_link_height_before = 44
+chain_link_height_after = 44
+first_form_heading_height_before = 20
+first_form_heading_height_after = 20
+first_form_heading_offset_before = 50
+first_form_heading_offset_after = 50
+cost_amount_font_size_before = "14px"
+cost_amount_font_size_after = "16px"
+cost_amount_line_height_before = "20px"
+cost_amount_line_height_after = "24px"
+cost_amount_weight_before = 700
+cost_amount_weight_after = 700
+chain_heading_height_before = 24
+chain_heading_height_after = 24
+chain_heading_font_size_before = "16px"
+chain_heading_font_size_after = "16px"
+chain_heading_line_height_before = "24px"
+chain_heading_line_height_after = "24px"
+
+[interaction]
+chain_link_text = "Launch a chain and token"
+chain_link_target = "/create/chain"
+chain_link_focus = "A solid 2px outline remains visible with keyboard focus at every measured width"
+scrollbar_gutter = "stable"
+chain_heading = "The standalone heading remains 24px high"
+
+[coin_part]
+views = 9
+views_and_states = 19
+renders = 646
+findings = 0
+empty_renders = 0
+retried_renders = 0
+result = "pass"

@@ -185,6 +185,9 @@ func TestEveryFrontendGeneratedRoleMatchesGoManifest(t *testing.T) {
 		t.Fatal(e)
 	}
 	text := string(source)
+	if !strings.Contains(text, "spender.toLowerCase() === CORE_DEPLOYMENT.launchpadPrecompile.toLowerCase()") {
+		t.Fatal("frontend approval spender must bind to the launchpad precompile")
+	}
 	start := strings.Index(text, "Object.freeze({")
 	if start < 0 {
 		t.Fatal("generated frontend binding missing")

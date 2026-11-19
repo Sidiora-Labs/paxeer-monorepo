@@ -109,7 +109,7 @@ export const OPTIONAL_CONTRACT_CAPABILITIES = Object.freeze({ metaAg: false, pec
 export type OptionalContractCapability = keyof typeof OPTIONAL_CONTRACT_CAPABILITIES;
 
 export function isActiveApprovalSpender(spender: string): boolean {
-  return typeof spender === 'string' && /^0x[0-9a-fA-F]{40}$/.test(spender) && spender.toLowerCase() === CORE_DEPLOYMENT.router.toLowerCase();
+  return typeof spender === 'string' && /^0x[0-9a-fA-F]{40}$/.test(spender) && spender.toLowerCase() === CORE_DEPLOYMENT.launchpadPrecompile.toLowerCase();
 }
 
 export function assertActiveApprovalSpender(spender: string): void {

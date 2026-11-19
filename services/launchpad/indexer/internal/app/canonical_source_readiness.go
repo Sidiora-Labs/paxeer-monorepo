@@ -61,7 +61,7 @@ func (r *canonicalSourceReadiness) Start(parent context.Context) {
 			if ctx.Err() != nil {
 				return
 			}
-			r.refresh(ctx)
+			_ = r.refresh(ctx)
 			select {
 			case <-ctx.Done():
 				return

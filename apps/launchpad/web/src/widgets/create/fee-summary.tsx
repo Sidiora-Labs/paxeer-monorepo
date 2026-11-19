@@ -41,7 +41,7 @@ export function FeeSummary({ read, plan, firstBuyRaw, stale = false, error = nul
   return (
     <div className={cn('flex flex-col gap-3', className)}>
       <dl className="flex flex-col">
-        <KeyValueRow label="Creation fee" value={formatUsdl(feeRaw)} />
+        <KeyValueRow label="Creation fee" value={formatUsdl(feeRaw)} className="[&>dd]:text-md" />
         <KeyValueRow label={gasLabel} value={gas} trailing={!read ? <span className="text-xs text-text-faint">shown before you confirm</span> : null} />
         {firstBuy ? <KeyValueRow label="First buy" value={firstBuy} /> : null}
         {read ? <KeyValueRow label="Your USDL" value={formatUsdl(read.balances.usdl)} /> : null}

@@ -86,7 +86,7 @@ describe('holder rewards components', () => {
     expect(out).toContain('text-[28px]');
     expect(out).toContain('leading-[calc(34/28)]');
     expect(out).not.toMatch(/font-(extrabold|black)/);
-    expect(out).toMatch(/<h1 class="[^"]*font-bold/);
+    expect(out).toMatch(/<h1 class="[^"]*font-medium/);
     expect(out).toContain('stats slot');
     expect(out).toContain('paid in USDL');
     const copy = /<p class="[^"]*">([^<]+)<\/p>/.exec(out)?.[1] ?? '';
@@ -105,7 +105,16 @@ describe('holder rewards components', () => {
     expect(ready.match(/>18,627,546<\/span><span[^>]*>USDL</g)).toHaveLength(2);
     expect(ready).toContain('Valued in USDL');
     expect(ready).toContain('445,691');
-    expect(ready).toContain('text-2xl');
+    for (const markup of [ready, html(<StatsRow stats={{ state: 'loading' }} />), html(<StatsRow stats={unsupportedStats} />)]) {
+      expect(markup.match(/text-\[36px\]/g)).toHaveLength(3);
+      expect(markup.match(/leading-\[1\.1111112\]/g)).toHaveLength(3);
+      expect(markup.match(/sm:text-\[44px\]/g)).toHaveLength(3);
+      expect(markup.match(/sm:leading-\[1\.0909091\]/g)).toHaveLength(3);
+      expect(markup.match(/font-bold tracking-tight tabular-nums/g)).toHaveLength(3);
+      expect(markup.match(/min-h-23\.5 sm:min-h-31\.5/g)).toHaveLength(3);
+    }
+    expect(ready.match(/class="min-w-0 text-(success|text)"/g)).toHaveLength(3);
+    expect(ready.match(/ml-1\.5 shrink-0 whitespace-nowrap/g)).toHaveLength(2);
     expect(ready).toContain(
       'grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3'
     );
@@ -113,6 +122,8 @@ describe('holder rewards components', () => {
     expect(ready).not.toContain('not available yet');
     const loading = html(<StatsRow stats={{ state: 'loading' }} />);
     expect(loading.match(/aria-busy="true"/g)).toHaveLength(3);
+    expect(loading.match(/sl-skeleton block h-\[1lh\]/g)).toHaveLength(3);
+    expect(loading).toContain('<dd aria-hidden="true" class="h-[var(--sl-leading-xs)]"></dd>');
     expect(loading).not.toContain('USDL');
     const unavailable = html(<StatsRow stats={unsupportedStats} />);
     expect(unavailable.match(/<dt /g)).toHaveLength(3);
@@ -125,13 +136,14 @@ describe('holder rewards components', () => {
     expect(unavailable).not.toMatch(/\d{2,} USDL/);
     expect(unavailable).not.toMatch(/>\d[\d,]*</);
     expect(unavailable.match(/aria-label="Not available yet"/g)).toHaveLength(3);
-    expect(unavailable).toContain('text-2xl');
+    expect(unavailable).toContain('text-[36px]');
     expect(unavailable).not.toContain('Failed to fetch');
     expect(assertControlEdges(unavailable)).not.toMatch(BORDER);
     const failed = html(
       <StatsRow stats={{ state: 'error', error: new TypeError('Failed to fetch'), retry: noop }} />
     );
     expect(failed.match(/<dt /g)).toHaveLength(3);
+    expect(failed.match(/sm:text-\[44px\]/g)).toHaveLength(3);
     expect(failed).not.toContain('Failed to fetch');
     expect(failed).toContain('Totals can&#x27;t load right now');
     expect(failed).toMatch(/Try again|Retry/);

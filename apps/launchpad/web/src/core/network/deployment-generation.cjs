@@ -57,7 +57,10 @@ function createDeploymentGenerator(base) {
   }
 
   function renderHelper(data) {
-    return base.renderHelper(data);
+    const rendered = base.renderHelper(data);
+    const precompileSpender = 'spender.toLowerCase() === CORE_DEPLOYMENT.launchpadPrecompile.toLowerCase()';
+    assert.ok(rendered.includes(precompileSpender), 'Approval spender binding is required');
+    return rendered;
   }
 
   function checkClient(clientRoot, data, helper) {

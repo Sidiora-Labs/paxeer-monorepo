@@ -11,6 +11,7 @@ import {
   useReadErc20Decimals,
   useReadQuoterQuoteMultihop,
   ROUTER_ADDRESS,
+  LAUNCHPAD_ADDRESS,
   erc20ApprovalRequest,
 } from '@/core/network/contracts';
 import { formatUnits, zeroAddress, erc20Abi, parseAbi, encodeFunctionData, type Address, type Hash, type TransactionReceipt } from 'viem';
@@ -37,6 +38,10 @@ import { statsSpotPrice, statsMarketCap } from '@/core/market/pool-stats-display
 import { openAuthModal } from '@/shell/auth-modal-store';
 
 const homeSwapAbi = parseAbi(['function swapTokenForToken(address tokenIn,address tokenOut,uint256 amountIn,uint256 minAmountOut,uint256 deadline) returns (uint256 amountOut,uint256 intermediateUsdl)']);
+
+export function swapAllowanceRequest(token: Address, owner: Address) {
+  return { token, owner, spender: LAUNCHPAD_ADDRESS } as const;
+}
 
 export interface TokenInfo {
   tokenAddress: string;
@@ -165,7 +170,7 @@ function TokenSelectorModal({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name, symbol, or address"
-          className="w-full border border-control-edge bg-surface-2 rounded-xl px-3 py-2.5 text-xs text-text transition placeholder:text-text-faint"
+          className="w-full border border-control-edge bg-surface-2 rounded-xl px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space)*2.5-var(--sl-edge-width))] text-xs text-text transition placeholder:text-text-faint"
         />
       </div>
 
@@ -293,7 +298,7 @@ export function TokenInputBox({
         <button
           type="button"
           onClick={onSelectClick}
-          className="flex items-center gap-2 border border-control-edge bg-surface-3 hover:bg-surface-hover rounded-xl px-3 py-2 transition max-w-full flex-shrink-0"
+          className="flex min-h-8 items-center gap-2 border border-control-edge bg-surface-3 hover:bg-surface-hover rounded-xl px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space-1)-var(--sl-edge-width))] transition max-w-full flex-shrink-0"
         >
           {token ? (
             <>
@@ -472,8 +477,8 @@ export function useSwapQuoteExecution({ tokenIn, tokenOut, poolIn, poolOut, amou
       await ensureHomeChain(wallet, home);
       if (!(await wallet.getAddresses()).some(value => value.toLowerCase() === approvedAddress.toLowerCase()) || latest.current.tokenIn !== approvedToken || latest.current.address !== approvedAddress || latest.current.amountIn !== amountIn) throw new Error('Wallet or coin changed. Review again.');
       const client = homeChainClient(home);
-      const hash = await wallet.writeContract({ chain: client.chain, account: address, address: tokenIn, abi: erc20Abi, functionName: 'approve', args: [ROUTER_ADDRESS, amount] });
-      const attempt: HomeAttempt = { home, hash, sender: address, target: tokenIn, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [ROUTER_ADDRESS, amount] }), action: 'approve' };
+      const hash = await wallet.writeContract({ chain: client.chain, account: address, address: tokenIn, abi: erc20Abi, functionName: 'approve', args: [LAUNCHPAD_ADDRESS, amount] });
+      const attempt: HomeAttempt = { home, hash, sender: address, target: tokenIn, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [LAUNCHPAD_ADDRESS, amount] }), action: 'approve' };
       setHomeRecovery(attempt);
       await checkHomeReceipt(attempt);
       return true;
@@ -622,11 +627,7 @@ export default function SwapPanel() {
   }, [tokenIn, tokenOut, balIn, balOut, tokenInDec, tokenOutDec]);
 
   // ── Allowance ─────────────────────────────────────────────────
-  const { data: allowanceRaw, error: allowanceError, refetch: refetchAllowance } = useReadErc20Allowance({
-    token: tokenInAddr,
-    owner: userAddr,
-    spender: ROUTER_ADDRESS,
-  });
+  const { data: allowanceRaw, error: allowanceError, refetch: refetchAllowance } = useReadErc20Allowance(swapAllowanceRequest(tokenInAddr, userAddr));
   const allowance = allowanceRaw !== undefined && allowanceRaw !== null ? BigInt(String(allowanceRaw)) : null;
 
   // ── Quote ─────────────────────────────────────────────────────
@@ -695,7 +696,7 @@ export default function SwapPanel() {
       if (needsApproval) {
         resetApproval();
         if (await approveHome(parsedAmountIn)) return;
-        await writeApprove(erc20ApprovalRequest({ token: tokenInAddr, spender: ROUTER_ADDRESS, amount: parsedAmountIn }));
+        await writeApprove(erc20ApprovalRequest({ ...swapAllowanceRequest(tokenInAddr, userAddr), amount: parsedAmountIn }));
         return;
       }
       requestSwap();

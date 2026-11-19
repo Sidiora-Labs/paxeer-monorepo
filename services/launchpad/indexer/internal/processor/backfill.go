@@ -40,7 +40,7 @@ func (b *Backfill) Run(ctx context.Context) error {
 		if b.p.deps.CanonicalStreamID != "" && request.SourceStream != b.p.deps.CanonicalStreamID {
 			return errors.New("backfill source stream mismatch")
 		}
-		if request.Mode != "backfill" {
+		if request.Mode != valueBackfill {
 			return errors.New("backfill request mode required")
 		}
 		if i == 0 && b.fromBlock != nil && request.FromHeight != *b.fromBlock {
@@ -57,7 +57,7 @@ func (b *Backfill) Run(ctx context.Context) error {
 	runner.BatchSize = b.batchSize
 	for _, request := range requests {
 		var canonical *Processor
-		if request.Target == "indexer" {
+		if request.Target == valueIndexer {
 			canonical = b.p
 		}
 		if err := runner.run(ctx, request, canonical); err != nil {
