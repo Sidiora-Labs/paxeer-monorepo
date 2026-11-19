@@ -1,0 +1,181 @@
+[meta]
+title = "Swap coin controls keep their reserved boxes"
+route = "/swap"
+units = "CSS pixels"
+box_values = "left, top, width, height"
+coin_states = "Each coin selector is measured empty and with a coin selected."
+text = "Amount text keeps its 16px size and 24px line height."
+edge = "The existing control edge lies inside its reserved box."
+
+[swap.width_1440.empty]
+render_width = 1440
+render_height = 900
+pay_button_before = [825.5, 206, 115, 34]
+pay_button_after = [827.5, 206, 113, 32]
+pay_input_before = [540.5, 211, 277, 24]
+pay_input_after = [540.5, 210, 279, 24]
+pay_field_before = [526.5, 172, 428, 82]
+pay_field_after = [526.5, 172, 428, 80]
+receive_button_before = [825.5, 308, 115, 34]
+receive_button_after = [827.5, 306, 113, 32]
+receive_input_before = [540.5, 313, 277, 24]
+receive_input_after = [540.5, 310, 279, 24]
+receive_field_before = [526.5, 274, 428, 82]
+receive_field_after = [526.5, 272, 428, 80]
+
+[swap.width_1440.pay_selected]
+render_width = 1440
+render_height = 900
+pay_button_before = [819.5, 206, 121, 42]
+pay_button_after = [821.5, 206, 119, 32]
+pay_input_before = [540.5, 215, 271, 24]
+pay_input_after = [540.5, 210, 273, 24]
+pay_field_before = [526.5, 172, 428, 90]
+pay_field_after = [526.5, 172, 428, 80]
+receive_button_before = [825.5, 316, 115, 34]
+receive_button_after = [827.5, 306, 113, 32]
+receive_input_before = [540.5, 321, 277, 24]
+receive_input_after = [540.5, 310, 279, 24]
+receive_field_before = [526.5, 282, 428, 82]
+receive_field_after = [526.5, 272, 428, 80]
+
+[swap.width_1440.receive_selected]
+render_width = 1440
+render_height = 900
+pay_button_before = [825.5, 206, 115, 34]
+pay_button_after = [827.5, 206, 113, 32]
+pay_input_before = [540.5, 211, 277, 24]
+pay_input_after = [540.5, 210, 279, 24]
+pay_field_before = [526.5, 172, 428, 82]
+pay_field_after = [526.5, 172, 428, 80]
+receive_button_before = [819.5, 308, 121, 42]
+receive_button_after = [821.5, 306, 119, 32]
+receive_input_before = [540.5, 317, 271, 24]
+receive_input_after = [540.5, 310, 273, 24]
+receive_field_before = [526.5, 274, 428, 90]
+receive_field_after = [526.5, 272, 428, 80]
+
+[search.width_1440]
+render_width = 1440
+render_height = 900
+before = [518.5, 415, 388, 38]
+after = [518.5, 416, 388, 36]
+
+[swap.width_834.empty]
+render_width = 834
+render_height = 900
+pay_button_before = [522.5, 234, 115, 44]
+pay_button_after = [524.5, 234, 113, 44]
+pay_input_before = [237.5, 234, 277, 44]
+pay_input_after = [237.5, 234, 279, 44]
+pay_field_before = [223.5, 200, 428, 92]
+pay_field_after = [223.5, 200, 428, 92]
+receive_button_before = [522.5, 350, 115, 44]
+receive_button_after = [524.5, 350, 113, 44]
+receive_input_before = [237.5, 350, 277, 44]
+receive_input_after = [237.5, 350, 279, 44]
+receive_field_before = [223.5, 316, 428, 92]
+receive_field_after = [223.5, 316, 428, 92]
+
+[swap.width_834.pay_selected]
+render_width = 834
+render_height = 900
+pay_button_before = [516.5, 234, 121, 44]
+pay_button_after = [518.5, 234, 119, 44]
+pay_input_before = [237.5, 234, 271, 44]
+pay_input_after = [237.5, 234, 273, 44]
+pay_field_before = [223.5, 200, 428, 92]
+pay_field_after = [223.5, 200, 428, 92]
+receive_button_before = [522.5, 350, 115, 44]
+receive_button_after = [524.5, 350, 113, 44]
+receive_input_before = [237.5, 350, 277, 44]
+receive_input_after = [237.5, 350, 279, 44]
+receive_field_before = [223.5, 316, 428, 92]
+receive_field_after = [223.5, 316, 428, 92]
+
+[swap.width_834.receive_selected]
+render_width = 834
+render_height = 900
+pay_button_before = [522.5, 234, 115, 44]
+pay_button_after = [524.5, 234, 113, 44]
+pay_input_before = [237.5, 234, 277, 44]
+pay_input_after = [237.5, 234, 279, 44]
+pay_field_before = [223.5, 200, 428, 92]
+pay_field_after = [223.5, 200, 428, 92]
+receive_button_before = [516.5, 350, 121, 44]
+receive_button_after = [518.5, 350, 119, 44]
+receive_input_before = [237.5, 350, 271, 44]
+receive_input_after = [237.5, 350, 273, 44]
+receive_field_before = [223.5, 316, 428, 92]
+receive_field_after = [223.5, 316, 428, 92]
+
+[search.width_834]
+render_width = 834
+render_height = 900
+before = [215.5, 421, 388, 44]
+after = [215.5, 421, 388, 44]
+
+[swap.width_390.empty]
+render_width = 390
+render_height = 844
+pay_button_before = [214, 190, 115, 44]
+pay_button_after = [216, 190, 113, 44]
+pay_input_before = [46, 190, 160, 44]
+pay_input_after = [46, 190, 162, 44]
+pay_field_before = [32, 156, 311, 92]
+pay_field_after = [32, 156, 311, 92]
+receive_button_before = [214, 306, 115, 44]
+receive_button_after = [216, 306, 113, 44]
+receive_input_before = [46, 306, 160, 44]
+receive_input_after = [46, 306, 162, 44]
+receive_field_before = [32, 272, 311, 92]
+receive_field_after = [32, 272, 311, 92]
+
+[swap.width_390.pay_selected]
+render_width = 390
+render_height = 844
+pay_button_before = [208, 190, 121, 44]
+pay_button_after = [210, 190, 119, 44]
+pay_input_before = [46, 190, 154, 44]
+pay_input_after = [46, 190, 156, 44]
+pay_field_before = [32, 156, 311, 92]
+pay_field_after = [32, 156, 311, 92]
+receive_button_before = [214, 306, 115, 44]
+receive_button_after = [216, 306, 113, 44]
+receive_input_before = [46, 306, 160, 44]
+receive_input_after = [46, 306, 162, 44]
+receive_field_before = [32, 272, 311, 92]
+receive_field_after = [32, 272, 311, 92]
+
+[swap.width_390.receive_selected]
+render_width = 390
+render_height = 844
+pay_button_before = [214, 190, 115, 44]
+pay_button_after = [216, 190, 113, 44]
+pay_input_before = [46, 190, 160, 44]
+pay_input_after = [46, 190, 162, 44]
+pay_field_before = [32, 156, 311, 92]
+pay_field_after = [32, 156, 311, 92]
+receive_button_before = [208, 306, 121, 44]
+receive_button_after = [210, 306, 119, 44]
+receive_input_before = [46, 306, 154, 44]
+receive_input_after = [46, 306, 156, 44]
+receive_field_before = [32, 272, 311, 92]
+receive_field_after = [32, 272, 311, 92]
+
+[search.width_390]
+render_width = 390
+render_height = 844
+before = [28, 393, 319, 44]
+after = [28, 393, 319, 44]
+
+[render]
+part = "terminal"
+renders = 444
+findings = 0
+result = "pass"
+
+[cases]
+area = "swap"
+passed = 5
+result = "pass"
