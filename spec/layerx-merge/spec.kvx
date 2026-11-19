@@ -208719,7 +208719,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.951]
 title = "Bound the body read of the card image route of the launchpad web application itself"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
