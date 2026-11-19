@@ -15976,6 +15976,24 @@ value = "One. Where the current rate holds no fiat value, both market chart rout
 basis = "Gotcha 4737."
 affects = []
 
+[decision.3811]
+title = "The value of a statistic tile shows whole at every width from 320 pixels and takes a smaller step of the type scale where its tile is narrow"
+value = "One. The text of a value takes the fixed size of its token where the tile holds the value in one line at that size. Two. Where the tile is narrower, the text takes the largest step of the type scale of the surface below the fixed size at which the value fits in one line. The steps are 20, 18, 16 and 14 pixels at the usual root size, and 14 is the least step. No value takes a size above the fixed size. Three. Where a value does not fit in one line at the least step, it breaks after a separator or at a space and the tile grows in height. Four. No value of a statistic tile carries an ellipsis and none has hidden overflow. The whole value stays in the document, with its prefix and its unit. Five. The line height of the value stays, so the tiles of a row keep one height while each value takes one line. The steps follow the root size of text, so the rule holds for a reader who has doubled the size of text. Six. The rule lies in the shared widget and holds for every view that uses it. Decisions 3708 and 3803 hold: no size grows above the earlier state. The type scale the render check reads stays as it is, and the record of task 22.44.120 takes the new form under the key statistic_values. Task 22.44.130."
+basis = "Gotcha 4738."
+affects = []
+
+[decision.3812]
+title = "The value of a statistic card and the tags of a row of the latest transactions of the home view show whole"
+value = "One. The value of a statistic card follows decision 3811. It takes the fixed size where the card holds the value in one line, else the largest of the steps 20, 18, 16 and 14 pixels at which the value fits in one line, and where it does not fit at the least step it breaks after a separator or at a space and the card grows in height. Two. No value of a card carries an ellipsis and none has hidden overflow. The whole value stays in the document, and its unit counts into its width. The secondary figure and the difference of a value keep their place after the value and may take the next line. Three. The card takes the rule from the place where the shared widget holds it after task 22.44.130, so one rule serves the tile and the card. The label of a card keeps its form. Four. In the table of the latest transactions of the home view the tag of a price update names its kind with the two words Price update, and the count of its markets stands in the value cell of the row, where another row shows its value, as the count and the word market or markets. The fee line keeps its dash. Five. The tag of the kind of a row and the tag of its status show whole at every width at which the table shows: where the line does not hold them beside the time, the tags take the next line and the row grows in height. A tag that carries a name of any length keeps its cut form. Six. The stacked form of a row at the narrow widths keeps the label with the count on its tag, and the list of transactions and every other place that shows the label stay as they are. Decisions 3708 and 3803 hold: no size grows above the earlier state, no token changes, and the type scale the render check reads stays as it is. Tasks 22.44.131 and 22.44.132."
+basis = "Gotcha 4739."
+affects = []
+
+[decision.3813]
+title = "A surface file of the render check can state the time its start may take"
+value = "One. A surface file can hold the key readyMs, a whole number of milliseconds from 1000 to 120000. The check waits that time for the readiness path of the surface, and the time LIMITS.readyMs where the key is absent. Two. Another value of the key is refused with a message that names the surface and the bounds, in the form the key buildMs has. Three. The report of a run records the applied time beside buildMs. Four. The surface file of the explorer, its nine part files and its three measure files state 60000, and tools/ui-check/surfaces/explorer/parts.mjs compares the key between a part file and the whole file as it does for buildMs. Five. LIMITS.readyMs keeps its value and every other surface keeps it. No rule for a finding changes and no other limit changes. Task 22.44.133."
+basis = "Gotcha 4740."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45636,6 +45654,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.133]
+title = "Let a surface file of the render check state the time its start may take"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/server.mjs", "tools/ui-check/config.mjs", "tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md", "tools/ui-check/surfaces/explorer.json", "tools/ui-check/surfaces/explorer"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test) && node tools/ui-check/surfaces/explorer/parts.mjs"
+do_1 = "do_1 Gotcha 4740, decision 3813. Read tools/ui-check/server.mjs whole, in tools/ui-check/config.mjs and tools/ui-check/check.mjs the places that read the keys of a surface file, check the key buildMs and write the report, the cases on buildMs in tools/ui-check/test/check.test.mjs with their fixtures, the part of tools/ui-check/README.md on the keys of a surface file, tools/ui-check/surfaces/explorer/parts.mjs and the first twelve lines of tools/ui-check/surfaces/explorer.json and of one part file."
+symbols = []
+
+[capability.22.44.132]
+title = "Let the tags of a row of the latest transactions of the home view show whole"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.132.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/home.json --out /tmp/ui-check/explorer-home && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/ ui/home/ ui/pages/ toolkit/"
+do_1 = "do_1 Gotcha 4739, decisions 3812, 3708 and 3803. Read apps/explorer/ui/home/LatestTxsItem.tsx whole with its case file apps/explorer/ui/home/LatestTxsItem.spec.tsx, the stacked form apps/explorer/ui/home/LatestTxsItemMobile.tsx, the label of a price update in apps/explorer/ui/txs/TxPriceUpdate.tsx, the tag in apps/explorer/ui/shared/scan/ScanMethodChip.tsx, the tags of the kinds in apps/explorer/ui/txs/TxType.tsx, the part file tools/ui-check/surfaces/explorer/parts/home.json and tools/ui-check/README.md for the rules with the names cut and scale."
+symbols = []
+
+[capability.22.44.131]
+title = "Let the value of a statistic card of the explorer show whole"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui", "apps/explorer/toolkit"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.131.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/statistics.json --out /tmp/ui-check/explorer-statistics && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/ ui/home/ ui/pages/ toolkit/"
+do_1 = "do_1 Gotcha 4739, decisions 3812, 3811, 3708 and 3803. Read apps/explorer/ui/shared/scan/ScanStatCard.tsx whole, its case file apps/explorer/ui/shared/scan/ScanStatCard.spec.tsx, the slot valueText of the variant scan in apps/explorer/toolkit/theme/recipes/stat.recipe.ts, the shared widget apps/explorer/ui/shared/stats/StatsWidget.tsx in the form task 22.44.130 gave it with its case file, the record of task 22.44.130 under spec/layerx-merge/programme/records/ui, the part file tools/ui-check/surfaces/explorer/parts/statistics.json and tools/ui-check/README.md for the rules with the names cut and scale. Read with git grep under apps/explorer/ui which components use the card."
+symbols = []
+
+[capability.22.44.130]
+title = "Let the value of a statistic tile of the explorer show whole at every width"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "spec/layerx-merge/programme/records/ui/22.44.120.kvx"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.130.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/home.json --out /tmp/ui-check/explorer-home && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/ ui/home/ ui/pages/ toolkit/"
+do_1 = "do_1 Gotcha 4738, decisions 3811, 3708 and 3803. Read apps/explorer/ui/shared/stats/StatsWidget.tsx whole, the case files apps/explorer/ui/shared/stats/StatsWidget.spec.tsx and apps/explorer/ui/home/Stats.spec.tsx, the file apps/explorer/ui/home/Stats.tsx, the size tokens and the text style of the value in apps/explorer/toolkit/theme/foundations/typography.ts, the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the part file tools/ui-check/surfaces/explorer/parts/home.json and tools/ui-check/README.md for the rules with the names cut and scale. Read with git grep under apps/explorer/ui which components use the widget."
+symbols = []
 
 [capability.22.44.129]
 title = "Let the render check render a view once again after a capture that ran into its time limit"
@@ -178018,9 +178072,138 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.133]
+title = "Let a surface file of the render check state the time its start may take"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.133"]
+interfaces = []
+do_1 = "do_1 Gotcha 4740, decision 3813. Read tools/ui-check/server.mjs whole, in tools/ui-check/config.mjs and tools/ui-check/check.mjs the places that read the keys of a surface file, check the key buildMs and write the report, the cases on buildMs in tools/ui-check/test/check.test.mjs with their fixtures, the part of tools/ui-check/README.md on the keys of a surface file, tools/ui-check/surfaces/explorer/parts.mjs and the first twelve lines of tools/ui-check/surfaces/explorer.json and of one part file."
+do_2 = "do_2 Let a surface file hold the optional key readyMs in the form of decision 3813: a whole number from 1000 to 120000, and another value is refused with a message that names the surface and the bounds. The wait for the readiness path takes the value of the surface, and LIMITS.readyMs where the key is absent. The report of a run records the applied value beside buildMs. LIMITS.readyMs keeps its value, and no rule for a finding and no other limit changes."
+do_3 = "do_3 State the key readyMs with the value 60000 in tools/ui-check/surfaces/explorer.json, in the nine part files under tools/ui-check/surfaces/explorer/parts and in the files measure.json, addresses-measure.json and rollup-measure.json under tools/ui-check/surfaces/explorer: one new line directly after the line of the key readyPath, and no other line of these files changes. Add the key to the keys tools/ui-check/surfaces/explorer/parts.mjs compares between a part file and the whole file. Other tasks change the end of a part file at the same time: change only that one line in each file."
+do_4 = "do_4 Add cases under tools/ui-check/test in the form of the cases on buildMs: a value outside the form is refused with the message; the bounds 1000 and 120000 are taken; a surface whose start answers its readiness path after about two seconds is not ready with the value 1000 and is rendered with the value 5000; a surface without the key waits the fixed time. Use a start in a fixture that waits before it answers, so that the cases end within seconds. Keep the cases the files hold."
+do_5 = "do_5 Name the key in tools/ui-check/README.md where the README names buildMs and where it names the time readiness is asked for, with its bounds and the fixed time that holds without it. Change no file outside the paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/server.mjs", "tools/ui-check/config.mjs", "tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md", "tools/ui-check/surfaces/explorer.json", "tools/ui-check/surfaces/explorer"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test) && node tools/ui-check/surfaces/explorer/parts.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.132]
+title = "Let the tags of a row of the latest transactions of the home view show whole"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.120"]
+reqs = ["22998.1"]
+capabilities = ["22.44.132"]
+interfaces = []
+do_1 = "do_1 Gotcha 4739, decisions 3812, 3708 and 3803. Read apps/explorer/ui/home/LatestTxsItem.tsx whole with its case file apps/explorer/ui/home/LatestTxsItem.spec.tsx, the stacked form apps/explorer/ui/home/LatestTxsItemMobile.tsx, the label of a price update in apps/explorer/ui/txs/TxPriceUpdate.tsx, the tag in apps/explorer/ui/shared/scan/ScanMethodChip.tsx, the tags of the kinds in apps/explorer/ui/txs/TxType.tsx, the part file tools/ui-check/surfaces/explorer/parts/home.json and tools/ui-check/README.md for the rules with the names cut and scale."
+do_2 = "do_2 Give a price update in the table form of a row the form of decision 3812. Its tag names the kind with the two words Price update. The count of its markets stands in the value cell, where another row shows its value, as the count and the word market for one and markets for any other count, in the text style of a value of the row. The fee line keeps its dash. The label with the count stays as it is for the stacked form of a row, for the list of transactions and for every other place that shows it: add what the table form needs beside it in apps/explorer/ui/txs/TxPriceUpdate.tsx and change no other user."
+do_3 = "do_3 Let the tag of the kind of a row and the tag of its status show whole at every width at which the table shows. Where the line does not hold them beside the time, the tags take the next line and the row grows in height. The time keeps its place and its form. A tag that carries a name of any length keeps its cut form. No column of the table changes its share of the width, and no size token, no text style and no type scale of the render check changes."
+do_4 = "do_4 Change the cases that pin the earlier form with the change they pin. The case file apps/explorer/ui/home/LatestTxsItem.spec.tsx states the new form: the two words on the tag of a price update, the count of markets in the value cell for one market and for two, the dash on the fee line, and the wrap of the line of the time and the tags. The cases on a failed price update, on the tags of a watch list and on a row of another kind stay, with the text of the tag they read. No assertion on behaviour is weakened, and the cases of the stacked form stay as they are."
+do_5 = "do_5 Start the render check of the home part by hand, in the foreground and never detached, with the options the verification command of this task holds, and read its summary and every finding of the kinds cut, scale, sideways and shift for the home view. Correct each finding the change causes. No limit of the check is raised and no element is hidden from it. Work with at most one full run by hand. Then start the home part by hand with the start command the part file holds, open the home view at the widths 1024, 1100, 1280, 1440 and 1920 with the browser the check installs and read for the tag of the kind of each row of the table its scroll width and the width of its box: no tag is wider than its box, and the count of markets of a price update is readable in the value cell. Where the data of the part holds no price update, say so in the final message and read the rows it holds. Where that read cannot be set up within twenty minutes, leave it out and say so in the final message."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.132.kvx in present tense: the form of a price update in the table of the latest transactions, the rule for the tags of a row, the count of renders of the last run of the home part with its result, and for the widths 1024, 1100, 1280 and 1440 the width of the box of the tag of the kind and the width of its text. Another task of this group can change the same shared file at the same time: change only what this task needs. Start the build and the counted verification early and keep time for them: the counted verification renders the whole home part. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.132.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.132.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/home.json --out /tmp/ui-check/explorer-home && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/ ui/home/ ui/pages/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.131]
+title = "Let the value of a statistic card of the explorer show whole"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.130"]
+reqs = ["22998.1"]
+capabilities = ["22.44.131"]
+interfaces = []
+do_1 = "do_1 Gotcha 4739, decisions 3812, 3811, 3708 and 3803. Read apps/explorer/ui/shared/scan/ScanStatCard.tsx whole, its case file apps/explorer/ui/shared/scan/ScanStatCard.spec.tsx, the slot valueText of the variant scan in apps/explorer/toolkit/theme/recipes/stat.recipe.ts, the shared widget apps/explorer/ui/shared/stats/StatsWidget.tsx in the form task 22.44.130 gave it with its case file, the record of task 22.44.130 under spec/layerx-merge/programme/records/ui, the part file tools/ui-check/surfaces/explorer/parts/statistics.json and tools/ui-check/README.md for the rules with the names cut and scale. Read with git grep under apps/explorer/ui which components use the card."
+do_2 = "do_2 Give the value of a card the form of decision 3812. It takes the fixed size where the card holds the value in one line, else the largest of the steps 20, 18, 16 and 14 pixels at which it fits in one line, and below the least step it breaks after a separator or at a space. Take the rule from the place where the shared widget holds it: where the widget keeps the rule inside itself, move it to one shared place both use, without a change of what the widget shows. Remove the truncate form and the hidden overflow from the value. The whole value stays in the document, its unit counts into its width, and the secondary figure and the difference keep their place after the value. The label of a card, its hint and its icon keep their form. No size token, no text style and no recipe changes beyond what the rule needs, and the type scale in the part files of the render check stays as it is."
+do_3 = "do_3 The rule lies in the card and holds for every component that uses it: change a user of the card only where it sets a style that pins the form of gotcha 4739. Change the cases that pin the ellipsis with the change they pin. The case on long figures in apps/explorer/ui/shared/scan/ScanStatCard.spec.tsx states the new form: no ellipsis and no hidden overflow on a value, the fixed size as the upper bound, and the step a value of ten and of twelve characters takes at box widths of 120, 141 and 180 pixels. No assertion on behaviour is weakened, and the cases on the label, the hint, the secondary figure, the difference and the loading state stay. Run the case files of the components that use the card by hand once and name in the final message each case that did not pass before the change."
+do_4 = "do_4 Start the render check of the statistics part by hand, in the foreground and never detached, with the options the verification command of this task holds, and read its summary and every finding of the kinds cut, scale, sideways and shift. Correct each finding the change causes. No limit of the check is raised and no element is hidden from it. Work with at most one full run by hand: a run of the whole part takes close to an hour. Then render by hand the home view of the home part and the list of transactions of the transactions part, each with the option --view of the check, since both show the card. Then start the statistics part by hand with the start command the part file holds, open the statistics view at the widths 1024 and 1100 with the browser the check installs and read for each value of a card its scroll width, the width of its box and its size of text: no value is wider than its box. Where that read cannot be set up within twenty minutes, leave it out and say so in the final message."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.131.kvx in present tense: the form of a card value with its steps and the least step, the place where the rule lies, the count of renders of the last run of the statistics part with its result, for each kind of finding the count of the first run and of the last, and for the widths 1024, 1100 and 1280 the size of text a value of ten and of twelve characters takes on the statistics view. Another task of this group can change the same shared file at the same time: change only what this task needs. Start the build and the counted verification early and keep time for them: the counted verification renders the whole statistics part. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui", "apps/explorer/toolkit"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.131.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.131.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/statistics.json --out /tmp/ui-check/explorer-statistics && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/ ui/home/ ui/pages/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 280
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.130]
+title = "Let the value of a statistic tile of the explorer show whole at every width"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.120"]
+reqs = ["22998.1"]
+capabilities = ["22.44.130"]
+interfaces = []
+do_1 = "do_1 Gotcha 4738, decisions 3811, 3708 and 3803. Read apps/explorer/ui/shared/stats/StatsWidget.tsx whole, the case files apps/explorer/ui/shared/stats/StatsWidget.spec.tsx and apps/explorer/ui/home/Stats.spec.tsx, the file apps/explorer/ui/home/Stats.tsx, the size tokens and the text style of the value in apps/explorer/toolkit/theme/foundations/typography.ts, the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the part file tools/ui-check/surfaces/explorer/parts/home.json and tools/ui-check/README.md for the rules with the names cut and scale. Read with git grep under apps/explorer/ui which components use the widget."
+do_2 = "do_2 Give the text of a value the form of decision 3811. It takes the fixed size where the tile holds the value in one line. Where the tile is narrower it takes the largest of the steps 20, 18, 16 and 14 pixels at which the value fits in one line, by size tokens the surface holds. Where the value does not fit at 14 pixels it breaks after a separator or at a space. Remove the ellipsis and the hidden overflow from the value. The whole value and its separator nodes stay in the document, and the prefix and the unit of a value count into its width. The line height of the value stays. The steps follow the root size of text. The wrapper of the value is a container of the kind inline-size already and the value is set in a mono face with tabular numbers: the widths at which a value changes its step follow from the count of its characters. No size token, no recipe and no text style changes, and the type scale in the part files of the render check stays as it is."
+do_3 = "do_3 The rule lies in the widget and holds for every component that uses it: change a user of the widget only where it sets a style that pins the form of gotcha 4738. Change the cases that pin the ellipsis with the change they pin. The case files apps/explorer/ui/shared/stats/StatsWidget.spec.tsx and apps/explorer/ui/home/Stats.spec.tsx state the new form: no ellipsis and no hidden overflow on a value, the fixed size as the upper bound, the step a value takes for counts of ten and of thirteen characters at box widths of 102, 122, 137 and 180 pixels, and the whole value with its separator nodes in the document. No assertion on behaviour is weakened, and the cases on the label, the difference, the period and the loading state stay."
+do_4 = "do_4 Start the render check of the home part by hand, in the foreground and never detached, with the options the verification command of this task holds, and read its summary and every finding of the kinds cut, scale, sideways and shift for the home view. The check renders the widths from 360 pixels in four modes. Correct each finding the change causes. No limit of the check is raised and no element is hidden from it. Work with at most two full runs by hand. Then start the home part by hand with the start command the part file holds, open the home view at the width 320 with the browser the check installs and read for each value of a statistic tile its scroll width, the width of its box and its size of text: no value is wider than its box. Where that read cannot be set up within twenty minutes, leave it out and say so in the final message."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.130.kvx in present tense: the form of a statistic value with its steps and the least step, the count of renders of the last run of the home part with its result, for each kind of finding the count of the first run and of the last, and for the widths 320, 360, 390 and 430 the size of text a count of ten characters takes in a tile of the home view. In the record spec/layerx-merge/programme/records/ui/22.44.120.kvx set the key statistic_values to the new form in one sentence in present tense and change no other key. Another task of this group can change the same shared file at the same time: change only what this task needs. Start the build and the counted verification early and keep time for them: the counted verification renders the whole home part. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "spec/layerx-merge/programme/records/ui/22.44.120.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.130.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.130.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/home.json --out /tmp/ui-check/explorer-home && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/ ui/home/ ui/pages/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.129]
 title = "Let the render check render a view once again after a capture that ran into its time limit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -477917,7 +478100,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.968]
 title = "Hold the sends of the renewed ban case of the rate limit cases inside one rate window"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -477949,7 +478132,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.967]
 title = "Let the market chart routes of the explorer keep the stored closing price where no current rate is known"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
