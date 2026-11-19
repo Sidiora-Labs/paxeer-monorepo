@@ -59,12 +59,12 @@ export function StrategyPicker({ value, onChange, disabled = false, className }:
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p id={`${id}-label`} className="flex-1 basis-40 text-sm font-bold text-text">Send creator rewards to</p>
+        <p id={`${id}-label`} className="flex-1 text-sm font-bold text-text">Send creator rewards to</p>
         <Button variant="ghost" size="sm" aria-expanded={more} onClick={() => setMore(open => !open)} disabled={disabled}>
           {more ? 'Fewer options' : 'More options'}
         </Button>
       </div>
-      <div role="radiogroup" aria-labelledby={`${id}-label`} aria-describedby={noteId} className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-strategy-option-min-width)),1fr))] gap-1 rounded-md bg-surface-2 p-1">
+      <div role="radiogroup" aria-labelledby={`${id}-label`} aria-describedby={noteId} className={cn('grid gap-1 rounded-md bg-surface-2 p-1', visible.length > 2 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2')}>
         {visible.map((strategy, index) => {
           const checked = strategy.value === value;
           const Icon = strategy.icon;

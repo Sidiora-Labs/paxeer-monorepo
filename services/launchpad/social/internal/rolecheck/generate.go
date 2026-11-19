@@ -18,7 +18,7 @@ import (
 // description of its dependencies.
 func WriteStatementLocations(root string, selections ...string) error {
 	path := filepath.Join(root, "services/launchpad/social/internal/rolecheck/statements.json")
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) //nolint:gosec // The generator CLI selects the repository root; the inventory path is fixed.
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func WriteStatementLocations(root string, selections ...string) error {
 				if err != nil {
 					return fmt.Errorf("%s: %w", key, err)
 				}
-				command := exec.Command("python3", filepath.Join(filepath.Dir(path), "describe_select.py"))
+				command := exec.Command("python3", filepath.Join(filepath.Dir(path), "describe_select.py")) //nolint:gosec // The generator runs the fixed repository SQL-description script with SQL on stdin.
 				command.Stdin = strings.NewReader(sql)
 				description, err := command.Output()
 				if err != nil {
@@ -135,7 +135,7 @@ func WriteStatementLocations(root string, selections ...string) error {
 		}
 		seen[s.ID] = true
 	}
-	file, err := os.Create(path)
+	file, err := os.Create(path) //nolint:gosec // The generator CLI selects the repository root; the inventory path is fixed.
 	if err != nil {
 		return err
 	}

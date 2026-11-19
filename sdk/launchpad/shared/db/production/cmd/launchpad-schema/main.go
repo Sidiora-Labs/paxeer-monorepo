@@ -133,7 +133,7 @@ func loadBundleMode(directory string, approval bool) (*migrationBundle, error) {
 		return nil, failure("migrations directory is invalid", err)
 	}
 	readJSON := func(name string, into any) ([]byte, error) {
-		raw, err := os.ReadFile(filepath.Join(abs, name))
+		raw, err := os.ReadFile(filepath.Join(abs, name)) //nolint:gosec // Operator selects the migration directory; names are fixed bundle documents.
 		if err != nil {
 			return nil, failure(name+" is unavailable", err)
 		}
@@ -290,18 +290,18 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 	flags.SetOutput(io.Discard)
 	var migrations, service, role, region, out, expected, digest string
 	switch args[0] {
-	case "approve", "apply":
-		flags.StringVar(&migrations, "migrations", "migrations", "migration directory")
-	case "region":
-		flags.StringVar(&migrations, "migrations", "migrations", "migration directory")
-		flags.StringVar(&region, "region", "", "recovery region")
+	case commandApprove, commandApply:
+		flags.StringVar(&migrations, migrationsOption, migrationsOption, migrationsDescription)
+	case commandRegion:
+		flags.StringVar(&migrations, migrationsOption, migrationsOption, migrationsDescription)
+		flags.StringVar(&region, commandRegion, "", "recovery region")
 	case "expected":
-		flags.StringVar(&migrations, "migrations", "migrations", "migration directory")
+		flags.StringVar(&migrations, migrationsOption, migrationsOption, migrationsDescription)
 		flags.StringVar(&service, "service", "", "service")
 		flags.StringVar(&role, "runtime-role", "", "runtime role")
-		flags.StringVar(&region, "region", "", "recovery region")
+		flags.StringVar(&region, commandRegion, "", "recovery region")
 		flags.StringVar(&out, "out", "", "output file")
-	case "check":
+	case commandCheck:
 		flags.StringVar(&expected, "expected", "", "expected schema file")
 		flags.StringVar(&digest, "sha256", "", "document digest")
 	default:
@@ -310,11 +310,11 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 	if err := flags.Parse(args[1:]); err != nil || flags.NArg() != 0 {
 		return badUsage()
 	}
-	if (args[0] == "approve" || args[0] == "apply" || args[0] == "region") && migrations == "" || args[0] == "region" && !regionName.MatchString(region) || args[0] == "expected" && (migrations == "" || service == "" || len(service) > 128 || !identifier.MatchString(role) || !regionName.MatchString(region) || out == "") || args[0] == "check" && (expected == "" || !validDigest(digest)) {
+	if (args[0] == commandApprove || args[0] == commandApply || args[0] == commandRegion) && migrations == "" || args[0] == commandRegion && !regionName.MatchString(region) || args[0] == "expected" && (migrations == "" || service == "" || len(service) > 128 || !identifier.MatchString(role) || !regionName.MatchString(region) || out == "") || args[0] == commandCheck && (expected == "" || !validDigest(digest)) {
 		return badUsage()
 	}
 	env := "LAUNCHPAD_ADMIN_DATABASE_URL"
-	if args[0] == "check" {
+	if args[0] == commandCheck {
 		env = "LAUNCHPAD_RUNTIME_DATABASE_URL"
 	}
 	dsn := getenv(env)
@@ -323,11 +323,11 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		return 2
 	}
 	var err error
-	if args[0] == "check" {
+	if args[0] == commandCheck {
 		err = check(ctx, dsn, expected, digest)
 	} else {
 		var bundle *migrationBundle
-		if args[0] == "approve" {
+		if args[0] == commandApprove {
 			bundle, err = loadBundleMode(migrations, true)
 		} else {
 			bundle, err = loadBundle(migrations)
@@ -338,14 +338,15 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 			if err != nil {
 				err = failure("administrator connection failed", err)
 			} else {
-				defer conn.Close(context.Background())
-				if args[0] == "approve" {
+				defer func() { _ = conn.Close(context.Background()) }()
+				switch args[0] {
+				case commandApprove:
 					err = bundle.approve(ctx, conn, migrations)
-				} else if args[0] == "apply" {
+				case commandApply:
 					err = bundle.apply(ctx, conn)
-				} else if args[0] == "region" {
+				case commandRegion:
 					err = bundle.region(ctx, conn, region)
-				} else {
+				default:
 					var sum string
 					sum, err = bundle.expected(ctx, conn, service, role, region, out)
 					if err == nil {
@@ -366,7 +367,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 }
 
 func check(ctx context.Context, dsn, path, digest string) error {
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) //nolint:gosec // Operator selects the schema document; its required digest binds the bytes.
 	if err != nil {
 		return failure("expected schema file is unavailable", err)
 	}
@@ -411,7 +412,9 @@ func withCoordinator(ctx context.Context, conn *pgx.Conn, action func() error) e
 	}
 	// The dedicated connection is closed by the command after this call, which
 	// also releases the session lock if a cancelled operation lost its session.
-	defer conn.Exec(context.Background(), "SELECT pg_advisory_unlock($1)", production.CoordinatorKey)
+	defer func() {
+		_, _ = conn.Exec(context.Background(), "SELECT pg_advisory_unlock($1)", production.CoordinatorKey)
+	}()
 	return action()
 }
 
@@ -504,7 +507,7 @@ func (b *migrationBundle) ownerInterfaces(ctx context.Context, conn *pgx.Conn, o
 	if err != nil {
 		return failure("owner interface transaction failed", err)
 	}
-	defer tx.Rollback(context.Background())
+	defer func() { _ = tx.Rollback(context.Background()) }()
 	if err := coordinatortest.GrantPresentOwnerInterfaces(ctx, tx, b.roles, owner); err != nil {
 		return failure("owner interface grants failed", err)
 	}
@@ -688,7 +691,7 @@ func (b *migrationBundle) region(ctx context.Context, conn *pgx.Conn, region str
 		if err != nil {
 			return failure("recovery region transaction failed", err)
 		}
-		defer tx.Rollback(context.Background())
+		defer func() { _ = tx.Rollback(context.Background()) }()
 		var epoch int64
 		var current string
 		err = tx.QueryRow(ctx, "SELECT epoch,region FROM recovery.recovery_control WHERE singleton FOR UPDATE").Scan(&epoch, &current)
@@ -734,7 +737,7 @@ func (b *migrationBundle) importHistory(ctx context.Context, conn *pgx.Conn, h *
 				return failure("legacy transaction failed", err)
 			}
 			err = func() error {
-				defer tx.Rollback(context.Background())
+				defer func() { _ = tx.Rollback(context.Background()) }()
 				if index == 0 {
 					var nonempty bool
 					if err := tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1) OR EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1)", h.Schema).Scan(&nonempty); err != nil {
@@ -862,34 +865,34 @@ func (b *migrationBundle) approve(ctx context.Context, conn *pgx.Conn, directory
 	var aliases map[string]json.RawMessage
 	var histories []map[string]json.RawMessage
 	if err := json.Unmarshal(b.legacyRaw, &aliases); err != nil {
-		return failure("legacy aliases encoding failed", err)
+		return failure(legacyEncodingFailure, err)
 	}
 	if err := json.Unmarshal(aliases["histories"], &histories); err != nil {
-		return failure("legacy aliases encoding failed", err)
+		return failure(legacyEncodingFailure, err)
 	}
 	for i, history := range b.legacy {
 		var sources []map[string]json.RawMessage
 		if err := json.Unmarshal(histories[i]["sources"], &sources); err != nil {
-			return failure("legacy aliases encoding failed", err)
+			return failure(legacyEncodingFailure, err)
 		}
 		for j, source := range history.Sources {
 			sources[j]["structural_fingerprint"], err = json.Marshal(source.StructuralFingerprint)
 			if err != nil {
-				return failure("legacy aliases encoding failed", err)
+				return failure(legacyEncodingFailure, err)
 			}
 		}
 		histories[i]["sources"], err = json.Marshal(sources)
 		if err != nil {
-			return failure("legacy aliases encoding failed", err)
+			return failure(legacyEncodingFailure, err)
 		}
 	}
 	aliases["histories"], err = json.Marshal(histories)
 	if err != nil {
-		return failure("legacy aliases encoding failed", err)
+		return failure(legacyEncodingFailure, err)
 	}
 	legacyRaw, err := json.MarshalIndent(aliases, "", "  ")
 	if err != nil {
-		return failure("legacy aliases encoding failed", err)
+		return failure(legacyEncodingFailure, err)
 	}
 	legacyRaw = append(legacyRaw, '\n')
 	return writeDocumentsAtomically([]struct {
@@ -921,7 +924,7 @@ func (b *migrationBundle) expected(ctx context.Context, conn *pgx.Conn, service,
 			return failure("catalog snapshot failed", err)
 		}
 		err = func() error {
-			defer tx.Rollback(context.Background())
+			defer func() { _ = tx.Rollback(context.Background()) }()
 			if _, err := tx.Exec(ctx, "SET LOCAL search_path TO public"); err != nil {
 				return err
 			}
@@ -991,7 +994,7 @@ func writeDocument(path string, raw []byte) error {
 	if err != nil {
 		return failure("expected schema output cannot be created", err)
 	}
-	defer os.Remove(file.Name())
+	defer func() { _ = os.Remove(file.Name()) }()
 	if _, err := file.Write(raw); err != nil {
 		_ = file.Close()
 		return failure("expected schema output failed", err)

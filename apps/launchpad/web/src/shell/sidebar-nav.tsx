@@ -86,14 +86,15 @@ function RailItem({
 }) {
   const Icon = item.icon;
   const link = (
-    <Link prefetch={false}
+    <Link
+      prefetch={false}
       href={item.href}
       aria-current={active ? 'page' : undefined}
       aria-label={expanded ? undefined : item.label}
       data-route-id={routeForPath(item.href)?.id}
       className={cn(
-        'relative flex min-h-touch-target-min items-center py-2 rounded-sm text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text active:bg-surface-active',
-        expanded ? 'w-full gap-3 px-3' : 'w-touch-target-min justify-center',
+        'relative flex h-10 items-center rounded-sm text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text active:bg-surface-active',
+        expanded ? 'w-full gap-3 px-3' : 'w-10 justify-center',
         active &&
           'bg-surface-3 text-text underline decoration-accent underline-offset-[var(--sl-focus-offset)]'
       )}
@@ -138,7 +139,7 @@ export function activeNavHref(pathname: string, hrefs: readonly string[]): strin
 const listClass = (expanded: boolean) => cn('flex flex-col gap-1', !expanded && 'items-center');
 
 const utilityButton =
-  'flex min-h-touch-target-min items-center py-2 rounded-sm text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text active:bg-surface-active';
+  'flex h-10 items-center rounded-sm text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text active:bg-surface-active';
 
 /**
  * Icon rail, shown from md (768) up; below md the bottom tab bar
@@ -177,14 +178,15 @@ export default function SidebarNav() {
   );
 
   const createLink = (
-    <Link prefetch={false}
+    <Link
+      prefetch={false}
       href={createItem.href}
       aria-label={expanded ? undefined : 'Create coin'}
       aria-current={activeHref === createItem.href ? 'page' : undefined}
       data-route-id={routeForPath(createItem.href)?.id}
       className={cn(
-        'flex min-h-touch-target-min items-center py-2 rounded-sm bg-accent text-on-accent transition-colors duration-fast hover:bg-accent-hover active:bg-accent-active',
-        expanded ? 'w-full gap-3 px-3' : 'w-touch-target-min justify-center'
+        'flex h-9 items-center rounded-sm bg-accent text-on-accent transition-colors duration-fast hover:bg-accent-hover active:bg-accent-active',
+        expanded ? 'w-full gap-3 px-3' : 'w-9 justify-center'
       )}
     >
       <CreateIcon aria-hidden="true" className="size-icon-rail shrink-0" />
@@ -198,10 +200,7 @@ export default function SidebarNav() {
       onClick={toggle}
       aria-expanded={expanded}
       aria-label="Toggle sidebar"
-      className={cn(
-        utilityButton,
-        expanded ? 'w-full gap-3 px-3' : 'w-touch-target-min justify-center'
-      )}
+      className={cn(utilityButton, expanded ? 'w-full gap-3 px-3' : 'w-10 justify-center')}
     >
       <PanelIcon aria-hidden="true" className="size-icon-rail shrink-0" />
       {expanded ? <span className="text-sm font-bold">Collapse sidebar</span> : null}
@@ -227,14 +226,15 @@ export default function SidebarNav() {
       >
         <div
           className={cn(
-            'flex min-h-header-height shrink-0 flex-col items-center py-1',
-            expanded ? 'px-3' : 'justify-center'
+            'flex min-h-header-height shrink-0 items-center [@media(max-width:834px)]:flex-col',
+            expanded ? 'px-3' : 'justify-center pl-1'
           )}
         >
-          <Link prefetch={false}
+          <Link
+            prefetch={false}
             href="/"
             aria-label="Sidiora Launch home"
-            className="flex items-center gap-2 min-h-touch-target-min min-w-touch-target-min justify-center rounded-sm p-0.5"
+            className="flex items-center gap-2 rounded-sm p-0.5"
           >
             <Image
               src="/Kindle-Launch-logo-dark.png"
@@ -252,7 +252,7 @@ export default function SidebarNav() {
               aria-expanded={false}
               aria-label="Expand navigation"
               title="Expand navigation"
-              className="flex size-touch-target-min items-center justify-center rounded-xs text-text-faint transition-colors duration-fast hover:text-text"
+              className="flex h-7 w-4 items-center justify-center rounded-xs text-text-faint transition-colors duration-fast hover:text-text"
             >
               <ChevronsRight aria-hidden="true" className="size-3.5" />
             </button>

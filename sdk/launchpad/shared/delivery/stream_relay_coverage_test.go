@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/internal/testpostgres"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
@@ -19,12 +19,12 @@ import (
 
 func TestStreamOutboxRelayPublishesCommittedFrame(t *testing.T) {
 	dsn := os.Getenv("DELIVERY_TEST_DSN")
-	parsed, err := url.Parse(dsn)
-	if err != nil || parsed.Hostname() != "127.0.0.1" || parsed.Port() != "25432" || parsed.Path != "/kindle_fixture" {
+	parsed, err := testpostgres.ParseConfig(dsn)
+	if err != nil {
 		t.Fatal("private PostgreSQL fixture required")
 	}
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, dsn)
+	admin, err := pgxpool.NewWithConfig(ctx, parsed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,8 +41,9 @@ func TestStreamOutboxRelayPublishesCommittedFrame(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	parsed.Path = "/" + database
-	pool, err := pgxpool.New(ctx, parsed.String())
+	parsed = parsed.Copy()
+	parsed.ConnConfig.Database = database
+	pool, err := pgxpool.NewWithConfig(ctx, parsed)
 	if err != nil {
 		t.Fatal(err)
 	}

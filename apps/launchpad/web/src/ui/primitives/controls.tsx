@@ -132,10 +132,10 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(option.value)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
-              'inline-flex items-center justify-center gap-1.5 border border-transparent py-2 text-sm font-bold transition-colors duration-fast',
+              'inline-flex items-center justify-center gap-1.5 border border-transparent py-0.5 text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] font-bold transition-colors duration-fast',
               compact ? 'whitespace-nowrap px-1.5' : 'px-3',
               radius,
-              size === 'sm' ? 'min-h-control-height-sm' : 'min-h-control-height-md',
+              size === 'sm' ? 'min-h-6' : 'min-h-8',
               fullWidth && 'flex-1',
               selected
                 ? `${tradeTone} underline underline-offset-[var(--sl-focus-offset)]`
@@ -242,7 +242,7 @@ export function TabStrip<T extends string>({
         role="tablist"
         aria-label={label}
         className={cn(
-          'flex min-w-0 flex-1 basis-40 items-end overflow-x-auto p-1',
+          '-m-1 flex min-w-0 flex-1 basis-40 items-end overflow-x-auto p-1',
           variant === 'filled' && 'gap-1'
         )}
       >
@@ -362,13 +362,13 @@ export function SelectPill<T extends string>({
     <div className={cn('inline-flex min-w-0 max-w-full flex-col gap-1', className)}>
       <div
         className={cn(
-          'sl-field relative inline-flex min-h-control-height-sm min-w-0 flex-wrap items-center gap-1.5 rounded-pill px-3 py-1',
+          'sl-field relative inline-flex min-h-control-height-sm min-w-0 items-center gap-1.5 rounded-pill px-3',
           compact && 'px-2 py-0',
           error ? 'bg-danger-soft' : 'bg-surface-2'
         )}
       >
         {showLabel ? (
-          <label htmlFor={id} className="text-sm text-text-faint">
+          <label htmlFor={id} className="text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] text-text-faint">
             {label}:
           </label>
         ) : null}
@@ -391,7 +391,7 @@ export function SelectPill<T extends string>({
             if (option && !option.disabled) onChange(option.value);
           }}
           className={cn(
-            'sl-native-select min-w-[min(var(--sl-select-min-width),max(100%,var(--sl-touch-target-min)))] max-w-full flex-1 cursor-pointer rounded-sm bg-transparent py-1 text-md font-bold text-text disabled:cursor-not-allowed disabled:text-text-disabled',
+            'sl-native-select min-w-0 max-w-full flex-1 cursor-pointer rounded-sm bg-transparent py-0 text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] [field-sizing:content] font-bold text-text disabled:cursor-not-allowed disabled:text-text-disabled',
             compact && 'min-w-0 flex-none appearance-none whitespace-nowrap px-0 py-0 text-sm [field-sizing:content] [&::picker-icon]:hidden',
             size === 'md' && 'min-h-control-height-md'
           )}
@@ -456,7 +456,7 @@ export function Toggle({
   return (
     <span
       className={cn(
-        'relative inline-flex min-h-touch-target-min min-w-touch-target-min shrink-0 items-center justify-center',
+        'relative inline-flex max-[834px]:min-h-touch-target-min max-[834px]:min-w-touch-target-min shrink-0 items-center justify-center',
         className
       )}
     >
@@ -471,8 +471,8 @@ export function Toggle({
         disabled={disabled || loading}
         onChange={(event) => onChange(event.target.checked)}
         className={cn(
-          'peer absolute inset-0 m-auto h-touch-target-min w-full cursor-pointer appearance-none rounded-pill disabled:cursor-not-allowed',
-          size === 'md' ? 'min-w-12' : 'min-w-11'
+          'peer absolute inset-0 m-auto h-full w-full cursor-pointer appearance-none rounded-pill disabled:cursor-not-allowed',
+          size === 'md' ? 'min-w-10' : 'min-w-8'
         )}
       />
       <span
@@ -700,17 +700,17 @@ export function FormField({
           : controlSurface[surface],
     'focus-within:outline-2 focus-within:outline-focus',
     multiline
-      ? 'items-start py-2'
+      ? 'items-start py-[calc(var(--sl-space-2)-var(--sl-edge-width))]'
       : size === 'lg'
-        ? 'min-h-control-height-lg py-2'
-        : 'min-h-control-height-md py-2'
+        ? 'min-h-control-height-lg py-0'
+        : 'min-h-control-height-md py-0'
   );
   const control = cn(
-    'min-w-0 flex-1 bg-transparent text-md text-text outline-none placeholder:text-text-faint',
+    'min-w-0 flex-1 bg-transparent text-base text-text outline-none placeholder:text-text-faint',
     'disabled:text-text-disabled read-only:text-text-muted',
     mono && 'font-[family-name:var(--sl-font-mono)]',
     uppercase && 'uppercase',
-    multiline && 'min-h-24 resize-y leading-[var(--sl-leading-base)]'
+    multiline && 'min-h-24! resize-y leading-[var(--sl-leading-base)]'
   );
 
   return (
@@ -837,7 +837,7 @@ export function SortHeader({
       aria-sort={ariaSort}
       style={width !== undefined ? { width } : undefined}
       className={cn(
-        'min-h-table-header-height px-3 py-2 text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)]',
+        'h-table-header-height px-3 text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)]',
         sort ? 'text-text' : 'text-text-faint',
         align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left',
         className
@@ -959,8 +959,8 @@ export function ResizeHandle({
       className={cn(
         'group flex touch-none select-none items-center justify-center focus-visible:bg-surface-active focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus',
         vertical
-          ? 'h-full min-w-touch-target-min cursor-col-resize'
-          : 'min-h-touch-target-min w-full cursor-row-resize',
+          ? 'h-full min-w-2 cursor-col-resize'
+          : 'min-h-6 w-full cursor-row-resize',
         className
       )}
     >

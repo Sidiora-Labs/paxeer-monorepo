@@ -21,7 +21,7 @@ type Difference struct {
 }
 
 func (d Difference) String() string {
-	if d.Kind == "durable" {
+	if d.Kind == kindDurable {
 		return fmt.Sprintf("durable %s/%s %s", d.Stream, d.Durable, d.State)
 	}
 	return fmt.Sprintf("stream %s %s", d.Stream, d.State)
@@ -67,7 +67,7 @@ func Check(ctx context.Context, js jetstream.JetStream, d Document) ([]Differenc
 	for _, s := range d.Streams {
 		stream, err := js.Stream(ctx, s.Name)
 		if errors.Is(err, jetstream.ErrStreamNotFound) {
-			differences = append(differences, Difference{Kind: "stream", Stream: s.Name, State: "absent"})
+			differences = append(differences, Difference{Kind: kindStream, Stream: s.Name, State: stateAbsent})
 			continue
 		}
 		if err != nil {
@@ -78,13 +78,13 @@ func Check(ctx context.Context, js jetstream.JetStream, d Document) ([]Differenc
 			return nil, fmt.Errorf("brokerprovision: cannot inspect stream %s", s.Name)
 		}
 		if !equalStream(info.Config, s.BrokerConfig()) {
-			differences = append(differences, Difference{Kind: "stream", Stream: s.Name, State: "differs"})
+			differences = append(differences, Difference{Kind: kindStream, Stream: s.Name, State: stateDiffers})
 		}
 	}
 	for _, c := range d.Durables {
 		consumer, err := js.Consumer(ctx, c.Stream, c.Durable)
 		if errors.Is(err, jetstream.ErrConsumerNotFound) || errors.Is(err, jetstream.ErrStreamNotFound) {
-			differences = append(differences, Difference{Kind: "durable", Stream: c.Stream, Durable: c.Durable, State: "absent"})
+			differences = append(differences, Difference{Kind: kindDurable, Stream: c.Stream, Durable: c.Durable, State: stateAbsent})
 			continue
 		}
 		if err != nil {
@@ -102,7 +102,7 @@ func Check(ctx context.Context, js jetstream.JetStream, d Document) ([]Differenc
 			}
 		}
 		if info.Stream != c.Stream || info.Name != c.Durable || !equalConsumer(info.Config, expected, replicas) {
-			differences = append(differences, Difference{Kind: "durable", Stream: c.Stream, Durable: c.Durable, State: "differs"})
+			differences = append(differences, Difference{Kind: kindDurable, Stream: c.Stream, Durable: c.Durable, State: stateDiffers})
 		}
 	}
 	return differences, nil
@@ -130,19 +130,19 @@ func Provision(ctx context.Context, js jetstream.JetStream, d Document, u Update
 	}
 	for _, difference := range differences {
 		name := difference.Kind + " " + difference.Stream
-		if difference.Kind == "durable" {
+		if difference.Kind == kindDurable {
 			name += "/" + difference.Durable
 		}
-		if difference.State == "differs" && !allowed[name] {
+		if difference.State == stateDiffers && !allowed[name] {
 			return nil, fmt.Errorf("brokerprovision: %s differs; explicit update required", name)
 		}
 	}
 	applied := []Difference{}
 	for _, difference := range differences {
-		if difference.Kind == "stream" {
+		if difference.Kind == kindStream {
 			for _, s := range d.Streams {
 				if s.Name == difference.Stream {
-					if difference.State == "absent" {
+					if difference.State == stateAbsent {
 						_, err = js.CreateStream(ctx, s.BrokerConfig())
 					} else {
 						_, err = js.UpdateStream(ctx, s.BrokerConfig())
@@ -154,7 +154,7 @@ func Provision(ctx context.Context, js jetstream.JetStream, d Document, u Update
 			for _, c := range d.Durables {
 				if c.Stream == difference.Stream && c.Durable == difference.Durable {
 					config, _ := c.BrokerConsumerConfig()
-					if difference.State == "absent" {
+					if difference.State == stateAbsent {
 						_, err = js.CreateConsumer(ctx, c.Stream, config)
 					} else {
 						_, err = js.UpdateConsumer(ctx, c.Stream, config)

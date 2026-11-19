@@ -3,6 +3,7 @@ package delivery
 import (
 	"context"
 	"encoding/json"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/internal/testpostgres"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -59,8 +60,8 @@ func TestArchiveActualCanonicalPostgresAndObjectStorage(t *testing.T) {
 	requireArchiveFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	cfg, err := pgxpool.ParseConfig(os.Getenv("DELIVERY_TEST_DSN"))
-	if err != nil || cfg.ConnConfig.Host != "127.0.0.1" || cfg.ConnConfig.Port != 25432 || cfg.ConnConfig.Database != "kindle_fixture" {
+	cfg, err := testpostgres.ParseConfig(os.Getenv("DELIVERY_TEST_DSN"))
+	if err != nil {
 		t.Fatal("explicit private DELIVERY_TEST_DSN required")
 	}
 	cfg.MaxConns = 2

@@ -59,7 +59,7 @@ export default function ProfileView({ walletAddress, blocks }: ProfileViewProps)
   if (!data.isValidWallet) {
     return (
       <div className="mx-auto max-w-content-narrow-max-width p-4 sm:p-6">
-        <EmptyState icon={UserX} title="This profile does not exist" body="Check the link and try again" action={<Button href="/explore" variant="secondary" size="sm">Browse coins</Button>} className="rounded-lg bg-surface-1" />
+        <EmptyState headingLevel={1} icon={UserX} title="This profile does not exist" body="Check the link and try again" action={<Button href="/explore" variant="secondary" size="sm">Browse coins</Button>} className="rounded-lg bg-surface-1" />
       </div>
     );
   }
@@ -74,7 +74,7 @@ export default function ProfileView({ walletAddress, blocks }: ProfileViewProps)
   const issueNotice = <ProfileIssuesNotice reserve />;
   const { left, centerExtra, rightExtra, panels, placesIssueNotice } = blocks?.({ wallet, isOwner: owner, issueNotice }) ?? {};
   const ownerPanels: Partial<Record<ProfileTabKey, ReactNode>> = owner ? {
-    rewards: <RewardsView />,
+    rewards: <RewardsView headingLevel={2} titleClassName="text-xl" />,
     referrals: <ReferralsTab walletAddress={walletAddress} />,
     watchlist: <WatchlistWidget standalone />,
     accounting: <PositionsTab walletAddress={walletAddress} canShare defaultOpen />,

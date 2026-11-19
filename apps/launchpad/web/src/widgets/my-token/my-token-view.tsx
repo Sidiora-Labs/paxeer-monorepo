@@ -132,7 +132,7 @@ function CreatorPoolButton({
   );
 }
 
-function CreatorPoolInfo({ creator, poolAddress }: {
+export function CreatorPoolInfo({ creator, poolAddress }: {
   creator: Address;
   poolAddress: Address;
 }) {

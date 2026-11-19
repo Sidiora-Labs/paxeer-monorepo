@@ -62,7 +62,7 @@ export function TokenLinkIcons({ links, tokenAddress, className }: { links: Soci
             rel="noreferrer noopener"
             onClick={stop}
             aria-label={`${meta.label}, opens in new tab`}
-            className="inline-flex size-touch-target-min items-center justify-center rounded-xs text-text-faint transition-colors hover:bg-surface-hover hover:text-text"
+            className="inline-flex size-5 items-center justify-center rounded-xs text-text-faint transition-colors hover:bg-surface-hover hover:text-text"
           >
             <meta.Icon aria-hidden="true" className="size-icon-sm" />
           </a>
@@ -75,7 +75,7 @@ export function TokenLinkIcons({ links, tokenAddress, className }: { links: Soci
           rel="noreferrer noopener"
           onClick={stop}
           aria-label="View on explorer, opens in new tab"
-          className="inline-flex size-touch-target-min items-center justify-center rounded-xs text-text-faint transition-colors hover:bg-surface-hover hover:text-text"
+          className="inline-flex size-5 items-center justify-center rounded-xs text-text-faint transition-colors hover:bg-surface-hover hover:text-text"
         >
           <ExternalLink aria-hidden="true" className="size-icon-sm" />
         </a>
@@ -151,15 +151,15 @@ export default function HolderRewardTokenCard({
         <div className="min-w-0 flex-1 basis-24">
           <div className="flex items-center gap-1">
             {href ? (
-              <Link prefetch={false} href={href} className="flex min-h-touch-target-min min-w-touch-target-min flex-1 items-center text-base font-semibold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">
+              <Link prefetch={false} href={href} className="flex min-w-0 flex-1 items-center text-base leading-[calc(var(--sl-leading-base)/var(--sl-text-base))] font-semibold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">
                 {title}
               </Link>
             ) : (
-              <h3 className="flex min-w-0 items-center text-base font-semibold text-text">{title}</h3>
+              <h3 className="flex min-w-0 items-center text-base leading-[calc(var(--sl-leading-base)/var(--sl-text-base))] font-semibold text-text">{title}</h3>
             )}
             {tokenAddress ? <CopyAddress address={tokenAddress} variant="icon" className="relative z-10 shrink-0" /> : null}
           </div>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-faint">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-[calc(var(--sl-leading-xs)/var(--sl-text-xs))] text-text-faint">
             {symbol ? <span className="truncate font-semibold uppercase" title={symbol}>${symbol}</span> : null}
             <AgeChip iso={createdAt} className="font-bold text-warning" />
             <TokenLinkIcons links={links} tokenAddress={tokenAddress} />
@@ -170,22 +170,22 @@ export default function HolderRewardTokenCard({
       </div>
       <dl className="flex flex-col gap-1">
         <div className="flex min-w-0 flex-col gap-1">
-          <dt className="text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Holder rewards</dt>
-          <dd data-numeric className={cn('truncate text-xl font-bold tabular-nums', distributedRaw === null ? 'text-text-faint' : 'text-success')}>
+          <dt className="text-2xs leading-[calc(var(--sl-leading-2xs)/var(--sl-text-2xs))] font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Holder rewards</dt>
+          <dd data-numeric className={cn('min-w-0 text-xl leading-[calc(var(--sl-leading-xl)/var(--sl-text-xl))] font-bold tabular-nums', distributedRaw === null ? 'text-text-faint' : 'text-success')}>
             {distributedRaw === null ? <span aria-label="Not available yet">{'—'}</span> : <>{usdlAmountText(distributedRaw)}<span className="ml-1 text-xs font-semibold text-text-faint">USDL</span></>}
           </dd>
         </div>
-        <div className="flex min-w-0 items-baseline gap-1.5 text-xs">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-1.5 text-xs leading-[calc(var(--sl-leading-xs)/var(--sl-text-xs))]">
           <dt className="text-text-faint">Market cap</dt>
-          <dd data-numeric className={cn('truncate text-sm font-bold tabular-nums', mcapRaw === null ? 'text-text-faint' : 'text-text')}>
+          <dd data-numeric className={cn('min-w-0 text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] font-bold tabular-nums', mcapRaw === null ? 'text-text-faint' : 'text-text')}>
             {mcapRaw === null ? <span aria-label="Not available yet">{'—'}</span> : `${mcapText(mcapRaw)} USDL`}
           </dd>
         </div>
       </dl>
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2">
-        <dl className="flex min-w-0 items-baseline gap-1.5 whitespace-nowrap text-xs">
+        <dl className="flex min-w-0 flex-wrap items-baseline gap-1.5 text-xs leading-[calc(var(--sl-leading-xs)/var(--sl-text-xs))]">
           <dt className="text-text-faint">Holders paid</dt>
-          <dd data-numeric className={cn('truncate font-bold tabular-nums', holdersPaid === null ? 'text-text-faint' : 'text-text')}>
+          <dd data-numeric className={cn('min-w-0 font-bold tabular-nums', holdersPaid === null ? 'text-text-faint' : 'text-text')}>
             {holdersPaid === null ? <span aria-label="Not available yet">{'—'}</span> : holdersPaidText(holdersPaid)}
           </dd>
         </dl>

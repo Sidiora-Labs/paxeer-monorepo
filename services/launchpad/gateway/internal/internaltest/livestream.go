@@ -22,7 +22,7 @@ func LivestreamDocuments(t testing.TB, runtime coordinatortest.Runtime) []string
 	values, output := t.TempDir(), t.TempDir()
 	read := func(path string) []byte {
 		t.Helper()
-		raw, err := os.ReadFile(path)
+		raw, err := os.ReadFile(path) //nolint:gosec // Paths come from repository fixtures or the test's temporary output directory.
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -75,7 +75,7 @@ func LivestreamDocuments(t testing.TB, runtime coordinatortest.Runtime) []string
 		t.Fatal(err)
 	}
 	write(filepath.Join(values, "expected-schema", "livestream.json"), runtime.ExpectedSchema)
-	command := exec.Command("python3", filepath.Join(documents, "compose.py"), "--values", values, "--out", output, "--service", "livestream")
+	command := exec.Command("python3", filepath.Join(documents, "compose.py"), "--values", values, "--out", output, "--service", "livestream") //nolint:gosec // The repository composer receives only test-owned temporary directories.
 	if raw, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("compose livestream documents: %v: %s", err, raw)
 	}
@@ -83,7 +83,7 @@ func LivestreamDocuments(t testing.TB, runtime coordinatortest.Runtime) []string
 	if err := json.Unmarshal(read(filepath.Join(output, "livestream.json")), &composed); err != nil {
 		t.Fatal(err)
 	}
-	var environment []string
+	environment := make([]string, 0, 4)
 	for _, name := range []string{"DB_BUDGET", "EXPECTED_SCHEMA"} {
 		raw, err := base64.StdEncoding.DecodeString(composed[name+"_DOCUMENT"])
 		if err != nil || len(raw) == 0 || production.Checksum(raw) != composed[name+"_SHA256"] {

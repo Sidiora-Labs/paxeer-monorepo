@@ -10,11 +10,17 @@ import { tokenServerAnswer } from './tokens.mjs';
 const directory = fileURLToPath(new URL('../../../../apps/explorer/', import.meta.url));
 const compileCache = enableCompileCache();
 if (!compileCache.directory) throw new Error(compileCache.message);
+process.env.NODE_COMPILE_CACHE = compileCache.directory;
 const require = createRequire(directory + 'package.json');
 const environment = JSON.parse(await readFile(new URL('./environment.json', import.meta.url), 'utf8'));
 const zetaChainCCTX = await readFile(new URL('./zeta-chain.json', import.meta.url));
 const statistics = JSON.parse(await readFile(new URL('./statistics-service.json', import.meta.url), 'utf8'));
+const transactionAnswers = JSON.parse(await readFile(join(directory, '.next/cache/explorer-transaction-answers.json'), 'utf8'));
+if (transactionAnswers.buildId !== (await readFile(join(directory, '.next/BUILD_ID'), 'utf8')).trim()) throw new Error('Transaction answers must match the explorer build');
+const transactionSurface = { answers: transactionAnswers.answers.map((answer) => ({ ...answer, pattern: new RegExp(answer.pattern.source, answer.pattern.flags), body: Buffer.from(answer.body, 'base64') })) };
+const productionConfig = JSON.parse(await readFile(join(directory, '.next/required-server-files.json'), 'utf8')).config;
 Object.assign(process.env, environment, { NODE_ENV: 'production', DISABLE_TRACKING: 'true', NEXT_TELEMETRY_DISABLED: '1' });
+process.env.__NEXT_PRIVATE_STANDALONE_CONFIG = JSON.stringify(productionConfig);
 const next = require('next');
 const { WebSocketServer } = require('ws');
 const staticAssets = new Map();
@@ -108,6 +114,15 @@ const server = createServer(async (request, response) => {
       response.end(await readFile(new URL('./services/chain-metrics.json', import.meta.url)));
       return;
     }
+    if (url.pathname.startsWith('/api/v2/')) {
+      const address = 'https://explorer.example.test' + apiPath + url.search;
+      const answer = transactionSurface.answers.find((entry) => entry.method === request.method && entry.pattern.test(address));
+      if (answer) {
+        response.writeHead(answer.status ?? 200, answer.headers);
+        response.end(answer.body);
+        return;
+      }
+    }
     if (apiPath.startsWith('/api/v2/') || apiPath === '/api/v1/solidity:visualize-contracts' || (apiPath === '/api' && url.searchParams.get('action') === 'getblockcountdown')) {
       const answer = !request.headers['user-agent']?.startsWith('Mozilla/') && tokenServerAnswer(request.method, apiPath, url.search);
       if (answer) {
@@ -193,6 +208,7 @@ async function prepare() {
       await (await import('./blocks.mjs')).prepareBlockResponses();
       blockResponses = await (await import('./blocks.mjs')).readBlockResponses();
       await (await import('./blocks.mjs')).assertBlockPages();
+      await (await import('./transactions.mjs')).assertTransactionPages();
       flushCompileCache();
     } else {
       blockResponses = await (await import('./blocks.mjs')).readBlockResponses();

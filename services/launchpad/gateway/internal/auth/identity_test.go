@@ -48,7 +48,7 @@ func fixtureIdentity(t *testing.T) *identityFixture {
 	ctx := context.Background()
 	dsn := os.Getenv("L33_POSTGRES_DSN")
 	if dsn == "" {
-		dsn = "postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable"
+		t.Fatal("L33_POSTGRES_DSN is required")
 	}
 	admin, e := pgxpool.New(ctx, dsn)
 	if e != nil {

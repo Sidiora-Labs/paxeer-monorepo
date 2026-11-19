@@ -7,6 +7,7 @@ import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import { safeExternalDestination } from '@/core/app-foundation/navigation';
 import TokenDescription from '@/widgets/trading/token-description';
 import PoolChat from '@/widgets/trading/pool-chat';
+import TabUnavailable from './tab-unavailable';
 
 function explorerAddress(address: string): string | null {
   return safeExternalDestination(`https://paxscan.paxeer.app/address/${address}`);
@@ -30,7 +31,7 @@ export default function AboutTab({ poolAddress }: { poolAddress: string }) {
       <h3 className="text-sm font-bold text-text">Chat</h3>
       <PremiumErrorBoundary area="PoolChat">
         <Suspense fallback={<Skeleton variant="block" height={surfaceSpacing(50)} label="chat" />}>
-          {data ? <PoolChat poolAddress={data.pool.poolAddress} /> : <p role="status" className="text-sm text-text-faint">Chat opens once this coin finishes loading.</p>}
+          {data ? <PoolChat poolAddress={data.pool.poolAddress} /> : snapshot.isError ? <TabUnavailable title="Chat" error={snapshot.error} onRetry={() => { void snapshot.refetch(); }} /> : <p role="status" className="text-sm text-text-faint">Chat opens once this coin finishes loading.</p>}
         </Suspense>
       </PremiumErrorBoundary>
     </section>

@@ -1,7 +1,10 @@
 'use strict';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- This deployment generator is loaded through its CommonJS interface.
 const assert = require('node:assert/strict');
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- This deployment generator is loaded through its CommonJS interface.
 const fs = require('node:fs');
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- This deployment generator is loaded through its CommonJS interface.
 const path = require('node:path');
 
 const reviewedFile = path.resolve(__dirname, '../../../../../../sdk/launchpad/shared/config/deployment/current.json');

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -21,15 +22,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/broker"
-
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/capabilities"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -103,6 +104,10 @@ const (
 	authorityRefreshInterval    = 10 * time.Second
 	authorityMaxAge             = time.Minute
 	authorityAttestationTimeout = 10 * time.Second
+	authorityEnvelopeMaxAge     = authorityRefreshInterval + authorityAttestationTimeout
+	authorityRecentHeadMaxAge   = authorityMaxAge
+	authorityHeadHeaderTimeout  = 2 * time.Second
+	authorityHeadRecordTimeout  = 300 * time.Millisecond
 )
 
 type networkAuthority struct {
@@ -115,7 +120,7 @@ type networkAuthority struct {
 	origins       map[string]bool
 	proxies       []string
 	readHead      func(context.Context) (committedHead, error)
-	refreshMu     sync.Mutex
+	refreshing    *authorityRefresh
 	mu            sync.RWMutex
 	lastEnvelope  authorityEnvelope
 	builtAt       time.Time
@@ -123,6 +128,12 @@ type networkAuthority struct {
 	refreshDone   chan struct{}
 	closeOnce     sync.Once
 }
+type authorityRefresh struct {
+	done chan struct{}
+	body authorityEnvelope
+	err  error
+}
+
 type committedHead struct {
 	Number string `json:"number"`
 	Hash   string `json:"hash"`
@@ -283,6 +294,57 @@ func (a *networkAuthority) head(ctx context.Context) (committedHead, error) {
 	h.Hash = common.HexToHash(h.Hash).Hex()
 	return h, nil
 }
+
+func recentAuthorityHeader(ctx context.Context, reader deployment.Reader, hash common.Hash) (*types.Header, error) {
+	if hash == (common.Hash{}) {
+		return nil, nil
+	}
+	var header *types.Header
+	var err error
+	if reported, ok := reader.(deployment.ReportedHeaderReader); ok {
+		header, err = reported.HeaderByReportedHash(ctx, hash)
+	} else {
+		header, err = reader.HeaderByHash(ctx, hash)
+	}
+	if errors.Is(err, ethereum.NotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if header == nil || header.Number == nil || !header.Number.IsUint64() || header.Number.Uint64() > 9007199254740991 {
+		return nil, nil
+	}
+	if header.Time > math.MaxInt64 {
+		return nil, nil
+	}
+	blockTime := time.Unix(int64(header.Time), 0)
+	if blockTime.After(time.Now()) || time.Since(blockTime) > authorityRecentHeadMaxAge {
+		return nil, nil
+	}
+	return header, nil
+}
+
+func (a *networkAuthority) acceptsHead(ctx context.Context, hash common.Hash) (bool, error) {
+	if a == nil || a.unavailable != nil || a.engine == nil || a.reader == nil || a.pool == nil {
+		return false, errors.New("network authority unavailable")
+	}
+	headerContext, cancelHeader := context.WithTimeout(ctx, authorityHeadHeaderTimeout)
+	header, err := recentAuthorityHeader(headerContext, a.reader, hash)
+	cancelHeader()
+	if err != nil || header == nil {
+		return false, err
+	}
+	recordContext, cancelRecord := context.WithTimeout(ctx, authorityHeadRecordTimeout)
+	defer cancelRecord()
+	var committed bool
+	err = a.pool.QueryRow(recordContext, "SELECT EXISTS(SELECT 1 FROM "+pgx.Identifier{a.config.SourceSchema, "indexer_committed_heads_v2"}.Sanitize()+" AS heads WHERE heads.chain_id=125 AND heads.height=$1 AND lower(heads.block_hash)=lower($2) AND heads.integrity='healthy')", header.Number.String(), hash.Hex()).Scan(&committed)
+	if err != nil {
+		return false, fmt.Errorf("read committed network head: %w", err)
+	}
+	return committed, nil
+}
+
 func (a *networkAuthority) envelope(ctx context.Context) (authorityEnvelope, error) {
 	head, err := a.head(ctx)
 	if err != nil {
@@ -303,21 +365,44 @@ func (a *networkAuthority) envelope(ctx context.Context) (authorityEnvelope, err
 	return authorityEnvelope{2, export, projectAttestation(attestation), head}, nil
 }
 func (a *networkAuthority) refresh(ctx context.Context) error {
-	a.refreshMu.Lock()
-	defer a.refreshMu.Unlock()
+	_, err := a.refreshEnvelope(ctx, false)
+	return err
+}
+
+func (a *networkAuthority) refreshEnvelope(ctx context.Context, reuse bool) (authorityEnvelope, error) {
+	a.mu.Lock()
+	if reuse && !a.builtAt.IsZero() && time.Since(a.builtAt) <= authorityEnvelopeMaxAge {
+		body := a.lastEnvelope
+		a.mu.Unlock()
+		return body, nil
+	}
+	if flight := a.refreshing; flight != nil {
+		a.mu.Unlock()
+		select {
+		case <-flight.done:
+			return flight.body, flight.err
+		case <-ctx.Done():
+			return authorityEnvelope{}, ctx.Err()
+		}
+	}
+	flight := &authorityRefresh{done: make(chan struct{})}
+	a.refreshing = flight
+	a.mu.Unlock()
 	bounded, cancel := context.WithTimeout(ctx, authorityAttestationTimeout)
 	defer cancel()
 	body, err := a.envelope(bounded)
-	if err != nil {
-		return err
-	}
-	if err := bounded.Err(); err != nil {
-		return err
+	if err == nil {
+		err = bounded.Err()
 	}
 	a.mu.Lock()
-	a.lastEnvelope, a.builtAt = body, time.Now()
+	if err == nil {
+		a.lastEnvelope, a.builtAt = body, time.Now()
+	}
+	flight.body, flight.err = body, err
+	a.refreshing = nil
+	close(flight.done)
 	a.mu.Unlock()
-	return nil
+	return body, err
 }
 
 func (a *networkAuthority) startRefresh(parent context.Context) {
@@ -370,7 +455,7 @@ func (a *networkAuthority) Register(r chi.Router, admission *rest.Admission) {
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 		defer cancel()
-		body, err := a.envelope(ctx)
+		body, err := a.refreshEnvelope(ctx, true)
 		if err != nil {
 			slog.Default().Warn("network authority unavailable", "reason", err.Error(), "request_id", w.Header().Get("X-Request-ID"))
 			rest.WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
@@ -386,8 +471,7 @@ func (a *networkAuthority) Register(r chi.Router, admission *rest.Admission) {
 				rest.WriteV2APIError(w, r, 400, "QUERY_INVALID")
 				return
 			}
-			origin, err := broker.TrustedHTTPOrigin(r, a.origins, a.proxies)
-			if err != nil || origin != "https://"+r.Host {
+			if !preflightOrigin(r, a.origins, a.proxies) {
 				rest.WriteV2APIError(w, r, 403, "SCOPE_DENIED")
 				return
 			}
@@ -403,13 +487,13 @@ func (a *networkAuthority) Register(r chi.Router, admission *rest.Admission) {
 				rest.WriteV2APIError(w, r, 422, "FIELD_INVALID")
 				return
 			}
-			head, err := a.head(r.Context())
+			accepted, err := a.acceptsHead(r.Context(), input.BlockHash)
 			if err != nil {
 				slog.Default().Warn("network authority preflight head unavailable", "reason", err.Error(), "request_id", w.Header().Get("X-Request-ID"))
 				rest.WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
 				return
 			}
-			if input.BlockHash != common.HexToHash(head.Hash) {
+			if !accepted {
 				rest.WriteV2APIError(w, r, 409, "REVISION_CONFLICT")
 				return
 			}
@@ -427,6 +511,7 @@ func (a *networkAuthority) Register(r chi.Router, admission *rest.Admission) {
 // results with a stable reasonCode); its output is then held to the contract:
 //   - 200: the result projected onto ConnectedCapabilitiesPreflight and
 //     validated (500 INTERNAL_ERROR if the projection does not validate);
+//   - revision mismatch: 409 REVISION_CONFLICT;
 //   - 400 (request the engine rejects): 422 FIELD_INVALID, not retryable;
 //   - anything else (a failed or malformed chain read): the retryable
 //     503 DEPENDENCY_UNAVAILABLE.
@@ -443,6 +528,18 @@ func servePreflight(w http.ResponseWriter, r *http.Request, engine *capabilities
 	default:
 		report(errors.New(strings.TrimSpace(recorder.Body.String())))
 		rest.WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+		return
+	}
+	var outcome struct {
+		ReasonCode capabilities.ReasonCode `json:"reasonCode"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &outcome); err != nil {
+		report(err)
+		rest.WriteV2APIError(w, r, 500, "INTERNAL_ERROR")
+		return
+	}
+	if outcome.ReasonCode == capabilities.RevisionMismatch {
+		rest.WriteV2APIError(w, r, 409, "REVISION_CONFLICT")
 		return
 	}
 	body, err := contractPreflight(recorder.Body.Bytes())

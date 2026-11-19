@@ -108,6 +108,7 @@ async function mountTrade(amountIn: bigint) {
       current.review
         ? React.createElement(HighImpactWarning, {
             priceImpactBps: current.review.quote.combinedPriceImpactBps,
+            slippageBps: input.slippageBps,
             onConfirm: current.confirmSwap,
             onCancel: current.cancelReview,
           })
@@ -373,6 +374,9 @@ async function swapConfirmationRejectsPairRefetchAndWalletChanges() {
   }
 }
 
+test(swapExpiredQuoteRequiresRefresh, { timeout: 30000 }, swapExpiredQuoteRequiresRefresh);
+test(swapHighSlippageRequiresBoundReview, { timeout: 30000 }, swapHighSlippageRequiresBoundReview);
+
 test(
   swapQuoteAmountEditsInvalidateDuringDebounce,
   { timeout: 30000 },
@@ -388,3 +392,44 @@ test(
   { timeout: 30000 },
   swapConfirmationRejectsPairRefetchAndWalletChanges,
 );
+
+async function swapExpiredQuoteRequiresRefresh() {
+  const trade = await mountTrade(1000000n);
+  try {
+    const quoted = trade.current.quote!;
+    const nonce = await chain.client.getTransactionCount({ address: chain.account, blockTag: 'pending' });
+    const oldRequest = trade.current.requestSwap;
+    const reads = trade.query.getQueryCache().getAll().filter(query => query.queryKey[0] === 'readContract' && query.state.data !== undefined);
+    expect(reads.length).toBeGreaterThan(0);
+    await act(async () => {
+      for (const query of reads) query.setData(query.state.data, { updatedAt: Date.now() - 30001, manual: true });
+    });
+    await until(() => trade.current.quote === null);
+    expect(trade.current.quoteLoading).toBe(false);
+    expect(trade.current.quoteError).toContain('expired');
+    await act(async () => oldRequest());
+    await expectNoTransaction(nonce);
+    await act(async () => trade.current.refreshQuote());
+    await until(() => !!trade.current.quote);
+    expect(trade.current.quoteError).toBeNull();
+    expect(trade.current.quote!.amountOut).toBe(quoted.amountOut);
+  } finally {
+    await trade.close();
+  }
+}
+
+async function swapHighSlippageRequiresBoundReview() {
+  const trade = await mountTrade(1000000n);
+  try {
+    await trade.render({ slippageBps: 600 });
+    const nonce = await chain.client.getTransactionCount({ address: chain.account, blockTag: 'pending' });
+    await act(async () => trade.current.requestSwap());
+    expect(trade.current.review).not.toBeNull();
+    expect(trade.current.review!.minAmountOut).toBe(trade.current.quote!.amountOut * 9400n / 10000n);
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('6.00%');
+    await expectNoTransaction(nonce);
+    await act(async () => trade.current.cancelReview());
+    expect(trade.current.review).toBeNull();
+    expect(trade.current.quote).not.toBeNull();
+  } finally { await trade.close(); }
+}
