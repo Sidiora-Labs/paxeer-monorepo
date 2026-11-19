@@ -27,7 +27,7 @@ const PaxeerXFeedUpdate = () => {
   const titleAfter = (
     <Flex alignItems="center" columnGap={ 2 } rowGap={ 2 } flexWrap="wrap" ml={{ base: 0, lg: 3 }} minW={ 0 }>
       <Skeleton loading={ isLoading } overflow="hidden" minW={ 0 }>
-        <chakra.span textStyle="lg" color="text.secondary" wordBreak="break-all">{ hash }</chakra.span>
+        <chakra.span display="block" textStyle="lg" color="text.secondary" wordBreak="break-all" textWrap="balance">{ hash }</chakra.span>
       </Skeleton>
       <CopyToClipboard text={ hash } isLoading={ isLoading }/>
     </Flex>

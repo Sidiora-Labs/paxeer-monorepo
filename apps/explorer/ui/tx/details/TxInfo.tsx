@@ -55,7 +55,6 @@ import GasPriceValue from 'ui/shared/value/GasPriceValue';
 import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
 import VerificationSteps from 'ui/shared/verificationSteps/VerificationSteps';
 import * as DetailedInfo from 'ui/tx/ActivityDetails';
-import ActivityLoading from 'ui/tx/ActivityLoading';
 import TxDetailsBurntFees from 'ui/tx/details/TxDetailsBurntFees';
 import TxDetailsFeePerGas from 'ui/tx/details/TxDetailsFeePerGas';
 import TxDetailsGasPrice from 'ui/tx/details/TxDetailsGasPrice';
@@ -116,14 +115,6 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus, transfers, balan
     return null;
   }
 
-  if (isLoading) {
-    return (
-      <Box data-tx-info>
-        <ActivityLoading label="Loading transaction details"/>
-      </Box>
-    );
-  }
-
   const addressFromTags = [
     ...data.from.private_tags || [],
     ...data.from.public_tags || [],
@@ -174,7 +165,7 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus, transfers, balan
   const hasInterop = rollupFeature.isEnabled && rollupFeature.interopEnabled && data.op_interop_messages && data.op_interop_messages.length > 0;
 
   return (
-    <Flex flexDir="column" rowGap={ 8 } data-tx-info>
+    <Flex flexDir="column" rowGap={ 8 } data-tx-info aria-busy={ isLoading }>
       <DetailedInfo.Group label="SUMMARY">
 
         { config.features.metasuites.isEnabled && (

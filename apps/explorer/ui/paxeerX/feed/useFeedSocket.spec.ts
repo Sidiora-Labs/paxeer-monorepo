@@ -147,8 +147,9 @@ async function feedSocketReplacementTimeoutKeepsHttpPolling() {
     peer.modes.set('paxeer_x_feed:market:1', 'hold');
     feed.update({ topic: 'paxeer_x_feed:market:1' });
     expect(feed.state().refetchInterval).toBe(FEED_FALLBACK_REFETCH_INTERVAL);
-    expect(feed.state().isSocketDown).toBe(true);
+    expect(feed.state().isSocketDown).toBe(false);
     await waitFor(() => expect(feed.state().channel?.state).toBe('errored'));
+    expect(feed.state().isSocketDown).toBe(true);
     expect(previous?.state).toBe('closed');
     expect(feed.state().socket?.socket?.isConnected()).toBe(true);
     expect(feed.state().refetchInterval).toBe(FEED_FALLBACK_REFETCH_INTERVAL);
@@ -246,4 +247,36 @@ test('feedSocketDisableAndRestartRecoverCurrentChannel', { timeout: 10_000 }, as
 });
 test('feedSocketReconnectFailureKeepsHttpPollingUntilRejoined', { timeout: 15_000 }, async() => {
   await expect(feedSocketReconnectFailureKeepsHttpPollingUntilRejoined()).resolves.toBeUndefined();
+});
+
+async function feedSocketReportsOnlyConnectionIssuesUntilRejoined() {
+  const peer = await createFeedPeer();
+  const topic = 'paxeer_x_feed:new_update';
+  peer.modes.set(topic, 'hold');
+  const feed = mountFeed(peer, topic);
+  try {
+    expect(feed.state().isSocketDown).toBe(false);
+    expect(feed.state().refetchInterval).toBe(FEED_FALLBACK_REFETCH_INTERVAL);
+    await waitFor(() => expect(peer.joins).toHaveLength(1));
+    expect(feed.state().channel?.state).toBe('joining');
+    expect(feed.state().isSocketDown).toBe(false);
+    expect(feed.state().refetchInterval).toBe(FEED_FALLBACK_REFETCH_INTERVAL);
+    await act(async() => peer.disconnect());
+    await waitFor(() => expect(feed.state().isSocketDown).toBe(true));
+    expect(feed.state().refetchInterval).toBe(FEED_FALLBACK_REFETCH_INTERVAL);
+    await waitFor(() => expect(peer.joins).toHaveLength(2));
+    expect(feed.state().isSocketDown).toBe(true);
+    await act(async() => peer.accept(topic));
+    await waitFor(() => {
+      expect(feed.state().isSocketDown).toBe(false);
+      expect(feed.state().refetchInterval).toBe(false);
+    });
+  } finally {
+    feed.close();
+    await peer.close();
+  }
+}
+
+test('feedSocketReportsOnlyConnectionIssuesUntilRejoined', async() => {
+  await expect(feedSocketReportsOnlyConnectionIssuesUntilRejoined()).resolves.toBeUndefined();
 });
