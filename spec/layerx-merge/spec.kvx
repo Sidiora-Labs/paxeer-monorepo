@@ -223601,7 +223601,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.957]
 title = "Let the client reader of the freshness part of a history answer follow the readiness rule of the hosted indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
