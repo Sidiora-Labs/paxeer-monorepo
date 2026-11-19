@@ -18,7 +18,7 @@ const InternalTxs = () => {
 
   const filterInput = (
     <PageFilterInput
-      w={{ base: '100%', lg: 'var(--chakra-spacing-80)' }}
+      w={{ base: '100%', lg: 'calc(var(--chakra-spacing-80) + var(--chakra-spacing-7\\.5))' }}
       size="sm"
       onChange={ onSearchTermChange }
       placeholder="Search by transaction hash"
