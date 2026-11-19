@@ -77,7 +77,7 @@ export default function ConversationList() {
   }, [sessionMatches, session, sessionEpoch, attempt]);
 
   if (!sessionMatches || error?.signedOut) {
-    return <SignedOutState icon={MessageCircle} title="Sign in to see your messages" body="Your direct messages with other traders show up here." />;
+    return <SignedOutState icon={MessageCircle} title="Sign in to see your messages" body="Your direct messages with other traders show up here." className="chat-state px-8" />;
   }
 
   if (loading) {
