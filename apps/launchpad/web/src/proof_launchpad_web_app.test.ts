@@ -29,7 +29,7 @@ import { resolveAnvilBinary } from './core/test-anvil';
 import { ChainTradeProvider, OpticalRejection, opticalRejection, productionTradeDeployment, tradeRouterAbi } from './widgets/trading/transaction-controls/providers';
 import type { TradeContext } from './widgets/trading/transaction-controls/domain';
 
-let RootLayout: typeof import('./app/layout').default;
+let RootLayout: typeof import('./app/root-layout').default;
 const { CookieJar, JSDOM } = createRequire(import.meta.url)('jsdom');
 let AppProviders: typeof import('./ui/providers/app-providers').default;
 let createPrivateFixtureWagmiConfig: typeof import('./ui/providers/app-providers').createPrivateFixtureWagmiConfig;
@@ -51,7 +51,7 @@ beforeAll(async () => {
   const { createWorkStore } = await import('next/dist/server/async-storage/work-store');
   const { workAsyncStorage } = await import('next/dist/server/app-render/work-async-storage.external');
   const { workUnitAsyncStorage } = await import('next/dist/server/app-render/work-unit-async-storage.external');
-  ({ default: RootLayout } = await import('./app/layout'));
+  ({ default: RootLayout } = await import('./app/root-layout'));
   ({ default: AppProviders, createPrivateFixtureWagmiConfig } = await import('./ui/providers/app-providers'));
   requestLayout = cookie => {
     const request = new NextRequest('https://localhost:3050/', { headers: { cookie } });

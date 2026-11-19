@@ -365,7 +365,10 @@ const warmDirectory = new URL('./warm/', import.meta.url);
 for (const file of (await readdir(warmDirectory)).sort()) {
   warmPaths.push(...JSON.parse(await readFile(new URL(file, warmDirectory), 'utf8')));
 }
-await Promise.all([...new Set(warmPaths)].map(path => warmPage(path)));
+const pendingWarmPaths = [...new Set(warmPaths)];
+await Promise.all(Array.from({ length: 4 }, async () => {
+  while (pendingWarmPaths.length > 0) await warmPage(pendingWarmPaths.shift());
+}));
 pagesReady = true;
 function close() {
   for (const socket of sockets.clients) socket.terminate();

@@ -133,7 +133,9 @@ export function SegmentedControl<T extends string>({
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(
               'inline-flex items-center justify-center gap-1.5 border border-transparent py-0.5 text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] font-bold transition-colors duration-fast',
-              compact ? 'whitespace-nowrap px-1.5' : 'px-3',
+              compact
+                ? 'whitespace-nowrap px-[calc(var(--sl-space-1)*1.5-var(--sl-edge-width))]'
+                : 'px-[calc(var(--sl-space-3)-var(--sl-edge-width))]',
               radius,
               size === 'sm' ? 'min-h-6' : 'min-h-8',
               fullWidth && 'flex-1',
