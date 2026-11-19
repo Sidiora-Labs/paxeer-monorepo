@@ -15958,6 +15958,12 @@ value = "One. The helper states the deadline of its stream work once: the presen
 basis = "Gotcha 4734."
 affects = []
 
+[decision.3808]
+title = "A case that sets the age of a held send takes the lifetime the queue of its node holds"
+value = "One. The case TestRuntimeAdmissionNonceSendAndOpenExpiry sets the arrival of its held send back by twice the lifetime the queue of the node of the case holds, read from the configuration of that node, in place of two lease durations. Two. The case keeps every assertion: the next open block drops the held send, the queue is empty and the record of the send is gone. Three. No file of the product changes and no other case changes. Task 22.39.965."
+basis = "Gotcha 4735."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45618,6 +45624,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.965]
+title = "Let the open expiry case of the runtime admission set the age of its held send by the lifetime setting"
+reqs = ["22998.1"]
+touches = ["node/sequencer/runtime_admission_failover_test.go"]
+tests = []
+verification_contract = "go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestRuntimeAdmission"
+do_1 = "do_1 Gotcha 4735, decision 3808. Read node/sequencer/runtime_admission_failover_test.go whole, the place in node/sequencer/node.go that builds the nonce queue, the lifetime setting in node/sequencer/config.go, the drop of held sends in node/sequencer/nonce_queue.go and the cases of node/sequencer/nonce_lifetime_test.go. Read how the node of the case gets its configuration and which lifetime its queue holds."
+symbols = []
 
 [capability.22.39.964]
 title = "Give the stream cleanup of the ranking case helper the deadline form of its reset"
@@ -259862,6 +259877,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.965]
+title = "Let the open expiry case of the runtime admission set the age of its held send by the lifetime setting"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.962"]
+reqs = ["22998.1"]
+capabilities = ["22.39.965"]
+interfaces = []
+do_1 = "do_1 Gotcha 4735, decision 3808. Read node/sequencer/runtime_admission_failover_test.go whole, the place in node/sequencer/node.go that builds the nonce queue, the lifetime setting in node/sequencer/config.go, the drop of held sends in node/sequencer/nonce_queue.go and the cases of node/sequencer/nonce_lifetime_test.go. Read how the node of the case gets its configuration and which lifetime its queue holds."
+do_2 = "do_2 Point one. In the case TestRuntimeAdmissionNonceSendAndOpenExpiry set the arrival of the held send back by twice the lifetime the queue of the node of the case holds, read from the configuration of that node, in place of two lease durations. Where the configuration of the node of the case does not carry the lifetime its queue holds, take the value from the place the queue takes it from and name that in the final message."
+do_3 = "do_3 Points two and three. Keep every assertion of the case and its message. Change no other case and no file outside node/sequencer/runtime_admission_failover_test.go. Where the case still does not pass after the change for a cause in the product, change nothing in the product and give the cause with file and line in the final message."
+do_4 = "do_4 Run the cases of the whole package node/sequencer once by hand with go test -count=1 -timeout 30m ./node/sequencer/ and read every line of the output. Name each case that does not pass in the final message with its first message. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/sequencer/runtime_admission_failover_test.go"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/..."
+verify_cmd = "go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestRuntimeAdmission"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.962]
 title = "Give held transactions a lifetime setting of their own and write the sequencer settings in effect at start"
