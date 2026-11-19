@@ -66,7 +66,7 @@ const InternalTxsTableItem = ({
       <TableCell>
         <Flex rowGap={ 2 } flexDir="column">
           { typeTitle && (
-            <Badge colorPalette="cyan" loading={ isLoading }>{ typeTitle }</Badge>
+            <Badge colorPalette="cyan" _light={{ color: 'cyan.800' }} loading={ isLoading }>{ typeTitle }</Badge>
           ) }
           { !success && <TxStatus status="error" errorText={ error } isLoading={ isLoading }/> }
         </Flex>
@@ -74,6 +74,7 @@ const InternalTxsTableItem = ({
       { showBlockInfo && (
         <TableCell isNumeric>
           <BlockEntity
+            justifyContent="flex-end"
             isLoading={ isLoading }
             number={ blockNumber }
             noIcon

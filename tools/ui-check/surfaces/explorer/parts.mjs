@@ -45,7 +45,7 @@ for (const name of names) {
     assert.ok(expected, `${name}: unknown view ${view.name}`);
     const documentRefusal = expected.expects?.find((entry) =>
       entry.method === 'GET' && entry.status === 404 && entry.pattern === new URL(expected.path, whole.address).href);
-    const expectedInPart = name === 'chains' && documentRefusal ? {
+    const expectedInPart = name === 'chains' && documentRefusal && !expected.expects.some((entry) => entry.method === 'HEAD') ? {
       ...expected,
       expects: [...expected.expects, {
         method: 'HEAD',

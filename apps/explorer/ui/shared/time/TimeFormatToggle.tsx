@@ -28,7 +28,7 @@ const TimeFormatToggle = (props: Props) => {
   })();
 
   return (
-    <HStack display="inline-flex" gap={ 1 } ml={ 2 } verticalAlign="bottom" { ...props }>
+    <HStack display="inline-flex" gap={ 1 } ml={ 2 } verticalAlign="middle" { ...props }>
       <Tooltip content="Toggle time format">
         <IconButton
           aria-label="Toggle time format"
@@ -39,7 +39,7 @@ const TimeFormatToggle = (props: Props) => {
           minH="touchTarget"
           selected={ timeFormat === 'absolute' }
           borderRadius="sm"
-          verticalAlign="bottom"
+          verticalAlign="middle"
         >
           <IconSvg name="clock-light" boxSize={ 3.5 }/>
         </IconButton>

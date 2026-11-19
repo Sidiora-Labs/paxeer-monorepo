@@ -179937,7 +179937,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.86]
 title = "Close the transaction and price feed views of the explorer on the device list with the render check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.38"]
@@ -208627,7 +208627,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.954]
 title = "Let the route corrections case of the launchpad client package find the registration it proves"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208719,7 +208719,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.951]
 title = "Bound the body read of the card image route of the launchpad web application itself"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209059,7 +209059,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.940]
 title = "Pass the lint, race and coverage targets of the launchpad Makefile in the indexer module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.937"]

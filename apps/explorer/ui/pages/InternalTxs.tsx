@@ -1,7 +1,6 @@
 import { Box } from '@chakra-ui/react';
 import React from 'react';
 
-import useIsMobile from 'lib/hooks/useIsMobile';
 import InternalTxsList from 'ui/internalTxs/InternalTxsList';
 import InternalTxsTable from 'ui/internalTxs/InternalTxsTable';
 import useInternalTxsQuery from 'ui/internalTxs/useInternalTxsQuery';
@@ -13,8 +12,6 @@ import PageDataListDisplay from './PageDataListDisplay';
 import { PageFilterInput } from './PageFilterInput';
 
 const InternalTxs = () => {
-
-  const isMobile = useIsMobile();
 
   const { query, searchTerm, debouncedSearchTerm, onSearchTermChange } = useInternalTxsQuery();
   const { isError, isPlaceholderData, data, pagination } = query;
@@ -34,14 +31,12 @@ const InternalTxs = () => {
       <Box mb={ 6 } display={{ base: 'flex', lg: 'none' }}>
         { filterInput }
       </Box>
-      { (!isMobile || pagination.isVisible) && (
-        <ActionBar w="100%" mx={ 0 } px={ 0 } mt={ -6 }>
-          <Box display={{ base: 'none', lg: 'flex' }}>
-            { filterInput }
-          </Box>
-          <Pagination ml="auto" { ...pagination }/>
-        </ActionBar>
-      ) }
+      <ActionBar w="100%" mx={ 0 } px={ 0 } mt={ -6 } display={{ base: pagination.isVisible ? 'flex' : 'none', lg: 'flex' }}>
+        <Box display={{ base: 'none', lg: 'flex' }}>
+          { filterInput }
+        </Box>
+        <Pagination ml="auto" { ...pagination }/>
+      </ActionBar>
     </>
   );
 
