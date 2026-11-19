@@ -15928,6 +15928,18 @@ value = "One. The producer tools/launchpad/production/interfaces/contracts/clien
 basis = "Gotcha 4729. Decisions 3708 and 3801."
 affects = []
 
+[decision.3803]
+title = "The explorer takes its touch size at the widths up to 834 only, its text styles hold the sizes of the earlier state, and its parts are closed again against the measure of task 22.44.105"
+value = "One. Decision 3708 holds for the explorer as for every surface. A recipe, a control of the toolkit and a part of the shell takes the least size of 44 pixels at the widths up to 834 only and has the size of the earlier state above, as a least value of care for touch. The size token touchTarget stays; where it is named, it is named with that width. Two. At the widths up to 834 a control grows no further than the rule asks and the parts around it keep their place as far as the rule allows: a control that stands inside a line of text or inside a row, such as the control that copies a value, takes its touch size around its mark in a form that leaves the height of the line or the row at its earlier value wherever the render check accepts that form. Three. The text styles display, h1 and h2 hold at every width the size and the line height the earlier state holds at that width, as fixed values; no size of text follows the width of the window. Four. The header, the navigation, the main region and the footer have the boxes of the earlier state at the widths above 834, less the track of the scroll bar. Five. What the series added stays as decision 3708 names it, and a part or a content that a task outside series 22.44 added stays and takes the sizes of the like parts of the earlier state. Six. Task 22.44.120 brings the size tokens, the recipes, the shell and the home view to this rule; tasks 22.44.121 to 22.44.128 then close the eight other parts of the surface against the measuring file, each with the counted render check of its part."
+basis = "Gotcha 4730. Decisions 3707, 3708 and 3747."
+affects = []
+
+[decision.3804]
+title = "The preparation of the web suite gives its oracle publications a gas limit that covers the longer path of the price write, and the install steps of the launchpad test workflow fetch again before they end a job"
+value = "One. The script apps/launchpad/web/src/widgets/meta-ag/prepare-owned-deployment.mjs sends each oracle publication with a gas limit that covers the path with a new observation, whatever path its estimate took: a limit stated in the script, or the estimate raised by a stated margin that the measure of task 22.39.959 shows to cover the difference between the two paths. This is a least value. Two. The same holds for every other transaction of the script whose path depends on the time stamp of its block. No contract changes, and no price, address or order of the setup changes. Three. Every step of .github/workflows/launchpad-test.yml that installs packages of the system reads the package index and fetches again when a fetch does not complete, at least three times with a pause between the tries, and ends its job only when the last try does not complete. The packages, their options and the order of the steps stay as they are. Four. A case file under tests/ci reads the workflow and holds point three for every place that installs packages of the system, so that a place added later follows the rule. Tasks 22.39.959 and 22.39.960."
+basis = "Gotcha 4731."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45588,6 +45600,105 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.960]
+title = "Let every install step of the launchpad test workflow read the package index and fetch again before it ends its job"
+reqs = ["22998.1"]
+touches = [".github/workflows/launchpad-test.yml", "tests/ci", "scripts/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_launchpad_install_steps.py"
+do_1 = "do_1 Gotcha 4731 part two, decision 3804 points three and four. Read .github/workflows/launchpad-test.yml with its six places that install packages of the system, the anchors the Go jobs share, and the case files under tests/ci that read this workflow. Run those case files by hand once and note which pass before the change."
+symbols = []
+
+[capability.22.39.959]
+title = "Give the oracle publications of the web suite preparation a gas limit that covers the longer path of the price write"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/meta-ag", "apps/launchpad/web/scripts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && cd apps/launchpad/web && python3 scripts/prepare-test-environment.py -- pnpm exec vitest run src/widgets/meta-ag"
+do_1 = "do_1 Gotcha 4731 part one, decision 3804 points one and two. Read apps/launchpad/web/src/widgets/meta-ag/prepare-owned-deployment.mjs with its function that waits for a receipt, its registration of the three assets and its function that publishes the prices, apps/launchpad/web/scripts/prepare-test-environment.py with the place that starts the script, and the function that writes a price in contracts/launchpad/contracts/meta-ag/oracle/PriceOracle.sol with the two functions it calls for the accumulator and the observation. Measure on the local chain of the preparation, by hand: the gas of a price write whose block carries the time stamp of the last observation of the asset, and the gas of one whose block carries a later time stamp. Name both numbers in the final message. Where the measure shows another rule than the gas limit to stop a publication, name that rule and correct the script against it under the same paths."
+symbols = []
+
+[capability.22.44.128]
+title = "Close the account, application and service views of the explorer again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.128.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/services.json --out /tmp/ui-check/explorer-services && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the record spec/layerx-merge/programme/records/ui/22.44.105.kvx for the views of this part, the record spec/layerx-merge/programme/records/ui/22.44.92.kvx, the part file tools/ui-check/surfaces/explorer/parts/services.json, tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/README.md. Start the render check of the part by hand at once, in the foreground and never detached, with the options the verification command of this task holds, and read its summary per view and every finding."
+symbols = []
+
+[capability.22.44.127]
+title = "Close the batch, deposit and withdrawal views of the explorer again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.127.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/rollup.json --out /tmp/ui-check/explorer-rollup && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the record spec/layerx-merge/programme/records/ui/22.44.105.kvx for the views of this part, the record spec/layerx-merge/programme/records/ui/22.44.91.kvx, the part file tools/ui-check/surfaces/explorer/parts/rollup.json, tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/README.md. Start the render check of the part by hand at once, in the foreground and never detached, with the options the verification command of this task holds, and read its summary per view and every finding."
+symbols = []
+
+[capability.22.44.126]
+title = "Close the chain and cross-chain views of the explorer again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.126.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/chains.json --out /tmp/ui-check/explorer-chains && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the record spec/layerx-merge/programme/records/ui/22.44.105.kvx for the views of this part, the record spec/layerx-merge/programme/records/ui/22.44.90.kvx, the part file tools/ui-check/surfaces/explorer/parts/chains.json, tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/README.md. Start the render check of the part by hand at once, in the foreground and never detached, with the options the verification command of this task holds, and read its summary per view and every finding."
+symbols = []
+
+[capability.22.44.125]
+title = "Close the statistics, gas and validator views of the explorer again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.125.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/statistics.json --out /tmp/ui-check/explorer-statistics && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the record spec/layerx-merge/programme/records/ui/22.44.105.kvx for the views of this part, the record spec/layerx-merge/programme/records/ui/22.44.89.kvx, the part file tools/ui-check/surfaces/explorer/parts/statistics.json, tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/README.md. Start the render check of the part by hand at once, in the foreground and never detached, with the options the verification command of this task holds, and read its summary per view and every finding."
+symbols = []
+
+[capability.22.44.124]
+title = "Close the token and search views of the explorer again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.124.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/tokens.json --out /tmp/ui-check/explorer-tokens && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the record spec/layerx-merge/programme/records/ui/22.44.105.kvx for the views of this part, the record spec/layerx-merge/programme/records/ui/22.44.88.kvx, the part file tools/ui-check/surfaces/explorer/parts/tokens.json, tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/README.md. Start the render check of the part by hand at once, in the foreground and never detached, with the options the verification command of this task holds, and read its summary per view and every finding."
+symbols = []
+
+[capability.22.44.123]
+title = "Close the address and contract views of the explorer again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.123.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/addresses.json --out /tmp/ui-check/explorer-addresses && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the record spec/layerx-merge/programme/records/ui/22.44.105.kvx for the views of this part, the record spec/layerx-merge/programme/records/ui/22.44.87.kvx, the part file tools/ui-check/surfaces/explorer/parts/addresses.json, tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/README.md. Start the render check of the part by hand at once, in the foreground and never detached, with the options the verification command of this task holds, and read its summary per view and every finding."
+symbols = []
+
+[capability.22.44.122]
+title = "Close the transaction and price feed views of the explorer again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.122.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/transactions.json --out /tmp/ui-check/explorer-transactions && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the record spec/layerx-merge/programme/records/ui/22.44.105.kvx for the views of this part, the record spec/layerx-merge/programme/records/ui/22.44.86.kvx, the part file tools/ui-check/surfaces/explorer/parts/transactions.json, tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/README.md. Start the render check of the part by hand at once, in the foreground and never detached, with the options the verification command of this task holds, and read its summary per view and every finding."
+symbols = []
+
+[capability.22.44.121]
+title = "Close the block views of the explorer again at the sizes of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.121.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/blocks.json --out /tmp/ui-check/explorer-blocks && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the record spec/layerx-merge/programme/records/ui/22.44.105.kvx for the views of this part, the record spec/layerx-merge/programme/records/ui/22.44.85.kvx, the part file tools/ui-check/surfaces/explorer/parts/blocks.json, tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/README.md. Start the render check of the part by hand at once, in the foreground and never detached, with the options the verification command of this task holds, and read its summary per view and every finding."
+symbols = []
+
+[capability.22.44.120]
+title = "Bring the touch size, the text styles, the shell and the home view of the explorer back to its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.120.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/home.json --out /tmp/ui-check/explorer-home && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.105.kvx with its table of tokens, its controls and its parts, tools/ui-check/surfaces/explorer/measure.json, tools/ui-check/surfaces/explorer/earlier-geometry.json, tools/ui-check/README.md with its part on the stored geometry, apps/explorer/toolkit/theme/foundations/sizes.ts, apps/explorer/toolkit/theme/foundations/typography.ts, apps/explorer/toolkit/theme/globalCss.ts, the recipes under apps/explorer/toolkit/theme/recipes with their case file, apps/explorer/toolkit/chakra/icon-button.tsx, the parts of the header, the navigation, the search bar, the network mark and the footer under apps/explorer/ui/snippets, and the state of apps/explorer at the earlier revision the record names, in the history. List in the final message every place that names the token touchTarget and what it becomes."
+symbols = []
 
 [capability.22.44.119]
 title = "Let the waiting form of the ranking table of the launchpad reserve the row of its loaded form, and let the case of the trending tabs pin the padding its control holds"
@@ -177790,9 +177901,298 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.128]
+title = "Close the account, application and service views of the explorer again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.120"]
+reqs = ["22998.1"]
+capabilities = ["22.44.128"]
+interfaces = []
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the record spec/layerx-merge/programme/records/ui/22.44.105.kvx for the views of this part, the record spec/layerx-merge/programme/records/ui/22.44.92.kvx, the part file tools/ui-check/surfaces/explorer/parts/services.json, tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/README.md. Start the render check of the part by hand at once, in the foreground and never detached, with the options the verification command of this task holds, and read its summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decisions 3708 and 3803 hold for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token and a recipe are not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, a colour that was changed for the contrast rule, and every part and content that a task outside series 22.44 added. No behaviour, no route, no data flow and no text changes. "
+do_3 = "do_3 Read in tools/ui-check/surfaces/explorer/measure.json the views that belong to this part, by the paths the part file holds, and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. At the widths up to 834 a control of a view of this part follows point two of decision 3803. The files tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/surfaces/explorer/earlier-geometry.json stay as they are. "
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, and where the main line holds such a change take it and keep both. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened. No limit of the check is raised and no element is hidden from it."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.128.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/explorer/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/explorer/ui, apps/explorer/toolkit, apps/explorer/pages and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case or a view passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.128.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.128.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/services.json --out /tmp/ui-check/explorer-services && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.127]
+title = "Close the batch, deposit and withdrawal views of the explorer again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.120"]
+reqs = ["22998.1"]
+capabilities = ["22.44.127"]
+interfaces = []
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the record spec/layerx-merge/programme/records/ui/22.44.105.kvx for the views of this part, the record spec/layerx-merge/programme/records/ui/22.44.91.kvx, the part file tools/ui-check/surfaces/explorer/parts/rollup.json, tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/README.md. Start the render check of the part by hand at once, in the foreground and never detached, with the options the verification command of this task holds, and read its summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decisions 3708 and 3803 hold for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token and a recipe are not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, a colour that was changed for the contrast rule, and every part and content that a task outside series 22.44 added. No behaviour, no route, no data flow and no text changes. "
+do_3 = "do_3 Read in tools/ui-check/surfaces/explorer/measure.json the views that belong to this part, by the paths the part file holds, and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. At the widths up to 834 a control of a view of this part follows point two of decision 3803. The files tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/surfaces/explorer/earlier-geometry.json stay as they are. "
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, and where the main line holds such a change take it and keep both. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened. No limit of the check is raised and no element is hidden from it."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.127.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/explorer/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/explorer/ui, apps/explorer/toolkit, apps/explorer/pages and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case or a view passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.127.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.127.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/rollup.json --out /tmp/ui-check/explorer-rollup && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.126]
+title = "Close the chain and cross-chain views of the explorer again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.120"]
+reqs = ["22998.1"]
+capabilities = ["22.44.126"]
+interfaces = []
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the record spec/layerx-merge/programme/records/ui/22.44.105.kvx for the views of this part, the record spec/layerx-merge/programme/records/ui/22.44.90.kvx, the part file tools/ui-check/surfaces/explorer/parts/chains.json, tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/README.md. Start the render check of the part by hand at once, in the foreground and never detached, with the options the verification command of this task holds, and read its summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decisions 3708 and 3803 hold for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token and a recipe are not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, a colour that was changed for the contrast rule, and every part and content that a task outside series 22.44 added. No behaviour, no route, no data flow and no text changes. "
+do_3 = "do_3 Read in tools/ui-check/surfaces/explorer/measure.json the views that belong to this part, by the paths the part file holds, and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. At the widths up to 834 a control of a view of this part follows point two of decision 3803. The files tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/surfaces/explorer/earlier-geometry.json stay as they are. "
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, and where the main line holds such a change take it and keep both. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened. No limit of the check is raised and no element is hidden from it."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.126.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/explorer/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/explorer/ui, apps/explorer/toolkit, apps/explorer/pages and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case or a view passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.126.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.126.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/chains.json --out /tmp/ui-check/explorer-chains && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.125]
+title = "Close the statistics, gas and validator views of the explorer again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.120"]
+reqs = ["22998.1"]
+capabilities = ["22.44.125"]
+interfaces = []
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the record spec/layerx-merge/programme/records/ui/22.44.105.kvx for the views of this part, the record spec/layerx-merge/programme/records/ui/22.44.89.kvx, the part file tools/ui-check/surfaces/explorer/parts/statistics.json, tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/README.md. Start the render check of the part by hand at once, in the foreground and never detached, with the options the verification command of this task holds, and read its summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decisions 3708 and 3803 hold for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token and a recipe are not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, a colour that was changed for the contrast rule, and every part and content that a task outside series 22.44 added. No behaviour, no route, no data flow and no text changes. "
+do_3 = "do_3 Read in tools/ui-check/surfaces/explorer/measure.json the views that belong to this part, by the paths the part file holds, and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. At the widths up to 834 a control of a view of this part follows point two of decision 3803. The files tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/surfaces/explorer/earlier-geometry.json stay as they are. "
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, and where the main line holds such a change take it and keep both. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened. No limit of the check is raised and no element is hidden from it."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.125.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/explorer/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/explorer/ui, apps/explorer/toolkit, apps/explorer/pages and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case or a view passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.125.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.125.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/statistics.json --out /tmp/ui-check/explorer-statistics && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.124]
+title = "Close the token and search views of the explorer again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.120"]
+reqs = ["22998.1"]
+capabilities = ["22.44.124"]
+interfaces = []
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the record spec/layerx-merge/programme/records/ui/22.44.105.kvx for the views of this part, the record spec/layerx-merge/programme/records/ui/22.44.88.kvx, the part file tools/ui-check/surfaces/explorer/parts/tokens.json, tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/README.md. Start the render check of the part by hand at once, in the foreground and never detached, with the options the verification command of this task holds, and read its summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decisions 3708 and 3803 hold for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token and a recipe are not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, a colour that was changed for the contrast rule, and every part and content that a task outside series 22.44 added. No behaviour, no route, no data flow and no text changes. "
+do_3 = "do_3 Read in tools/ui-check/surfaces/explorer/measure.json the views that belong to this part, by the paths the part file holds, and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. At the widths up to 834 a control of a view of this part follows point two of decision 3803. The files tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/surfaces/explorer/earlier-geometry.json stay as they are. "
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, and where the main line holds such a change take it and keep both. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened. No limit of the check is raised and no element is hidden from it."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.124.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/explorer/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/explorer/ui, apps/explorer/toolkit, apps/explorer/pages and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case or a view passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.124.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.124.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/tokens.json --out /tmp/ui-check/explorer-tokens && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.123]
+title = "Close the address and contract views of the explorer again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.120"]
+reqs = ["22998.1"]
+capabilities = ["22.44.123"]
+interfaces = []
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the record spec/layerx-merge/programme/records/ui/22.44.105.kvx for the views of this part, the record spec/layerx-merge/programme/records/ui/22.44.87.kvx, the part file tools/ui-check/surfaces/explorer/parts/addresses.json, tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/README.md. Start the render check of the part by hand at once, in the foreground and never detached, with the options the verification command of this task holds, and read its summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decisions 3708 and 3803 hold for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token and a recipe are not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, a colour that was changed for the contrast rule, and every part and content that a task outside series 22.44 added. No behaviour, no route, no data flow and no text changes. "
+do_3 = "do_3 Read in tools/ui-check/surfaces/explorer/measure.json the views that belong to this part, by the paths the part file holds, and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. At the widths up to 834 a control of a view of this part follows point two of decision 3803. The files tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/surfaces/explorer/earlier-geometry.json stay as they are. "
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, and where the main line holds such a change take it and keep both. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened. No limit of the check is raised and no element is hidden from it."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.123.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/explorer/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/explorer/ui, apps/explorer/toolkit, apps/explorer/pages and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case or a view passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.123.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.123.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/addresses.json --out /tmp/ui-check/explorer-addresses && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.122]
+title = "Close the transaction and price feed views of the explorer again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.120"]
+reqs = ["22998.1"]
+capabilities = ["22.44.122"]
+interfaces = []
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the record spec/layerx-merge/programme/records/ui/22.44.105.kvx for the views of this part, the record spec/layerx-merge/programme/records/ui/22.44.86.kvx, the part file tools/ui-check/surfaces/explorer/parts/transactions.json, tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/README.md. Start the render check of the part by hand at once, in the foreground and never detached, with the options the verification command of this task holds, and read its summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decisions 3708 and 3803 hold for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token and a recipe are not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, a colour that was changed for the contrast rule, and every part and content that a task outside series 22.44 added. No behaviour, no route, no data flow and no text changes. "
+do_3 = "do_3 Read in tools/ui-check/surfaces/explorer/measure.json the views that belong to this part, by the paths the part file holds, and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. At the widths up to 834 a control of a view of this part follows point two of decision 3803. The files tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/surfaces/explorer/earlier-geometry.json stay as they are. "
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, and where the main line holds such a change take it and keep both. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened. No limit of the check is raised and no element is hidden from it."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.122.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/explorer/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/explorer/ui, apps/explorer/toolkit, apps/explorer/pages and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case or a view passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.122.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.122.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/transactions.json --out /tmp/ui-check/explorer-transactions && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.121]
+title = "Close the block views of the explorer again at the sizes of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.120"]
+reqs = ["22998.1"]
+capabilities = ["22.44.121"]
+interfaces = []
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the record spec/layerx-merge/programme/records/ui/22.44.105.kvx for the views of this part, the record spec/layerx-merge/programme/records/ui/22.44.85.kvx, the part file tools/ui-check/surfaces/explorer/parts/blocks.json, tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/README.md. Start the render check of the part by hand at once, in the foreground and never detached, with the options the verification command of this task holds, and read its summary per view and every finding."
+do_2 = "do_2 Correct each finding in the views of the part. Decisions 3708 and 3803 hold for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. A size token and a recipe are not changed here: where a view needs another value, the view takes a token the surface holds. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, a colour that was changed for the contrast rule, and every part and content that a task outside series 22.44 added. No behaviour, no route, no data flow and no text changes. "
+do_3 = "do_3 Read in tools/ui-check/surfaces/explorer/measure.json the views that belong to this part, by the paths the part file holds, and the findings of the kind geometry that a run by hand with that file gives for them. Correct a difference of more than one pixel in a size of text or in a part of a view whose cause is not content the earlier state does not hold, the touch rule at the widths up to 834 or the track of the scroll bar. At the widths up to 834 a control of a view of this part follows point two of decision 3803. The files tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/surfaces/explorer/earlier-geometry.json stay as they are. "
+do_4 = "do_4 A component that several parts share changes in a form that holds for every part, and the part file and the files of answers of another part are not changed. Another task of this group can change the same shared file at the same time: change only what this part needs, and where the main line holds such a change take it and keep both. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened. No limit of the check is raised and no element is hidden from it."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.121.kvx in present tense: the count of views and states of the part, the count of renders of the last run with its result, for each kind of finding the count of the first run and of the last, and for the views of the part in tools/ui-check/surfaces/explorer/measure.json the count of parts that still differ from the earlier state with the cause of each. Work with at most two full runs by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part. The files of apps/explorer/ui, apps/explorer/toolkit, apps/explorer/pages and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case or a view passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.121.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.121.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/blocks.json --out /tmp/ui-check/explorer-blocks && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.120]
+title = "Bring the touch size, the text styles, the shell and the home view of the explorer back to its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.105"]
+reqs = ["22998.1"]
+capabilities = ["22.44.120"]
+interfaces = []
+do_1 = "do_1 Gotcha 4730, decisions 3708, 3747 and 3803. Read the record spec/layerx-merge/programme/records/ui/22.44.105.kvx with its table of tokens, its controls and its parts, tools/ui-check/surfaces/explorer/measure.json, tools/ui-check/surfaces/explorer/earlier-geometry.json, tools/ui-check/README.md with its part on the stored geometry, apps/explorer/toolkit/theme/foundations/sizes.ts, apps/explorer/toolkit/theme/foundations/typography.ts, apps/explorer/toolkit/theme/globalCss.ts, the recipes under apps/explorer/toolkit/theme/recipes with their case file, apps/explorer/toolkit/chakra/icon-button.tsx, the parts of the header, the navigation, the search bar, the network mark and the footer under apps/explorer/ui/snippets, and the state of apps/explorer at the earlier revision the record names, in the history. List in the final message every place that names the token touchTarget and what it becomes."
+do_2 = "do_2 The least size of 44 pixels holds at the widths up to 834 only. Every recipe, every control of the toolkit and every part of the shell that names the token touchTarget as a least height, a least width or a box size takes it at those widths alone, in one form for the whole surface, and has above 834 the height, the width, the padding and the line the earlier state holds. The token keeps its name and its value. At the widths 1280 to 2560 the navigation and its items, the links and the row of the footer, the controls of the header, the tabs, the inputs, the selects, the entries of a menu and the controls inside rows then measure what the record lists for the earlier state."
+do_3 = "do_3 At the widths up to 834 follow point two of decision 3803: a control inside a line of text or a row takes its touch size around its mark without raising the line or the row, where the render check accepts the form; the links of the footer and the rows of the home view grow no further than the rule asks. Where the check refuses every such form for a control, the control keeps the size the rule asks and the final message names it."
+do_4 = "do_4 The text styles display, h1 and h2 take the size and the line height of the earlier state as fixed values at every width, and every other text style that the record lists with a different size takes the earlier one. A token that only the present state holds stays where no part gets a size from it that differs from the earlier state; where one does, it takes the value that gives the earlier size. The view for a path that is not found has the heading and the control of the earlier state. Decisions 3708 and 3803 hold for every correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above; a colour changes only where the contrast rule asks for it. What stays as it is: the marks of focus, the labels, roles and landmarks, the states of controls, the loading and empty states, the rule for reduced motion, the track the page reserves for the scroll bar, a colour that was changed for the contrast rule, and every part and content that a task outside series 22.44 added. No behaviour, no route, no data flow and no text changes. "
+do_5 = "do_5 Run the check by hand with tools/ui-check/surfaces/explorer/measure.json, which names tools/ui-check/surfaces/explorer/earlier-geometry.json, at most twice, and read every finding of the kind geometry. Correct a difference of more than one pixel in a part of the shell, in a size of text and in the parts of the home view. Write the record spec/layerx-merge/programme/records/ui/22.44.120.kvx in present tense: every place brought back with its values, for each width the count of parts that still differ from the earlier state, and for each such part its cause: content the earlier state does not hold, the touch rule at the widths up to 834, the track of the scroll bar, or a view of another part of the surface that its own task closes. The files tools/ui-check/surfaces/explorer/measure.json and tools/ui-check/surfaces/explorer/earlier-geometry.json stay as they are. "
+do_6 = "do_6 A case under apps/explorer that pins a size or a least size the series gave is brought to the rule; no assertion on behaviour is weakened and no case is removed or left out. Start the counted form of the render check of the home part by hand early, in the foreground and never detached, read its summary per view and correct a finding inside the rule; no limit of the check is raised and no element is hidden from it. Start the build and the counted verification early and keep time for them. The files of apps/explorer/ui, apps/explorer/toolkit, apps/explorer/pages and of tools/ui-check/surfaces are inside the paths of this task, and it makes no difference whether a case or a view passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "apps/explorer/pages", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.120.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.120.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/home.json --out /tmp/ui-check/explorer-home && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.118]
 title = "Keep the edge of the coin button of the swap view of the launchpad inside the box the button held before"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177823,7 +178223,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.117]
 title = "Set the row of the heading and the amount of the cost line of the creation view of the launchpad at the values of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177885,7 +178285,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.115]
 title = "Set the strip under the top bar, the cookie notice and the mark of the select pill of the launchpad at the values of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179208,7 +179608,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.105]
 title = "Measure the explorer against its state before the tasks of series 22.44"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.85", "22.44.86", "22.44.87", "22.44.88", "22.44.89", "22.44.90", "22.44.91", "22.44.92"]
@@ -208849,9 +209249,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.959]
+title = "Give the oracle publications of the web suite preparation a gas limit that covers the longer path of the price write"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.959"]
+interfaces = []
+do_1 = "do_1 Gotcha 4731 part one, decision 3804 points one and two. Read apps/launchpad/web/src/widgets/meta-ag/prepare-owned-deployment.mjs with its function that waits for a receipt, its registration of the three assets and its function that publishes the prices, apps/launchpad/web/scripts/prepare-test-environment.py with the place that starts the script, and the function that writes a price in contracts/launchpad/contracts/meta-ag/oracle/PriceOracle.sol with the two functions it calls for the accumulator and the observation. Measure on the local chain of the preparation, by hand: the gas of a price write whose block carries the time stamp of the last observation of the asset, and the gas of one whose block carries a later time stamp. Name both numbers in the final message. Where the measure shows another rule than the gas limit to stop a publication, name that rule and correct the script against it under the same paths."
+do_2 = "do_2 Change the script so that each oracle publication is sent with a gas limit that covers the longer path, whatever path the estimate took: a stated limit, or the estimate raised by a stated margin the measure covers. Read every other transaction the script sends for a path that depends on the time stamp of its block and give it the same form. A transaction that still does not complete ends the preparation with its message as today. No contract, no price, no address and no order of the setup changes."
+do_3 = "do_3 Run the preparation with the cases of the directory apps/launchpad/web/src/widgets/meta-ag by hand at least five times in a row and read that each run completes. Run the whole suite of the web application by hand once before the counted run and read its summary. Another task can change files under apps/launchpad/web/src at the same time: change only what this task names. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/meta-ag", "apps/launchpad/web/scripts"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && cd apps/launchpad/web && python3 scripts/prepare-test-environment.py -- pnpm exec vitest run src/widgets/meta-ag"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.119]
 title = "Let the waiting form of the ranking table of the launchpad reserve the row of its loaded form, and let the case of the trending tabs pin the padding its control holds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208882,7 +209312,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.958]
 title = "Render the approval spender of the deployment helper of the launchpad client at the launchpad precompile in its producer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -397145,6 +397575,37 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.960]
+title = "Let every install step of the launchpad test workflow read the package index and fetch again before it ends its job"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.960"]
+interfaces = []
+do_1 = "do_1 Gotcha 4731 part two, decision 3804 points three and four. Read .github/workflows/launchpad-test.yml with its six places that install packages of the system, the anchors the Go jobs share, and the case files under tests/ci that read this workflow. Run those case files by hand once and note which pass before the change."
+do_2 = "do_2 Change each of the six places so that it reads the package index and installs again when a try does not complete: at least three tries with a pause between them, and the step ends its job only when the last try does not complete. State the form once and use it at every place, inline in the step or as a script under scripts/ci where the checkout precedes the step in every job that uses it. The packages, their options, the conditions of the steps, their names and their order stay as they are. No other step of the workflow changes."
+do_3 = "do_3 Write tests/ci/test_launchpad_install_steps.py: it reads the workflow, finds every place that installs packages of the system, and holds for each that it follows the form with at least three tries, a new read of the package index in each try and a pause. A place added later without the form does not pass the case. The case reads the file only and starts nothing."
+do_4 = "do_4 Run the case files under tests/ci that read this workflow by hand again: each that passed before the change passes after it. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".github/workflows/launchpad-test.yml", "tests/ci", "scripts/ci"]
+tests = []
+planned_paths = ["tests/ci/test_launchpad_install_steps.py"]
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tests/ci/test_launchpad_install_steps.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.932]
 title = "Give the package jobs of the launchpad test workflow the database, the variables and the object store binary their cases read"
