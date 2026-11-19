@@ -177606,7 +177606,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.114]
 title = "Set the value of the select pill of the launchpad on the line of its label at the widths of phone and tablet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
