@@ -5,7 +5,7 @@ import { DOC_LINKS } from './doc-links';
 export default function DocsLayout({ children }: { children: ReactNode }) {
   return (
     <div className="bg-canvas">
-      <div className="@container/docs mx-auto w-full max-w-content-narrow-max-width px-4 py-8 sm:px-6">
+      <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
         <div className="mb-7">
           <Link
             prefetch={false}
@@ -25,11 +25,11 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
           </Link>
         </div>
 
-        <div className="flex flex-col @market-two/docs:flex-row gap-8">
-          <aside className="@market-two/docs:w-52 flex-shrink-0">
+        <div className="flex flex-col lg:flex-row gap-8">
+          <aside className="lg:w-52 flex-shrink-0">
             <nav
               aria-label="Documentation"
-              className="@market-two/docs:sticky @market-two/docs:top-[calc(var(--shell-top)+var(--sl-space-4))]"
+              className="lg:sticky lg:top-[calc(var(--shell-top)+var(--sl-space-4))]"
             >
               <p className="text-2xs text-text-faint font-bold uppercase tracking-wider mb-3 px-2">
                 <Link
@@ -55,7 +55,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
             </nav>
           </aside>
 
-          <div className="flex-1 min-w-0">{children}</div>
+          <div className="@container/legal flex-1 min-w-0">{children}</div>
         </div>
       </div>
     </div>

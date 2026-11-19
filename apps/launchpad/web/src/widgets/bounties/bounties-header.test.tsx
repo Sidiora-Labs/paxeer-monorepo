@@ -175,14 +175,16 @@ describe('create bounty call to action', () => {
     act(() => closeAuthModal());
   });
 
-  it('renders the phone Post bounty pill after the list and gates it the same way', () => {
+  it('renders the phone Post bounty pill above the bottom navigation and gates it the same way', () => {
     const container = mount(<Harness availability={missing} fab />);
     const fab = container.querySelector('[data-testid="post-bounty-fab"]');
-    expect(fab?.className).toMatch(/\bflex\b/);
-    expect(fab?.className).not.toMatch(/\b(?:fixed|sticky)\b/);
+    expect(fab?.className).toMatch(/\bright-4\b/);
+    expect(fab?.className).toMatch(/\bfixed\b/);
+    expect(fab?.className).toContain('var(--sl-bottom-nav-height)');
     expect(fab?.className).toMatch(/\bmd:hidden\b/);
     const pill = button(container, 'Post bounty') as HTMLButtonElement;
     expect(pill.className).toMatch(/rounded-pill/);
+    expect(pill.className).toContain('min-h-control-height-md');
     expect(pill.disabled).toBe(false);
     act(() => pill.click());
     expect(
@@ -197,7 +199,7 @@ describe('create bounty call to action', () => {
     const h1 = container.querySelector('h1');
     expect(h1?.textContent).toBe('Open bounties');
     expect(h1?.className.split(/\s+/)).toEqual(
-      expect.arrayContaining(['text-xl', 'md:text-[28px]', 'md:leading-9', 'font-bold'])
+      expect.arrayContaining(['text-xl', 'md:text-[28px]', 'md:leading-[calc(var(--sl-space)*9/28px)]', 'font-bold'])
     );
     expect(h1?.className).not.toMatch(/extrabold|(?:^|\s)text-2xl(?:\s|$)/);
     const row = h1?.closest('div')?.parentElement;
@@ -271,8 +273,11 @@ describe('bounty totals', () => {
 
   it('renders the inline variant with aligned values for narrow headers', () => {
     const container = mount(<BountiesStats stats={statsReady} openCount={null} variant="inline" />);
-    const lines = container.querySelectorAll('dl > div');
+    const rows = container.querySelectorAll('dl > div');
+    expect(rows.length).toBe(2);
+    const lines = container.querySelectorAll('dl > div > div');
     expect(lines.length).toBe(4);
+    for (const line of lines) expect(line.className).toContain('flex-row-reverse');
     expect([...lines].map((line) => line.querySelector('dt')?.textContent)).toEqual([
       'live',
       'unclaimed rewards',
