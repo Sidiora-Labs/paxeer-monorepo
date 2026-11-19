@@ -178261,7 +178261,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.115]
 title = "Set the strip under the top bar, the cookie notice and the mark of the select pill of the launchpad at the values of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
