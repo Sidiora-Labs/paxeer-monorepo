@@ -65,7 +65,10 @@ const ChartIntervalSelect = ({ interval, onIntervalChange, isLoading, selectTagS
               onClick={ handleButtonClick }
               variant="plain"
               size={ selectTagSize === 'lg' ? 'sm' : 'xs' }
-              h="auto"
+              h={ selectTagSize === 'lg' ?
+                'calc(var(--chakra-spacing-8) + var(--chakra-spacing-0\\.5))' :
+                'calc(var(--chakra-spacing-6) + var(--chakra-spacing-0\\.5))' }
+              px={ selectTagSize === 'lg' ? 2 : 1.5 }
               bg={ interval === item.id ? 'selected.option.bg' : 'transparent' }
               color="text.primary"
               _hover={{ bg: 'bg.raised', color: 'text.primary' }}

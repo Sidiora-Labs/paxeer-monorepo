@@ -51,7 +51,7 @@ test('keeps short column heads whole within the available width', async function
     expect(style.overflowWrap).toBe('normal');
   }
   expect(window.getComputedStyle(table).tableLayout).toBe('auto');
-  expect(window.getComputedStyle(table).minWidth).toBe('0');
+  expect(window.getComputedStyle(table).minWidth).toBe('calc(var(--chakra-spacing-100) + var(--chakra-spacing-20))');
   expect(window.getComputedStyle(table).width).toBe('100%');
   expect(region.querySelectorAll('tbody tr')).toHaveLength(2);
   expect(region.querySelector('tbody tr')?.textContent).toContain(blockMock.base.transactions_count.toLocaleString());
@@ -109,20 +109,21 @@ test('keeps block links intrinsic above the touch widths', async function keepsB
   });
 });
 
-test('keeps the section label and all blocks link on one line', function keepsTheSectionLabelAndAllBlocksLinkOnOneLine(): void {
+test('keeps the section heading above the all blocks link', function keepsTheSectionHeadingAboveTheAllBlocksLink(): void {
   render(<RecentBlocks/>);
   const heading = screen.getByRole('heading', { name: 'Recent blocks', level: 2 });
   const link = screen.getByRole('link', { name: 'View all' });
-  const line = heading.parentElement!;
+  const section = heading.parentElement!;
+  const line = link.parentElement!;
   const style = window.getComputedStyle(line);
 
-  expect(link.parentElement).toBe(line);
-  expect(Array.from(line.children)).toEqual([ heading, link ]);
+  expect(line.parentElement).toBe(section);
+  expect(Array.from(section.children).slice(0, 2)).toEqual([ heading, line ]);
+  expect(Array.from(line.children)).toEqual([ link ]);
   expect(style.display).toBe('flex');
-  expect(style.alignItems).toBe('center');
-  expect(style.justifyContent).toBe('space-between');
-  expect(style.flexWrap).toBe('nowrap');
-  expect(window.getComputedStyle(heading).whiteSpace).toBe('nowrap');
+  expect(style.justifyContent).toBe('flex-end');
+  expect(style.marginBottom).toBe('var(--chakra-spacing-2)');
+  expect(window.getComputedStyle(heading).marginBottom).toBe('var(--chakra-spacing-2)');
   expect(window.getComputedStyle(heading).textTransform).toBe('uppercase');
   expect(window.getComputedStyle(link).flexShrink).toBe('0');
   expect(window.getComputedStyle(link).whiteSpace).toBe('nowrap');
