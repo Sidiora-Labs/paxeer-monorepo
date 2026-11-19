@@ -208749,7 +208749,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.943]
 title = "Pass the lint, race and coverage targets of the launchpad Makefile in the gateway module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.937"]
