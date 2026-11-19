@@ -15976,6 +15976,12 @@ value = "One. Where the current rate holds no fiat value, both market chart rout
 basis = "Gotcha 4737."
 affects = []
 
+[decision.3811]
+title = "The value of a statistic tile shows whole at every width from 320 pixels and takes a smaller step of the type scale where its tile is narrow"
+value = "One. The text of a value takes the fixed size of its token where the tile holds the value in one line at that size. Two. Where the tile is narrower, the text takes the largest step of the type scale of the surface below the fixed size at which the value fits in one line. The steps are 20, 18, 16 and 14 pixels at the usual root size, and 14 is the least step. No value takes a size above the fixed size. Three. Where a value does not fit in one line at the least step, it breaks after a separator or at a space and the tile grows in height. Four. No value of a statistic tile carries an ellipsis and none has hidden overflow. The whole value stays in the document, with its prefix and its unit. Five. The line height of the value stays, so the tiles of a row keep one height while each value takes one line. The steps follow the root size of text, so the rule holds for a reader who has doubled the size of text. Six. The rule lies in the shared widget and holds for every view that uses it. Decisions 3708 and 3803 hold: no size grows above the earlier state. The type scale the render check reads stays as it is, and the record of task 22.44.120 takes the new form under the key statistic_values. Task 22.44.130."
+basis = "Gotcha 4738."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45636,6 +45642,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.130]
+title = "Let the value of a statistic tile of the explorer show whole at every width"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "spec/layerx-merge/programme/records/ui/22.44.120.kvx"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.130.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/home.json --out /tmp/ui-check/explorer-home && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/ ui/home/ ui/pages/ toolkit/"
+do_1 = "do_1 Gotcha 4738, decisions 3811, 3708 and 3803. Read apps/explorer/ui/shared/stats/StatsWidget.tsx whole, the case files apps/explorer/ui/shared/stats/StatsWidget.spec.tsx and apps/explorer/ui/home/Stats.spec.tsx, the file apps/explorer/ui/home/Stats.tsx, the size tokens and the text style of the value in apps/explorer/toolkit/theme/foundations/typography.ts, the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the part file tools/ui-check/surfaces/explorer/parts/home.json and tools/ui-check/README.md for the rules with the names cut and scale. Read with git grep under apps/explorer/ui which components use the widget."
+symbols = []
 
 [capability.22.44.129]
 title = "Let the render check render a view once again after a capture that ran into its time limit"
@@ -178014,6 +178029,38 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.130]
+title = "Let the value of a statistic tile of the explorer show whole at every width"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.120"]
+reqs = ["22998.1"]
+capabilities = ["22.44.130"]
+interfaces = []
+do_1 = "do_1 Gotcha 4738, decisions 3811, 3708 and 3803. Read apps/explorer/ui/shared/stats/StatsWidget.tsx whole, the case files apps/explorer/ui/shared/stats/StatsWidget.spec.tsx and apps/explorer/ui/home/Stats.spec.tsx, the file apps/explorer/ui/home/Stats.tsx, the size tokens and the text style of the value in apps/explorer/toolkit/theme/foundations/typography.ts, the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the part file tools/ui-check/surfaces/explorer/parts/home.json and tools/ui-check/README.md for the rules with the names cut and scale. Read with git grep under apps/explorer/ui which components use the widget."
+do_2 = "do_2 Give the text of a value the form of decision 3811. It takes the fixed size where the tile holds the value in one line. Where the tile is narrower it takes the largest of the steps 20, 18, 16 and 14 pixels at which the value fits in one line, by size tokens the surface holds. Where the value does not fit at 14 pixels it breaks after a separator or at a space. Remove the ellipsis and the hidden overflow from the value. The whole value and its separator nodes stay in the document, and the prefix and the unit of a value count into its width. The line height of the value stays. The steps follow the root size of text. The wrapper of the value is a container of the kind inline-size already and the value is set in a mono face with tabular numbers: the widths at which a value changes its step follow from the count of its characters. No size token, no recipe and no text style changes, and the type scale in the part files of the render check stays as it is."
+do_3 = "do_3 The rule lies in the widget and holds for every component that uses it: change a user of the widget only where it sets a style that pins the form of gotcha 4738. Change the cases that pin the ellipsis with the change they pin. The case files apps/explorer/ui/shared/stats/StatsWidget.spec.tsx and apps/explorer/ui/home/Stats.spec.tsx state the new form: no ellipsis and no hidden overflow on a value, the fixed size as the upper bound, the step a value takes for counts of ten and of thirteen characters at box widths of 102, 122, 137 and 180 pixels, and the whole value with its separator nodes in the document. No assertion on behaviour is weakened, and the cases on the label, the difference, the period and the loading state stay."
+do_4 = "do_4 Start the render check of the home part by hand, in the foreground and never detached, with the options the verification command of this task holds, and read its summary and every finding of the kinds cut, scale, sideways and shift for the home view. The check renders the widths from 360 pixels in four modes. Correct each finding the change causes. No limit of the check is raised and no element is hidden from it. Work with at most two full runs by hand. Then start the home part by hand with the start command the part file holds, open the home view at the width 320 with the browser the check installs and read for each value of a statistic tile its scroll width, the width of its box and its size of text: no value is wider than its box. Where that read cannot be set up within twenty minutes, leave it out and say so in the final message."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.130.kvx in present tense: the form of a statistic value with its steps and the least step, the count of renders of the last run of the home part with its result, for each kind of finding the count of the first run and of the last, and for the widths 320, 360, 390 and 430 the size of text a count of ten characters takes in a tile of the home view. In the record spec/layerx-merge/programme/records/ui/22.44.120.kvx set the key statistic_values to the new form in one sentence in present tense and change no other key. Another task of this group can change the same shared file at the same time: change only what this task needs. Start the build and the counted verification early and keep time for them: the counted verification renders the whole home part. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "spec/layerx-merge/programme/records/ui/22.44.120.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.130.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.130.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/home.json --out /tmp/ui-check/explorer-home && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/ ui/home/ ui/pages/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -477917,7 +477964,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.968]
 title = "Hold the sends of the renewed ban case of the rate limit cases inside one rate window"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -477949,7 +477996,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.967]
 title = "Let the market chart routes of the explorer keep the stored closing price where no current rate is known"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
