@@ -208882,7 +208882,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.958]
 title = "Render the approval spender of the deployment helper of the launchpad client at the launchpad precompile in its producer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
