@@ -19,6 +19,7 @@ const sourceNames = [
   'run-connected-chain.py',
   'connected-chain-inputs.mjs',
   'prepare-owned-deployment.mjs',
+  '../../../scripts/timestamped-transaction.mjs',
   'token-universe.ts',
   'vitest.l28.config.ts',
   'write-gates.test.tsx',
