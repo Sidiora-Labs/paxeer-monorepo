@@ -733,45 +733,53 @@ impl Node {
                     read_request(&mut stream).unwrap_or_else(|| panic!("JSON-RPC HTTP request"));
                 let request: Value = serde_json::from_slice(&body)
                     .unwrap_or_else(|error| panic!("{}: {error:?}", "JSON-RPC request"));
-                let params = &request["params"];
-                let result = match request["method"]
-                    .as_str()
-                    .unwrap_or_else(|| panic!("method"))
-                {
-                    "eth_chainId" => chain["chain_id"].clone(),
-                    "eth_blockNumber" => chain["canonical"]["head"].clone(),
-                    "eth_getBlockByNumber" => {
-                        let height = u64::from_str_radix(
-                            params[0]
-                                .as_str()
-                                .unwrap_or_else(|| panic!("height"))
-                                .trim_start_matches("0x"),
-                            16,
-                        )
-                        .unwrap_or_else(|error| panic!("{}: {error:?}", "quantity"));
-                        let mut block = chain["canonical"]["blocks"][height.to_string()].clone();
-                        if params[1] == true {
-                            full_count.fetch_add(1, Ordering::Relaxed);
-                        } else if let Some(txs) = block["transactions"].as_array_mut() {
-                            for tx in txs {
-                                *tx = tx["hash"].clone();
+                let answer = |request: &Value| {
+                    let params = &request["params"];
+                    let result = match request["method"]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("method"))
+                    {
+                        "eth_chainId" => chain["chain_id"].clone(),
+                        "eth_blockNumber" => chain["canonical"]["head"].clone(),
+                        "eth_getBlockByNumber" => {
+                            let height = u64::from_str_radix(
+                                params[0]
+                                    .as_str()
+                                    .unwrap_or_else(|| panic!("height"))
+                                    .trim_start_matches("0x"),
+                                16,
+                            )
+                            .unwrap_or_else(|error| panic!("{}: {error:?}", "quantity"));
+                            let mut block =
+                                chain["canonical"]["blocks"][height.to_string()].clone();
+                            if params[1] == true {
+                                full_count.fetch_add(1, Ordering::Relaxed);
+                            } else if let Some(txs) = block["transactions"].as_array_mut() {
+                                for tx in txs {
+                                    *tx = tx["hash"].clone();
+                                }
+                            }
+                            block
+                        }
+                        "eth_getTransactionReceipt" => {
+                            receipt_count.fetch_add(1, Ordering::Relaxed);
+                            if missing_receipts {
+                                Value::Null
+                            } else {
+                                chain["receipts"]
+                                    [params[0].as_str().unwrap_or_else(|| panic!("hash"))]
+                                .clone()
                             }
                         }
-                        block
-                    }
-                    "eth_getTransactionReceipt" => {
-                        receipt_count.fetch_add(1, Ordering::Relaxed);
-                        if missing_receipts {
-                            Value::Null
-                        } else {
-                            chain["receipts"][params[0].as_str().unwrap_or_else(|| panic!("hash"))]
-                                .clone()
-                        }
-                    }
-                    other => panic!("unexpected node method {other}"),
+                        other => panic!("unexpected node method {other}"),
+                    };
+                    json!({"jsonrpc":"2.0", "id":request["id"], "result":result})
                 };
-                let response =
-                    json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
+                let response = match request.as_array() {
+                    Some(batch) => Value::Array(batch.iter().map(answer).collect()),
+                    None => answer(&request),
+                }
+                .to_string();
                 write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",response.len()).unwrap_or_else(|error| panic!("{}: {error:?}", "node response"));
             }
         });
@@ -1641,43 +1649,47 @@ fn disabled_index_peer() -> Checked<DisabledIndexPeer> {
             let body = read_request(&mut stream).unwrap_or_else(|| panic!("request"));
             let request: Value = serde_json::from_slice(&body)
                 .unwrap_or_else(|error| panic!("{}: {error:?}", "JSON-RPC request"));
-            let method = request["method"]
-                .as_str()
-                .unwrap_or_else(|| panic!("method"));
-            requests
-                .lock()
-                .unwrap_or_else(|error| panic!("{}: {error:?}", "calls"))
-                .push(method.into());
-            let result = match method {
-                "status" => {
-                    json!({"node_info":{"other":{"tx_index":"off"}}, "sync_info":{"latest_block_height":"3", "catching_up":false}})
-                }
-                "eth_chainId" => chain["chain_id"].clone(),
-                "eth_blockNumber" => chain["canonical"]["head"].clone(),
-                "eth_getBlockByNumber" => {
-                    let height = u64::from_str_radix(
-                        request["params"][0]
-                            .as_str()
-                            .unwrap_or_else(|| panic!("height"))
-                            .trim_start_matches("0x"),
-                        16,
-                    )
-                    .unwrap_or_else(|error| panic!("{}: {error:?}", "quantity"));
-                    chain["canonical"]["blocks"][height.to_string()].clone()
-                }
-                "eth_getTransactionReceipt" => chain["receipts"][request["params"][0]
+            let answer = |request: &Value| {
+                let method = request["method"]
                     .as_str()
-                    .unwrap_or_else(|| panic!("hash"))]
-                .clone(),
-                "tx_search" => {
-                    let response = json!({"jsonrpc":"2.0", "id":request["id"], "error":{"code":-32603,"message":"Internal error","data":layerx_indexer::paxeer::TX_INDEX_DISABLED}}).to_string();
-                    write!(stream,"HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",response.len()).unwrap_or_else(|error| panic!("{}: {error:?}", "error response"));
-                    continue;
-                }
-                _ => panic!("unexpected node method {method}"),
+                    .unwrap_or_else(|| panic!("method"));
+                requests
+                    .lock()
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "calls"))
+                    .push(method.into());
+                let result = match method {
+                    "status" => {
+                        json!({"node_info":{"other":{"tx_index":"off"}}, "sync_info":{"latest_block_height":"3", "catching_up":false}})
+                    }
+                    "eth_chainId" => chain["chain_id"].clone(),
+                    "eth_blockNumber" => chain["canonical"]["head"].clone(),
+                    "eth_getBlockByNumber" => {
+                        let height = u64::from_str_radix(
+                            request["params"][0]
+                                .as_str()
+                                .unwrap_or_else(|| panic!("height"))
+                                .trim_start_matches("0x"),
+                            16,
+                        )
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "quantity"));
+                        chain["canonical"]["blocks"][height.to_string()].clone()
+                    }
+                    "eth_getTransactionReceipt" => chain["receipts"][request["params"][0]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("hash"))]
+                    .clone(),
+                    "tx_search" => {
+                        return json!({"jsonrpc":"2.0", "id":request["id"], "error":{"code":-32603,"message":"Internal error","data":layerx_indexer::paxeer::TX_INDEX_DISABLED}});
+                    }
+                    _ => panic!("unexpected node method {method}"),
+                };
+                json!({"jsonrpc":"2.0", "id":request["id"], "result":result})
             };
-            let response =
-                json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
+            let response = match request.as_array() {
+                Some(batch) => Value::Array(batch.iter().map(answer).collect()),
+                None => answer(&request),
+            }
+            .to_string();
             write!(
                 stream,
                 "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",
@@ -1729,6 +1741,7 @@ fn assert_disabled_index_result(
         3
     );
     assert!(!store.transfers("paxeer")?.is_empty());
+    store.record_source_success("paxeer", Some(3), Some(3))?;
     assert_eq!(
         store
             .chain(1)?
@@ -1740,17 +1753,22 @@ fn assert_disabled_index_result(
         .source_observation("comet")?
         .unwrap_or_else(|| panic!("Comet observation"));
     assert_eq!(comet.source_head, Some(3));
-    assert_eq!(comet.last_error.as_deref(), Some("tx_index_disabled"));
-    assert!(comet.last_success_at.is_none());
+    assert!(comet.last_error.is_none());
+    assert!(comet.last_error_at.is_none());
+    assert!(comet.last_success_at.is_some());
+    assert_eq!(comet.consecutive_failures, 0);
+    assert!(comet.tx_index_disabled);
     let readiness = layerx_indexer::api::Readiness {
-        sources: vec!["comet"],
+        sources: vec!["comet", "paxeer"],
         stall_after_secs: 30,
+        max_units_per_step: 16,
         started_at: 0,
         explorer: None,
     };
     let document = layerx_indexer::api::readiness_document(&store, &readiness)?;
-    assert_eq!(document.status, "unavailable");
-    assert_ne!(document.sources[0].state, "ready");
+    assert_eq!(document.status, "ready");
+    assert_eq!(document.sources[0].state, "index_disabled");
+    assert_eq!(document.sources[1].state, "ready");
     let transfers = store.transfers("paxeer")?;
     let events = store.events("paxeer")?;
     drop(store);
@@ -1774,8 +1792,15 @@ fn assert_disabled_index_result(
     let comet = reopened
         .source_observation("comet")?
         .unwrap_or_else(|| panic!("recovered Comet observation"));
-    assert_eq!(comet.last_error.as_deref(), Some("tx_index_disabled"));
-    assert!(comet.last_success_at.is_none());
+    assert!(comet.last_error.is_none());
+    assert!(comet.last_error_at.is_none());
+    assert!(comet.last_success_at.is_some());
+    assert_eq!(comet.consecutive_failures, 0);
+    assert!(comet.tx_index_disabled);
+    let recovered = layerx_indexer::api::readiness_document(&reopened, &readiness)?;
+    assert_eq!(recovered.status, "ready");
+    assert_eq!(recovered.sources[0].state, "index_disabled");
+    assert_eq!(recovered.sources[1].state, "ready");
     Ok(())
 }
 

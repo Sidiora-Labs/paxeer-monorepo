@@ -15910,6 +15910,24 @@ value = "One. A record that binds a source of another module by its bytes is ref
 basis = "Gotcha 4726."
 affects = []
 
+[decision.3800]
+title = "The live step of the hosted indexer reads in bounded batches, a source is ready within one step of its head, and a consensus source without a transaction index is a declared state"
+value = "One. The live step reads the blocks and receipts of a step of more than one height through the bounded batches and readers the backfill uses, with the batch size and the number of readers of the two existing settings, their defaults and their bounds. No setting is added and no default changes. Every check of the step stays: the position of each unit, the parent link, the handling of a reorganisation, and one commit per height in ascending order. Where a node does not answer the batches of a step, the step reads its heights by the single requests it uses today. Two. A chain source, and a consensus source whose node states its index on, is in the state ready while its observation is fresh and reconciled without a failure and its indexed cursor is at the observed head or below it by no more than the heights of one step, the max units per step of the policy. A cursor further below the head, or above it, is in the state catching_up as before. The states starting, stalled, retrying and failing keep their rules and come first. Three. A consensus source whose node states its transaction index off is observed and not failed: the daemon records the head and the success of the observation, the document holds the source in the state index_disabled, and that state does not lower the status of the document. The word says that the transactions of the consensus source are not ingested while it stands. A node that states the index on returns the source to the states of point two, and a node that states neither stays a source failure. Four. Version 1 of the document keeps its fields. Every reader of the document follows in the same series: the reader of the gateway and the reader of the client accept the state ready with a cursor at or below the head, and the state index_disabled for the consensus source alone, with the demands on reconciled, success, freshness and failures the state ready has. Every other word stays refused, and the gateway counts the indexer as a ready backend for the status available as before. A later change of a state word or of a rule of the document names its readers and changes them in the same series. Tasks 22.39.955 to 22.39.957."
+basis = "Gotcha 4727. Decision 3758."
+affects = []
+
+[decision.3801]
+title = "The five remaining places of the launchpad web application take the values of the earlier state, and an edge of a control lies inside the box the control held before"
+value = "One. Above the width 834 the strip under the top bar holds the height of the earlier state on one line: the group of mode buttons measures 132 by 28 with 2 pixels of inner distance, the link of the feed is 16 pixels high, and the middle of the feed line stands on the middle of the buttons within one pixel. At the widths up to 834 the touch rule holds as it does today. Two. An edge of a control lies inside the box the control held in the earlier state: a control with an edge has the height and the width it had without one, within one pixel. The decline button of the cookie notice measures 28 pixels in height above 834 and the text of the notice has a line height of 18; the button that selects a coin in the swap view measures 32. Three. The mark of a select pill is the chevron of the surface in the colour of its text, never the default mark of the browser, in every size and form of the pill; the period control of the home view measures 69 by 28 at 1440. The menu, the keyboard handling and the accessible name of the select stay as they are. Four. The heading of the reward view has the weight 500. A total of the reward view has 36 pixels with a line height of 40 below the width 640 and 44 pixels with a line height of 48 from it, at the weight 700; the tiles keep their least heights. Five. The row of the heading of the creation view is 24 pixels high with the link inside it at the widths above 834, and the amount of the cost line has 16 pixels with a line height of 24 at the weight 700. Six. Decision 3708 holds for everything else: the edges of controls, the mark of the selected segment, the touch rule at the widths up to 834 and the track of the scroll bar stay. These values are the values of the earlier state; none of them is a bound that a later task may grow. Tasks 22.44.115 to 22.44.118."
+basis = "Gotcha 4728. Decision 3708."
+affects = []
+
+[decision.3802]
+title = "One producer renders the deployment helper of the launchpad client with the approval spender at the launchpad precompile, a waiting form reserves the row of its loaded form, and a case pins the statement its control holds"
+value = "One. The producer tools/launchpad/production/interfaces/contracts/client-deployment.cjs renders the check of the approval spender against the launchpad precompile, the address task 22.39.952 set for the allowances. The producer of the web side renders the same bytes without replacing a statement of the first, and the file of the client equals the output of both. The router is no approval spender: the cases of both sides hold that the launchpad precompile is accepted in any letter case and that the router, a stale address, another role and a malformed value are refused. No address, no digest and no other line of the helper changes. Two. A file that a producer writes changes through its producer: a task that needs another form of such a file changes the producer and renders the file again, in the same change. Three. The waiting form of a ranking table reserves the row height of its loaded form at every width the case reads. The loaded form keeps the height it has; the waiting form follows it. Four. A case that pins a class of a control pins the statement the control holds today, and keeps every assertion on what the statement is for: the text of a segment stands on one line and is not cut. Tasks 22.39.958 and 22.44.119."
+basis = "Gotcha 4729. Decisions 3708 and 3801."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45570,6 +45588,87 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.119]
+title = "Let the waiting form of the ranking table of the launchpad reserve the row of its loaded form, and let the case of the trending tabs pin the padding its control holds"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4729 parts two and three, decision 3802 points three and four. Read apps/launchpad/web/src/widgets/explore/explore-loading-layout.test.tsx with the pairs of forms and the widths it reads, the waiting and the loaded form of the ranking table under apps/launchpad/web/src/widgets/explore, apps/launchpad/web/src/widgets/home/home-panel-state.test.tsx with the case for the trending tabs, and the segmented control in apps/launchpad/web/src/ui/primitives/controls.tsx. Run both case files by hand once and read at which widths and for which pair the row heights differ."
+symbols = []
+
+[capability.22.39.958]
+title = "Render the approval spender of the deployment helper of the launchpad client at the launchpad precompile in its producer"
+reqs = ["22998.1"]
+touches = ["tools/launchpad/production/interfaces/contracts", "apps/launchpad/web/src/core/network", "sdk/launchpad/shared/config/deployment"]
+tests = []
+verification_contract = "node --test tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs && cd sdk/launchpad/shared && go test -count=1 ./config/deployment -run ^TestEveryFrontendGeneratedRoleMatchesGoManifest$"
+do_1 = "do_1 Gotcha 4729 part one, decision 3802 points one and two. Read tools/launchpad/production/interfaces/contracts/client-deployment.cjs with the function that renders the helper and the function that checks the client, tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs, apps/launchpad/web/src/core/network/deployment-generation.cjs, apps/launchpad/web/src/core/network/deployment-regeneration.test.ts, apps/launchpad/web/src/core/network/deployment.ts and the case TestEveryFrontendGeneratedRoleMatchesGoManifest in sdk/launchpad/shared/config/deployment/manifest_test.go with the command it runs. Run node --test tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs once by hand and read which cases compare the file of the client with the output of the producer."
+symbols = []
+
+[capability.22.44.118]
+title = "Keep the edge of the coin button of the swap view of the launchpad inside the box the button held before"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.118.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4728 part two, decision 3801 point two. Read the amount fields and the button that selects a coin in apps/launchpad/web/src/widgets/swap/swap-panel.tsx and the cases under apps/launchpad/web/src/widgets/swap. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/terminal.json. Start the web application the way the render check of the part starts it, open the swap view in a real browser at 1440 by 900, at 834 and at 390 by 844, and measure both buttons that select a coin, with and without a selected coin, and the two fields."
+symbols = []
+
+[capability.22.44.117]
+title = "Set the row of the heading and the amount of the cost line of the creation view of the launchpad at the values of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.117.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4728 part five, decision 3801 point five. Read the head and the cost part of apps/launchpad/web/src/widgets/create/create-wizard.tsx and the cases under apps/launchpad/web/src/widgets/create. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/coin.json. Start the web application the way the render check of the part starts it, open the creation view in a real browser at 1440 by 900, at 834 and at 390 by 844, and measure the row of the heading with its link, the first heading of the form below it, and the amount of the cost line."
+symbols = []
+
+[capability.22.44.116]
+title = "Set the heading and the totals of the reward view of the launchpad at the values of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.116.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4728 part four, decision 3801 point four. Read apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-header.tsx, apps/launchpad/web/src/widgets/holder-rewards/stats-row.tsx and the cases under apps/launchpad/web/src/widgets/holder-rewards. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/rewards.json. Start the web application the way the render check of the part starts it, open the reward view in a real browser at 1440 by 900, at 834 and at 390 by 844, and measure the heading, the three totals with their units and their captions, and the tiles."
+symbols = []
+
+[capability.22.44.115]
+title = "Set the strip under the top bar, the cookie notice and the mark of the select pill of the launchpad at the values of its earlier state"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.115.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+do_1 = "do_1 Gotcha 4728 parts one to three, decision 3801 points one to three. Read apps/launchpad/web/src/shell/ticker-strip.tsx, apps/launchpad/web/src/ui/shared/cookie-banner.tsx, the select pill in apps/launchpad/web/src/ui/primitives/controls.tsx and the rules of the native select in apps/launchpad/web/src/app/globals.css. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/home.json. Start the web application the way the render check of the part starts it, open the home view in a real browser at 1440 by 900, at 834 and at 390 by 844, and measure the group of mode buttons, the link and the line of the feed of the strip, the two buttons and the text of the cookie notice, and the period control."
+symbols = []
+
+[capability.22.39.957]
+title = "Let the client reader of the freshness part of a history answer follow the readiness rule of the hosted indexer"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-client"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test history_rpc --test sequencer_reads"
+do_1 = "do_1 Gotcha 4727 part four, decision 3800 points two to four. Read in services/agent/crates/layerx-client/src/sequencer.rs the function validate_history_readiness with the function that decodes a history page and every caller, and the case files services/agent/crates/layerx-client/tests/history_rpc.rs and services/agent/crates/layerx-client/tests/sequencer_reads.rs with the function recorded_freshness and the fixture it reads."
+symbols = []
+
+[capability.22.39.956]
+title = "Hold a source of the hosted indexer ready within one step of its head, declare a consensus source without a transaction index, and let the reader of the gateway follow"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/indexer", "services/platform/hosted/gateway", "docs/wiki/HostedGateway.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway history:: && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway chain_reads_ && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway public_read"
+do_1 = "do_1 Gotcha 4727 parts two to four, decision 3800 points two to four. Read services/platform/hosted/indexer/src/api.rs with readiness_document and the type Readiness, in services/platform/hosted/indexer/src/paxeer.rs observe_comet and daemon_step, in services/platform/hosted/indexer/src/store.rs the table source_observations with the functions that record a head, a success and a failure and the place that adds the column source_head_at to an existing store, in services/platform/hosted/indexer/src/main.rs the place that builds the readiness of the daemon, the case daemon_callback_reaches_evm_fallback_and_keeps_comet_unready in services/platform/hosted/indexer/tests/snapshot_runtime.rs, the two places in services/platform/hosted/indexer/tests/support/ai_snapshot_fixture.rs that assert the text tx_index_disabled, in services/platform/hosted/gateway/src/history.rs the functions readiness_status and status with every caller, and the sentence on the indexer in the readiness section of docs/wiki/HostedGateway.md."
+symbols = []
+
+[capability.22.39.955]
+title = "Read the heights of a live step of the hosted indexer through the bounded batches and readers"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/indexer"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests"
+do_1 = "do_1 Gotcha 4727 parts one and two, decision 3800 point one. Read in services/platform/hosted/indexer/src/paxeer.rs the functions step, block, receipts, blocks_with_receipts and read_block_batch and the constructor of the ingester, in services/platform/hosted/indexer/src/config.rs the policy, the backfill configuration and the two settings with their defaults and bounds, in services/platform/hosted/indexer/src/main.rs the function follow and the place that builds the ingester of the daemon, and the stand-ins for the node in services/platform/hosted/indexer/tests/ingest.rs, services/platform/hosted/indexer/tests/snapshot_runtime.rs and services/platform/hosted/indexer/tests/support/ai_snapshot_fixture.rs."
+symbols = []
 
 [capability.22.39.954]
 title = "Let the route corrections case of the launchpad client package find the registration it proves"
@@ -177691,6 +177790,131 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.118]
+title = "Keep the edge of the coin button of the swap view of the launchpad inside the box the button held before"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.118"]
+interfaces = []
+do_1 = "do_1 Gotcha 4728 part two, decision 3801 point two. Read the amount fields and the button that selects a coin in apps/launchpad/web/src/widgets/swap/swap-panel.tsx and the cases under apps/launchpad/web/src/widgets/swap. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/terminal.json. Start the web application the way the render check of the part starts it, open the swap view in a real browser at 1440 by 900, at 834 and at 390 by 844, and measure both buttons that select a coin, with and without a selected coin, and the two fields."
+do_2 = "do_2 Correct the button so that its edge lies inside its earlier box and it measures 32 pixels in height above 834, with a selected coin and without one; the lower field then stands where the earlier state holds it. Read the other controls of the swap view and of the views of the same part that take the edge of a control, and where one grows by its edge against its earlier size, correct it in the same form. The cookie notice and the shared controls under apps/launchpad/web/src/ui are not part of this task. Decision 3708 holds for the correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above. No token changes. No behaviour, no route, no data flow and no text changes; the marks of focus, the labels, roles and landmarks, the states of controls and the track the page reserves for the scroll bar stay as they are. "
+do_3 = "do_3 Another task of this group can change a shared file at the same time: change only the lines this task names, keep every other line as it is, and where the main line holds a change of those lines take it and keep both. The part files and the files of answers stay as they are. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened. "
+do_4 = "do_4 Run the cases under apps/launchpad/web/src/widgets/swap by hand. Write the record spec/layerx-merge/programme/records/ui/22.44.118.kvx in present tense: for each element this task names the width of the render, the measured value before the correction and the measured value after it, each read in a real browser, then the count of renders of the last run of the part with its result. Work with at most one full run by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part; start it in the foreground and never detached. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.118.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.118.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json --out /tmp/ui-check/launchpad-terminal && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.117]
+title = "Set the row of the heading and the amount of the cost line of the creation view of the launchpad at the values of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.117"]
+interfaces = []
+do_1 = "do_1 Gotcha 4728 part five, decision 3801 point five. Read the head and the cost part of apps/launchpad/web/src/widgets/create/create-wizard.tsx and the cases under apps/launchpad/web/src/widgets/create. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/coin.json. Start the web application the way the render check of the part starts it, open the creation view in a real browser at 1440 by 900, at 834 and at 390 by 844, and measure the row of the heading with its link, the first heading of the form below it, and the amount of the cost line."
+do_2 = "do_2 Correct the row of the heading so that it is 24 pixels high above 834 with the link to the chain launch inside it: the link keeps its text, its target and its mark of focus, and at the widths up to 834 it keeps its touch height. Correct the amount of the cost line so that it has 16 pixels with a line height of 24 at the weight 700. Read the head of the view of the chain launch as well, and where its row grows in the same way give it the same form. Decision 3708 holds for the correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above. No token changes. No behaviour, no route, no data flow and no text changes; the marks of focus, the labels, roles and landmarks, the states of controls and the track the page reserves for the scroll bar stay as they are. "
+do_3 = "do_3 Read the creation view after the correction at 1440: the first heading of the form stands 40 pixels below the top of the heading of the view. Another task of this group can change a shared file at the same time: change only the lines this task names, keep every other line as it is, and where the main line holds a change of those lines take it and keep both. The part files and the files of answers stay as they are. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened. "
+do_4 = "do_4 Run the cases under apps/launchpad/web/src/widgets/create by hand. Write the record spec/layerx-merge/programme/records/ui/22.44.117.kvx in present tense: for each element this task names the width of the render, the measured value before the correction and the measured value after it, each read in a real browser, then the count of renders of the last run of the part with its result. Work with at most one full run by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part; start it in the foreground and never detached. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.117.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.117.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json --out /tmp/ui-check/launchpad-coin && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.116]
+title = "Set the heading and the totals of the reward view of the launchpad at the values of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.116"]
+interfaces = []
+do_1 = "do_1 Gotcha 4728 part four, decision 3801 point four. Read apps/launchpad/web/src/widgets/holder-rewards/holder-rewards-header.tsx, apps/launchpad/web/src/widgets/holder-rewards/stats-row.tsx and the cases under apps/launchpad/web/src/widgets/holder-rewards. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/rewards.json. Start the web application the way the render check of the part starts it, open the reward view in a real browser at 1440 by 900, at 834 and at 390 by 844, and measure the heading, the three totals with their units and their captions, and the tiles."
+do_2 = "do_2 Correct the heading so that it has the weight 500 at both of its sizes. Correct the totals so that a total has 36 pixels with a line height of 40 below the width 640 and 44 pixels with a line height of 48 from it, at the weight 700, in every state of a tile: with a value, without one and while it loads. Where the surface holds no token for such a size, the view states the value in the form the heading of the same view states its own. The tiles keep their least heights, a long total stays inside its tile at 390, and the unit stands on the line of its total. Decision 3708 holds for the correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above. No token changes. No behaviour, no route, no data flow and no text changes; the marks of focus, the labels, roles and landmarks, the states of controls and the track the page reserves for the scroll bar stay as they are. "
+do_3 = "do_3 Read the loading, empty and error states of the reward view after the correction: the placeholder of a total has the height of the total it stands for, so that nothing moves when the value arrives. Another task of this group can change a shared file at the same time: change only the lines this task names, keep every other line as it is, and where the main line holds a change of those lines take it and keep both. The part files and the files of answers stay as they are. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened. "
+do_4 = "do_4 Run the cases under apps/launchpad/web/src/widgets/holder-rewards by hand. Write the record spec/layerx-merge/programme/records/ui/22.44.116.kvx in present tense: for each element this task names the width of the render, the measured value before the correction and the measured value after it, each read in a real browser, then the count of renders of the last run of the part with its result. Work with at most one full run by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part; start it in the foreground and never detached. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.116.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.116.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json --out /tmp/ui-check/launchpad-rewards && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.115]
+title = "Set the strip under the top bar, the cookie notice and the mark of the select pill of the launchpad at the values of its earlier state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.115"]
+interfaces = []
+do_1 = "do_1 Gotcha 4728 parts one to three, decision 3801 points one to three. Read apps/launchpad/web/src/shell/ticker-strip.tsx, apps/launchpad/web/src/ui/shared/cookie-banner.tsx, the select pill in apps/launchpad/web/src/ui/primitives/controls.tsx and the rules of the native select in apps/launchpad/web/src/app/globals.css. Read tools/ui-check/README.md and the part file tools/ui-check/surfaces/launchpad/parts/home.json. Start the web application the way the render check of the part starts it, open the home view in a real browser at 1440 by 900, at 834 and at 390 by 844, and measure the group of mode buttons, the link and the line of the feed of the strip, the two buttons and the text of the cookie notice, and the period control."
+do_2 = "do_2 Correct the strip so that point one holds. Above 834 the section holds its height on one line, the group has its inner distance of 2 pixels and measures 132 by 28, the link of the feed is 16 pixels high, and the middle of the feed line stands on the middle of the buttons. The feed keeps its content, its modes and its behaviour, and nothing of the strip is cut where a text is long: the feed line shortens inside its own block. At the widths up to 834 the strip stays as it is today. The case in apps/launchpad/web/src/widgets/leaderboard/leaderboard-states.test.tsx that pins the class list of the section changes with it. Decision 3708 holds for the correction: no size of text, no line height, no distance, no height of a control or a row and no track grows above the value of the earlier state; a control that takes touch measures at least 44 pixels at the widths up to 834 and has its earlier size above. No token changes. No behaviour, no route, no data flow and no text changes; the marks of focus, the labels, roles and landmarks, the states of controls and the track the page reserves for the scroll bar stay as they are. "
+do_3 = "do_3 Correct the cookie notice so that point two holds: the edge of the decline button lies inside its earlier box, the button measures 28 pixels in height above 834, and the text of the notice has a line height of 18. Read every other control of apps/launchpad/web/src/ui/shared and apps/launchpad/web/src/ui/primitives that takes the edge of a control, and where one grows by its edge against the size its size token states, correct it in the same form. The swap view is not part of this task."
+do_4 = "do_4 Correct the mark of the select pill so that point three holds. The statement stands in one place, in the control or in the rule of the native select, and holds for the pill with a label and for the compact form. Read the pill after the correction in the home view, the reward view and one profile view at 1440 and at 390: the chevron shows once, the value and the label stand on one line, and the pill has its earlier size. Another task of this group can change a shared file at the same time: change only the lines this task names, keep every other line as it is, and where the main line holds a change of those lines take it and keep both. The part files and the files of answers stay as they are. A case that pins markup or a style changes with the change it pins; no assertion on behaviour is weakened. "
+do_5 = "do_5 Run the cases under apps/launchpad/web/src/shell, apps/launchpad/web/src/ui and the case file apps/launchpad/web/src/widgets/leaderboard/leaderboard-states.test.tsx by hand. Write the record spec/layerx-merge/programme/records/ui/22.44.115.kvx in present tense: for each element this task names the width of the render, the measured value before the correction and the measured value after it, each read in a real browser, then the count of renders of the last run of the part with its result. Work with at most one full run by hand. Start the build and the counted verification early and keep time for them: the counted verification renders the whole part; start it in the foreground and never detached. The files of apps/launchpad/web/src and of tools/ui-check/surfaces are inside the paths of this task, it makes no difference whether a case passed before the change: where one does not pass, repair it or its cause inside the paths, and no approval is needed for that. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.115.kvx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.115.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/home.json --out /tmp/ui-check/launchpad-home && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.114]
 title = "Set the value of the select pill of the launchpad on the line of its label at the widths of phone and tablet"
 status = "done"
@@ -178851,7 +179075,7 @@ do_6 = "do_6 Decision 3787, gotcha 4714. Since task 22.44.106 a view of the rend
 
 [task.22.44.109]
 title = "Close the explore, search and watchlist views of the launchpad again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.106"]
@@ -208625,6 +208849,68 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.119]
+title = "Let the waiting form of the ranking table of the launchpad reserve the row of its loaded form, and let the case of the trending tabs pin the padding its control holds"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.119"]
+interfaces = []
+do_1 = "do_1 Gotcha 4729 parts two and three, decision 3802 points three and four. Read apps/launchpad/web/src/widgets/explore/explore-loading-layout.test.tsx with the pairs of forms and the widths it reads, the waiting and the loaded form of the ranking table under apps/launchpad/web/src/widgets/explore, apps/launchpad/web/src/widgets/home/home-panel-state.test.tsx with the case for the trending tabs, and the segmented control in apps/launchpad/web/src/ui/primitives/controls.tsx. Run both case files by hand once and read at which widths and for which pair the row heights differ."
+do_2 = "do_2 Correct the waiting form so that its row has the height of the row of the loaded form at every width the case reads, for every pair. The loaded form keeps its row height: decision 3708 holds, and no size of text, no line height, no distance and no height of a row grows above the value of the earlier state. The body, the table, the foot and the count of rows of the waiting form keep the sizes of the loaded form as the case holds them. The case itself keeps every assertion."
+do_3 = "do_3 Bring the case of the trending tabs to the statement the segmented control holds for its inline padding today. The case keeps its assertions that a segment does not wrap, is not cut and shows its short text, and it states the padding in a form that follows the control: the class the control holds, or the measured padding in a real render where the case has one. The control itself does not change."
+do_4 = "do_4 Run the whole suite of the web application by hand once before the counted run and read its summary: every case of the suite passes at the final revision. Another task can change files under apps/launchpad/web/src at the same time: change only what this task names. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.958]
+title = "Render the approval spender of the deployment helper of the launchpad client at the launchpad precompile in its producer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.958"]
+interfaces = []
+do_1 = "do_1 Gotcha 4729 part one, decision 3802 points one and two. Read tools/launchpad/production/interfaces/contracts/client-deployment.cjs with the function that renders the helper and the function that checks the client, tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs, apps/launchpad/web/src/core/network/deployment-generation.cjs, apps/launchpad/web/src/core/network/deployment-regeneration.test.ts, apps/launchpad/web/src/core/network/deployment.ts and the case TestEveryFrontendGeneratedRoleMatchesGoManifest in sdk/launchpad/shared/config/deployment/manifest_test.go with the command it runs. Run node --test tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs once by hand and read which cases compare the file of the client with the output of the producer."
+do_2 = "do_2 Change the producer tools/launchpad/production/interfaces/contracts/client-deployment.cjs so that it renders the check of the approval spender against the launchpad precompile. Remove the replacement of that statement from apps/launchpad/web/src/core/network/deployment-generation.cjs, so that the producer of the web side returns what the first producer renders; an assertion there that the rendered text holds the binding of the spender stays, in the form of the launchpad precompile. Render apps/launchpad/web/src/core/network/deployment.ts again with the producer: its bytes stay as they are today. No address, no digest, no role and no other line of the helper changes."
+do_3 = "do_3 Bring the cases of tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs to the rule: the launchpad precompile is accepted in any letter case, and the router, a stale address, an optional spender, another role and a malformed value are refused. A case changes only where it states the earlier spender; no other assertion is weakened or removed. Run the case file apps/launchpad/web/src/core/network/deployment-regeneration.test.ts by hand with the test runner of the web application and read that it passes without a change, or change only what the removed replacement requires."
+do_4 = "do_4 Read every other reader of the rendered helper under tools/launchpad/production/interfaces and sdk/launchpad/shared/config/deployment for a statement of the approval spender at the router, and bring each to the same rule inside the paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/launchpad/production/interfaces/contracts", "apps/launchpad/web/src/core/network", "sdk/launchpad/shared/config/deployment"]
+tests = []
+planned_paths = []
+build_cmd = "node --check tools/launchpad/production/interfaces/contracts/client-deployment.cjs && cd sdk/launchpad/shared && go build ./config/deployment"
+verify_cmd = "node --test tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs && cd sdk/launchpad/shared && go test -count=1 ./config/deployment -run ^TestEveryFrontendGeneratedRoleMatchesGoManifest$"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.954]
 title = "Let the route corrections case of the launchpad client package find the registration it proves"
 status = "done"
@@ -208657,7 +208943,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.953]
 title = "Refresh the records of the pnl-tracker and stats modules of the launchpad that bind the shared migrations source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208688,7 +208974,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.952]
 title = "Grant and read the allowances of the trade and swap flows of the launchpad web application at the spender of the deployment"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -223562,6 +223848,102 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.957]
+title = "Let the client reader of the freshness part of a history answer follow the readiness rule of the hosted indexer"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.957"]
+interfaces = []
+do_1 = "do_1 Gotcha 4727 part four, decision 3800 points two to four. Read in services/agent/crates/layerx-client/src/sequencer.rs the function validate_history_readiness with the function that decodes a history page and every caller, and the case files services/agent/crates/layerx-client/tests/history_rpc.rs and services/agent/crates/layerx-client/tests/sequencer_reads.rs with the function recorded_freshness and the fixture it reads."
+do_2 = "do_2 The function validate_history_readiness accepts the state ready where the demands of today hold and source_head and indexed_cursor are both numbers with the cursor at or below the head, and accepts the state index_disabled for the source comet alone with the demands on reconciled, last_success_at, freshness_secs and consecutive_failures the state ready has, as a state that does not lower the status. A ready source with a cursor above the head, the state index_disabled on another source and every unknown word stay refused, and every field of the freshness part is still passed on as it was served. This task does not wait for task 22.39.956: the rule is the one decision 3800 states."
+do_3 = "do_3 Cases in services/agent/crates/layerx-client/tests/history_rpc.rs: a history answer whose freshness part holds a ready source with the cursor below the head decodes and carries the freshness part unchanged; one with the consensus source in the state index_disabled beside a ready chain source decodes; a ready source with the cursor above the head, the state index_disabled on the chain source and an unknown word are each refused as malformed. The fixture under apps/web that recorded_freshness reads is read only. No public type or function of the crate changes its form, and no file outside services/agent/crates/layerx-client changes. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-client"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test history_rpc --test sequencer_reads"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.956]
+title = "Hold a source of the hosted indexer ready within one step of its head, declare a consensus source without a transaction index, and let the reader of the gateway follow"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.956"]
+interfaces = []
+do_1 = "do_1 Gotcha 4727 parts two to four, decision 3800 points two to four. Read services/platform/hosted/indexer/src/api.rs with readiness_document and the type Readiness, in services/platform/hosted/indexer/src/paxeer.rs observe_comet and daemon_step, in services/platform/hosted/indexer/src/store.rs the table source_observations with the functions that record a head, a success and a failure and the place that adds the column source_head_at to an existing store, in services/platform/hosted/indexer/src/main.rs the place that builds the readiness of the daemon, the case daemon_callback_reaches_evm_fallback_and_keeps_comet_unready in services/platform/hosted/indexer/tests/snapshot_runtime.rs, the two places in services/platform/hosted/indexer/tests/support/ai_snapshot_fixture.rs that assert the text tx_index_disabled, in services/platform/hosted/gateway/src/history.rs the functions readiness_status and status with every caller, and the sentence on the indexer in the readiness section of docs/wiki/HostedGateway.md."
+do_2 = "do_2 The rule of the state ready in readiness_document: the type Readiness holds the heights of one step, given in services/platform/hosted/indexer/src/main.rs from the max units per step of the policy and never below one. A source is ready where the rules of today hold and its indexed cursor is at the observed head or below it by no more than that number; a cursor further below the head, a cursor above the head and an absent head or cursor are catching_up. The order of the rules before it stays: starting, stalled, failing and retrying come first. The fields of the document and its version do not change."
+do_3 = "do_3 A consensus source whose node states its transaction index off: observe_comet records the head and the success of the observation and no failure, and still returns the answer that lets the daemon go on with the EVM source alone. The store keeps with the observation of the source that its node stated the index off, in a column that is added to an existing store the way source_head_at was added, so that a store written before the change opens unchanged; an observation that states the index on clears it. In readiness_document such a source has the state index_disabled, which does not lower the status of the document; the rules for starting and stalled still come first, and the state is given to the consensus source alone. A node that states neither on nor off stays the source failure of today, and a consensus source that is catching up stays a failure of the step."
+do_4 = "do_4 The reader of the gateway: readiness_status in services/platform/hosted/gateway/src/history.rs accepts the state ready where the demands of today hold and source_head and indexed_cursor are both numbers with the cursor at or below the head, and accepts the state index_disabled for the source comet alone with the demands on reconciled, last_success_at, freshness_secs and consecutive_failures the state ready has, as a state that does not lower the status. A ready source with a cursor above the head, the state index_disabled on another source and every unknown word stay refused. The function status and the entry of the gateway keep their mapping. The sentence of docs/wiki/HostedGateway.md on the indexer states the rule of decision 3800 points two and three; nothing else of that page changes."
+do_5 = "do_5 Cases of the indexer, in services/platform/hosted/indexer/tests/snapshot_runtime.rs or a case file of their own under services/platform/hosted/indexer/tests: a source one height and one whole step below its head is ready, one height further is catching_up, a cursor above the head is catching_up, and the number follows the policy the case sets; a consensus source with the index off gives the state index_disabled and the status ready beside a ready chain source, returns to the rule of point two when the node states the index on, and stays starting before its first observation; a store file written without the new column opens, and the state survives a close and a reopen of the store. The case daemon_callback_reaches_evm_fallback_and_keeps_comet_unready and the two places in services/platform/hosted/indexer/tests/support/ai_snapshot_fixture.rs follow the decision: they assert the recorded success, no failure streak and no error text, the state index_disabled and the status of the document for the sources of the case, and keep every other assertion, among them the order of the calls, the EVM progress, the recovery after a reopen and the refusal of an invalid status. The name of the case may follow its new meaning."
+do_6 = "do_6 Cases of the gateway in the test module of services/platform/hosted/gateway/src/history.rs, with names that begin with readiness_status_: a document with a ready source whose cursor is below the head gives available, a document with the consensus source in the state index_disabled beside a ready chain source gives available, and each refusal of do_4 is asserted with a document of its own. A history answer whose freshness part holds such a document is passed on unchanged."
+do_7 = "do_7 The function step in services/platform/hosted/indexer/src/paxeer.rs and the reads of the live step belong to task 22.39.955, and the reader in services/agent/crates/layerx-client/src/sequencer.rs belongs to task 22.39.957: leave them as they are. No assertion is weakened or removed other than those do_5 names, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/indexer", "services/platform/hosted/gateway", "docs/wiki/HostedGateway.md"]
+tests = []
+planned_paths = []
+build_cmd = "cargo check --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer -p layerx-platform-gateway --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway history:: && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway chain_reads_ && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway public_read"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.955]
+title = "Read the heights of a live step of the hosted indexer through the bounded batches and readers"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.955"]
+interfaces = []
+do_1 = "do_1 Gotcha 4727 parts one and two, decision 3800 point one. Read in services/platform/hosted/indexer/src/paxeer.rs the functions step, block, receipts, blocks_with_receipts and read_block_batch and the constructor of the ingester, in services/platform/hosted/indexer/src/config.rs the policy, the backfill configuration and the two settings with their defaults and bounds, in services/platform/hosted/indexer/src/main.rs the function follow and the place that builds the ingester of the daemon, and the stand-ins for the node in services/platform/hosted/indexer/tests/ingest.rs, services/platform/hosted/indexer/tests/snapshot_runtime.rs and services/platform/hosted/indexer/tests/support/ai_snapshot_fixture.rs."
+do_2 = "do_2 The ingester of the daemon holds a batch size and a number of readers. The configuration of the daemon reads them from LAYERX_INDEXER_BACKFILL_BATCH_BLOCKS and LAYERX_INDEXER_BACKFILL_READERS with the defaults and the bounds the backfill has, and a value outside the bounds refuses the start of the daemon as it refuses the backfill. No setting is added and no default changes. The comments of the environment example file of the indexer directory and the text inside services/platform/hosted/indexer that states the two settings say that both bound the reads of the live step as well."
+do_3 = "do_3 The function step: for a step of more than one height it reads the blocks and the receipts of the heights by blocks_with_receipts with the two bounds, and a step of one height is read as today. The requests before the reads stay in their order: chain id, head, the hash of the cursor, the transaction search. Each unit is decoded, checked for its position and its parent link and committed alone, in ascending order, exactly as today, and a parent that differs leads to the reorganisation path as today. A height the node does not hold ends the step with the source failure of today after the heights below it are committed. Where the batches of a step fail as a whole with a source or decode failure, the step reads its heights by the single requests of today, so a node that answers no batch is followed as before. The step holds no more than the heights of one step in memory."
+do_4 = "do_4 Cases with the stand-in for the node, in services/platform/hosted/indexer/tests/ingest.rs or services/platform/hosted/indexer/tests/snapshot_runtime.rs: a step over at least twenty heights with several transactions per height stores the same rows as the same heights read one step of one height at a time, and sends fewer requests than it holds heights and receipts, with the count asserted; an entry of a batch that is missing or an error is read again alone and the step commits; a height in the middle that the node does not hold leaves the cursor at the height below it and returns a source failure; a parent that differs inside a batch takes the reorganisation path; a node that answers no batch is followed by single requests and stores the same rows; a step of one height sends the requests of today; a value of a bound outside its range refuses the start. Every existing case keeps what it asserts; where one counts single requests, it counts the entries the stand-in answered."
+do_5 = "do_5 The function observe_comet, the function readiness_document in services/platform/hosted/indexer/src/api.rs and the assertions on the consensus source in services/platform/hosted/indexer/tests/snapshot_runtime.rs and services/platform/hosted/indexer/tests/support/ai_snapshot_fixture.rs belong to task 22.39.956: leave them as they are. No file outside services/platform/hosted/indexer changes. No assertion is weakened or removed, and no case is removed or left out. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cargo check --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

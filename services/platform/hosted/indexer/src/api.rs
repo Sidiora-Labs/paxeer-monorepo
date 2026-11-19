@@ -441,6 +441,8 @@ pub fn route(store: &Store, method: &str, target: &str) -> Response {
 pub struct Readiness {
     pub sources: Vec<&'static str>,
     pub stall_after_secs: u64,
+    /// Heights a source may trail its observed head by in one ingestion step.
+    pub max_units_per_step: u64,
     /// Process start (Unix seconds): only observations after it count.
     pub started_at: u64,
     /// The explorer API that supplies Paxeer history below the node walk.
@@ -515,7 +517,22 @@ pub fn readiness_document(
             Some(at) if current.saturating_sub(at) > readiness.stall_after_secs => ("stalled", 2),
             Some(_) if failures >= FAILING_AFTER => ("failing", 1),
             Some(_) if failures > 0 => ("retrying", 1),
-            Some(_) if observation.as_ref().and_then(|o| o.source_head) != indexed_position => {
+            Some(_)
+                if source == "comet"
+                    && observation.as_ref().is_some_and(|o| o.tx_index_disabled) =>
+            {
+                ("index_disabled", 0)
+            }
+            Some(_)
+                if !observation
+                    .as_ref()
+                    .and_then(|o| o.source_head)
+                    .zip(indexed_position)
+                    .is_some_and(|(head, indexed)| {
+                        head.checked_sub(indexed)
+                            .is_some_and(|lag| lag <= readiness.max_units_per_step.max(1))
+                    }) =>
+            {
                 ("catching_up", 1)
             }
             Some(_) => ("ready", 0),
