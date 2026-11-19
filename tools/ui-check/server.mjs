@@ -97,7 +97,7 @@ export async function startSurface(surface, removedOutputs = []) {
   } else {
     service = await serveFiles(surface.directory, surface.address);
   }
-  const deadline = Date.now() + LIMITS.readyMs;
+  const deadline = Date.now() + (surface.readyMs ?? LIMITS.readyMs);
   try {
     while (Date.now() < deadline) {
       if (service.command && (service.command.child.exitCode !== null || service.command.child.signalCode !== null)) {
@@ -107,7 +107,7 @@ export async function startSurface(surface, removedOutputs = []) {
         const response = await fetch(new URL(surface.readyPath, service.address), { signal: AbortSignal.timeout(500), redirect: "error" });
         await response.body?.cancel();
         if (response.ok) return service;
-      } catch { /* Readiness is polled until the fixed deadline. */ }
+      } catch { /* Readiness is polled until the surface deadline. */ }
       await delay(100);
     }
     throw new Error(`Surface did not become ready at ${surface.readyPath}`);
