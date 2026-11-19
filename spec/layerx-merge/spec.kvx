@@ -178051,7 +178051,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.126]
 title = "Close the chain and cross-chain views of the explorer again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.120"]
@@ -178083,7 +178083,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.125]
 title = "Close the statistics, gas and validator views of the explorer again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.120"]
