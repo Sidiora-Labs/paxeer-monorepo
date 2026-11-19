@@ -208657,7 +208657,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.953]
 title = "Refresh the records of the pnl-tracker and stats modules of the launchpad that bind the shared migrations source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
