@@ -25,6 +25,7 @@ const (
 	FlagWALRetainBlocks        = "sequencer.wal-retain-blocks"
 	FlagNonceQueueMaxPerSender = "sequencer.nonce-queue-max-per-sender"
 	FlagNonceQueueMaxTotal     = "sequencer.nonce-queue-max-total"
+	FlagNonceQueueLifetime     = "sequencer.nonce-queue-lifetime"
 	FlagLeaseDuration          = "sequencer.lease-duration"
 	FlagReplicationTLSCert     = "sequencer.replication-tls-cert"
 	FlagReplicationTLSKey      = "sequencer.replication-tls-key"
@@ -32,6 +33,9 @@ const (
 	FlagReplicationPeerName    = "sequencer.replication-peer-name"
 	FlagReplicationPeerSPKI    = "sequencer.replication-peer-spki"
 )
+
+// DefaultNonceQueueLifetime bounds how long future-nonce transactions are held.
+const DefaultNonceQueueLifetime = 3 * time.Second
 
 const (
 	modeSequentialName = "sequential"
@@ -91,6 +95,7 @@ type Config struct {
 	WALRetainBlocks        uint64
 	NonceQueueMaxPerSender int
 	NonceQueueMaxTotal     int
+	NonceQueueLifetime     time.Duration
 	LeaseDuration          time.Duration
 	// ReceiptKeyFile holds the ed25519 receipt signing seed, apart from the consensus key.
 	ReceiptKeyFile string
@@ -118,6 +123,7 @@ func DefaultConfig() Config {
 		WALRetainBlocks:        2,
 		NonceQueueMaxPerSender: queue.PerSender,
 		NonceQueueMaxTotal:     queue.Total,
+		NonceQueueLifetime:     DefaultNonceQueueLifetime,
 	}
 	cfg.LeaseDuration = 3 * cfg.ReplicationTimeout
 	return cfg
@@ -145,6 +151,7 @@ func AddStartFlags(cmd *cobra.Command) {
 	flags.Uint64(FlagWALRetainBlocks, cfg.WALRetainBlocks, "Number of committed blocks to retain in the WAL")
 	flags.Int(FlagNonceQueueMaxPerSender, cfg.NonceQueueMaxPerSender, "Maximum future nonces held per sender; set at activation")
 	flags.Int(FlagNonceQueueMaxTotal, cfg.NonceQueueMaxTotal, "Maximum future nonces held in total; set at activation")
+	flags.Duration(FlagNonceQueueLifetime, cfg.NonceQueueLifetime, "Maximum time to hold future-nonce transactions")
 	flags.Duration(FlagLeaseDuration, cfg.LeaseDuration, "Sequencer lease duration; defaults to three times replication-timeout")
 }
 
@@ -225,6 +232,9 @@ func (c Config) Validate() error {
 	}
 	if c.NonceQueueMaxTotal < c.NonceQueueMaxPerSender {
 		return fmt.Errorf("%w: %s must be at least %s", ErrConfigValue, FlagNonceQueueMaxTotal, FlagNonceQueueMaxPerSender)
+	}
+	if c.NonceQueueLifetime <= 0 {
+		return fmt.Errorf("%w: %s must be positive", ErrConfigValue, FlagNonceQueueLifetime)
 	}
 	if c.LeaseDuration <= 0 {
 		return fmt.Errorf("%w: %s must be positive", ErrConfigValue, FlagLeaseDuration)
@@ -325,6 +335,16 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 			return cfg, fmt.Errorf("%w: %s: %v", ErrConfigValue, FlagNonceQueueMaxTotal, err)
 		}
 	}
+	lifetime := opts.Get(FlagNonceQueueLifetime)
+	// Viper exposes bound flag defaults through Get even when the flag was not set.
+	if explicit, ok := opts.(interface{ IsSet(string) bool }); ok && !explicit.IsSet(FlagNonceQueueLifetime) {
+		lifetime = nil
+	}
+	if lifetime != nil {
+		if cfg.NonceQueueLifetime, err = cast.ToDurationE(lifetime); err != nil {
+			return cfg, fmt.Errorf("%w: %s: %v", ErrConfigValue, FlagNonceQueueLifetime, err)
+		}
+	}
 	lease := opts.Get(FlagLeaseDuration)
 	// Viper exposes bound flag defaults through Get even when the flag was not set.
 	if explicit, ok := opts.(interface{ IsSet(string) bool }); ok && !explicit.IsSet(FlagLeaseDuration) {
@@ -374,6 +394,9 @@ wal-retain-blocks = 2
 # Future nonce queue bounds are set at activation; both must be positive when enabled.
 nonce-queue-max-per-sender = 0
 nonce-queue-max-total = 0
+
+# nonce-queue-lifetime bounds how long future-nonce transactions are held; it must be positive when enabled.
+# nonce-queue-lifetime = "3s"
 
 # receipt-key-file holds the hex ed25519 receipt signing seed, mode 0600, apart from the consensus key.
 receipt-key-file = ""
