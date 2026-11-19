@@ -139,6 +139,30 @@ func realBroker(t *testing.T) (*nats.Conn, jetstream.JetStream, string) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
+	for {
+		stream, inspectErr := js.Stream(ctx, "PROVISION_READY")
+		if inspectErr != nil {
+			t.Fatal("inspect broker readiness", inspectErr)
+		}
+		info, inspectErr := stream.Info(ctx)
+		if inspectErr != nil {
+			t.Fatal("inspect broker replicas", inspectErr)
+		}
+		ready := info.Cluster != nil && info.Cluster.Leader != "" && len(info.Cluster.Replicas) == 2
+		if ready {
+			for _, replica := range info.Cluster.Replicas {
+				ready = ready && replica.Current && !replica.Offline
+			}
+		}
+		if ready {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal("broker replicas are not current", ctx.Err())
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
 	if err = js.DeleteStream(ctx, "PROVISION_READY"); err != nil {
 		t.Fatal(err)
 	}

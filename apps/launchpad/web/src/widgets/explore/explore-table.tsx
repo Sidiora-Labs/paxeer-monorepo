@@ -64,7 +64,7 @@ function SkeletonRows({
             return (
               <td key={spec.id} className={cn('px-3 align-middle', spec.responsive)}>
                 {spec.id === 'coin' ? (
-                  <span className="flex min-h-[calc(var(--sl-touch-target-min)+var(--sl-leading-xs))] w-36 items-center gap-2.5 md:w-56 xl:w-auto xl:min-w-56">
+                  <span className="flex [@media(max-width:834px)]:min-h-[calc(var(--sl-touch-target-min)+var(--sl-leading-xs))] w-36 items-center gap-2.5 md:w-56 xl:w-auto xl:min-w-56">
                     <span className="sl-skeleton h-3 w-5 shrink-0" />
                     <span className="sl-skeleton size-avatar-md shrink-0 rounded-pill" />
                     <span className="flex flex-1 flex-col gap-1.5">
@@ -108,12 +108,6 @@ export function ExploreTable({
   disclosure,
   caption,
 }: ExploreTableProps) {
-  const columnWidths = columnSpecs
-    .filter(
-      (spec) => spec.id !== 'coin' && (!(spec.id in columns) || columns[spec.id as OptionalColumn]),
-    )
-    .map((spec) => spec.width);
-  const minimumWidth = `calc(var(--sl-space) * 62 + ${columnWidths.join(' + ')})`;
   const footer = (
     <>
       {disclosure ? (
@@ -143,7 +137,7 @@ export function ExploreTable({
           tabIndex={0}
           className="relative min-h-[calc(var(--sl-table-row-comfortable)*8+var(--sl-touch-target-min)+var(--sl-space-8))] overflow-x-auto scroll-px-3 [contain:inline-size] focus-visible:outline-2 focus-visible:outline-focus"
         >
-          <table className="w-full table-auto" style={{ minWidth: minimumWidth }}>
+          <table className="w-full table-auto">
             <caption className="sr-only">{caption}</caption>
             <thead>
               <tr className="bg-surface-1">

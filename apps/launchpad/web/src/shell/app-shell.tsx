@@ -202,7 +202,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 'flex min-w-0 flex-1 flex-col',
                 route.id === 'discovery' && 'min-h-0',
                 (route.id === 'coin' || route.id === 'create' || (route.id === 'token' && pathname !== '/token')) &&
-                  'min-h-[calc(100dvh-var(--shell-top))]'
+                  'min-h-[calc(100dvh-var(--shell-top))]',
+                (route.id === 'swap' || route.id === 'legacy-swap' || route.id === 'orders') &&
+                  'min-h-[calc(100dvh-var(--sl-space-8)*2)]'
               )}
             >
               {children}

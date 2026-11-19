@@ -12,7 +12,7 @@ const require = createRequire(new URL('../../../../apps/launchpad/web/package.js
 const { WebSocketServer } = require('ws');
 const directory = new URL('./answers/', import.meta.url);
 const answerNames = [
-  'pool', 'coin-pool', 'pools', 'stats', 'pool-stats', 'holder-rewards-stats', 'holder-rewards-stats-empty', 'holder-rewards-pools', 'items-empty', 'feed-empty',
+  'pool', 'coin-pool', 'pools', 'terminal-pools', 'stats', 'pool-stats', 'holder-rewards-stats', 'holder-rewards-stats-empty', 'holder-rewards-pools', 'items-empty', 'feed-empty',
   'streams-empty', 'platform', 'metadata', 'metadata-batch', 'metadata-batch-empty', 'metadata-v2', 'metadata-media', 'legacy-holders-empty', 'candles-empty', 'holders-empty', 'profile',
   'profile-empty', 'follow-stats', 'follow-stats-empty', 'portfolio', 'portfolio-empty', 'bounties', 'bounty', 'bounties-stats', 'unavailable',
   'rpc-unavailable', 'chart-config', 'chart-symbol', 'chart-time', 'chart-history-empty', 'not-found', 'explorer-empty', 'snapshot', 'stream-control', 'search', 'search-token', 'authority', 'public-share', 'cup-current-empty', 'comments-empty',
@@ -220,6 +220,7 @@ const server = createServer({ cert: await readFile(certificate), key: await read
       return;
     }
     const answer = answerFor(url, state, pagePath);
+    if (pagePath === '/swap' && answer.name === 'pools') answer.name = 'terminal-pools';
     let body = answers.get(answer.name);
     if (answer.name === 'snapshot') {
       const snapshot = JSON.parse(body);

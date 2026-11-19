@@ -227,6 +227,7 @@ async function slowBalanceRpcSettlesAcrossRefreshIdentityAndVisibility() {
     request.on('end', () => {
       const body = JSON.parse(Buffer.concat(chunks).toString());
       calls++; active++; maximum = Math.max(maximum, active);
+      // eslint-disable-next-line prefer-const -- A response may close before the timeout is scheduled.
       let timer: ReturnType<typeof setTimeout> | undefined;
       response.on('close', () => { active--; clearTimeout(timer); if (!response.writableEnded) aborted++; });
       const decoded = decodeFunctionData({ abi: erc20Abi, data: body.params[0].data });

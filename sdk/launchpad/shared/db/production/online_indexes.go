@@ -197,7 +197,7 @@ func ApplyOnlineIndexMigrationAsOwner(ctx context.Context, conn *pgx.Conn, m Mig
 	if err != nil {
 		return err
 	}
-	if conn == nil || !identifier.MatchString(owner) || m.Schema != plan.Schema || m.TransactionMode != "nontransactional" {
+	if conn == nil || !identifier.MatchString(owner) || m.Schema != plan.Schema || m.TransactionMode != valueNontransactional {
 		return fmt.Errorf("dedicated direct nontransactional index migration required")
 	}
 	var owns bool
