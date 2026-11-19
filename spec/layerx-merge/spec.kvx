@@ -179208,7 +179208,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.105]
 title = "Measure the explorer against its state before the tasks of series 22.44"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.85", "22.44.86", "22.44.87", "22.44.88", "22.44.89", "22.44.90", "22.44.91", "22.44.92"]
