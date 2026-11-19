@@ -126,12 +126,12 @@ func (m MigrationManifest) Validate(sql []byte, registry map[int64]MigrationMani
 	if m.ReaderMinVersion < 1 || deployedReaderMin < m.ReaderMinVersion || m.EstimatedLockMS <= 0 || m.EstimatedLockMS > 2000 || m.RollbackStrategy == "" || m.BackfillStrategy == "" {
 		return fmt.Errorf("missing safety metadata or incompatible reader")
 	}
-	if m.TransactionMode != valueTransactional && m.TransactionMode != "nontransactional" {
+	if m.TransactionMode != valueTransactional && m.TransactionMode != valueNontransactional {
 		return fmt.Errorf("unknown transaction mode")
 	}
 	if m.OnlineIndex != nil {
 		statement, err := m.OnlineIndex.CreateSQL()
-		if err != nil || m.TransactionMode != "nontransactional" || m.OnlineIndex.Schema != m.Schema || string(sql) != statement {
+		if err != nil || m.TransactionMode != valueNontransactional || m.OnlineIndex.Schema != m.Schema || string(sql) != statement {
 			return fmt.Errorf("online index differs from registered SQL")
 		}
 	}
