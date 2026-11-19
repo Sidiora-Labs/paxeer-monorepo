@@ -48,13 +48,15 @@ const PageTitle = ({
           { beforeTitle }
           <Skeleton
             loading={ isLoading }
+            flex={ isLoading && kind ? '1' : undefined }
             minW={ 0 }
             maxW="100%"
           >
             <Heading
               level="1"
               textStyle="h1"
-              whiteSpace="normal"
+              whiteSpace={ isLoading && kind ? 'nowrap' : 'normal' }
+              overflow={ isLoading && kind ? 'hidden' : undefined }
               overflowWrap="anywhere"
             >
               { title }

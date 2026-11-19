@@ -179,10 +179,16 @@ describe('DetailedInfo', () => {
     ]);
     expect(minimumHeights(labels[1])).toEqual(minimumHeights(labels[0]));
     expect(values.map(minimumHeights)).toEqual([ minimumHeights(labels[0]), minimumHeights(labels[0]) ]);
-    expect(declarationsOf(content[0])).toBe(declarationsOf(content[1]));
-    expect(declarationsOf(content[0])).toContain('padding-block:var(--chakra-spacing-1\\.25)');
-    expect(declarationsOf(content[0])).toContain('padding-block:var(--chakra-spacing-1)');
-    expect(declarationsOf(content[0])).toContain('align-items:flex-start');
+    expect(minimumHeights(content[0])).toEqual([
+      'min-height:var(--chakra-spacing-7\\.5)',
+      'min-height:var(--chakra-spacing-8)',
+    ]);
+    expect(minimumHeights(content[1])).toBeNull();
+    for (const item of content) {
+      expect(declarationsOf(item)).toContain('padding-block:var(--chakra-spacing-1\\.25)');
+      expect(declarationsOf(item)).toContain('padding-block:var(--chakra-spacing-1)');
+      expect(declarationsOf(item)).toContain('align-items:flex-start');
+    }
     for (const label of labels) {
       expect(label.querySelector('.chakra-skeleton')?.hasAttribute('data-loading')).toBe(isLoading);
     }
