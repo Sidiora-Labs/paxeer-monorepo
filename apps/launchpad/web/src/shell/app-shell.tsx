@@ -198,7 +198,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
             <div
               key={privateEpoch}
               data-shell-content=""
-              className={cn('flex min-w-0 flex-1 flex-col', route.id === 'discovery' && 'min-h-0')}
+              className={cn(
+                'flex min-w-0 flex-1 flex-col',
+                route.id === 'discovery' && 'min-h-0',
+                (route.id === 'coin' || route.id === 'create' || (route.id === 'token' && pathname !== '/token')) &&
+                  'min-h-[calc(100dvh-var(--shell-top))]'
+              )}
             >
               {children}
             </div>

@@ -178854,7 +178854,7 @@ do_6 = "do_6 Decision 3787, gotcha 4714. Since task 22.44.106 a view of the rend
 
 [task.22.44.107]
 title = "Close the coin, token and creation views of the launchpad again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.106"]
@@ -208595,7 +208595,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.948]
 title = "Give the real refresh of the ceremony test node cases a bound of its own and state the time limit of the wallet Go jobs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208687,7 +208687,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.945]
 title = "Pass the lint, race and coverage targets of the launchpad Makefile in the metadata module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.937"]
@@ -208780,7 +208780,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.942]
 title = "Pass the lint, race and coverage targets of the launchpad Makefile in the ranking-algo module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
