@@ -102,6 +102,10 @@ const TokenInstancePageTitle = ({ isLoading, token, instance, hash }: Props) => 
 
   return (
     <PageTitle
+      css={{
+        '& h1': { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+        '& [data-entity-identifier]': { flexWrap: 'nowrap' },
+      }}
       kind="TOKEN"
       title={ title }
       identifier={ hash }
