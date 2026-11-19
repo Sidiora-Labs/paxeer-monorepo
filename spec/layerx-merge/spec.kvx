@@ -178243,7 +178243,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.120]
 title = "Bring the touch size, the text styles, the shell and the home view of the explorer back to its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.105"]
