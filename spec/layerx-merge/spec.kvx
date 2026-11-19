@@ -208595,7 +208595,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.948]
 title = "Give the real refresh of the ceremony test node cases a bound of its own and state the time limit of the wallet Go jobs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
