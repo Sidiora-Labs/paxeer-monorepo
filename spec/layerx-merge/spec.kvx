@@ -178713,7 +178713,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.112]
 title = "Close the terminal, swap and order views of the launchpad again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.106"]
@@ -208897,7 +208897,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.941]
 title = "Pass the lint, race and coverage targets of the launchpad Makefile in the pnl-tracker module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208990,7 +208990,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.938]
 title = "Pass the lint, race and coverage targets of the launchpad Makefile in the shared module of the launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209483,7 +209483,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.919]
 title = "Load the lint of the launchpad web application under the minimatch floor of its workspace and run it as a script of its own"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.890", "22.39.892", "22.39.893", "22.39.897"]
