@@ -60,6 +60,17 @@ for (const name of names) {
       .filter((view) => view.name.startsWith('/chain/') || view.name === '/chains' || view.name.startsWith('/chains/') || crossChainViews.has(view.name))
       .map((view) => view.name).sort(), 'Chain and cross-chain views');
   }
+  if (name === 'rollup') {
+    const measuring = JSON.parse(await readFile(new URL('./measure.json', import.meta.url), 'utf8'));
+    const dimensions = JSON.parse(await readFile(new URL('./rollup-measure.json', import.meta.url), 'utf8'));
+    const paths = new Set(part.views.map((view) => view.path));
+    assert.deepEqual(dimensions, {
+      ...measuring,
+      name: 'Paxscan explorer rollup dimensions',
+      views: measuring.views.filter((view) => paths.has(view.path)),
+    }, 'Rollup dimension coverage');
+    assert.equal(dimensions.views.length, part.views.length, 'Rollup measured views');
+  }
   console.log(`${name}: ${part.views.length} views`);
 }
 for (const view of whole.views) {

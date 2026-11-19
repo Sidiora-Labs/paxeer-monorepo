@@ -97,6 +97,7 @@ const AppError = ({ error, className }: Props) => {
               asChild
               display="inline-flex"
               mt={ 8 }
+              size="md"
               variant="outline"
             >
               <Link href={ route({ pathname: '/' }) } variant="plain">
