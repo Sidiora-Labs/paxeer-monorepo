@@ -60,7 +60,8 @@ export function buttonClass(opts: {
     pill ? 'rounded-pill' : 'rounded-sm',
     sizeClass[size],
     variantClass[variant],
-    (variant === 'secondary' || variant === 'ghost') && edgePaddingClass[size],
+    (variant === 'secondary' || variant === 'ghost') &&
+      [edgePaddingClass[size], 'py-[calc(var(--sl-space-1)-var(--sl-edge-width))]'],
     fullWidth && 'w-full',
     className
   );
