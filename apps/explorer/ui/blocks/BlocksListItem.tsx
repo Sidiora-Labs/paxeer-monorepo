@@ -44,7 +44,7 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
   return (
     <ListItemMobile fontSize="small" lineHeight="small" rowGap={ 3 } key={ String(data.height) } animation={ animation } _motionReduce={{ animation: 'none' }}
       css={{ '& a': { display: 'inline-flex', alignItems: 'center' },
-        '& a, & button': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } } }}>
+        '& a, & button': { _motionReduce: { transitionProperty: 'none' } } }}>
       <Flex justifyContent="space-between" alignItems="center" w="100%" flexWrap="wrap" gap={ 2 }>
         <Flex columnGap={ 2 } alignItems="center">
           <BlockEntity

@@ -88,7 +88,6 @@ const BlockCountdown = ({ hideCapybaraRunner }: Props) => {
                 external
                 variant="underlaid"
                 textStyle="sm"
-                minH="touchTarget"
                 px={ 2 }
                 display="inline-flex"
                 href={ createGoogleCalendarLink({ blockHeight: height, timeFromNow: Number(data.result.EstimateTimeInSec), multichainContext }) }

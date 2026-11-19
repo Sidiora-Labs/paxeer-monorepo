@@ -81,7 +81,13 @@ export const ItemLabel = ({ hint, children, isLoading, id, hasScroll, ...rest }:
       { ...rest }
     >
       <Box w="100%" color="text.secondary">
-        <Flex columnGap={{ base: 1, lg: 2 }} alignItems="flex-start" fontWeight={{ base: 'bold', lg: 'medium' }} py={{ base: 1.25, lg: 1 }}>
+        <Flex
+          columnGap={{ base: 1, lg: 2 }}
+          alignItems="flex-start"
+          fontWeight={{ base: 'bold', lg: 'medium' }}
+          py={{ base: 1.25, lg: 1 }}
+          minH={ hint ? ITEM_VALUE_LINE_HEIGHT : undefined }
+        >
           <Skeleton loading={ isLoading } flexGrow={ 1 } minW={ 0 }>
             { children }
             { hasScroll && <ItemLabelScrollText/> }
@@ -93,13 +99,11 @@ export const ItemLabel = ({ hint, children, isLoading, id, hasScroll, ...rest }:
               boxSize={ 5 }
               flexShrink={ 0 }
               mt="calc((1lh - var(--chakra-spacing-5)) / 2)"
-              mx="calc((var(--chakra-sizes-touch-target) - var(--chakra-spacing-5)) / 2)"
+              css={{ '@media (max-width: 834px)': { mx: 'calc((var(--chakra-sizes-touch-target) - var(--chakra-spacing-5)) / 2)' } }}
             >
               <Hint
                 label={ hint }
                 isLoading={ isLoading }
-                minW="touchTarget"
-                minH="touchTarget"
                 position="absolute"
                 top="50%"
                 left="50%"
@@ -134,6 +138,7 @@ export const ItemValue = ({ children, multiRow = false, ...rest }: ItemValueProp
       overflowWrap="anywhere"
       data-detailed-info-value
       data-stack-below="lg"
+      css={{ '& > a': { '@media (max-width: 834px)': { marginBlock: 'calc((1lh - var(--chakra-sizes-touch-target)) / 2)' } } }}
       { ...(multiRow ? {
         lineHeight: ITEM_VALUE_LINE_HEIGHT,
       } : {}) }

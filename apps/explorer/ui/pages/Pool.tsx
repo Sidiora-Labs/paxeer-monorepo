@@ -73,7 +73,7 @@ const Pool = () => {
     return externalLinks
       .map((link) => {
         return (
-          <Link external minH="touchTarget" key={ link.url } href={ link.url } alignItems="center" display="inline-flex" minW="var(--chakra-spacing-30)">
+          <Link external key={ link.url } href={ link.url } alignItems="center" display="inline-flex" minW="var(--chakra-spacing-30)">
             <Image boxSize={ 5 } mr={ 2 } src={ link.image } alt={ `${ link.title } icon` }/>
             { link.title }
           </Link>

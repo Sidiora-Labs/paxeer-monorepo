@@ -40,7 +40,6 @@ const CodeEditorSideBar = ({ onFileSelect, data, monaco, editor, selectedFile, m
     fontFamily: 'heading',
     textTransform: 'uppercase',
     textStyle: 'label',
-    minH: 'touchTarget',
     color: themeColors['tab.inactiveForeground'],
     _selected: {
       color: themeColors['tab.activeForeground'],
@@ -111,11 +110,12 @@ const CodeEditorSideBar = ({ onFileSelect, data, monaco, editor, selectedFile, m
       <chakra.button
         type="button"
         ref={ toggleRef }
-        boxSize="touchTarget"
+        boxSize={ 6 }
         p={ 1 }
         position="absolute"
         display={{ base: 'block', lg: 'none' }}
-        right={ isDrawerOpen ? 'min(calc(100% - var(--chakra-sizes-touch-target)), var(--chakra-spacing-62\\.5))' : 0 }
+        right={ isDrawerOpen ? 'min(calc(100% - var(--chakra-spacing-6)), var(--chakra-spacing-62\\.5))' : 0 }
+        css={{ '@media (max-width: 834px)': { right: isDrawerOpen ? 'min(calc(100% - var(--chakra-sizes-touch-target)), var(--chakra-spacing-62\\.5))' : 0 } }}
         top="50%"
         transform="translateY(-50%)"
         backgroundColor={ themeColors['sideBar.background'] }
@@ -167,7 +167,6 @@ const CodeEditorSideBar = ({ onFileSelect, data, monaco, editor, selectedFile, m
             bgColor={ themeColors['sideBar.background'] }
             zIndex="1"
             px={ 2 }
-            minH="touchTarget"
             flexWrap="wrap"
             alignItems="center"
             boxShadow={ isStuck ? 'md' : 'none' }

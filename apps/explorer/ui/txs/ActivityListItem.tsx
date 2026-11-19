@@ -30,7 +30,7 @@ const Container = ({ children, ...props }: React.ComponentProps<typeof ListItemM
       borderTopWidth="var(--chakra-border-widths-1)"
       _last={{ borderBottomWidth: 'var(--chakra-border-widths-1)' }}
       css={{
-        '& button': { minW: 'touchTarget', minH: 'touchTarget' },
+        '& button': { },
         '& > *': { minW: 0, maxW: 'full', overflowWrap: 'anywhere' },
         [`@container activity-item (min-width: ${ breakpoints.sm })`]: {
           gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr)',

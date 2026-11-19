@@ -1,6 +1,14 @@
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 import config from '../../../../apps/explorer/next.config.js';
+
+import { cacheTraceReadlinks } from './trace-readlinks.mjs';
+
+const require = createRequire(new URL('../../../../apps/explorer/package.json', import.meta.url));
+const tracerPath = require.resolve('next/dist/compiled/@vercel/nft');
+const tracer = require(tracerPath);
+require.cache[tracerPath].exports = cacheTraceReadlinks(tracer);
 
 config.outputFileTracingRoot = fileURLToPath(new URL('../../../../apps/explorer/', import.meta.url));
 config.output = undefined;

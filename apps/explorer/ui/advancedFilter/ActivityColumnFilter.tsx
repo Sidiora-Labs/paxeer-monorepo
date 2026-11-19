@@ -21,8 +21,6 @@ const ActivityColumnFilter = ({ columnName, children, isLoading, selected, value
         aria-label={ `filter by ${ columnName }` }
         variant="icon_secondary"
         borderWidth={ 0 }
-        minH="touchTarget"
-        minW="touchTarget"
         disabled={ isLoading }
         selected={ selected }
         borderRadius="control"
@@ -42,7 +40,6 @@ const ActivityColumnFilter = ({ columnName, children, isLoading, selected, value
       overscrollBehavior="contain"
       css={{
         '& button, & input:not([type="checkbox"]):not([type="radio"]), & [data-scope="checkbox"][data-part="root"], & [data-scope="radio"][data-part="root"]': {
-          minW: 'touchTarget', minH: 'touchTarget',
         },
       }}
       aria-label={ `Filter by ${ columnName }` }

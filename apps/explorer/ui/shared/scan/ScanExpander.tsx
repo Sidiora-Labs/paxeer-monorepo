@@ -46,7 +46,7 @@ const ScanExpander = ({
       <Flex alignItems="center" columnGap={ 2 } flexWrap="wrap">
         { hint && <Hint label={ hint } boxSize={ 4 }/> }
         <chakra.span textStyle="sm" color="text.secondary" data-label>{ label }:</chakra.span>
-        <chakra.button type="button" onClick={ handleClick } css={ linkRecipe() } textStyle="sm" minH="touchTarget" aria-expanded={ isOpen } data-toggle>
+        <chakra.button type="button" onClick={ handleClick } css={ linkRecipe() } textStyle="sm" aria-expanded={ isOpen } data-toggle>
           { isOpen ? hideText : showText }
         </chakra.button>
       </Flex>

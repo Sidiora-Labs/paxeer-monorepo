@@ -80,7 +80,18 @@ const AddressQrCode = ({ hash, className, isLoading }: Props) => {
   }, [ hash, open, pageType, rollbar ]);
 
   if (isLoading) {
-    return <Skeleton loading className={ className } w="36px" h="32px" borderRadius="base"/>;
+    return (
+      <Skeleton
+        loading
+        className={ className }
+        w="36px"
+        h="32px"
+        borderRadius="base"
+        data-touch-placeholder
+        data-touch-inline
+        css={{ '--touch-line-size': 'var(--chakra-sizes-8)' }}
+      />
+    );
   }
 
   return (
@@ -91,6 +102,8 @@ const AddressQrCode = ({ hash, className, isLoading }: Props) => {
           aria-label="Show QR code"
           variant="icon_background"
           size="md"
+          data-touch-inline
+          css={{ '--touch-line-size': 'var(--chakra-sizes-8)' }}
           onClick={ onOpen }
         >
           <IconSvg name="qr_code"/>

@@ -29,24 +29,24 @@ const HeaderDesktop = ({ renderSearchBar }: Props) => {
       <Flex
         data-label="header-row"
         minH="var(--chakra-spacing-14)"
-        py={ 1 }
+        py={ 0 }
         flexWrap="wrap"
         maxW={ config.UI.maxContentWidth ? 'calc(var(--chakra-spacing-80) * 4)' : 'none' }
         mx="auto"
-        px={ 4 }
+        px={ 6 }
         align="center"
-        gap={ 2 }
+        gap={ 3 }
       >
         <Flex data-label="header-brand" align="center" gap={ 2 } flexShrink={ 0 }>
           <NetworkIcon/>
           <Text
             textStyle="body"
             fontWeight="semibold"
-            maxW="var(--chakra-spacing-20)"
+            maxW={{ lg: 'var(--chakra-spacing-20)', xl: 'calc(var(--chakra-spacing-40) - var(--chakra-spacing-5))' }}
             textWrap="balance"
           >{ config.chain.name }</Text>
         </Flex>
-        <Box data-label="header-menu" flexShrink={ 0 }><NavigationDesktop/></Box>
+        <Box data-label="header-menu" flexShrink={ 0 } mx="auto"><NavigationDesktop/></Box>
         <Box
           data-label="header-search"
           flex="1 1 100%"
@@ -57,7 +57,7 @@ const HeaderDesktop = ({ renderSearchBar }: Props) => {
             '& form': { width: '100%' },
             '@media (min-width: 1280px)': {
               order: 0,
-              flexBasis: 'var(--chakra-spacing-80)',
+              flex: '0 1 var(--chakra-spacing-80)',
               minWidth: 'var(--chakra-spacing-62\\.5)',
               maxWidth: 'var(--chakra-spacing-80)',
             },
@@ -65,7 +65,8 @@ const HeaderDesktop = ({ renderSearchBar }: Props) => {
         >
           { renderSearchBar ? renderSearchBar() : <SearchBar compact/> }
         </Box>
-        <Flex data-label="header-controls" align="center" gap={ 2 } flexShrink={ 0 } ml="auto" flexWrap="nowrap">
+        <Flex data-label="header-controls" align="center" gap={ 2 } flexShrink={ 0 } ml={ 0 } flexWrap="nowrap"
+          css={{ '@media (min-width: 1280px)': { marginInlineStart: 'calc(-1 * var(--chakra-spacing-1))' } }}>
           <TopBar/>
           <UserProfileDesktop buttonSize="sm" buttonVariant="header"/>
         </Flex>

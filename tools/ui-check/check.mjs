@@ -274,9 +274,11 @@ export async function captureFullPage(page, render, out, { navigationMs = LIMITS
     await page.screenshot({ path: join(out, render.screenshot), fullPage: true, timeout: milliseconds, animations: "allow" });
   } catch (error) {
     if (!isActive()) return;
-    render.findings.push({ kind: "load", selector: "document", values: { source: "screenshot", height, milliseconds, message: error.message } });
+    const finding = { kind: "load", selector: "document", values: { source: "screenshot", height, milliseconds, message: error.message } };
+    render.findings.push(finding);
     render.screenshot = null;
     render.rendered = false;
+    return { finding, retryCause: error.name === "TimeoutError" ? "screenshot-timeout" : null };
   }
 }
 
@@ -593,7 +595,7 @@ async function renderView(worker, surface, view, state, configuration, out, inde
         findings.push(...geometryFindings(render.geometry, geometry.stored, geometry.writing));
       }
       startStep("screenshot");
-      const viewportHasContent = screenshotHasContent(await page.screenshot({ fullPage: false, timeout: LIMITS.navigationMs, animations: "allow" }));
+      const viewportHasContent = screenshotHasContent(await page.screenshot({ fullPage: false, timeout: navigationMs, animations: "allow" }));
       if (!active) return;
       if (!viewportHasContent) addLoad({ source: "single-colour-viewport", message: "Viewport screenshot contains a single colour" });
       render.hasContent = viewportHasContent && !measurements.some((finding) => finding.kind === "load" && finding.values.source === "empty-document");
@@ -618,13 +620,15 @@ async function renderView(worker, surface, view, state, configuration, out, inde
       const cause = navigationPending
         ? (error.name === "TimeoutError"
           ? (navigationAnswered ? "navigation-load-timeout" : "navigation-timeout")
-          : (navigationAnswered ? null : navigationFailure)) : null;
+          : (navigationAnswered ? null : navigationFailure))
+        : (step === "screenshot" && error.name === "TimeoutError" ? "screenshot-timeout" : null);
       addLoad({ source: "render", message: error.message }, cause);
       render.rendered = false;
     }
     if (page && active && out) {
       startStep("screenshot");
-      await captureFullPage(page, render, out, undefined, () => active);
+      const capture = await captureFullPage(page, render, out, { navigationMs }, () => active);
+      if (capture?.retryCause) retryCauses.set(capture.finding, capture.retryCause);
     }
   };
   try {

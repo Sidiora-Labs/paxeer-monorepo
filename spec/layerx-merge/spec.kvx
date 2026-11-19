@@ -15958,6 +15958,24 @@ value = "One. The helper states the deadline of its stream work once: the presen
 basis = "Gotcha 4734."
 affects = []
 
+[decision.3808]
+title = "A case that sets the age of a held send takes the lifetime the queue of its node holds"
+value = "One. The case TestRuntimeAdmissionNonceSendAndOpenExpiry sets the arrival of its held send back by twice the lifetime the queue of the node of the case holds, read from the configuration of that node, in place of two lease durations. Two. The case keeps every assertion: the next open block drops the held send, the queue is empty and the record of the send is gone. Three. No file of the product changes and no other case changes. Task 22.39.965."
+basis = "Gotcha 4735."
+affects = []
+
+[decision.3809]
+title = "A case of the token price fetcher waits for the step it reads and ends the same way on every run"
+value = "One. Each case of services/explorer/backend/apps/explorer/test/explorer/market/fetcher/token_test.exs waits for the step it reads and reads the fetcher in a form that does not depend on the order of the first and the second request. Two. The task runs the file thirty times in a row and reads each run. Where a run of a case does not end as the others, the task names the call and the cause in its final message. Three. The cases keep what they assert about the tokens and about the requests. Four. The fetcher under lib stays unchanged. Where the cause lies there, the task changes nothing there and names file and line in its final message. Task 22.39.966."
+basis = "Gotcha 4736."
+affects = []
+
+[decision.3810]
+title = "The market chart routes keep the stored closing price without a current rate, the renewed ban case sends inside one rate window, and a capture that ran into its time limit is rendered once again"
+value = "One. Where the current rate holds no fiat value, both market chart routes keep the stored closing price of the newest day. The encoder leaves the market value of a day open where the day holds no market value and the supply or the closing price of that day is not known. Every other day keeps the product. Task 22.39.967. Two. The renewed ban case holds all of its sends inside one rate window: its request helper takes the room a case needs behind its send, the first send of the case asks for the room that covers its wait for the end of the ban and the margin of its last send, and the case states that its sends fell into the same window. The limiter under lib stays unchanged. Task 22.39.968. Three. A capture of the render check that ran into its time limit carries a retry cause of its own, for the capture of the viewport and for the capture of the full page. The surface loop renders that view once again in a fresh browser and marks the render as retried. The finding of a second run-out stays. Task 22.44.129."
+basis = "Gotcha 4737."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45618,6 +45636,51 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.129]
+title = "Let the render check render a view once again after a capture that ran into its time limit"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4737 point three, decision 3810 point three. Read tools/ui-check/check.mjs whole and the case files under tools/ui-check/test with their fixtures. Read how a load finding takes a retry cause, how the surface loop renders a view once again and how a render is marked as retried."
+symbols = []
+
+[capability.22.39.968]
+title = "Hold the sends of the renewed ban case of the rate limit cases inside one rate window"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs"
+do_1 = "do_1 Gotcha 4737 point two, decision 3810 point two. Read services/explorer/backend/apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs whole and services/explorer/backend/apps/explorer/lib/explorer/utility/rate_limiter.ex whole with the wrapper of the rate store beside it. Read how the limiter counts sends per rate window and how it computes the length of a ban."
+symbols = []
+
+[capability.22.39.967]
+title = "Let the market chart routes of the explorer keep the stored closing price where no current rate is known"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain/market_history_chart_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/chain/market_history_chart_controller_test.exs", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/controllers/chain/market_history_chart_controller_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs"
+do_1 = "do_1 Gotcha 4737 point one, decision 3810 point one. Read services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain/market_history_chart_controller.ex whole, the function market_chart in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex, the case files services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/chain/market_history_chart_controller_test.exs and services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs, and under services/explorer/backend/apps/explorer/lib/explorer/market the files market.ex, token.ex, market_history.ex and market_history_cache.ex for the rate record, the recent history and its cache."
+symbols = []
+
+[capability.22.39.966]
+title = "Give the cases of the token price fetcher a form that does not depend on the order of its requests"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/test/explorer/market/fetcher"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/fetcher/token_test.exs"
+do_1 = "do_1 Gotcha 4736, decision 3809. Read services/explorer/backend/apps/explorer/test/explorer/market/fetcher/token_test.exs whole and services/explorer/backend/apps/explorer/lib/explorer/market/fetcher/token.ex whole, and the source module the cases configure with its answer for an empty list. Read how the case template of the package starts and ends a case and how the supervisor of a case stops the fetcher."
+symbols = []
+
+[capability.22.39.965]
+title = "Let the open expiry case of the runtime admission set the age of its held send by the lifetime setting"
+reqs = ["22998.1"]
+touches = ["node/sequencer/runtime_admission_failover_test.go"]
+tests = []
+verification_contract = "go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestRuntimeAdmission"
+do_1 = "do_1 Gotcha 4735, decision 3808. Read node/sequencer/runtime_admission_failover_test.go whole, the place in node/sequencer/node.go that builds the nonce queue, the lifetime setting in node/sequencer/config.go, the drop of held sends in node/sequencer/nonce_queue.go and the cases of node/sequencer/nonce_lifetime_test.go. Read how the node of the case gets its configuration and which lifetime its queue holds."
+symbols = []
 
 [capability.22.39.964]
 title = "Give the stream cleanup of the ranking case helper the deadline form of its reset"
@@ -177955,6 +178018,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.129]
+title = "Let the render check render a view once again after a capture that ran into its time limit"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.129"]
+interfaces = []
+do_1 = "do_1 Gotcha 4737 point three, decision 3810 point three. Read tools/ui-check/check.mjs whole and the case files under tools/ui-check/test with their fixtures. Read how a load finding takes a retry cause, how the surface loop renders a view once again and how a render is marked as retried."
+do_2 = "do_2 Give the load finding of a capture that ran into its time limit a retry cause with a name of its own, for the capture of the viewport and for the capture of the full page. A capture that ends with another error keeps its finding without a retry cause."
+do_3 = "do_3 The surface loop then renders that view once again in a fresh browser and marks the render as retried, as it does for the other retry causes. The finding of a second run-out stays in the result, and the counts and the exit status of the run follow it. A render that holds a finding of another kind beside the capture finding is not rendered again."
+do_4 = "do_4 Add cases under tools/ui-check/test: a capture that runs into its time limit once and ends in time on the second render gives a render that is marked as retried and holds no finding; a capture that runs into its limit on both renders keeps one finding and a failing result; a capture that ends with another error is not rendered again. Use the bounds a case can pass to the check so that the cases end within seconds. Keep the cases the files hold."
+do_5 = "do_5 Name the retry cause in tools/ui-check/README.md where the README names the causes of a second render. Change no file outside the paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.128]
 title = "Close the account, application and service views of the explorer again at the sizes of its earlier state"
 status = "pending"
@@ -177989,7 +178084,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.127]
 title = "Close the batch, deposit and withdrawal views of the explorer again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.120"]
@@ -178021,7 +178116,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.126]
 title = "Close the chain and cross-chain views of the explorer again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.120"]
@@ -178053,7 +178148,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.125]
 title = "Close the statistics, gas and validator views of the explorer again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.120"]
@@ -178117,7 +178212,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.123]
 title = "Close the address and contract views of the explorer again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.120"]
@@ -178213,7 +178308,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.120]
 title = "Bring the touch size, the text styles, the shell and the home view of the explorer back to its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.105"]
@@ -209305,7 +209400,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.964]
 title = "Give the stream cleanup of the ranking case helper the deadline form of its reset"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209338,7 +209433,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.963]
 title = "Set release 7.0.2, add its release notes and let the API documents and the node image file follow the version file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.962"]
@@ -259863,9 +259958,40 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.965]
+title = "Let the open expiry case of the runtime admission set the age of its held send by the lifetime setting"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.962"]
+reqs = ["22998.1"]
+capabilities = ["22.39.965"]
+interfaces = []
+do_1 = "do_1 Gotcha 4735, decision 3808. Read node/sequencer/runtime_admission_failover_test.go whole, the place in node/sequencer/node.go that builds the nonce queue, the lifetime setting in node/sequencer/config.go, the drop of held sends in node/sequencer/nonce_queue.go and the cases of node/sequencer/nonce_lifetime_test.go. Read how the node of the case gets its configuration and which lifetime its queue holds."
+do_2 = "do_2 Point one. In the case TestRuntimeAdmissionNonceSendAndOpenExpiry set the arrival of the held send back by twice the lifetime the queue of the node of the case holds, read from the configuration of that node, in place of two lease durations. Where the configuration of the node of the case does not carry the lifetime its queue holds, take the value from the place the queue takes it from and name that in the final message."
+do_3 = "do_3 Points two and three. Keep every assertion of the case and its message. Change no other case and no file outside node/sequencer/runtime_admission_failover_test.go. Where the case still does not pass after the change for a cause in the product, change nothing in the product and give the cause with file and line in the final message."
+do_4 = "do_4 Run the cases of the whole package node/sequencer once by hand with go test -count=1 -timeout 30m ./node/sequencer/ and read every line of the output. Name each case that does not pass in the final message with its first message. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/sequencer/runtime_admission_failover_test.go"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/..."
+verify_cmd = "go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestRuntimeAdmission"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.962]
 title = "Give held transactions a lifetime setting of their own and write the sequencer settings in effect at start"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.961"]
@@ -477785,6 +477911,102 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.968]
+title = "Hold the sends of the renewed ban case of the rate limit cases inside one rate window"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.968"]
+interfaces = []
+do_1 = "do_1 Gotcha 4737 point two, decision 3810 point two. Read services/explorer/backend/apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs whole and services/explorer/backend/apps/explorer/lib/explorer/utility/rate_limiter.ex whole with the wrapper of the rate store beside it. Read how the limiter counts sends per rate window and how it computes the length of a ban."
+do_2 = "do_2 Let the request helper take the room a case needs behind its send, in milliseconds, with the present margin as the value where a case names none. The deadline of the wait of the helper follows the room."
+do_3 = "do_3 In the case with the name renewed ban survives an older expiry and its own timer clears all history let the first send ask for the room that covers the wait of the case for the end of the first ban and the margin of its last send. State in the case that its sends fell into the same rate window, by the number of the window at the sends."
+do_4 = "do_4 Run the file ten times in a row with services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs and read each run. Where a run of a case does not end as the others, name the call and the cause in the final message. Keep what the cases assert, skip no case and remove no case. Change no file outside services/explorer/backend/apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs. Where a cause lies in the limiter, change nothing there and give file and line in the final message."
+do_5 = "do_5 Give the count of runs and the result in the final message. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.967]
+title = "Let the market chart routes of the explorer keep the stored closing price where no current rate is known"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.967"]
+interfaces = []
+do_1 = "do_1 Gotcha 4737 point one, decision 3810 point one. Read services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain/market_history_chart_controller.ex whole, the function market_chart in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex, the case files services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/chain/market_history_chart_controller_test.exs and services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs, and under services/explorer/backend/apps/explorer/lib/explorer/market the files market.ex, token.ex, market_history.ex and market_history_cache.ex for the rate record, the recent history and its cache."
+do_2 = "do_2 In both routes keep the stored closing price of the newest day where the current rate holds no fiat value, and set it to the fiat value in every other case as before. State the rule once and let both routes take it."
+do_3 = "do_3 In the encoder leave the market value of a day open where the day holds no market value and the supply or the closing price of that day is not known. Keep the product for every other day. The answers of both routes keep their keys."
+do_4 = "do_4 Add cases to services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/chain/market_history_chart_controller_test.exs and to the part of services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs for /api/v2/stats/charts/market: rows of the recent history without a market value are stored while no current rate is known, the route answers with status 200, and the entry of the newest day holds its stored closing price and an open market value. Add one case in which a current rate is known and the newest day takes its fiat value, in the form the cases of the package use to set a rate. Let each case store what it reads and put back what it changed, so that it ends the same way in any order of the cases. Keep the cases the files hold."
+do_5 = "do_5 Change no file outside the four paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain/market_history_chart_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/chain/market_history_chart_controller_test.exs", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/controllers/chain/market_history_chart_controller_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.966]
+title = "Give the cases of the token price fetcher a form that does not depend on the order of its requests"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.966"]
+interfaces = []
+do_1 = "do_1 Gotcha 4736, decision 3809. Read services/explorer/backend/apps/explorer/test/explorer/market/fetcher/token_test.exs whole and services/explorer/backend/apps/explorer/lib/explorer/market/fetcher/token.ex whole, and the source module the cases configure with its answer for an empty list. Read how the case template of the package starts and ends a case and how the supervisor of a case stops the fetcher."
+do_2 = "do_2 Point two. Run services/explorer/backend/apps/explorer/test/explorer/market/fetcher/token_test.exs thirty times in a row with services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/fetcher/token_test.exs and read each run. Where a run of a case does not end as the others, find the call that ends it and its cause. Look first at the case with the name empty body in /coins/list response and at the read of the state after the first request."
+do_3 = "do_3 Point one. Give the four cases a form that does not depend on the order of the first and the second request: each case waits for the step it reads, and it reads the fetcher in a form that holds while the next fetch runs or has ended. Where the cases share the form, state it once in the file and let the four cases take it."
+do_4 = "do_4 Points three and four. Keep what the cases assert about the tokens and about the requests, skip no case and remove no case. Change no file outside services/explorer/backend/apps/explorer/test/explorer/market/fetcher. Where the cause lies in the fetcher, change nothing there and give file and line in the final message."
+do_5 = "do_5 Run the file thirty times in a row once more at the final revision and give the count of runs and the result in the final message. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/test/explorer/market/fetcher"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/fetcher/token_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

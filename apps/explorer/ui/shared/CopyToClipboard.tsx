@@ -41,9 +41,9 @@ const CopyToClipboard = (props: Props) => {
   const button = (
     <IconButton
       aria-label="copy"
+      data-touch-inline
+      css={{ '--touch-line-size': typeof boxSize === 'number' ? `var(--chakra-sizes-${ boxSize })` : boxSize }}
       boxSize={ boxSize }
-      minW="touchTarget"
-      minH="touchTarget"
       onClick={ handleClick }
       ml={ 1 }
       flexShrink={ 0 }

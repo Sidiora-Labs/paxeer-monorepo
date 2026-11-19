@@ -64,8 +64,6 @@ const SearchBarInput = (
       <ClearButton
         onClick={ onClear }
         visible={ Boolean(value?.length) }
-        minH="touchTarget"
-        minW="touchTarget"
         color="text.secondary"
         mx={ 2 }
       />
@@ -112,8 +110,8 @@ const SearchBarInput = (
       <InputGroup
         minW={ 0 }
         startElement={ startElement }
-        startOffset="var(--chakra-spacing-10)"
-        endOffset={ isMobile ? 'var(--chakra-spacing-16)' : 'calc(var(--chakra-spacing-16) + var(--chakra-spacing-12))' }
+        startOffset="var(--chakra-spacing-9)"
+        endOffset={ isMobile ? 'var(--chakra-spacing-9)' : 'calc(var(--chakra-spacing-20) + var(--chakra-spacing-7) / 4)' }
         endElement={ endElement }
       >
         <Input
@@ -126,8 +124,8 @@ const SearchBarInput = (
           autoCapitalize="none"
           spellCheck={ false }
           h="auto"
-          minH={ isHero ? 'calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))' : 'touchTarget' }
-          py={ 2 }
+          minH={ isHero ? 'calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))' : 9 }
+          py={ 0 }
           borderRadius={ isHero ? 'control' : 'pill' }
           aria-label={ compact ? 'Search or ask' : 'Search' }
           placeholder={ isHero ? 'Search or ask: a transaction, address, block or token' : 'Search or ask…' }
