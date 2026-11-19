@@ -15934,6 +15934,12 @@ value = "One. Decision 3708 holds for the explorer as for every surface. A recip
 basis = "Gotcha 4730. Decisions 3707, 3708 and 3747."
 affects = []
 
+[decision.3804]
+title = "The preparation of the web suite gives its oracle publications a gas limit that covers the longer path of the price write, and the install steps of the launchpad test workflow fetch again before they end a job"
+value = "One. The script apps/launchpad/web/src/widgets/meta-ag/prepare-owned-deployment.mjs sends each oracle publication with a gas limit that covers the path with a new observation, whatever path its estimate took: a limit stated in the script, or the estimate raised by a stated margin that the measure of task 22.39.959 shows to cover the difference between the two paths. This is a least value. Two. The same holds for every other transaction of the script whose path depends on the time stamp of its block. No contract changes, and no price, address or order of the setup changes. Three. Every step of .github/workflows/launchpad-test.yml that installs packages of the system reads the package index and fetches again when a fetch does not complete, at least three times with a pause between the tries, and ends its job only when the last try does not complete. The packages, their options and the order of the steps stay as they are. Four. A case file under tests/ci reads the workflow and holds point three for every place that installs packages of the system, so that a place added later follows the rule. Tasks 22.39.959 and 22.39.960."
+basis = "Gotcha 4731."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45594,6 +45600,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.960]
+title = "Let every install step of the launchpad test workflow read the package index and fetch again before it ends its job"
+reqs = ["22998.1"]
+touches = [".github/workflows/launchpad-test.yml", "tests/ci", "scripts/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_launchpad_install_steps.py"
+do_1 = "do_1 Gotcha 4731 part two, decision 3804 points three and four. Read .github/workflows/launchpad-test.yml with its six places that install packages of the system, the anchors the Go jobs share, and the case files under tests/ci that read this workflow. Run those case files by hand once and note which pass before the change."
+symbols = []
+
+[capability.22.39.959]
+title = "Give the oracle publications of the web suite preparation a gas limit that covers the longer path of the price write"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/meta-ag", "apps/launchpad/web/scripts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && cd apps/launchpad/web && python3 scripts/prepare-test-environment.py -- pnpm exec vitest run src/widgets/meta-ag"
+do_1 = "do_1 Gotcha 4731 part one, decision 3804 points one and two. Read apps/launchpad/web/src/widgets/meta-ag/prepare-owned-deployment.mjs with its function that waits for a receipt, its registration of the three assets and its function that publishes the prices, apps/launchpad/web/scripts/prepare-test-environment.py with the place that starts the script, and the function that writes a price in contracts/launchpad/contracts/meta-ag/oracle/PriceOracle.sol with the two functions it calls for the accumulator and the observation. Measure on the local chain of the preparation, by hand: the gas of a price write whose block carries the time stamp of the last observation of the asset, and the gas of one whose block carries a later time stamp. Name both numbers in the final message. Where the measure shows another rule than the gas limit to stop a publication, name that rule and correct the script against it under the same paths."
+symbols = []
 
 [capability.22.44.128]
 title = "Close the account, application and service views of the explorer again at the sizes of its earlier state"
@@ -209221,6 +209245,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.959]
+title = "Give the oracle publications of the web suite preparation a gas limit that covers the longer path of the price write"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.959"]
+interfaces = []
+do_1 = "do_1 Gotcha 4731 part one, decision 3804 points one and two. Read apps/launchpad/web/src/widgets/meta-ag/prepare-owned-deployment.mjs with its function that waits for a receipt, its registration of the three assets and its function that publishes the prices, apps/launchpad/web/scripts/prepare-test-environment.py with the place that starts the script, and the function that writes a price in contracts/launchpad/contracts/meta-ag/oracle/PriceOracle.sol with the two functions it calls for the accumulator and the observation. Measure on the local chain of the preparation, by hand: the gas of a price write whose block carries the time stamp of the last observation of the asset, and the gas of one whose block carries a later time stamp. Name both numbers in the final message. Where the measure shows another rule than the gas limit to stop a publication, name that rule and correct the script against it under the same paths."
+do_2 = "do_2 Change the script so that each oracle publication is sent with a gas limit that covers the longer path, whatever path the estimate took: a stated limit, or the estimate raised by a stated margin the measure covers. Read every other transaction the script sends for a path that depends on the time stamp of its block and give it the same form. A transaction that still does not complete ends the preparation with its message as today. No contract, no price, no address and no order of the setup changes."
+do_3 = "do_3 Run the preparation with the cases of the directory apps/launchpad/web/src/widgets/meta-ag by hand at least five times in a row and read that each run completes. Run the whole suite of the web application by hand once before the counted run and read its summary. Another task can change files under apps/launchpad/web/src at the same time: change only what this task names. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/meta-ag", "apps/launchpad/web/scripts"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && cd apps/launchpad/web && python3 scripts/prepare-test-environment.py -- pnpm exec vitest run src/widgets/meta-ag"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -397521,6 +397575,37 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.960]
+title = "Let every install step of the launchpad test workflow read the package index and fetch again before it ends its job"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.960"]
+interfaces = []
+do_1 = "do_1 Gotcha 4731 part two, decision 3804 points three and four. Read .github/workflows/launchpad-test.yml with its six places that install packages of the system, the anchors the Go jobs share, and the case files under tests/ci that read this workflow. Run those case files by hand once and note which pass before the change."
+do_2 = "do_2 Change each of the six places so that it reads the package index and installs again when a try does not complete: at least three tries with a pause between them, and the step ends its job only when the last try does not complete. State the form once and use it at every place, inline in the step or as a script under scripts/ci where the checkout precedes the step in every job that uses it. The packages, their options, the conditions of the steps, their names and their order stay as they are. No other step of the workflow changes."
+do_3 = "do_3 Write tests/ci/test_launchpad_install_steps.py: it reads the workflow, finds every place that installs packages of the system, and holds for each that it follows the form with at least three tries, a new read of the package index in each try and a pause. A place added later without the form does not pass the case. The case reads the file only and starts nothing."
+do_4 = "do_4 Run the case files under tests/ci that read this workflow by hand again: each that passed before the change passes after it. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".github/workflows/launchpad-test.yml", "tests/ci", "scripts/ci"]
+tests = []
+planned_paths = ["tests/ci/test_launchpad_install_steps.py"]
+build_cmd = "python3 -m pip install -q -r tools/qualification/requirements.txt && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 -m pytest -q tests/ci/test_launchpad_install_steps.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.932]
 title = "Give the package jobs of the launchpad test workflow the database, the variables and the object store binary their cases read"
