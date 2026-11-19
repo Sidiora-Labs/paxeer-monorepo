@@ -43,7 +43,7 @@ const TokenTransferListItem = ({
   return (
     <ListItemMobile rowGap={ 3 }>
       <Flex w="100%" justifyContent="space-between">
-        <Flex flexWrap="wrap" rowGap={ 1 } mr={ showTxInfo && txHash ? 2 : 0 } columnGap={ 2 } overflow="hidden">
+        <Flex flexWrap="wrap" rowGap={ 1 } mr={ showTxInfo && txHash ? 2 : 0 } columnGap={ 2 } minW={ 0 } maxW="full">
           { token && (
             <>
               <TokenEntity
@@ -95,8 +95,7 @@ const TokenTransferListItem = ({
         minW={ 0 }
         css={{
           gridTemplateColumns: 'minmax(0, max-content) max-content minmax(0, max-content)',
-          '& [data-entity]': { minW: 0, maxW: '100%', flexWrap: 'wrap' },
-          '& [data-entity-content]': { whiteSpace: 'normal', overflowWrap: 'anywhere' },
+          '& [data-entity]': { minW: 0, maxW: '100%' },
         }}
       />
       { total && 'value' in total && total.value !== null && (

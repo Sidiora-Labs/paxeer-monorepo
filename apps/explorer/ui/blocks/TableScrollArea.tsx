@@ -1,12 +1,16 @@
+import type { BoxProps } from '@chakra-ui/react';
 import { Box } from '@chakra-ui/react';
 import React from 'react';
+
+import { INLINE_CONTROL_STYLES } from 'toolkit/utils/inlineControl';
 
 interface Props {
   label: string;
   children: React.ReactNode;
+  minTableWidth?: BoxProps['minW'];
 }
 
-const TableScrollArea = ({ label, children }: Props) => {
+const TableScrollArea = ({ label, children, minTableWidth = 'full' }: Props) => {
   const handleFocus = React.useCallback((event: React.FocusEvent<HTMLDivElement>) => {
     const region = event.currentTarget;
     if (event.target === region) return;
@@ -34,9 +38,9 @@ const TableScrollArea = ({ label, children }: Props) => {
       overscrollBehaviorX="contain"
       _focusVisible={{ outlineWidth: '2', outlineStyle: 'solid', outlineColor: 'focusRing', outlineOffset: 'calc(var(--chakra-border-widths-2) * -1)' }}
       css={{
-        '& a': { display: 'inline-flex', alignItems: 'center' },
+        '& a': { ...INLINE_CONTROL_STYLES, display: 'inline-flex', alignItems: 'center' },
         '& a, & button': { _motionReduce: { transitionProperty: 'none' } },
-        '& table': { minWidth: 'full', width: 'full', tableLayout: 'auto' },
+        '& table': { minWidth: minTableWidth, width: 'full', tableLayout: 'auto' },
         '& thead': { top: 0 },
         '& th:first-of-type, & td:first-of-type': { position: { base: 'static', lg: 'sticky' }, insetInlineStart: 0, bg: 'canvas', zIndex: 1 },
         '& tr:hover > td, & tr:focus-within > td': { bg: 'raised' },

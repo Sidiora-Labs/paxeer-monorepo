@@ -41,7 +41,7 @@ const PaxeerXFeedMarketUpdatesTable = ({ items, top = 0, isLoading }: Props) => 
   const initialList = useInitialList({ data: items, idFn: updateId, enabled: !isLoading });
 
   return (
-    <TableScrollArea label="Market updates">
+    <TableScrollArea label="Market updates" minTableWidth="calc(var(--chakra-spacing-200) + var(--chakra-spacing-20) + var(--chakra-spacing-5))">
       <TableRoot aria-label="Market updates" variant="scan" minW="max-content" data-label="paxeer-x-feed-market-updates">
         <TableHeaderSticky top={ top }>
           <TableRow>

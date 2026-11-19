@@ -124,6 +124,16 @@ const AddressFromTo = ({
       className={ className }
       alignItems="center"
       gridTemplateColumns={ `minmax(0, min-content) ${ direction ? 'max-content' : `${ iconSize }px` } minmax(0, min-content)` }
+      css={{
+        '@media (max-width: 834px)': {
+          gridTemplateColumns: `minmax(0, max-content) ${ direction ? 'max-content' : `${ iconSize }px` } minmax(0, max-content)`,
+          '& > [data-entity]': { flexWrap: 'wrap' },
+          '& > [data-entity] [data-entity-link]': { flexBasis: 0, flexGrow: 1 },
+          '& > [data-entity] [data-entity-content] > span': {
+            display: 'block', maxW: 'full', overflow: 'hidden', textOverflow: 'ellipsis',
+          },
+        },
+      }}
     >
       <EntityFrom
         address={ from }
