@@ -259802,7 +259802,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.961]
 title = "Release the held transactions whose nonce has become the next one when a block opens, and answer a send without an open block before its nonce is compared"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
