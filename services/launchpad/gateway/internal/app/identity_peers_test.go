@@ -16,6 +16,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -96,11 +97,13 @@ type identityE2E struct {
 	authorityForGateway sharedauth.MTLSIdentityAuthority
 }
 
-func e2eFixture(name, fallback string) string {
+func e2eFixture(t *testing.T, name string) string {
+	t.Helper()
 	if v := os.Getenv(name); v != "" {
 		return v
 	}
-	return fallback
+	t.Fatalf("%s is required", name)
+	return ""
 }
 
 // throwawayDatabase creates a database on the fixture server and drops it at
@@ -129,11 +132,12 @@ func (e *identityE2E) throwawayDatabase(prefix string) string {
 			t.Error(err)
 		}
 	})
-	pc, err := pgx.ParseConfig(e.adminDSN)
+	endpoint, err := url.Parse(e.adminDSN)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable", pc.User, pc.Password, pc.Host, pc.Port, name)
+	endpoint.Path = "/" + name
+	return endpoint.String()
 }
 
 // e2eChain is a chain-125 go-ethereum node with HTTP JSON-RPC, so the
@@ -171,7 +175,7 @@ func e2eChain(t *testing.T) string {
 
 func newIdentityE2E(t *testing.T) *identityE2E {
 	t.Helper()
-	e := &identityE2E{t: t, adminDSN: e2eFixture("L33_POSTGRES_DSN", "postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable"), peers: map[string]e2ePeer{}}
+	e := &identityE2E{t: t, adminDSN: e2eFixture(t, "L33_POSTGRES_DSN"), peers: map[string]e2ePeer{}}
 	e.pki = testpki.New(t)
 	e.gatewayServer = e.pki.Leaf("gateway-server", "gateway.railway.internal")
 	e.gatewayClient = e.pki.Leaf("gateway-client", "gateway.railway.internal")
@@ -406,7 +410,7 @@ func (e *identityE2E) startSocial() socialProcess {
 		"DATABASE_URL=" + dsn,
 		"EXPECTED_SCHEMA_FILE=" + expectedSchemaFile,
 		"EXPECTED_SCHEMA_SHA256=" + expectedSchemaSHA256,
-		"REDIS_URL=" + e2eFixture("GATEWAY_E2E_REDIS_URL", "redis://:kindle_fixture_password@127.0.0.1:26379/12"),
+		"REDIS_URL=" + e2eFixture(t, "GATEWAY_E2E_REDIS_URL"),
 		"SOCIAL_CURSOR_KEY=" + base64.RawURLEncoding.EncodeToString(cursor),
 		"CORS_ALLOWED_ORIGINS=" + e2eOrigin,
 		"IDENTITY_SERVICE_URL=" + e.identityURL + "/",
@@ -517,7 +521,7 @@ func (e *identityE2E) startLivestream() livestreamProcess {
 		"SECRETS_PROVIDER=env", "SECRETS_REFRESH_SECONDS=30", "DB_MAX_CONNS=5",
 		fmt.Sprintf("PORT=%d", plainPort), "BIND_ADDRESS=0.0.0.0",
 		"DATABASE_URL=" + dsn,
-		"REDIS_URL=" + e2eFixture("GATEWAY_E2E_REDIS_URL", "redis://:kindle_fixture_password@127.0.0.1:26379/12"),
+		"REDIS_URL=" + e2eFixture(t, "GATEWAY_E2E_REDIS_URL"),
 		"LIVEPEER_PROVIDER_MODE=unavailable", "MAX_STREAMS_PER_WALLET=3", "MAX_GLOBAL_STREAMS=100",
 		"LIVESTREAM_VIEWER_TOKEN_KEY=" + strings.Repeat("v7", 20),
 		"CORS_ALLOWED_ORIGINS=" + e2eOrigin,

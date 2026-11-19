@@ -132,6 +132,7 @@ export interface CodePin {
 export interface TradeDeployment {
   revision: string;
   router: Address;
+  spender: Address;
   quoter: Address;
   registry: Address;
   emitter: Address;
@@ -141,6 +142,7 @@ export interface TradeDeployment {
 export const productionTradeDeployment: TradeDeployment = {
   revision: CORE_DEPLOYMENT.manifestSha256,
   router: CORE_DEPLOYMENT.router,
+  spender: CORE_DEPLOYMENT.launchpadPrecompile,
   quoter: CORE_DEPLOYMENT.quoter,
   registry: CORE_DEPLOYMENT.poolRegistry,
   emitter: CORE_DEPLOYMENT.eventEmitter,
@@ -558,7 +560,7 @@ export class ChainTradeProvider {
       this.deployment.revision,
       context.sender.toLowerCase(),
       context.token.toLowerCase(),
-      context.router.toLowerCase(),
+      this.deployment.spender.toLowerCase(),
       blockNumber?.toString() ?? 'latest',
     ]);
     const pending = this.allowanceReads.get(key);
@@ -570,7 +572,7 @@ export class ChainTradeProvider {
         address: getAddress(context.token),
         abi: erc20Abi,
         functionName: 'allowance',
-        args: [getAddress(context.sender), this.deployment.router],
+        args: [getAddress(context.sender), this.deployment.spender],
         blockNumber,
       })
       .then(raw);
@@ -653,7 +655,7 @@ export class ChainTradeProvider {
         address: getAddress(context.token),
         abi: erc20Abi,
         functionName: 'approve',
-        args: [this.deployment.router, target],
+        args: [this.deployment.spender, target],
         account: getAddress(context.sender),
       });
       return false;
@@ -662,7 +664,7 @@ export class ChainTradeProvider {
         address: getAddress(context.token),
         abi: erc20Abi,
         functionName: 'approve',
-        args: [this.deployment.router, 0n],
+        args: [this.deployment.spender, 0n],
         account: getAddress(context.sender),
       });
       return true;
@@ -680,7 +682,7 @@ export class ChainTradeProvider {
       address: getAddress(context.token),
       abi: erc20Abi,
       functionName: 'approve',
-      args: [this.deployment.router, amount],
+      args: [this.deployment.spender, amount],
       account: getAddress(context.sender),
     });
     await this.authorize(scope, context);
@@ -840,7 +842,7 @@ export class ChainTradeProvider {
       }
       if (
         decoded.functionName !== 'approve' ||
-        !same(decoded.args[0], this.deployment.router) ||
+        !same(decoded.args[0], this.deployment.spender) ||
         tx.value !== 0n
       )
         throw new EvidenceIntegrityError('approval_action_mismatch');

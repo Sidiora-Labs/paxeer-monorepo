@@ -316,8 +316,8 @@ export default function ChainWizard() {
 
   return (
     <div className="@container/create mx-auto w-full max-w-content-narrow-max-width px-4 py-4 lg:px-6">
-      <div className="flex flex-col gap-4 @market-two/create:flex-row @market-two/create:items-start @market-two/create:gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-4 @market-two/create:max-w-form-max-width">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-4 lg:max-w-form-max-width">
           <h1 className="text-md font-semibold text-text">Launch a chain and token</h1>
           <p className="text-sm text-text-muted">Name your chain and token, pick a size, and launch them together.</p>
           <ol aria-label="Launch a chain steps" className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-text-muted">
@@ -449,7 +449,7 @@ export default function ChainWizard() {
             </div>
           </section>
         </div>
-        <aside className="min-w-0 shrink-0 @market-two/create:sticky @market-two/create:top-4 @market-two/create:w-56">
+        <aside className="min-w-0 shrink-0 lg:sticky lg:top-4 lg:w-56 2xl:w-60">
           <ChainLaunchSummary name={name} tokenName={tokenName} tokenSymbol={tokenSymbol} tier={tier} feeStrategy={feeStrategy} params={params} marketFee={marketFee} />
         </aside>
       </div>

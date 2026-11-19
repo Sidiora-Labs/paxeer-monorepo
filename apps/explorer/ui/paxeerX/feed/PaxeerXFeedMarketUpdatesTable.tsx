@@ -46,7 +46,7 @@ const PaxeerXFeedMarketUpdatesTable = ({ items, top = 0, isLoading }: Props) => 
         <TableHeaderSticky top={ top }>
           <TableRow>
             <TableColumnHeader width="22%">Update</TableColumnHeader>
-            <TableColumnHeader width="12%">Block</TableColumnHeader>
+            <TableColumnHeader width="12%" isNumeric>Block</TableColumnHeader>
             <TableColumnHeader width="12%">Age</TableColumnHeader>
             <TableColumnHeader width="17%" isNumeric>Index price</TableColumnHeader>
             <TableColumnHeader width="12%" isNumeric>Change</TableColumnHeader>
@@ -72,8 +72,8 @@ const PaxeerXFeedMarketUpdatesTable = ({ items, top = 0, isLoading }: Props) => 
                     </Link>
                   </Skeleton>
                 </TableCell>
-                <TableCell verticalAlign="middle">
-                  <BlockEntity number={ item.block_number } isLoading={ isLoading } truncation="none" noIcon/>
+                <TableCell verticalAlign="middle" isNumeric>
+                  <BlockEntity justifyContent="flex-end" number={ item.block_number } isLoading={ isLoading } truncation="none" noIcon/>
                 </TableCell>
                 <TableCell verticalAlign="middle" color="text.secondary">
                   <TimeWithTooltip timestamp={ item.timestamp } isLoading={ isLoading } enableIncrement/>

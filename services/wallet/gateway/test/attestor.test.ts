@@ -38,6 +38,7 @@ import {
   type TypedDataDefinition,
 } from 'viem';
 import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
+import { waitForRateLimitWindow } from './support/rate-limit-window.js';
 import { TestChain } from './support/chain.js';
 import type { EvmReviewResult } from '../src/attestor/client.js';
 import type { WalletInventory } from '../src/agent/authority.js';
@@ -1810,6 +1811,7 @@ describe('signing routes', () => {
       const user = await provision(false);
       const headers = { authorization: `Bearer ${user.token}` };
       const payload = { message: routeInputs.message };
+      await waitForRateLimitWindow(getPool());
       expect(
         (
           await perClient.inject({
@@ -1860,6 +1862,7 @@ describe('signing routes', () => {
       const user = await provision(false);
       const headers = { authorization: `Bearer ${user.token}` };
       const payload = { message: routeInputs.message };
+      await waitForRateLimitWindow(getPool());
       expect(
         (
           await perAccount.inject({
@@ -1892,5 +1895,5 @@ describe('signing routes', () => {
     } finally {
       await perAccount.close();
     }
-  });
+  }, 60_000);
 });

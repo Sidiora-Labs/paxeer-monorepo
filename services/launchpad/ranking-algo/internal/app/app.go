@@ -52,6 +52,8 @@ const (
 	rateLimitWindow = 60 * time.Second
 	productionEnv   = "production"
 	metricsPath     = "/metrics"
+	healthLivePath  = "/health/live"
+	healthReadyPath = "/health/ready"
 )
 
 // App is a fully-wired, ready-to-run ranking-algo service.
@@ -267,7 +269,7 @@ func Run(parent context.Context) error {
 
 func healthOnlyHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/health/live" && r.URL.Path != "/health/ready" {
+		if r.URL.Path != healthLivePath && r.URL.Path != healthReadyPath {
 			http.NotFound(w, r)
 			return
 		}
@@ -318,7 +320,7 @@ func runtimeHandler(tracker *sharedprocess.Tracker, next http.Handler, metrics *
 	})
 	tracked := tracker.Middleware(observed)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/health" || r.URL.Path == "/health/live" || r.URL.Path == "/health/ready" || r.URL.Path == metricsPath {
+		if r.URL.Path == "/health" || r.URL.Path == healthLivePath || r.URL.Path == healthReadyPath || r.URL.Path == metricsPath {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -565,7 +567,7 @@ func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		return nil, err
 	}
 	ingress := http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/health" || request.URL.Path == "/health/live" || request.URL.Path == "/health/ready" || request.URL.Path == metricsPath {
+		if request.URL.Path == "/health" || request.URL.Path == healthLivePath || request.URL.Path == healthReadyPath || request.URL.Path == metricsPath {
 			router.ServeHTTP(w, request)
 			return
 		}

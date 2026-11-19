@@ -585,8 +585,10 @@ not certify successful execution of every product route.
 Redis readiness requires `PING` → `PONG`. Chain readiness requires
 `eth_chainId` → `0x7d`. Configured consensus readiness requires a valid
 `status` response with `catching_up=false`. A configured indexer must report
-ready ingestion sources with fresh, reconciled observations and indexed cursors
-at their source heads. An absent indexer reports `not_configured` and does not
+fresh, reconciled source observations without failures, with indexed cursors at or
+below their source heads by at most one ingestion step; a consensus source whose
+node declares its transaction index off reports `index_disabled` without lowering
+readiness. An absent indexer reports `not_configured` and does not
 prevent readiness. With no hosted kernel backends,
 the report omits their components, retains chain and consensus availability,
 and includes configured durable store/event producer dependencies. An

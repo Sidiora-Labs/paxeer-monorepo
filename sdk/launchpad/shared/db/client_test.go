@@ -152,7 +152,7 @@ func TestNewPoolIntegration(t *testing.T) {
 	ctx := context.Background()
 	dsn := os.Getenv("L07_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("L07_POSTGRES_DSN is not set: point it at a running PostgreSQL database named kindle_test; tests never start containers")
+		t.Skip("L07_POSTGRES_DSN is not set: configure the PostgreSQL fixture")
 	}
 
 	pool, err := NewPool(ctx, dsn, PoolOptions{MaxConns: 5, MinConns: 1, StatementTimeout: 3 * time.Second})
@@ -171,8 +171,8 @@ func TestNewPoolIntegration(t *testing.T) {
 	}
 
 	m := PoolMetrics()
-	if _, ok := m["kindle_test"]; !ok {
-		t.Errorf("PoolMetrics missing tag kindle_test, got %v", m)
+	if _, ok := m[poolTag(dsn)]; !ok {
+		t.Errorf("PoolMetrics missing supplied database tag, got %v", m)
 	}
 }
 

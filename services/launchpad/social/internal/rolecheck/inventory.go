@@ -21,6 +21,8 @@ import (
 
 const RuntimeRole = "chat_runtime"
 
+const socialSchema = "chat"
+
 // Statement identifies a runtime SQL call and the objects its text names.
 type Statement struct {
 	ID        string            `json:"id"`
@@ -231,7 +233,7 @@ func (r *sourceReader) evaluate(expr ast.Expr, path string, fn *ast.FuncDecl, be
 		switch expressionName(e.Fun) {
 		case "s.table":
 			name, err := next(e.Args[0], before)
-			return pgx.Identifier{"chat"}.Sanitize() + "." + name, err
+			return pgx.Identifier{socialSchema}.Sanitize() + "." + name, err
 		case "fmt.Sprintf":
 			template, err := next(e.Args[0], before)
 			if err != nil {
@@ -247,11 +249,11 @@ func (r *sourceReader) evaluate(expr ast.Expr, path string, fn *ast.FuncDecl, be
 			}
 			return fmt.Sprintf(template, args...), nil
 		case "p.Guard.Sanitize", "p.PoolGuard.Sanitize":
-			return pgx.Identifier{"chat", "interaction_pool_creator"}.Sanitize(), nil
+			return pgx.Identifier{socialSchema, "interaction_pool_creator"}.Sanitize(), nil
 		case "p.SessionGuard.Sanitize":
-			return pgx.Identifier{"chat", "interaction_session_valid"}.Sanitize(), nil
+			return pgx.Identifier{socialSchema, "interaction_session_valid"}.Sanitize(), nil
 		case "p.AccountGuard.Sanitize":
-			return pgx.Identifier{"chat", "interaction_account_active"}.Sanitize(), nil
+			return pgx.Identifier{socialSchema, "interaction_account_active"}.Sanitize(), nil
 		case "p.Accounts.Sanitize":
 			return pgx.Identifier{"users", "account_profiles_v1"}.Sanitize(), nil
 		}

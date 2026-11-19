@@ -155,6 +155,7 @@ func newFixtureVisibility(t *testing.T, observed time.Time, pools map[string]boo
 // frozen into a complete universe, features are derived from fills, every
 // category completes and publishes, and the stored pages read back.
 func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
+	natsURL := internaltest.RankingBroker(t)
 	pool := productionUniverseDatabase(t)
 	ctx := context.Background()
 	cutoff := time.Now().UTC().Truncate(time.Second)
@@ -504,11 +505,6 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 		t.Fatalf("head pruned: %v", err)
 	}
 
-	natsURL := os.Getenv("RANKING_TEST_NATS_URL")
-	if natsURL == "" {
-		t.Log("RANKING_TEST_NATS_URL not set; api_stream relay to JetStream not exercised")
-		return
-	}
 	nc, err := nats.Connect(natsURL, nats.Timeout(3*time.Second))
 	if err != nil {
 		t.Fatal(err)
@@ -522,7 +518,6 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 	if _, err = js.CreateStream(ctx, jetstream.StreamConfig{Name: streamName, Subjects: []string{"market.rankings.*"}, Storage: jetstream.MemoryStorage, MaxMsgs: 1000, MaxBytes: 16 << 20, MaxAge: time.Hour, Discard: jetstream.DiscardNew}); err != nil {
 		t.Fatalf("create stream: %v", err)
 	}
-	defer func() { _ = js.DeleteStream(context.Background(), streamName) }()
 	budget, err := delivery.NewWorkBudget(1, 100, 10)
 	if err != nil {
 		t.Fatal(err)

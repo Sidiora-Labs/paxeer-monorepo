@@ -15,6 +15,7 @@ import PaxeerXFeedMarketUpdatesTable from 'ui/paxeerX/feed/PaxeerXFeedMarketUpda
 import useFeedSocket, { FEED_HISTORY_BUFFER_LIMIT } from 'ui/paxeerX/feed/useFeedSocket';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import PageTitle from 'ui/shared/Page/PageTitle';
+import { usePageQuerySnapshot } from 'ui/shared/PageQuerySnapshot';
 import Pagination from 'ui/shared/pagination/Pagination';
 import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
 import { ScanTableCard } from 'ui/shared/scan';
@@ -62,6 +63,8 @@ const PaxeerXFeedMarket = () => {
   const queryClient = useQueryClient();
   const id = getQueryParamString(router.query.id);
   throwOnAbsentParamError(id);
+  const snapshot = usePageQuerySnapshot('general:paxeer_x_feed_market_updates', { pathParams: { id } });
+  const marketsSnapshot = usePageQuerySnapshot('general:paxeer_x_feed_markets');
 
   const page = getQueryParamString(router.query.page);
   const isFirstPage = !page || page === '1';
@@ -79,13 +82,13 @@ const PaxeerXFeedMarket = () => {
     onJoin: handleJoin,
   });
 
-  const marketsQuery = useApiQuery('general:paxeer_x_feed_markets');
+  const marketsQuery = useApiQuery('general:paxeer_x_feed_markets', { queryOptions: { placeholderData: marketsSnapshot } });
   const market = marketsQuery.data?.items.find((item) => String(item.market_id) === id);
 
-  const { data, isError, isPending, pagination } = useQueryWithPages({
+  const { data, isError, isPending, isPlaceholderData, pagination } = useQueryWithPages({
     resourceName: 'general:paxeer_x_feed_market_updates',
     pathParams: { id },
-    options: { refetchInterval: isFirstPage ? refetchInterval : false, gcTime: 0 },
+    options: { refetchInterval: isFirstPage ? refetchInterval : false, gcTime: 0, placeholderData: snapshot },
   });
 
   const handleUpdatesFlush = React.useCallback((updates: Array<MarketUpdate>) => {
@@ -111,7 +114,7 @@ const PaxeerXFeedMarket = () => {
 
   return (
     <>
-      <PageTitle title={ title } withTextAd isLoading={ marketsQuery.isPending }/>
+      <PageTitle title={ title } withTextAd isLoading={ marketsQuery.isPending || marketsQuery.isPlaceholderData }/>
       { isSocketDown && (
         <Box role="alert" mb={ 4 }>
           <SocketAlert/>
@@ -129,7 +132,7 @@ const PaxeerXFeedMarket = () => {
             pagination={ paginationNode }
           >
             <Box { ...hoverProps }>
-              <PaxeerXFeedMarketUpdatesTable items={ data.items }/>
+              <PaxeerXFeedMarketUpdatesTable items={ data.items } isLoading={ isPlaceholderData }/>
             </Box>
           </ScanTableCard>
         ) }

@@ -16,6 +16,7 @@ from test_pnpm_workspace_roots import (
     run_directory,
 )
 from test_workflow_runs_on_routed import ROUTED
+from test_launchpad_package_job_environment import package_condition_matches
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -83,13 +84,40 @@ def test_launchpad_workflow_covers_every_package_with_a_test_script():
     assert workflow["permissions"] == {"contents": "read"}
 
     steps = job["steps"]
+    conditional_packages = {
+        "Set up Go for launchpad services": {
+            "apps/launchpad/web",
+            *(f"sdk/launchpad/packages/{name}" for name in (
+                "candles-sdk", "indexer-sdk", "metadata-sdk", "ranking-algo-sdk",
+                "sdk", "stats-sdk", "users-sdk",
+            )),
+        },
+        "Create the pool test database": {
+            f"sdk/launchpad/packages/{name}" for name in (
+                "indexer-sdk", "metadata-sdk", "sdk", "stats-sdk", "users-sdk",
+            )
+        },
+        "Start object storage fixture": {
+            "sdk/launchpad/packages/metadata-sdk", "sdk/launchpad/packages/users-sdk",
+        },
+        "Install the users scanner": {"sdk/launchpad/packages/users-sdk"},
+        "Install PostgreSQL for the candles producer": {
+            "sdk/launchpad/packages/candles-sdk",
+        },
+    }
     for step in steps:
         assert "continue-on-error" not in step
         if "if" in step:
-            assert step["if"] in {
-                "matrix.package == 'apps/launchpad/web'",
-                "matrix.package != 'apps/launchpad/web'",
-            }
+            if step["name"] in conditional_packages:
+                assert {
+                    package for package in matrix
+                    if package_condition_matches(step, package)
+                } == conditional_packages[step["name"]]
+            else:
+                assert step["if"] in {
+                    "matrix.package == 'apps/launchpad/web'",
+                    "matrix.package != 'apps/launchpad/web'",
+                }
         if "uses" in step:
             assert re.fullmatch(r"[\w-]+/[\w-]+@[0-9a-f]{40}", step["uses"])
     (checkout,) = [
@@ -177,7 +205,7 @@ def test_launchpad_service_health_commands_use_container_option_quoting():
             checked.add((job_name, service_name))
     assert checked == {
         (job_name, service_name)
-        for job_name in ("launchpad-go-test", "launchpad-go-ci")
+        for job_name in ("launchpad-test", "launchpad-go-test", "launchpad-go-ci")
         for service_name in health_commands
     }
 
@@ -191,7 +219,15 @@ def test_launchpad_web_fixtures_use_the_go_jobs_version():
         if step.get("uses", "").startswith("actions/setup-go@")
     ]
     assert setup["name"] == "Set up Go for launchpad services"
-    assert setup["if"] == "matrix.package == 'apps/launchpad/web'"
+    expected_packages = {
+        "apps/launchpad/web",
+        *(f"sdk/launchpad/packages/{name}" for name in (
+            "candles-sdk", "indexer-sdk", "metadata-sdk", "ranking-algo-sdk",
+            "sdk", "stats-sdk", "users-sdk",
+        )),
+    }
+    for package in job["strategy"]["matrix"]["package"]:
+        assert package_condition_matches(setup, package) == (package in expected_packages)
     assert setup["with"] == {"go-version": "1.27.3", "cache": "false"}
     assert job["env"]["GOTOOLCHAIN"] == "go" + setup["with"]["go-version"]
     for name in ("launchpad-go-test", "launchpad-go-ci", "launchpad-go-wiring"):
@@ -208,7 +244,7 @@ def test_launchpad_web_fixtures_use_the_go_jobs_version():
     ):
         (consumer,) = [step for step in steps if step.get("name") == name]
         assert steps.index(setup) < steps.index(consumer)
-        assert consumer["if"] == setup["if"]
+        assert consumer["if"] == "matrix.package == 'apps/launchpad/web'"
         assert "GOTOOLCHAIN" not in consumer.get("env", {})
 
 

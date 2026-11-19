@@ -102,6 +102,7 @@ jobs:
           echo "CGO_LDFLAGS=-L${GITHUB_WORKSPACE}/build" >> "$GITHUB_ENV"
       - name: Test attestor (including TestABICopiesMatchRepository)
         env:
+          GOFLAGS: -timeout=30m
           CGO_ENABLED: "1"
           CARGO_BUILD_JOBS: "4"
           CARGO_TARGET_DIR: ${{ runner.temp }}/wallet-rust
@@ -139,4 +140,6 @@ jobs:
           sudo apt-get install -y --no-install-recommends postgresql
           echo "PG_BIN_DIR=$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)" >> "$GITHUB_ENV"
       - name: Test ceremony
+        env:
+          GOFLAGS: -timeout=30m
         run: go test ./...

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useSyncExternalStore } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { BOTTOM_NAV_BREAKPOINT_PX } from '@/shell/mobile-bottom-nav';
 import { RULES_AGREED_EVENT, rulesAgreed } from './platform-rules-modal';
@@ -31,7 +31,27 @@ const serverSnapshot = () => false;
 
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false);
+  const bannerRef = useRef<HTMLDivElement>(null);
   const phone = useSyncExternalStore(subscribePhone, phoneSnapshot, serverSnapshot);
+
+  useLayoutEffect(() => {
+    const banner = bannerRef.current;
+    if (!visible || !banner) return;
+    const update = () =>
+      document.documentElement.style.setProperty(
+        '--sl-cookie-banner-height',
+        `${banner.offsetHeight}px`
+      );
+    update();
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(update) : null;
+    observer?.observe(banner);
+    window.addEventListener('resize', update);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', update);
+      document.documentElement.style.removeProperty('--sl-cookie-banner-height');
+    };
+  }, [visible]);
 
   // The platform rules modal is the first-visit consent; the cookie banner
   // waits until it has been accepted so the two never stack on screen.
@@ -67,6 +87,8 @@ export default function CookieBanner() {
 
   return (
     <div
+      ref={bannerRef}
+      data-cookie-banner=""
       data-placement={phone ? 'above-bottom-nav' : 'viewport-bottom'}
       className={`fixed left-0 right-0 z-[var(--sl-z-toast)] bg-surface-1 px-4 py-3 ${phone ? COOKIE_BANNER_PHONE_BOTTOM_CLASS : COOKIE_BANNER_WIDE_BOTTOM_CLASS}`}
     >
@@ -81,9 +103,10 @@ export default function CookieBanner() {
           >
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
           </svg>
-          <p className="text-xs text-text-muted leading-[var(--sl-leading-base)]">
+          <p className="text-xs text-text-muted leading-[var(--sl-leading-sm)]">
             We use cookies to improve your experience and see how the site is used. See our{' '}
-            <Link prefetch={false}
+            <Link
+              prefetch={false}
               href="/docs/privacy"
               className="text-accent underline hover:opacity-80 transition"
             >
@@ -96,7 +119,7 @@ export default function CookieBanner() {
           <button
             type="button"
             onClick={decline}
-            className="border border-control-edge px-4 py-1.5 rounded-lg bg-surface-2 text-xs text-text-faint hover:bg-surface-hover hover:text-text transition"
+            className="border border-control-edge px-[calc(var(--sl-space-4)-var(--sl-edge-width))] py-[calc(var(--sl-space-1)*1.5-var(--sl-edge-width))] rounded-lg bg-surface-2 text-xs text-text-faint hover:bg-surface-hover hover:text-text transition"
           >
             Decline
           </button>

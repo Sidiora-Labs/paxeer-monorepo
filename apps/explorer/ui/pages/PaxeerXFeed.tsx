@@ -13,11 +13,13 @@ import PaxeerXFeedMarketsTable from 'ui/paxeerX/feed/PaxeerXFeedMarketsTable';
 import useFeedSocket, { FEED_OVERVIEW_BUFFER_LIMIT } from 'ui/paxeerX/feed/useFeedSocket';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import PageTitle from 'ui/shared/Page/PageTitle';
+import { usePageQuerySnapshot } from 'ui/shared/PageQuerySnapshot';
 import { formatScanTableCount, ScanTableCard } from 'ui/shared/scan';
 import SocketAlert from 'ui/shared/SocketAlert';
 
 const PaxeerXFeed = () => {
   const queryClient = useQueryClient();
+  const snapshot = usePageQuerySnapshot('general:paxeer_x_feed_markets');
 
   const reconcileMarkets = React.useCallback(async() => {
     const queryKey = getResourceKey('general:paxeer_x_feed_markets');
@@ -29,8 +31,8 @@ const PaxeerXFeed = () => {
     topic: 'paxeer_x_feed:new_update', isDisabled: false, onJoin: reconcileMarkets,
   });
 
-  const { data, isError, isPending } = useApiQuery('general:paxeer_x_feed_markets', {
-    queryOptions: { refetchInterval },
+  const { data, isError, isPending, isPlaceholderData } = useApiQuery('general:paxeer_x_feed_markets', {
+    queryOptions: { refetchInterval, placeholderData: snapshot },
   });
 
   const handleFlush = React.useCallback((updates: Array<PriceUpdateItem>) => {
@@ -62,7 +64,7 @@ const PaxeerXFeed = () => {
 
   return (
     <>
-      <PageTitle title="Price feed" withTextAd isLoading={ isPending }/>
+      <PageTitle title="Price feed" withTextAd isLoading={ isPending || isPlaceholderData }/>
       { isSocketDown && (
         <Box role="alert" mb={ 4 }>
           <SocketAlert/>
@@ -79,7 +81,7 @@ const PaxeerXFeed = () => {
             note={ `Latest submitted prices per market at chain head block ${ data.chain_head.toLocaleString() }` }
           >
             <Box { ...hoverProps }>
-              <PaxeerXFeedMarketsTable items={ items }/>
+              <PaxeerXFeedMarketsTable items={ items } isLoading={ isPlaceholderData }/>
             </Box>
           </ScanTableCard>
         ) }

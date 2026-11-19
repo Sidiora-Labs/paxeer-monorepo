@@ -104,7 +104,7 @@ func exerciseComposedPlatformEntrypoint(t *testing.T, db coordinatortest.Databas
 		"NODE_ENV": "production", "RUNTIME_PROFILE": "platform", "BIND_ADDRESS": "::", "PORT": publicPort,
 		"ZONE": "zone-a", "SECRETS_PROVIDER": "env", "SECRETS_REFRESH_SECONDS": strconv.Itoa(example.Periods.Refresh),
 		"DATABASE_URL": runtime.DSN, "REDIS_URL": os.Getenv("L40_TEST_REDIS_URL"), "DB_MAX_CONNS": "4",
-		"LIVEPEER_PROVIDER_MODE": "unavailable", "LIVEPEER_API_URL": example.Endpoints.API,
+		"LIVEPEER_PROVIDER_MODE": "unavailable", "LIVESTREAM_CONNECTED_ENABLED": "false", "LIVEPEER_API_URL": example.Endpoints.API,
 		"MAX_STREAMS_PER_WALLET": strconv.Itoa(example.Limits.Wallet), "MAX_GLOBAL_STREAMS": strconv.Itoa(example.Limits.Global),
 		"LIVESTREAM_VIEWER_TOKEN_KEY": platformViewerKey, "CORS_ALLOWED_ORIGINS": "https://web.example",
 		"LIVESTREAM_PRIVATE_LISTEN_ADDRESS": privateAddress, "LIVESTREAM_TLS_CERT_FILE": pki.server.CertFile,

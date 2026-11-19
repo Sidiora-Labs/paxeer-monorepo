@@ -52,7 +52,7 @@ const DetailedInfoTimestamp = ({ timestamp, isLoading, noRelativeTime, ...rest }
   })();
 
   return (
-    <HStack maxW="100%" minW="0" { ...rest }>
+    <HStack maxW="100%" minW="0" flexWrap="wrap" { ...rest }>
       { !noRelativeTime && (
         <>
           <Skeleton loading={ isLoading } flexShrink={ 0 }>
@@ -61,7 +61,7 @@ const DetailedInfoTimestamp = ({ timestamp, isLoading, noRelativeTime, ...rest }
           <TextSeparator mx={ 0 }/>
         </>
       ) }
-      <HStack gap={ 1 } minW="0" maxW="100%">
+      <HStack gap={ 1 } minW="0" maxW="100%" flexWrap="wrap">
         <SelectRoot
           name="time_format"
           collection={ collection }

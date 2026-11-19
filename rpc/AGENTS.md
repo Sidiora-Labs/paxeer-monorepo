@@ -34,9 +34,12 @@ that capability and latest on a full node without it:
   Without an open-state provider, the nonce request uses the account's
   `EvmProxy` route or returns `ErrPendingServedBySequencer` if no route exists.
   Held future nonces do not advance the open-block nonce.
+  After expiry, opening a block releases each sender's consecutive held nonces
+  through acceptance. A refusal drops that transaction and leaves later nonces held.
   The local acceptance path for
   `eth_sendRawTransaction` waits the same way after `ErrLayerNotOpen` and retries
-  acceptance once. It returns the transaction hash on success. See
+  acceptance once; a closed block is reported before nonce comparison. It returns
+  the transaction hash on success. See
   [tx.go](tx.go) and [send.go](send.go).
 - **Pending block objects:** [block.go](block.go) reads the snapshot directly;
   it does not apply the state-read idle fallback. The open block has its own

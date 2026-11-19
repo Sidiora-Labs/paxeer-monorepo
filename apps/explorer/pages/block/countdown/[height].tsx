@@ -1,17 +1,17 @@
 import type { NextPage } from 'next';
-import dynamic from 'next/dynamic';
 import React from 'react';
 
 import type { Props } from 'nextjs/getServerSideProps/handlers';
 import PageNextJs from 'nextjs/PageNextJs';
 
-const BlockCountdown = dynamic(() => import('ui/pages/BlockCountdown'), { ssr: false });
+import BlockCountdown from 'ui/pages/BlockCountdown';
 
 const Page: NextPage<Props> = (props: Props) => {
   return (
-    <PageNextJs pathname="/block/countdown/[height]" query={ props.query }>
+    <>
+      <PageNextJs pathname="/block/countdown/[height]" query={ props.query }>{ null }</PageNextJs>
       <BlockCountdown/>
-    </PageNextJs>
+    </>
   );
 };
 

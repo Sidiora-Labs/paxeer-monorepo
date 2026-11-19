@@ -75,7 +75,7 @@ export function PortfolioBlock({ wallet, isOwner, className, notice }: Portfolio
   return (
     <section aria-labelledby="portfolio-value-title" className={cn('flex flex-col gap-3 rounded-lg bg-surface-1 p-4', className)} data-profile-section="portfolio">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-h-[var(--sl-portfolio-value-min-height)] min-w-0 flex-1 basis-48">
+        <div className="min-h-19 min-w-0 max-w-full">
           <h2 id="portfolio-value-title" className="text-xs font-normal text-text-faint">Portfolio value</h2>
           {portfolio.loadable.state === 'loading' ? (
             <Skeleton width={surfaceSpacing(45)} height={surfaceSpacing(10)} label="Loading portfolio value" className="max-w-full" />
@@ -141,13 +141,13 @@ export function PortfolioBlock({ wallet, isOwner, className, notice }: Portfolio
       </div>
 
       {collapsed ? notice : null}
-      <div id={chartId} hidden={collapsed} className={cn(!collapsed && 'relative flex min-h-50 flex-col justify-center gap-3 [&:has([data-profile-notice])_[data-portfolio-chart-loading]]:invisible')}>
+      <div id={chartId} hidden={collapsed} className={cn(!collapsed && 'relative flex min-h-40 flex-col justify-center gap-3 [&:has([data-profile-notice])_[data-portfolio-chart-loading]]:invisible')}>
         {collapsed ? null : notice}
         {collapsed ? null : history.state === 'loading' ? (
           <div data-portfolio-chart-loading className="absolute inset-0"><Skeleton variant="block" label="Loading portfolio chart" className="size-full" /></div>
         ) : history.state === 'ready' ? (
           points.length === 0 ? (
-            <p className="flex min-h-50 items-center justify-center rounded-md bg-surface-2 px-4 text-center text-sm text-text-faint">No history yet. The chart fills in once this wallet holds coins.</p>
+            <p className="flex min-h-40 items-center justify-center rounded-md bg-surface-2 px-4 text-center text-sm text-text-faint">No history yet. The chart fills in once this wallet holds coins.</p>
           ) : (
             <PortfolioChart points={points} tone={delta?.tone ?? 'flat'} height={launchpadGeometry.chart.portfolioCompactHeight} />
           )
@@ -160,7 +160,7 @@ export function PortfolioBlock({ wallet, isOwner, className, notice }: Portfolio
         ) : owner && isSignedOutError(history.error) ? (
           <SignedOutState variant="inline" title="Sign in to see your value history" />
         ) : historyCollected ? (
-          <div aria-hidden="true" data-chart-placeholder className="min-h-50 rounded-md bg-surface-1" />
+          <div aria-hidden="true" data-chart-placeholder className="min-h-40 rounded-md bg-surface-1" />
         ) : (
           <p role="alert" className="text-sm text-danger">Can't load the chart right now</p>
         )}

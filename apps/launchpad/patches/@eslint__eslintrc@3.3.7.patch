@@ -1,0 +1,12 @@
+diff --git a/lib/config-array/override-tester.js b/lib/config-array/override-tester.js
+--- a/lib/config-array/override-tester.js
++++ b/lib/config-array/override-tester.js
+@@ -20,7 +20,7 @@
+ import assert from "node:assert";
+ import path from "node:path";
+ import util from "node:util";
+-import minimatch from "minimatch";
++import * as minimatch from "minimatch";
+ 
+ const { Minimatch } = minimatch;
+ 

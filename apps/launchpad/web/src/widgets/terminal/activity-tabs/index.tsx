@@ -100,7 +100,7 @@ export default function TerminalActivityTabs({ poolAddress }: { poolAddress: str
   return (
     <section aria-label="Pair activity" className="flex min-h-0 shrink-0 flex-col rounded-md bg-surface-1">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-1">
-        <TabStrip idPrefix={idPrefix} variant="filled" manual label="Pair activity" tabs={tabs} active={tab} onChange={setTab} className="min-w-0 flex-1 basis-64" />
+        <TabStrip idPrefix={idPrefix} variant="filled" manual label="Pair activity" tabs={tabs} active={tab} onChange={setTab} className="min-w-0 flex-1 basis-64 min-[835px]:basis-0" />
         <div className="flex flex-wrap items-center gap-2">
           {tab === 'trades' ? <FillFilterChips value={activeFilter} onChange={setFilter} wallets={wallets} /> : null}
           <SwitchRow id={`${idPrefix}-instant`} label="Instant trade" icon={<Zap />} checked={instant} onChange={setInstant} />

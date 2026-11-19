@@ -16,6 +16,7 @@ const (
 	valueMigrationControl       = "migration_control"
 	valueSequence               = "sequence"
 	valueTable                  = "table"
+	valueNontransactional       = "nontransactional"
 	valueTransactional          = "transactional"
 	valueView                   = "view"
 	valueCoreApiCache           = "core/api/cache"

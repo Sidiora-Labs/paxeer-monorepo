@@ -29,6 +29,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/cross-chain-tx/1",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/cross-chain-tx/1.json",
+          "status": 404
         }
       ]
     },
@@ -48,7 +53,7 @@
             {
               "method": "GET",
               "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets",
-              "file": "answers/empty.json",
+              "file": "answers/feed-markets-empty.json",
               "headers": {
                 "content-type": "application/json",
                 "access-control-allow-origin": "http://localhost:4173",
@@ -59,7 +64,7 @@
             {
               "method": "GET",
               "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets?*",
-              "file": "answers/empty.json",
+              "file": "answers/feed-markets-empty.json",
               "headers": {
                 "content-type": "application/json",
                 "access-control-allow-origin": "http://localhost:4173",
@@ -157,10 +162,7 @@
     },
     {
       "name": "/internal-txs",
-      "path": "/explorer/internal-txs",
-      "modes": [
-        "default"
-      ]
+      "path": "/explorer/internal-txs"
     },
     {
       "name": "/tx/[hash]",
@@ -175,7 +177,7 @@
           "steps": [
             {
               "action": "wait",
-              "text": "Transactions"
+              "text": "There are no transactions."
             }
           ],
           "answers": [
@@ -291,6 +293,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/txs/kettle/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/txs/kettle/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2.json",
           "status": 404
         }
       ]

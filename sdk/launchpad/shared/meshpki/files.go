@@ -91,7 +91,7 @@ func readFile(root *os.Root, name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	raw, err := io.ReadAll(io.LimitReader(file, 1048577))
 	if err != nil {
 		return nil, err

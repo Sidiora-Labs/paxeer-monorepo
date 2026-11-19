@@ -14,7 +14,6 @@ const correctionProducers = [
     method: 'POST',
     path: '/v2/me/rewards:prepare-claim',
     file: 'services/launchpad/pnl-tracker/internal/app/app.go',
-    line: 390,
     registration: 'router.Post("/v2/me/rewards:prepare-claim", PrepareClaim(h))',
   },
 ];
@@ -22,9 +21,9 @@ const correctionProducers = [
 function everyRouteCorrectionHasRegisteredProducer() {
   const root = new URL('../../../../../', import.meta.url);
   assert.deepEqual(Object.keys(ROUTE_CORRECTIONS).sort(), correctionProducers.map(row => row.operation).sort());
-  for (const { operation, method, path, file, line, registration } of correctionProducers) {
+  for (const { operation, method, path, file, registration } of correctionProducers) {
     const source = readFileSync(new URL(file, root), 'utf8').split('\n');
-    assert.equal(source[line - 1].trim(), registration, `${file}:${line}`);
+    assert.equal(source.filter(line => line.trim() === registration).length, 1, file);
     assert.ok(registration.startsWith(`router.${method[0]}${method.slice(1).toLowerCase()}("${path}",`));
     assert.equal(operationDefinitions[operation].method, method, operation);
     assert.equal(ROUTE_CORRECTIONS[operation], path, operation);

@@ -894,6 +894,8 @@ pub struct PaxeerIngester {
     comet: Option<Endpoint>,
     registry: AbiRegistry,
     policy: FollowPolicy,
+    batch_blocks: usize,
+    readers: usize,
     start_block: u64,
     expected_chain_id: Option<u64>,
     encoding: AttributeEncoding,
@@ -916,11 +918,21 @@ impl PaxeerIngester {
             comet,
             registry,
             policy,
+            batch_blocks: crate::config::DEFAULT_BACKFILL_BATCH_BLOCKS as usize,
+            readers: crate::config::DEFAULT_BACKFILL_READERS as usize,
             start_block,
             expected_chain_id,
             encoding,
             tx_index_off_reported: AtomicBool::new(false),
         }
+    }
+
+    /// Sets the batch size and concurrent readers used by live steps.
+    #[must_use]
+    pub const fn with_read_limits(mut self, batch_blocks: usize, readers: usize) -> Self {
+        self.batch_blocks = batch_blocks;
+        self.readers = readers;
+        self
     }
 
     /// The first block this ingester indexes on an empty store.
@@ -1326,12 +1338,13 @@ impl PaxeerIngester {
                 .and_then(Value::as_str)
             {
                 Some("off") => {
-                    store.record_source_failure("comet", "tx_index_disabled")?;
+                    let indexed = store.cursor(CHAIN)?.map(|cursor| cursor.position);
+                    store.record_comet_success(head, indexed, true)?;
                     Ok(CometObservation::IndexDisabled)
                 }
                 Some("on") => {
                     let indexed = store.cursor(CHAIN)?.map(|cursor| cursor.position);
-                    store.record_source_success("comet", Some(head), indexed)?;
+                    store.record_comet_success(head, indexed, false)?;
                     Ok(CometObservation::Ready)
                 }
                 _ => Err(IndexError::Source(
@@ -1471,13 +1484,35 @@ impl PaxeerIngester {
         }
         let last = head.min(next.saturating_add(self.policy.max_units_per_step.max(1) - 1));
         let cosmos = self.tx_search(next, last)?;
+        let mut batched = if next < last {
+            let heights: Vec<_> = (next..=last).collect();
+            match self.blocks_with_receipts(&heights, self.batch_blocks, self.readers) {
+                Ok(blocks) => Some(blocks.into_iter()),
+                Err(IndexError::Source(_) | IndexError::Decode(_)) => None,
+                Err(error) => return Err(error),
+            }
+        } else {
+            None
+        };
         let is_pointer = |address: &str| store.is_pointer(address);
         let mut units = 0;
         for height in next..=last {
-            let block = self
-                .block(height)?
+            let block = match &mut batched {
+                Some(blocks) => {
+                    let (position, block) = blocks.next().ok_or_else(|| {
+                        IndexError::Integrity("batch omitted a requested height".to_owned())
+                    })?;
+                    if position != height {
+                        return Err(IndexError::Integrity(format!(
+                            "batch answered height {position} for {height}"
+                        )));
+                    }
+                    block
+                }
+                None => self.block_with_receipts(height)?,
+            };
+            let (block, receipts) = block
                 .ok_or_else(|| IndexError::Source(format!("block {height} is not available")))?;
-            let receipts = self.receipts(&block)?;
             let inputs = BlockInputs {
                 registry: &self.registry,
                 receipts: &receipts,

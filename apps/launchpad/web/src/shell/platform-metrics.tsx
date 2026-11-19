@@ -35,7 +35,7 @@ export function platformFooterItems(data: PlatformMetricsV2): FooterMetric[] {
   const optional = (
     value: string | null | undefined,
     field: string,
-    format: (raw: string) => string
+    format: (raw: string) => string,
   ): Pick<FooterMetric, 'value' | 'operation'> =>
     value === undefined || value === null
       ? { value: null, operation: pending(field) }
@@ -52,7 +52,7 @@ export function platformFooterItems(data: PlatformMetricsV2): FooterMetric[] {
 }
 
 /**
- * Platform activity figures use the same labelled grid while loading and ready,
+ * Platform activity figures use the same labelled row while loading and ready,
  * or one quiet status line when unavailable.
  * A figure the envelope does not carry shows a faint em dash that says "not
  * served" to assistive tech, with the operation in a developer-only attribute
@@ -83,48 +83,67 @@ export default function PlatformMetricsFooter() {
           className="text-2xs"
         />
       );
-    else failure = (
-      <p role="status" className="truncate text-2xs text-text-faint">
-        Couldn't load stats.{' '}
-        <button
-          type="button"
-          onClick={() => {
-            void query.refetch();
-          }}
-          className="font-bold text-text-muted hover:text-text focus-visible:-outline-offset-2 focus-visible:underline"
-        >
-          Try again
-        </button>
-      </p>
-    );
+    else
+      failure = (
+        <p role="status" className="truncate text-2xs text-text-faint">
+          Couldn't load stats.{' '}
+          <button
+            type="button"
+            onClick={() => {
+              void query.refetch();
+            }}
+            className="font-bold text-text-muted hover:text-text focus-visible:-outline-offset-2 focus-visible:underline"
+          >
+            Try again
+          </button>
+        </p>
+      );
   }
 
   if (!data && !query.isPending && !failure) return null;
-  const items: FooterMetric[] = data ? platformFooterItems(data) : [
-    '24h volume', 'Market cap', '24h trades', '24h traders', 'Coins launched', 'New today',
-  ].map(label => ({ label, value: null, operation: null }));
+  const items: FooterMetric[] = data
+    ? platformFooterItems(data)
+    : ['24h volume', 'Market cap', '24h trades', '24h traders', 'Coins launched', 'New today'].map(
+        (label) => ({ label, value: null, operation: null }),
+      );
   return (
     <div className="grid min-w-0">
-      <dl aria-label="Platform activity" aria-busy={query.isPending || undefined} aria-hidden={failure ? true : undefined} inert={failure ? true : undefined} className={`col-start-1 row-start-1 grid min-w-0 grid-cols-2 gap-x-4 gap-y-2 md:grid-cols-3 xl:grid-cols-6${failure ? ' invisible' : ''}`}>
+      <dl
+        aria-label="Platform activity"
+        aria-busy={query.isPending || undefined}
+        aria-hidden={failure ? true : undefined}
+        inert={failure ? true : undefined}
+        className={`col-start-1 row-start-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1${failure ? ' invisible' : ''}`}
+      >
         {items.map((item) => {
           const detail = item.value === null ? technicalDetail(item.operation, null) : null;
           return (
-            <div key={item.label} className="min-w-0 text-2xs">
+            <div key={item.label} className="flex min-w-0 items-baseline gap-1 text-2xs">
               <dt className="text-text-faint">{item.label}</dt>
               {query.isPending ? (
-                <dd className="min-h-[2lh]"><span className="sr-only">Loading platform activity</span></dd>
+                <dd className="min-h-[1lh] self-center text-right font-bold tabular-nums">
+                  <span aria-hidden="true" className="invisible">
+                    {item.label === '24h volume' || item.label === 'Market cap'
+                      ? formatUsdl('0', { compact: true })
+                      : formatCount('0')}
+                  </span>
+                  <span className="sr-only">Loading platform activity</span>
+                </dd>
               ) : item.value === null ? (
                 <dd
                   data-unavailable=""
                   title={detail ?? undefined}
                   data-operation={detail ?? undefined}
-                  className="min-h-[2lh] text-right text-text-faint"
+                  className="min-h-[1lh] text-right text-text-faint"
                 >
                   <span aria-hidden="true">—</span>
                   <span className="sr-only">not available yet</span>
                 </dd>
               ) : (
-                <dd data-numeric className="min-h-[2lh] text-right font-bold tabular-nums text-text-muted">
+                <dd
+                  data-numeric
+                  className="min-h-[1lh] text-right font-bold tabular-nums text-text-muted"
+                >
                   {item.value}
                 </dd>
               )}
@@ -146,8 +165,8 @@ const LEGAL_LINKS = [
 ];
 
 /**
- * Copyright and legal links share a canvas row above the activity grid.
- * Page content fills a viewport before the footer on short pages.
+ * Copyright, legal links and activity figures share a canvas row.
+ * The footer sits at the viewport bottom on short pages.
  */
 export function ShellFooter() {
   return (
@@ -155,18 +174,28 @@ export function ShellFooter() {
       <p suppressHydrationWarning>© {new Date().getFullYear()} Sidiora</p>
       <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {LEGAL_LINKS.map(({ label, href }) => (
-          <Link prefetch={false}
+          <Link
+            prefetch={false}
             key={href}
             href={href}
-            className="inline-flex min-h-touch-target-min items-center transition-colors duration-fast hover:text-text"
+            className="inline-flex items-center transition-colors duration-fast hover:text-text"
           >
             {label}
           </Link>
         ))}
       </nav>
-      <div className="min-h-[calc(6lh+var(--sl-space-4))] min-w-0 basis-full md:min-h-[calc(4lh+var(--sl-space-2))] xl:min-h-[2lh]">
+      <div className="min-h-[1lh] min-w-0 sm:ml-auto">
         <PlatformMetricsFooter />
       </div>
     </footer>
+  );
+}
+
+export function PageWithFooter({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col">
+      <div className="min-w-0 flex-1">{children}</div>
+      <ShellFooter />
+    </div>
   );
 }

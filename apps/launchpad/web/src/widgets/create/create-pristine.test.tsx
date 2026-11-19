@@ -136,7 +136,8 @@ describe('CreateWizard reference layout', () => {
     const nameRow = field(container, 'create-name').closest('.grid');
     expect(nameRow).not.toBeNull();
     expect(nameRow!.contains(field(container, 'create-symbol'))).toBe(true);
-    expect(classes(nameRow)).toContain('grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-form-field-min-width)),1fr))]');
+    expect(classes(nameRow)).toContain('sm:grid-cols-2');
+    expect(classes(nameRow)).toContain('sm:gap-3');
     const text = container.textContent ?? '';
     expect(text).not.toContain(`0/${NAME_MAX_BYTES}`);
     expect(text).not.toContain(`0/${SYMBOL_MAX_BYTES}`);

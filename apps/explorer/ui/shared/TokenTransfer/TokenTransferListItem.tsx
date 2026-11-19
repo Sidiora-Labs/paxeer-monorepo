@@ -92,9 +92,15 @@ const TokenTransferListItem = ({
         current={ baseAddress }
         isLoading={ isLoading }
         w="100%"
+        minW={ 0 }
+        css={{
+          gridTemplateColumns: 'minmax(0, max-content) max-content minmax(0, max-content)',
+          '& [data-entity]': { minW: 0, maxW: '100%', flexWrap: 'wrap' },
+          '& [data-entity-content]': { whiteSpace: 'normal', overflowWrap: 'anywhere' },
+        }}
       />
       { total && 'value' in total && total.value !== null && (
-        <Flex columnGap={ 2 } w="100%">
+        <Flex columnGap={ 2 } w="100%" flexWrap="wrap">
           <Skeleton loading={ isLoading } fontWeight="medium" flexShrink={ 0 }>Value</Skeleton>
           <AssetValue
             amount={ total && 'value' in total && total.value !== null ? total.value : null }
@@ -107,7 +113,7 @@ const TokenTransferListItem = ({
       ) }
 
       { token && isConfidentialTokenType(token.type) && (!total || !('value' in total) || total.value === null) && (
-        <Flex columnGap={ 2 } w="100%">
+        <Flex columnGap={ 2 } w="100%" flexWrap="wrap">
           <Skeleton loading={ isLoading } fontWeight="medium" flexShrink={ 0 }>Value</Skeleton>
           <ConfidentialValue loading={ isLoading } color="text.secondary"/>
         </Flex>

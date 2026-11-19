@@ -17,7 +17,7 @@ import { JudgePanel } from './judge-panel';
 
 function BackLink() {
   return (
-    <Link prefetch={false} href="/bounties" className="inline-flex min-h-touch-target-min w-fit items-center gap-1 rounded-sm text-sm text-text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-focus">
+    <Link prefetch={false} href="/bounties" className="inline-flex w-fit items-center gap-1 rounded-sm text-sm text-text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-focus">
       <ArrowLeft aria-hidden="true" className="size-icon-sm" />All bounties
     </Link>
   );
@@ -27,7 +27,7 @@ function BountyHeader({ bounty }: { bounty: Bounty }) {
   const badge = bountiesContract.badgeFor(bounty);
   const creator = shortAddress(bounty.creatorWallet, 6, 4);
   return (
-    <header className="flex min-h-[var(--sl-bounty-header-min-height)] flex-col gap-4 rounded-lg bg-surface-1 p-4 @max-[18em]/bounty-content:min-h-[max(var(--sl-bounty-header-min-height),var(--sl-bounty-header-column-min-height))] md:p-6">
+    <header className="flex flex-col gap-4 rounded-lg bg-surface-1 p-4 md:p-6">
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge status={badge.status}>{badge.label}</StatusBadge>
         {bounty.poolAddress ? <span className="flex min-w-0 flex-1"><BountyTokenChip poolAddress={bounty.poolAddress} /></span> : null}
@@ -36,7 +36,7 @@ function BountyHeader({ bounty }: { bounty: Bounty }) {
       <div className="flex flex-wrap items-center gap-2 text-sm text-text-muted">
         <Avatar src={null} name={bounty.creatorWallet} size="sm" decorative />
         <span>by</span>
-        <Link prefetch={false} href={`/profile/${bounty.creatorWallet.toLowerCase()}`} className="inline-flex min-h-touch-target-min items-center font-mono hover:text-text focus-visible:outline-2 focus-visible:outline-focus">{creator}</Link>
+        <Link prefetch={false} href={`/profile/${bounty.creatorWallet.toLowerCase()}`} className="inline-flex items-center font-mono hover:text-text focus-visible:outline-2 focus-visible:outline-focus">{creator}</Link>
       </div>
       <BountyReward bounty={bounty} size="lg" />
       {bounty.deadlineAt ? <CountdownProgress endsAt={bounty.deadlineAt} variant="bar" /> : null}
@@ -61,7 +61,7 @@ function SubmissionsSection({ result, asset, wallet, bounty, creator }: { result
   // Rejected work stays visible only to its author, so the list can be empty while the page is not.
   const visible = loadable.state === 'ready' ? loadable.data.filter(item => item.state !== 'rejected' || own(item)) : [];
   return (
-    <section aria-labelledby="bounty-submissions-heading" className="flex min-h-[var(--sl-bounty-submissions-min-height)] flex-col gap-3">
+    <section aria-labelledby="bounty-submissions-heading" className="flex flex-col gap-3">
       <h2 id="bounty-submissions-heading" className="text-lg font-bold text-text">Submissions</h2>
       {loadable.state === 'loading' ? (
         <div aria-busy="true" className="flex min-h-40 flex-col justify-center gap-3 rounded-lg bg-surface-1 p-4">
@@ -74,7 +74,7 @@ function SubmissionsSection({ result, asset, wallet, bounty, creator }: { result
       ) : null}
       {loadable.state === 'error' ? <ErrorState title="Submissions can't load right now" message="Something went wrong, try again" onRetry={loadable.retry} className="rounded-lg bg-surface-1" /> : null}
       {loadable.state === 'ready' && visible.length === 0 && !result.hasMore ? (
-        <EmptyState icon={FileText} title="No submissions yet" body={submissionsEmptyBody(bounty, creator)} className="min-h-40 rounded-lg bg-surface-1" />
+        <EmptyState icon={FileText} title="No submissions yet" body={submissionsEmptyBody(bounty, creator)} className="rounded-lg bg-surface-1" />
       ) : null}
       {loadable.state === 'ready' && (visible.length > 0 || result.hasMore) ? (
         <>
@@ -95,14 +95,14 @@ function SubmissionsSection({ result, asset, wallet, bounty, creator }: { result
 function DetailSkeleton() {
   return (
     <>
-      <div aria-busy="true" className="flex min-h-[var(--sl-bounty-header-min-height)] flex-col gap-4 rounded-lg bg-surface-1 p-4 [overflow-anchor:none] @max-[18em]/bounty-content:min-h-[max(var(--sl-bounty-header-min-height),var(--sl-bounty-header-column-min-height))] md:p-6">
+      <div aria-busy="true" className="flex flex-col gap-4 rounded-lg bg-surface-1 p-4 [overflow-anchor:none] md:p-6">
         <Skeleton variant="pill" width={surfaceSpacing(45)} height={surfaceSpacing(11)} label="Loading bounty" />
         <Skeleton width="70%" className="h-[1lh] text-2xl" />
         <Skeleton width={surfaceSpacing(40)} height={surfaceSpacing(11)} />
         <Skeleton width={surfaceSpacing(30)} height={surfaceSpacing(7)} />
         <Skeleton width="70%" className="h-[1lh] text-sm" />
       </div>
-      <section aria-busy="true" className="flex min-h-[var(--sl-bounty-description-min-height)] flex-col gap-2 rounded-lg bg-surface-1 p-4 [overflow-anchor:none] md:p-6">
+      <section aria-busy="true" className="flex flex-col gap-2 rounded-lg bg-surface-1 p-4 [overflow-anchor:none] md:p-6">
         <Skeleton width={surfaceSpacing(30)} className="h-[1lh] text-md" label="Loading tasks and rules" />
         <Skeleton width="70%" className="h-[1lh] text-sm" />
       </section>
@@ -126,7 +126,7 @@ export function BountyDetail({ bountyId, className }: { bountyId: string; classN
   return (
     <div className={cn('@container/bounty-detail flex flex-col gap-6', className)}>
       <BackLink />
-      <div className="grid gap-6 @max-[18em]/bounty-detail:[--sl-bounty-header-min-height:var(--sl-bounty-header-expanded-min-height)] @max-[18em]/bounty-detail:[--sl-bounty-description-min-height:var(--sl-bounty-description-expanded-min-height)] @max-[18em]/bounty-detail:[--sl-bounty-submissions-min-height:var(--sl-bounty-submissions-expanded-min-height)] @max-[18em]/bounty-detail:[--sl-bounty-entry-min-height:var(--sl-bounty-entry-expanded-min-height)] lg:grid-cols-[minmax(0,1fr)_minmax(0,var(--sl-dashboard-column-width))]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,var(--sl-dashboard-column-width))]">
         <div className="@container/bounty-content flex min-w-0 flex-col gap-6">
           {detail.state === 'loading' ? <DetailSkeleton /> : null}
           {detail.state === 'unsupported' ? (
@@ -135,7 +135,7 @@ export function BountyDetail({ bountyId, className }: { bountyId: string; classN
           {detail.state === 'error' ? <ErrorState title="This bounty can't load right now" message="Something went wrong, try again" onRetry={detail.retry} className="rounded-lg bg-surface-1" /> : null}
           {bounty ? <BountyHeader bounty={bounty} /> : null}
           {bounty ? (
-            <section aria-labelledby="bounty-description-heading" className="flex min-h-[var(--sl-bounty-description-min-height)] flex-col gap-2 rounded-lg bg-surface-1 p-4 md:p-6">
+            <section aria-labelledby="bounty-description-heading" className="flex flex-col gap-2 rounded-lg bg-surface-1 p-4 md:p-6">
               <h2 id="bounty-description-heading" className="text-md font-bold text-text">Tasks and rules</h2>
               <p className="whitespace-pre-wrap break-words text-sm text-text">{bounty.description}</p>
             </section>

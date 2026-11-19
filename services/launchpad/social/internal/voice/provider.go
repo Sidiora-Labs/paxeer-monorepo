@@ -22,6 +22,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+const roomNamesField = "names"
+
 type LiveKit struct {
 	Endpoint, APIKey, APISecret string
 	Client                      *http.Client
@@ -139,7 +141,7 @@ func (p *LiveKit) Find(ctx context.Context, key string) (string, bool, error) {
 			Name string `json:"name"`
 		} `json:"rooms"`
 	}
-	if e := p.call(ctx, "RoomService", "ListRooms", "", map[string]any{"names": []string{name}}, &response); e != nil {
+	if e := p.call(ctx, "RoomService", "ListRooms", "", map[string]any{roomNamesField: []string{name}}, &response); e != nil {
 		return "", false, e
 	}
 	for _, r := range response.Rooms {
@@ -221,7 +223,7 @@ func (p *LiveKit) End(ctx context.Context, room string) error {
 			Name string `json:"name"`
 		} `json:"rooms"`
 	}
-	if e = p.call(ctx, "RoomService", "ListRooms", "", map[string]any{"names": []string{room}}, &result); e != nil {
+	if e = p.call(ctx, "RoomService", "ListRooms", "", map[string]any{roomNamesField: []string{room}}, &result); e != nil {
 		return e
 	}
 	if len(result.Rooms) == 0 {
@@ -238,7 +240,7 @@ func (p *LiveKit) End(ctx context.Context, room string) error {
 		case <-ticker.C:
 		}
 		result.Rooms = nil
-		if e = p.call(confirmation, "RoomService", "ListRooms", "", map[string]any{"names": []string{room}}, &result); e != nil {
+		if e = p.call(confirmation, "RoomService", "ListRooms", "", map[string]any{roomNamesField: []string{room}}, &result); e != nil {
 			return e
 		}
 		if len(result.Rooms) == 0 {

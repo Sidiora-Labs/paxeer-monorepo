@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/internal/testpostgres"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -71,11 +72,11 @@ func activeRebuildOpen(t *testing.T, schema string) (context.Context, *pgxpool.P
 	requireArchiveFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	t.Cleanup(cancel)
-	cfg, err := pgxpool.ParseConfig(os.Getenv("DELIVERY_TEST_DSN"))
+	cfg, err := testpostgres.ParseConfig(os.Getenv("DELIVERY_TEST_DSN"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ConnConfig.Host != "127.0.0.1" || cfg.ConnConfig.Port != 25432 || cfg.ConnConfig.Database != "kindle_fixture" || !strings.HasPrefix(schema, "kd_") || !token.MatchString(schema) || len(schema) > 63 {
+	if !strings.HasPrefix(schema, "kd_") || !token.MatchString(schema) || len(schema) > 63 {
 		t.Fatal("explicit private PostgreSQL fixture and bounded kd_ schema required")
 	}
 	cfg.MaxConns = 4

@@ -71,6 +71,150 @@ fn recorded_freshness() -> Value {
     transcript["result"]["freshness"].clone()
 }
 
+fn ready_source(name: &str) -> Value {
+    json!({
+        "source": name,
+        "state": "ready",
+        "source_head": 12,
+        "indexed_cursor": 11,
+        "finalized_cursor": 10,
+        "reconciled": true,
+        "last_success_at": 1_700_000_000,
+        "freshness_secs": 1,
+        "last_error_at": null,
+        "consecutive_failures": 0
+    })
+}
+
+fn history_with_sources(sources: Value) -> Value {
+    let mut result = producer_repair::records()["history"].clone();
+    result["freshness"]["sources"] = sources;
+    result["freshness"]["status"] = json!("ready");
+    result
+}
+
+fn assert_history_preserves_freshness(result: Value) {
+    let account = result["account"]
+        .as_str()
+        .unwrap_or_else(|| panic!("account"));
+    let (url, server) = serve(vec![(
+        "px_getHistory",
+        json!([account, null, 50]),
+        json!({"result": result}),
+    )]);
+    let endpoint = SequencerEndpoint::new(&url, &[]).must();
+    assert_eq!(
+        history(&endpoint, account, None, None).must(),
+        HistoryPage {
+            account: account.to_owned(),
+            freshness: result["freshness"].clone(),
+            items: result["items"]
+                .as_array()
+                .unwrap_or_else(|| panic!("items"))
+                .clone(),
+            next_cursor: None,
+            indexed_height: Some(12),
+            chain_height: Some(12),
+        }
+    );
+    assert_eq!(server.join().must(), 1);
+}
+
+#[test]
+fn history_accepts_ready_sources_at_or_below_the_head() {
+    for name in ["paxeer", "layerx", "comet"] {
+        for cursor in [0, 11, 12] {
+            let mut source = ready_source(name);
+            source["indexed_cursor"] = json!(cursor);
+            assert_history_preserves_freshness(history_with_sources(json!([source])));
+        }
+    }
+}
+
+#[test]
+fn history_accepts_index_disabled_comet_without_lowering_readiness() {
+    for cursor in [Value::Null, json!(0), json!(12)] {
+        let mut comet = ready_source("comet");
+        comet["state"] = json!("index_disabled");
+        comet["indexed_cursor"] = cursor;
+        comet["finalized_cursor"] = Value::Null;
+        let mut result = history_with_sources(json!([ready_source("paxeer"), comet]));
+        assert_history_preserves_freshness(result.clone());
+        result["freshness"]["sources"][0]["state"] = json!("catching_up");
+        result["freshness"]["status"] = json!("degraded");
+        assert_history_preserves_freshness(result);
+    }
+}
+
+#[test]
+fn history_refuses_invalid_ready_and_index_disabled_sources() {
+    let mut invalid = Vec::new();
+    for name in ["paxeer", "layerx", "comet"] {
+        for (field, value) in [
+            ("indexed_cursor", json!(13)),
+            ("source_head", Value::Null),
+            ("indexed_cursor", Value::Null),
+            ("source_head", json!("12")),
+            ("indexed_cursor", json!("11")),
+            ("state", json!("unknown")),
+        ] {
+            let mut source = ready_source(name);
+            source[field] = value;
+            invalid.push(history_with_sources(json!([source])));
+        }
+    }
+    for name in ["paxeer", "layerx"] {
+        let mut source = ready_source(name);
+        source["state"] = json!("index_disabled");
+        invalid.push(history_with_sources(json!([source])));
+    }
+    for state in ["ready", "index_disabled"] {
+        for (field, value) in [
+            ("reconciled", json!(false)),
+            ("consecutive_failures", json!(1)),
+            ("last_success_at", Value::Null),
+            ("freshness_secs", Value::Null),
+        ] {
+            let mut source = ready_source("comet");
+            source["state"] = json!(state);
+            source[field] = value;
+            invalid.push(history_with_sources(json!([
+                ready_source("paxeer"),
+                source
+            ])));
+        }
+    }
+    let mut comet = ready_source("comet");
+    comet["state"] = json!("index_disabled");
+    for status in ["degraded", "unavailable"] {
+        let mut result = history_with_sources(json!([ready_source("paxeer"), comet]));
+        result["freshness"]["status"] = json!(status);
+        invalid.push(result);
+    }
+    let account = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    let count = invalid.len();
+    let exchanges = invalid
+        .into_iter()
+        .map(|result| {
+            (
+                "px_getHistory",
+                json!([account, null, 50]),
+                json!({"result": result}),
+            )
+        })
+        .collect();
+    let (url, server) = serve(exchanges);
+    let endpoint = SequencerEndpoint::new(&url, &[]).must();
+    for index in 0..count {
+        assert_eq!(
+            history(&endpoint, account, None, None),
+            Err(SequencerError::Malformed),
+            "freshness case {index}"
+        );
+    }
+    assert_eq!(server.join().must(), count);
+}
+
 #[test]
 fn history_pages_px_get_history_and_carries_the_next_cursor() {
     producer_repair::history();
