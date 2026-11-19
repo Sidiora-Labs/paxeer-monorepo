@@ -2,6 +2,7 @@ import { Box, chakra, Flex, useRecipe } from '@chakra-ui/react';
 import React from 'react';
 
 import { Hint } from 'toolkit/components/Hint/Hint';
+import { INLINE_CONTROL_STYLES } from 'toolkit/utils/inlineControl';
 
 export interface ScanExpanderProps {
   label?: string;
@@ -44,9 +45,16 @@ const ScanExpander = ({
       py={ 3 }
     >
       <Flex alignItems="center" columnGap={ 2 } flexWrap="wrap">
-        { hint && <Hint label={ hint } boxSize={ 4 }/> }
+        { hint && <Hint label={ hint } boxSize={ 4 } lineHeight="inherit" css={ INLINE_CONTROL_STYLES }/> }
         <chakra.span textStyle="sm" color="text.secondary" data-label>{ label }:</chakra.span>
-        <chakra.button type="button" onClick={ handleClick } css={ linkRecipe() } textStyle="sm" aria-expanded={ isOpen } data-toggle>
+        <chakra.button
+          type="button"
+          onClick={ handleClick }
+          css={{ ...linkRecipe(), ...INLINE_CONTROL_STYLES }}
+          textStyle="sm"
+          aria-expanded={ isOpen }
+          data-toggle
+        >
           { isOpen ? hideText : showText }
         </chakra.button>
       </Flex>

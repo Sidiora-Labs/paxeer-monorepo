@@ -1,3 +1,4 @@
+import { Box } from '@chakra-ui/react';
 import type { DehydratedState } from '@tanstack/react-query';
 import { QueryClient, dehydrate } from '@tanstack/react-query';
 import type { GetServerSideProps, NextPage } from 'next';
@@ -9,6 +10,7 @@ import * as gSSP from 'nextjs/getServerSideProps/main';
 import PageNextJs from 'nextjs/PageNextJs';
 
 import config from 'configs/app';
+import { INLINE_CONTROL_STYLES } from 'toolkit/utils/inlineControl';
 import TransactionsDefault from 'ui/pages/Transactions';
 import { PageQuerySnapshotProvider } from 'ui/shared/PageQuerySnapshot';
 import prefetchPageQuery from 'ui/shared/prefetchPageQuery';
@@ -32,12 +34,13 @@ const TransactionsAlternative = dynamic(() => {
 type PageProps = Props & { snapshot: DehydratedState };
 
 const Page: NextPage<PageProps> = (props: PageProps) => {
-
   return (
     <PageQuerySnapshotProvider value={ props.snapshot }>
       <PageNextJs pathname="/txs">
-        { config.features.multichain.isEnabled || config.features.zetachain.isEnabled || config.features.crossChainTxs.isEnabled ?
-          <TransactionsAlternative/> : <TransactionsDefault/> }
+        <Box minW={ 0 } w="full" css={{ '& [data-page-api-entry]': INLINE_CONTROL_STYLES }}>
+          { config.features.multichain.isEnabled || config.features.zetachain.isEnabled || config.features.crossChainTxs.isEnabled ?
+            <TransactionsAlternative/> : <TransactionsDefault/> }
+        </Box>
       </PageNextJs>
     </PageQuerySnapshotProvider>
   );

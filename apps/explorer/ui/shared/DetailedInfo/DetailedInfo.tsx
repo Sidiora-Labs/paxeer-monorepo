@@ -4,6 +4,7 @@ import React from 'react';
 
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Hint } from 'toolkit/components/Hint/Hint';
+import { INLINE_CONTROL_STYLES } from 'toolkit/utils/inlineControl';
 import * as ContainerWithScrollY from 'ui/shared/ContainerWithScrollY';
 
 interface SectionProps {
@@ -36,21 +37,14 @@ export const Container = (props: GridProps) => {
       <Grid
         columnGap={{ base: 4, lg: 6 }}
         rowGap={ 0 }
-        templateColumns={{ base: 'minmax(0, 1fr)', lg: '220px minmax(0, 1fr)' }}
+        templateColumns={{ base: 'minmax(0, 1fr)', lg: 'calc(var(--chakra-spacing-40) + var(--chakra-spacing-15)) minmax(0, 1fr)' }}
         textStyle={{ base: 'sm', lg: 'md' }}
         data-detailed-info
         css={{
           '& > [data-detailed-info-label]': { borderTopWidth: 'var(--chakra-border-widths-1)', borderColor: 'hairline', pt: 2 },
           '& > [data-detailed-info-value]': { borderTopWidth: { base: 0, lg: 'var(--chakra-border-widths-1)' }, borderColor: 'hairline', py: 2 },
           '& > [data-detailed-info-divider]': { gridColumn: '1 / -1' },
-          '@supports (container-type: inline-size)': {
-            gridTemplateColumns: 'minmax(0, 1fr)',
-            '& > [data-detailed-info-value]': { borderTopWidth: 0 },
-            '@container detailed-info (min-width: 48rem)': {
-              gridTemplateColumns: 'calc(var(--chakra-spacing-40) + var(--chakra-spacing-15)) minmax(0, 1fr)',
-              '& > [data-detailed-info-value]': { borderTopWidth: 'var(--chakra-border-widths-1)' },
-            },
-          },
+          '& a': INLINE_CONTROL_STYLES,
         }}
         { ...props }
       />

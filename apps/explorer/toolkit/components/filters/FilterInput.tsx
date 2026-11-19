@@ -67,10 +67,15 @@ export const FilterInput = ({
       <InputGroup
         startElement={ startElement }
         startElementProps={{ px: 2 }}
+        startOffset="9"
         endElement={ endElement }
+        endOffset="var(--filter-input-end-width)"
+        css={{
+          '--filter-input-end-width': 'var(--chakra-spacing-8)',
+          '@media (max-width: 834px)': { '--filter-input-end-width': 'var(--chakra-sizes-touch-target)' },
+        }}
         endElementProps={{
-          w: 'var(--chakra-spacing-8)',
-          css: { '@media (max-width: 834px)': { width: 'var(--chakra-sizes-touch-target)' } },
+          w: 'var(--filter-input-end-width)',
         }}
       >
         <Input

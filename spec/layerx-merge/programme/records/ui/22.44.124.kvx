@@ -1,0 +1,421 @@
+[surface]
+name = "Explorer token and search views"
+views = 5
+named_states = 7
+view_state_combinations = 12
+geometry_views = 6
+geometry_widths = [390, 1280, 1440, 1920, 2560]
+
+[dimensions]
+transfer_table_minimum_width = 950
+transfer_chain_column_width = 38
+token_transfer_transaction_column_width = 280
+token_transfer_method_column_width = 200
+token_transfer_address_column_widths = [220, 380]
+transfer_address_maximum_widths = [220, 320]
+transfer_token_id_maximum_width = 140
+instance_media_maximum_width = 250
+method_block_margin = 3
+transfer_value_top_margin = 7
+filter_input_start_space = 36
+filter_input_end_space = 32
+filter_input_touch_end_space = 44
+touch_width_limit = 834
+
+[presentation]
+integration = "Token and search dimensions coexist with the shared explorer surface configuration and lifecycle."
+typography = "Text retains the fixed sizes and line heights of the explorer."
+controls = "Controls retain their desktop dimensions and a 44px minimum touch area through 834px."
+filter_input = "The search field reserves its adornment space before hydration."
+inline_controls = "The token ID copy target extends around its mark without a clipping wrapper."
+enlarged_text = "Transfer entities wrap their controls when their text and touch areas need another line."
+routes = "Token, token instance, token transfer, token list and search routes retain their content and navigation."
+accessibility = "Focus marks, labels, roles, landmarks, control states, loading and empty states, reduced motion and the reserved scrollbar track remain present."
+shared_layouts = "Token titles and detail cards use local dimensions while address and contract views retain their shared dimensions."
+
+[coverage]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+device_renders = 408
+render_result = "pass"
+findings = 0
+
+[geometry_capture]
+views = 6
+renders = 30
+result = "pass"
+findings = 0
+
+[geometry_comparison]
+parts = 74
+part_width_pairs = 370
+first_differing_part_width_pairs = 350
+last_differing_part_width_pairs = 349
+
+[findings.load]
+first = 1
+last = 0
+
+[findings.sideways]
+first = 0
+last = 0
+
+[findings.cut]
+first = 0
+last = 0
+
+[findings.contrast]
+first = 0
+last = 0
+
+[findings.touch]
+first = 0
+last = 0
+
+[findings.focus]
+first = 0
+last = 0
+
+[findings.shift]
+first = 0
+last = 0
+
+[findings.motion]
+first = 0
+last = 0
+
+[findings.scale]
+first = 0
+last = 0
+
+[findings.geometry]
+first = 0
+last = 0
+
+[geometry.search_results]
+view = "/search-results"
+parts = 11
+differing_parts = [10,8,11,11,11]
+
+[geometry.search_results.first-row]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px."
+
+[geometry.search_results.footer]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.search_results.footer-column-1-first-link]
+widths = [390,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.search_results.footer-column-2-first-link]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.search_results.footer-column-3-first-link]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.search_results.header]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px."
+
+[geometry.search_results.main]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px."
+
+[geometry.search_results.navigation]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the menu control measures 44px."
+
+[geometry.search_results.navigation-first-item]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the menu control measures 44px."
+
+[geometry.search_results.primary-control]
+widths = [390,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, controls retain their 44px touch areas; inline controls center that area around their visible mark."
+
+[geometry.search_results.first-heading]
+widths = [1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px."
+
+[geometry.token_transfers]
+view = "/token-transfers"
+parts = 11
+differing_parts = [10,8,11,11,11]
+
+[geometry.token_transfers.first-row]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the filter controls retain their 44px height."
+
+[geometry.token_transfers.footer]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.token_transfers.footer-column-1-first-link]
+widths = [390,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.token_transfers.footer-column-2-first-link]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.token_transfers.footer-column-3-first-link]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.token_transfers.header]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px."
+
+[geometry.token_transfers.main]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the filter controls retain their 44px height."
+
+[geometry.token_transfers.navigation]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the menu control measures 44px."
+
+[geometry.token_transfers.navigation-first-item]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the menu control measures 44px."
+
+[geometry.token_transfers.primary-control]
+widths = [390,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, controls retain their 44px touch areas; inline controls center that area around their visible mark."
+
+[geometry.token_transfers.first-heading]
+widths = [1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px."
+
+[geometry.token_hash]
+view = "/token/[hash]"
+parts = 12
+differing_parts = [12,9,12,12,12]
+
+[geometry.token_hash.first-heading]
+widths = [390,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. The token header retains its entity kind and identifier content; the narrower touch layout wraps the title group."
+
+[geometry.token_hash.footer]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.token_hash.footer-column-1-first-link]
+widths = [390,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.token_hash.footer-column-2-first-link]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.token_hash.footer-column-3-first-link]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.token_hash.header]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px."
+
+[geometry.token_hash.main]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. The token header retains the entity kind and identifier content; through 834px, its controls and tabs retain their touch areas."
+
+[geometry.token_hash.markets-card]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. The token header retains the entity kind and identifier content; through 834px, its controls and tabs retain their touch areas."
+
+[geometry.token_hash.navigation]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the menu control measures 44px."
+
+[geometry.token_hash.navigation-first-item]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the menu control measures 44px."
+
+[geometry.token_hash.primary-control]
+widths = [390,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, controls retain their 44px touch areas; inline controls center that area around their visible mark."
+
+[geometry.token_hash.statistic-card]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. The token header retains the entity kind and identifier content; through 834px, its controls and tabs retain their touch areas."
+
+[geometry.token_hash_instance_id]
+view = "/token/[hash]/instance/[id]"
+parts = 16
+differing_parts = [16,13,16,16,16]
+
+[geometry.token_hash_instance_id.first-heading]
+widths = [390,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. The token header retains its entity kind and identifier content; the narrower touch layout wraps the title group."
+
+[geometry.token_hash_instance_id.first-row]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the token header and transfer controls retain their touch areas, moving the cards below them."
+
+[geometry.token_hash_instance_id.footer]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.token_hash_instance_id.footer-column-1-first-link]
+widths = [390,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.token_hash_instance_id.footer-column-2-first-link]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.token_hash_instance_id.footer-column-3-first-link]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.token_hash_instance_id.header]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px."
+
+[geometry.token_hash_instance_id.main]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the token header and transfer controls retain their touch areas, moving the cards below them."
+
+[geometry.token_hash_instance_id.media-card]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the token header and transfer controls retain their touch areas, moving the cards below them."
+
+[geometry.token_hash_instance_id.metadata-card]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the token header and transfer controls retain their touch areas, moving the cards below them."
+
+[geometry.token_hash_instance_id.navigation]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the menu control measures 44px."
+
+[geometry.token_hash_instance_id.navigation-first-item]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the menu control measures 44px."
+
+[geometry.token_hash_instance_id.other-information-card]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the token header and transfer controls retain their touch areas, moving the cards below them."
+
+[geometry.token_hash_instance_id.overview-card]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the token header and transfer controls retain their touch areas, moving the cards below them."
+
+[geometry.token_hash_instance_id.primary-control]
+widths = [390,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, controls retain their 44px touch areas; inline controls center that area around their visible mark."
+
+[geometry.token_hash_instance_id.transfers-card]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the token header and transfer controls retain their touch areas, moving the cards below them."
+
+[geometry.tokens]
+view = "/tokens"
+parts = 12
+differing_parts = [11,9,12,12,12]
+
+[geometry.tokens.first-row]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Touch-sized filters move the row down; the daily-change field is present only when the token data provides it."
+
+[geometry.tokens.footer]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.tokens.footer-column-1-first-link]
+widths = [390,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.tokens.footer-column-2-first-link]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.tokens.footer-column-3-first-link]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.tokens.header]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px."
+
+[geometry.tokens.list-card]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, filters and pagination retain their 44px control heights; the daily-change field follows the token data."
+
+[geometry.tokens.main]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. The token header retains the entity kind and identifier content; through 834px, its controls and tabs retain their touch areas."
+
+[geometry.tokens.navigation]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the menu control measures 44px."
+
+[geometry.tokens.navigation-first-item]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the menu control measures 44px."
+
+[geometry.tokens.primary-control]
+widths = [390,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, controls retain their 44px touch areas; inline controls center that area around their visible mark."
+
+[geometry.tokens.first-heading]
+widths = [1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px."
+
+[geometry.token_metadata]
+view = "token-metadata"
+parts = 12
+differing_parts = [12,9,12,12,12]
+
+[geometry.token_metadata.contract-information-card]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. The token header retains the entity kind and identifier content; through 834px, its controls and tabs retain their touch areas."
+
+[geometry.token_metadata.first-heading]
+widths = [390,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. The token header retains its entity kind and identifier content; the narrower touch layout wraps the title group."
+
+[geometry.token_metadata.footer]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.token_metadata.footer-column-1-first-link]
+widths = [390,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.token_metadata.footer-column-2-first-link]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.token_metadata.footer-column-3-first-link]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, footer links retain their 44px touch areas and the footer follows the height of the page content."
+
+[geometry.token_metadata.header]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px."
+
+[geometry.token_metadata.main]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. The token header retains the entity kind and identifier content; through 834px, its controls and tabs retain their touch areas."
+
+[geometry.token_metadata.navigation]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the menu control measures 44px."
+
+[geometry.token_metadata.navigation-first-item]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, the menu control measures 44px."
+
+[geometry.token_metadata.primary-control]
+widths = [390,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. Through 834px, controls retain their 44px touch areas; inline controls center that area around their visible mark."
+
+[geometry.token_metadata.token-information-card]
+widths = [390,1280,1440,1920,2560]
+cause = "The reserved scrollbar track narrows the viewport by 15px and shifts centered tracks by 7.5px. The token header retains the entity kind and identifier content; through 834px, its controls and tabs retain their touch areas."

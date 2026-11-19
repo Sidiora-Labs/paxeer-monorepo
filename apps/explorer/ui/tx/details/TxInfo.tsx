@@ -196,9 +196,9 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus, transfers, balan
           isLoading={ isLoading }
           multiRow={ config.features.externalTxs.isEnabled && externalTxsQuery.data && externalTxsQuery.data.length > 0 }
         >
-          <Flex flexWrap="nowrap" alignItems="center" overflow="hidden">
+          <Flex flexWrap="nowrap" alignItems="center" minW={ 0 } maxW="full">
             { data.status === null && <Spinner mr={ 2 } size="sm" flexShrink={ 0 }/> }
-            <Skeleton loading={ isLoading } overflow="hidden">
+            <Skeleton loading={ isLoading } minW={ 0 } whiteSpace="nowrap" textOverflow="ellipsis" overflowX="clip" overflowY="visible">
               <HashStringShortenDynamic hash={ data.hash }/>
             </Skeleton>
             <CopyToClipboard text={ data.hash } isLoading={ isLoading }/>
