@@ -209251,7 +209251,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.959]
 title = "Give the oracle publications of the web suite preparation a gas limit that covers the longer path of the price write"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
