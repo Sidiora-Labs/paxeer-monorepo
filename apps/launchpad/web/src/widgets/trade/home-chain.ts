@@ -125,26 +125,25 @@ export function homeChainMessage(error: unknown): string {
   return /WrongChain|wrong.chain/i.test(message) ? 'Switch to this market’s home chain in your wallet to trade.' : message;
 }
 
-export async function approveHomeChainTrade(wallet: WalletClient, home: HomeChain, account: Address, token: Address, router: Address, amount: bigint) {
+export async function approveHomeChainTrade(wallet: WalletClient, home: HomeChain, account: Address, token: Address, spender: Address, amount: bigint) {
   if (home.registryNumber === 0 || amount <= 0n) throw new Error('A launched market and a positive approval are required.');
   await ensureHomeChain(wallet, home);
   if (!(await wallet.getAddresses()).some(value => value.toLowerCase() === account.toLowerCase())) throw new Error('Wallet account changed.');
   const client = homeChainClient(home);
-  const hash = await wallet.writeContract({ account, chain: client.chain, address: token, abi: erc20Abi, functionName: 'approve', args: [router, amount] });
-  return confirmHomeTransaction(client, hash, { account, target: token, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [router, amount] }) });
+  const hash = await wallet.writeContract({ account, chain: client.chain, address: token, abi: erc20Abi, functionName: 'approve', args: [spender, amount] });
+  return confirmHomeTransaction(client, hash, { account, target: token, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [spender, amount] }) });
 }
 
-export async function submitHomeChainTrade(wallet: WalletClient, home: HomeChain, account: Address, router: Address, pool: Address, token: Address, amount: bigint, minimum: bigint, deadline: bigint, quoteExpiresAt: number, isBuy: boolean) {
+export async function submitHomeChainTrade(wallet: WalletClient, home: HomeChain, account: Address, router: Address, spender: Address, pool: Address, token: Address, amount: bigint, minimum: bigint, deadline: bigint, quoteExpiresAt: number, isBuy: boolean) {
   if (home.registryNumber === 0 || amount <= 0n || minimum <= 0n || deadline <= BigInt(Math.floor(Date.now() / 1000)) || Date.now() >= quoteExpiresAt) throw new Error('Review the trade amount, quote and deadline.');
   await ensureHomeChain(wallet, home);
   if (!(await wallet.getAddresses()).some(value => value.toLowerCase() === account.toLowerCase())) throw new Error('Wallet account changed.');
   const client = homeChainClient(home);
-  const spender = getAddress(router);
   const allowance = await client.readContract({ address: token, abi: erc20Abi, functionName: 'allowance', args: [account, spender] });
   if (allowance < amount) throw new Error('Approve the trade amount on this chain.');
-  const request = { address: spender, abi: reviewedRouterAbi, functionName: isBuy ? 'buy' as const : 'sell' as const, args: [pool, amount, minimum, deadline] as const, account, chain: client.chain };
+  const request = { address: router, abi: reviewedRouterAbi, functionName: isBuy ? 'buy' as const : 'sell' as const, args: [pool, amount, minimum, deadline] as const, account, chain: client.chain };
   await client.simulateContract(request);
   if (Date.now() >= quoteExpiresAt || deadline <= BigInt(Math.floor(Date.now() / 1000))) throw new Error('Trade quote expired. Review again.');
   const hash = await wallet.writeContract(request);
-  return confirmHomeTransaction(client, hash, { account, target: spender, data: encodeFunctionData({ abi: reviewedRouterAbi, functionName: request.functionName, args: request.args }) });
+  return confirmHomeTransaction(client, hash, { account, target: router, data: encodeFunctionData({ abi: reviewedRouterAbi, functionName: request.functionName, args: request.args }) });
 }

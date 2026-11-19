@@ -21,7 +21,7 @@ export function prepareOwnedCoreDeployment(inputFile, profileFile, creationFile,
   deployment.revision = profile.revision.revisionSha256;
   deployment.tradeDeployment = {
     revision: deployment.revision,
-    router: roles.Router.address, quoter: roles.Quoter.address,
+    router: roles.Router.address, spender: roles.Router.address, quoter: roles.Quoter.address,
     registry: roles.PoolRegistry.address, emitter: roles.EventEmitter.address,
     usdl: roles.USDL.address,
     pins: ['Router', 'Quoter', 'PoolRegistry', 'EventEmitter'].map(name => ({

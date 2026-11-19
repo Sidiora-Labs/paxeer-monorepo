@@ -88,6 +88,7 @@ async function surfaceAuthorityRoundTripsCurrentAttestation() {
   const authority = await loadRuntimeAuthority(AbortSignal.timeout(15_000));
   expect(authority.revision).toEqual(emitted.serialExport.revision);
   expect(authority.tradeDeployment.router).toBe(CORE_DEPLOYMENT.router);
+  expect(authority.tradeDeployment.spender).toBe(CORE_DEPLOYMENT.launchpadPrecompile);
   expect(authority.tradeDeployment.quoter).toBe(CORE_DEPLOYMENT.quoter);
   expect(authority.tradeDeployment.registry).toBe(CORE_DEPLOYMENT.poolRegistry);
   for (const [role, field] of [['Router', 'router'], ['Quoter', 'quoter'], ['PoolRegistry', 'poolRegistry']] as const) {

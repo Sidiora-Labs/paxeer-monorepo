@@ -421,8 +421,8 @@ export class TradeJourney {
       const target = unlimited ? (1n << 256n) - 1n : context.inputRaw;
       const reset = allowance < target && (await this.provider.requiresZeroReset(context, target));
       this.assertContext(context, scope);
-      const spender = this.provider.deployment.router;
-      const plan = approvalPlan(context, spender, allowance, reset, unlimited);
+      const { router, spender } = this.provider.deployment;
+      const plan = approvalPlan(context, router, spender, allowance, reset, unlimited);
       for (let index = 0; index < plan.steps.length; index++) {
         this.assertContext(context, scope);
         const data = encodeFunctionData({
