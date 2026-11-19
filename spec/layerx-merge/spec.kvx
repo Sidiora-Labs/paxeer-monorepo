@@ -15988,6 +15988,12 @@ value = "One. The value of a statistic card follows decision 3811. It takes the 
 basis = "Gotcha 4739."
 affects = []
 
+[decision.3813]
+title = "A surface file of the render check can state the time its start may take"
+value = "One. A surface file can hold the key readyMs, a whole number of milliseconds from 1000 to 120000. The check waits that time for the readiness path of the surface, and the time LIMITS.readyMs where the key is absent. Two. Another value of the key is refused with a message that names the surface and the bounds, in the form the key buildMs has. Three. The report of a run records the applied time beside buildMs. Four. The surface file of the explorer, its nine part files and its three measure files state 60000, and tools/ui-check/surfaces/explorer/parts.mjs compares the key between a part file and the whole file as it does for buildMs. Five. LIMITS.readyMs keeps its value and every other surface keeps it. No rule for a finding changes and no other limit changes. Task 22.44.133."
+basis = "Gotcha 4740."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45648,6 +45654,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.133]
+title = "Let a surface file of the render check state the time its start may take"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/server.mjs", "tools/ui-check/config.mjs", "tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md", "tools/ui-check/surfaces/explorer.json", "tools/ui-check/surfaces/explorer"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test) && node tools/ui-check/surfaces/explorer/parts.mjs"
+do_1 = "do_1 Gotcha 4740, decision 3813. Read tools/ui-check/server.mjs whole, in tools/ui-check/config.mjs and tools/ui-check/check.mjs the places that read the keys of a surface file, check the key buildMs and write the report, the cases on buildMs in tools/ui-check/test/check.test.mjs with their fixtures, the part of tools/ui-check/README.md on the keys of a surface file, tools/ui-check/surfaces/explorer/parts.mjs and the first twelve lines of tools/ui-check/surfaces/explorer.json and of one part file."
+symbols = []
 
 [capability.22.44.132]
 title = "Let the tags of a row of the latest transactions of the home view show whole"
@@ -178053,6 +178068,38 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.133]
+title = "Let a surface file of the render check state the time its start may take"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.133"]
+interfaces = []
+do_1 = "do_1 Gotcha 4740, decision 3813. Read tools/ui-check/server.mjs whole, in tools/ui-check/config.mjs and tools/ui-check/check.mjs the places that read the keys of a surface file, check the key buildMs and write the report, the cases on buildMs in tools/ui-check/test/check.test.mjs with their fixtures, the part of tools/ui-check/README.md on the keys of a surface file, tools/ui-check/surfaces/explorer/parts.mjs and the first twelve lines of tools/ui-check/surfaces/explorer.json and of one part file."
+do_2 = "do_2 Let a surface file hold the optional key readyMs in the form of decision 3813: a whole number from 1000 to 120000, and another value is refused with a message that names the surface and the bounds. The wait for the readiness path takes the value of the surface, and LIMITS.readyMs where the key is absent. The report of a run records the applied value beside buildMs. LIMITS.readyMs keeps its value, and no rule for a finding and no other limit changes."
+do_3 = "do_3 State the key readyMs with the value 60000 in tools/ui-check/surfaces/explorer.json, in the nine part files under tools/ui-check/surfaces/explorer/parts and in the files measure.json, addresses-measure.json and rollup-measure.json under tools/ui-check/surfaces/explorer: one new line directly after the line of the key readyPath, and no other line of these files changes. Add the key to the keys tools/ui-check/surfaces/explorer/parts.mjs compares between a part file and the whole file. Other tasks change the end of a part file at the same time: change only that one line in each file."
+do_4 = "do_4 Add cases under tools/ui-check/test in the form of the cases on buildMs: a value outside the form is refused with the message; the bounds 1000 and 120000 are taken; a surface whose start answers its readiness path after about two seconds is not ready with the value 1000 and is rendered with the value 5000; a surface without the key waits the fixed time. Use a start in a fixture that waits before it answers, so that the cases end within seconds. Keep the cases the files hold."
+do_5 = "do_5 Name the key in tools/ui-check/README.md where the README names buildMs and where it names the time readiness is asked for, with its bounds and the fixed time that holds without it. Change no file outside the paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/server.mjs", "tools/ui-check/config.mjs", "tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md", "tools/ui-check/surfaces/explorer.json", "tools/ui-check/surfaces/explorer"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test) && node tools/ui-check/surfaces/explorer/parts.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
