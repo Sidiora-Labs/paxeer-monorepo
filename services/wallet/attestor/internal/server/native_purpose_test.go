@@ -242,7 +242,7 @@ func nativeRustCommand(t *testing.T, binary, test string) *exec.Cmd {
 	supervisor := filepath.Join("..", "..", "..", "..", "..", "tools", "runtime", "run-with-clock.sh")
 	command := exec.Command("sh", supervisor, binary, "--exact", test, "--nocapture", "--test-threads=1")
 	command.Stdout = os.Stdout
-	command.Stderr = os.Stderr
+	command.Stderr = command.Stdout
 	if evidence := os.Getenv("HF_OUT_DIR"); evidence != "" {
 		path := filepath.Join(evidence, "logs", test+".log")
 		log, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
@@ -251,7 +251,7 @@ func nativeRustCommand(t *testing.T, binary, test string) *exec.Cmd {
 		}
 		t.Cleanup(func() { _ = log.Close() })
 		command.Stdout = io.MultiWriter(os.Stdout, log)
-		command.Stderr = io.MultiWriter(os.Stderr, log)
+		command.Stderr = command.Stdout
 		t.Logf("private Rust consumer evidence: %s", path)
 	}
 	return command
