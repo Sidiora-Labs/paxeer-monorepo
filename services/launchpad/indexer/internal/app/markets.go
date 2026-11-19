@@ -262,9 +262,20 @@ func readsToMarketReads(reads []receipt.BatchRead) []marketHeightRead {
 }
 
 func (s *recoveringQualifiedSource) readMarketHeights(ctx context.Context, from, to uint64, concurrency int) ([]marketHeightRead, error) {
-	count := int(to-from) + 1
+	if from > to || to-from >= 64 {
+		return nil, receipt.ErrQualification
+	}
+	count, err := checked.Convert[int](to - from)
+	if err != nil {
+		return nil, err
+	}
+	count++
 	return source.ParallelBatchRead(ctx, count, concurrency, func(readCtx context.Context, index int) (marketHeightRead, error) {
-		return s.readMarketHeight(readCtx, from+uint64(index))
+		offset, err := checked.Convert[uint64](index)
+		if err != nil {
+			return marketHeightRead{}, err
+		}
+		return s.readMarketHeight(readCtx, from+offset)
 	})
 }
 
@@ -326,12 +337,20 @@ func (s *recoveringQualifiedSource) validateMarketReads(ctx context.Context, fro
 		addresses[address] = true
 		return nil
 	}
-	if len(reads) != int(to-from)+1 {
+	if from > to || to-from >= 64 {
+		return nil, nil, receipt.ErrBinding
+	}
+	count, err := checked.Convert[int](to - from)
+	if err != nil || len(reads) != count+1 {
 		return nil, nil, receipt.ErrBinding
 	}
 	totalBytes, totalLogs, totalTransactions := 0, 0, 0
 	for index, read := range reads {
-		height := from + uint64(index)
+		offset, err := checked.Convert[uint64](index)
+		if err != nil {
+			return nil, nil, err
+		}
+		height := from + offset
 		header := read.header
 		block := source.BlockRecord{ChainID: 125, Height: height, Hash: read.hash, ParentHash: header.ParentHash, TimestampSeconds: 0, TransactionCount: len(read.transactions)}
 		headerTimeInt64, conversionErr := checked.Convert[int64](header.Time)
@@ -362,7 +381,8 @@ func (s *recoveringQualifiedSource) validateMarketReads(ctx context.Context, fro
 				}
 				if meta.TransactionIndex != nil {
 					transactionIndex, conversionErr := checked.Convert[uint64](*meta.TransactionIndex)
-					if conversionErr != nil || transactionIndex != uint64(i) {
+					expectedIndex, indexErr := checked.Convert[uint64](i)
+					if conversionErr != nil || indexErr != nil || transactionIndex != expectedIndex {
 						return nil, nil, receipt.ErrBinding
 					}
 				}
