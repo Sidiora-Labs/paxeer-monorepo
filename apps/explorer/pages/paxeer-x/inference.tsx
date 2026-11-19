@@ -9,7 +9,7 @@ import { ContentLoader } from 'toolkit/components/loaders/ContentLoader';
 
 const PaxeerXInference = dynamic(() => import('ui/pages/PaxeerXInference'), {
   ssr: false,
-  loading: () => <ContentLoader/>,
+  loading: () => <ContentLoader maxW="full"/>,
 });
 
 const Page: NextPage = () => {
