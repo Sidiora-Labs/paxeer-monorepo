@@ -6,6 +6,7 @@
   "start": "node ../../tools/ui-check/surfaces/explorer/start.mjs",
   "address": "http://localhost:4173",
   "readyPath": "/__surface_ready",
+  "readyMs": 60000,
   "views": [
     {
       "name": "/cc/tx/[hash]",

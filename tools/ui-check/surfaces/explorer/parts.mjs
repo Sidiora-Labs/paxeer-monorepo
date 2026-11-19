@@ -27,7 +27,7 @@ for (const name of names) {
   const filename = fileURLToPath(new URL(`./parts/${name}.json`, import.meta.url));
   const part = JSON.parse(await readFile(filename, 'utf8'));
   const base = dirname(filename);
-  for (const key of ['build', 'buildMs', 'outputs', 'start', 'address', 'readyPath', 'typeScale']) {
+  for (const key of ['build', 'buildMs', 'outputs', 'start', 'address', 'readyPath', 'readyMs', 'typeScale']) {
     assert.deepEqual(part[key], whole[key], `${name}: ${key}`);
   }
   assert.equal(resolve(base, part.directory), resolve(dirname(wholeFile), whole.directory), `${name}: directory`);
