@@ -209305,7 +209305,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.964]
 title = "Give the stream cleanup of the ranking case helper the deadline form of its reset"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
