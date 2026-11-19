@@ -93,7 +93,16 @@ const ChartWidgetPanel = ({
               { title } ({ STATS_INTERVALS[interval].shortTitle })
             </chakra.span>
           </Skeleton>
-          { description && <Hint label={ description } isLoading={ isLoading } boxSize={ 4 } flexShrink={ 0 }/> }
+          { description && (
+            <Hint
+              label={ description }
+              isLoading={ isLoading }
+              boxSize={ 4 }
+              flexShrink={ 0 }
+              data-touch-inline
+              css={{ '--touch-line-size': 'var(--chakra-line-heights-label)' }}
+            />
+          ) }
         </Flex>
         <Flex alignItems="center" columnGap={ 2 } flexShrink={ 0 } marginInlineStart="auto">
           { zoomRange && (
@@ -109,7 +118,9 @@ const ChartWidgetPanel = ({
             </Tooltip>
           ) }
           { href && (
-            <Link href={ route(href) } data-chart-view textStyle="text.xs" fontWeight="medium" display="inline-flex" alignItems="center" columnGap={ 1 }>
+            <Link href={ route(href) } data-chart-view data-touch-inline
+              css={{ '--touch-line-size': 'var(--chakra-line-heights-label)' }}
+              textStyle="text.xs" fontWeight="medium" display="inline-flex" alignItems="center" columnGap={ 1 }>
               View
               <IconSvg name="arrows/east-mini" boxSize={ 3 }/>
             </Link>
@@ -129,7 +140,7 @@ const ChartWidgetPanel = ({
         flexDirection="column"
         flexGrow={ 1 }
         mt={ 3 }
-        minH="var(--chakra-spacing-62\.5)"
+        minH="calc(var(--chakra-spacing-62\.5) - var(--chakra-spacing-5))"
         css={{
           '& svg text': { color: 'text.secondary' },
           '--chart-bar-color': barColor,

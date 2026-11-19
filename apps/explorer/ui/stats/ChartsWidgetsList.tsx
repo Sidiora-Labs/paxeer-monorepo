@@ -116,7 +116,10 @@ const ChartsWidgetsList = ({ isError, isPlaceholderData, charts, interval, initi
 
               <Grid
                 data-stats-section-charts
-                templateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-80)), 1fr))"
+                templateColumns={{
+                  base: 'minmax(0, 1fr)',
+                  lg: 'repeat(auto-fit, minmax(min(100%, max(calc((100% - var(--chakra-spacing-4)) / 2), 32ch)), 1fr))',
+                }}
                 gap={{ base: 3, lg: 4 }}
               >
                 { section.charts.map((chart) => {
