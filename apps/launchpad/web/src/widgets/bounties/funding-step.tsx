@@ -1,4 +1,5 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import { type ReactNode } from 'react';
 import { CircleCheck, RefreshCw, Wallet } from 'lucide-react';
 import { Button, KeyValueRow, NoticeBar, Skeleton } from '@/ui/primitives';
@@ -87,7 +88,7 @@ export function PreparedTransactionReview({ title, request, intent, recipient, a
         <KeyValueRow label="Network" value="Paxeer" />
         <KeyValueRow
           label="Network fee (max)"
-          value={cost !== null ? <span data-numeric className="tabular-nums">{paxAmount(cost)}</span> : state.kind === 'estimating' ? <Skeleton width={96} height={16} label="Estimating fee" /> : 'Not estimated yet'}
+          value={cost !== null ? <span data-numeric className="tabular-nums">{paxAmount(cost)}</span> : state.kind === 'estimating' ? <Skeleton width={surfaceSpacing(24)} height={surfaceSpacing(4)} label="Estimating fee" /> : 'Not estimated yet'}
         />
       </dl>
       <BountyTransactionStatus state={state} recoveryHref={`/bounties/${encodeURIComponent(intent.bounty.bountyId)}`} />

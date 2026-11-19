@@ -187,8 +187,7 @@ func (k *Keeper) createReadOnlyEVM(ctx sdk.Context, from sdk.AccAddress) (*vm.EV
 	if err != nil {
 		return nil, err
 	}
-	sstore := k.GetSstoreSetGasEIP2200(ctx)
-	cfg := types.DefaultChainConfig().EthereumConfigWithSstore(k.ChainID(ctx), &sstore)
+	cfg := k.GetEVMChainConfig(ctx)
 	txCtx := vm.TxContext{Origin: k.GetEVMAddressOrDefault(ctx, from)}
 	evm := vm.NewEVM(*blockCtx, stateDB, cfg, vm.Config{}, k.CustomPrecompiles(ctx))
 	evm.SetTxContext(txCtx)

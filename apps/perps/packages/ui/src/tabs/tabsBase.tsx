@@ -10,6 +10,7 @@ const tabsVariants = tv({
       "oui-header-list",
       "oui-flex",
       "oui-items-center",
+      "empty:before:oui-block",
       // "oui-px-1",
     ],
     content: [
@@ -93,6 +94,7 @@ const tabsVariants = tv({
       size: "sm",
       variant: "text",
       className: {
+        list: ["empty:before:oui-h-7"],
         trigger: ["oui-text-sm", "oui-h-5"],
         icon: ["oui-w-[10px]", "oui-h-[10px]"],
       },
@@ -101,6 +103,7 @@ const tabsVariants = tv({
       size: "md",
       variant: "text",
       className: {
+        list: ["empty:before:oui-h-8"],
         trigger: ["oui-text-base", "oui-h-6"],
         icon: ["oui-w-3", "oui-h-3"],
       },
@@ -109,6 +112,7 @@ const tabsVariants = tv({
       size: "lg",
       variant: "text",
       className: {
+        list: ["empty:before:oui-h-9"],
         trigger: ["oui-text-lg", "oui-h-7"],
         icon: ["oui-w-[14px]", "oui-h-[14px]"],
       },
@@ -117,6 +121,7 @@ const tabsVariants = tv({
       size: "xl",
       variant: "text",
       className: {
+        list: ["empty:before:oui-h-9"],
         trigger: ["oui-text-lg", "oui-h-7"],
         icon: ["oui-w-4", "oui-h-4"],
       },
@@ -125,7 +130,7 @@ const tabsVariants = tv({
       size: "sm",
       variant: "contained",
       className: {
-        list: ["oui-gap-x-1"],
+        list: ["oui-gap-x-1", "empty:before:oui-h-6"],
         trigger: ["oui-text-2xs", "oui-h-6"],
         icon: ["oui-w-[10px]", "oui-h-[10px]"],
       },
@@ -134,7 +139,7 @@ const tabsVariants = tv({
       size: "md",
       variant: "contained",
       className: {
-        // list: ["oui-space-x-[6px]"],
+        list: ["empty:before:oui-h-7"],
         trigger: ["oui-text-2xs", "oui-h-7"],
         icon: ["oui-w-3", "oui-h-3"],
       },
@@ -143,6 +148,7 @@ const tabsVariants = tv({
       size: "lg",
       variant: "contained",
       className: {
+        list: ["empty:before:oui-h-8"],
         trigger: ["oui-text-sm", "oui-h-8", "!oui-rounded-md"],
         icon: ["oui-w-[14px]", "oui-h-[14px]"],
       },
@@ -151,6 +157,7 @@ const tabsVariants = tv({
       size: "xl",
       variant: "contained",
       className: {
+        list: ["empty:before:oui-h-9"],
         trigger: ["oui-text-base", "oui-h-9", "!oui-rounded-md"],
         icon: ["oui-w-4", "oui-h-4"],
       },
@@ -172,7 +179,12 @@ const TabsList = React.forwardRef<
   const { className, size, variant, ...props } = originProps;
   const { list } = tabsVariants({ size, variant });
   return (
-    <TabsPrimitive.List ref={ref} className={list({ className })} {...props} />
+    <TabsPrimitive.List
+      ref={ref}
+      className={list({ className })}
+      {...props}
+      tabIndex={-1}
+    />
   );
 });
 
@@ -211,11 +223,53 @@ const TabsContent = React.forwardRef<
 >((oriProps, ref) => {
   const { className, size, children, ...props } = oriProps;
   const { content } = tabsVariants({ size });
+  const node = React.useRef<HTMLDivElement>(null);
+  const [tabStop, setTabStop] = React.useState(0);
+  React.useImperativeHandle(ref, () => node.current!);
+  React.useLayoutEffect(() => {
+    const element = node.current;
+    if (!element) return;
+    const sync = () => {
+      const focusable = Array.from(
+        element.querySelectorAll<HTMLElement>(
+          'button,a[href],input:not([type="hidden"]),textarea,select,[tabindex],[contenteditable="true"]',
+        ),
+      ).some(
+        (child) =>
+          child.tabIndex >= 0 &&
+          !child.matches(":disabled") &&
+          !child.closest("[hidden],[inert]") &&
+          child.getClientRects().length > 0 &&
+          getComputedStyle(child).visibility === "visible" &&
+          getComputedStyle(child).opacity !== "0",
+      );
+      setTabStop(focusable ? -1 : 0);
+    };
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(element, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["disabled", "tabindex", "hidden"],
+    });
+    return () => observer.disconnect();
+  }, []);
   return (
     <TabsPrimitive.Content
-      ref={ref}
+      ref={node}
       className={content({ className })}
       {...props}
+      tabIndex={props.tabIndex ?? tabStop}
+      onFocus={(event) => {
+        if (event.target === event.currentTarget) {
+          event.currentTarget.scrollIntoView({
+            block: "start",
+            inline: "nearest",
+          });
+        }
+        props.onFocus?.(event);
+      }}
     >
       {children}
     </TabsPrimitive.Content>

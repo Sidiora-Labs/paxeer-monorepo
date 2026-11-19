@@ -19,3 +19,5 @@ service so configuration is read again.
 
 [fixtures/new_head_full.json](fixtures/new_head_full.json) contains a Paxeer
 block notification used as input data by the database integration tests.
+The TLS tests generate temporary certificate authorities and server certificates
+with OpenSSL for trusted, untrusted and hostname-mismatch connections.

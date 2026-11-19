@@ -1,0 +1,40 @@
+{
+  "block_number_balance_updated_at": 8774377,
+  "coin_balance": "810941268802273085757",
+  "creation_transaction_hash": null,
+  "creator_address_hash": "0x0000000000000000000000000000000000000002",
+  "creation_status": "success",
+  "exchange_rate": null,
+  "has_logs": true,
+  "has_token_transfers": false,
+  "has_tokens": false,
+  "has_validated_blocks": false,
+  "hash": "0x0000000000000000000000000000000000000002",
+  "implementations": [
+    {
+      "address_hash": "0x0000000000000000000000000000000000000002",
+      "name": "Transparent Upgradable Proxy"
+    }
+  ],
+  "is_contract": true,
+  "is_verified": true,
+  "name": "Example Token",
+  "token": {
+    "address_hash": "0x0000000000000000000000000000000000000002",
+    "circulating_market_cap": "117629601.61913824",
+    "decimals": "18",
+    "exchange_rate": "0.999997",
+    "holders_count": "16026",
+    "name": "Example Token",
+    "symbol": "STUB",
+    "total_supply": "60000000000000000000000",
+    "type": "ERC-20",
+    "icon_url": null,
+    "reputation": "ok"
+  },
+  "private_tags": [],
+  "public_tags": [],
+  "watchlist_names": [],
+  "watchlist_address_id": null,
+  "ens_domain_name": null
+}

@@ -1,7 +1,9 @@
+import type { PoolClient } from 'pg';
 import { createPrivateKey, createPublicKey, sign, verify, type KeyObject } from 'node:crypto';
 import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { getPool } from '../db/pool.js';
+import { loadRetainedWalletInventory, retainWalletInventory } from '../db/custodyInventory.js';
 import { env } from '../env.js';
 import { serializeTransaction, type TransactionSerializableEIP1559 } from 'viem';
 
@@ -79,13 +81,10 @@ function encodeSigned(payload: unknown): string {
 
 let inventoryHighWater = 0n;
 let inventoryTokenAtHighWater: string | null = null;
-export function loadWalletInventory(): WalletInventory {
+export function verifyWalletInventory(token: string): WalletInventory {
   try {
-    const file = env.WALLET_CUSTODY_INVENTORY_FILE;
     const pub = env.WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE;
-    if (!file || !pub || !env.WALLET_IDENTITY_BINDING_TENANT)
-      throw new Error('missing inventory authority');
-    const token = readFileSync(file, 'utf8').trim();
+    if (!pub || !env.WALLET_IDENTITY_BINDING_TENANT) throw new Error('missing inventory authority');
     if (Buffer.byteLength(token) > 2_097_152) throw new Error('inventory exceeds bound');
     const parts = token.split('.');
     if (parts.length !== 3 || parts.some((v) => !/^[A-Za-z0-9_-]+$/.test(v)))
@@ -185,14 +184,6 @@ export function loadWalletInventory(): WalletInventory {
         throw new Error('inventory public key invalid');
       keys.add(entry.key_id);
     }
-    const sequence = BigInt(inventory.sequence);
-    if (
-      sequence < inventoryHighWater ||
-      (sequence === inventoryHighWater && inventoryTokenAtHighWater !== token)
-    )
-      throw new Error('inventory rollback');
-    inventoryHighWater = sequence;
-    inventoryTokenAtHighWater = token;
     return inventory;
   } catch {
     throw new CustodyAuthorityError(
@@ -201,17 +192,207 @@ export function loadWalletInventory(): WalletInventory {
   }
 }
 
+let retainedInventoryToken: string | null = null;
+let retainedInventorySequence = 0n;
+let inventoryRefreshError: unknown = null;
+let inventoryRefreshTimer: NodeJS.Timeout | null = null;
+let inventoryRefreshPending: Promise<void> | null = null;
+
+function currentWalletInventory(): { token: string; inventory: WalletInventory } {
+  if (inventoryRefreshError)
+    throw new CustodyAuthorityError('retained wallet custody inventory is unavailable');
+  const candidates: Array<{ token: string; inventory: WalletInventory }> = [];
+  try {
+    const file = env.WALLET_CUSTODY_INVENTORY_FILE;
+    if (file) {
+      const token = readFileSync(file, 'utf8').trim();
+      candidates.push({ token, inventory: verifyWalletInventory(token) });
+    }
+  } catch {
+    if (!retainedInventoryToken)
+      throw new CustodyAuthorityError(
+        'approved wallet custody inventory is missing, stale or inconsistent'
+      );
+  }
+  if (retainedInventoryToken)
+    candidates.push({
+      token: retainedInventoryToken,
+      inventory: verifyWalletInventory(retainedInventoryToken),
+    });
+  candidates.sort((a, b) =>
+    a.inventory.sequence === b.inventory.sequence
+      ? 0
+      : BigInt(a.inventory.sequence) > BigInt(b.inventory.sequence)
+        ? -1
+        : 1
+  );
+  const selected = candidates[0];
+  if (!selected)
+    throw new CustodyAuthorityError('approved wallet custody inventory is unavailable');
+  const sequence = BigInt(selected.inventory.sequence);
+  if (
+    sequence < inventoryHighWater ||
+    sequence < retainedInventorySequence ||
+    (sequence === inventoryHighWater && inventoryTokenAtHighWater !== selected.token) ||
+    candidates.some(
+      (candidate) =>
+        candidate.inventory.sequence === selected.inventory.sequence &&
+        candidate.token !== selected.token
+    )
+  )
+    throw new CustodyAuthorityError('wallet custody inventory rollback or conflict');
+  inventoryHighWater = sequence;
+  inventoryTokenAtHighWater = selected.token;
+  return selected;
+}
+
+export function loadWalletInventory(): WalletInventory {
+  return currentWalletInventory().inventory;
+}
+
+export async function refreshWalletInventory(client?: PoolClient): Promise<void> {
+  try {
+    const retained = await loadRetainedWalletInventory(client);
+    const sequence = BigInt(retained.inventory_sequence);
+    if (
+      retained.inventory_token &&
+      verifyWalletInventory(retained.inventory_token).sequence !== retained.inventory_sequence
+    )
+      throw new CustodyAuthorityError('retained wallet custody inventory sequence differs');
+    if (sequence >= retainedInventorySequence) {
+      if (
+        sequence === retainedInventorySequence &&
+        retainedInventoryToken &&
+        retainedInventoryToken !== retained.inventory_token
+      )
+        throw new CustodyAuthorityError('retained wallet custody inventory conflicts');
+      retainedInventoryToken = retained.inventory_token;
+      retainedInventorySequence = sequence;
+    }
+    inventoryRefreshError = null;
+    loadWalletInventory();
+  } catch (error) {
+    inventoryRefreshError = error;
+    throw error;
+  }
+}
+
+export async function startWalletInventoryRefresh(): Promise<void> {
+  await refreshWalletInventory();
+  if (inventoryRefreshTimer) return;
+  inventoryRefreshTimer = setInterval(() => {
+    if (inventoryRefreshPending) return;
+    inventoryRefreshPending = refreshWalletInventory()
+      .catch(() => undefined)
+      .finally(() => {
+        inventoryRefreshPending = null;
+      });
+  }, env.WALLET_CUSTODY_INVENTORY_REFRESH_INTERVAL_MS);
+  inventoryRefreshTimer.unref();
+}
+
+export async function stopWalletInventoryRefresh(): Promise<void> {
+  if (inventoryRefreshTimer) clearInterval(inventoryRefreshTimer);
+  inventoryRefreshTimer = null;
+  await inventoryRefreshPending;
+}
+
+export interface InventoryMemberResult {
+  node_id: string | null;
+  sequence: string | null;
+  error?: string;
+}
+
+export interface CustodyInventoryPublisher {
+  publishInventory(token: string, sequence: string): Promise<InventoryMemberResult[]>;
+}
+
+export class CustodyInventoryConflictError extends Error {
+  readonly code = 'custody_inventory_sequence_conflict';
+  readonly statusCode = 409;
+}
+
+export async function admitWalletInventory(
+  token: string,
+  target?: CustodyInventoryPublisher
+): Promise<{
+  sequence: string;
+  members: InventoryMemberResult[];
+  retained: boolean;
+}> {
+  const candidate = verifyWalletInventory(token);
+  if (!target) {
+    const { defaultWalletAttestors } = await import('../db/wallets.js');
+    target = defaultWalletAttestors() ?? undefined;
+    if (!target) throw new CustodyAuthorityError('wallet attestors are unavailable');
+  }
+  const client = await getPool().connect();
+  let locked = false;
+  let transaction = false;
+  try {
+    await client.query('select pg_advisory_lock(1380012884, 13)');
+    locked = true;
+    await refreshWalletInventory(client);
+    const current = currentWalletInventory();
+    if (
+      BigInt(candidate.sequence) < BigInt(current.inventory.sequence) ||
+      (candidate.sequence === current.inventory.sequence && current.token !== token)
+    )
+      throw new CustodyInventoryConflictError('inventory sequence must advance');
+    const members = await target.publishInventory(token, candidate.sequence);
+    const retained =
+      members.length === 5 &&
+      members.every(
+        (member) =>
+          !member.error &&
+          member.sequence === candidate.sequence &&
+          candidate.members.some((approved) => approved.id === member.node_id)
+      ) &&
+      new Set(members.map((member) => member.node_id)).size === 5;
+    if (retained) {
+      await client.query('begin');
+      transaction = true;
+      await retainWalletInventory(client, token, candidate.sequence);
+      await client.query('commit');
+      transaction = false;
+      await refreshWalletInventory(client);
+    }
+    return { sequence: candidate.sequence, members, retained };
+  } catch (error) {
+    if (transaction) await client.query('rollback');
+    throw error;
+  } finally {
+    try {
+      if (locked) await client.query('select pg_advisory_unlock(1380012884, 13)');
+    } catch (error) {
+      client.release(true);
+      throw error;
+    }
+    client.release();
+  }
+}
+
+export function findWalletInventoryKey(
+  inventory: WalletInventory,
+  keyId: string,
+  operation: WalletInventoryKey['operations'][number],
+  owner?: string
+): WalletInventoryKey | undefined {
+  const entry = inventory.keys.find((key) => key.key_id === keyId);
+  return entry &&
+    entry.operations.includes(operation) &&
+    (owner === undefined || entry.owner === owner)
+    ? entry
+    : undefined;
+}
+
 export function requireInventoryKey(
   keyId: string,
   operation: WalletInventoryKey['operations'][number],
   owner?: string
 ): WalletInventoryKey {
-  const entry = loadWalletInventory().keys.find((key) => key.key_id === keyId);
-  if (
-    !entry ||
-    !entry.operations.includes(operation) ||
-    (owner !== undefined && entry.owner !== owner)
-  )
+  const entry = findWalletInventoryKey(loadWalletInventory(), keyId, operation, owner);
+  if (!entry)
     throw new CustodyAuthorityError(
       `owner-approved wallet inventory does not admit ${operation} for ${keyId}`
     );
@@ -226,7 +407,6 @@ export async function publishCustodyAuthority(
   target?: CustodyAuthorityPublisher,
   required: 3 | 5 = 5
 ): Promise<string> {
-  const inventory = loadWalletInventory();
   if (env.ATTESTOR_ENDPOINTS.length !== 5 || env.ATTESTOR_QUORUM !== 3)
     throw new CustodyAuthorityError(
       'wallet custody requires the approved five-member, threshold-three inventory'
@@ -243,6 +423,8 @@ export async function publishCustodyAuthority(
   try {
     await client.query(`select pg_advisory_lock(1380012884, 13)`);
     locked = true;
+    await refreshWalletInventory(client);
+    const inventory = loadWalletInventory();
     await client.query('begin isolation level repeatable read');
     transaction = true;
     const prior = await client.query<{ sequence: string; inventory_sequence: string }>(
@@ -367,8 +549,8 @@ export async function publishCustodyAuthority(
     });
     await client.query(
       `update wallet_custody_authority set sequence = $1, inventory_sequence = $2,
-      snapshot = $3, published_at = null, acknowledged_participants = 0, updated_at = now() where singleton = true`,
-      [sequence, inventory.sequence, token]
+      snapshot = $3, inventory_token = $4, published_at = null, acknowledged_participants = 0, updated_at = now() where singleton = true`,
+      [sequence, inventory.sequence, token, currentWalletInventory().token]
     );
     await client.query('commit');
     transaction = false;

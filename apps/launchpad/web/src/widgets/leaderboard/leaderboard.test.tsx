@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 // @vitest-environment jsdom
 import React from 'react';
 import { describe, expect, it } from 'vitest';
@@ -96,7 +97,7 @@ describe('period and tab mapping', () => {
     expect(html).toContain('role="radiogroup"');
     expect(html).toContain('aria-label="Competition"');
     expect(html.match(/role="radio"/g)).toHaveLength(4);
-    expect(html).not.toMatch(BORDER);
+    expect(assertControlEdges(html)).not.toMatch(BORDER);
     expect(html).not.toMatch(/disabled=""/);
     const off = render(<PeriodControl value="1d" onChange={() => {}} cupDisabled />);
     expect(off.match(/disabled=""/g)).toHaveLength(1);
@@ -116,7 +117,7 @@ describe('rank row', () => {
     expect(html).toContain('text-success');
     expect(html).toContain('Follow');
     expect(html).toContain('min-h-list-row-lg');
-    expect(html).not.toMatch(BORDER);
+    expect(assertControlEdges(html)).not.toMatch(BORDER);
   });
   it('falls back to the short address, colours losses and marks the viewer row', () => {
     const html = renderToStaticMarkup(<ol><RankRow rank={7} wallet={wallet} metricSigned="-1500000" self /></ol>);
@@ -126,7 +127,10 @@ describe('rank row', () => {
     expect(html).toContain('>You<');
     // Board rows are 48px with the handle at text-md bold and PnL at num-md (components.md 36).
     expect(html).toContain('min-h-12');
-    expect(html).toMatch(/class="[^"]*truncate text-md font-bold[^"]*"/);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const link = doc.querySelector('a')!;
+    expect(link.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-md', 'font-bold']));
+    expect(link.querySelector('span')!.className.split(/\s+/)).toContain('truncate');
     expect(html).toMatch(/class="text-md font-bold[^"]*tabular-nums text-danger"/);
     expect(html).not.toContain('text-rank-');
   });
@@ -150,7 +154,7 @@ describe('cup hero and rules', () => {
     // The notice is the shared unavailable chip inside the frame, not a replacement for it.
     expect(html).toContain('data-state="unavailable"');
     expect(html).toContain('Competitions are not available yet');
-    expect(html).not.toMatch(BORDER);
+    expect(assertControlEdges(html)).not.toMatch(BORDER);
   });
   it('renders a served null cup as a genuine empty answer without a retry', () => {
     const html = render(<CupHero cup={{ state: 'ready', data: null }} onRetry={() => {}} />);
@@ -175,7 +179,7 @@ describe('cup hero and rules', () => {
     expect(html).toContain('Finished');
     expect(html).toContain('100,000 USDL');
     expect(html).toContain('Solo cup');
-    expect(html).not.toMatch(BORDER);
+    expect(assertControlEdges(html)).not.toMatch(BORDER);
   });
   it('keeps the frame, in-frame control and a prize line with no figure in every unavailable state', () => {
     const control = <PeriodControl value="1d" onChange={() => {}} cupDisabled />;
@@ -185,19 +189,24 @@ describe('cup hero and rules', () => {
       { state: 'loading' as const },
     ]) {
       const html = render(<CupHero cup={state} onRetry={() => {}} control={control} />);
-      expect(html).toContain('md:aspect-[16/7]');
+      expect(html).toContain('md:before:aspect-[16/7]');
       expect(html).toContain('aria-label="Ranking period"');
       expect(html).not.toContain('USDL');
       if (state.state !== 'loading') {
         expect(html).toContain('No prize pool announced');
         // The rules row keeps its place (disabled) so the hero anatomy matches a ready cup.
         expect(html).toContain('Schedule, scoring, eligibility and rules');
-        expect(html).toMatch(/<button[^>]*id="cup-rules-unavailable"[^>]*disabled/);
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const rules = doc.querySelector('summary#cup-rules-unavailable')!;
+        expect(rules.getAttribute('aria-disabled')).toBe('true');
+        expect(rules.getAttribute('aria-expanded')).toBe('false');
+        expect(rules.closest('details')!.hasAttribute('open')).toBe(false);
+        expect(doc.querySelector<HTMLDivElement>('#cup-rules-unavailable-panel')!.hidden).toBe(true);
       }
       // The art area is present in every state, and the frame grows instead of clipping its content.
       expect(html).toContain('data-cup-art');
       expect(html).not.toContain('overflow-hidden');
-      expect(html).not.toMatch(BORDER);
+      expect(assertControlEdges(html)).not.toMatch(BORDER);
       expect(html).not.toMatch(/\bshadow/);
     }
   });
@@ -212,7 +221,7 @@ describe('cup hero and rules', () => {
     const html = render(<CupRulesDisclosure cup={cup} />);
     expect(html).toContain('Schedule, scoring, eligibility and rules');
     expect(html).toContain('aria-expanded="false"');
-    expect(html).not.toMatch(BORDER);
+    expect(assertControlEdges(html)).not.toMatch(BORDER);
   });
 });
 
@@ -223,6 +232,6 @@ describe('squads tab', () => {
     expect(html).not.toContain('read model');
     expect(html).toContain('Check back soon');
     expect(html).not.toMatch(/>[^<]*no response/);
-    expect(html).not.toMatch(BORDER);
+    expect(assertControlEdges(html)).not.toMatch(BORDER);
   });
 });

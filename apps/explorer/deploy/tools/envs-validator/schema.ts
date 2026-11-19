@@ -49,7 +49,6 @@ const schema = yup
     NEXT_PUBLIC_APP_ENV: yup.string(),
     NEXT_PUBLIC_APP_INSTANCE: yup.string(),
 
-
     // Features configuration
     // NOTE: As a rule of thumb, only include features that require a single ENV variable here.
     // Otherwise, consider placing them in the corresponding schema file in the "./schemas/features" directory.
@@ -132,9 +131,6 @@ const schema = yup
     NEXT_PUBLIC_FLASHBLOCKS_SOCKET_URL: yup.string().test(urlTest),
     NEXT_PUBLIC_HOT_CONTRACTS_ENABLED: yup.boolean(),
 
-    // Paxeer X Network
-    NEXT_PUBLIC_PAXEER_X_ENABLED: yup.boolean(),
-
     // Misc
     NEXT_PUBLIC_USE_NEXT_JS_PROXY: yup.boolean(),
     NEXT_PUBLIC_API_KEYS_ALERT_MESSAGE: yup.string(),
@@ -163,10 +159,11 @@ const schema = yup
   .concat(featuresSchemas.megaEthSchema)
   .concat(featuresSchemas.multichainButtonSchema)
   .concat(featuresSchemas.nameServicesSchema)
+  .concat(featuresSchemas.paxeerXSchema)
   .concat(featuresSchemas.rollupSchema)
   .concat(featuresSchemas.tacSchema)
   .concat(featuresSchemas.userOpsSchema)
   .concat(featuresSchemas.zetaChainSchema)
-  .concat(servicesSchema)
+  .concat(servicesSchema);
 
 export default schema;

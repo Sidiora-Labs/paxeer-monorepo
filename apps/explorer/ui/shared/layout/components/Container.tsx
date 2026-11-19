@@ -4,12 +4,14 @@ import React from 'react';
 interface Props {
   children: React.ReactNode;
   className?: string;
+  onSubmit?: React.FormEventHandler<HTMLDivElement>;
 }
 
-const Container = ({ children, className }: Props) => {
+const Container = ({ children, className, onSubmit }: Props) => {
   return (
     <Box
       className={ className }
+      onSubmit={ onSubmit }
       width="100%"
       minWidth={ 0 }
       m="0 auto"

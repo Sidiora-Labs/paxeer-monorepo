@@ -1,0 +1,93 @@
+[manifest]
+task = "22.44.85"
+surface = "Paxscan explorer blocks"
+views = 4
+named_states = 3
+combinations = 7
+routes = ["/block/[height_or_hash]", "/block/countdown/[height]", "/block/countdown", "/blocks"]
+states = ["filled", "empty", "loading", "error"]
+fixture_sources = ["apps/explorer/ui/pages/BlockCountdown.pw.tsx", "apps/explorer/mocks/blocks", "apps/explorer/stubs/block.ts"]
+
+[coverage]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+additional_mode_widths = [390, 1440]
+matrix_renders = 238
+
+[presentation]
+loading_tooltips = "Loading copy controls and timestamps retain their placeholders without opening tooltips."
+countdown = "The search form renders with the page and its description wraps without a lone last word."
+input = "The clear control has reserved space within the field at touch widths."
+frame = "The header, footer and block content mount together."
+copy = "Copy controls retain their keyboard target while their glyph follows row hover and focus."
+placeholders = "The shimmer stays within each loading placeholder."
+validator = "The validator label and address wrap and align within the heading row."
+calendars = "The calendar controls retain their backgrounds and the Apple control has a contrasting border."
+activity = "The transaction layout follows the width of its container."
+transactions = "The block transaction list shows one loading row and takes pagination from the response."
+age = "The transaction time control aligns with the column labels."
+game = "The idle game score remains visible when the canvas resizes, and its instruction uses balanced wrapping."
+icons = "Sprite glyphs inherit their foreground color from each control."
+table_header = "The table header anchors at the top of its horizontal scroll region."
+header = "The desktop header wraps its controls when enlarged text needs another row."
+
+[guidance]
+ids = ["css", "css-layout", "html", "forms", "accessibility", "color", "typography", "dark-mode", "responsive-design", "motion", "performance", "responsive-table", "form-factor-adaptation"]
+
+[first_findings]
+load = 127
+sideways = 0
+cut = 1805
+contrast = 18
+touch = 0
+focus = 4
+shift = 2
+motion = 0
+scale = 0
+geometry = 0
+
+[render_result]
+views = ["/blocks"]
+renders = 136
+rendered = 136
+with_content = 136
+findings = 0
+passed = true
+
+[detail_render_result]
+views = ["/block/[height_or_hash]", "/block/countdown/[height]", "/block/countdown"]
+renders = 102
+rendered = 102
+with_content = 102
+findings = 0
+passed = true
+
+[matrix_result]
+renders = 238
+rendered = 238
+with_content = 238
+findings = 0
+passed = true
+
+[last_findings]
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0
+
+[visual_review]
+screenshots = 84
+widths = [360, 768, 1440, 2560]
+landscape = [844, 390]
+schemes = ["light", "dark"]
+additional_modes = ["double-text"]
+corrections = ["Balanced countdown description and game instruction wrapping", "Validator label and address alignment", "Block card timestamp and transaction label alignment", "Table header alignment within the scroll region", "Desktop header wrapping with enlarged text"]

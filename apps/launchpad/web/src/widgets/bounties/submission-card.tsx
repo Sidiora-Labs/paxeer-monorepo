@@ -29,7 +29,7 @@ function Evidence({ urls }: { urls: readonly string[] }) {
         <div className="flex aspect-[4/3] items-center justify-center text-text-faint"><ImageOff aria-hidden="true" className="size-icon-lg" /><span className="sr-only">Image didn't load</span></div>
       ) : (
         <a href={safe[0]} target="_blank" rel="noopener noreferrer" className="block focus-visible:outline-2 focus-visible:outline-focus">
-          <img src={safe[0]} alt="Submission image" loading="lazy" className="max-h-80 w-full object-cover" onError={() => setFailed(true)} />
+          <img src={safe[0]} alt="Submission image" loading="lazy" decoding="async" width={640} height={480} className="max-h-80 w-full object-cover" onError={() => setFailed(true)} />
         </a>
       )}
       {extra > 0 ? (
@@ -42,7 +42,7 @@ function Evidence({ urls }: { urls: readonly string[] }) {
           {safe.slice(1).map((url, index) => (
             <li key={url}>
               <a href={url} target="_blank" rel="noopener noreferrer" className="block size-14 overflow-hidden rounded-sm bg-surface-3 focus-visible:outline-2 focus-visible:outline-focus">
-                <img src={url} alt={`Attachment ${index + 2}`} loading="lazy" className="size-full object-cover" />
+                <img src={url} alt={`Attachment ${index + 2}`} loading="lazy" decoding="async" width={56} height={56} className="size-full object-cover" />
               </a>
             </li>
           ))}
@@ -79,7 +79,7 @@ export function SubmissionCard({ submission, asset, own = false, actions, classN
         <div className="flex min-w-0 items-center gap-2">
           <Avatar src={null} name={submission.authorWallet} size="sm" decorative />
           <h3 id={titleId} className="truncate text-sm font-bold text-text">
-            <Link href={`/profile/${submission.authorWallet.toLowerCase()}`} className="hover:underline focus-visible:outline-2 focus-visible:outline-focus">{author}</Link>
+            <Link prefetch={false} href={`/profile/${submission.authorWallet.toLowerCase()}`} className="hover:underline focus-visible:outline-2 focus-visible:outline-focus">{author}</Link>
             {own ? <span className="ml-1 font-normal text-text-faint">(you)</span> : null}
           </h3>
         </div>
@@ -90,7 +90,7 @@ export function SubmissionCard({ submission, asset, own = false, actions, classN
       </header>
       <Evidence urls={submission.evidenceUrls} />
       <blockquote className={cn('flex gap-3 rounded-sm bg-surface-2 p-3 text-sm', muted ? 'text-text-faint' : 'text-text')}>
-        <span aria-hidden="true" className="w-[3px] shrink-0 rounded-pill bg-accent" />
+        <span aria-hidden="true" className="w-1 shrink-0 rounded-pill bg-accent" />
         <p className="min-w-0 whitespace-pre-wrap break-words">{submission.body}</p>
       </blockquote>
       {award ? (

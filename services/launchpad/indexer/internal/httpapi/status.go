@@ -3,6 +3,8 @@ package httpapi
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -32,6 +34,7 @@ type DeadLetterPolicy interface {
 }
 
 type StatusDeps struct {
+	Logger            *slog.Logger
 	Store             *store.Store
 	ChainID           int32
 	Publisher         *publisher.Publisher
@@ -55,38 +58,42 @@ func RegisterStatus(r chi.Router, d StatusDeps) {
 			"status":            "ok",
 		}
 		failures := []string{}
-		unavailable := func(component string) { failures = append(failures, component); body["status"] = "unavailable" }
+		unavailable := func(component string, err error) {
+			failures = append(failures, component)
+			body["status"] = "unavailable"
+			logOperationalFailure(ctx, d.Logger, component, err)
+		}
 		if d.Store == nil {
-			unavailable("store")
+			unavailable("store", errors.New("store unavailable"))
 		} else {
 			switch d.Mode {
 			case StatusCanonical:
 				body["canonicalStreamId"] = d.CanonicalStreamID
 				height, err := d.Store.GetCanonicalWatermark(ctx, d.ChainID, d.CanonicalStreamID)
 				if err != nil {
-					unavailable("canonicalWatermark")
+					unavailable("canonicalWatermark", err)
 				} else {
 					body["lastProcessedBlock"] = height
 				}
 			case StatusLegacy:
 				height, err := d.Store.GetCursor(ctx, d.ChainID)
 				if err != nil {
-					unavailable("legacyCursor")
+					unavailable("legacyCursor", err)
 				} else {
 					body["lastProcessedBlock"] = height
 				}
 			default:
-				unavailable("mode")
+				unavailable("mode", errors.New("status mode unavailable"))
 			}
 			pools, err := d.Store.PoolCount(ctx)
 			if err != nil {
-				unavailable("poolCount")
+				unavailable("poolCount", err)
 			} else {
 				body["totalPoolsIndexed"] = pools
 			}
 			swaps, err := d.Store.SwapCount(ctx)
 			if err != nil {
-				unavailable("swapCount")
+				unavailable("swapCount", err)
 			} else {
 				body["totalSwapsIndexed"] = swaps
 			}
@@ -94,11 +101,11 @@ func RegisterStatus(r chi.Router, d StatusDeps) {
 		if d.Mode == StatusCanonical {
 			body["delivery"] = nil
 			if d.Delivery == nil || d.MaxDeliveryLag <= 0 {
-				unavailable("deliveryConfiguration")
+				unavailable("deliveryConfiguration", errors.New("delivery configuration unavailable"))
 			} else {
 				health, err := d.Delivery.Stats(ctx)
 				if err != nil {
-					unavailable("delivery")
+					unavailable("delivery", err)
 				} else {
 					body["delivery"] = map[string]any{
 						"pendingRows": health.PendingRows, "pendingBytes": health.PendingBytes,
@@ -133,6 +140,7 @@ func RegisterStatus(r chi.Router, d StatusDeps) {
 	})
 
 	var operations http.Handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		logOperationalFailure(context.Background(), d.Logger, "deadLetterPolicy", errors.New("dead-letter policy unavailable"))
 		http.Error(w, "dead-letter policy unavailable", http.StatusServiceUnavailable)
 	})
 	if d.DeadLetters != nil {

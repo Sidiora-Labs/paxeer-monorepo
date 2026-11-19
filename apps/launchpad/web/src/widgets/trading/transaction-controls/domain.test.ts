@@ -136,7 +136,9 @@ describe('synthetic domain fixtures (not receipt evidence)', () => {
     ).toThrow();
   });
   it('exact approvals reset and bind step transaction and fresh allowance evidence', () => {
-    const plan = approvalPlan(c, addr, 1n, true);
+    const plan = approvalPlan(c, addr, other, 1n, true);
+    expect(plan.spender).toBe(other);
+    expect(approvalStepFingerprint(plan, 0)).not.toBe(approvalStepFingerprint(approvalPlan(c, addr, addr, 1n, true), 0));
     expect(plan.steps).toEqual([0n, 1000000n]);
     const step = approvalStepFingerprint(plan, 0);
     const attempt = { ...a, action: 'approve', actionFingerprint: step };
@@ -144,7 +146,7 @@ describe('synthetic domain fixtures (not receipt evidence)', () => {
       chainId: 125 as const,
       account: addr,
       token: addr,
-      spender: addr,
+      spender: other,
       allowanceRaw: 0n,
       blockHeight: 2n,
       observedAt: 2000,
@@ -160,7 +162,7 @@ describe('synthetic domain fixtures (not receipt evidence)', () => {
     for (const change of [
       { blockHeight: 1n },
       { observedAt: -10000 },
-      { spender: other },
+      { spender: addr },
       { approvalTxHash: '0x' + '44'.repeat(32) },
       { stepFingerprint: 'wrong' },
     ])
@@ -168,11 +170,11 @@ describe('synthetic domain fixtures (not receipt evidence)', () => {
         approvalMayContinue(plan, c, attempt, receipt, { ...allowance, ...change }, 0, 2000)
       ).toBe(false);
     expect(approvalMayContinue(plan, c, attempt, receipt, allowance, 1, 2000)).toBe(false);
-    expect(() => approvalPlan(c, other, 0n, false)).toThrow('spender');
+    expect(() => approvalPlan(c, other, addr, 0n, false)).toThrow('spender');
   });
   it('immutable approval and quote snapshots cannot follow caller mutation', async () => {
     const mutable = { ...c };
-    const plan = approvalPlan(mutable, addr, 1n, true);
+    const plan = approvalPlan(mutable, addr, addr, 1n, true);
     mutable.recipient = other;
     expect(plan.context.recipient).toBe(addr);
     expect(Object.isFrozen(plan.context)).toBe(true);

@@ -1,8 +1,19 @@
 "use client";
-import { authenticatedMarketSocketUrl } from "../../core/authenticatedMarketSocket";
-import { isPageActive, scheduleActive, watchSocket, type CancelTask } from "@paxeer-network/paxeer-backend/core/net/realtime";
+import {
+  isPageActive,
+  scheduleActive,
+  sequenceGuard,
+  watchSocket,
+  type CancelTask,
+} from "@paxeer-network/paxeer-backend/core/net/realtime";
+import { getStreamSocketOrigin } from "@paxeer-network/paxeer-backend/core/feeds";
 
 import { useEffect, useState } from "react";
+import type { SpotBookLevel } from "@paxeer-network/paxeer-backend/core/perps/bookLevels";
+import {
+  parseVenueBook,
+  parseSpotVenueTrade,
+} from "@paxeer-network/paxeer-backend/core/net/venueStream";
 
 /* ══════════════════════════════════════════════════════════════════════
    Dedicated SPOT market stream — mirrors the perps
@@ -21,31 +32,27 @@ import { useEffect, useState } from "react";
    correct upstream internally.
    ══════════════════════════════════════════════════════════════════════ */
 
-const MARKET_PROXY_HOST =
-  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_MARKET_PROXY_HOST) ||
-  "data.feed.chainflowtrading.com";
+const MARKET_WS_ORIGIN = getStreamSocketOrigin();
 
 /** Symbols that have a SPOT stream available. */
 const SUPPORTED_SPOT_SYMBOLS = new Set(["SID", "BNB", "ETH", "PAX"]);
 
+// The gateway permits the Hyperpax browser origin; no client secret is shipped.
 
-// The gateway permits the paxeer-network browser origin; no client secret is shipped.
-
-function buildSymbolWsUrl(symbol: string): string {
-  return `wss://${MARKET_PROXY_HOST}/ws/${symbol.toLowerCase()}`;
+export function buildSymbolWsUrl(symbol: string): string {
+  return `${MARKET_WS_ORIGIN}/ws/${symbol.toLowerCase()}`;
 }
 
 /** True if the symbol has a dedicated SPOT market stream. */
-export function hasSpotMarketStream(symbol: string | undefined | null): boolean {
+export function hasSpotMarketStream(
+  symbol: string | undefined | null,
+): boolean {
   if (!symbol) return false;
   return SUPPORTED_SPOT_SYMBOLS.has(symbol.toUpperCase());
 }
 
 // ── Public types ──────────────────────────────────────────────────────
-export interface SpotBookLevel {
-  price: number;
-  size: number;
-}
+export type { SpotBookLevel } from "@paxeer-network/paxeer-backend/core/perps/bookLevels";
 
 export interface SpotOrderbook {
   bids: SpotBookLevel[];
@@ -107,7 +114,11 @@ function ensureSpotStream(symbol: string): SpotSymbolStream | null {
   const url = buildSymbolWsUrl(key);
 
   let stream = spotStreams.get(key);
-  if (stream) { if (stream.lingerTimer) clearTimeout(stream.lingerTimer); stream.lingerTimer = null; return stream; }
+  if (stream) {
+    if (stream.lingerTimer) clearTimeout(stream.lingerTimer);
+    stream.lingerTimer = null;
+    return stream;
+  }
 
   stream = {
     url,
@@ -129,9 +140,12 @@ function ensureSpotStream(symbol: string): SpotSymbolStream | null {
   return stream;
 }
 
-async function connectSpot(symbol: string, s: SpotSymbolStream) {
+function connectSpot(symbol: string, s: SpotSymbolStream) {
   if (s.disposed) return;
-  if (!isPageActive()) { scheduleSpotReconnect(symbol, s); return; }
+  if (!isPageActive()) {
+    scheduleSpotReconnect(symbol, s);
+    return;
+  }
   // SPOT topics — NO `perp_` prefix
   const orderbookTopic = `${symbol}@orderbook`;
   const tradeTopic = `${symbol}@trade`;
@@ -139,16 +153,20 @@ async function connectSpot(symbol: string, s: SpotSymbolStream) {
 
   let ws: WebSocket;
   try {
-    const url = await authenticatedMarketSocketUrl(s.url);
-    if (s.disposed) return;
-    if (!isPageActive()) { scheduleSpotReconnect(symbol, s); return; }
-    ws = new WebSocket(url);
+    ws = new WebSocket(s.url);
   } catch {
     scheduleSpotReconnect(symbol, s);
     return;
   }
   s.ws = ws;
-  watchSocket(ws, () => { s.reconnectDelay = INITIAL_RECONNECT_DELAY; }, undefined, true);
+  watchSocket(
+    ws,
+    () => {
+      s.reconnectDelay = INITIAL_RECONNECT_DELAY;
+    },
+    undefined,
+    true,
+  );
 
   ws.addEventListener("open", () => {
     try {
@@ -171,6 +189,7 @@ async function connectSpot(symbol: string, s: SpotSymbolStream) {
     }
   });
 
+  const acceptSequence = sequenceGuard();
   ws.addEventListener("message", (ev) => {
     let msg: Record<string, unknown>;
     try {
@@ -178,14 +197,20 @@ async function connectSpot(symbol: string, s: SpotSymbolStream) {
     } catch {
       return;
     }
+    if (!acceptSequence(msg)) {
+      ws.close(4000, "sequence-gap");
+      return;
+    }
 
     // Order-book frame
     if (msg.topic === orderbookTopic && msg.data) {
       const data = msg.data as Record<string, unknown>;
-      const asks = normalizeLevels(data.asks).sort((a, b) => a.price - b.price);
-      const bids = normalizeLevels(data.bids).sort((a, b) => b.price - a.price);
-      const ts = typeof msg.ts === "number" ? msg.ts : Date.now();
-      s.orderbook = { asks, bids, ts };
+      const book = parseVenueBook(
+        data,
+        typeof msg.ts === "number" ? msg.ts : Date.now(),
+      );
+      if (!book) return;
+      s.orderbook = { asks: book.asks, bids: book.bids, ts: book.ts };
       s.subsOrderbook.forEach((cb) => cb(s.orderbook));
       return;
     }
@@ -194,14 +219,19 @@ async function connectSpot(symbol: string, s: SpotSymbolStream) {
     if (msg.topic === tradeTopic && msg.data) {
       const data = msg.data as Record<string, unknown>;
       if (msg.snapshot && Array.isArray(data.trades)) {
-        s.trades = (data.trades as unknown[]).slice(0, TRADE_CAP).map(normalizeSpotTrade);
+        s.trades = (data.trades as unknown[])
+          .slice(0, TRADE_CAP)
+          .map(parseSpotTrade)
+          .filter((trade): trade is SpotTrade => trade !== null);
         s.subsTrades.forEach((cb) => cb(s.trades));
       } else if (data.trade) {
-        const t = normalizeSpotTrade(data.trade);
+        const t = parseSpotTrade(data.trade);
+        if (!t) return;
         s.trades = [t, ...s.trades].slice(0, TRADE_CAP);
         s.subsTrades.forEach((cb) => cb(s.trades));
       } else if (data.side && data.price != null) {
-        const t = normalizeSpotTrade(data);
+        const t = parseSpotTrade(data);
+        if (!t) return;
         s.trades = [t, ...s.trades].slice(0, TRADE_CAP);
         s.subsTrades.forEach((cb) => cb(s.trades));
       }
@@ -210,15 +240,9 @@ async function connectSpot(symbol: string, s: SpotSymbolStream) {
 
     // Stats frame — SPOT stats shape (simpler than perps)
     if (msg.topic === statsTopic && msg.data) {
-      const d = msg.data as Record<string, unknown>;
-      s.statsData = {
-        symbol: String(d.symbol ?? symbol),
-        last_price: Number(d.last_price ?? d.price ?? 0),
-        high_24h: Number(d.high_24h ?? d["24h_high"] ?? 0),
-        low_24h: Number(d.low_24h ?? d["24h_low"] ?? 0),
-        volume_24h: Number(d.volume_24h ?? d["24h_volume"] ?? 0),
-        change_24h: Number(d.change_24h ?? d["24h_change"] ?? 0),
-      };
+      const stats = parseSpotStats(msg.data, symbol);
+      if (!stats) return;
+      s.statsData = stats;
       s.subsStats.forEach((cb) => cb(s.statsData));
       return;
     }
@@ -226,8 +250,12 @@ async function connectSpot(symbol: string, s: SpotSymbolStream) {
 
   const onDisconnect = () => {
     if (s.disposed) return;
-    s.orderbook = null; s.trades = []; s.statsData = null;
-    s.subsOrderbook.forEach(cb => cb(null)); s.subsTrades.forEach(cb => cb([])); s.subsStats.forEach(cb => cb(null));
+    s.orderbook = null;
+    s.trades = [];
+    s.statsData = null;
+    s.subsOrderbook.forEach((cb) => cb(null));
+    s.subsTrades.forEach((cb) => cb([]));
+    s.subsStats.forEach((cb) => cb(null));
     if (s.pingTimer) {
       clearInterval(s.pingTimer);
       s.pingTimer = null;
@@ -244,65 +272,87 @@ async function connectSpot(symbol: string, s: SpotSymbolStream) {
 function scheduleSpotReconnect(symbol: string, s: SpotSymbolStream) {
   if (s.reconnectTimer || s.disposed) return;
   const delay = s.reconnectDelay;
-  s.reconnectTimer = scheduleActive(() => {
-    s.reconnectTimer = null;
-    s.reconnectDelay = Math.min(MAX_RECONNECT_DELAY, s.reconnectDelay * 2);
-    connectSpot(symbol, s);
-  }, delay, s.url);
+  s.reconnectTimer = scheduleActive(
+    () => {
+      s.reconnectTimer = null;
+      s.reconnectDelay = Math.min(MAX_RECONNECT_DELAY, s.reconnectDelay * 2);
+      connectSpot(symbol, s);
+    },
+    delay,
+    s.url,
+  );
 }
 
 function releaseIfIdle(symbol: string, s: SpotSymbolStream) {
-  const listeners = () => s.subsOrderbook.size + s.subsTrades.size + s.subsStats.size;
+  const listeners = () =>
+    s.subsOrderbook.size + s.subsTrades.size + s.subsStats.size;
   if (listeners() || s.lingerTimer) return;
   s.lingerTimer = setTimeout(() => {
     s.lingerTimer = null;
     if (listeners()) return;
-    s.disposed = true; s.reconnectTimer?.();
+    s.disposed = true;
+    s.reconnectTimer?.();
     if (s.pingTimer) clearInterval(s.pingTimer);
-    s.ws?.close(1000, "no-subscribers"); s.ws = null;
+    s.ws?.close(1000, "no-subscribers");
+    s.ws = null;
     spotStreams.delete(symbol.toUpperCase());
   }, 15000);
 }
 
-function normalizeLevels(raw: unknown): SpotBookLevel[] {
-  if (!Array.isArray(raw)) return [];
-  const out: SpotBookLevel[] = [];
-  for (const r of raw) {
-    const price = Array.isArray(r)
-      ? Number(r[0])
-      : Number((r as Record<string, unknown>)?.price);
-    const size = Array.isArray(r)
-      ? Number(r[1])
-      : Number(
-          (r as Record<string, unknown>)?.size ??
-            (r as Record<string, unknown>)?.quantity,
-        );
-    if (Number.isFinite(price) && Number.isFinite(size)) {
-      out.push({ price, size });
-    }
-  }
-  return out;
+/** Decode the gateway trade as the shared venue consumer does. */
+export function parseSpotTrade(raw: unknown): SpotTrade | null {
+  const trade = parseSpotVenueTrade(raw);
+  if (!trade) return null;
+  return {
+    side: trade.side,
+    price: trade.price,
+    size: trade.size,
+    trade_id: trade.id ?? undefined,
+    trade_time: trade.trade_time,
+  };
 }
 
-function normalizeSpotTrade(t: unknown): SpotTrade {
-  const obj = t as Record<string, unknown>;
-  const side = String(obj?.side ?? "").toUpperCase() === "BUY" ? "BUY" : "SELL";
-  const tradeTimeRaw = obj?.trade_time ?? obj?.ts ?? Date.now();
-  const tradeTime = Number(tradeTimeRaw);
-  const size = Number(obj?.size ?? obj?.quantity ?? 0);
+/** Prices are not part of gateway @stats; preserve the legacy display fields. */
+export function parseSpotStats(raw: unknown, symbol: string): SpotStats | null {
+  if (!raw || typeof raw !== "object") return null;
+  const d = raw as Record<string, unknown>;
+  if (
+    d.symbol !== symbol ||
+    typeof d.volume_24h !== "number" ||
+    !Number.isFinite(d.volume_24h)
+  )
+    return null;
   return {
-    side,
-    price: Number(obj?.price),
-    size,
-    trade_id: (obj?.trade_id ?? obj?.id ?? undefined) as string | undefined,
-    trade_time: Number.isFinite(tradeTime) ? tradeTime : Date.now(),
+    symbol: String(d.symbol ?? symbol),
+    last_price: Number(d.last_price ?? d.price ?? 0),
+    high_24h: Number(d.high_24h ?? d["24h_high"] ?? 0),
+    low_24h: Number(d.low_24h ?? d["24h_low"] ?? 0),
+    volume_24h: Number(d.volume_24h ?? d["24h_volume"] ?? 0),
+    change_24h: Number(d.change_24h ?? d["24h_change"] ?? 0),
+  };
+}
+
+/** SPOT order-book listener: the cached book, each frame, and null while the socket is down. */
+export function subscribeSpotOrderbook(
+  symbol: string,
+  cb: (book: SpotOrderbook | null) => void,
+): () => void {
+  const s = ensureSpotStream(symbol);
+  if (!s) return () => {};
+  s.subsOrderbook.add(cb);
+  if (s.orderbook) cb(s.orderbook);
+  return () => {
+    s.subsOrderbook.delete(cb);
+    releaseIfIdle(symbol, s);
   };
 }
 
 // ── React hooks ───────────────────────────────────────────────────────
 
 /** Subscribe to the SPOT order-book feed. */
-export function useSpotOrderbook(symbol: string | undefined): SpotOrderbook | null {
+export function useSpotOrderbook(
+  symbol: string | undefined,
+): SpotOrderbook | null {
   const [book, setBook] = useState<SpotOrderbook | null>(null);
 
   useEffect(() => {
@@ -316,11 +366,7 @@ export function useSpotOrderbook(symbol: string | undefined): SpotOrderbook | nu
       return;
     }
     setBook(s.orderbook);
-    s.subsOrderbook.add(setBook);
-    return () => {
-      s.subsOrderbook.delete(setBook);
-      releaseIfIdle(symbol, s);
-    };
+    return subscribeSpotOrderbook(symbol, setBook);
   }, [symbol]);
 
   return book;

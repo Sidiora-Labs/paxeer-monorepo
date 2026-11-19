@@ -31,7 +31,7 @@ function ChatMessage({ msg, onReply, replyTarget, onRetry, onRevise, wallet }: {
       <Avatar src={null} name={shortAddress(msg.sender)} size="sm" decorative className="mt-0.5" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <Link href={`/profile/${msg.sender}`} className="font-mono text-xs font-bold text-accent hover:underline">{shortAddress(msg.sender)}</Link>
+          <Link prefetch={false} href={`/profile/${msg.sender}`} className="font-mono text-xs font-bold text-accent hover:underline">{shortAddress(msg.sender)}</Link>
           <time dateTime={new Date(msg.createdAt * 1000).toISOString()} className="text-2xs text-text-faint">{relativeAge(msg.createdAt)}</time>
           <button type="button" onClick={() => onReply(msg)} className="ml-auto text-2xs text-text-faint opacity-0 transition-opacity hover:text-text focus-visible:opacity-100 group-hover:opacity-100">Reply</button>
         </div>
@@ -41,7 +41,7 @@ function ChatMessage({ msg, onReply, replyTarget, onRetry, onRevise, wallet }: {
         <p className={cn('mt-0.5 break-words text-sm', msg.sendState === 'submitting' ? 'italic text-text-faint' : failed ? 'text-danger' : 'text-text')}>{msg.deleted ? 'Message removed' : msg.content}</p>
         {editing && <div className="mt-1 flex flex-col gap-1.5">
           <label className="sr-only" htmlFor={`pool-edit-${msg.id}`}>Edit message</label>
-          <textarea id={`pool-edit-${msg.id}`} value={draft} maxLength={2000} onChange={event => setDraft(event.target.value)} className="min-h-16 w-full rounded-sm bg-surface-2 px-3 py-2 text-sm text-text outline-none focus-visible:outline-2 focus-visible:outline-focus" />
+          <textarea id={`pool-edit-${msg.id}`} value={draft} maxLength={500} onChange={event => setDraft(event.target.value)} className="min-h-16 w-full rounded-sm bg-surface-2 px-3 py-2 text-sm text-text outline-none focus-visible:outline-2 focus-visible:outline-focus" />
           <div className="flex gap-2"><Button size="sm" variant="primary" onClick={async () => { if (await onRevise(msg, draft)) setEditing(false); }}>Save edit</Button><Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel edit</Button></div>
         </div>}
         {!msg.deleted && msg.sequence !== '0' && own && <div className="mt-1 flex gap-2">
@@ -56,12 +56,19 @@ function ChatMessage({ msg, onReply, replyTarget, onRetry, onRevise, wallet }: {
 }
 
 export default function PoolChat({ poolAddress }: PoolChatProps) {
-  const { messages, loading, error, retryMessage, reviseMessage, markRead, sendMessage, replyTo, setReplyTo, isAuthenticated, isConnected, wallet } = usePoolChat(poolAddress);
+  const { sessionEpoch, retryHistory, connectChat, cancelMarkRead, messages, loading, error, retryMessage, reviseMessage, markRead, sendMessage, replyTo, setReplyTo, isAuthenticated, isConnected, wallet } = usePoolChat(poolAddress);
   const [input, setInput] = useState('');
   const [historyOffset, setHistoryOffset] = useState(0);
   const draftWallet = useRef(wallet);
-  useEffect(() => { setInput(''); setHistoryOffset(0); draftWallet.current = wallet; }, [poolAddress, isConnected, wallet]);
-  useEffect(() => { if (document.visibilityState === 'visible') markRead(); }, [messages, markRead]);
+  const draftScope = useRef(sessionEpoch);
+  useEffect(() => { setInput(''); setHistoryOffset(0); draftWallet.current = wallet; draftScope.current = sessionEpoch; }, [poolAddress, isConnected, wallet, sessionEpoch]);
+  const visible = messages.slice(Math.max(0, messages.length - 200 - historyOffset), Math.max(0, messages.length - historyOffset));
+  const through = visible.reduce((highest, message) => message.sender.toLowerCase() !== wallet?.toLowerCase() && !message.deleted && BigInt(message.sequence) > BigInt(highest) ? message.sequence : highest, '0');
+  useEffect(() => {
+    const update = () => { cancelMarkRead(); if (document.visibilityState === 'visible' && through !== '0') markRead(through); };
+    update(); document.addEventListener('visibilitychange', update);
+    return () => { document.removeEventListener('visibilitychange', update); cancelMarkRead(); };
+  }, [through, historyOffset, markRead, cancelMarkRead]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -83,6 +90,7 @@ export default function PoolChat({ poolAddress }: PoolChatProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend(); }
   };
 
@@ -92,17 +100,17 @@ export default function PoolChat({ poolAddress }: PoolChatProps) {
   return (
     <div className="flex flex-col overflow-hidden rounded-md bg-surface-2">
       <div role="status" aria-live="polite" className={cn('px-3 text-xs text-warning', status ? 'py-2' : 'sr-only')}>{status}</div>
-      <div ref={containerRef} role="log" aria-label="Coin chat" tabIndex={0} onScroll={handleScroll} className="overflow-y-auto p-1 outline-none focus-visible:outline-2 focus-visible:outline-focus" style={{ maxHeight: 420 }}>
+      <div ref={containerRef} role="log" aria-label="Coin chat" tabIndex={0} onScroll={handleScroll} className="sl-chat-log overflow-y-auto p-1 outline-none focus-visible:outline-2 focus-visible:outline-focus" style={{ maxHeight: 'var(--sl-chat-max-height)' }}>
         {loading ? (
           <div role="status" aria-busy="true" className="p-6 text-center text-xs text-text-faint">Loading messages...</div>
         ) : error ? (
-          <div role="alert" className="p-6 text-center text-sm text-text-muted">Chat can&apos;t load right now. Try again in a moment.</div>
+          <div role="alert" className="p-6 text-center text-sm text-text-muted">Chat can&apos;t load right now. Try again in a moment.<Button size="sm" variant="ghost" onClick={() => { retryHistory(); void connectChat(); }}>Try again</Button></div>
         ) : messages.length === 0 ? (
           <EmptyState icon={MessagesSquare} title="No messages yet" body="Start the conversation about this coin." className="p-6" />
         ) : (
           <>
             {messages.length > 200 + historyOffset && <Button size="sm" variant="ghost" fullWidth onClick={() => setHistoryOffset(value => value + 200)}>Earlier messages</Button>}
-            {messages.slice(Math.max(0, messages.length - 200 - historyOffset), Math.max(0, messages.length - historyOffset)).map(msg => (
+            {visible.map(msg => (
               <ChatMessage key={msg.id} msg={msg} onReply={setReplyTo} onRetry={retryMessage} onRevise={reviseMessage} wallet={wallet} replyTarget={msg.replyToId ? msgMap.get(msg.replyToId) : undefined} />
             ))}
             {historyOffset > 0 && <Button size="sm" variant="ghost" fullWidth onClick={() => setHistoryOffset(value => Math.max(0, value - 200))}>Later messages</Button>}
@@ -125,7 +133,7 @@ export default function PoolChat({ poolAddress }: PoolChatProps) {
             <input
               id={`pool-chat-input-${poolAddress.toLowerCase()}`}
               type="text"
-              value={draftWallet.current === wallet ? input : ''}
+              value={draftWallet.current === wallet && draftScope.current === sessionEpoch ? input : ''}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={isAuthenticated ? 'Add a comment' : 'Sign in to start chatting'}

@@ -1,3 +1,4 @@
+import { accountSession, assertAccount } from '@/widgets/profile/account-transport';
 import type { PrivateAppealOutcome, ResolveReportCommand, SafetyCase } from './contracts';
 export class SafetyRequestError extends Error {
     constructor(readonly status: number, readonly retryAfterSeconds: number | null = null) { super(status === 409 ? 'Refresh the current revision.' : 'Safety request failed.'); }
@@ -18,12 +19,18 @@ export class SafetyClient {
     }
     async request<T>(path: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<T> {
         const token = this.accessToken();
+        const installed = accountSession();
+        const scope = installed?.accessToken === token ? installed : null;
+        signal = AbortSignal.any([AbortSignal.timeout(8000), ...(signal ? [signal] : []), ...(scope ? [scope.signal] : [])]);
         if (!token) throw new SafetyRequestError(401);
         const headers: Record<string, string> = { Accept: 'application/json', Authorization: `Bearer ${token}` };
         if (body !== undefined) headers['Content-Type'] = 'application/json';
         const response = await fetch(new URL(path, this.origin), { method, headers, credentials: 'omit', cache: 'no-store', redirect: 'error', body: body === undefined ? undefined : JSON.stringify(body), signal });
         if (!response.ok) { const retry = Number(response.headers.get('Retry-After')); throw new SafetyRequestError(response.status, Number.isFinite(retry) && retry > 0 ? retry : null); }
-        return await response.json() as T;
+        const value = await response.json() as T;
+        if (scope) assertAccount(scope);
+        if (this.accessToken() !== token) throw new SafetyRequestError(401);
+        return value;
     }
     report(command: ReportCommand) { return this.request<SafetyCase>('/v2/safety/reports', 'POST', command); }
     cases(signal?: AbortSignal) { return this.request<SafetyCase[]>('/v2/safety/cases', 'GET', undefined, signal); }

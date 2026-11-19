@@ -109,7 +109,8 @@ const isObject = (value: any): value is object => {
   return !!value && value.constructor === Object;
 };
 
-const PAXEER_NETWORK_NAV_BUTTON_TOOLTIP_OPEN = "PAXEER_NETWORK_NAV_BUTTON_TOOLTIP_OPEN";
+const PAXEER_NETWORK_NAV_BUTTON_TOOLTIP_OPEN =
+  "PAXEER_NETWORK_NAV_BUTTON_TOOLTIP_OPEN";
 
 export const NavItem: FC<
   Omit<React.HTMLAttributes<HTMLButtonElement>, "onClick"> & {

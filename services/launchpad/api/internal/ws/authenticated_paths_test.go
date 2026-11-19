@@ -76,6 +76,17 @@ func TestAuthenticatedWebSocketRejectsInvalidHandshakeAndSubscribe(t *testing.T)
 	const origin = "https://web.example"
 	srv, _ := newServer(t, ws.Options{PrivateStream: stream, AllowedOrigins: []string{origin}})
 	endpoint := "ws" + strings.TrimPrefix(srv.URL, "http") + "/v2/stream"
+	for _, origins := range [][]string{{""}, {" "}, {"*"}} {
+		hub := ws.NewHub(ws.Options{PrivateStream: stream, AllowedOrigins: origins})
+		req := httptest.NewRequest(http.MethodGet, "/v2/stream", nil)
+		req.Header.Set("Sec-WebSocket-Protocol", "sidiora.v2")
+		response := httptest.NewRecorder()
+		hub.HandleV2(response, req)
+		if response.Code != http.StatusForbidden || !strings.Contains(response.Body.String(), "FORBIDDEN") {
+			t.Fatalf("empty origin admission: %d %s", response.Code, response.Body)
+		}
+	}
+
 	for _, check := range []struct {
 		name, path, requestOrigin string
 		protocols                 []string

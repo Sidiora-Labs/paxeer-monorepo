@@ -41,7 +41,7 @@ function Highlights({ cup, items, identities }: HighlightsProps) {
   return (
     <section role="region" aria-roledescription="carousel" aria-labelledby="cup-highlights-title" className="rounded-lg bg-surface-1 p-3 sm:p-4">
       <SectionHeader
-        title={<span id="cup-highlights-title" className="text-2xs uppercase tracking-[0.04em] text-text-faint">Cup highlights</span>}
+        title={<span id="cup-highlights-title" className="text-2xs uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Cup highlights</span>}
         level={3}
         action={(
           <div className="flex gap-1">
@@ -56,13 +56,13 @@ function Highlights({ cup, items, identities }: HighlightsProps) {
           const identity = identities[wallet];
           const name = identity?.displayName?.trim() || shortAddress(wallet, 6, 4);
           return (
-            <li key={wallet} className="w-[180px] shrink-0 snap-start">
-              <Link href={profileHref(wallet)} className="relative flex aspect-[3/4] flex-col justify-end overflow-hidden rounded-md bg-surface-2 transition-opacity duration-fast hover:opacity-95">
+            <li key={wallet} className="w-45 shrink-0 snap-start">
+              <Link prefetch={false} href={profileHref(wallet)} className="relative flex aspect-[3/4] flex-col justify-end overflow-hidden rounded-md bg-surface-2 transition-opacity duration-fast hover:opacity-95">
                 <RankBadge rank={row.rank} variant="media" className="absolute left-2 top-2" />
                 <div aria-hidden="true" className="absolute inset-x-0 top-0 flex h-2/3 items-center justify-center">
                   <Avatar src={identity?.avatarUrl ?? null} name={name} size="2xl" decorative />
                 </div>
-                <div className="relative flex flex-col gap-1 bg-media-overlay p-3">
+                <div className="relative flex flex-col gap-1 bg-surface-2 p-3">
                   <span className="truncate text-sm font-bold text-text">{name}</span>
                   <span className={cn('text-sm font-bold tabular-nums', toneClass[metricTone(row.metricSigned)])} data-numeric>{formatUsdl(row.metricSigned, { signed: true })}</span>
                   {prizeForRank(cup, row) !== null ? <span className="text-2xs text-text-muted">Prize {formatUsdl(prizeForRank(cup, row), { fractionDigits: 0 })}</span> : null}
@@ -92,7 +92,7 @@ function StandingsPanel({ cup, title, state, onRetry, highlights, pagination }: 
     <div className="flex flex-col gap-4">
       {highlights && state.state === 'ready' ? <Highlights cup={cup} items={cupHighlights(items)} identities={identities} /> : null}
       <section aria-labelledby="cup-standings-title" className="rounded-lg bg-surface-1 p-3 sm:p-4">
-        <SectionHeader title={<span id="cup-standings-title" className="text-2xs uppercase tracking-[0.04em] text-text-faint">{title}</span>} level={3} loading={state.state === 'loading'} />
+        <SectionHeader title={<span id="cup-standings-title" className="text-2xs uppercase tracking-[var(--sl-tracking-label)] text-text-faint">{title}</span>} level={3} loading={state.state === 'loading'} />
         <div className="mt-3">
           {state.state === 'loading' ? <RankRowSkeleton count={6} size="lg" /> : null}
           {state.state === 'unsupported' ? <UnavailableState title="Cup standings" operation={state.operation} status={state.status} message="Check back soon" onRetry={onRetry} /> : null}

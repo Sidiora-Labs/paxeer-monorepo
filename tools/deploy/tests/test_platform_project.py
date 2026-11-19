@@ -840,3 +840,20 @@ def test_project_metadata_files_name_destinations():
         meta = tomllib.loads(text)["meta"]
         assert meta["project"] == "paxeer-x-" + name
         assert meta["environment"] == "production"
+
+
+def test_wallet_inventory_service_loads_after_gateway(client):
+    tool, _, _ = client
+    meta, services = tool.load(ROOT / "deploy/projects/wallet")
+    inventory = next(service for service in services if service["name"] == "wallet-inventory")
+    gateway = next(service for service in services if service["name"] == "wallet-gateway")
+    assert inventory["kind"] == "repo"
+    assert inventory["repo"] == meta["repo"]
+    assert inventory["dockerfile"] == "docker/wallet-inventory/Dockerfile"
+    assert inventory["root"] == "."
+    assert inventory["health"] == "/healthz"
+    assert inventory["volume"] == inventory["vars"]["WALLET_INVENTORY_STATE_DIR"] == "/data"
+    assert inventory["replicas"] == 1
+    assert inventory["needs"] == ["wallet-gateway"]
+    assert inventory["order"] > gateway["order"]
+    assert services.index(inventory) > services.index(gateway)

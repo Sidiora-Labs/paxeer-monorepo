@@ -2,7 +2,8 @@ import React from 'react';
 
 import type { TxBlob } from 'types/api/blobs';
 
-import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { TableBody, TableColumnHeader, TableRow } from 'toolkit/chakra/table';
+import ActivityTable, { ActivityTableHeader as TableHeaderSticky } from 'ui/txs/ActivityTable';
 
 import TxBlobsTableItem from './TxBlobsTableItem';
 
@@ -15,7 +16,7 @@ interface Props {
 const TxBlobsTable = ({ data, top, isLoading }: Props) => {
 
   return (
-    <TableRoot>
+    <ActivityTable label="Blob data">
       <TableHeaderSticky top={ top }>
         <TableRow>
           <TableColumnHeader width="60%">Blob hash</TableColumnHeader>
@@ -28,7 +29,7 @@ const TxBlobsTable = ({ data, top, isLoading }: Props) => {
           <TxBlobsTableItem key={ item.hash + (isLoading ? index : '') } data={ item } isLoading={ isLoading }/>
         )) }
       </TableBody>
-    </TableRoot>
+    </ActivityTable>
   );
 };
 

@@ -162,7 +162,7 @@ func (s *Store) Search(ctx context.Context, isAddress bool, likePattern string, 
 		SELECT m.token_address, m.pool_address, m.name, m.symbol, m.description,
 		       m.created_by, m.created_at,
 		       ps.price, ps.market_cap, ps.volume_24h, ps.price_change_24h, ps.holder_count
-		FROM metadata.token_metadata m
+		FROM metadata.token_search_v1 m
 		INNER JOIN stats.pool_stats ps ON m.pool_address = ps.pool_address
 		WHERE ` + where + `
 		ORDER BY CAST(ps.volume_24h AS NUMERIC) DESC

@@ -73,6 +73,7 @@ type Options struct {
 type Report struct {
 	Wallets         int
 	Eligible        int
+	Deliverable     int
 	FundedArchived  int
 	AlreadyMigrated int
 	migrate.Report
@@ -80,8 +81,8 @@ type Report struct {
 }
 
 func (r Report) String() string {
-	return fmt.Sprintf("wallets=%d eligible=%d funded_archived=%d already_migrated=%d read=%d verified=%d imported=%d refreshed=%d test_signed=%d matched=%d",
-		r.Wallets, r.Eligible, r.FundedArchived, r.AlreadyMigrated, r.Read, r.Verified, r.Imported, r.Refreshed, r.TestSigned, r.Matched)
+	return fmt.Sprintf("wallets=%d eligible=%d funded_archived=%d already_migrated=%d deliverable=%d waiting_identity=%d external_identity=%d read=%d verified=%d imported=%d refreshed=%d test_signed=%d matched=%d",
+		r.Wallets, r.Eligible, r.FundedArchived, r.AlreadyMigrated, r.Deliverable, r.WaitingIdentity, r.ExternalIdentity, r.Read, r.Verified, r.Imported, r.Refreshed, r.TestSigned, r.Matched)
 }
 
 func (r Report) Counts() string {
@@ -248,7 +249,7 @@ func Rehearse(ctx context.Context, o Options) (Report, error) {
 	if err != nil {
 		return r, err
 	}
-	r.Wallets, r.Eligible, r.AlreadyMigrated = plan.Total, len(plan.Eligible), plan.AlreadyMigrated
+	r.Wallets, r.Eligible, r.Deliverable, r.AlreadyMigrated = plan.Total, len(plan.Eligible), len(plan.Deliverable), plan.AlreadyMigrated
 	archived, err := archive.Archive(ctx, db, o.ArchivePath, o.Passphrase)
 	if err != nil {
 		return r, err
@@ -267,8 +268,8 @@ func Rehearse(ctx context.Context, o Options) (Report, error) {
 	if err != nil {
 		return r, err
 	}
-	if r.Matched != r.Eligible {
-		return r, fmt.Errorf("%w: matched %d of %d", ErrUnmatched, r.Matched, r.Eligible)
+	if r.Matched != r.Deliverable {
+		return r, fmt.Errorf("%w: matched %d of %d", ErrUnmatched, r.Matched, r.Deliverable)
 	}
 	if o.CountsOnly {
 		if err = migrate.WriteRehearsalReceipt(ceremony, plan, client, r.Report); err != nil {

@@ -50,6 +50,7 @@ const ScanShowRows = ({
     >
       <chakra.span textStyle="sm" color="text.secondary" data-label>{ label }</chakra.span>
       <Select
+        triggerProps={{ 'aria-label': label }}
         collection={ collection }
         placeholder={ label }
         value={ [ String(value) ] }

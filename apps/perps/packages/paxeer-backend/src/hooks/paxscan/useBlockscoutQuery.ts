@@ -2,7 +2,7 @@
  * Paxscan typed query hook.
  *
  * Thin `useQuery` wrapper around `buildUrl` + `paxscanFetch`. Consumes the
- * `QueryClient` already provided by paxeer-network's `_app.tsx` — does NOT create
+ * `QueryClient` already provided by Hyperpax's `_app.tsx` — does NOT create
  * or own one.
  *
  * Query key shape: `['paxscan', resource, pathParams, queryParams]` so all
@@ -10,28 +10,28 @@
  * collectively via `queryClient.invalidateQueries({ queryKey: ['paxscan'] })`.
  */
 
-import type { UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
-import { useQuery } from '@tanstack/react-query';
+import type { UseQueryOptions, UseQueryResult } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 import {
   RESOURCES,
   buildUrl,
   paxscanFetch,
-} from '@paxeer-network/paxeer-backend/core/paxscan/api';
+} from "@paxeer-network/paxeer-backend/core/paxscan/api";
 import type {
   PathParams,
   QueryParams,
   ResourceName,
   ResourcePayload,
-} from '@paxeer-network/paxeer-backend/core/paxscan/api';
-import { PaxscanError } from '@paxeer-network/paxeer-backend/core/paxscan/api';
+} from "@paxeer-network/paxeer-backend/core/paxscan/api";
+import { PaxscanError } from "@paxeer-network/paxeer-backend/core/paxscan/api";
 
 export interface UseBlockscoutQueryOptions<R extends ResourceName> {
   pathParams?: PathParams<R>;
   queryParams?: QueryParams<R>;
   queryOptions?: Omit<
     UseQueryOptions<ResourcePayload<R>, PaxscanError>,
-    'queryKey' | 'queryFn'
+    "queryKey" | "queryFn"
   >;
 }
 
@@ -42,7 +42,7 @@ export function useBlockscoutQuery<R extends ResourceName>(
   const { pathParams, queryParams, queryOptions } = opts;
 
   return useQuery<ResourcePayload<R>, PaxscanError>({
-    queryKey: [ 'paxscan', resource, pathParams ?? null, queryParams ?? null ],
+    queryKey: ["paxscan", resource, pathParams ?? null, queryParams ?? null],
     queryFn: ({ signal }) => {
       const url = buildUrl(resource, pathParams, queryParams);
       const def = RESOURCES[resource] as { headers?: Record<string, string> };

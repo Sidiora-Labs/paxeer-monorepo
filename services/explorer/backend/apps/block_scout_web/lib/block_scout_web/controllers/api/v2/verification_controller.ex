@@ -1,5 +1,112 @@
 defmodule BlockScoutWeb.API.V2.VerificationController do
   use BlockScoutWeb, :controller
+  use OpenApiSpex.ControllerSpecs
+
+  operation :config,
+    summary: "Available compiler versions and verification methods",
+    responses: [
+      ok:
+        {"Verification configuration", "application/json",
+         %OpenApiSpex.Schema{
+           type: :object,
+           properties: %{
+             solidity_evm_versions: %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :string}},
+             solidity_compiler_versions: %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :string}},
+             vyper_compiler_versions: %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :string}},
+             vyper_evm_versions: %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :string}},
+             verification_options: %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :string}},
+             is_rust_verifier_microservice_enabled: %OpenApiSpex.Schema{type: :boolean},
+             license_types: %OpenApiSpex.Schema{
+               type: :object,
+               additionalProperties: %OpenApiSpex.Schema{type: :integer, minimum: 1}
+             },
+             zk_compiler_versions: %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :string}},
+             zk_optimization_modes: %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :string}},
+             stylus_compiler_versions: %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :string}}
+           },
+           required: [
+             :solidity_evm_versions,
+             :solidity_compiler_versions,
+             :vyper_compiler_versions,
+             :vyper_evm_versions,
+             :verification_options,
+             :is_rust_verifier_microservice_enabled,
+             :license_types
+           ],
+           additionalProperties: false
+         }}
+    ]
+
+  @message_schema %OpenApiSpex.Schema{
+    type: :object,
+    properties: %{message: %OpenApiSpex.Schema{type: :string}},
+    required: [:message],
+    additionalProperties: false
+  }
+
+  @verification_responses [
+    ok: {"Verification accepted or already verified", "application/json", @message_schema},
+    forbidden: {"Restricted access", "application/json", @message_schema},
+    not_found: {"Contract not found", "application/json", @message_schema},
+    unprocessable_entity: {"Invalid verification request", "application/json", @message_schema}
+  ]
+
+  operation :verification_via_flattened_code,
+    summary: "Submit smart-contract verification",
+    parameters: [
+      %OpenApiSpex.Parameter{name: :address_hash, in: :path, required: true, schema: Schemas.General.AddressHash}
+    ],
+    responses: @verification_responses
+
+  operation :verification_via_standard_input,
+    summary: "Submit smart-contract verification",
+    parameters: [
+      %OpenApiSpex.Parameter{name: :address_hash, in: :path, required: true, schema: Schemas.General.AddressHash}
+    ],
+    responses: @verification_responses
+
+  operation :verification_via_sourcify,
+    summary: "Submit smart-contract verification",
+    parameters: [
+      %OpenApiSpex.Parameter{name: :address_hash, in: :path, required: true, schema: Schemas.General.AddressHash}
+    ],
+    responses: @verification_responses
+
+  operation :verification_via_multi_part,
+    summary: "Submit smart-contract verification",
+    parameters: [
+      %OpenApiSpex.Parameter{name: :address_hash, in: :path, required: true, schema: Schemas.General.AddressHash}
+    ],
+    responses: @verification_responses
+
+  operation :verification_via_vyper_code,
+    summary: "Submit smart-contract verification",
+    parameters: [
+      %OpenApiSpex.Parameter{name: :address_hash, in: :path, required: true, schema: Schemas.General.AddressHash}
+    ],
+    responses: @verification_responses
+
+  operation :verification_via_vyper_multipart,
+    summary: "Submit smart-contract verification",
+    parameters: [
+      %OpenApiSpex.Parameter{name: :address_hash, in: :path, required: true, schema: Schemas.General.AddressHash}
+    ],
+    responses: @verification_responses
+
+  operation :verification_via_vyper_standard_input,
+    summary: "Submit smart-contract verification",
+    parameters: [
+      %OpenApiSpex.Parameter{name: :address_hash, in: :path, required: true, schema: Schemas.General.AddressHash}
+    ],
+    responses: @verification_responses
+
+  operation :verification_via_stylus_github_repository,
+    summary: "Submit smart-contract verification",
+    parameters: [
+      %OpenApiSpex.Parameter{name: :address_hash, in: :path, required: true, schema: Schemas.General.AddressHash}
+    ],
+    responses: @verification_responses
+
   use Utils.CompileTimeEnvHelper, chain_type: [:explorer, :chain_type]
 
   import Explorer.Helper, only: [parse_boolean: 1]

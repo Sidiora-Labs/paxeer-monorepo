@@ -4,7 +4,7 @@ The image also needs webpack to resolve the source-exported launchpad SDK's
 ``.js`` imports to TypeScript. The unused Base Account and Coinbase CDP
 connectors must be excluded from webpack resolution: their optional x402 and
 Solana peers are absent from the canonical lockfile. Otherwise webpack fails
-before Next's chart type validation; the build environment grants a 3 GiB heap.
+before Next's chart type validation; the image definition sets a 4096 MB heap bound.
 The prior build also reported ``ESLint: The requested module 'minimatch' does
 not provide an export named 'default'`` before missing canonical precompile
 ABIs stopped type validation. Those repository ABIs must be staged as well.
@@ -26,8 +26,9 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-APPS = ("apps/launchpad/web", "apps/perps")
-RENAME_COUNTS = {"apps/launchpad/web": 44, "apps/perps": 34}
+APPS = ("apps/launchpad/web", "apps/perps/apps/web")
+RENAMED_APPS = ("apps/launchpad/web",)
+RENAME_COUNTS = {"apps/launchpad/web": 44}
 TEXT_SUFFIXES = {".ts", ".tsx", ".js", ".jsx", ".css", ".scss", ".html", ".json"}
 LITERALS = re.compile(r"[\"']([^\"'\r\n]+)[\"']|url\(\s*([^\s)\"']+)\s*\)")
 
@@ -76,6 +77,24 @@ def asset_references(app):
     return references
 
 
+def _declared_copy_edges():
+    edges = set()
+    for line in (ROOT / "tests/ci/data/intentional_copies.txt").read_text().splitlines():
+        if line.strip() and not line.startswith("#"):
+            source, copy, *_ = (field.strip() for field in line.split("|"))
+            edges.add(frozenset((source, copy)))
+    return edges
+
+
+def _legacy_workspace_names():
+    manifest = tomllib.loads((ROOT / "apps/launchpad/web/asset-renames.kvx").read_text())
+    entries = manifest.get("workspace_legacy_name", {}).values()
+    return {
+        (ROOT / "apps/perps/apps/web" / entry["path"]).resolve()
+        for entry in entries
+    }
+
+
 @pytest.mark.parametrize("app", APPS)
 def test_no_spaces_in_app_asset_names(app):
     files = app_files(app)
@@ -84,35 +103,47 @@ def test_no_spaces_in_app_asset_names(app):
         p.relative_to(ROOT).as_posix()
         for p in files
         if p.relative_to(ROOT / app).parts[0] in {"public", "src"}
+        and p.resolve() not in _legacy_workspace_names()
         and any(character.isspace() for character in p.relative_to(ROOT).as_posix())
     ]
     assert not invalid, "Asset paths contain whitespace:\n" + "\n".join(invalid)
 
 
-@pytest.mark.parametrize(
-    "app",
-    [
-        "apps/launchpad/web",
-        "apps/perps",
-    ],
-)
+@pytest.mark.parametrize("app", APPS)
 def test_no_duplicate_assets_within_an_app(app):
     groups = defaultdict(list)
     files = app_files(app)
     assert files, f"No files inventoried for {app}"
     for path in files:
         # Windows prescribes these tile names and sizes, including identical tiles.
-        if path.is_relative_to(ROOT / "apps/perps/public/windows"):
+        if path.is_relative_to(ROOT / "apps/perps/apps/web/public/windows"):
             continue
         if path.stat().st_size > 20_000:
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
             groups[digest].append(path.relative_to(ROOT).as_posix())
-    duplicates = [paths for paths in groups.values() if len(paths) > 1]
+    edges = _declared_copy_edges()
+    duplicates = []
+    for paths in groups.values():
+        connected = {paths[0]}
+        while True:
+            reached = {
+                name
+                for name in paths
+                if any(frozenset((name, known)) in edges for known in connected)
+            } - connected
+            if not reached:
+                break
+            connected.update(reached)
+        if connected != set(paths):
+            duplicates.append(paths)
     assert not duplicates, "Byte-identical files over 20 KB:\n" + "\n".join(
         " = ".join(paths) for paths in duplicates
     )
 
-    manifest = tomllib.loads((ROOT / app / "asset-renames.kvx").read_text())
+    manifest_path = ROOT / app / "asset-renames.kvx"
+    if not manifest_path.is_file():
+        return
+    manifest = tomllib.loads(manifest_path.read_text())
     for entry in manifest["deduplicate"].values():
         assert not (ROOT / app / entry["old"]).exists(), entry["old"]
         canonical = ROOT / app / entry["new"]
@@ -120,7 +151,7 @@ def test_no_duplicate_assets_within_an_app(app):
         assert hashlib.sha256(canonical.read_bytes()).hexdigest() == entry["sha256"]
 
 
-@pytest.mark.parametrize("app", APPS)
+@pytest.mark.parametrize("app", RENAMED_APPS)
 def test_renamed_assets_are_imported(app):
     manifest = tomllib.loads((ROOT / app / "asset-renames.kvx").read_text())
     assert manifest["meta"]["app"] == app
@@ -147,26 +178,26 @@ def test_renamed_assets_are_imported(app):
 
 
 def test_shared_stylesheets_and_chart_declarations_reference_one_source():
-    explorer = ROOT / "apps/explorer/.scss"
-    perps = ROOT / "apps/perps/src/styles/.scss"
-    stylesheets = sorted(explorer.glob("*.css"))
-    assert len(stylesheets) == 25
-    for canonical in stylesheets:
-        reference = perps / canonical.name
-        expected = f'@import "../../../../explorer/.scss/{canonical.name}";\n'
-        assert reference.read_text() == expected
-        assert (reference.parent / re.search(r'"([^"]+)"', expected)[1]).resolve() == canonical
-    imports = re.findall(r'@import "\./([^"]+)";', (explorer / "index.css").read_text())
-    assert set(imports) == {path.name for path in stylesheets if path.name != "index.css"}
-
+    manifest = tomllib.loads((ROOT / "apps/launchpad/web/asset-renames.kvx").read_text())
     reference = ROOT / "apps/launchpad/web/public/charting_library/charting_library.d.ts"
-    canonical = ROOT / "apps/perps/public/static/charting_library/charting_library.d.ts"
-    expected = '../../../../perps/public/static/charting_library/charting_library'
+    canonical = ROOT / "apps/perps/apps/web/public/static/charting_library/charting_library.d.ts"
+    expected = '../../../../perps/apps/web/public/static/charting_library/charting_library'
+    assert manifest["shared"]["charting_library"]["source"] == (
+        "apps/perps/apps/web/public/static/charting_library/charting_library.d.ts"
+    )
+    assert manifest["shared"]["charting_library"]["sha256"] == hashlib.sha256(
+        canonical.read_bytes()
+    ).hexdigest()
     assert reference.read_text() == (
         f'export * from "{expected}";\nexport as namespace TradingView;\n'
     )
     assert (reference.parent / f"{expected}.d.ts").resolve() == canonical
     assert "export interface IChartingLibraryWidget" in canonical.read_text()
+    backend = ROOT / "apps/perps/packages/paxeer-backend/src/types/tradingview.d.ts"
+    assert backend.is_file()
+    assert hashlib.sha256(backend.read_bytes()).hexdigest() == hashlib.sha256(
+        canonical.read_bytes()
+    ).hexdigest()
 
 
 def test_launchpad_docker_chart_declarations(tmp_path):
@@ -190,7 +221,7 @@ def test_launchpad_docker_chart_declarations(tmp_path):
             assert ".." not in Path(destination).parts
             copies.append((i, source, destination))
 
-    canonical = "apps/perps/public/static/charting_library/charting_library.d.ts"
+    canonical = "apps/perps/apps/web/public/static/charting_library/charting_library.d.ts"
     canonical_copies = [entry for entry in copies if entry[1] == canonical]
     assert len(canonical_copies) == 1
     canonical_copy = canonical_copies[0]

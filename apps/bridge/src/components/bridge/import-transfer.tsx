@@ -33,7 +33,12 @@ function reconcileImportedTransfer(transfer: BridgeTransfer, address: Address) {
   if (transfer.account.toLowerCase() !== address.toLowerCase()) {
     throw new Error('Connect the wallet that started this transfer to import it.');
   }
-  const existing = listTransfers().find((entry) => entry.id === transfer.id);
+  const existing = listTransfers().find((entry) => entry.id === transfer.id || (
+    entry.sourceTxHash.toLowerCase() === transfer.sourceTxHash.toLowerCase() &&
+    entry.direction === transfer.direction &&
+    entry.foreignChainId === transfer.foreignChainId &&
+    entry.logIndex === undefined && entry.bridgeOutNonce === undefined
+  ));
   const conflicts: Array<string> = [];
   if (existing) {
     for (const field of [ 'account', 'direction', 'foreignChainId', 'assetId', 'amount', 'recipient', 'bridgeOutNonce', 'logIndex', 'nonce', 'vault' ] as const) {
@@ -105,13 +110,15 @@ export function ImportTransfer({ onImported }: { onImported: () => void }) {
   return (
     <form onSubmit={ onSubmit } aria-label="Import a bridge transfer" className="flex flex-col gap-3 rounded-xl border border-border p-4">
       <p className="text-sm font-medium">Import a transfer started elsewhere</p>
-      <label className="flex flex-col gap-1 text-xs">
+      <label htmlFor="import-source-route" className="flex min-w-0 flex-col gap-1 text-xs">
         Source route
         <select
+          id="import-source-route"
+          name="sourceRoute"
           value={ route }
           onChange={ (event) => setRoute(event.target.value) }
           disabled={ pending }
-          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+          className="h-10 w-full min-w-0 max-w-full rounded-md border border-input bg-background px-3.5 text-sm focus-ring"
         >
           <option value={ PAXEER_ROUTE_KEY }>Paxeer → foreign chain (withdrawal)</option>
           { BRIDGE_CHAINS.filter((chain) => chain.kind === 'evm' && chain.vault && chain.viemChain).map((chain) => (
@@ -119,13 +126,17 @@ export function ImportTransfer({ onImported }: { onImported: () => void }) {
           )) }
         </select>
       </label>
-      <label className="flex flex-col gap-1 text-xs">
+      <label htmlFor="import-source-hash" className="flex min-w-0 flex-col gap-1 text-xs">
         Source transaction hash
         <Input
+          id="import-source-hash"
+          name="sourceTransactionHash"
           value={ hash }
           onChange={ (event) => setHash(event.target.value) }
           placeholder="0x…"
           autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
           spellCheck={ false }
           disabled={ pending }
           required

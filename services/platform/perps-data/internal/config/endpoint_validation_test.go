@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"reflect"
 	"slices"
 	"strings"
@@ -162,18 +163,40 @@ func TestConfigGatewaySchemes(t *testing.T) {
 			}
 		})
 	}
-	t.Run("optional_explorer_requires_consumer_wiring", func(t *testing.T) {
-		setEnv(t, with(with(baseEnv(), envGatewayURL, "https://gateway.example"), envExplorerTx, ""))
+	t.Run("absent_explorer_base_wires_portal_pages_and_explorer", func(t *testing.T) {
+		for _, tc := range []struct {
+			name  string
+			unset bool
+		}{
+			{name: "unset", unset: true},
+			{name: "empty"},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				setEnv(t, with(with(baseEnv(), envGatewayURL, "https://gateway.example"), envExplorerTx, ""))
+				if tc.unset {
+					if err := os.Unsetenv(envExplorerTx); err != nil {
+						t.Fatal(err)
+					}
+				}
+				cfg, err := config.Portal.Load()
+				if err != nil || cfg == nil || cfg.ExplorerTxBase != "" {
+					t.Fatalf("portal's absent explorer base = %v, %v", cfg, err)
+				}
+				if pages, err := portal.NewPages(cfg.GatewayURL, cfg.ExplorerTxBase, &http.Client{}); err != nil || pages == nil {
+					t.Fatalf("portal pages rejected the loaded absent explorer base: %v", err)
+				}
+				// The explorer service itself still supports an omitted link base.
+				if cfg, err := config.Explorer.Load(); err != nil || cfg == nil || cfg.ExplorerTxBase != "" {
+					t.Fatalf("explorer's optional base = %v, %v", cfg, err)
+				}
+			})
+		}
+	})
+	t.Run("invalid_explorer_base_refuses_portal", func(t *testing.T) {
+		setEnv(t, with(with(baseEnv(), envGatewayURL, "https://gateway.example"), envExplorerTx, "ftp://explorer.example/tx/"))
 		cfg, err := config.Portal.Load()
-		if cfg != nil || err == nil || err.Error() != "portal config: PERPS_EXPLORER_TX_BASE is required for portal" {
-			t.Fatalf("unsupported optional explorer startup = %v, %v", cfg, err)
-		}
-		if pages, err := portal.NewPages("https://gateway.example", "", &http.Client{}); pages != nil || err == nil || err.Error() != "portal_page_url_needs_http_or_https" {
-			t.Fatalf("consumer's current optional explorer contract = %v, %v", pages, err)
-		}
-		// The explorer service itself still supports an omitted link base.
-		if cfg, err := config.Explorer.Load(); err != nil || cfg == nil || cfg.ExplorerTxBase != "" {
-			t.Fatalf("explorer's optional base = %v, %v", cfg, err)
+		if cfg != nil || err == nil || err.Error() != "portal config: PERPS_EXPLORER_TX_BASE needs http or https" {
+			t.Fatalf("portal accepted an invalid explorer base: %v, %v", cfg, err)
 		}
 	})
 	t.Run("loadtest_socket_origin_discovery", func(t *testing.T) {

@@ -2,10 +2,23 @@ import Config
 
 config :block_scout_web, :sql_sandbox, true
 
+config :block_scout_web,
+  admin_panel_enabled: true,
+  disable_api?: false
+
+config :block_scout_web, BlockScoutWeb.Routers.WebRouter, enabled: true
+
+config :block_scout_web, BlockScoutWeb.Routers.ApiRouter,
+  reading_enabled: true,
+  writing_enabled: true
+
+config :block_scout_web, Api.GraphQL, enabled: true
+
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
 config :block_scout_web, BlockScoutWeb.Endpoint,
   http: [port: 4002],
+  static_dir: System.get_env("BLOCKSCOUT_STATIC_DIR", Path.expand("../priv/static", __DIR__)),
   secret_key_base: "27Swe6KtEtmN37WyEYRjKWyxYULNtrxlkCEKur4qoV+Lwtk8lafsR16ifz1XBBYj",
   server: true,
   pubsub_server: BlockScoutWeb.PubSub,
@@ -16,7 +29,12 @@ config :block_scout_web, BlockScoutWeb.Tracer, disabled?: false
 config :logger, :block_scout_web, path: Path.absname("logs/test/block_scout_web.log")
 
 # Configure wallaby
-config :wallaby, screenshot_on_failure: true, driver: Wallaby.Chrome, js_errors: false
+config :wallaby,
+  screenshot_on_failure: true,
+  driver: Wallaby.Chrome,
+  js_errors: false,
+  max_wait_time: 30_000,
+  hackney_options: [timeout: 60_000, recv_timeout: 60_000, hackney: [pool: :wallaby_pool]]
 
 config :block_scout_web, BlockScoutWeb.Counters.BlocksIndexedCounter, enabled: false
 

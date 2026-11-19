@@ -195,7 +195,7 @@ const VerifiedAddresses = () => {
           Once verified, you can update token information, address name tags, and address labels from the
           Blockscout console without needing to sign additional messages.
         </span>
-        <chakra.p fontWeight={ 600 } mt={ 5 }>
+        <chakra.p fontWeight="semibold" mt={ 5 }>
           Before starting, make sure that:
         </chakra.p>
         <List.Root pl={ 5 } as="ol">

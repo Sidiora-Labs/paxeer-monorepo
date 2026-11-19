@@ -71,11 +71,18 @@ func (r Relay) valid() error {
 // stops at any such row still backing off, so a requeued row is never
 // published behind a later one.
 func (r Relay) Pass(ctx context.Context) error {
+	_, err := r.PassCount(ctx)
+	return err
+}
+
+// PassCount runs Pass and reports the number of rows claimed, including
+// control leases, so a publisher can immediately continue a full batch.
+func (r Relay) PassCount(ctx context.Context) (int, error) {
 	if err := r.valid(); err != nil {
-		return err
+		return 0, err
 	}
 	if err := r.Store.Requeue(ctx); err != nil {
-		return err
+		return 0, err
 	}
 	return r.run(ctx)
 }
@@ -103,17 +110,18 @@ func (r Relay) RunOnce(ctx context.Context) error {
 	if err := r.valid(); err != nil {
 		return err
 	}
-	return r.run(ctx)
+	_, err := r.run(ctx)
+	return err
 }
 
-func (r Relay) run(ctx context.Context) error {
+func (r Relay) run(ctx context.Context) (int, error) {
 	claimed, err := r.Store.claim(ctx, r.Owner, r.Batch, r.LeaseDuration, true)
 	if err != nil || len(claimed) == 0 {
-		return err
+		return 0, err
 	}
 	allowed, exhausted, failure := r.Store.CheckAttemptBudgetBatch(ctx, claimed, r.MaxAttempts)
 	if failure != nil && !errors.Is(failure, ErrLease) {
-		return failure
+		return len(claimed), failure
 	}
 	r.quarantined(exhausted)
 	may := make(map[string]bool, len(allowed))
@@ -204,7 +212,7 @@ func (r Relay) run(ctx context.Context) error {
 			failure = errors.Join(failure, err)
 		}
 	}
-	return failure
+	return len(claimed), failure
 }
 
 func (r Relay) quarantined(rows []Quarantine) {

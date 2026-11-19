@@ -42,20 +42,22 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
   const txFees = BigNumber(data.transaction_fees || 0);
 
   return (
-    <ListItemMobile rowGap={ 3 } key={ String(data.height) } animation={ animation }>
-      <Flex justifyContent="space-between" w="100%">
+    <ListItemMobile fontSize="small" lineHeight="small" rowGap={ 3 } key={ String(data.height) } animation={ animation } _motionReduce={{ animation: 'none' }}
+      css={{ '& a': { display: 'inline-flex', alignItems: 'center' },
+        '& a, & button': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } } }}>
+      <Flex justifyContent="space-between" alignItems="center" w="100%" flexWrap="wrap" gap={ 2 }>
         <Flex columnGap={ 2 } alignItems="center">
           <BlockEntity
             isLoading={ isLoading }
             number={ data.height }
             hash={ data.type !== 'block' ? data.hash : undefined }
-            fontWeight={ 600 }
+            fontWeight="semibold"
             chain={ chainData }
             isPendingUpdate={ data.is_pending_update }
           />
           { data.celo?.l1_era_finalized_epoch_number && (
             <Tooltip content={ `Finalized epoch #${ data.celo.l1_era_finalized_epoch_number }` } disabled={ isLoading }>
-              <IconSvg name="checkered_flag" boxSize={ 5 } p="1px" isLoading={ isLoading } flexShrink={ 0 }/>
+              <IconSvg name="checkered_flag" boxSize={ 5 } p="var(--chakra-spacing-0\.25)" isLoading={ isLoading } flexShrink={ 0 }/>
             </Tooltip>
           ) }
         </Flex>
@@ -64,21 +66,21 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
           enableIncrement={ enableTimeIncrement }
           isLoading={ isLoading }
           color="text.secondary"
-          fontWeight={ 400 }
+          fontWeight="normal"
           display="inline-block"
         />
       </Flex>
       { data.size && (
         <Flex columnGap={ 2 }>
-          <Text fontWeight={ 500 }>Size</Text>
+          <Text fontWeight="medium">Size</Text>
           <Skeleton loading={ isLoading } textStyle="number" display="inline-block" color="text.secondary">
             <span>{ data.size?.toLocaleString() } bytes</span>
           </Skeleton>
         </Flex>
       ) }
       { !appConfig.UI.views.block.hiddenFields?.miner && (
-        <Flex columnGap={ 2 } w="100%">
-          <Text fontWeight={ 500 }>{ capitalize(getNetworkValidatorTitle()) }</Text>
+        <Flex columnGap={ 2 } alignItems="center" w="100%">
+          <Text fontWeight="medium">{ capitalize(getNetworkValidatorTitle()) }</Text>
           <AddressEntity
             address={ data.miner }
             isLoading={ isLoading }
@@ -86,8 +88,8 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
           />
         </Flex>
       ) }
-      <Flex columnGap={ 2 }>
-        <Text fontWeight={ 500 }>Txn</Text>
+      <Flex columnGap={ 2 } alignItems="center">
+        <Text fontWeight="medium">Txn</Text>
         { data.transactions_count > 0 ? (
           <Skeleton loading={ isLoading } textStyle="number" display="inline-block">
             <Link href={ route({ pathname: '/block/[height_or_hash]', query: { height_or_hash: String(data.height), tab: 'txs' } }, { chain: chainData }) }>
@@ -99,8 +101,8 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
         }
       </Flex>
       <Box>
-        <Text fontWeight={ 500 }>Gas used</Text>
-        <Flex mt={ 2 }>
+        <Text fontWeight="medium">Gas used</Text>
+        <Flex mt={ 2 } flexWrap="wrap" rowGap={ 2 } minW={ 0 }>
           <Skeleton loading={ isLoading } textStyle="number" display="inline-block" color="text.secondary" mr={ 4 }>
             <span>{ BigNumber(data.gas_used || 0).toFormat() }</span>
           </Skeleton>
@@ -114,14 +116,14 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
       </Box>
       { !isRollup && !appConfig.UI.views.block.hiddenFields?.total_reward && (
         <Flex columnGap={ 2 }>
-          <Text fontWeight={ 500 }>Reward { currency.symbol || 'ETH' }</Text>
+          <Text fontWeight="medium">Reward { currency.symbol || 'ETH' }</Text>
           <SimpleValue textStyle="number" value={ totalReward } loading={ isLoading } color="text.secondary"/>
         </Flex>
       ) }
       { !isRollup && !appConfig.UI.views.block.hiddenFields?.burnt_fees && (
         <Box>
-          <Text fontWeight={ 500 }>Burnt fees</Text>
-          <Flex columnGap={ 4 } mt={ 2 }>
+          <Text fontWeight="medium">Burnt fees</Text>
+          <Flex columnGap={ 4 } mt={ 2 } flexWrap="wrap" rowGap={ 2 }>
             <NativeCoinValue
               { ...getBlockNativeValueProps(currency, data.burnt_fees) }
               textStyle="number"
@@ -132,13 +134,14 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
               display="flex"
               color="text.secondary"
             />
-            <Utilization value={ burntFees.div(txFees).toNumber() } isLoading={ isLoading }/>
+            <Utilization value={ burntFees.div(txFees).toNumber() } isLoading={ isLoading }
+              css={{ '& .chakra-skeleton': { color: 'positive' }, '& .chakra-skeleton > div > div': { bg: 'positive' } }}/>
           </Flex>
         </Box>
       ) }
       { !isRollup && !appConfig.UI.views.block.hiddenFields?.base_fee && data.base_fee_per_gas && (
         <Flex columnGap={ 2 }>
-          <Text fontWeight={ 500 }>Base fee</Text>
+          <Text fontWeight="medium">Base fee</Text>
           <NativeCoinValue
             { ...getBlockNativeValueProps(currency, data.base_fee_per_gas, 'wei', 4) }
             textStyle="number"

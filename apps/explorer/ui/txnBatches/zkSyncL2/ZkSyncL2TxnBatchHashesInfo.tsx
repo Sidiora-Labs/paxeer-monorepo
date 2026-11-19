@@ -4,9 +4,9 @@ import type { ZkSyncBatch } from 'types/api/zkSyncL2';
 
 import { layerLabels } from 'lib/rollups/utils';
 import { Skeleton } from 'toolkit/chakra/skeleton';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import DetailedInfoTimestamp from 'ui/shared/DetailedInfo/DetailedInfoTimestamp';
 import TxEntityL1 from 'ui/shared/entities/tx/TxEntityL1';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 interface Props {
   isLoading: boolean;

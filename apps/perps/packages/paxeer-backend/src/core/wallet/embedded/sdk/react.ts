@@ -89,7 +89,13 @@ export function useWallet(client: PaxeerWallet): UseWalletResult {
   }, [client, tick]);
 
   return useMemo(
-    () => ({ wallet, chain, loading, error, refresh: () => setTick((t) => t + 1) }),
+    () => ({
+      wallet,
+      chain,
+      loading,
+      error,
+      refresh: () => setTick((t) => t + 1),
+    }),
     [wallet, chain, loading, error],
   );
 }

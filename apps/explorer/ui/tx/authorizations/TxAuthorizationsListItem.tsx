@@ -17,23 +17,23 @@ const TxAuthorizationsListItem = ({ address_hash: addressHash, authority, chain_
   return (
     <ListItemMobile rowGap={ 3 } fontSize="sm">
       <HStack gap={ 3 } w="100%">
-        <Skeleton loading={ isLoading } fontWeight={ 500 }>Authority</Skeleton>
+        <Skeleton loading={ isLoading } fontWeight="medium">Authority</Skeleton>
         <AddressEntity address={{ hash: authority }} isLoading={ isLoading } noIcon/>
       </HStack>
       <HStack gap={ 3 } w="100%">
-        <Skeleton loading={ isLoading } fontWeight={ 500 } flexShrink={ 0 }>Delegated address</Skeleton>
+        <Skeleton loading={ isLoading } fontWeight="medium" flexShrink={ 0 }>Delegated address</Skeleton>
         <AddressEntity address={{ hash: addressHash }} isLoading={ isLoading } noIcon/>
       </HStack>
       <HStack gap={ 3 }>
-        <Skeleton loading={ isLoading } fontWeight={ 500 }>Chain</Skeleton>
+        <Skeleton loading={ isLoading } fontWeight="medium">Chain</Skeleton>
         <Skeleton loading={ isLoading } color="text.secondary">{ chainId === Number(config.chain.id) ? 'this' : 'any' }</Skeleton>
       </HStack>
       <HStack gap={ 3 }>
-        <Skeleton loading={ isLoading } fontWeight={ 500 }>Nonce</Skeleton>
+        <Skeleton loading={ isLoading } fontWeight="medium">Nonce</Skeleton>
         <Skeleton loading={ isLoading } color="text.secondary">{ nonce }</Skeleton>
       </HStack>
       <HStack gap={ 3 }>
-        <Skeleton loading={ isLoading } fontWeight={ 500 }>Status</Skeleton>
+        <Skeleton loading={ isLoading } fontWeight="medium">Status</Skeleton>
         <TxAuthorizationStatus status={ status } loading={ isLoading }/>
       </HStack>
     </ListItemMobile>

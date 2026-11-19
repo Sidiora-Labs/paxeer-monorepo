@@ -211,6 +211,7 @@ export function useReadQuoterGetPoolsByCreator(
   args: { creator: `0x${string}` },
 ) {
   return useReadContract({
+    chainId: CORE_DEPLOYMENT.chainId,
     address: QUOTER_ADDRESS,
     abi: QuoterAbi as any,
     functionName: 'getPoolsByCreator',
@@ -369,6 +370,7 @@ export function useReadOpticalRegistryGetAllOpticals(
   args: { offset: bigint; limit: bigint },
 ) {
   return useReadContract({
+    chainId: CORE_DEPLOYMENT.chainId,
     address: OPTICAL_REGISTRY_ADDRESS,
     abi: OpticalRegistryAbi as any,
     functionName: 'getAllOpticals',
@@ -380,6 +382,7 @@ export function useReadOpticalRegistryGetOpticalMetadata(
   args: { optical: `0x${string}` },
 ) {
   return useReadContract({
+    chainId: CORE_DEPLOYMENT.chainId,
     address: OPTICAL_REGISTRY_ADDRESS,
     abi: OpticalRegistryAbi as any,
     functionName: 'getOpticalMetadata',

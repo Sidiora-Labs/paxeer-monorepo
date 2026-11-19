@@ -273,7 +273,9 @@ fn doc_gateway_node_root_and_native_balance_example() {
 
 #[test]
 fn doc_gateway_hosted_openrpc_is_a_separate_contract() {
-    assert!(README.contains("Do not assume a public node implements `px_*`"));
+    assert!(README.contains("serve their own `px` namespace at `POST /`"));
+    assert!(README
+        .contains("`px_openSession`, `px_register` and `px_requestFunds` are hosted operations."));
     assert!(README.contains("`/rpc/schema` is not a discovery endpoint"));
     assert!(README.contains("are retired and return HTTP 404 at the gateway"));
     assert!(README.contains("There is no unified WebSocket"));
@@ -282,7 +284,28 @@ fn doc_gateway_hosted_openrpc_is_a_separate_contract() {
     let methods = schema["methods"]
         .as_array()
         .unwrap_or_else(|| panic!("{}", "hosted methods"));
-    assert_eq!(methods.len(), ROUTER_METHODS.len());
+    let node_inference_methods = [
+        "px_getInferenceDeal",
+        "px_getInferencePeer",
+        "px_getInferenceReceipts",
+        "px_getInferenceRoom",
+        "px_getInferenceRooms",
+    ];
+    assert_eq!(
+        methods.len(),
+        ROUTER_METHODS.len() + node_inference_methods.len()
+    );
+    let mut node_only: Vec<_> = methods
+        .iter()
+        .map(|entry| {
+            entry["name"]
+                .as_str()
+                .unwrap_or_else(|| panic!("method name"))
+        })
+        .filter(|name| !router_method(name))
+        .collect();
+    node_only.sort_unstable();
+    assert_eq!(node_only, node_inference_methods);
     for method in ROUTER_METHODS {
         assert!(router_method(method), "production router admits {method}");
         assert_eq!(

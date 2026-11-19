@@ -88,12 +88,13 @@ async function surfaceAuthorityRoundTripsCurrentAttestation() {
   const authority = await loadRuntimeAuthority(AbortSignal.timeout(15_000));
   expect(authority.revision).toEqual(emitted.serialExport.revision);
   expect(authority.tradeDeployment.router).toBe(CORE_DEPLOYMENT.router);
+  expect(authority.tradeDeployment.spender).toBe(CORE_DEPLOYMENT.launchpadPrecompile);
   expect(authority.tradeDeployment.quoter).toBe(CORE_DEPLOYMENT.quoter);
   expect(authority.tradeDeployment.registry).toBe(CORE_DEPLOYMENT.poolRegistry);
   for (const [role, field] of [['Router', 'router'], ['Quoter', 'quoter'], ['PoolRegistry', 'poolRegistry']] as const) {
     const identity = emitted.attestation.identities[role];
     expect(identity.verified).toBe(true);
-    expect(identity.runtimeHash).toBe(CORE_DEPLOYMENT.roleIdentity[field].runtimeHash);
+    expect(identity.runtimeHash).toBe(CORE_DEPLOYMENT.roleIdentity[field].stagedRuntimeHash);
     expect(identity).not.toHaveProperty('implementationAddress');
     expect(identity).not.toHaveProperty('implementationHash');
     expect(authority.tradeDeployment.pins.find(pin => pin.address === CORE_DEPLOYMENT[field])).toEqual({

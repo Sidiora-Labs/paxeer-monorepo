@@ -1,3 +1,4 @@
+import { Flex } from '@chakra-ui/react';
 import { upperFirst } from 'es-toolkit';
 import { useRouter } from 'next/router';
 import React from 'react';
@@ -29,60 +30,45 @@ const BlocksPageContent = () => {
   const router = useRouter();
   const isMobile = useIsMobile();
   const tab = getQueryParamString(router.query.tab);
+  const flashblocksTabId = flashblocksFeature.isEnabled ? flashblocksFeature.name + 's' : undefined;
+  const isFlashblocksTab = tab === flashblocksTabId && flashblocksTabId !== undefined;
 
   const blocksQuery = useQueryWithPages({
     resourceName: 'general:blocks',
     filters: { type: 'block' },
     options: {
-      enabled: tab === 'blocks' || !tab,
+      enabled: !isFlashblocksTab,
       placeholderData: generateListStub<'general:blocks'>(BLOCK, 50, { next_page_params: {
         block_number: 8988686,
         items_count: 50,
       } }),
     },
   });
-  const reorgsQuery = useQueryWithPages({
-    resourceName: 'general:blocks',
-    filters: { type: 'reorg' },
-    options: {
-      enabled: tab === 'reorgs',
-      placeholderData: generateListStub<'general:blocks'>(BLOCK, 50, { next_page_params: {
-        block_number: 8988686,
-        items_count: 50,
-      } }),
-    },
-  });
-  const unclesQuery = useQueryWithPages({
-    resourceName: 'general:blocks',
-    filters: { type: 'uncle' },
-    options: {
-      enabled: tab === 'uncles',
-      placeholderData: generateListStub<'general:blocks'>(BLOCK, 50, { next_page_params: {
-        block_number: 8988686,
-        items_count: 50,
-      } }),
-    },
-  });
-
-  const flashblocksTabId = flashblocksFeature.isEnabled ? flashblocksFeature.name + 's' : undefined;
-  const isFlashblocksTab = tab === flashblocksTabId && flashblocksTabId !== undefined;
 
   const tabs: Array<TabItemRegular> = [
     { id: 'blocks', title: 'All', component: <BlocksContent type="block" query={ blocksQuery }/> },
     flashblocksFeature.isEnabled && flashblocksTabId && { id: flashblocksTabId, title: upperFirst(flashblocksFeature.name) + 's', component: <Flashblocks/> },
-    { id: 'reorgs', title: 'Forked', component: <BlocksContent type="reorg" query={ reorgsQuery }/> },
-    { id: 'uncles', title: 'Uncles', component: <BlocksContent type="uncle" query={ unclesQuery }/> },
   ].filter(Boolean);
 
   return (
     <>
       <PageTitle title="Blocks" withTextAd/>
-      <RoutedTabs
-        tabs={ tabs }
-        listProps={ isMobile ? undefined : TAB_LIST_PROPS }
-        rightSlot={ <BlocksTabSlot/> }
-        stickyEnabled={ !isMobile && !isFlashblocksTab }
-      />
+      { flashblocksFeature.isEnabled ? (
+        <RoutedTabs
+          tabs={ tabs }
+          listProps={ isMobile ? undefined : TAB_LIST_PROPS }
+          rightSlot={ <BlocksTabSlot/> }
+          stickyEnabled={ !isMobile && !isFlashblocksTab }
+        />
+      ) : (
+        <>
+          <Flex display={{ base: 'none', lg: 'flex' }} justifyContent="flex-end" alignItems="center" pb={ 4 }
+            position="sticky" top={ 0 } zIndex="docked" bgColor="bg.primary">
+            <BlocksTabSlot/>
+          </Flex>
+          <BlocksContent type="block" query={ blocksQuery }/>
+        </>
+      ) }
     </>
   );
 };

@@ -468,7 +468,7 @@ func publicationColumns(sql string) []uint32 {
 	case strings.HasPrefix(sql, "SELECT run_id,cutoff_time,revision"):
 		return []uint32{25, 20, 20}
 	case strings.HasPrefix(sql, "SELECT o.sequence,o.run_id"):
-		return []uint32{20, 25, 25, 20}
+		return []uint32{20, 25, 25, 20, 23}
 	case strings.HasPrefix(sql, "SELECT run_id FROM"):
 		return []uint32{25}
 	case strings.HasPrefix(sql, "SELECT artifact="):
@@ -576,6 +576,12 @@ func (db *publicationDatabase) serve(conn net.Conn) {
 					args[i] = strconv.FormatInt(int64(binary.BigEndian.Uint64(value)), 10)
 				case format == 1 && oid == pgtype.Int4OID:
 					args[i] = strconv.FormatInt(int64(int32(binary.BigEndian.Uint32(value))), 10)
+				case format == 1 && oid == pgtype.BoolOID:
+					if len(value) != 1 || value[0] > 1 {
+						db.t.Error("invalid boolean parameter")
+						return
+					}
+					args[i] = strconv.FormatBool(value[0] == 1)
 				default:
 					args[i] = string(value)
 				}
@@ -802,9 +808,21 @@ func (db *publicationDatabase) query(sql string, args []string, tx **publication
 		}
 	case strings.HasPrefix(sql, "SELECT o.sequence,o.run_id"):
 		for _, intent := range s.Outbox {
-			if !intent.Published && intent.Attempts < int(integer(0)) {
-				h := s.Snapshots[intent.Key].Header
-				result.rows = [][]string{{fmt.Sprint(intent.Sequence), h.RunID, h.Category, fmt.Sprint(intent.CategorySequence)}}
+			cooling := false
+			for _, sequence := range strings.Split(strings.Trim(args[1], "{}"), ",") {
+				if sequence == fmt.Sprint(intent.Sequence) {
+					cooling = true
+				}
+			}
+			h := s.Snapshots[intent.Key].Header
+			blocked := false
+			for _, prior := range s.Outbox {
+				if !prior.Published && prior.CategorySequence < intent.CategorySequence && s.Snapshots[prior.Key].Header.Category == h.Category {
+					blocked = true
+				}
+			}
+			if !intent.Published && !blocked && (intent.Attempts < int(integer(0)) || args[2] == "true" && !cooling) {
+				result.rows = [][]string{{fmt.Sprint(intent.Sequence), h.RunID, h.Category, fmt.Sprint(intent.CategorySequence), fmt.Sprint(intent.Attempts)}}
 				break
 			}
 		}
@@ -849,8 +867,8 @@ func (db *publicationDatabase) query(sql string, args []string, tx **publication
 		for i := range s.Outbox {
 			if s.Outbox[i].Sequence == integer(0) {
 				s.Outbox[i].Published = true
-				s.Outbox[i].Attempts++
-				if len(args) == 3 {
+				s.Outbox[i].Attempts = min(s.Outbox[i].Attempts+1, int(integer(3)))
+				if len(args) == 4 {
 					s.Outbox[i].BrokerStream = args[1]
 					s.Outbox[i].BrokerSequence = integer(2)
 				}

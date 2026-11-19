@@ -41,7 +41,14 @@ function writeConnectedHint(value: boolean) {
 }
 
 export function usePerpsWallet() {
-  const { address, isConnected, isConnecting, isReconnecting, status: wagmiStatus, connector } = useAccount();
+  const {
+    address,
+    isConnected,
+    isConnecting,
+    isReconnecting,
+    status: wagmiStatus,
+    connector,
+  } = useAccount();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
@@ -69,14 +76,28 @@ export function usePerpsWallet() {
       hasBeenConnected.current = true;
       writeConnectedHint(true);
       setConnected(address, chainId);
-    } else if (!isConnected && !isConnecting && !isReconnecting && wagmiStatus === "disconnected") {
+    } else if (
+      !isConnected &&
+      !isConnecting &&
+      !isReconnecting &&
+      wagmiStatus === "disconnected"
+    ) {
       // Only set disconnected if wagmi has fully settled AND we're not
       // in the middle of a reconnect cycle (which happens on every page load)
       if (hasBeenConnected.current) {
         setDisconnected();
       }
     }
-  }, [isConnected, isConnecting, isReconnecting, wagmiStatus, address, chainId, setConnected, setDisconnected]);
+  }, [
+    isConnected,
+    isConnecting,
+    isReconnecting,
+    wagmiStatus,
+    address,
+    chainId,
+    setConnected,
+    setDisconnected,
+  ]);
 
   const isCorrectChain = chainId === paxeerChain.id;
 

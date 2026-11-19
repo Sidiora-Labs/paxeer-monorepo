@@ -58,6 +58,7 @@ export const MarketsListFull: FC<MarketsListFullProps> = (props) => {
       initialSort={initialSort}
       pagination={pagination}
       classNames={{
+        body: cn(loading && "oui-invisible"),
         header: "oui-h-12",
         empty: isHiddenByLowVolumeFilter
           ? "oui-items-start oui-pt-16"

@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[4]
 DEFINITION = ROOT / "deploy/projects/platform/dashboard.kvx"
 DOCKERFILE = ROOT / "docker/platform-dashboard/Dockerfile"
 FILES_TABLE = ROOT / "docker/platform-dashboard/files.tsv"
-PROJECT_PREFIX = "PAXEER_X_PLATFORM_DASHBOARD_"
+PROJECT_PREFIX = "PLATFORM_DASHBOARD_"
 INPUT_WORDS = {"generated", "provider", "chain", "operator"}
 
 
@@ -144,11 +144,18 @@ def cargo_source_directories() -> set[Path]:
     return directories
 
 
+def test_platform_dashboard_health_port_matches_listener() -> None:
+    variables = parse_kvx(DEFINITION)["vars.dashboard"]
+    listener = variables["LAYERX_DASHBOARD_LISTEN"]
+    assert isinstance(listener, str)
+    assert variables["PORT"] == listener.rsplit(":", 1)[1] == "9445"
+
+
 def test_platform_dashboard_definition() -> None:
     sections = parse_kvx(DEFINITION)
     service = sections["service.dashboard"]
     variables = sections["vars.dashboard"]
-    inputs = {name.removeprefix("inputs."): values for name, values in sections.items() if name.startswith("inputs.")}
+    inputs = sections["inputs.dashboard"]
 
     assert service["kind"] == "repo"
     dockerfile = ROOT / str(service["dockerfile"])
@@ -165,9 +172,9 @@ def test_platform_dashboard_definition() -> None:
     assert service["restart"] == "ALWAYS"
     assert service["replicas"] == 1
     assert service["order"] == 8
-    assert service["needs"] == ["redis-router", "redis-internal", "identity"]
+    assert service["needs"] == ["redis-gateway", "redis-internal", "identity"]
 
-    expected = source_variables() | table_variables()
+    expected = source_variables() | table_variables() | {"PORT"}
     if variables.get("LAYERX_DASHBOARD_LISTENER") == "plain":
         dashboard_main = (ROOT / "services/platform/hosted/dashboard/src/main.rs").read_text()
         expected -= env_names(function_body(dashboard_main, "tls_config"))
@@ -178,11 +185,11 @@ def test_platform_dashboard_definition() -> None:
     assert env_rows <= set(inputs)
     assert all(name.startswith(PROJECT_PREFIX) for name in env_rows)
     assert all(re.fullmatch(r"[A-Z][A-Z0-9_]*", name) for name in env_rows)
-    assert all(values and set(values) <= INPUT_WORDS for values in inputs.values())
+    assert all(value in INPUT_WORDS for value in inputs.values())
 
     definition_text = DEFINITION.read_text().splitlines()
     for index, line in enumerate(definition_text):
-        if line.startswith("[inputs."):
+        if any(line.startswith(name + " =") for name in inputs):
             assert index and definition_text[index - 1].lstrip().startswith("#")
 
     patterns = [str(pattern).lstrip("/") for pattern in watch]
@@ -208,3 +215,16 @@ def test_platform_dashboard_definition() -> None:
         manifest = directory.relative_to(ROOT) / "Cargo.toml"
         assert watched(manifest), directory
 
+
+
+def test_dashboard_network_label_input() -> None:
+    sections = parse_kvx(DEFINITION)
+    input_name = "PLATFORM_DASHBOARD_LAYERX_DASHBOARD_NETWORK_ID"
+    assert sections["vars.dashboard"]["LAYERX_DASHBOARD_NETWORK_ID"] == f"env:{input_name}"
+    assert sections["inputs.dashboard"][input_name] == "operator"
+    lines = DEFINITION.read_text().splitlines()
+    index = next(i for i, line in enumerate(lines) if line.startswith(input_name + " ="))
+    assert lines[index - 1] == (
+        "# Network label used by the project gateway: "
+        "1-64 printable ASCII bytes without spaces."
+    )

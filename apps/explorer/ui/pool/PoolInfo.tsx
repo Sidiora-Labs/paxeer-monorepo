@@ -21,7 +21,7 @@ const PoolInfo = ({ data, isPlaceholderData }: Props) => {
       >
         Base token
       </DetailedInfo.ItemLabel>
-      <DetailedInfo.ItemValue>
+      <DetailedInfo.ItemValue minW={ 0 }>
         <TokenEntity
           token={{
             type: 'ERC-20',
@@ -41,7 +41,7 @@ const PoolInfo = ({ data, isPlaceholderData }: Props) => {
       >
         Quote token
       </DetailedInfo.ItemLabel>
-      <DetailedInfo.ItemValue>
+      <DetailedInfo.ItemValue minW={ 0 }>
         <TokenEntity
           token={{
             type: 'ERC-20',
@@ -61,8 +61,8 @@ const PoolInfo = ({ data, isPlaceholderData }: Props) => {
       >
         Base token FDV
       </DetailedInfo.ItemLabel>
-      <DetailedInfo.ItemValue>
-        <Skeleton loading={ isPlaceholderData }>
+      <DetailedInfo.ItemValue minW={ 0 }>
+        <Skeleton loading={ isPlaceholderData } textStyle="number">
           { data.base_token_fully_diluted_valuation_usd ?
             `$${ Number(data.base_token_fully_diluted_valuation_usd).toLocaleString(undefined, { maximumFractionDigits: 2, notation: 'compact' }) }` :
             'N/A'
@@ -76,8 +76,8 @@ const PoolInfo = ({ data, isPlaceholderData }: Props) => {
       >
         Base token market cap
       </DetailedInfo.ItemLabel>
-      <DetailedInfo.ItemValue>
-        <Skeleton loading={ isPlaceholderData }>
+      <DetailedInfo.ItemValue minW={ 0 }>
+        <Skeleton loading={ isPlaceholderData } textStyle="number">
           { data.base_token_market_cap_usd ?
             `$${ Number(data.base_token_market_cap_usd).toLocaleString(undefined, { maximumFractionDigits: 2, notation: 'compact' }) }` :
             'N/A'
@@ -91,8 +91,8 @@ const PoolInfo = ({ data, isPlaceholderData }: Props) => {
       >
         Quote token FDV
       </DetailedInfo.ItemLabel>
-      <DetailedInfo.ItemValue>
-        <Skeleton loading={ isPlaceholderData }>
+      <DetailedInfo.ItemValue minW={ 0 }>
+        <Skeleton loading={ isPlaceholderData } textStyle="number">
           { data.quote_token_fully_diluted_valuation_usd ?
             `$${ Number(data.quote_token_fully_diluted_valuation_usd).toLocaleString(undefined, { maximumFractionDigits: 2, notation: 'compact' }) }` :
             'N/A'
@@ -106,8 +106,8 @@ const PoolInfo = ({ data, isPlaceholderData }: Props) => {
       >
         Quote token market cap
       </DetailedInfo.ItemLabel>
-      <DetailedInfo.ItemValue>
-        <Skeleton loading={ isPlaceholderData }>
+      <DetailedInfo.ItemValue minW={ 0 }>
+        <Skeleton loading={ isPlaceholderData } textStyle="number">
           { data.quote_token_market_cap_usd ?
             `$${ Number(data.quote_token_market_cap_usd).toLocaleString(undefined, { maximumFractionDigits: 2, notation: 'compact' }) }` :
             'N/A'
@@ -121,8 +121,8 @@ const PoolInfo = ({ data, isPlaceholderData }: Props) => {
       >
         Liquidity
       </DetailedInfo.ItemLabel>
-      <DetailedInfo.ItemValue>
-        <Skeleton loading={ isPlaceholderData }>
+      <DetailedInfo.ItemValue minW={ 0 }>
+        <Skeleton loading={ isPlaceholderData } textStyle="number">
           ${ Number(data.liquidity).toLocaleString(undefined, { maximumFractionDigits: 2, notation: 'compact' }) }
         </Skeleton>
       </DetailedInfo.ItemValue>
@@ -133,8 +133,8 @@ const PoolInfo = ({ data, isPlaceholderData }: Props) => {
       >
         DEX
       </DetailedInfo.ItemLabel>
-      <DetailedInfo.ItemValue>
-        <Skeleton loading={ isPlaceholderData }>
+      <DetailedInfo.ItemValue minW={ 0 }>
+        <Skeleton loading={ isPlaceholderData } textStyle="number">
           { data.dex.name }
         </Skeleton>
       </DetailedInfo.ItemValue>

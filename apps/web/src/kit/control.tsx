@@ -11,9 +11,13 @@ export type ControlAvailability =
   | Readonly<{ disabled?: false; disabledReason?: never }>
   | Readonly<{ disabled: true; disabledReason: string }>;
 
-export type KitButtonProps = Omit<ButtonProps, "disabled"> & ControlAvailability;
+export type KitButtonProps = Omit<ButtonProps, "disabled"> &
+  ControlAvailability;
 
-export function DisabledReason({ id, children }: Readonly<{ id: string; children?: ReactNode }>) {
+export function DisabledReason({
+  id,
+  children,
+}: Readonly<{ id: string; children?: ReactNode }>) {
   if (children === undefined) {
     return null;
   }
@@ -33,17 +37,24 @@ export function KitButton({
 }: KitButtonProps) {
   const generatedReasonId = useId();
   const reasonId = disabled ? generatedReasonId : undefined;
-  const description = [describedBy, reasonId].filter(Boolean).join(" ") || undefined;
+  const description =
+    [describedBy, reasonId].filter(Boolean).join(" ") || undefined;
 
   return (
-    <span className="inline-flex flex-col">
+    <span className="inline-flex min-w-0 max-w-full flex-col">
       <Button
         {...props}
         disabled={disabled}
         aria-describedby={description}
-        className={cn(REDUCED_MOTION_CLASS, className)}
+        className={cn(
+          REDUCED_MOTION_CLASS,
+          props.variant === "primary" ? "!text-primary-foreground" : undefined,
+          className,
+        )}
       />
-      <DisabledReason id={generatedReasonId}>{disabled ? disabledReason : undefined}</DisabledReason>
+      <DisabledReason id={generatedReasonId}>
+        {disabled ? disabledReason : undefined}
+      </DisabledReason>
     </span>
   );
 }

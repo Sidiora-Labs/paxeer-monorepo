@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { cn } from '@/lib/utils';
 
 interface MiniSparklineProps {
   data: number[];
@@ -14,12 +15,14 @@ interface MiniSparklineProps {
 
 export default function MiniSparkline({
   data,
-  width = 64,
-  height = 24,
+  width: displayWidth,
+  height: displayHeight,
   className = '',
   positive = true,
   label,
 }: MiniSparklineProps) {
+  const width = displayWidth ?? 64;
+  const height = displayHeight ?? 24;
   const path = useMemo(() => {
     if (data.length < 2) return '';
     const min = Math.min(...data);
@@ -49,10 +52,9 @@ export default function MiniSparkline({
 
   return (
     <svg
-      width={width}
-      height={height}
+      style={{ width: displayWidth, height: displayHeight }}
       viewBox={`0 0 ${width} ${height}`}
-      className={className}
+      className={cn('w-[var(--sl-chart-mini-width)] h-[var(--sl-chart-mini-height)]', className)}
       preserveAspectRatio="none"
       role={label ? 'img' : undefined}
       aria-label={label}
@@ -63,7 +65,7 @@ export default function MiniSparkline({
         d={path}
         fill="none"
         className={stroke}
-        strokeWidth="1.5"
+        style={{ strokeWidth: 'var(--sl-chart-stroke)' }}
         strokeLinecap="round"
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"

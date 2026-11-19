@@ -31,6 +31,7 @@ export const recipe = defineSlotRecipe({
     trigger: {
       outline: '0',
       minW: 'var(--tabs-height)',
+      minH: 'touchTarget',
       height: 'var(--tabs-height)',
       display: 'flex',
       alignItems: 'center',
@@ -39,9 +40,9 @@ export const recipe = defineSlotRecipe({
       gap: '2',
       _focusVisible: {
         zIndex: 1,
-        outline: '2px solid',
+        outline: 'var(--chakra-border-widths-2) solid',
         outlineColor: 'focusRing',
-        outlineOffset: '2px',
+        outlineOffset: 'var(--chakra-spacing-0\\.5)',
       },
       _disabled: {
         cursor: 'not-allowed',
@@ -130,7 +131,7 @@ export const recipe = defineSlotRecipe({
     variant: {
       solid: {
         trigger: {
-          fontWeight: '600',
+          fontWeight: 'semibold',
           gap: '1',
           borderRadius: 'full',
           color: 'tabs.solid.fg',
@@ -158,10 +159,10 @@ export const recipe = defineSlotRecipe({
           },
         },
         trigger: {
-          fontWeight: '600',
+          fontWeight: 'semibold',
           color: 'tabs.secondary.fg',
           bg: 'transparent',
-          borderWidth: '2px',
+          borderWidth: 'var(--chakra-border-widths-2)',
           borderStyle: 'solid',
           borderColor: 'tabs.secondary.border',
           borderRadius: 'full',
@@ -193,15 +194,15 @@ export const recipe = defineSlotRecipe({
           },
         },
         trigger: {
-          fontWeight: '600',
+          fontWeight: 'semibold',
           gap: '1',
           // the pill grows with its label instead of holding a height its text can outgrow
           height: 'auto',
-          minH: 'var(--tabs-height)',
+          minH: 'touchTarget',
           minW: 'auto',
           whiteSpace: 'nowrap',
           borderRadius: 'full',
-          borderWidth: '1px',
+          borderWidth: 'var(--chakra-border-widths-1)',
           borderStyle: 'solid',
           borderColor: 'border.divider',
           bg: 'bg.surface',
@@ -225,7 +226,7 @@ export const recipe = defineSlotRecipe({
         trigger: {
           color: 'tabs.segmented.fg',
           bg: 'transparent',
-          borderWidth: '2px',
+          borderWidth: 'var(--chakra-border-widths-2)',
           borderStyle: 'solid',
           borderColor: 'selected.control.bg',
           _hover: {
@@ -245,7 +246,7 @@ export const recipe = defineSlotRecipe({
           _notLast: {
             borderRightWidth: '0',
             _selected: {
-              borderRightWidth: '2px',
+              borderRightWidth: 'var(--chakra-border-widths-2)',
             },
           },
           _first: {
@@ -267,7 +268,7 @@ export const recipe = defineSlotRecipe({
       variant: [ 'solid', 'secondary', 'pill', 'segmented' ],
       css: {
         list: {
-          borderBottomWidth: '1px',
+          borderBottomWidth: 'var(--chakra-border-widths-1)',
           borderColor: 'hairline',
           flexWrap: 'nowrap',
           overflowX: 'auto',
@@ -275,11 +276,11 @@ export const recipe = defineSlotRecipe({
         },
         trigger: {
           textStyle: 'body',
-          fontWeight: '500',
+          fontWeight: 'medium',
           color: 'text.secondary',
           bg: 'transparent',
           borderWidth: '0',
-          borderBottomWidth: '2px',
+          borderBottomWidth: 'var(--chakra-border-widths-2)',
           borderColor: 'transparent',
           borderRadius: 'none',
           flexShrink: 0,
@@ -297,7 +298,7 @@ export const recipe = defineSlotRecipe({
             _hover: { color: 'accent', borderColor: 'accent' },
           },
         },
-        content: { _horizontal: { pt: '24px' }, _vertical: { ps: '24px' } },
+        content: { _horizontal: { pt: 'var(--chakra-spacing-6)' }, _vertical: { ps: 'var(--chakra-spacing-6)' } },
         indicator: { display: 'none' },
       },
     },

@@ -1,12 +1,6 @@
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
-import {
-  CaretDownIcon,
-  Flex,
-  Text,
-  TokenIcon,
-  Tips,
-} from "@paxeer-network/ui";
+import { CaretDownIcon, Flex, Text, TokenIcon, Tips } from "@paxeer-network/ui";
 
 type DepositTokenValueFormatterProps = {
   value: string;

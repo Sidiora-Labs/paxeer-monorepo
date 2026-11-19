@@ -11,7 +11,7 @@ import colors from 'toolkit/theme/foundations/colors';
 import semanticTokens from 'toolkit/theme/foundations/semanticTokens';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
 import { beforeEach, expect, test, vi } from 'vitest';
-import { fireEvent, wrapper as TestApp } from 'vitest/lib';
+import { fireEvent, screen, wrapper as TestApp } from 'vitest/lib';
 
 vi.hoisted(() => {
   window.__envs = {
@@ -49,23 +49,22 @@ beforeEach(() => {
   });
 });
 
-function heroAndCompactRenderPromptVariants(): void {
+test('hero and compact render prompt variants', function heroAndCompactRenderPromptVariants(): void {
   const { container } = render(<><SearchBarInput isHeroBanner/><SearchBarInput/></>);
   const inputs = Array.from(container.querySelectorAll('input'));
   expect(inputs.map(input => input.placeholder)).toEqual([ HERO_PLACEHOLDER, COMPACT_PLACEHOLDER ]);
   expect(inputs.map(input => input.getAttribute('aria-label'))).toEqual([ 'Search', 'Search' ]);
-  expect(window.getComputedStyle(inputs[0]).height).toBe('52px');
-  expect(window.getComputedStyle(inputs[0].closest('form')!).width).toBe('640px');
-  expect(window.getComputedStyle(inputs[1].closest('form')!).width).toBe('320px');
-  expect(window.getComputedStyle(inputs[1]).borderRadius).toBe('999px');
-  expect(window.getComputedStyle(inputs[0]).borderWidth).toBe('1px');
-  expect(window.getComputedStyle(inputs[1]).borderWidth).toBe('1px');
+  expect(window.getComputedStyle(inputs[0]).height).toBe('auto');
+  expect(window.getComputedStyle(inputs[0]).minHeight).toBe('calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))');
+  expect(window.getComputedStyle(inputs[0].closest('form')!).width).toBe('calc(var(--chakra-spacing-80) * 2)');
+  expect(window.getComputedStyle(inputs[1].closest('form')!).width).toBe('var(--chakra-spacing-80)');
+  expect(window.getComputedStyle(inputs[1]).borderRadius).toBe('var(--chakra-radii-pill)');
+  expect(window.getComputedStyle(inputs[0]).borderWidth).toBe('var(--chakra-border-widths-1)');
+  expect(window.getComputedStyle(inputs[1]).borderWidth).toBe('var(--chakra-border-widths-1)');
   expect(container.textContent).toMatch(/Ctrl K|⌘K/);
-}
+});
 
-test(heroAndCompactRenderPromptVariants.name, heroAndCompactRenderPromptVariants);
-
-async function explicitCompactAndHeroRenderInBothModes(): Promise<void> {
+test('explicit compact and hero render in both modes', async function explicitCompactAndHeroRenderInBothModes(): Promise<void> {
   for (const mode of [ 'light', 'dark' ] as const) {
     const Wrapper = ({ children }: { children: React.ReactNode }) => (
       <Provider forcedTheme={ mode }><TestApp>{ children }</TestApp></Provider>
@@ -75,18 +74,19 @@ async function explicitCompactAndHeroRenderInBothModes(): Promise<void> {
     const inputs = Array.from(container.querySelectorAll('input'));
     expect(inputs.map(input => input.placeholder)).toEqual([ HERO_PLACEHOLDER, COMPACT_PLACEHOLDER ]);
     expect(inputs.map(input => input.getAttribute('aria-label'))).toEqual([ 'Search', 'Search or ask' ]);
-    expect(inputs.map(input => window.getComputedStyle(input).height)).toEqual([ '52px', '36px' ]);
-    expect(inputs.map(input => window.getComputedStyle(input.closest('form')!).width)).toEqual([ '640px', '320px' ]);
-    expect(inputs.map(input => window.getComputedStyle(input).borderRadius)).toEqual([ '6px', '999px' ]);
-    expect(inputs.map(input => window.getComputedStyle(input).borderWidth)).toEqual([ '1px', '1px' ]);
+    expect(inputs.map(input => window.getComputedStyle(input).height)).toEqual([ 'auto', 'auto' ]);
+    expect(inputs.map(input => window.getComputedStyle(input).minHeight))
+      .toEqual([ 'calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))', 'var(--chakra-sizes-touch-target)' ]);
+    expect(inputs.map(input => window.getComputedStyle(input.closest('form')!).width))
+      .toEqual([ 'calc(var(--chakra-spacing-80) * 2)', 'var(--chakra-spacing-80)' ]);
+    expect(inputs.map(input => window.getComputedStyle(input).borderRadius)).toEqual([ 'var(--chakra-radii-control)', 'var(--chakra-radii-pill)' ]);
+    expect(inputs.map(input => window.getComputedStyle(input).borderWidth)).toEqual([ 'var(--chakra-border-widths-1)', 'var(--chakra-border-widths-1)' ]);
     expect(container.querySelectorAll('kbd')).toHaveLength(2);
     unmount();
   }
-}
+});
 
-test(explicitCompactAndHeroRenderInBothModes.name, explicitCompactAndHeroRenderInBothModes);
-
-function commandAndControlFocusNearestSearch(): void {
+test('command and control focus nearest search', function commandAndControlFocusNearestSearch(): void {
   routerState.pathname = '/blocks';
   const { container, unmount } = render(
     <>
@@ -110,11 +110,9 @@ function commandAndControlFocusNearestSearch(): void {
   const afterUnmount = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true });
   document.dispatchEvent(afterUnmount);
   expect(afterUnmount.defaultPrevented).toBe(false);
-}
+});
 
-test(commandAndControlFocusNearestSearch.name, commandAndControlFocusNearestSearch);
-
-function shortcutIgnoresHiddenFieldsAndPlainTyping(): void {
+test('shortcut ignores hidden fields and plain typing', function shortcutIgnoresHiddenFieldsAndPlainTyping(): void {
   const { container } = render(
     <><div hidden><SearchBarDesktop/></div><SearchBarDesktop isHeroBanner/></>,
   );
@@ -124,11 +122,9 @@ function shortcutIgnoresHiddenFieldsAndPlainTyping(): void {
   inputs[1].blur();
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', bubbles: true }));
   expect(document.activeElement).toBe(document.body);
-}
+});
 
-test(shortcutIgnoresHiddenFieldsAndPlainTyping.name, shortcutIgnoresHiddenFieldsAndPlainTyping);
-
-async function mobileShortcutOpensAndFocusesSearch(): Promise<void> {
+test('mobile shortcut opens and focuses search', async function mobileShortcutOpensAndFocusesSearch(): Promise<void> {
   routerState.pathname = '/txs';
   render(<SearchBarMobile/>);
   fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
@@ -138,11 +134,9 @@ async function mobileShortcutOpensAndFocusesSearch(): Promise<void> {
     expect(input?.placeholder).toBe(COMPACT_PLACEHOLDER);
     expect(document.activeElement).toBe(input);
   }, { timeout: 10_000 });
-}
+});
 
-test(mobileShortcutOpensAndFocusesSearch.name, mobileShortcutOpensAndFocusesSearch);
-
-async function assertGroupedSuggestions(isHeroBanner: boolean): Promise<void> {
+async function assertGroupedSuggestions(isHeroBanner: boolean): Promise<Array<string | null>> {
   const { container } = render(<SearchBarDesktop isHeroBanner={ isHeroBanner } compact={ !isHeroBanner }/>);
   const input = container.querySelector('input')!;
   input.focus();
@@ -159,26 +153,24 @@ async function assertGroupedSuggestions(isHeroBanner: boolean): Promise<void> {
     expect(groups[3].textContent).toContain(searchFixture.token1.name);
     expect(groups[4].textContent).toContain(appsFixture[0].title);
     expect(groups[4].textContent).toContain(appsFixture[0].description);
-    expect(window.getComputedStyle(groups[0].querySelector('a')!).minHeight).toBe('44px');
+    expect(window.getComputedStyle(groups[0].querySelector('a')!).minHeight).toBe('var(--chakra-sizes-touch-target)');
   }, { timeout: 30_000, interval: 100 });
   const searchRequests = fetchMock.mock.calls.map(([ request ]) => String(request));
   expect(searchRequests.some(url => url.includes('/api/v2/search/quick') && url.includes('q=o'))).toBe(true);
+  const headings = Array.from(document.querySelectorAll('[data-scroll-target] [role="heading"]')).map(heading => heading.textContent);
   fireEvent.keyDown(input, { key: 'Escape' });
   expect(document.activeElement).not.toBe(input);
+  return headings;
 }
 
-async function heroRendersGroupedResponse(): Promise<void> {
-  await assertGroupedSuggestions(true);
-}
+test('hero renders grouped response', async function heroRendersGroupedResponse(): Promise<void> {
+  expect(await assertGroupedSuggestions(true)).toEqual(LABELS);
+}, 40_000);
 
-test(heroRendersGroupedResponse.name, heroRendersGroupedResponse, 40_000);
-
-async function compactOpensSameGroupedPanel(): Promise<void> {
+test('compact opens same grouped panel', async function compactOpensSameGroupedPanel(): Promise<void> {
   routerState.pathname = '/blocks';
-  await assertGroupedSuggestions(false);
-}
-
-test(compactOpensSameGroupedPanel.name, compactOpensSameGroupedPanel, 40_000);
+  expect(await assertGroupedSuggestions(false)).toEqual(LABELS);
+}, 40_000);
 
 function atPath(root: unknown, path: string): unknown {
   return path.split('.').reduce<unknown>((node, key) => {
@@ -199,7 +191,7 @@ function resolveColour(path: string, mode: '_light' | '_dark', visited = new Set
   return reference ? resolveColour(reference[1], mode, next) : raw;
 }
 
-function searchColoursResolveInBothModes(): void {
+test('search colours resolve in both modes', function searchColoursResolveInBothModes(): void {
   const roles = [ 'raised', 'canvas', 'hairline', 'border.strong', 'accent', 'accent.soft', 'focusRing',
     'text.primary', 'text.secondary', 'text.muted', 'positive' ];
   for (const role of roles) {
@@ -211,6 +203,33 @@ function searchColoursResolveInBothModes(): void {
   expect(resolveColour('colors.raised', '_dark')).toBe('#171A21');
   expect(resolveColour('colors.accent', '_light')).toBe('#2B4FDA');
   expect(resolveColour('colors.accent', '_dark')).toBe('#4F7DFF');
-}
+});
 
-test(searchColoursResolveInBothModes.name, searchColoursResolveInBothModes);
+test('mobile hero uses an accessible search trigger', async function mobileHeroUsesAnAccessibleSearchTrigger(): Promise<void> {
+  const { container } = render(<SearchBarMobile isHeroBanner/>);
+  const trigger = screen.getByRole('button', { name: 'Search' });
+  expect(container.querySelector('form')).toBeNull();
+  trigger.focus();
+  expect(document.activeElement).toBe(trigger);
+  fireEvent.click(trigger);
+  await vi.waitFor(() => {
+    const input = document.querySelector('input');
+    expect(input?.name).toBe('q');
+    expect(document.activeElement).toBe(input);
+  });
+});
+
+test('mobile hero keeps the search and ask prompt on one line', function mobileHeroKeepsTheSearchAndAskPromptOnOneLine(): void {
+  render(<SearchBarMobile isHeroBanner/>);
+  const trigger = screen.getByRole('button', { name: 'Search' });
+  const style = window.getComputedStyle(trigger);
+
+  expect(trigger.textContent).toBe(COMPACT_PLACEHOLDER);
+  expect(style.whiteSpace).toBe('nowrap');
+  expect(style.overflow).toBe('visible');
+  expect(style.textOverflow).not.toBe('ellipsis');
+  expect(style.width).toBe('100%');
+  expect(style.minHeight).toBe('calc(var(--chakra-spacing-12) + var(--chakra-spacing-1))');
+  expect(style.minWidth).toBe('var(--chakra-sizes-touch-target)');
+  expect(window.getComputedStyle(trigger.querySelector('span')!).fontSize).toBe('0.8125rem');
+});

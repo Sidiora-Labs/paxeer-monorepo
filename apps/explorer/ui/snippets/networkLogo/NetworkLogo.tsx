@@ -14,9 +14,9 @@ const LogoFallback = () => {
   return (
     <IconSvg
       name="networks/logo-placeholder"
-      width="120px"
-      height="24px"
-      color={{ base: 'blue.600', _dark: 'white' }}
+      width="var(--chakra-spacing-30)"
+      height="var(--chakra-spacing-6)"
+      color="accent"
       aria-label="Network logo placeholder"
     />
   );
@@ -35,10 +35,16 @@ const NetworkLogo = ({ className }: Props) => {
       className={ className }
       href={ route({ pathname: '/' }) }
       aria-label="Link to main page"
+      display="inline-flex"
+      alignItems="center"
+      minH="touchTarget"
+      minW="touchTarget"
+      maxW="100%"
+      flexShrink={ 1 }
     >
       <Image
-        h="24px"
-        skeletonWidth="120px"
+        h="var(--chakra-spacing-6)"
+        w="var(--chakra-spacing-30)"
         src={ logoSrc }
         alt={ `${ config.chain.name } network logo` }
         fallback={ <LogoFallback/> }

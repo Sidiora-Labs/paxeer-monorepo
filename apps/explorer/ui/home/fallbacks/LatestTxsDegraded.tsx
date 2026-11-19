@@ -40,7 +40,7 @@ const LatestTxsDegraded = ({ maxNum }: Props) => {
   const items = isLoading ? Array(maxNum).fill(TX) : txs.slice(0, maxNum);
 
   if (items.length === 0) {
-    return <Box textStyle="sm">No latest transactions found.</Box>;
+    return <Box textStyle="body">No latest transactions found.</Box>;
   }
 
   const txsUrl = route({ pathname: `/txs`, query: zetachainFeature.isEnabled ? { tab: 'evm' } : undefined });
@@ -49,7 +49,7 @@ const LatestTxsDegraded = ({ maxNum }: Props) => {
   return (
     <>
       <LatestTxsDegradedNewItems overflow={ overflow } url={ txsUrl } isLoading={ isLoading }/>
-      <Box mb={ 3 } display={{ base: 'block', lg: 'none' }} textStyle="sm">
+      <Box mb={ 3 } display={{ base: 'block', lg: 'none' }} textStyle="body">
         { items.map(((tx, index) => (
           <LatestTxsItemMobile
             key={ tx.hash + (isLoading ? index : '') }
@@ -59,7 +59,7 @@ const LatestTxsDegraded = ({ maxNum }: Props) => {
         ))) }
       </Box>
       <AddressHighlightProvider>
-        <Box mb={ 3 } display={{ base: 'none', lg: 'block' }} textStyle="sm">
+        <Box mb={ 3 } display={{ base: 'none', lg: 'block' }} textStyle="body">
           <HomeTable
             label="Latest transactions"
             columns={ [ { label: 'Transaction', width: '36%' }, { label: 'From / To' }, { label: 'Value / Fee', numeric: true, width: '28%' } ] }

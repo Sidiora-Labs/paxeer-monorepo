@@ -78,6 +78,11 @@ export function FeeChoice({
   const [estimate, setEstimate] = useState<GasEstimate | null>(null);
   const [estimateError, setEstimateError] = useState<string | null>(null);
   const [maximumSid, setMaximumSid] = useState('');
+  const maximumSidError =
+    maximumSid &&
+    (!/^(0|[1-9][0-9]*)(?:\.[0-9]{1,6})?$/u.test(maximumSid) || !/[1-9]/u.test(maximumSid))
+      ? 'Enter a positive SID amount with at most 6 decimal places.'
+      : null;
 
   useEffect(() => {
     let alive = true;
@@ -144,10 +149,7 @@ export function FeeChoice({
         : null;
 
   return (
-    <section
-      aria-label="Fee choice"
-      className="space-y-3 rounded-2xl bg-[var(--color-surface-raised)] p-4"
-    >
+    <section aria-label="Fee choice" className="space-y-3 rounded-2xl bg-pax-surface p-4">
       <h2 className="text-sm font-semibold text-pax-light">Chain gas</h2>
       <ul role="radiogroup" aria-label="Fee path" className="space-y-2">
         {helper.choices.map((entry) => (
@@ -160,9 +162,7 @@ export function FeeChoice({
               onClick={() => setChoice(entry.id)}
               className={cn(
                 'w-full space-y-1 rounded-xl px-3 py-2.5 text-left',
-                choice === entry.id
-                  ? 'bg-[var(--color-surface-overlay)]'
-                  : 'bg-[var(--color-surface-card)]'
+                choice === entry.id ? 'bg-pax-overlay' : 'bg-pax-card'
               )}
             >
               <span data-role="label" className="block text-sm font-semibold text-pax-light">
@@ -215,9 +215,12 @@ export function FeeChoice({
           <label className="block text-xs text-pax-muted">
             Maximum SID (6 decimals)
             <input
+              className="mt-2 w-full rounded-xl bg-pax-control px-3 py-2 text-base text-pax-light outline-none focus:bg-pax-overlay focus-visible:ring-2 focus-visible:ring-pax-accent"
               aria-label="Maximum SID"
               inputMode="decimal"
               value={maximumSid}
+              aria-invalid={maximumSidError !== null}
+              aria-describedby={maximumSidError ? 'maximum-sid-error' : undefined}
               onChange={(event) => {
                 selection.cancel();
                 setMaximumSid(event.target.value);
@@ -227,6 +230,11 @@ export function FeeChoice({
               )}
             />
           </label>
+          {maximumSidError && (
+            <p id="maximum-sid-error" role="alert" className="text-xs text-pax-error">
+              {maximumSidError}
+            </p>
+          )}
           <p data-role="sponsored-phase">{selection.sponsored.phase}</p>
           {selection.sponsored.reason && (
             <p role="alert" data-role="sponsored-reason" data-reason={selection.sponsored.reason}>

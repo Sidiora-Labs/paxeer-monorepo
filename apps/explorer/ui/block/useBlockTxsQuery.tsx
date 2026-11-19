@@ -42,11 +42,7 @@ export default function useBlockTxsQuery({ heightOrHash, blockQuery, tab }: Para
     pathParams: { height_or_hash: heightOrHash },
     options: {
       enabled: Boolean(tab === 'txs' && !blockQuery.isPlaceholderData && !blockQuery.isDegradedData),
-      placeholderData: generateListStub<'general:block_txs'>(TX, 50, { next_page_params: {
-        block_number: 9004925,
-        index: 49,
-        items_count: 50,
-      } }),
+      placeholderData: generateListStub<'general:block_txs'>(TX, 1, { next_page_params: null }),
       refetchOnMount: false,
       retry: (failureCount, error) => {
         if (isRefetchEnabled) {

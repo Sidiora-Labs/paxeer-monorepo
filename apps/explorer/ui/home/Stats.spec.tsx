@@ -107,6 +107,7 @@ describe('Stats', () => {
 
     expect(container.querySelector('[data-stat="total_blocks"] h2')?.textContent).toBe('Total blocks');
     expect(totalBlocksCounter(container)).toBe('30,215,608');
+    expect(container.querySelector('[data-label="home-stat-tiles"] [data-loading]')).toBeNull();
     expect(container.querySelector('[data-stat="wallet_addresses"] [data-value]')?.textContent).toBe('19,667,249');
     expect(container.querySelector('[data-stat="gas_tracker"] [data-value]')?.textContent).toBe('23.75 Gwei');
   });
@@ -196,5 +197,23 @@ describe('Stats', () => {
     const column = container.querySelector('[data-label="home-stats-history"]') as HTMLElement;
 
     expect(column.querySelector('[data-title]')?.textContent).toBe('Blockscout transaction history in 14 days');
+  });
+
+  it('fits home tile values with bounded container sizing', async function fitsHomeTileValuesWithBoundedContainerSizing(): Promise<void> {
+    const { container } = render(<Stats/>);
+    await screen.findByText('30,215,608');
+
+    const values = Array.from(container.querySelectorAll('[data-stat] [data-value] > span'));
+    expect(values).toHaveLength(5);
+    for (const value of values) {
+      const style = window.getComputedStyle(value);
+      expect(window.getComputedStyle(value.parentElement!.parentElement!).containerType).toBe('inline-size');
+      expect(style.fontSize).toBe(
+        `clamp(0.875rem, calc(100cqi / ${ value.textContent!.length * 0.625 }), var(--chakra-font-sizes-stat-value))`,
+      );
+      expect(style.whiteSpace).toBe('normal');
+      expect(style.maxWidth).toBe('100%');
+    }
+    expect(container.querySelector('[data-stat="total_blocks"] [data-value] wbr')).not.toBeNull();
   });
 });

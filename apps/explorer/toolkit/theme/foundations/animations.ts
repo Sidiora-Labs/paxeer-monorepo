@@ -11,10 +11,10 @@ export const keyframes = {
   },
   skeletonShimmer: {
     from: {
-      transform: 'translateX(-100%)',
+      backgroundPosition: '100% 0',
     },
     to: {
-      transform: 'translateX(100%)',
+      backgroundPosition: '0% 0',
     },
   },
 };

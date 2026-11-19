@@ -87,13 +87,14 @@ defmodule EthereumJSONRPC.WebSocketRecoveryTest do
   @fixture Path.expand("../support/fixture/paxeer_x/new_head_full.json", __DIR__)
 
   setup do
-    previous = Application.get_env(:ethereum_jsonrpc, RetryWorker)
+    previous = Application.fetch_env(:ethereum_jsonrpc, RetryWorker)
     Application.put_env(:ethereum_jsonrpc, RetryWorker, retry_interval: 60_000)
 
     on_exit(fn ->
-      if previous,
-        do: Application.put_env(:ethereum_jsonrpc, RetryWorker, previous),
-        else: Application.delete_env(:ethereum_jsonrpc, RetryWorker)
+      case previous do
+        {:ok, value} -> Application.put_env(:ethereum_jsonrpc, RetryWorker, value)
+        :error -> Application.delete_env(:ethereum_jsonrpc, RetryWorker)
+      end
     end)
 
     {:ok, fixture: @fixture |> File.read!() |> Jason.decode!()}
@@ -236,19 +237,28 @@ defmodule EthereumJSONRPC.WebSocketRecoveryTest do
     named = start_connection(primary, fallback)
     assert {:ok, subscription} = EthereumJSONRPC.subscribe("newHeads", [], named)
     subscribed(:primary)
-    old = Process.whereis(@client)
-    stop_node(primary)
-    connection = subscribed(:fallback)
-    assert_head(connection, :fallback, subscription, fixture)
-    reopen_node(primary)
-    monitor = Process.monitor(old)
-    send(RetryWorker, :retry)
-    next = subscribed(:primary)
-    assert_receive {:DOWN, ^monitor, :process, ^old, :shutdown}, 5_000
-    assert_receive {^subscription, {:error, {:websocket_terminated, :shutdown}}}, 2_000
-    assert_handle_state(subscription)
-    assert_head(next, :primary, subscription, fixture)
-    assert :ok = WebSocketSupervisor.stop_client(Process.whereis(@client))
+
+    for _ <- 1..2 do
+      old = Process.whereis(@client)
+      stop_node(primary)
+      connection = subscribed(:fallback)
+      assert_head(connection, :fallback, subscription, fixture)
+      reopen_node(primary)
+      monitor = Process.monitor(old)
+      send(RetryWorker, :retry)
+      next = subscribed(:primary)
+      assert_receive {:DOWN, ^monitor, :process, ^old, :shutdown}, 5_000
+      assert_receive {^subscription, {:error, {:websocket_terminated, :shutdown}}}, 2_000
+      assert_handle_state(subscription)
+      assert_head(next, :primary, subscription, fixture)
+    end
+
+    pid = Process.whereis(@client)
+    monitor = Process.monitor(pid)
+    assert :ok = WebSocketSupervisor.stop_client(pid)
+    refute Process.alive?(pid)
+    assert Process.whereis(@client) == nil
+    assert_receive {:DOWN, ^monitor, :process, ^pid, :shutdown}
     assert_receive {^subscription, {:error, {:websocket_terminated, :shutdown}}}, 2_000
     refute_receive {^subscription, :shutdown}
   end

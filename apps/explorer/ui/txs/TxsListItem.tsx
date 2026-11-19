@@ -62,7 +62,7 @@ const TxsListItem = ({
   const method = priceUpdate ? priceUpdateMethod(tx) : evmMethod;
 
   return (
-    <ListItemMobile display="block" width="100%" animation={ animation } key={ tx.hash }>
+    <ListItemMobile display="block" width="100%" animation={ animation } key={ tx.hash } _motionReduce={{ animation: 'none' }}>
       <Flex justifyContent="space-between" alignItems="flex-start" mt={ 4 }>
         <HStack flexWrap="wrap">
           { translationIsLoading || translationData ? (
@@ -80,13 +80,13 @@ const TxsListItem = ({
         </HStack>
         { !priceUpdate && <TxAdditionalInfo tx={ tx } isMobile isLoading={ isLoading }/> }
       </Flex>
-      <Flex justifyContent="space-between" lineHeight="24px" mt={ 3 } alignItems="center">
+      <Flex justifyContent="space-between" lineHeight="h2" mt={ 3 } alignItems="center" flexWrap="wrap" gap={ 2 }>
         <TxEntity
           isLoading={ isLoading }
           hash={ tx.hash }
           href={ priceUpdate ? priceUpdateHref(tx.hash) : undefined }
           truncation="constant_long"
-          fontWeight="700"
+          fontWeight="bold"
           icon={ !priceUpdate && !tx.is_pending_update && tx.transaction_types.includes('blob_transaction') ? { name: 'blob' } : undefined }
           chain={ chainData }
           isPendingUpdate={ evmTx?.is_pending_update }
@@ -96,19 +96,19 @@ const TxsListItem = ({
           enableIncrement={ enableTimeIncrement }
           isLoading={ isLoading }
           color="text.secondary"
-          fontWeight="400"
+          fontWeight="normal"
           fontSize="sm"
         />
       </Flex>
       { method && (
         <Flex mt={ 3 } columnGap={ 2 } alignItems="center" minW={ 0 }>
-          <Skeleton loading={ isLoading } display="inline-block" whiteSpace="pre">Method</Skeleton>
+          <Skeleton loading={ isLoading } display="inline-block" flexShrink={ 0 } whiteSpace="pre">Method</Skeleton>
           <ScanMethodChip method={ method } isLoading={ isLoading }/>
         </Flex>
       ) }
       { showBlockInfo && tx.block_number !== null && (
-        <Flex mt={ 2 }>
-          <Skeleton loading={ isLoading } display="inline-block" whiteSpace="pre">Block </Skeleton>
+        <Flex mt={ 2 } alignItems="center">
+          <Skeleton loading={ isLoading } display="inline-block" flexShrink={ 0 } whiteSpace="pre">Block </Skeleton>
           <BlockEntity
             isLoading={ isLoading }
             number={ tx.block_number }
@@ -117,20 +117,21 @@ const TxsListItem = ({
         </Flex>
       ) }
       { priceUpdate ? (
-        <PriceUpdateFromTo tx={ tx } current={ currentAddress } isLoading={ isLoading } mt={ 6 } fontWeight="500"/>
+        <PriceUpdateFromTo tx={ tx } current={ currentAddress } isLoading={ isLoading } mt={ 6 } fontWeight="medium"/>
       ) : (
         <AddressFromTo
+          mode="compact"
           from={ tx.from }
           to={ dataTo }
           current={ currentAddress }
           isLoading={ isLoading }
           mt={ 6 }
-          fontWeight="500"
+          fontWeight="medium"
         />
       ) }
       { !config.UI.views.tx.hiddenFields?.value && (
-        <Flex mt={ 2 } columnGap={ 2 }>
-          <Skeleton loading={ isLoading } display="inline-block" whiteSpace="pre">Value</Skeleton>
+        <Flex mt={ 2 } columnGap={ 2 } flexWrap="wrap">
+          <Skeleton loading={ isLoading } display="inline-block" flexShrink={ 0 } whiteSpace="pre">Value</Skeleton>
           { priceUpdate ? <Skeleton loading={ isLoading } color="text.secondary">-</Skeleton> : (
             <NativeCoinValue
               textStyle="number"
@@ -144,10 +145,10 @@ const TxsListItem = ({
         </Flex>
       ) }
       { !config.UI.views.tx.hiddenFields?.tx_fee && (
-        <Flex mt={ 2 } mb={ 3 } columnGap={ 2 }>
+        <Flex mt={ 2 } mb={ 3 } columnGap={ 2 } flexWrap="wrap">
           { (evmTx?.stability_fee !== undefined || tx.fee.value !== null) && (
             <>
-              <Skeleton loading={ isLoading } display="inline-block" whiteSpace="pre">Fee</Skeleton>
+              <Skeleton loading={ isLoading } display="inline-block" flexShrink={ 0 } whiteSpace="pre">Fee</Skeleton>
               { priceUpdate ?
                 <Skeleton loading={ isLoading } color="text.secondary">-</Skeleton> :
                 <TxFee textStyle="number" tx={ tx } loading={ isLoading } color="text.secondary"/> }

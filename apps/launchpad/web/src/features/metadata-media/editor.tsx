@@ -3,6 +3,7 @@ import {useEffect,useId,useRef,useState} from 'react';
 import {prepareMetadataV2Operation,sendMetadataV2Operation,type MetadataV2Data,type MetadataV2Operation} from '@/core/clients/metadata';
 import {approvedOutcome} from './outcome';
 import {reportUserFacingError} from '@/core/user-facing-error';
+import {requireAccount,assertAccount} from '@/widgets/profile/account-transport';
 // Internal adapter outcome, not a frozen HTTP DTO. Serial integration must map
 // frozen upload/status responses and preserve verified operation correlation.
 export type ImageOutcome={operationId:string;assetId:string;state:'QUARANTINED'|'VALIDATING'|'APPROVED';revision?:string;url?:string};
@@ -19,10 +20,14 @@ export function MetadataImageEditor({upload,activeRevision,onApproved}:{upload:(
 export function MetadataV2Editor({tokenAddress,wallet,audience,metadata,signMessage,onCommitted}:{tokenAddress:string;wallet:string;audience:string;metadata:MetadataV2Data;signMessage:(message:string)=>Promise<string>;onCommitted:(metadata:MetadataV2Data)=>void}){
  const [name,setName]=useState(metadata.displayName??'');const [symbol,setSymbol]=useState(metadata.displaySymbol??'');const [description,setDescription]=useState(metadata.description);const [status,setStatus]=useState('');const [busy,setBusy]=useState(false);
  const pending=useRef<{key:string;operation:MetadataV2Operation;signature:string}|null>(null);
- async function save(){if(busy)return;setBusy(true);setStatus('Confirm in your wallet...');try{
+ const controller=useRef<AbortController|null>(null);
+ const generation=useRef(0);
+ useEffect(()=>()=>{generation.current++;controller.current?.abort()},[]);
+ async function save(){if(busy)return;const currentGeneration=++generation.current;setBusy(true);setStatus('Confirm in your wallet...');try{
+ const account=requireAccount(wallet);const current=new AbortController();controller.current=current;const signal=AbortSignal.any([current.signal,account.signal]);
  const patch={expectedRevision:metadata.revision,description,...(name?{displayName:name}:{}),...(symbol?{displaySymbol:symbol}:{})};const key=JSON.stringify(patch);
- if(!pending.current||pending.current.key!==key||Number(pending.current.operation.expiresAt)<=Math.floor(Date.now()/1000)){const operation=await prepareMetadataV2Operation(tokenAddress,wallet,audience,patch);const signature=await signMessage(operation.statement);pending.current={key,operation,signature}}
- const saved=await sendMetadataV2Operation(pending.current.operation,pending.current.signature);pending.current=null;onCommitted(saved);setStatus('Saved');
- }catch(error){setStatus(reportUserFacingError(error,"Couldn't save, try again",'metadata-save'))}finally{setBusy(false)}}
- return <section aria-label="Coin details"><label htmlFor="metadata-display-name">Name</label><input id="metadata-display-name" value={name} onChange={e=>setName(e.target.value)} disabled={busy}/><label htmlFor="metadata-display-symbol">Ticker</label><input id="metadata-display-symbol" value={symbol} onChange={e=>setSymbol(e.target.value)} disabled={busy}/><label htmlFor="metadata-description">Description</label><textarea id="metadata-description" value={description} onChange={e=>setDescription(e.target.value)} disabled={busy}/><button onClick={save} disabled={busy}>Save</button><p role="status">{status}</p></section>
+ if(!pending.current||pending.current.key!==key||Number(pending.current.operation.expiresAt)<=Math.floor(Date.now()/1000)){const operation=await prepareMetadataV2Operation(tokenAddress,wallet,audience,patch);assertAccount(account);signal.throwIfAborted();const signature=await signMessage(operation.statement);assertAccount(account);signal.throwIfAborted();pending.current={key,operation,signature}}
+ assertAccount(account);signal.throwIfAborted();const saved=await sendMetadataV2Operation(pending.current.operation,pending.current.signature,signal,{Authorization:`Bearer ${account.accessToken}`});assertAccount(account);signal.throwIfAborted();pending.current=null;onCommitted(saved);setStatus('Saved');
+ }catch(error){if(currentGeneration===generation.current)setStatus(reportUserFacingError(error,"Couldn't save, try again",'metadata-save'))}finally{if(currentGeneration===generation.current)setBusy(false)}}
+ return <section aria-label="Coin details"><label htmlFor="metadata-display-name">Name</label><input id="metadata-display-name" value={name} onChange={e=>setName(e.target.value)} disabled={busy}/><label htmlFor="metadata-display-symbol">Ticker</label><input id="metadata-display-symbol" value={symbol} onChange={e=>setSymbol(e.target.value)} disabled={busy}/><label htmlFor="metadata-description">Description</label><textarea id="metadata-description" value={description} onChange={e=>setDescription(e.target.value)} disabled={busy}/><button onClick={save} disabled={busy}>Save</button><button disabled={!busy} onClick={()=>{generation.current++;controller.current?.abort();controller.current=null;setBusy(false);setStatus('Save cancelled');}}>Cancel</button><p role="status">{status}</p></section>
 }

@@ -3,12 +3,11 @@
 
 import React from 'react';
 
+import * as cookies from 'lib/cookies';
+import { COLOR_THEMES, getThemeHexWithOverrides } from 'lib/settings/colorTheme';
 import { render } from 'ui/shared/layout/testWrapper';
 import { expect, test, beforeEach } from 'vitest';
 import { fireEvent, screen, waitFor } from 'vitest/lib';
-
-import * as cookies from 'lib/cookies';
-import { COLOR_THEMES, getThemeHexWithOverrides } from 'lib/settings/colorTheme';
 
 import ColorModeToggle from '../ColorModeToggle';
 import Settings from './Settings';
@@ -21,6 +20,8 @@ function renderControls() {
     React.createElement(Settings),
   ));
 }
+
+let controls: ReturnType<typeof renderControls>;
 
 function selectSwatch(id: string) {
   const swatch = document.querySelector(`[data-value="${ id }"]`);
@@ -36,7 +37,11 @@ async function assertTheme(id: typeof COLOR_THEMES[number]['id']) {
 
   await waitFor(() => {
     expect(screen.getByText(theme.label)).toBeTruthy();
-    expect(document.querySelector('[data-value][aria-current="true"]')?.getAttribute('data-value')).toBe(id);
+    const selected = document.querySelector('[data-value][aria-current="true"]');
+    expect(selected?.getAttribute('data-value')).toBe(id);
+    expect(selected?.tagName).toBe('BUTTON');
+    expect(selected?.getAttribute('type')).toBe('button');
+    expect(selected?.getAttribute('aria-pressed')).toBe('true');
     expect(document.querySelectorAll('[data-value][aria-current="true"]')).toHaveLength(2);
     // The other selected sample is the address identicon, not a second theme.
     expect(document.querySelectorAll('[data-value="light"][aria-current="true"], [data-value="dim"][aria-current="true"], ' +
@@ -56,11 +61,10 @@ beforeEach(() => {
   cookies.remove(cookies.NAMES.COLOR_THEME);
   document.documentElement.removeAttribute('style');
   document.documentElement.classList.remove('dark', 'light');
+  controls = renderControls();
 });
 
 async function themeSettingsStaleTracksTopBarAndReload() {
-  const controls = renderControls();
-
   fireEvent.click(screen.getByLabelText('User settings'));
   await assertTheme('light');
 
@@ -97,4 +101,4 @@ async function themeSettingsStaleTracksTopBarAndReload() {
   await assertTheme('midnight');
 }
 
-test(themeSettingsStaleTracksTopBarAndReload);
+test(themeSettingsStaleTracksTopBarAndReload, themeSettingsStaleTracksTopBarAndReload);

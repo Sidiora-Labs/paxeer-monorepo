@@ -5,8 +5,9 @@ import type { ScrollL2MessageItem } from 'types/api/scrollL2';
 import config from 'configs/app';
 import { AddressHighlightProvider } from 'lib/contexts/addressHighlight';
 import { layerLabels } from 'lib/rollups/utils';
-import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { TableBody, TableColumnHeader, TableRow } from 'toolkit/chakra/table';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
+import ActivityTable, { ActivityTableHeader as TableHeaderSticky } from 'ui/txs/ActivityTable';
 
 import ScrollL2DepositsTableItem from './ScrollL2DepositsTableItem';
 
@@ -19,11 +20,11 @@ type Props = {
 const ScrollL2DepositsTable = ({ items, top, isLoading }: Props) => {
   return (
     <AddressHighlightProvider>
-      <TableRoot tableLayout="auto" minW="950px">
+      <ActivityTable label="Deposits" tableLayout="auto" minW="var(--chakra-sizes-4xl)">
         <TableHeaderSticky top={ top }>
           <TableRow>
-            <TableColumnHeader>{ layerLabels.parent } block</TableColumnHeader>
-            <TableColumnHeader>Index</TableColumnHeader>
+            <TableColumnHeader isNumeric>{ layerLabels.parent } block</TableColumnHeader>
+            <TableColumnHeader isNumeric>Index</TableColumnHeader>
             <TableColumnHeader>{ layerLabels.parent } txn hash</TableColumnHeader>
             <TableColumnHeader>
               Timestamp
@@ -38,7 +39,7 @@ const ScrollL2DepositsTable = ({ items, top, isLoading }: Props) => {
             <ScrollL2DepositsTableItem key={ String(item.id) + (isLoading ? index : '') } item={ item } isLoading={ isLoading }/>
           )) }
         </TableBody>
-      </TableRoot>
+      </ActivityTable>
     </AddressHighlightProvider>
   );
 };

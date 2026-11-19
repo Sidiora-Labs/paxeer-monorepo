@@ -1,29 +1,38 @@
+import { executeWalletTransaction } from '../runtime/lifecycle.ts';
+import { nativeRequestId } from '../platform/protected-storage.ts';
 import React, { useState } from 'react';
-import { Linking, Text } from 'react-native';
+import { Linking } from 'react-native';
 import {
   Button,
+  Text,
   Card,
   Copyable,
   ErrorNotice,
   ListPage,
   ResourceStatus,
+  WalletRecovery,
+  PageControls,
+  usePagination,
   showAction,
   useResource,
-  ui,
+  useSurface,
   type Runtime,
 } from '../navigation.tsx';
+import { pageResourceKey } from '../runtime/flow-state.ts';
 import type { PortfolioResponse } from '../runtime/routes/account.ts';
 import {
   claimableChainPositions,
-  claimChainRevenueBatch,
+  prepareChainRevenueClaim,
 } from '../runtime/chain-launch.ts';
 export function Portfolio({ runtime }: { runtime: Runtime }) {
+  const { ui } = useSurface();
+  const page = usePagination('portfolio');
   const [claimError, setClaimError] = useState<string>();
   const [claimHash, setClaimHash] = useState<string>();
   const state = useResource<PortfolioResponse>(
     runtime,
-    'portfolio',
-    (s) => runtime.services.portfolio(s),
+    pageResourceKey('portfolio', page.cursor),
+    (s) => runtime.services.portfolio(s, page.cursor),
     true,
   );
   const data = state.data?.data;
@@ -51,11 +60,18 @@ export function Portfolio({ runtime }: { runtime: Runtime }) {
       keyOf={(item) => item.positionId}
       header={
         <>
+          <WalletRecovery runtime={runtime} />
           <ResourceStatus {...state} />
+          <PageControls
+            page={page}
+            nextCursor={state.data?.nextCursor}
+            loading={state.loading}
+            offline={state.offline}
+          />
           <Button
             label="Launch a chain in the web app"
             onPress={() =>
-              void showAction(
+              showAction(
                 () =>
                   Linking.openURL(
                     `${runtime.services.config.canonicalOrigin}/create/chain`,
@@ -64,6 +80,18 @@ export function Portfolio({ runtime }: { runtime: Runtime }) {
               )
             }
           />
+          {runtime.privacy.enabled && !runtime.privacy.unlocked && (
+            <Button
+              label="Unlock revenue claims"
+              onPress={() =>
+                showAction(
+                  () => runtime.privacy.unlock(),
+                  setClaimError,
+                  runtime.changed,
+                )
+              }
+            />
+          )}
           {claimError && <ErrorNotice message={claimError} />}
           {claimHash && (
             <Copyable
@@ -74,8 +102,14 @@ export function Portfolio({ runtime }: { runtime: Runtime }) {
           {data && <ResourceStatus {...revenue} />}
           {revenue.data?.map((position) => (
             <Card key={position.chain.chain}>
-              <Copyable label="Chain token" value={position.chain.token} />
-              <Copyable label="Registry number" value={position.chain.chain} />
+              <Copyable
+                label="Chain token"
+                value={position.chain.token}
+              />
+              <Copyable
+                label="Registry number"
+                value={position.chain.chain}
+              />
               <Copyable
                 label="Claimable chain revenue (wei)"
                 value={position.total}
@@ -92,20 +126,39 @@ export function Portfolio({ runtime }: { runtime: Runtime }) {
                 disabled={
                   !runtime.wallet?.sendTransaction ||
                   revenue.offline ||
-                  !!runtime.pending.current
+                  !!runtime.pending.current ||
+                  !!runtime.approval?.blocking ||
+                  (runtime.privacy.enabled && !runtime.privacy.unlocked)
                 }
                 onPress={() =>
-                  void showAction(async () => {
+                  showAction(async () => {
                     if (!runtime.wallet || !runtime.session.account)
                       throw new Error('Connected wallet required');
-                    const result = await claimChainRevenueBatch(
+                    await runtime.lifecycle.foreground();
+                    const request = await prepareChainRevenueClaim(
                       runtime.wallet,
                       runtime.services,
                       position.chain.chain,
                       position.epochs
-                        .filter((epoch) => BigInt(epoch.claimableAmount) > 0n)
+                        .filter(
+                          (epoch) => BigInt(epoch.claimableAmount) > 0n,
+                        )
                         .map((epoch) => epoch.epoch),
                       runtime.session.account,
+                      runtime.session.signal,
+                    );
+                    const requestId = await nativeRequestId();
+                    const result = await executeWalletTransaction(
+                      runtime.wallet,
+                      runtime.lifecycle,
+                      {
+                        requestId,
+                        chainId: 125,
+                        startedAt: Date.now(),
+                        returnRoute: '/portfolio',
+                        state: 'awaiting_wallet',
+                      },
+                      request,
                       runtime.session.signal,
                     );
                     setClaimHash(result.transactionHash);
@@ -128,7 +181,8 @@ export function Portfolio({ runtime }: { runtime: Runtime }) {
               <Copyable
                 label="Realized profit/loss (USDL raw, signed)"
                 value={
-                  data.summary.realizedPnlRaw ?? 'Unavailable: incomplete basis'
+                  data.summary.realizedPnlRaw ??
+                  'Unavailable: incomplete basis'
                 }
               />
               <Text style={ui.subtle}>

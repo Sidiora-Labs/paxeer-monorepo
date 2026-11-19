@@ -38,6 +38,9 @@ pub(super) fn dispatch(config: &Config, request: &IncomingRequest, value: &Value
     if let Some(result) = super::rpc_register::dispatch(config, request, method, &id, value.get("params")) {
         return value.get("id").map(|_| result);
     }
+    if let Some(result) = super::rpc_session::dispatch(config, request, method, &id, value.get("params")) {
+        return value.get("id").map(|_| result);
+    }
     if let Some(result) = super::rpc_faucet::dispatch(config, request, method, &id, value.get("params")) {
         return value.get("id").map(|_| result);
     }
@@ -236,6 +239,7 @@ mod tests {
         let schema = schema_document();
         let methods = schema["methods"].as_array().unwrap_or_else(|| panic!("methods missing"));
         let published = [
+            "px_openSession",
             "px_register",
             "px_getCommit",
             "px_getValidators",

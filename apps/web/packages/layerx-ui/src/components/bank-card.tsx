@@ -18,15 +18,19 @@ export interface BankCardData {
 }
 
 /** Payment-card visual from the wallet/cards screens. */
-export function BankCard({ data, className }: { data: BankCardData; className?: string }) {
+export function BankCard({
+  data,
+  className,
+}: {
+  data: BankCardData;
+  className?: string;
+}) {
   const dark = data.theme === "dark";
   return (
     <div
       className={cn(
-        "relative flex aspect-[8/5] w-full flex-col justify-between overflow-hidden rounded-lg p-5 shadow-card",
-        dark
-          ? "bg-[#101418] text-white"
-          : "bg-[linear-gradient(135deg,#eef3fa_0%,#e2eaf5_55%,#dbe5f2_100%)] text-foreground",
+        "relative flex lx-card-aspect w-full flex-col justify-between overflow-hidden rounded-lg p-5 shadow-card",
+        dark ? "lx-card-dark" : "lx-card-light text-foreground",
         className,
       )}
     >
@@ -35,42 +39,61 @@ export function BankCard({ data, className }: { data: BankCardData; className?: 
         aria-hidden
         className={cn(
           "pointer-events-none absolute inset-0",
-          dark
-            ? "bg-[radial-gradient(120%_90%_at_80%_0%,rgb(255_255_255/0.08),transparent_60%)]"
-            : "bg-[radial-gradient(120%_90%_at_80%_0%,rgb(255_255_255/0.7),transparent_60%)]",
+          dark ? "lx-card-glow" : "lx-card-glow-light",
         )}
       />
       <div className="relative flex items-start justify-between gap-3">
-        <span className="text-[13px] font-bold tracking-[0.12em] uppercase">{data.holder}</span>
+        <span className="text-label font-bold tracking-card-holder uppercase">
+          {data.holder}
+        </span>
         {data.status && (
-          <Badge variant={data.status.tone ?? "success"} size="sm" className="bg-surface/80">
+          <Badge
+            variant={data.status.tone ?? "success"}
+            size="sm"
+            className="bg-surface/80"
+          >
             {data.status.label}
           </Badge>
         )}
       </div>
       <div className="relative flex items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <span className={cn("text-xs", dark ? "text-white/60" : "text-muted-foreground")}>
+          <span
+            className={cn(
+              "text-xs",
+              dark ? "lx-card-muted" : "text-muted-foreground",
+            )}
+          >
             {data.kind ?? "Virtual card"}
           </span>
-          <span className="text-[15px] font-semibold tracking-[0.06em] tabular-nums">
+          <span className="text-body-sm font-semibold tracking-card-number tabular-nums">
             {data.number}
           </span>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <span className={cn("text-xs", dark ? "text-white/60" : "text-muted-foreground")}>
+          <span
+            className={cn(
+              "text-xs",
+              dark ? "lx-card-muted" : "text-muted-foreground",
+            )}
+          >
             {data.balance ? (data.balanceLabel ?? "Balance") : "Expiry"}
           </span>
-          <span className="text-[15px] font-semibold tabular-nums">
+          <span className="text-body-sm font-semibold tabular-nums">
             {data.balance ?? data.expiry}
           </span>
         </div>
       </div>
       <div className="relative flex items-center justify-between">
-        <span className={cn("text-lg font-black tracking-tight", dark ? "text-white" : "text-foreground")}>
+        <span
+          className={cn(
+            "text-lg font-black tracking-tight",
+            dark ? "text-card-ink" : "text-foreground",
+          )}
+        >
           ≋
         </span>
-        <span className="text-sm font-black tracking-[0.08em] uppercase italic">
+        <span className="text-sm font-black tracking-card-brand uppercase italic">
           {data.brand ?? "VISA"}
         </span>
       </div>

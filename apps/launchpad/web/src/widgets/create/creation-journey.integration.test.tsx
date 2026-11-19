@@ -4,6 +4,7 @@ import { JSDOM } from 'jsdom';
 import {
   createPublicClient,
   createWalletClient,
+  createTestClient,
   defineChain,
   http,
   parseAbi,
@@ -13,6 +14,7 @@ import {
 } from 'viem';
 import {
   ChainCreationAdapter,
+  KnownPurchaseNotSubmittedError,
   creationFunding,
   type LaunchDeployment,
 } from './creation-adapters';
@@ -218,6 +220,16 @@ it('executes creation fee, exact approval, native hash resolution and protected 
       true
     );
     await controller.approvePurchase(attempt.intentId);
+    const expiredQuote = await controller.reviewPurchase(attempt.intentId, 100);
+    const nonce = await client.getTransactionCount({ address: fixture.creator });
+    await new Promise(resolve => setTimeout(resolve, Math.max(0, expiredQuote.expiresAt - Date.now() + 10)));
+    await expect(controller.buy(attempt.intentId, false, false)).rejects.toBeInstanceOf(KnownPurchaseNotSubmittedError);
+    expect(controller.state.busy).toBe(false);
+    expect(controller.state.quote).toBeUndefined();
+    expect(controller.state.phase).toBe('resolved');
+    expect((await storage.history())[0].purchaseState).toBe('review_required');
+    expect((await storage.history())[0].purchaseTxHash).toBeUndefined();
+    expect(await client.getTransactionCount({ address: fixture.creator })).toBe(nonce);
     const quote = await controller.reviewPurchase(attempt.intentId, 100);
     expect(BigInt(quote.minOutRaw)).toBe((BigInt(quote.amountOutRaw) * 9900n) / 10000n);
     expect(BigInt(quote.minOutRaw)).toBeGreaterThan(1n);
@@ -247,6 +259,49 @@ it('executes creation fee, exact approval, native hash resolution and protected 
     await expect(
       adapter.sendPurchase(quote, { ...scope, epoch: scope.epoch - 1 })
     ).rejects.toThrow('Wallet changed');
+    await controller.deliberateNew(attempt.intentId, true, true);
+    expect(controller.state).toMatchObject({ phase: 'draft', busy: false, resolutionVerified: false, publicationVerified: false });
+    expect(controller.state.attempt).toBeUndefined();
+    expect(controller.state.reviewed).toBeUndefined();
+    expect((await storage.history())[0].deliberateNew).toBe(true);
+    const nextDraft = { ...draft, draftId: crypto.randomUUID(), updatedAt: Date.now() };
+    await controller.reviewDraft(nextDraft);
+    await controller.approve();
+    await controller.reviewDraft(nextDraft);
+    const next = await controller.create();
+    await controller.resume(next.intentId);
+    await controller.approvePurchase(next.intentId);
+    const nextQuote = await controller.reviewPurchase(next.intentId, 100);
+    const testClient = createTestClient({ chain, mode: 'anvil', transport: http(fixture.rpcUrl) });
+    const snapshot = await testClient.snapshot();
+    try {
+      await testClient.setAutomine(false);
+      const pending = await controller.buy(next.intentId, false, false);
+      await testClient.setNextBlockTimestamp({ timestamp: BigInt(Math.floor(nextQuote.deadline / 1000)) + 1n });
+      await testClient.mine({ blocks: 1 });
+      await controller.resumePurchase(next.intentId);
+      expect(controller.state.attempt?.purchaseState).toBe('failed');
+      expect(controller.state.attempt?.purchaseTxHash).toBe(pending.purchaseTxHash);
+      await controller.skipPurchase(next.intentId);
+      expect(controller.state.attempt?.purchaseState).toBe('skipped');
+      expect(controller.state.attempt?.purchaseTxHash).toBe(pending.purchaseTxHash);
+      expect(controller.state.busy).toBe(false);
+    } finally {
+      await testClient.revert({ id: snapshot });
+      await testClient.setAutomine(true);
+      await testClient.mine({ blocks: 2 });
+    }
+    // Publish the created pools' reserve events for the joined market reads.
+    const reserveAbi = parseAbi(['function syncReserves() returns (uint256 usdlBalance, uint256 tokenBalance)']);
+    for (const record of await storage.history()) {
+      if (!record.poolAddress) throw new Error('Created pool address is required.');
+      const sync = await admin.writeContract({
+        address: record.poolAddress as Address,
+        abi: reserveAbi,
+        functionName: 'syncReserves',
+      });
+      expect((await client.waitForTransactionReceipt({ hash: sync })).status).toBe('success');
+    }
   } finally {
     controller.dispose();
   }

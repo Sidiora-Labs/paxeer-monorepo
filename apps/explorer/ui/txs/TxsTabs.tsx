@@ -16,6 +16,7 @@ import { generateListStub } from 'stubs/utils';
 import type { RoutedTabsProps } from 'toolkit/components/RoutedTabs/RoutedTabs';
 import RoutedTabs from 'toolkit/components/RoutedTabs/RoutedTabs';
 import AdvancedFilterLink from 'ui/shared/links/AdvancedFilterLink';
+import { usePageQuerySnapshot } from 'ui/shared/PageQuerySnapshot';
 import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
 import useIsAuth from 'ui/snippets/auth/useIsAuth';
 import TxsWithFrontendSorting from 'ui/txs/TxsWithFrontendSorting';
@@ -38,6 +39,8 @@ const TxsTabs = ({ parentTab, tabsHeight, ...rest }: Props) => {
 
   const chainConfig = multichainContext?.chain.app_config ?? config;
 
+  const validatedSnapshot = usePageQuerySnapshot('general:txs_validated', { queryParams: { filter: 'validated' } });
+
   const txsValidatedQuery = useQueryWithPages({
     resourceName: 'general:txs_validated',
     filters: { filter: 'validated' },
@@ -46,7 +49,7 @@ const TxsTabs = ({ parentTab, tabsHeight, ...rest }: Props) => {
         (parentTab ? tab === parentTab : true) ||
         !tab ||
         (!chainConfig?.features.dataAvailability.isEnabled && tab === getTabId('blob_txs', parentTab)),
-      placeholderData: generateListStub<'general:txs_validated'>(TX, 50, { next_page_params: {
+      placeholderData: validatedSnapshot ?? generateListStub<'general:txs_validated'>(TX, 50, { next_page_params: {
         block_number: 9005713,
         index: 5,
         items_count: 50,

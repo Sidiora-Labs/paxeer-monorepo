@@ -279,6 +279,9 @@ func TestProductionSchemaReadinessUsesBoundDocument(t *testing.T) {
 	if _, err := cfg.OpenRuntimePool(context.Background(), "userd", shareddb.PoolOptions{}); err == nil || !strings.Contains(err.Error(), "runtime_schema_service_mismatch") {
 		t.Fatalf("foreign schema admitted as user runtime: %v", err)
 	}
+	if _, err := cfg.OpenRuntimePool(context.Background(), "userd", shareddb.PoolOptions{}); err == nil || !strings.Contains(err.Error(), "runtime_schema_service_mismatch") {
+		t.Fatalf("foreign schema pool reopen response = %v", err)
+	}
 	cfg.ExpectedSchemaSHA256 = strings.Repeat("0", 64)
 	if err := cfg.CheckRuntimeSchema(context.Background(), pool); err == nil {
 		t.Fatal("schema document accepted under another digest")

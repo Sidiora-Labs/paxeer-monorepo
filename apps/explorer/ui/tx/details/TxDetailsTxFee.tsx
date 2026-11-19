@@ -4,10 +4,10 @@ import React from 'react';
 import type { Transaction } from 'types/api/transaction';
 
 import config from 'configs/app';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import * as DetailedInfoItemBreakdown from 'ui/shared/DetailedInfo/DetailedInfoItemBreakdown';
 import TxFee, { isNonNativeFeeToken } from 'ui/shared/tx/TxFee';
 import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 interface Props {
   isLoading: boolean;

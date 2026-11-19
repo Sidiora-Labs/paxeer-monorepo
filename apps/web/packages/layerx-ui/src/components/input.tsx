@@ -16,10 +16,10 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div
         className={cn(
-          "flex h-12 items-center gap-2 rounded-md border bg-surface px-4 transition-colors",
+          "flex h-12 items-center gap-2 rounded-md border bg-surface px-4 py-0 transition-colors",
           error
             ? "border-destructive focus-within:ring-2 focus-within:ring-destructive/25"
-            : "border-border focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20",
+            : "border-border-strong focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20",
           props.disabled && "opacity-50",
           className,
         )}
@@ -27,8 +27,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {leading}
         <input
           ref={ref}
-          className="h-full w-full min-w-0 bg-transparent text-[15px] text-foreground outline-none placeholder:text-faint-foreground"
+          className="min-h-11 w-full flex-1 min-w-0 bg-transparent text-body-sm text-foreground outline-none placeholder:text-faint-foreground"
           {...props}
+          aria-invalid={error || props["aria-invalid"] || undefined}
         />
         {trailing}
       </div>
@@ -52,16 +53,19 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
     return (
       <div
         className={cn(
-          "flex h-11 items-center gap-2.5 rounded-full bg-surface border border-border px-4 transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20",
+          "flex min-h-11 items-center gap-2.5 rounded-full bg-surface border border-border-strong px-4 py-0 transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20",
           className,
         )}
       >
-        <Search className="size-[18px] shrink-0 text-muted-foreground" aria-hidden />
+        <Search
+          className="size-icon-sm shrink-0 text-muted-foreground"
+          aria-hidden
+        />
         <input
           ref={ref}
           type="search"
           value={value}
-          className="h-full w-full min-w-0 bg-transparent text-[15px] text-foreground outline-none placeholder:text-faint-foreground [&::-webkit-search-cancel-button]:hidden"
+          className="min-h-10 w-full min-w-0 bg-transparent text-body-sm text-foreground outline-none placeholder:text-faint-foreground [&::-webkit-search-cancel-button]:hidden"
           {...props}
         />
         {hasValue && onClear && (
@@ -69,7 +73,7 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
             type="button"
             onClick={onClear}
             aria-label="Clear search"
-            className="shrink-0 text-faint-foreground hover:text-muted-foreground"
+            className="inline-flex size-4 shrink-0 items-center justify-center rounded-full text-faint-foreground hover:text-muted-foreground"
           >
             <X className="size-4" />
           </button>

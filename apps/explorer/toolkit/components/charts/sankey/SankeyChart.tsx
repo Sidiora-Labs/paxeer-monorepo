@@ -136,7 +136,7 @@ export const SankeyChart = React.memo(({
                 textAnchor={ anchor }
                 dominantBaseline="central"
                 fill={ labelColor }
-                style={{ fontSize: labelFontSize, fontWeight: 600 }}
+                style={{ fontSize: labelFontSize, fontWeight: 'var(--chakra-font-weights-semibold)' }}
               >
                 { nodeName }
               </text>
@@ -147,7 +147,7 @@ export const SankeyChart = React.memo(({
                   textAnchor={ anchor }
                   dominantBaseline="central"
                   fill={ labelColor }
-                  style={{ fontSize: labelFontSize, fontWeight: 400 }}
+                  style={{ fontSize: labelFontSize, fontWeight: 'var(--chakra-font-weights-normal)' }}
                 >
                   { valueStr }
                 </text>

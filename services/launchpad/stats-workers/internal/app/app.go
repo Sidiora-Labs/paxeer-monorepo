@@ -82,7 +82,7 @@ type App struct {
 	holder *consumer.HolderTracker
 }
 
-// New runs migrations and builds every component.
+// New checks the runtime schema and builds every component.
 func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, error) {
 	return newWithRuntimePool(ctx, cfg, logger, func(ctx context.Context, c *config.Config, options shareddb.PoolOptions) (*pgxpool.Pool, error) {
 		return c.OpenRuntimePool(ctx, "statsd", options)
@@ -152,7 +152,7 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 		}
 	}()
 	st := store.New(pool)
-	if err = st.EnsureHolderBalanceIndex(ctx); err != nil {
+	if err = st.CheckHolderBalanceIndex(ctx); err != nil {
 		return nil, err
 	}
 
@@ -422,25 +422,18 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 			return nil
 		}
 		secretChecks["projections"] = runtimeHealth.check
-		secretChecks["search"] = func(ctx context.Context) error {
-			var active bool
-			err := pool.QueryRow(ctx, "SELECT g.state='active' AND g.validated_at IS NOT NULL FROM stats_search.active_v2 a JOIN stats_search.generations_v2 g USING(generation) WHERE a.singleton").Scan(&active)
-			if err != nil {
-				return err
-			}
-			if !active {
-				return canonicalsearch.ErrUnavailable
-			}
-			return nil
-		}
+		secretChecks["search"] = canonicalsearch.Store{Pool: pool}.Ready
+	}
+	for name, check := range secretChecks {
+		secretChecks[name] = loggedStatsCheck(logger, name, check)
 	}
 	router := sharedhttp.NewRouter(sharedhttp.ServerOptions{
 		CORSOrigins: cfg.CORSAllowedOrigins,
 		Health: sharedhttp.HealthDeps{
 			Custom: secretChecks,
 			State:  tracker.Ready,
-			DB:     func(c context.Context) error { return cfg.CheckRuntimeSchema(c, pool) },
-			Redis:  func(c context.Context) error { return rdb.Ping(c).Err() },
+			DB:     loggedStatsCheck(logger, "database", func(c context.Context) error { return cfg.CheckRuntimeSchema(c, pool) }),
+			Redis:  loggedStatsCheck(logger, "redis", func(c context.Context) error { return rdb.Ping(c).Err() }),
 		},
 	})
 
@@ -580,6 +573,7 @@ func Run(parent context.Context) error {
 		return err
 	}
 	logger := sharedlog.New("stats", cfg.LogLevel)
+	slog.SetDefault(logger)
 	logger.Info("starting stats service")
 
 	ctx, cancel := context.WithCancel(parent)
@@ -806,6 +800,9 @@ func retryStatsJob(ctx context.Context, interval time.Duration, health *statsRun
 		err := run(bounded)
 		cancel()
 		health.set(name, err)
+		if err != nil && ctx.Err() == nil {
+			slog.ErrorContext(ctx, "statistics projection refresh failed", "projection", name, "error", err)
+		}
 		timer := time.NewTimer(interval)
 		select {
 		case <-ctx.Done():
@@ -988,4 +985,14 @@ func RefreshLegacyWindows(ctx context.Context, st *store.Store, now int64, curso
 		*cursor = next
 	}
 	return more, err
+}
+
+func loggedStatsCheck(logger *slog.Logger, name string, check sharedhttp.Check) sharedhttp.Check {
+	return func(ctx context.Context) error {
+		err := check(ctx)
+		if err != nil {
+			logger.ErrorContext(ctx, "statistics readiness check failed", "check", name, "error", err)
+		}
+		return err
+	}
 }

@@ -11,11 +11,14 @@ package app
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -25,6 +28,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	sharedsecrets "github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/telemetry"
+	"github.com/ethereum/go-ethereum/common"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/nats-io/nats.go"
@@ -69,6 +73,8 @@ type App struct {
 	admission        *rest.Admission
 	authority        *networkAuthority
 	discoveryRuntime *notifications.HTTPRuntime
+	privateHandler   http.Handler
+	privateTLS       *tls.Config
 	redis            *goredis.Client
 	subRdb           *goredis.Client
 	wsHub            *ws.Hub
@@ -125,7 +131,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 
 	rdb, err := sharedredis.NewClient(cfg.RedisURL)
 	if err != nil {
-		pool.Close()
+		shareddb.ClosePool(pool)
 		return nil, err
 	}
 	// A dedicated client for the broker's long-lived pub/sub subscription, kept
@@ -133,7 +139,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 	subRdb, err := sharedredis.NewClient(cfg.RedisURL)
 	if err != nil {
 		_ = rdb.Close()
-		pool.Close()
+		shareddb.ClosePool(pool)
 		return nil, err
 	}
 
@@ -150,7 +156,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 			}
 			_ = subRdb.Close()
 			_ = rdb.Close()
-			pool.Close()
+			shareddb.ClosePool(pool)
 		}
 	}()
 	st := store.New(pool, rdb)
@@ -214,11 +220,8 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 				return nil, err
 			}
 			ownedNATS = nc
-			secretChecks["jetstream"] = func(context.Context) error {
-				if !nc.IsConnected() {
-					return broker.ErrStreamUnavailable
-				}
-				return nil
+			secretChecks["jetstream"] = func(ctx context.Context) error {
+				return readyStreamConsumers(ctx, nc, streamConsumers)
 			}
 		} else {
 			authority, err = newNetworkAuthority(ctx, pool, cfg)
@@ -459,7 +462,7 @@ func (a *App) Close() {
 		_ = a.sqlDB.Close()
 	}
 	if a.pool != nil {
-		a.pool.Close()
+		shareddb.ClosePool(a.pool)
 	}
 	if a.redis != nil {
 		_ = a.redis.Close()
@@ -526,7 +529,17 @@ func Run(parent context.Context) error {
 		// No WriteTimeout: SSE/WSS are long-lived; per-write deadlines bound
 		// slow clients instead (internal/sse uses http.ResponseController).
 	}
-	serveErr := make(chan error, 1)
+	var privateSrv *http.Server
+	if app.privateHandler != nil {
+		privateSrv = &http.Server{
+			Addr:              cfg.PrivateListenAddress,
+			Handler:           app.privateHandler,
+			ConnState:         app.tracker.ConnState,
+			ReadHeaderTimeout: 10 * time.Second,
+			TLSConfig:         app.privateTLS.Clone(),
+		}
+	}
+	serveErr := make(chan error, 2)
 	go func() {
 		logger.Info("http server listening", slog.Int("port", cfg.Port))
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -534,14 +547,32 @@ func Run(parent context.Context) error {
 			cancel()
 		}
 	}()
+	if privateSrv != nil {
+		go func() {
+			logger.Info("http private listener listening", slog.String("address", privateSrv.Addr))
+			listener, err := net.Listen("tcp", privateSrv.Addr)
+			if err == nil {
+				err = privateSrv.Serve(tls.NewListener(listener, privateSrv.TLSConfig))
+			}
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				serveErr <- err
+				cancel()
+			}
+		}()
+	}
 
 	shutErr := sharedprocess.Run(ctx, sharedprocess.Options{Tracker: app.tracker,
 		Logger: logger,
 		OnShutdown: func(sctx context.Context) error {
 			app.wsHub.Drain()
 			app.sseHub.Drain()
-			shutdown := make(chan error, 1)
+			shutdown := make(chan error, 2)
 			go func() { shutdown <- srv.Shutdown(sctx) }()
+			if privateSrv != nil {
+				go func() { shutdown <- privateSrv.Shutdown(sctx) }()
+			} else {
+				shutdown <- nil
+			}
 			if app.wsHub.Connections() > 0 || app.sseHub.Connections() > 0 {
 				timer := time.NewTimer(30 * time.Second)
 				select {
@@ -551,7 +582,7 @@ func Run(parent context.Context) error {
 				timer.Stop()
 			}
 			cancel()
-			return <-shutdown
+			return errors.Join(<-shutdown, <-shutdown)
 		},
 	})
 
@@ -610,6 +641,42 @@ type discoveryRuntimeDocument struct {
 	Push              notifications.RuntimeOptions `json:"push"`
 }
 
+func (d discoveryRuntimeDocument) validate() error {
+	if len(d.QuoteTokenAddress) != 42 || !common.IsHexAddress(d.QuoteTokenAddress) || common.HexToAddress(d.QuoteTokenAddress) == (common.Address{}) || d.QuoteTokenAddress != strings.ToLower(d.QuoteTokenAddress) {
+		return errors.New("discovery runtime quote token address invalid")
+	}
+	for name, raw := range map[string]string{"d11Base": d.D11Base, "d12Base": d.D12Base} {
+		u, err := url.Parse(raw)
+		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+			return fmt.Errorf("discovery runtime %s invalid", name)
+		}
+	}
+	for name, value := range map[string]string{"d11TokenRef": d.D11TokenRef, "d12TokenRef": d.D12TokenRef, "cursorKeyRef": d.CursorKeyRef, "internalTokenRef": d.InternalTokenRef, "deletePeerDNS": d.DeletePeerDNS, "chatPeerDNS": d.ChatPeerDNS} {
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("discovery runtime %s invalid", name)
+		}
+	}
+	if !d.Push.EnableAPNS && (d.Push.APNSKey != "" || d.Push.APNSKeyID != "" || d.Push.APNSTeamID != "" || d.Push.APNSTopic != "") {
+		return errors.New("discovery runtime disabled APNS has credentials")
+	}
+	if !d.Push.EnableFCM && d.Push.FCMServiceAccount != "" {
+		return errors.New("discovery runtime disabled FCM has credentials")
+	}
+	if !d.Push.EnableWebPush && (d.Push.VAPIDKey != "" || d.Push.VAPIDSubject != "") {
+		return errors.New("discovery runtime disabled web push has credentials")
+	}
+	if d.Push.EnableAPNS || d.Push.EnableFCM || d.Push.EnableWebPush {
+		if d.Push.Owner == "" {
+			return errors.New("discovery runtime push owner invalid")
+		}
+		u, err := url.Parse(d.Push.DeepLinkOrigin)
+		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+			return errors.New("discovery runtime push deep link origin invalid")
+		}
+	}
+	return nil
+}
+
 func (a *App) registerProductionOperations(ctx context.Context, router chi.Router, identity requestIdentity, admission *rest.Admission, checks map[string]sharedhttp.Check) error {
 	if err := a.registerDiscovery(ctx, router, identity, admission, checks); err != nil {
 		return err
@@ -645,6 +712,9 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 		if err := config.ReadBoundDocument(a.cfg.DiscoveryRuntimeFile, a.cfg.DiscoveryRuntimeSHA256, &document); err != nil {
 			return err
 		}
+		if err := document.validate(); err != nil {
+			return err
+		}
 		concrete, ok := identity.(sharedauth.MTLSIdentityAuthority)
 		if !ok {
 			return errors.New("discovery identity transport unavailable")
@@ -658,6 +728,12 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 		runtime, err := notifications.NewHTTPRuntime(ctx, a.sqlDB, authenticate, runtimeConfig)
 		if err == nil {
 			a.discoveryRuntime = runtime
+			privateTLS, tlsErr := privateNotificationTLS(a.cfg)
+			if tlsErr != nil {
+				return tlsErr
+			}
+			a.privateHandler = runtime.InternalHandler()
+			a.privateTLS = privateTLS
 			handler := rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(runtime.Handler()))
 			router.Handle("/v2/discovery/*", handler)
 			router.Handle("/v2/discovery/notifications", handler)

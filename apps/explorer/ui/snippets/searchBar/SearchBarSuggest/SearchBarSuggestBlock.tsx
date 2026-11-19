@@ -11,7 +11,9 @@ import * as BlockEntity from 'ui/shared/entities/block/BlockEntity';
 import HashStringShortenDynamic from 'ui/shared/HashStringShortenDynamic';
 import Time from 'ui/shared/time/Time';
 
-const SearchBarSuggestBlock = ({ data, isMobile, searchTerm, chainInfo }: ItemsProps<SearchResultBlock | multichain.QuickSearchResultBlock>) => {
+import { resultLayout } from './resultLayout';
+
+const SearchBarSuggestBlock = ({ data, searchTerm, chainInfo }: ItemsProps<SearchResultBlock | multichain.QuickSearchResultBlock>) => {
   const icon = <BlockEntity.Icon chain={ chainInfo }/>;
   const shouldHighlightHash = data.block_hash?.toLowerCase() === searchTerm.toLowerCase();
   const isFutureBlock = 'timestamp' in data && data.timestamp === undefined;
@@ -61,23 +63,8 @@ const SearchBarSuggestBlock = ({ data, isMobile, searchTerm, chainInfo }: ItemsP
   const futureBlockText = <Text color="text.secondary">Learn estimated time for this block to be created.</Text>;
   const blockType = 'block_type' in data ? data.block_type : undefined;
 
-  if (isMobile) {
-    return (
-      <>
-        <Flex alignItems="center">
-          { icon }
-          { blockNumber }
-          { blockType === 'reorg' && <Tag ml="auto">Reorg</Tag> }
-          { blockType === 'uncle' && <Tag ml="auto">Uncle</Tag> }
-        </Flex>
-        { hash }
-        { isFutureBlock ? futureBlockText : date }
-      </>
-    );
-  }
-
   return (
-    <Grid templateColumns="228px minmax(auto, max-content) auto" gap={ 2 }>
+    <Grid css={ resultLayout } gap={ 2 }>
       <Flex alignItems="center">
         { icon }
         { blockNumber }

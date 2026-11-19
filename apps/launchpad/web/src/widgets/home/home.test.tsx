@@ -1,6 +1,8 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 // @vitest-environment jsdom
+import { applySurfaceTestStyle } from '@/core/app-foundation/surface-test-style';
 import React, { act } from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -20,6 +22,7 @@ import { DashboardBoard } from './dashboard-board';
 
 declare global { var IS_REACT_ACT_ENVIRONMENT: boolean | undefined; }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+beforeAll(applySurfaceTestStyle);
 
 const BORDER = /\b(border(?!-0\b|-none\b)(-[a-z0-9/\[\]-]+)?|divide-[a-z]|ring-(?!offset)[a-z0-9]|outline-(?!none|focus|2|offset)[a-z]+)\b/;
 const paxeer = defineChain({ id: 125, name: 'Paxeer', nativeCurrency: { name: 'PAX', symbol: 'PAX', decimals: 18 }, rpcUrls: { default: { http: ['http://127.0.0.1:1'] } } });
@@ -173,7 +176,7 @@ describe('risk thresholds', () => {
     expect(html).toContain('Top 10 holders 15%, warning');
     expect(html).toContain('text-risk-bad');
     expect(html).toContain('text-risk-unknown');
-    expect(html).not.toMatch(BORDER);
+    expect(assertControlEdges(html)).not.toMatch(BORDER);
     expect(riskMetrics({ holders: null, sniperPct: null, bundlePct: null, devPct: null, top10Pct: null }).every(m => m.level === 'unknown')).toBe(true);
   });
 });
@@ -207,7 +210,7 @@ describe('trending row', () => {
     expect(html).toContain('bg-[var(--sl-tint-accent-row-wash)]');
     expect(html).toContain('Add Pepe Pax to watchlist');
     expect(html).toContain('h-list-row-lg');
-    expect(html).not.toMatch(BORDER);
+    expect(assertControlEdges(html)).not.toMatch(BORDER);
     const compact = render(<ol><TrendingRow row={{ ...row, change: null, changeReason: 'Not enough trading history for a 1-hour change yet.', price: null, priceReason: 'No trade yet, so there is no price.' }} density="compact" /></ol>);
     expect(compact).toContain('Change: Not enough trading history for a 1-hour change yet.');
     expect(compact).toContain('Price: No trade yet, so there is no price.');
@@ -264,7 +267,7 @@ describe('column chrome', () => {
     expect(calls).toContain('patch:{"view":"cards"}');
     act(() => { view.container.querySelector<HTMLButtonElement>('button[aria-label="Filter"]')?.click(); });
     expect(view.container.querySelector('input[type="search"]')).not.toBeNull();
-    expect(view.container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(view.container.innerHTML)).not.toMatch(BORDER);
     act(() => view.root.unmount());
   });
 
@@ -301,13 +304,13 @@ describe('dashboard board', () => {
     expect(html.match(/aria-label="Add column"/g)).toHaveLength(3);
     expect(html).not.toContain('Choose a widget to add it as a new column');
     // Slots divide the board by min(columns that fit, columns on the board), so three columns fill it.
-    expect(html.match(/min-w-\[288px\]" style="width:calc\(\(100% - \(min\(var\(--board-visible\), var\(--board-count\)\) - 1\) \* var\(--sl-dashboard-column-gap\)\) \/ min\(var\(--board-visible\), var\(--board-count\)\)\)"/g)).toHaveLength(3);
+    expect(html.match(/min-w-72" style="width:calc\(\(100% - \(min\(var\(--board-visible\), var\(--board-count\)\) - 1\) \* var\(--sl-dashboard-column-gap\)\) \/ min\(var\(--board-visible\), var\(--board-count\)\)\)"/g)).toHaveLength(3);
     expect(html).toContain('--board-count:3');
     expect(html).toContain('lg:[--board-visible:3]');
-    expect(html).toContain('min-[1800px]:[--board-visible:4]');
+    expect(html).toContain('board-wide:[--board-visible:4]');
     // Flush columns: no board padding, square edges, a 2 px canvas seam (background contrast, not a stroke).
-    expect(html).toContain('[--sl-dashboard-column-gap:2px]');
-    expect(html).toContain('height:calc(100dvh - var(--sl-shell-top-total))');
+    expect(html).toContain('[--sl-dashboard-column-gap:var(--sl-board-seam)]');
+    expect(html).toContain('height:calc(100dvh - var(--shell-top))');
     const sections = html.match(/<section [^>]*class="[^"]*"/g) ?? [];
     expect(sections).toHaveLength(3);
     for (const section of sections) expect(section).not.toMatch(/\brounded(-[a-z0-9]+)?\b/);
@@ -322,7 +325,7 @@ describe('dashboard board', () => {
     expect(html).toContain('Loading coins');
     expect(html).toContain('Loading callouts');
     expect(html).toContain('aria-live="polite"');
-    expect(html).not.toMatch(BORDER);
+    expect(assertControlEdges(html)).not.toMatch(BORDER);
     expect(html).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
   });
 });

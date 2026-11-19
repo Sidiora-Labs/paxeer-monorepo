@@ -137,16 +137,18 @@ export default async function BridgePage({ searchParams }: Readonly<{ searchPara
             name="chain"
             defaultValue={chainId.toString()}
             inputMode="numeric"
+            autoComplete="off"
           />
           <TextField
             label="Asset address on that chain"
             name="asset"
             defaultValue={asset ?? ""}
+            autoComplete="off"
             spellCheck={false}
             placeholder={copyEntry("bridge.copy.0x").message}
             className="flex-1"
           />
-          <KitButton type="submit" className="h-11 rounded-full border border-border-strong bg-surface px-5 text-sm font-semibold">
+          <KitButton type="submit" variant="secondary">
             Show
           </KitButton>
         </form>

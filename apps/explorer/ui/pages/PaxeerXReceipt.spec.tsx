@@ -4,6 +4,7 @@ import { onlineManager } from '@tanstack/react-query';
 import React from 'react';
 
 import type { PaxeerXArchiveReceipt } from 'types/api/paxeerXArchive';
+import { PAXEER_X_ARCHIVE_VERIFICATION_STATUSES } from 'types/api/paxeerXArchive';
 
 import { PAXEER_X_RECEIPTS_ITEM } from 'stubs/paxeerXLists';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
@@ -12,8 +13,6 @@ import { act, screen, waitFor } from 'vitest/lib';
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
-// The host runs the whole suite at once, and these trees mount real entities, so the first render of
-// each of them reaches well past the default per-test budget.
 vi.setConfig({ testTimeout: 60_000 });
 
 import PaxeerXReceiptPage from './PaxeerXReceipt';
@@ -197,8 +196,8 @@ describe('PaxeerXReceiptPageContent', () => {
       expect(container.querySelector('[data-receipt-checked-at]')).toBeTruthy();
     });
 
-    it('reports the evidence complete once verification is anchored', async() => {
-      serveArchive({ ...receipt, verification_status: 'settlement_anchored' });
+    it.each(PAXEER_X_ARCHIVE_VERIFICATION_STATUSES)('reports frozen evidence complete at archive status %s', async(status) => {
+      serveArchive({ ...receipt, verification_status: status });
 
       const { container } = await renderPage();
 
@@ -207,6 +206,7 @@ describe('PaxeerXReceiptPageContent', () => {
       });
       expect(freshnessOf(container)?.textContent)
         .toContain('Recorded archive verification status. This historical evidence is frozen; automatic refresh stopped.');
+      expect(container.querySelector('[data-verification-status]')?.getAttribute('data-verification-status')).toBe(status);
     });
 
     it('keeps the recorded evidence complete while the page is hidden', async() => {

@@ -14,7 +14,7 @@ const ProgressShowcase = () => {
           { ([ 'sm', 'md', 'lg', 'xl' ] as const).map((size) => (
             <Sample key={ size } label={ `size: ${ size }` }>
               <Progress
-                w="200px"
+                w="full" maxW="calc(var(--chakra-spacing-1) * 50)"
                 min={ 0 }
                 max={ 100 }
                 value={ 45 }

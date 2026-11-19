@@ -16,26 +16,131 @@ defmodule Explorer.TestHelper do
   # cast cd 'getAddress(string)' IMPLEMENTATION
   @address_manager_calldata "0xbf40fac10000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000e494d504c454d454e544154494f4e000000000000000000000000000000000000"
 
+  @doc """
+  Owns a committed connection shared by a serial migration test and its workers.
+  The connection stays checked out through cleanup and is released afterwards.
+  """
+  def start_migration_owner! do
+    Ecto.Adapters.SQL.Sandbox.mode(Explorer.Repo, :auto)
+    owner = Ecto.Adapters.SQL.Sandbox.start_owner!(Explorer.Repo, shared: true, sandbox: false)
+    ExUnit.Callbacks.on_exit(fn ->
+      Ecto.Adapters.SQL.Sandbox.stop_owner(owner)
+      Ecto.Adapters.SQL.Sandbox.mode(Explorer.Repo, :auto)
+    end)
+    owner
+  end
+
+  @doc """
+  Pauses a replay after its next committed batch so a test can inspect its cursor.
+  """
+  def pause_next_replay_batch do
+    handler = {__MODULE__, :replay_batch, make_ref()}
+    prefix = Explorer.Repo.config()[:telemetry_prefix] || [:explorer, :repo]
+    gate = :atomics.new(1, [])
+
+    :ok = :telemetry.attach(handler, prefix ++ [:query], &__MODULE__.observe_replay_batch/4, {self(), handler, gate})
+    ExUnit.Callbacks.on_exit(fn -> :telemetry.detach(handler) end)
+    handler
+  end
+
+  @doc false
+  def observe_replay_batch(_event, _measurements, metadata, {owner, handler, gate}) do
+    cond do
+      String.starts_with?(metadata.query, "SELECT j.block_hash, j.block_number, j.transactions, j.results") ->
+        Process.put(handler, true)
+
+      metadata.query == "commit" and match?({:ok, _}, metadata.result) and Process.get(handler, false) and
+          :atomics.compare_exchange(gate, 1, 0, 1) == :ok ->
+        monitor = Process.monitor(owner)
+        send(owner, {handler, :batch_committed, self()})
+
+        receive do
+          {^handler, :continue} -> Process.demonitor(monitor, [:flush])
+          {:DOWN, ^monitor, :process, ^owner, _reason} -> exit(:shutdown)
+        end
+
+      true ->
+        :ok
+    end
+  end
+
+  @doc """
+  Suspends the replay before it starts another batch. Resume it with `:sys.resume/1`.
+  """
+  def await_replay_batch(handler, runner) do
+    import ExUnit.Assertions
+
+    assert_receive {^handler, :batch_committed, worker}, 5_000
+    suspension = Task.async(fn -> :sys.suspend(runner) end)
+    await_replay_suspension(runner, suspension.pid, 500)
+    send(worker, {handler, :continue})
+    :ok = Task.await(suspension, 5_000)
+    :ok = :telemetry.detach(handler)
+  end
+
+  @doc """
+  Stops a supervised child when it still has a process in the test supervisor.
+  """
+  def stop_supervised_if_alive(id) do
+    with {:ok, supervisor} <- ExUnit.fetch_test_supervisor(),
+         {^id, pid, _type, _modules} when is_pid(pid) <-
+           List.keyfind(Supervisor.which_children(supervisor), id, 0) do
+      ExUnit.Callbacks.stop_supervised(id)
+    else
+      _ -> :ok
+    end
+  end
+
+  defp await_replay_suspension(runner, caller, attempts) do
+    import ExUnit.Assertions
+
+    {:messages, messages} = Process.info(runner, :messages)
+
+    requested? =
+      Enum.any?(messages, fn
+        {:system, {^caller, _tag}, :suspend} -> true
+        _ -> false
+      end)
+
+    cond do
+      requested? ->
+        :ok
+
+      attempts == 0 ->
+        assert requested?
+
+      true ->
+        Process.sleep(10)
+        await_replay_suspension(runner, caller, attempts - 1)
+    end
+  end
+
   # TODO: Execute this for all background migrations
   def run_necessary_background_migrations do
-    for background_migration <- [
-          Explorer.Migrator.HeavyDbIndexOperation.CreateInternalTransactionsBlockNumberTransactionIndexIndexUniqueIndex,
-          Explorer.Migrator.HeavyDbIndexOperation.UpdateInternalTransactionsPrimaryKey
-        ] do
-      case background_migration.db_index_operation_status() do
-        :completed ->
-          :ok
+    owner = Ecto.Adapters.SQL.Sandbox.start_owner!(Explorer.Repo, shared: true, sandbox: false)
 
-        _ ->
-          case background_migration.db_index_operation() do
-            :ok ->
-              background_migration.update_cache()
-              :ok
+    try do
+      for background_migration <- [
+            Explorer.Migrator.HeavyDbIndexOperation.CreateInternalTransactionsBlockNumberTransactionIndexIndexUniqueIndex,
+            Explorer.Migrator.HeavyDbIndexOperation.UpdateInternalTransactionsPrimaryKey
+          ] do
+        case background_migration.db_index_operation_status() do
+          :completed ->
+            :ok
 
-            :error ->
-              raise "Background migrations failed"
-          end
+          _ ->
+            case background_migration.db_index_operation() do
+              :ok ->
+                background_migration.update_cache()
+                :ok
+
+              :error ->
+                raise "Background migrations failed"
+            end
+        end
       end
+    after
+      Ecto.Adapters.SQL.Sandbox.stop_owner(owner)
     end
   end
 
@@ -184,74 +289,83 @@ defmodule Explorer.TestHelper do
     )
   end
 
-  def mock_generic_proxy_requests(mox, mocks \\ []) do
-    expect(mox, :json_rpc, fn [
-                                %{
-                                  id: id1,
-                                  method: "eth_getStorageAt",
-                                  params: [
-                                    _,
-                                    "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
-                                    "latest"
-                                  ]
-                                },
-                                %{
-                                  id: id2,
-                                  method: "eth_getStorageAt",
-                                  params: [
-                                    _,
-                                    "0xc5f16f0fcc639fa48a6947836d9850f504798523bf8c9a3a87d5876cf622bcf7",
-                                    "latest"
-                                  ]
-                                },
-                                %{
-                                  id: id3,
-                                  method: "eth_getStorageAt",
-                                  params: [
-                                    _,
-                                    "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50",
-                                    "latest"
-                                  ]
-                                },
-                                %{
-                                  id: id4,
-                                  method: "eth_call",
-                                  params: [
-                                    %{
-                                      data: "0x52ef6b2c",
-                                      to: _
-                                    },
-                                    "latest"
-                                  ]
-                                },
-                                %{
-                                  id: id5,
-                                  method: "eth_getStorageAt",
-                                  params: [
-                                    _,
-                                    "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3",
-                                    "latest"
-                                  ]
-                                }
-                                | rest
-                              ],
-                              _options ->
+  def mock_generic_proxy_requests(mox, mocks \\ [], call_count \\ 1) do
+    expect(mox, :json_rpc, call_count, fn [
+                                            %{
+                                              id: id1,
+                                              method: "eth_getStorageAt",
+                                              params: [
+                                                _,
+                                                "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+                                                "latest"
+                                              ]
+                                            },
+                                            %{
+                                              id: id2,
+                                              method: "eth_getStorageAt",
+                                              params: [
+                                                _,
+                                                "0xc5f16f0fcc639fa48a6947836d9850f504798523bf8c9a3a87d5876cf622bcf7",
+                                                "latest"
+                                              ]
+                                            },
+                                            %{
+                                              id: id3,
+                                              method: "eth_getStorageAt",
+                                              params: [
+                                                _,
+                                                "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50",
+                                                "latest"
+                                              ]
+                                            },
+                                            %{
+                                              id: id4,
+                                              method: "eth_call",
+                                              params: [
+                                                %{
+                                                  data: "0x52ef6b2c",
+                                                  to: _
+                                                },
+                                                "latest"
+                                              ]
+                                            },
+                                            %{
+                                              id: id5,
+                                              method: "eth_getStorageAt",
+                                              params: [
+                                                _,
+                                                "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3",
+                                                "latest"
+                                              ]
+                                            }
+                                            | rest
+                                          ],
+                                          _options ->
       {:ok,
        [
          mocks |> Keyword.get(:eip1967, @zero_address_hash) |> encode_in_batch_response(id1),
          mocks |> Keyword.get(:eip1822, @zero_address_hash) |> encode_in_batch_response(id2),
          mocks |> Keyword.get(:eip1967_beacon, @zero_address_hash) |> encode_in_batch_response(id3),
-         %{id: id4, error: "error"},
+         %{id: id4, error: %{code: 3, message: "execution reverted"}},
          mocks |> Keyword.get(:eip1967_oz, @zero_address_hash) |> encode_in_batch_response(id5)
        ] ++
          Enum.map(rest, fn
-           %{id: id6, method: "eth_call", params: [%{data: "0x5c60da1b", to: _}, "latest"]} ->
-             mocks |> Keyword.get(:basic_implementation, @zero_address_hash) |> encode_in_batch_response(id6)
+           %{id: id6, method: "eth_call", params: [%{data: "0x5c60da1b", to: to}, "latest"]} ->
+             implementation =
+               if Keyword.get(mocks, :eip1967_beacon) &&
+                    to == to_string(Keyword.get(mocks, :eip1967_beacon)) do
+                 Keyword.get(mocks, :eip1967_beacon_implementation, @zero_address_hash)
+               else
+                 Keyword.get(mocks, :basic_implementation, @zero_address_hash)
+               end
+
+             encode_in_batch_response(implementation, id6)
          end)}
     end)
 
     if Keyword.get(mocks, :eip1967_beacon) && Keyword.get(mocks, :eip1967_beacon_implementation) do
       beacon_address_hash_string = to_string(Keyword.get(mocks, :eip1967_beacon))
+      implementation_address_hash = Keyword.get(mocks, :eip1967_beacon_implementation)
 
       expect(mox, :json_rpc, fn %{
                                   id: 0,
@@ -265,7 +379,7 @@ defmodule Explorer.TestHelper do
                                   ]
                                 },
                                 _options ->
-        {:ok, address_hash_to_full_hash_string(Keyword.get(mocks, :eip1967_beacon_implementation))}
+        {:ok, address_hash_to_full_hash_string(implementation_address_hash)}
       end)
     end
   end

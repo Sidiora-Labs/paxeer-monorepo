@@ -90,8 +90,9 @@ type receiveVector struct {
 }
 
 type vectorFile struct {
-	Activities []activityVector `json:"activities"`
-	Accounts   []struct {
+	AccountProtocolVersion uint16           `json:"account_protocol_version"`
+	Activities             []activityVector `json:"activities"`
+	Accounts               []struct {
 		Name      string `json:"name"`
 		AccountID string `json:"account_id"`
 	} `json:"accounts"`
@@ -153,6 +154,11 @@ func mustUint128(t *testing.T, text string) Uint128 {
 	var raw [16]byte
 	value.FillBytes(raw[:])
 	return Uint128{Hi: beUint64(raw[:8]), Lo: beUint64(raw[8:])}
+}
+
+func protocolThreeAccountID(name []byte) [32]byte {
+	preimage := append([]byte("LX:ACCOUNT:v1"), binary.BigEndian.AppendUint32(nil, uint32(len(name)))...)
+	return sha256.Sum256(append(preimage, name...))
 }
 
 func beUint64(b []byte) uint64 {
@@ -495,7 +501,16 @@ func TestActivityEncodeBounds(t *testing.T) {
 
 func TestAccountIDsMatchRustAndChain(t *testing.T) {
 	file := loadVectors(t)
+	if file.AccountProtocolVersion != StateCommitmentProtocolVersion {
+		t.Fatalf("account protocol version %d, want %d", file.AccountProtocolVersion, StateCommitmentProtocolVersion)
+	}
 	for _, account := range file.Accounts {
+		if account.Name == "system:treasury" {
+			if got := protocolThreeAccountID([]byte(account.Name)); got != mustHex32(t, account.AccountID) {
+				t.Fatalf("%s: protocol-three account id %x, vector has %s", account.Name, got, account.AccountID)
+			}
+			continue
+		}
 		got, err := AccountID([]byte(account.Name))
 		if err != nil {
 			t.Fatalf("%s: %v", account.Name, err)

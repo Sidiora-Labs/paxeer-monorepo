@@ -96,3 +96,18 @@ def test_no_tracked_references_to_old_document_paths():
         + result.stdout
         + result.stderr
     )
+
+
+def test_perps_documents_name_the_workspace_and_current_source_paths():
+    workspace = (ROOT / "apps/perps/README.md").read_text(encoding="utf-8")
+    data_api = (ROOT / "docs/perps/data-api.md").read_text(encoding="utf-8")
+    network = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
+
+    assert "# Paxeer Xtrades" in workspace
+    assert "packages/paxeer-backend/src/core/network/abi/PerpsPrecompile.ts" in workspace
+    assert "the LayerX kernel executes it when it arrives" in workspace
+    assert "Paxeer Xtrades data API" in data_api
+    assert "apps/perps/packages/paxeer-backend/src/core/network/gateway.ts" in data_api
+    assert "apps/perps/apps/web/src/pages/api/candle/" in data_api
+    assert "Paxeer Xtrades trading workspace" in network
+    assert "apps/perps/README.md" in network

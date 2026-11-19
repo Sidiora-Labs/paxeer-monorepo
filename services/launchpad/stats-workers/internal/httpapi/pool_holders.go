@@ -74,11 +74,13 @@ func holderList(st *store.Store) http.HandlerFunc {
 
 		holders, err := st.ListHolders(ctx, poolAddress, limit, offset)
 		if err != nil {
+			logReadError(r, err)
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "holders lookup failed")
 			return
 		}
 		total, err := st.CountHolders(ctx, poolAddress)
 		if err != nil {
+			logReadError(r, err)
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "holders count failed")
 			return
 		}
@@ -157,6 +159,7 @@ func TransferHolders(st *store.Store, repository *holdings.Repository) http.Hand
 		}
 		context, err := st.GetPoolStats(r.Context(), pool)
 		if err != nil {
+			logReadError(r, err)
 			fail(503, "DEPENDENCY_UNAVAILABLE")
 			return
 		}
@@ -166,6 +169,7 @@ func TransferHolders(st *store.Store, repository *holdings.Repository) http.Hand
 		}
 		token, err := holdings.Address(context.TokenAddress)
 		if err != nil {
+			logReadError(r, err)
 			fail(503, "DEPENDENCY_UNAVAILABLE")
 			return
 		}
@@ -181,6 +185,7 @@ func TransferHolders(st *store.Store, repository *holdings.Repository) http.Hand
 		if cursor == "" {
 			cursor, err = repository.Materialize(r.Context(), token, pool, creator)
 			if err != nil {
+				logReadError(r, err)
 				if errors.Is(err, holdings.ErrUnknownToken) {
 					fail(503, "DEPENDENCY_UNAVAILABLE")
 				} else {
@@ -196,6 +201,7 @@ func TransferHolders(st *store.Store, repository *holdings.Repository) http.Hand
 			} else if errors.Is(err, holdings.ErrCursor) {
 				fail(400, "CURSOR_INVALID")
 			} else {
+				logReadError(r, err)
 				fail(503, "DEPENDENCY_UNAVAILABLE")
 			}
 			return
@@ -240,6 +246,7 @@ func TransferHolders(st *store.Store, repository *holdings.Repository) http.Hand
 		}
 		body, err := json.Marshal(map[string]any{valueRequestId: requestID, valueData: data, valueWatermark: watermark, valueRevision: wireRevision, valueQuality: quality, valueNextCursor: page.Next, valueGeneratedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
 		if err != nil {
+			logReadError(r, err)
 			fail(503, "DEPENDENCY_UNAVAILABLE")
 			return
 		}
@@ -324,6 +331,7 @@ func DevHolders(st *store.Store) http.HandlerFunc {
 		}
 		stats, err := st.FindPoolStats(r.Context(), pool)
 		if err != nil {
+			logReadError(r, err)
 			fail(503, "DEPENDENCY_UNAVAILABLE")
 			return
 		}
@@ -333,11 +341,13 @@ func DevHolders(st *store.Store) http.HandlerFunc {
 		}
 		token, err := holdings.Address(stats.TokenAddress)
 		if err != nil {
+			logReadError(r, err)
 			fail(503, "DEPENDENCY_UNAVAILABLE")
 			return
 		}
 		rows, err := st.ListHolderBalances(r.Context(), stats.PoolAddress, limit+1, offset)
 		if err != nil {
+			logReadError(r, err)
 			fail(503, "DEPENDENCY_UNAVAILABLE")
 			return
 		}
@@ -353,6 +363,7 @@ func DevHolders(st *store.Store) http.HandlerFunc {
 		data := map[string]any{valueItems: items, valueCoverage: valuePartial, "coverageReason": "development_swap_ledger", valueOwnershipSource: valueSwap_sender_legacy, "fromPosition": nil, "toPosition": nil, "exclusionPolicyVersion": "inclusive_indexed_supply_v1", "excludedProtocolAddresses": []string{}, valueTokenAddress: token, valuePoolAddress: pool, valueStale: false, "staleReason": nil}
 		body, err := json.Marshal(map[string]any{valueRequestId: requestID, valueData: data, valueWatermark: nil, valueRevision: nil, valueQuality: valuePartial, valueNextCursor: next, valueGeneratedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
 		if err != nil {
+			logReadError(r, err)
 			fail(503, "DEPENDENCY_UNAVAILABLE")
 			return
 		}

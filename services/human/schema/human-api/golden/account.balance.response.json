@@ -8,7 +8,7 @@
         "amount": "958750000",
         "currency": "LXP"
       },
-      "verification": "checkpoint-finalised",
+      "verification": "committed",
       "freshness": {
         "observed_at": "2026-08-24T09:40:12Z",
         "age_seconds": 3,
@@ -20,7 +20,7 @@
         {
           "evidence_id": "evd_01j8agd2s3k1m2n3p4q5r6s7t8",
           "class": "checkpoint-proof",
-          "verification": "checkpoint-finalised"
+          "verification": "committed"
         }
       ]
     },

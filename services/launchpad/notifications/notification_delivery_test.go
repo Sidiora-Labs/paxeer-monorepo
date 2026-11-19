@@ -1,6 +1,7 @@
 package notifications
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/ed25519"
@@ -14,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -341,6 +343,34 @@ func TestNotificationDeliveryPushOriginSlash(t *testing.T) {
 			}
 		}
 	}
+	provider.Close()
+	runtime, e := NewPushRuntime(ctx, db, authority, RuntimeOptions{Secrets: options, Owner: "notification-worker", DeepLinkOrigin: "https://app.example:443", EnableAPNS: true, APNSKey: "REPAIR958_APNS", APNSKeyID: "REPAIR958_KID", APNSTeamID: "REPAIR958_TEAM", APNSTopic: "REPAIR958_TOPIC"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	runtime.Worker.Adapters[providerAPNS].(*APNS).client = &http.Client{Timeout: time.Second, Transport: transport}
+	item, created, e := (RecipientConsumer{Store: runtime.Worker.Store, Authority: authority}).EnqueueChat(ctx, "provider-disconnected", peer.account.AccountID, "conversation", time.Now().UTC())
+	if e != nil || !created {
+		t.Fatalf("disconnected provider trigger: created=%v err=%v", created, e)
+	}
+	var diagnostics bytes.Buffer
+	previousOutput := log.Writer()
+	log.SetOutput(&diagnostics)
+	defer log.SetOutput(previousOutput)
+	if e = runtime.Worker.Once(ctx, 1); e != nil {
+		t.Fatal(e)
+	}
+	var raw []byte
+	if e = db.QueryRowContext(ctx, `SELECT deliveries FROM discovery_notifications.outbox WHERE id=$1`, item.ID).Scan(&raw); e != nil {
+		t.Fatal(e)
+	}
+	var attempts []DeliveryAttempt
+	if e = json.Unmarshal(raw, &attempts); e != nil || len(attempts) != 1 || attempts[0].State != stateUnknown || !attempts[0].AcceptanceUnknown {
+		t.Fatalf("disconnected provider delivery: %s err=%v", raw, e)
+	}
+	if !strings.Contains(diagnostics.String(), "notification provider apns failed:") || !strings.Contains(diagnostics.String(), "connection refused") {
+		t.Fatalf("provider transport diagnostics: %s", diagnostics.String())
+	}
 }
 
 func TestNotificationDeliveryRuntimePositivePath(t *testing.T) {
@@ -354,10 +384,11 @@ func TestNotificationDeliveryRuntimePositivePath(t *testing.T) {
 	if _, e := db.Exec(`CREATE SCHEMA IF NOT EXISTS indexer;
  CREATE TABLE IF NOT EXISTS indexer.indexer_canonical_creations_v1(pool text PRIMARY KEY,token text,creator text,height bigint,block_hash text,transaction_hash text,log_index bigint,block_timestamp bigint);
  CREATE SCHEMA IF NOT EXISTS pnl;
- CREATE TABLE IF NOT EXISTS pnl.inventory_l16_wallet_ranges_v3(snapshot_id uuid PRIMARY KEY,wallet text,generation text,start_at timestamptz,end_at timestamptz,input_digest text,watermark jsonb);
- CREATE TABLE IF NOT EXISTS pnl.inventory_l16_wallet_intervals_v3(snapshot_id uuid REFERENCES pnl.inventory_l16_wallet_ranges_v3,interval text,bucket timestamptz,payload jsonb);`); e != nil {
+ CREATE TABLE IF NOT EXISTS pnl.inventory_l16_wallet_ranges_v3(snapshot_id uuid PRIMARY KEY,wallet text NOT NULL,generation text NOT NULL,start_at timestamptz NOT NULL,end_at timestamptz NOT NULL,release_digest text NOT NULL,input_digest text NOT NULL,watermark jsonb NOT NULL);
+ CREATE TABLE IF NOT EXISTS pnl.inventory_l16_wallet_intervals_v3(snapshot_id uuid NOT NULL REFERENCES pnl.inventory_l16_wallet_ranges_v3(snapshot_id),interval text NOT NULL CHECK(interval IN ('1h','1d')),bucket timestamptz NOT NULL,payload jsonb NOT NULL,PRIMARY KEY(snapshot_id,interval,bucket));`); e != nil {
 		t.Fatal(e)
 	}
+	notificationWalletRangeViews(t, db)
 	pool := "0x3333333333333333333333333333333333333333"
 	if _, e := db.Exec(`INSERT INTO indexer.indexer_canonical_creations_v1 VALUES($1,$2,$3,10,$4,$5,0,$6)`, pool, "0x4444444444444444444444444444444444444444", peer.account.Wallet, "0x"+strings.Repeat("a", 64), "0x"+strings.Repeat("b", 64), time.Now().Add(-time.Minute).Unix()); e != nil {
 		t.Fatal(e)

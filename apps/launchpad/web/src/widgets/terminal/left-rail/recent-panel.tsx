@@ -1,13 +1,13 @@
 'use client';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, MoreHorizontal, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { technicalDetail } from '@/core/user-facing-error';
-import { Avatar, DropdownMenu, EmptyState, IconButton } from '@/ui/primitives';
+import { Avatar, DropdownMenu, EmptyState, IconButton, Skeleton } from '@/ui/primitives';
 import { formatCompactUsd } from '@/utils/format';
 import { StatDash } from '@/ui/shared/stat-value';
-import { clearRecentPools, removeRecentPool, useRecentPools } from '../recent-pools';
+import { clearRecentPools, recentPoolsLimit, removeRecentPool, useRecentPools } from '../recent-pools';
 import { formatRailPrice, type RecentRow } from './rows';
 import { useRecentRows } from './use-recent-rows';
 
@@ -17,22 +17,24 @@ export function pageCount(total: number, size = recentPageSize): number {
   return Math.max(1, Math.ceil(total / size));
 }
 
-function RecentPairRow({ row, active }: { row: RecentRow; active: boolean }) {
+function RecentPairRow({ row, active, loadingPrice }: { row: RecentRow; active: boolean; loadingPrice: boolean }) {
   return (
-    <li data-pool={row.poolAddress} className={cn('relative grid h-9 grid-cols-[minmax(0,1fr)_4.5rem_4rem_1.75rem] items-center gap-1 px-2 transition-colors duration-fast', active ? 'bg-surface-3' : 'bg-surface-1 hover:bg-surface-hover')}>
+    <li data-pool={row.poolAddress} className={cn('relative grid min-h-9 grid-cols-[minmax(0,1fr)_calc(var(--sl-space)*18)_calc(var(--sl-space)*16)_var(--sl-control-height-sm)] [@media(max-width:834px)]:grid-cols-[minmax(0,1fr)_calc(var(--sl-space)*18)_calc(var(--sl-space)*16)_var(--sl-touch-target-min)] items-center gap-1 px-2 transition-colors duration-fast', active ? 'bg-surface-3' : 'bg-surface-1 hover:bg-surface-hover')}>
       <div className="flex min-w-0 items-center gap-1.5">
         <Avatar src={row.image} name={row.name} size="xs" decorative />
-        <Link
+        <Link prefetch={false}
           href={row.href}
           aria-current={active ? 'page' : undefined}
           title={row.name}
-          className="truncate text-xs font-bold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
+          className="min-w-0 flex-1 truncate text-xs font-bold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
         >
           {row.symbol}
           <span className="sr-only">{`, ${row.name}`}</span>
         </Link>
       </div>
-      {row.price === null
+      {row.price === null && loadingPrice
+        ? <span className="flex justify-end"><Skeleton label="price" className="w-8" /></span>
+        : row.price === null
         ? <span className="truncate text-right"><StatDash reason={row.priceReason ?? 'The price is not available for this coin yet.'} subject="Price" /></span>
         : (
           <span data-numeric className="truncate text-right text-xs tabular-nums text-text">
@@ -54,11 +56,14 @@ export interface RecentPanelProps {
 
 export function RecentPanel({ activePool, className }: RecentPanelProps) {
   const headingId = useId();
-  const pools = useRecentPools();
-  const { rows, prices } = useRecentRows(pools);
+  const storedPools = useRecentPools();
+  const active = activePool?.toLowerCase() ?? null;
+  const [publishedActive, setPublishedActive] = useState<string | null>(null);
+  const pools = useMemo(() => active && publishedActive !== active ? [active, ...storedPools.filter(pool => pool !== active)].slice(0, recentPoolsLimit) : storedPools, [active, publishedActive, storedPools]);
+  useEffect(() => { setPublishedActive(active); }, [active]);
+  const { rows, prices, enrichmentPending } = useRecentRows(pools);
   const [page, setPage] = useState(0);
   const pages = pageCount(rows.length);
-  const active = activePool?.toLowerCase() ?? null;
 
   useEffect(() => {
     if (page > pages - 1) setPage(pages - 1);
@@ -69,7 +74,7 @@ export function RecentPanel({ activePool, className }: RecentPanelProps) {
 
   return (
     <section aria-labelledby={headingId} className={cn('flex flex-col bg-surface-1', className)}>
-      <header className="flex h-7 shrink-0 items-center gap-1 px-2">
+      <header className="flex min-h-control-height-sm shrink-0 flex-wrap items-center gap-1 px-2">
         <h2 id={headingId} className="mr-auto truncate text-sm font-bold text-text">Recently viewed</h2>
         {pages > 1
           ? (
@@ -93,14 +98,14 @@ export function RecentPanel({ activePool, className }: RecentPanelProps) {
         ? <EmptyState variant="inline" title="Nothing viewed yet" body="Coins you open show up here." className="px-2 pb-2 text-xs" />
         : (
           <>
-            <div aria-hidden="true" className="grid h-6 shrink-0 grid-cols-[minmax(0,1fr)_4.5rem_4rem_1.75rem] items-center gap-1 px-2 text-2xs uppercase text-text-faint">
+            <div aria-hidden="true" className="grid h-6 shrink-0 grid-cols-[minmax(0,1fr)_calc(var(--sl-space)*18)_calc(var(--sl-space)*16)_var(--sl-control-height-sm)] items-center gap-1 px-2 text-2xs uppercase text-text-faint [@media(max-width:834px)]:grid-cols-[minmax(0,1fr)_calc(var(--sl-space)*18)_calc(var(--sl-space)*16)_var(--sl-touch-target-min)]">
               <span>Coin</span>
               <span className="text-right">Price</span>
               <span className="text-right">MCap</span>
               <span />
             </div>
             <ul aria-labelledby={headingId}>
-              {shown.map(row => <RecentPairRow key={row.poolAddress} row={row} active={row.poolAddress === active} />)}
+              {shown.map(row => <RecentPairRow key={row.poolAddress} row={row} active={row.poolAddress === active} loadingPrice={enrichmentPending} />)}
             </ul>
             {prices.state === 'unsupported'
               ? <p role="status" title={technicalDetail(prices.operation, prices.status) ?? undefined} data-operation={technicalDetail(prices.operation, prices.status) ?? undefined} className="px-2 py-1 text-2xs text-text-faint">Prices are not available yet</p>

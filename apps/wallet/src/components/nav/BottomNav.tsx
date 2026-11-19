@@ -1,5 +1,6 @@
 'use client';
 
+import { useLayoutEffect, useRef } from 'react';
 import { cn } from '@/lib/cn';
 import { SvgIcon } from '@/components/ui/SvgIcon';
 import type { AppRoute } from '@/widgets/shell/useAppRoute';
@@ -24,26 +25,50 @@ function haptic() {
 }
 
 export function BottomNav({ active, onNavigate }: BottomNavProps) {
+  const nav = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const element = nav.current;
+    const parent = element?.parentElement;
+    if (!element || !parent) return;
+    const reserve = () =>
+      parent.style.setProperty(
+        '--bottom-nav-height',
+        `${element.getBoundingClientRect().height}px`
+      );
+    reserve();
+    const observer = new ResizeObserver(reserve);
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      parent.style.removeProperty('--bottom-nav-height');
+    };
+  }, []);
   return (
-    <nav className="fixed bottom-0 inset-x-0 glass-nav safe-area-pb z-50">
-      <div className="flex justify-around items-center h-16 max-w-lg mx-auto px-2">
+    <nav
+      ref={nav}
+      aria-label="Primary"
+      className="pax-bottom-nav fixed bottom-0 inset-x-0 glass-nav safe-area-pb z-50"
+    >
+      <div className="pax-bottom-tabs grid grid-cols-5 items-center min-h-16 max-w-lg mx-auto px-2">
         {tabs.map(({ id, label, icon }) => {
           const isActive = active === id;
           return (
             <button
               key={id}
-              onClick={() => { haptic(); onNavigate(id); }}
+              type="button"
+              aria-current={isActive ? 'page' : undefined}
+              aria-label={label}
+              onClick={() => {
+                haptic();
+                onNavigate(id);
+              }}
               className={cn(
-                'flex flex-col items-center justify-center gap-0.5 py-1 px-2 min-w-[48px] transition-all press-scale',
-                isActive ? 'text-pax-accent' : 'text-pax-muted',
+                'flex flex-col items-center justify-center gap-0.5 py-1 px-1 min-w-0 flex-1 transition-all press-scale',
+                isActive ? 'text-pax-accent' : 'text-pax-muted'
               )}
             >
-              <SvgIcon
-                name={icon}
-                className="w-5 h-5"
-                style={isActive ? { filter: 'brightness(0) saturate(100%) invert(22%) sepia(93%) saturate(7388%) hue-rotate(222deg) brightness(98%) contrast(101%)' } : { filter: 'brightness(0) invert(0.6)' }}
-              />
-              <span className="text-[10px] font-medium">{label}</span>
+              <SvgIcon name={icon} className="w-5 h-5" />
+              <span className="text-size-10 font-medium max-w-full">{label}</span>
             </button>
           );
         })}

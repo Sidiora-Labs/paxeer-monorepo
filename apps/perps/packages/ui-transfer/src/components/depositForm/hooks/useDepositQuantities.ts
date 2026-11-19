@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { paxeerChain } from "@paxeer-network/paxeer-backend/core/chain";
 import { API } from "@paxeer-network/types";
 import { Decimal, formatWithPrecision } from "@paxeer-network/utils";
 import { useMaxDepositAmount } from "./useMaxDepositAmount";
@@ -6,6 +7,7 @@ import { useMaxDepositAmount } from "./useMaxDepositAmount";
 export type GetIndexPrice = (symbol: string) => number | undefined;
 
 export type UseDepositFormQuantitiesParams = {
+  chainId?: number;
   sourceToken?: API.TokenInfo;
   targetToken?: API.TokenInfo;
   balance?: string;
@@ -17,6 +19,7 @@ export type UseDepositFormQuantitiesParams = {
 };
 
 export const useDepositFormQuantities = ({
+  chainId,
   sourceToken,
   targetToken,
   balance,
@@ -57,6 +60,7 @@ export const useDepositFormQuantities = ({
   }, [swapPrice, targetToken?.symbol, getIndexPrice]);
 
   const quantityNotional = useMemo(() => {
+    if (chainId === paxeerChain.id) return Number(quantity || 0);
     const indexPrice = needSwap
       ? swapPrice
       : getIndexPrice(sourceToken?.symbol!);
@@ -65,7 +69,14 @@ export const useDepositFormQuantities = ({
       return new Decimal(quantity).mul(indexPrice).toNumber();
     }
     return 0;
-  }, [quantity, sourceToken?.symbol, swapPrice, needSwap, getIndexPrice]);
+  }, [
+    chainId,
+    quantity,
+    sourceToken?.symbol,
+    swapPrice,
+    needSwap,
+    getIndexPrice,
+  ]);
 
   const indexPrice = useMemo(() => {
     return getIndexPrice(sourceToken?.symbol!);

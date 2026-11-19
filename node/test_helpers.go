@@ -78,12 +78,13 @@ func (t TestTx) GetGasEstimate() uint64 {
 }
 
 type TestAppOpts struct {
-	GenesisTime      time.Time
-	UseSc            bool
-	EnableGiga       bool
-	EnableGigaOCC    bool
-	ReceiptBackend   string
-	ImportNumWorkers int
+	GenesisTime             time.Time
+	UseSc                   bool
+	EnableGiga              bool
+	EnableGigaOCC           bool
+	ReceiptBackend          string
+	ReceiptAsyncWriteBuffer *int
+	ImportNumWorkers        int
 }
 
 func (t TestAppOpts) Get(s string) interface{} {
@@ -116,6 +117,9 @@ func (t TestAppOpts) Get(s string) interface{} {
 	if s == receiptStoreBackendKey && t.ReceiptBackend != "" {
 		return t.ReceiptBackend
 	}
+	if s == receiptStoreAsyncWriteBufferKey && t.ReceiptAsyncWriteBuffer != nil {
+		return *t.ReceiptAsyncWriteBuffer
+	}
 	// Disable EVM HTTP and WebSocket servers in tests to avoid port conflicts
 	// when multiple tests run in parallel (all would try to bind to port 8545)
 	if s == "evm.http_enabled" || s == "evm.ws_enabled" {
@@ -132,6 +136,58 @@ type TestWrapper struct {
 
 	// hasT tracks whether SetT was called, so we know if we can use Require()
 	hasT bool
+}
+
+func WaitForTestQueryHeight(t testing.TB, a *App, height int64) {
+	t.Helper()
+	store := a.GetStateStore()
+	require.NotNil(t, store)
+	require.Equal(t, height, a.LastBlockHeight())
+	committed := make(map[sdk.StoreKey]map[string][]byte)
+	for _, key := range a.GetCheckCtx().MultiStore().StoreKeys() {
+		if _, persistent := key.(*sdk.KVStoreKey); !persistent {
+			continue
+		}
+		values := make(map[string][]byte)
+		iterator := a.CommitMultiStore().GetCommitKVStore(key).Iterator(nil, nil)
+		for ; iterator.Valid(); iterator.Next() {
+			values[string(iterator.Key())] = bytes.Clone(iterator.Value())
+		}
+		require.NoError(t, iterator.Close())
+		committed[key] = values
+	}
+	require.Eventually(t, func() bool {
+		if store.GetLatestVersion() < height {
+			return false
+		}
+		for key, values := range committed {
+			iterator, err := store.Iterator(key.Name(), height, nil, nil)
+			if err != nil {
+				return false
+			}
+			matched, count := true, 0
+			for ; iterator.Valid(); iterator.Next() {
+				value, exists := values[string(iterator.Key())]
+				if !exists || !bytes.Equal(value, iterator.Value()) {
+					matched = false
+					break
+				}
+				count++
+			}
+			if err := iterator.Close(); err != nil || !matched || count != len(values) {
+				return false
+			}
+		}
+		return true
+	}, 5*time.Second, time.Millisecond, "query store must reach height %d", height)
+}
+
+func WaitForTestReceiptHeight(t testing.TB, a *App, height int64) {
+	t.Helper()
+	require.NotNil(t, a.receiptStore)
+	require.Eventually(t, func() bool {
+		return a.receiptStore.LatestVersion() >= height
+	}, 5*time.Second, time.Millisecond, "receipt store must reach height %d", height)
 }
 
 func NewTestWrapper(tb testing.TB, tm time.Time, valPub cryptotypes.PubKey, enableEVMCustomPrecompiles bool, baseAppOptions ...func(*bam.BaseApp)) *TestWrapper {
@@ -340,6 +396,10 @@ func (s *TestWrapper) EndBlock() {
 }
 
 func setupReceiptStore(storeKey sdk.StoreKey) (receipt.ReceiptStore, error) {
+	return setupReceiptStoreWithConfig(storeKey, ssconfig.DefaultReceiptStoreConfig())
+}
+
+func setupReceiptStoreWithConfig(storeKey sdk.StoreKey, receiptConfig ssconfig.ReceiptStoreConfig) (receipt.ReceiptStore, error) {
 	// Create a unique temporary directory per test process to avoid Pebble DB lock conflicts
 	baseDir := filepath.Join(os.TempDir(), "pax-testing")
 	if err := os.MkdirAll(baseDir, 0o750); err != nil {
@@ -350,7 +410,6 @@ func setupReceiptStore(storeKey sdk.StoreKey) (receipt.ReceiptStore, error) {
 		return nil, err
 	}
 
-	receiptConfig := ssconfig.DefaultReceiptStoreConfig()
 	receiptConfig.KeepRecent = 0 // No min retain blocks in test
 	receiptConfig.DBDirectory = tempDir
 	receiptStore, err := receipt.NewReceiptStore(receiptConfig, storeKey)
@@ -562,7 +621,11 @@ func SetupWithSc(t *testing.T, isCheckTx bool, enableEVMCustomPrecompiles bool, 
 
 	options := []AppOption{
 		func(app *App) {
-			receiptStore, err := setupReceiptStore(app.keys[evmtypes.StoreKey])
+			receiptConfig, err := ssconfig.ReadReceiptConfig(testAppOpts)
+			if err != nil {
+				panic(fmt.Sprintf("error while reading receipt store config: %s", err))
+			}
+			receiptStore, err := setupReceiptStoreWithConfig(app.keys[evmtypes.StoreKey], receiptConfig)
 			if err != nil {
 				panic(fmt.Sprintf("error while creating receipt store: %s", err))
 			}

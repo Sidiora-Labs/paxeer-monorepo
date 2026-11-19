@@ -28,7 +28,7 @@ const ChainIndicatorsChart = ({ isLoading: isLoadingProp, value, valueDiff, char
     }
 
     if (isLoading) {
-      return <Skeleton loading h="28px" w="160px"/>;
+      return <Skeleton loading h="var(--chakra-spacing-7)" w="var(--chakra-spacing-40)"/>;
     }
 
     if (value.includes('N/A')) {
@@ -48,7 +48,7 @@ const ChainIndicatorsChart = ({ isLoading: isLoadingProp, value, valueDiff, char
     return (
       <Skeleton loading={ isLoading } display="flex" alignItems="center" color={ diffColor } ml={ 2 }>
         <IconSvg name="arrows/up-head" boxSize={ 5 } mr={ 1 } transform={ valueDiff < 0 ? 'rotate(180deg)' : 'rotate(0)' }/>
-        <Text color={ diffColor } fontWeight="600">{ valueDiff }%</Text>
+        <Text color={ diffColor } fontWeight="semibold">{ valueDiff }%</Text>
       </Skeleton>
     );
   })();
@@ -64,7 +64,7 @@ const ChainIndicatorsChart = ({ isLoading: isLoadingProp, value, valueDiff, char
   }
 
   return (
-    <Flex flexGrow={ 1 } flexDir="column" h="100%" data-label="chain-indicator-chart" data-points={ data[0]?.items.length ?? 0 }>
+    <Flex flexGrow={ 1 } flexDir="column" minW={ 0 } h="100%" data-label="chain-indicator-chart" data-points={ data[0]?.items.length ?? 0 }>
       <Skeleton loading={ isLoading } display="flex" alignItems="center" w="fit-content" columnGap={ 1 }>
         <chakra.span
           data-title
@@ -81,8 +81,8 @@ const ChainIndicatorsChart = ({ isLoading: isLoadingProp, value, valueDiff, char
           { valueDiffElement }
         </Flex>
       ) }
-      <Flex mt={ 2 } h={{ base: '160px', lg: '200px' }} alignItems="flex-start" flexGrow={ 1 }>
-        <ChainIndicatorChartContainer data={ data } isError={ chartQuery.isError } isPending={ isLoading }/>
+      <Flex mt={ 2 } h={{ base: 'var(--chakra-spacing-40)', lg: 'var(--chakra-spacing-40\\.5)' }} alignItems="flex-start" flexGrow={ 1 }>
+        <ChainIndicatorChartContainer data={ data } caption={ title } isError={ chartQuery.isError } isPending={ isLoading }/>
       </Flex>
     </Flex>
   );

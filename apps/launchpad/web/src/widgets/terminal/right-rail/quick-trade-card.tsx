@@ -137,7 +137,7 @@ export function QuickTradeCard({ poolAddress, preset, onSlippageChange }: { pool
         <TradeTabs
           side={side}
           onSwitch={next => { setArmed(null); t.switchMode(next === 'buy'); }}
-          trailing={<TradeSettingsPopover slippageBps={t.slippageBps} onSlippageChange={changeSlippage} deadlineSeconds={EXECUTION_DEADLINE_SECONDS} spender={t.deployment?.router ?? null} size="sm" />}
+          trailing={<TradeSettingsPopover slippageBps={t.slippageBps} onSlippageChange={changeSlippage} deadlineSeconds={EXECUTION_DEADLINE_SECONDS} spender={t.deployment?.spender ?? null} size="sm" />}
         />
         <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
           <legend className="sr-only">{t.isBuy ? 'Buy' : 'Sell'} {tokenSymbol}</legend>
@@ -180,6 +180,8 @@ export function QuickTradeCard({ poolAddress, preset, onSlippageChange }: { pool
           ) : null}
           {t.approvalError ? (
             <NoticeBar tone="danger" surface={1} wrap action={<Button size="sm" variant="secondary" onClick={t.retryQuote}>Refresh</Button>}>{plainTradeError(t.approvalError)}</NoticeBar>
+          ) : t.poolInspectionPending ? (
+            <NoticeBar surface={1} wrap action={<Button size="sm" variant="secondary" disabled onClick={t.retryQuote}>Refresh</Button>}>Loading...</NoticeBar>
           ) : null}
         </div>
 

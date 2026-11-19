@@ -12,9 +12,9 @@ import ArbitrumL2TxnBatchDA from 'ui/shared/batch/ArbitrumL2TxnBatchDA';
 import BatchEntityL2 from 'ui/shared/entities/block/BatchEntityL2';
 import BlockEntityL1 from 'ui/shared/entities/block/BlockEntityL1';
 import TxEntityL1 from 'ui/shared/entities/tx/TxEntityL1';
-import ListItemMobileGrid from 'ui/shared/ListItemMobile/ListItemMobileGrid';
 import ArbitrumL2TxnBatchStatus from 'ui/shared/statusTag/ArbitrumL2TxnBatchStatus';
 import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
+import ListItemMobileGrid from 'ui/txs/ActivityListItem';
 
 const rollupFeature = config.features.rollup;
 
@@ -26,14 +26,14 @@ const ArbitrumL2TxnBatchesListItem = ({ item, isLoading }: Props) => {
   }
 
   return (
-    <ListItemMobileGrid.Container gridTemplateColumns="110px auto">
+    <ListItemMobileGrid.Container gridTemplateColumns="minmax(0, 1fr) minmax(0, 2fr)">
 
       <ListItemMobileGrid.Label isLoading={ isLoading }>Batch #</ListItemMobileGrid.Label>
       <ListItemMobileGrid.Value>
         <BatchEntityL2
           isLoading={ isLoading }
           number={ item.number }
-          fontWeight={ 600 }
+          fontWeight="semibold"
         />
       </ListItemMobileGrid.Value>
 
@@ -84,8 +84,8 @@ const ArbitrumL2TxnBatchesListItem = ({ item, isLoading }: Props) => {
         <Link
           href={ route({ pathname: '/batches/[number]', query: { number: item.number.toString(), tab: 'txs' } }) }
           loading={ isLoading }
-          fontWeight={ 600 }
-          minW="40px"
+          fontWeight="semibold"
+          minW="var(--chakra-spacing-10)"
         >
           { item.transactions_count.toLocaleString() }
         </Link>

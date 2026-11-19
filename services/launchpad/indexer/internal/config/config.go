@@ -89,6 +89,9 @@ type Config struct {
 	IndexerBatchSize      int   `env:"INDEXER_BATCH_SIZE" envDefault:"50"`
 	IndexerPollIntervalMS int   `env:"INDEXER_POLL_INTERVAL_MS" envDefault:"100"`
 	IndexerConcurrency    int   `env:"INDEXER_CONCURRENCY" envDefault:"25"`
+	// CanonicalReadTimeoutMS bounds one qualified batch read. It may exceed
+	// the lease term because ingestion renews the lease while reading.
+	CanonicalReadTimeoutMS int `env:"INDEXER_CANONICAL_READ_TIMEOUT_MS" envDefault:"120000"`
 
 	// Webhook fan-out targets + signing (matched-index CSV arrays).
 	WebhookURLs        []string `env:"WEBHOOK_URLS" envSeparator:","`
@@ -149,6 +152,9 @@ func Load() (Config, error) {
 	if err = cfg.registerInlineDocuments(); err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)
 	}
+	if err = cfg.validateInlineDocuments(); err != nil {
+		return Config{}, fmt.Errorf("config: %w", err)
+	}
 	cfg.WebhookURLs = cleanList(cfg.WebhookURLs)
 	cfg.WebhookHMACSecrets = cleanList(cfg.WebhookHMACSecrets)
 	cfg.RPCURLs = cleanList(cfg.RPCURLs)
@@ -165,6 +171,18 @@ func Load() (Config, error) {
 type ArchiveTuning struct {
 	Concurrency, Readahead int
 	AttemptTimeout         time.Duration
+}
+
+// CanonicalReadTimeout is the bounded read budget used by live ingestion and
+// replay. The lease heartbeat keeps ownership valid for the whole interval.
+func (c *Config) CanonicalReadTimeout() (time.Duration, error) {
+	if c.CanonicalReadTimeoutMS == 0 {
+		c.CanonicalReadTimeoutMS = 120000
+	}
+	if c.CanonicalReadTimeoutMS < 1000 || c.CanonicalReadTimeoutMS > 15*60*1000 {
+		return 0, errors.New("config: INDEXER_CANONICAL_READ_TIMEOUT_MS must be 1000..900000")
+	}
+	return time.Duration(c.CanonicalReadTimeoutMS) * time.Millisecond, nil
 }
 
 func (c *Config) ArchiveTuning() (ArchiveTuning, error) {
@@ -206,6 +224,9 @@ func (c *Config) Validate() error {
 
 	var errs []error
 	if err := c.BaseEnv.Validate(); err != nil {
+		errs = append(errs, err)
+	}
+	if _, err := c.CanonicalReadTimeout(); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -357,21 +378,39 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 	var mu sync.Mutex
 	var failure error
 	check := func(checkCtx context.Context) error {
+		if err := checkCtx.Err(); err != nil {
+			return err
+		}
 		mu.Lock()
 		defer mu.Unlock()
+		if err := checkCtx.Err(); err != nil {
+			return err
+		}
 		if failure != nil {
 			return failure
 		}
 		for key, old := range consumed {
+			if err := checkCtx.Err(); err != nil {
+				return err
+			}
 			value, err := provider.GetRequired(checkCtx, key)
 			if err != nil {
+				if contextErr := checkCtx.Err(); contextErr != nil {
+					return contextErr
+				}
 				failure = fmt.Errorf("required_secret_unavailable: %s", key)
 				return failure
+			}
+			if contextErr := checkCtx.Err(); contextErr != nil {
+				return contextErr
 			}
 			if value != old {
 				failure = fmt.Errorf("required_secret_rotated_restart_required: %s", key)
 				return failure
 			}
+		}
+		if err := checkCtx.Err(); err != nil {
+			return err
 		}
 		return nil
 	}
@@ -495,6 +534,30 @@ func (c *Config) registerInlineDocuments() error {
 	inlineDocumentsMu.Lock()
 	inlineDocuments = documents
 	inlineDocumentsMu.Unlock()
+	return nil
+}
+
+// validateInlineDocuments verifies every inline document before configuration
+// is exposed to callers. File-backed documents are checked when they are read;
+// inline documents have no later read boundary, so Load must enforce the same
+// digest binding up front.
+func (c *Config) validateInlineDocuments() error {
+	for _, p := range []struct {
+		name, inline, digest string
+	}{
+		{"DB_BUDGET_DOCUMENT", c.RuntimeBudgetDocument, c.RuntimeBudgetSHA256},
+		{"EXPECTED_SCHEMA_DOCUMENT", c.ExpectedSchemaDocument, c.ExpectedSchemaSHA256},
+		{"DELIVERY_CONFIG_DOCUMENT", c.DeliveryConfigDocument, c.DeliveryConfigSHA256},
+		{"INDEXER_RECEIPT_CONFIG_DOCUMENT", c.ReceiptConfigDocument, c.ReceiptConfigSHA256},
+		{"INDEXER_LIFECYCLE_CONFIG_DOCUMENT", c.LifecycleConfigDocument, c.LifecycleConfigSHA256},
+	} {
+		if p.inline == "" {
+			continue
+		}
+		if _, err := boundBytes("", p.inline, p.digest); err != nil {
+			return fmt.Errorf("%s: %w", p.name, err)
+		}
+	}
 	return nil
 }
 

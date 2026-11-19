@@ -7,15 +7,13 @@ import type { Props } from 'nextjs/getServerSideProps/handlers';
 import PageNextJs from 'nextjs/PageNextJs';
 
 import config from 'configs/app';
+import { ContentLoader } from 'toolkit/components/loaders/ContentLoader';
+import SearchResultsContent from 'ui/pages/SearchResults';
 import LayoutSearchResults from 'ui/shared/layout/LayoutSearchResults';
 
-const SearchResults = dynamic(() => {
-  if (config.features.multichain.isEnabled) {
-    return import('ui/multichain/searchResults/SearchResults');
-  }
-
-  return import('ui/pages/SearchResults');
-}, { ssr: false });
+const SearchResults = config.features.multichain.isEnabled ?
+  dynamic(() => import('ui/multichain/searchResults/SearchResults'), { ssr: false, loading: () => <ContentLoader/> }) :
+  SearchResultsContent;
 
 const Page: NextPageWithLayout<Props> = (props: Props) => {
   return (

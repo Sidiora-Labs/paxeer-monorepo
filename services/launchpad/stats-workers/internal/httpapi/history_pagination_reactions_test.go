@@ -37,6 +37,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/httpapi"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 )
@@ -1090,7 +1091,7 @@ func historyPaginationAdmission(t *testing.T) *redis.Client {
 }
 
 type historyPaginationReactions struct {
-	d         *historyPaginationDB
+	dsn       string
 	pool      *pgxpool.Pool
 	key       *ecdsa.PrivateKey
 	wallet    string
@@ -1102,7 +1103,29 @@ type historyPaginationReactions struct {
 
 func historyPaginationReactionPath(t *testing.T) *historyPaginationReactions {
 	t.Helper()
-	d, pool := historyPaginationDatabase(t)
+	dsn, pool := internaltest.NewPostgresWithDSN(t)
+	authority := analytics.ReactionAuthority{Pool: pool, Schema: "stats"}
+	ddl, err := authority.SchemaSQL()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(context.Background(), ddl); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := pool.Begin(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	if _, err = tx.Exec(context.Background(), `SET LOCAL search_path = "stats", pg_catalog`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = tx.Exec(context.Background(), auth.LedgerDDL); err != nil {
+		t.Fatal(err)
+	}
+	if err = tx.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 	key, wallet := newWallet(t)
 	wallet = strings.ToLower(wallet)
 	principal := auth.IdentityPrincipal{AccountID: uuid.NewString(), SessionID: uuid.NewString(), Wallet: wallet, AuthEpoch: 1, ProofAt: time.Now().Add(-time.Minute), AccessExpiresAt: time.Now().Add(time.Hour)}
@@ -1167,7 +1190,7 @@ func historyPaginationReactionPath(t *testing.T) *historyPaginationReactions {
 		t.Fatal(err)
 	}
 	t.Cleanup(rpcClient.Close)
-	path := &historyPaginationReactions{d: d, pool: pool, key: key, wallet: wallet, identity: auth.HTTPIdentityAuthority{Endpoint: identity.URL, ServiceToken: strings.Repeat("s", 32)}, verifier: auth.WalletOperationVerifier{Backend: auth.NewReportedHashBackend(rpcClient)}, admission: &httpapi.ReactionAdmission{Redis: historyPaginationAdmission(t), Namespace: "repair1039", WalletPerMinute: 12, IPPerMinute: 100}}
+	path := &historyPaginationReactions{dsn: dsn, pool: pool, key: key, wallet: wallet, identity: auth.HTTPIdentityAuthority{Endpoint: identity.URL, ServiceToken: strings.Repeat("s", 32)}, verifier: auth.WalletOperationVerifier{Backend: auth.NewReportedHashBackend(rpcClient)}, admission: &httpapi.ReactionAdmission{Redis: historyPaginationAdmission(t), Namespace: "repair1039", WalletPerMinute: 12, IPPerMinute: 100}}
 	path.register(t)
 	return path
 }
@@ -1265,17 +1288,37 @@ func TestHistoryPaginationLegacyReactionSignature(t *testing.T) {
 	}
 }
 
+func (p *historyPaginationReactions) expireCooldown(t *testing.T) {
+	t.Helper()
+	if _, err := p.pool.Exec(context.Background(), "UPDATE stats.reaction_wallets SET last_change=clock_timestamp()-interval '6 seconds' WHERE wallet=$1", p.wallet); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (p *historyPaginationReactions) vote(t *testing.T) analytics.ReactionResult {
+	t.Helper()
+	var vote analytics.ReactionResult
+	if err := p.pool.QueryRow(context.Background(), "SELECT reaction,revision FROM stats.reaction_votes WHERE pool=$1 AND wallet=$2", historyPaginationReactionPool, p.wallet).Scan(&vote.Vote, &vote.Revision); err != nil {
+		t.Fatal(err)
+	}
+	return vote
+}
+
+func (p *historyPaginationReactions) durableCounts(t *testing.T) (outbox, audit, ledger int) {
+	t.Helper()
+	if err := p.pool.QueryRow(context.Background(), "SELECT (SELECT count(*) FROM stats.reaction_outbox),(SELECT count(*) FROM stats.security_audit_outbox),(SELECT count(*) FROM stats.operation_ledger)").Scan(&outbox, &audit, &ledger); err != nil {
+		t.Fatal(err)
+	}
+	return
+}
+
 func historyPaginationDurableReplacement(t *testing.T) {
 	t.Helper()
 	p := historyPaginationReactionPath(t)
 	intent, envelope, signature := p.operation(t, "bullish", 0, 'a')
 	first := p.send(t, "POST", envelope.Path, intent, envelope, signature)
 	historyPaginationRequireStatus(t, first, 200)
-	// Signed replacements contend through the real authority and ledger. The
-	// committed table fixture serializes transactions and injects commit failure.
-	p.d.mu.Lock()
-	p.d.Now = p.d.Now.Add(6 * time.Second)
-	p.d.mu.Unlock()
+	p.expireCooldown(t)
 	hot, hotEnv, hotSig := p.operation(t, "hot", 1, 'b')
 	diamond, diamondEnv, diamondSig := p.operation(t, "diamond", 1, 'c')
 	results := make(chan *httptest.ResponseRecorder, 2)
@@ -1295,34 +1338,35 @@ func historyPaginationDurableReplacement(t *testing.T) {
 	if success != 1 || conflict != 1 {
 		t.Fatal("simultaneous replacement", success, conflict)
 	}
-	p.d.mu.Lock()
-	prior := p.d.Tables.Votes[intent.Pool+p.wallet]
-	p.d.Now = p.d.Now.Add(6 * time.Second)
-	p.d.mu.Unlock()
+	prior := p.vote(t)
+	p.expireCooldown(t)
 	stale, staleEnv, staleSig := p.operation(t, "trash", 1, 'e')
 	historyPaginationRequireStatus(t, p.send(t, "POST", staleEnv.Path, stale, staleEnv, staleSig), 409)
-	p.d.mu.Lock()
-	p.d.FailLedger = true
-	p.d.mu.Unlock()
+	if _, err := p.pool.Exec(context.Background(), "ALTER TABLE stats.operation_ledger ADD CONSTRAINT reject_operation CHECK (false) NOT VALID"); err != nil {
+		t.Fatal(err)
+	}
 	clear, clearEnv, clearSig := p.operation(t, "clear", 2, 'd')
 	historyPaginationRequireStatus(t, p.send(t, "POST", clearEnv.Path, clear, clearEnv, clearSig), 503)
-	p.d.mu.Lock()
-	after := p.d.Tables.Votes[intent.Pool+p.wallet]
-	p.d.mu.Unlock()
+	after := p.vote(t)
 	if after.Vote != prior.Vote || after.Revision != prior.Revision {
 		t.Fatal("failed ledger transaction leaked a vote")
 	}
-	p.d.mu.Lock()
-	outboxCount, auditCount, ledgerCount := len(p.d.Tables.Outbox), len(p.d.Tables.Audit), len(p.d.Tables.Ledger)
-	p.d.mu.Unlock()
+	outboxCount, auditCount, ledgerCount := p.durableCounts(t)
 	if outboxCount != 2 || auditCount != 2 || ledgerCount != 2 {
 		t.Fatal("failed transaction leaked durable publication/audit", outboxCount, auditCount, ledgerCount)
 	}
 	// Simulate lost publication/response by retaining the signed operation while
 	// dropping every HTTP/pgx component. Redis contains admission only.
-	p.pool = p.d.restart(p.pool)
+	p.pool.Close()
+	var err error
+	p.pool, err = pgxpool.New(context.Background(), p.dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(p.pool.Close)
 	p.register(t)
-	if len(p.d.Tables.Outbox) != 2 || len(p.d.Tables.Audit) != 2 || len(p.d.Tables.Ledger) != 2 {
+	outboxCount, auditCount, ledgerCount = p.durableCounts(t)
+	if outboxCount != 2 || auditCount != 2 || ledgerCount != 2 {
 		t.Fatal("outbox, audit or ledger lost across reopen")
 	}
 	read := historyPaginationGet(t, p.router, envelope.Path)
@@ -1339,6 +1383,9 @@ func historyPaginationDurableReplacement(t *testing.T) {
 	historyPaginationRequireStatus(t, replay, 200)
 	if !bytes.Equal(replay.Body.Bytes(), first.Body.Bytes()) || replay.Header().Get("Idempotency-Replayed") != "true" {
 		t.Fatal("operation replay lost after reopen", replay.Body.String())
+	}
+	if _, err := p.pool.Exec(context.Background(), "ALTER TABLE stats.operation_ledger DROP CONSTRAINT reject_operation"); err != nil {
+		t.Fatal(err)
 	}
 	historyPaginationRequireStatus(t, p.send(t, "POST", clearEnv.Path, clear, clearEnv, clearSig), 200)
 	final := historyPaginationGet(t, p.router, envelope.Path)

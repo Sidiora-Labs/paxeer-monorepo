@@ -1,0 +1,140 @@
+[manifest]
+task = "22.44.28"
+surface = "apps/web/packages/layerx-ui"
+status = "served"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[guide.css]
+id = "css"
+directories = ["apps/web/packages/layerx-ui/src/styles", "apps/web/packages/layerx-ui/src/components"]
+
+[guide.html]
+id = "html"
+directories = ["apps/web/packages/layerx-ui/src/components"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/web/packages/layerx-ui/src/components/input.tsx", "apps/web/packages/layerx-ui/src/components/code-input.tsx", "apps/web/packages/layerx-ui/src/components/filters.tsx"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/web/packages/layerx-ui/src/components", "apps/web/packages/layerx-ui/src/styles"]
+
+[guide.color]
+id = "color"
+directories = ["apps/web/packages/layerx-ui/src/styles", "apps/web/packages/layerx-ui/src/components"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/web/packages/layerx-ui/src/styles", "apps/web/packages/layerx-ui/src/components"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/web/packages/layerx-ui/src/styles"]
+
+[guide.responsive]
+id = "responsive-design"
+directories = ["apps/web/packages/layerx-ui/src/components"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/web/packages/layerx-ui/src/styles", "apps/web/packages/layerx-ui/src/components"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/web/packages/layerx-ui/src/components", "apps/web/packages/layerx-ui/src/styles"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/web/packages/layerx-ui/src/components"]
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/web/packages/layerx-ui/src/components/modal.tsx", "apps/web/packages/layerx-ui/src/components/sheet.tsx", "apps/web/packages/layerx-ui/src/components/drawer.tsx", "apps/web/packages/layerx-ui/src/components/responsive-dialog.tsx"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/web/packages/layerx-ui/src/components/search.tsx", "apps/web/packages/layerx-ui/src/components/popover.tsx"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/web/packages/layerx-ui/src/components/segmented-control.tsx", "apps/web/packages/layerx-ui/src/components/app-shell.tsx"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/web/packages/layerx-ui/src/components/detail.tsx"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/web/packages/layerx-ui/src/components/money-list.tsx"]
+
+[guide.toast]
+id = "persistent-toast-notifications"
+directories = ["apps/web/packages/layerx-ui/src/components/notifications.tsx"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["apps/web/packages/layerx-ui/src/components/feedback.tsx", "apps/web/packages/layerx-ui/src/components/button.tsx"]
+
+[guide.select]
+id = "branded-select-styling"
+directories = ["apps/web/packages/layerx-ui/src/components/option-list.tsx", "apps/web/packages/layerx-ui/src/components/filters.tsx"]
+
+[guide.theme_switch]
+id = "dark-mode-toggle"
+directories = ["apps/web/packages/layerx-ui/src/components/switch.tsx", "apps/web/packages/layerx-ui/src/styles"]
+
+[guide.browser_ui]
+id = "browser-ui-theming"
+directories = ["apps/web/packages/layerx-ui/src/styles"]
+
+[view.navigation]
+route = "/kit/navigation"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.primary_action]
+route = "/kit/primary-action"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.confirmation]
+route = "/kit/confirmation"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.detail]
+route = "/kit/detail"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.filters]
+route = "/kit/filters"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.money_lists]
+route = "/kit/money-lists"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.wizards]
+route = "/kit/wizards"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.search]
+route = "/kit/search"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.code_entry]
+route = "/kit/code-entry"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+
+[view.notifications]
+route = "/kit/notifications"
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]

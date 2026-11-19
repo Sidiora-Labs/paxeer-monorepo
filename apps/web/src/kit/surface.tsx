@@ -10,16 +10,18 @@ export function ScreenCard({
   children,
   landmark = "main",
   dataApplication,
+  className,
 }: Readonly<{
   title: ReactNode;
   description?: ReactNode;
   children?: ReactNode;
   landmark?: "main" | "section";
   dataApplication?: string;
+  className?: string;
 }>) {
   const Landmark = landmark;
   return (
-    <Card>
+    <Card className={className}>
       <Landmark data-application={dataApplication} className="flex flex-col gap-2">
         <h1 className="text-xl font-bold text-foreground">{title}</h1>
         {description === undefined ? null : (
@@ -47,6 +49,7 @@ export function StateFrame({
   tone = "neutral",
   busy = false,
   role,
+  className,
 }: Readonly<{
   title: ReactNode;
   description?: ReactNode;
@@ -54,9 +57,10 @@ export function StateFrame({
   tone?: StateTone;
   busy?: boolean;
   role?: "alert" | "status";
+  className?: string;
 }>) {
   return (
-    <Card className={cn("min-h-72 border", STATE_TONE_CLASS[tone])}>
+    <Card className={cn("min-h-72 border", STATE_TONE_CLASS[tone], className)}>
       <section
         aria-busy={busy || undefined}
         {...(role === undefined ? {} : { role })}
@@ -98,7 +102,12 @@ export function InlineNotice({
   role = "status",
 }: Readonly<{ children: ReactNode; tone?: StateTone; role?: "alert" | "status" }>) {
   return (
-    <div role={role} className={cn("border-b px-4 py-2 text-sm font-medium", STATE_TONE_CLASS[tone])}>
+    <div
+      role={role}
+      aria-live={role === "alert" ? "assertive" : "polite"}
+      aria-atomic="true"
+      className={cn("border-b px-4 py-2 text-sm font-medium", STATE_TONE_CLASS[tone])}
+    >
       {children}
     </div>
   );

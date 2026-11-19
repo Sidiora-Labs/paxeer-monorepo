@@ -29,8 +29,8 @@ export default function NetWorthChart({ series }: { series: IntervalSeries }) {
         <p className="py-3 text-center text-sm text-text-faint">No trades in this period</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-xs">
-            <thead className="text-2xs font-bold uppercase tracking-[.04em] text-text-faint">
+          <table className="w-full min-w-160 text-left text-xs">
+            <thead className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
               <tr>
                 <th scope="col" className="px-2 py-1.5">Period (UTC)</th>
                 <th scope="col" className="px-2 py-1.5">Realized PnL</th>

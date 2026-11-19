@@ -31,7 +31,7 @@ const SettingsPoorReputationTokens = () => {
       direction="rtl"
       justifyContent="space-between"
       w="100%"
-      minH="34px"
+      minH="touchTarget"
     >
       Hide poor reputation tokens
     </Switch>

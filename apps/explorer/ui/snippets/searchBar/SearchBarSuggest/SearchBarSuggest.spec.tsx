@@ -13,27 +13,37 @@ vi.hoisted(() => {
     ...window.__envs,
     NEXT_PUBLIC_IS_ACCOUNT_SUPPORTED: 'false',
     NEXT_PUBLIC_MARKETPLACE_CONFIG_URL: '',
+    NEXT_PUBLIC_ASSISTANT_ENABLED: 'true',
   };
 });
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
 import useQuickSearchQuery from '../useQuickSearchQuery';
+import { useSearchAssistant } from '../useSearchQuery';
 import SearchBarSuggest from './SearchBarSuggest';
 
 const TERM = '0xb64a';
 const RESULTS = [ searchMock.address1, searchMock.tx1, searchMock.block1 ];
+const ANSWER = { answer: 'The kernel executes transactions as they arrive.\n\nValidators check, replay and commit.', model: 'assistant/model' };
+let results = RESULTS;
 
 interface HarnessProps {
   category?: Category;
+  withAssistant?: boolean;
+  answer?: ReturnType<typeof useSearchAssistant>['answer'];
+  error?: string;
+  term?: string;
 }
 
-const Harness = ({ category }: HarnessProps): React.JSX.Element => {
-  const { debouncedSearchTerm, handleSearchTermChange, query, zetaChainCCTXQuery, externalSearchItem } = useQuickSearchQuery();
+const Harness = ({ category, withAssistant, answer, error, term = TERM }: HarnessProps): React.JSX.Element => {
+  const search = useQuickSearchQuery();
+  const { debouncedSearchTerm, handleSearchTermChange, query, zetaChainCCTXQuery, externalSearchItem } = search;
+  const assistant = useSearchAssistant(search);
 
   React.useEffect(() => {
-    handleSearchTermChange(TERM);
-  }, [ handleSearchTermChange ]);
+    handleSearchTermChange(term);
+  }, [ handleSearchTermChange, term ]);
 
   return (
     <SearchBarSuggest
@@ -43,6 +53,7 @@ const Harness = ({ category }: HarnessProps): React.JSX.Element => {
       searchTerm={ debouncedSearchTerm }
       onItemClick={ noop }
       category={ category }
+      assistant={ withAssistant ? { ...assistant, answer, error } : undefined }
     />
   );
 };
@@ -54,9 +65,10 @@ vi.setConfig({ testTimeout: 60_000 });
 
 describe('SearchBarSuggest', () => {
   beforeEach(() => {
+    results = RESULTS;
     fetchMock.resetMocks();
     fetchMock.mockResponse((request) => {
-      const body = request.url.includes('/api/v2/search/quick') ? RESULTS : {};
+      const body = request.url.includes('/api/v2/search/quick') ? results : {};
 
       return { body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } };
     });
@@ -66,7 +78,7 @@ describe('SearchBarSuggest', () => {
     const { container } = render(<Harness/>);
 
     await vi.waitFor(() => {
-      expect(shownCategories(container)).toEqual([ 'transaction', 'address', 'block' ]);
+      expect(shownCategories(container)).toEqual([ 'address', 'transaction', 'block' ]);
     }, { timeout: 30_000, interval: 100 });
   });
 
@@ -86,5 +98,79 @@ describe('SearchBarSuggest', () => {
       expect(container.textContent).toContain('No results found.');
     }, { timeout: 30_000, interval: 100 });
     expect(shownCategories(container)).toEqual([]);
+  });
+
+  it('shows the answer and model without an empty results message', async function answerReplacesEmptyResults() {
+    results = [];
+    const { container, findByRole } = render(<Harness withAssistant answer={ ANSWER } term="What does the kernel do?"/>);
+    const question = await findByRole('button', { name: 'Ask: What does the kernel do?' });
+    await vi.waitFor(() => expect(question.hasAttribute('disabled')).toBe(false));
+    await vi.waitFor(() => expect(container.textContent).not.toContain('We are searching, please wait...'));
+
+    const region = container.querySelector('[role="status"]')!;
+    expect(region.getAttribute('aria-live')).toBe('polite');
+    expect(region.firstElementChild?.textContent).toBe(ANSWER.answer);
+    expect(region.lastElementChild?.textContent).toBe('model output, not chain data · assistant/model');
+    expect(container.textContent).not.toContain('No results found.');
+    expect(shownCategories(container)).toEqual([]);
+  });
+
+  it('shows an available question without an empty results message', async function questionReplacesEmptyResults() {
+    results = [];
+    const { container, findByRole } = render(<Harness withAssistant term="Explain the kernel"/>);
+
+    await findByRole('button', { name: 'Ask: Explain the kernel' });
+
+    expect(container.textContent).not.toContain('No results found.');
+    expect(shownCategories(container)).toEqual([]);
+  });
+
+  it('shows an empty results message without an assistant block', async function emptyResultsWithoutAssistant() {
+    results = [];
+    const { container, findByText } = render(<Harness/>);
+
+    await findByText('No results found.');
+
+    expect(container.querySelector('[role="status"]')).toBeNull();
+    expect(shownCategories(container)).toEqual([]);
+  });
+
+  it('keeps the answer unbounded and aligns the question with its text', async function answerFlowsWithThePanel() {
+    const { container, findByRole } = render(<Harness withAssistant answer={ ANSWER }/>);
+    const question = await findByRole('button', { name: `Ask: ${ TERM }` });
+    const region = container.querySelector<HTMLElement>('[role="status"]')!;
+    const regionStyle = window.getComputedStyle(region);
+    const answerStyle = window.getComputedStyle(region.firstElementChild!);
+    const questionStyle = window.getComputedStyle(question);
+
+    expect(regionStyle.maxHeight).toBe('');
+    expect(regionStyle.height).toBe('');
+    expect(regionStyle.overflowY).toBe('');
+    expect(answerStyle.maxWidth).toBe('72ch');
+    expect(answerStyle.whiteSpace).toBe('pre-wrap');
+    expect(answerStyle.overflowWrap).toBe('anywhere');
+    expect(questionStyle.paddingInline).toBe('var(--chakra-spacing-0)');
+    expect(questionStyle.minHeight).toBe('var(--chakra-sizes-touch-target)');
+    expect(window.getComputedStyle(region.parentElement!).flexShrink).toBe('0');
+  });
+
+  it('shows an assistant error without an empty results message', async function errorReplacesEmptyResults() {
+    results = [];
+    const { container, findByRole } = render(<Harness withAssistant error="Assistant unavailable. Please try again later."/>);
+
+    expect((await findByRole('alert')).textContent).toBe('Assistant unavailable. Please try again later.');
+    await vi.waitFor(() => expect(container.textContent).not.toContain('We are searching, please wait...'));
+    expect(container.textContent).not.toContain('No results found.');
+  });
+
+  it('keeps the block height countdown alongside the assistant', async function blockCountdownRemainsAvailable() {
+    results = [];
+    const { container, findByRole } = render(<Harness withAssistant term="999999999"/>);
+
+    const countdown = await findByRole('link', { name: 'estimated time for this block' });
+
+    expect(countdown.getAttribute('href')).toContain('/block/countdown/999999999');
+    await findByRole('button', { name: 'Ask: 999999999' });
+    expect(container.textContent).not.toContain('No results found.');
   });
 });

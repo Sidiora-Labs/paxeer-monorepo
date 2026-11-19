@@ -81,22 +81,22 @@ function semanticRolesMatchVisualSystem() {
     surface: [ '#F7F8FA', '#111319' ],
     raised: [ '#FFFFFF', '#171A21' ],
     hairline: [ 'rgba(16,18,24,0.08)', 'rgba(255,255,255,0.08)' ],
-    'border.strong': [ 'rgba(16,18,24,0.16)', 'rgba(255,255,255,0.16)' ],
+    'border.strong': [ 'rgba(16,18,24,0.55)', 'rgba(255,255,255,0.40)' ],
     'text.primary': [ '#0E1016', '#F2F4F8' ],
     'text.secondary': [ '#4B5262', '#A0A8B8' ],
-    'text.muted': [ '#8A90A0', '#6B7385' ],
+    'text.muted': [ '#667085', '#8A94A6' ],
     accent: [ '#2B4FDA', '#4F7DFF' ],
     'accent.soft': [ 'rgba(43,79,218,0.10)', 'rgba(79,125,255,0.14)' ],
-    onAccent: [ '#FFFFFF', '#FFFFFF' ],
-    positive: [ '#0E8F55', '#2FD27D' ],
+    onAccent: [ '#FFFFFF', '#0B0C10' ],
+    positive: [ '#087645', '#2FD27D' ],
     positiveSoft: [ 'rgba(14,143,85,0.10)', 'rgba(47,210,125,0.14)' ],
     negative: [ '#D1343B', '#FF5C5C' ],
     negativeSoft: [ 'rgba(209,52,59,0.10)', 'rgba(255,92,92,0.14)' ],
-    warning: [ '#B46A00', '#F5B544' ],
+    warning: [ '#945700', '#F5B544' ],
     warningSoft: [ 'rgba(180,106,0,0.10)', 'rgba(245,181,68,0.14)' ],
     headerBar: [ 'rgba(255,255,255,0.85)', 'rgba(11,12,16,0.85)' ],
     focusRing: [ '#2B4FDA', '#4F7DFF' ],
-    'sparkline.up': [ '#0E8F55', '#2FD27D' ],
+    'sparkline.up': [ '#087645', '#2FD27D' ],
     'sparkline.down': [ '#D1343B', '#FF5C5C' ],
     'chart.grid': [ 'rgba(16,18,24,0.08)', 'rgba(255,255,255,0.08)' ],
     'chart.area.start': [ 'rgba(43,79,218,0.30)', 'rgba(79,125,255,0.30)' ],
@@ -142,10 +142,13 @@ function legacyKeysInheritTheRoles() {
 }
 
 function typeScaleAndFamiliesMatchTheBrief() {
+  expect(system.token('fontWeights.semibold')).toBe('600');
+  expect(system.token('fontWeights.medium')).toBe('500');
+  expect(system.token('fontWeights.normal')).toBe('400');
   const scale = {
-    display: [ '40px', '44px', '600' ], h1: [ '28px', '32px', '600' ], h2: [ '20px', '24px', '600' ],
-    body: [ '14px', '20px', '400' ], small: [ '13px', '18px', '400' ], label: [ '11px', '16px', '600' ],
-    number: [ '13px', '18px', '500' ], statValue: [ '24px', '28px', '600' ],
+    display: [ 'clamp(2rem, 1.833333rem + 0.740741vw, 2.5rem)', '2.75rem', 'semibold' ], h1: [ 'clamp(1.5rem, 1.416667rem + 0.37037vw, 1.75rem)', '2rem', 'semibold' ], h2: [ 'clamp(1.125rem, 1.083333rem + 0.185185vw, 1.25rem)', '1.5rem', 'semibold' ],
+    body: [ '0.875rem', '1.25rem', 'normal' ], small: [ '0.8125rem', '1.125rem', 'normal' ], label: [ '0.6875rem', '1rem', 'semibold' ],
+    number: [ '0.8125rem', '1.125rem', 'medium' ], statValue: [ '1.5rem', '1.75rem', 'semibold' ],
   };
   for (const [ name, [ fontSize, lineHeight, fontWeight ] ] of Object.entries(scale)) {
     expect(atPath(textStyles, `${ name }.value`), name).toMatchObject({ fontSize, lineHeight, fontWeight });
@@ -171,9 +174,9 @@ function expectedRecipeStyles(styles: SystemStyleObject) {
 function recipesResolveToTheVisualSystem() {
   for (const variant of [ 'line', 'scan' ] as const) {
     const table = system.sva(system.getSlotRecipe('table'))({ variant, size: 'md' });
-    expect(table.columnHeader).toMatchObject(expectedRecipeStyles({ textStyle: 'label', height: '36px', py: 0, borderColor: 'hairline' }));
-    expect(table.row).toMatchObject(expectedRecipeStyles({ height: '44px', bg: 'canvas', _hover: { bg: 'raised' } }));
-    expect(table.cell).toMatchObject(expectedRecipeStyles({ textStyle: 'small', height: '44px', borderColor: 'hairline' }));
+    expect(table.columnHeader).toMatchObject(expectedRecipeStyles({ textStyle: 'label', height: 'var(--chakra-spacing-9)', py: 0, borderColor: 'hairline' }));
+    expect(table.row).toMatchObject(expectedRecipeStyles({ height: 'var(--chakra-spacing-11)', bg: 'canvas', _hover: { bg: 'raised' } }));
+    expect(table.cell).toMatchObject(expectedRecipeStyles({ textStyle: 'small', height: 'var(--chakra-spacing-11)', borderColor: 'hairline' }));
     expect(table.cell).toMatchObject(expectedRecipeStyles({
       '&[data-is-numeric=true], &[data-numeric]': { textAlign: 'right', textStyle: 'number' },
     }));
@@ -181,11 +184,11 @@ function recipesResolveToTheVisualSystem() {
   for (const variant of [ 'solid', 'secondary', 'pill', 'segmented' ] as const) {
     const tabs = system.sva(system.getSlotRecipe('tabs'))({ variant, size: 'md' });
     expect(tabs.trigger).toMatchObject(expectedRecipeStyles({
-      borderRadius: 'none', borderBottomWidth: '2px', bg: 'transparent',
+      borderRadius: 'none', borderBottomWidth: 'var(--chakra-border-widths-2)', bg: 'transparent',
       _selected: { borderColor: 'accent', color: 'accent', bg: 'transparent' },
     }));
     expect(tabs.list).toMatchObject(expectedRecipeStyles({ flexWrap: 'nowrap', overflowX: 'auto' }));
-    expect(tabs.content).toMatchObject(expectedRecipeStyles({ _horizontal: { pt: '24px' } }));
+    expect(tabs.content).toMatchObject(expectedRecipeStyles({ _horizontal: { pt: 'var(--chakra-spacing-6)' } }));
   }
   for (const size of [ '2xs', 'xs', 'sm', 'md' ] as const) {
     expect(system.cva(system.getRecipe('button'))({ variant: 'solid', size })).toMatchObject(expectedRecipeStyles({ borderRadius: 'control' }));
@@ -193,9 +196,12 @@ function recipesResolveToTheVisualSystem() {
   expect(system.cva(system.getRecipe('button'))({ variant: 'solid' })).toMatchObject(expectedRecipeStyles({
     bg: 'button.solid.bg', color: 'button.solid.text',
   }));
-  expect(system.cva(system.getRecipe('button'))({ variant: 'outline' })).toMatchObject(expectedRecipeStyles({ borderWidth: '1px', borderColor: 'hairline' }));
+  for (const variant of [ 'outline', 'dropdown', 'header', 'pagination' ] as const) {
+    expect(system.cva(system.getRecipe('button'))({ variant }))
+      .toMatchObject(expectedRecipeStyles({ borderWidth: 'var(--chakra-border-widths-1)', borderColor: 'border.strong' }));
+  }
   expect(system.cva(system.getRecipe('button'))({ variant: 'solid' })).toMatchObject(expectedRecipeStyles({
-    _focusVisible: { outline: '2px solid', outlineColor: 'focusRing', outlineOffset: '2px' },
+    _focusVisible: { outline: 'var(--chakra-border-widths-2) solid', outlineColor: 'focusRing', outlineOffset: 'var(--chakra-spacing-0\\.5)' },
   }));
   for (const variant of [ 'solid', 'subtle', 'direction' ] as const) {
     expect(system.cva(system.getRecipe('badge'))({ variant })).toMatchObject(expectedRecipeStyles({ borderRadius: 'full' }));
@@ -210,13 +216,13 @@ function recipesResolveToTheVisualSystem() {
   }
   for (const size of [ 'sm', 'md', 'lg' ] as const) {
     const stat = system.sva(system.getSlotRecipe('stat'))({ variant: 'scan', size });
-    expect(stat.label).toMatchObject(expectedRecipeStyles({ textStyle: 'label' }));
-    expect(stat.valueText).toMatchObject(expectedRecipeStyles({ textStyle: 'statValue' }));
+    expect(stat.label).toMatchObject(expectedRecipeStyles({ textStyle: 'label', fontWeight: 'semibold' }));
+    expect(stat.valueText).toMatchObject(expectedRecipeStyles({ textStyle: 'statValue', fontWeight: 'semibold' }));
     expect(stat.valueText).toMatchObject(expectedRecipeStyles({
-      '& [data-delta=up]': { textStyle: 'number', color: 'stat.indicator.up', fontWeight: '500' },
-      '& [data-delta=down]': { textStyle: 'number', color: 'stat.indicator.down', fontWeight: '500' },
+      '& [data-delta=up]': { textStyle: 'number', color: 'stat.indicator.up', fontWeight: 'medium' },
+      '& [data-delta=down]': { textStyle: 'number', color: 'stat.indicator.down', fontWeight: 'medium' },
     }));
-    expect(stat.root).toMatchObject(expectedRecipeStyles({ borderRadius: 'card', p: '16px', borderColor: 'hairline', boxShadow: 'card' }));
+    expect(stat.root).toMatchObject(expectedRecipeStyles({ borderRadius: 'card', p: 'var(--chakra-spacing-4)', borderColor: 'hairline', boxShadow: 'card' }));
   }
   expect(atPath(radii, 'control.value')).toBe('6px');
   expect(atPath(radii, 'card.value')).toBe('8px');
@@ -245,6 +251,24 @@ function numericCellsAndMutedCountsReachTheComponents() {
   expect(markup).not.toContain('black-alpha-400');
   expect(markup).not.toContain('white-alpha-400');
 }
+
+function relativeTypeAndMotionReachTheRenderer() {
+  const markup = renderToStaticMarkup(createElement(ChakraProvider, {
+    value: system,
+    children: createElement('main', null),
+  }));
+  expect(markup).toContain('--chakra-font-sizes-body:0.875rem');
+  expect(markup).toContain('--chakra-spacing-4:1rem');
+  expect(markup).toContain('--chakra-colors-focus-ring');
+  expect(system.cva(system.getRecipe('spinner'))({ size: 'md' })).toMatchObject(expectedRecipeStyles({
+    _motionSafe: { animation: 'spin' },
+  }));
+  expect(system.sva(system.getSlotRecipe('menu'))({}).content).toMatchObject(expectedRecipeStyles({
+    _open: { _motionSafe: { animationStyle: 'slide-fade-in' } },
+  }));
+}
+
+test(relativeTypeAndMotionReachTheRenderer, relativeTypeAndMotionReachTheRenderer);
 
 test(allSemanticColoursResolveInBothModes, allSemanticColoursResolveInBothModes);
 test(semanticRolesMatchVisualSystem, semanticRolesMatchVisualSystem);

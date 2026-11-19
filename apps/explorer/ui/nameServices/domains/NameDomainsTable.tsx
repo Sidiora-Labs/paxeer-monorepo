@@ -20,7 +20,7 @@ interface Props {
 const NameDomainsTable = ({ data, isLoading, sort, onSortToggle }: Props) => {
   return (
     <AddressHighlightProvider>
-      <TableRoot>
+      <TableRoot aria-label="Name service domains" aria-busy={ isLoading }>
         <TableHeaderSticky top={ ACTION_BAR_HEIGHT_DESKTOP }>
           <TableRow>
             <TableColumnHeader width="25%">Domain</TableColumnHeader>

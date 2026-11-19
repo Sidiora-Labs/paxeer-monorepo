@@ -68,7 +68,7 @@ export function ColumnChrome({ column, index, count, onMove, onRemove, onChangeT
   return (
     <>
       {/* Size container: in a narrow column (under 340 px, e.g. 1024) the type icon and header control labels step aside so the title never truncates. */}
-      <div className={cn('@container relative flex h-11 shrink-0 items-center gap-1.5 pl-1 pr-2', dragging && 'cursor-grabbing')}>
+      <div className={cn('@container relative flex min-h-11 shrink-0 flex-wrap items-center py-1 gap-1.5 pl-1 pr-2', dragging && 'cursor-grabbing')}>
         <button
           type="button"
           aria-label="Reorder column"
@@ -82,8 +82,8 @@ export function ColumnChrome({ column, index, count, onMove, onRemove, onChangeT
           <GripVertical aria-hidden="true" className="size-icon-sm" />
         </button>
         <span id={`${filterId}-grip-hint`} className="sr-only">Drag, or press the left and right arrow keys, to move this column. Position {index + 1} of {count}.</span>
-        <Icon aria-hidden="true" className="size-icon-sm shrink-0 text-text-muted @max-[340px]:hidden" />
-        <h2 className="flex min-w-0 flex-1 items-center text-sm font-bold text-text">
+        <Icon aria-hidden="true" className="size-icon-sm shrink-0 text-text-muted @max-column-icon:hidden" />
+        <h2 className="flex min-w-max flex-1 items-center text-sm font-bold text-text">
           {/* Content-sized trigger: the caret-only default is a fixed square, which let the label spill left over the type icon. */}
           <DropdownMenu
             label={definition.title}
@@ -91,12 +91,12 @@ export function ColumnChrome({ column, index, count, onMove, onRemove, onChangeT
             items={typeItems}
             size="sm"
             className="min-w-0 max-w-full"
-            trigger={<><span className="truncate">{definition.title}</span><ChevronDown aria-hidden="true" className="size-icon-sm shrink-0" /></>}
-            triggerClassName="min-w-0 max-w-full justify-start gap-1 px-1.5 text-text"
+            trigger={<><span className="whitespace-nowrap">{definition.title}</span><ChevronDown aria-hidden="true" className="size-icon-sm shrink-0" /></>}
+            triggerClassName="h-control-height-sm min-w-touch-target-min max-w-full justify-start gap-1 px-1.5 py-0 text-text"
           />
         </h2>
         {actionsRef ? <div ref={actionsRef} data-column-actions="" className="flex shrink-0 items-center empty:hidden" /> : null}
-        <div className="flex shrink-0 items-center">
+        <div className="flex max-w-full shrink-0 flex-wrap items-center">
           {definition.supports.filter ? <IconButton size="sm" label={filterOpen ? 'Hide filter' : 'Filter'} pressed={filterOpen || column.filter.length > 0} icon={<Filter />} onClick={() => setFilterOpen(value => !value)} /> : null}
           {definition.supports.density ? <IconButton size="sm" label={column.density === 'compact' ? 'Comfortable rows' : 'Compact rows'} icon={column.density === 'compact' ? <Rows3 /> : <AlignJustify />} onClick={() => onPatch({ density: column.density === 'compact' ? 'comfortable' : 'compact' })} /> : null}
           {definition.supports.view ? <IconButton size="sm" label={column.view === 'cards' ? 'Show as list' : 'Show as cards'} icon={column.view === 'cards' ? <List /> : <LayoutGrid />} onClick={() => onPatch({ view: column.view === 'cards' ? 'list' : 'cards' })} /> : null}
@@ -116,14 +116,14 @@ export function ColumnChrome({ column, index, count, onMove, onRemove, onChangeT
         </div>
       </div>
       {confirming ? (
-        <div ref={confirmRef} role="alertdialog" aria-label="Remove column?" className="flex h-10 shrink-0 items-center gap-2 bg-surface-2 px-3">
+        <div ref={confirmRef} role="alertdialog" aria-label="Remove column?" className="flex min-h-10 shrink-0 flex-wrap items-center gap-2 bg-surface-2 px-3">
           <span className="flex-1 text-sm text-text">Remove column?</span>
           <Button variant="danger" size="sm" onClick={onRemove}>Remove</Button>
           <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>Keep</Button>
         </div>
       ) : null}
       {filterOpen && definition.supports.filter ? (
-        <div className="relative flex h-10 shrink-0 items-center gap-1 px-2">
+        <div className="relative flex min-h-10 shrink-0 items-center gap-1 px-2">
           <label htmlFor={filterId} className="sr-only">Filter {definition.title}</label>
           <input
             ref={filterRef}

@@ -31,9 +31,14 @@ interface Props {
 }
 
 const SwaggerUI = ({ url, requestInterceptor }: Props) => {
-  const mainColor = { _light: 'blackAlpha.800', _dark: 'whiteAlpha.800' };
-  const borderColor = useToken('colors', 'border.divider');
-  const mainBgColor = { _light: 'blackAlpha.100', _dark: 'whiteAlpha.200' };
+  const [ mainColor, borderColor, mainBgColor, raisedColor, accentColor, errorColor ] = useToken('colors', [
+    'text.primary',
+    'border.divider',
+    'bg.surface',
+    'bg.raised',
+    'accent',
+    'text.error',
+  ]);
 
   const swaggerStyle: SystemStyleObject = {
     '& .swagger-ui .scheme-container, & .opblock-tag': {
@@ -42,18 +47,36 @@ const SwaggerUI = ({ url, requestInterceptor }: Props) => {
     '& .swagger-ui': {
       color: mainColor,
     },
-    '& .swagger-ui .opblock-summary-control:focus': {
-      outline: 'none',
+    '& .swagger-ui .opblock-summary': {
+      flexWrap: 'wrap',
+    },
+    '& .swagger-ui .opblock-summary-control': {
+      minWidth: 0,
+      flexWrap: 'wrap',
+    },
+    '& .swagger-ui .opblock .opblock-summary-path': {
+      minWidth: 0,
+      maxWidth: '100%',
+      overflowWrap: 'anywhere',
+      wordBreak: 'normal',
+    },
+    '& .swagger-ui .opblock .opblock-summary-description': {
+      minWidth: 0,
+      overflowWrap: 'anywhere',
+    },
+    '& .swagger-ui :is(button, a, input, select, textarea, [tabindex]):focus-visible': {
+      outline: 'var(--chakra-border-widths-2) solid var(--chakra-colors-focus-ring) !important',
+      outlineOffset: 'var(--chakra-spacing-0\\.5)',
     },
     // eslint-disable-next-line max-len
     '& .swagger-ui .opblock .opblock-summary-path, & .swagger-ui .opblock .opblock-summary-description, & .swagger-ui div, & .swagger-ui p, & .swagger-ui h5, & .swagger-ui .response-col_links, & .swagger-ui h4, & .swagger-ui table thead tr th, & .swagger-ui table thead tr td, & .swagger-ui .parameter__name, & .swagger-ui .parameter__type, & .swagger-ui .response-col_status, & .swagger-ui .tab li, & .swagger-ui .opblock .opblock-section-header h4': {
       color: 'unset',
     },
     '& .swagger-ui input': {
-      color: 'blackAlpha.800',
+      color: mainColor,
     },
     '& .swagger-ui .opblock .opblock-section-header': {
-      background: { _light: 'whiteAlpha.800', _dark: 'blackAlpha.800' },
+      background: raisedColor,
     },
     '& .swagger-ui .response-col_description__inner p, & .swagger-ui .parameters-col_description p': {
       margin: 0,
@@ -62,7 +85,7 @@ const SwaggerUI = ({ url, requestInterceptor }: Props) => {
       padding: 0,
     },
     '& .swagger-ui .prop-type': {
-      color: { _light: 'blue.600', _dark: 'blue.400' },
+      color: accentColor,
     },
     '& .swagger-ui .btn.try-out__btn': {
       borderColor: useToken('colors', 'link.primary'),
@@ -75,12 +98,12 @@ const SwaggerUI = ({ url, requestInterceptor }: Props) => {
       color: useToken('colors', 'link.primary.hover'),
     },
     '& .swagger-ui .btn.try-out__btn.cancel': {
-      borderColor: useToken('colors', 'text.error'),
-      color: useToken('colors', 'text.error'),
+      borderColor: errorColor,
+      color: errorColor,
     },
     '& .swagger-ui .btn.try-out__btn.cancel:hover': {
-      borderColor: { _light: 'red.600', _dark: 'red.500' },
-      color: { _light: 'red.500', _dark: 'red.400' },
+      borderColor: errorColor,
+      color: errorColor,
     },
 
     // MODELS
@@ -100,15 +123,12 @@ const SwaggerUI = ({ url, requestInterceptor }: Props) => {
     '& .swagger-ui .model': {
       color: mainColor,
     },
-    '& .swagger-ui .model-box-control:focus': {
-      outline: 'none',
-    },
     '& .swagger-ui .model-toggle': {
-      bgColor: { _light: 'transparent', _dark: 'whiteAlpha.700' },
+      bgColor: 'transparent',
       borderRadius: 'sm',
     },
     '& .swagger-ui .model .property.primitive': {
-      color: useToken('colors', 'text_.secondary'),
+      color: useToken('colors', 'text.secondary'),
       wordBreak: 'break-all',
     },
   };

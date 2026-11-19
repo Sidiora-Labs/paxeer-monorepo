@@ -8,8 +8,8 @@ import AddressStringOrParam from 'ui/shared/entities/address/AddressStringOrPara
 import BlockEntity from 'ui/shared/entities/block/BlockEntity';
 import TxEntity from 'ui/shared/entities/tx/TxEntity';
 import TxEntityL1 from 'ui/shared/entities/tx/TxEntityL1';
-import ListItemMobileGrid from 'ui/shared/ListItemMobile/ListItemMobileGrid';
 import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
+import ListItemMobileGrid from 'ui/txs/ActivityListItem';
 
 const feature = config.features.rollup;
 
@@ -29,7 +29,7 @@ const WithdrawalsListItem = ({ item, isLoading }: Props) => {
           number={ item.l2_block_number }
           isLoading={ isLoading }
           textStyle="sm"
-          fontWeight={ 600 }
+          fontWeight="semibold"
         />
       </ListItemMobileGrid.Value>
 

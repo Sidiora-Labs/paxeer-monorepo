@@ -15,12 +15,15 @@ export class PaxscanError extends Error {
     public readonly statusText: string,
     public readonly payload?: unknown,
   ) {
-    super(`Paxscan ${ status } ${ statusText }`);
-    this.name = 'PaxscanError';
+    super(`Paxscan ${status} ${statusText}`);
+    this.name = "PaxscanError";
   }
 }
 
-export async function paxscanFetch<T>(url: string, init?: RequestInit): Promise<T> {
+export async function paxscanFetch<T>(
+  url: string,
+  init?: RequestInit,
+): Promise<T> {
   const res = await fetch(url, init);
 
   if (!res.ok) {

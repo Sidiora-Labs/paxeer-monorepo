@@ -519,7 +519,13 @@ func (a *BlockAPI) GetBlockReceipts(ctx context.Context, blockNrOrHash rpc.Block
 		return nil, err
 	}
 
-	txHashes := getTxHashesFromBlock(a.ctxProvider, a.txConfigProvider, a.keeper, block, includeSynthetic, a.cacheCreationMutex, a.globalBlockCache)
+	var txHashes []typedTxHash
+	if a.namespace == EthNamespace {
+		msgs := filterTransactions(a.keeper, a.ctxProvider, a.txConfigProvider, block, false, false, a.cacheCreationMutex, a.globalBlockCache)
+		txHashes = getTxHashesFromMessages(block, msgs)
+	} else {
+		txHashes = getTxHashesFromBlock(a.ctxProvider, a.txConfigProvider, a.keeper, block, includeSynthetic, a.cacheCreationMutex, a.globalBlockCache)
+	}
 	if scope, ok := DomainScopeFrom(ctx); ok {
 		allowed := domainHashSet(a.domainIndex, a.ctxProvider(LatestCtxHeight), scope, uint64(height))
 		scoped := make([]typedTxHash, 0, len(txHashes))

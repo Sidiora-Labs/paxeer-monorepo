@@ -64,7 +64,7 @@ export function MediaDropzone({ id, staged, onStaged, onClear, remembered = null
           id={id}
           type="file"
           accept={MEDIA_TYPES.join(',')}
-          className="sr-only"
+          hidden
           disabled={disabled || busy}
           aria-describedby={error ? errorId : hintId}
           aria-invalid={error ? true : undefined}
@@ -72,7 +72,7 @@ export function MediaDropzone({ id, staged, onStaged, onClear, remembered = null
         />
         {staged ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-            <img src={staged.previewUrl} alt={`Selected image ${staged.descriptor.name}`} width={120} height={120} className="size-30 shrink-0 rounded-md bg-surface-3 object-cover" />
+            <img src={staged.previewUrl} alt={`Selected image ${staged.descriptor.name}`} width={120} height={120} decoding="async" className="size-30 shrink-0 rounded-md bg-surface-3 object-cover" />
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <p className="truncate text-sm font-bold text-text" title={staged.descriptor.name}>{staged.descriptor.name}</p>
               <p className="text-xs text-text-faint">
@@ -101,7 +101,7 @@ export function MediaDropzone({ id, staged, onStaged, onClear, remembered = null
             disabled={disabled || busy}
             aria-describedby={error ? errorId : hintId}
             onClick={() => inputRef.current?.click()}
-            className={cn('flex min-h-56 w-full flex-col items-center justify-center gap-3 rounded-md text-center', disabled ? 'cursor-not-allowed' : 'hover:bg-surface-hover')}
+            className={cn('flex min-h-56! w-full flex-col items-center justify-center gap-3 rounded-md text-center', disabled ? 'cursor-not-allowed' : 'hover:bg-surface-hover')}
           >
             {busy
               ? <LoaderCircle aria-hidden="true" className="size-10 animate-spin text-text-faint" />

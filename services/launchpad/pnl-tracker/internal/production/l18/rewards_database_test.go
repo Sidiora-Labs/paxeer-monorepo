@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"sort"
@@ -119,6 +120,7 @@ func rewardHistoryContains(list []string, s string) bool {
 // and the service's durable write responses are served over its real protocol.
 type rewardHistoryDatabase struct {
 	mu               sync.Mutex
+	plan             map[int64]string
 	catalog          rewardHistoryCatalog
 	manifest         production.RoleManifest
 	grants           map[string]map[string]bool
@@ -201,6 +203,39 @@ func rewardHistoryBootstrap(t *testing.T) *rewardHistoryDatabase {
 		if m.RuntimeRole == "pnl_runtime" {
 			d.manifest = m
 		}
+	}
+	catalog, err := registry.ValidateOrder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	schemas := map[string]bool{d.manifest.Schema: true}
+	for _, grant := range d.manifest.Grants {
+		if grant.Schema != "migration_control" {
+			schemas[grant.Schema] = true
+		}
+	}
+	d.plan = map[int64]string{}
+	var include func(int64)
+	include = func(id int64) {
+		if d.plan[id] != "" {
+			return
+		}
+		manifest, ok := catalog[id]
+		if !ok {
+			t.Fatalf("unregistered dependency %d", id)
+		}
+		d.plan[id] = manifest.SHA256
+		for _, predecessor := range manifest.PredecessorIDs {
+			include(predecessor)
+		}
+	}
+	for _, manifest := range registry.Registrations {
+		if schemas[manifest.Schema] {
+			include(manifest.MigrationID)
+		}
+	}
+	if !reflect.DeepEqual(d.catalog.Applied, d.plan) {
+		t.Fatal("catalog differs from the runtime's complete registered dependency plan")
 	}
 	provisioning, err := d.manifest.ProvisionSQL()
 	if err != nil {

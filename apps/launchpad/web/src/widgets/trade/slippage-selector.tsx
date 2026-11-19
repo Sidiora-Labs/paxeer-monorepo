@@ -17,7 +17,7 @@ export function computeMinOut(quotedOut: bigint, slippageBps: number): bigint {
   return minimumOutput(quotedOut, slippageBps);
 }
 
-export function HighImpactWarning({ priceImpactBps, onConfirm, onCancel }: { priceImpactBps: number; onConfirm: () => void; onCancel: () => void }) {
+export function HighImpactWarning({ priceImpactBps, slippageBps = DEFAULT_SLIPPAGE_BPS, onConfirm, onCancel }: { priceImpactBps: number; slippageBps?: number; onConfirm: () => void; onCancel: () => void }) {
   const pct = safeFixed(Number(priceImpactBps) / 100, 2);
   return (
     <ModalFrame
@@ -25,7 +25,7 @@ export function HighImpactWarning({ priceImpactBps, onConfirm, onCancel }: { pri
       onClose={onCancel}
       size="sm"
       closeOnScrim={false}
-      title="High price impact"
+      title={priceImpactBps > 500 ? 'High price impact' : 'High slippage'}
       footer={(
         <>
           <Button variant="secondary" onClick={onCancel}>Cancel</Button>
@@ -37,6 +37,7 @@ export function HighImpactWarning({ priceImpactBps, onConfirm, onCancel }: { pri
         <TriangleAlert aria-hidden="true" className="mt-0.5 size-icon-md shrink-0 text-danger" />
         <p className="text-sm text-text">
           This trade moves the price by <span className="font-bold text-danger tabular-nums">{pct}%</span>. You may receive far less than the quoted amount.
+          {slippageBps > 500 ? ` Your slippage allows up to ${safeFixed(slippageBps / 100, 2)}% less than the quoted amount.` : null}
         </p>
       </div>
     </ModalFrame>
@@ -67,13 +68,13 @@ export function TradeRiskReview({ slippageBps, impactBps, onConfirm, onCancel }:
       <div className="space-y-2">
         {needsSlippage ? (
           <label className="flex cursor-pointer items-start gap-3 rounded-sm bg-warning-soft p-3 text-sm text-text">
-            <input type="checkbox" checked={slippage} onChange={event => setSlippage(event.target.checked)} className="mt-0.5 size-4 shrink-0 accent-[var(--sl-color-warning)]" />
+            <input type="checkbox" checked={slippage} onChange={event => setSlippage(event.target.checked)} className="mt-0.5 size-4 shrink-0 accent-warning" />
             <span>I&apos;m okay with <span className="font-bold tabular-nums">{safeFixed(slippageBps / 100, 2)}%</span> slippage</span>
           </label>
         ) : null}
         {needsImpact ? (
           <label className="flex cursor-pointer items-start gap-3 rounded-sm bg-danger-soft p-3 text-sm text-text">
-            <input type="checkbox" checked={impact} onChange={event => setImpact(event.target.checked)} className="mt-0.5 size-4 shrink-0 accent-[var(--sl-color-danger)]" />
+            <input type="checkbox" checked={impact} onChange={event => setImpact(event.target.checked)} className="mt-0.5 size-4 shrink-0 accent-danger" />
             <span>I&apos;m okay with a <span className="font-bold tabular-nums">{safeFixed(impactBps / 100, 2)}%</span> price impact</span>
           </label>
         ) : null}

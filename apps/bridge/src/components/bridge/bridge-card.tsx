@@ -35,10 +35,11 @@ import {
   useRecipientRecord,
   useVaultState,
 } from '@/lib/bridge/use-bridge-state';
+import { useHydratedAccount } from '@/lib/bridge/use-hydrated-account';
 import { CircleAlertIcon, CircleCheckIcon, InfoIcon, ShieldCheckIcon, TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { isAddress, type Address, type Hex } from 'viem';
-import { useAccount, useChainId, useConnect, useReadContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
+import { useChainId, useConnect, useReadContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 
 import { AmountInput, AssetPicker, ReceivePreview, RoutePanel, SwapDirectionButton, type RouteOption } from './route-panels';
 import { saveBridgeTransfer } from './transfer-ledger';
@@ -99,8 +100,10 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
   const [ amount, setAmount ] = useState('');
   const [ destOverride, setDestOverride ] = useState('');
   const [ destTouched, setDestTouched ] = useState(false);
+  const [ destinationBlurred, setDestinationBlurred ] = useState(false);
+  const [ amountBlurred, setAmountBlurred ] = useState(false);
 
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useHydratedAccount();
   const walletChainId = useChainId();
   const { connectors, connect, isPending: connecting } = useConnect();
   const { switchChain, isPending: switching } = useSwitchChain();
@@ -331,7 +334,7 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
     <Card variant="elevated" className="w-full gap-5">
       <CardHeader>
         <div className="flex flex-wrap items-center gap-2">
-          <CardTitle>Bridge</CardTitle>
+          <CardTitle as="h2">Bridge</CardTitle>
           <Badge variant={ foreign.state === 'configured' ? 'success' : 'warning' }>{ ROUTE_HINT[foreign.state] }</Badge>
           { paxeerState.threshold !== undefined && paxeerState.attestors.length > 0 ? (
             <Badge variant="tonal">
@@ -344,7 +347,7 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 px-6">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <AssetPicker
             label="Asset"
             symbols={ foreign.assets.map((a) => a.symbol) }
@@ -354,7 +357,7 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
               setAssetKey(next?.key);
             } }
           />
-          <Badge variant="outline" className="font-mono text-[11px]">
+          <Badge variant="outline" className="font-mono text-caption">
             1 { asset.symbol } = 1 bridged { asset.symbol }
           </Badge>
         </div>
@@ -369,12 +372,15 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
           <AmountInput
             id="bridge-amount"
             value={ amount }
-            onChange={ setAmount }
+            onChange={ (next) => {
+              setAmount(next); setAmountBlurred(false);
+            } }
             symbol={ asset.symbol }
             decimals={ asset.decimals }
             balance={ balanceForDirection }
             balanceLoading={ direction === 'in' ? foreignBalance.isLoading : bridgedBalance.isLoading }
-            invalid={ inputError !== undefined }
+            invalid={ amountBlurred && inputError !== undefined }
+            onBlur={ () => setAmountBlurred(true) }
             disabled={ busy }
             onMax={
               maxAmount !== undefined ?
@@ -414,9 +420,11 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
           </FieldLabel>
           <Input
             id="bridge-destination"
+            name="destinationAddress"
             value={ destination }
             onChange={ (e) => {
               setDestTouched(true);
+              setDestinationBlurred(false);
               setDestOverride(e.target.value);
             } }
             placeholder={
@@ -426,28 +434,32 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
                   'Solana address (base58)' :
                   `0x… ${ foreign.label } address`
             }
-            aria-invalid={ destinationError !== undefined || undefined }
+            aria-invalid={ destinationBlurred && destinationError !== undefined }
+            aria-describedby={ destinationBlurred && destinationError ? 'bridge-destination-hint bridge-destination-error' : 'bridge-destination-hint' }
+            onBlur={ () => setDestinationBlurred(true) }
             autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
             spellCheck={ false }
-            className="font-mono text-[13px]"
+            className="font-mono text-body-sm"
           />
-          <FieldDescription>
+          <FieldDescription id="bridge-destination-hint">
             { direction === 'in' ?
               'Credited on Paxeer as the bridged denom. The low 20 bytes of this address are what the attestors sign.' :
               isSolanaRoute ?
                 'The burn records a handle of this pubkey — the payout can only ever go to this exact Solana address.' :
                 `Released from the ${ foreign.label } vault to this address once the burn is attested.` }
           </FieldDescription>
-          { destinationError ? (
-            <p role="alert" className="flex items-center gap-1.5 text-[13px] font-medium text-destructive">
-              <CircleAlertIcon className="size-3.5"/> { destinationError }
+          { destinationBlurred && destinationError ? (
+            <p id="bridge-destination-error" aria-live="polite" className="flex items-center gap-1.5 text-body-sm font-medium text-destructive">
+              <CircleAlertIcon className="size-3.5" aria-hidden="true"/> { destinationError }
             </p>
           ) : null }
         </Field>
 
-        { inputError ? (
-          <p role="alert" className="flex items-center gap-1.5 text-[13px] font-medium text-destructive">
-            <CircleAlertIcon className="size-3.5"/> { inputError }
+        { amountBlurred && inputError ? (
+          <p id="bridge-amount-error" aria-live="polite" className="flex items-center gap-1.5 text-body-sm font-medium text-destructive">
+            <CircleAlertIcon className="size-3.5" aria-hidden="true"/> { inputError }
           </p>
         ) : null }
 
@@ -461,7 +473,7 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
 
         <Separator/>
 
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px] sm:grid-cols-4">
+        <dl className="grid bridge-metrics gap-x-4 gap-y-2 text-body-sm">
           <div>
             <dt className="text-muted-foreground">Arrival</dt>
             <dd className="font-medium">{ direction === 'out' ? 'At the committed Paxeer block' : finalityEstimate({ ...foreign, finalityDepth: finality }) }</dd>
@@ -484,11 +496,11 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
 
         { paxeerConfigured && paxeerState.loaded && paxeerState.registered && paxeerState.maxInFlight > 0n ? (
           <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-caption text-muted-foreground">
               <span className="flex items-center gap-1">
                 In flight to Paxeer
                 <Tooltip>
-                  <TooltipTrigger aria-label="About the in-flight cap" className="focus-ring rounded-full">
+                  <TooltipTrigger aria-label="About the in-flight cap" className="focus-ring inline-flex size-3.5 items-center justify-center rounded-full">
                     <InfoIcon className="size-3.5"/>
                   </TooltipTrigger>
                   <TooltipContent variant="outline" className="max-w-60 font-normal">
@@ -500,19 +512,12 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
                 { formatAmountDisplay(paxeerState.inFlight, asset.decimals) } / { formatAmountDisplay(paxeerState.maxInFlight, asset.decimals) } { asset.symbol }
               </span>
             </div>
-            <div
-              role="progressbar"
-              aria-valuemin={ 0 }
-              aria-valuemax={ 100 }
-              aria-valuenow={ Math.round(capPercent(paxeerState.inFlight, paxeerState.maxInFlight)) }
+            <progress
+              value={ capPercent(paxeerState.inFlight, paxeerState.maxInFlight) }
+              max={ 100 }
               aria-label="In-flight capacity used"
-              className="h-1.5 overflow-hidden rounded-full bg-container-high"
-            >
-              <div
-                className="h-full rounded-full bg-primary transition-[width] duration-300"
-                style={{ width: `${ capPercent(paxeerState.inFlight, paxeerState.maxInFlight) }%` }}
-              />
-            </div>
+              className="bridge-capacity h-1.5 w-full overflow-hidden rounded-full"
+            />
           </div>
         ) : null }
 

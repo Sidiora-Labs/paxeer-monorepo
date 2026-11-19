@@ -1,3 +1,4 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 // @vitest-environment jsdom
 import React, { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -60,7 +61,7 @@ describe('coin page for an address with no coin', () => {
     expect(browse?.getAttribute('href')).toBe('/explore');
     expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(container.innerHTML).not.toMatch(/text-danger|bg-danger|Reconnect|unavailable/);
-    expect(container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(container.innerHTML)).not.toMatch(BORDER);
     expect(container.textContent).not.toMatch(LEAKS);
   });
 });

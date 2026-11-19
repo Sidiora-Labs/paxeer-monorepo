@@ -9,9 +9,9 @@ import { Skeleton } from 'toolkit/chakra/skeleton';
 import BlockEntityL1 from 'ui/shared/entities/block/BlockEntityL1';
 import TxEntity from 'ui/shared/entities/tx/TxEntity';
 import TxEntityL1 from 'ui/shared/entities/tx/TxEntityL1';
-import ListItemMobileGrid from 'ui/shared/ListItemMobile/ListItemMobileGrid';
 import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
 import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
+import ListItemMobileGrid from 'ui/txs/ActivityListItem';
 
 const rollupFeature = config.features.rollup;
 
@@ -30,7 +30,7 @@ const ScrollL2DepositsListItem = ({ item, isLoading }: Props) => {
         <BlockEntityL1
           number={ item.origination_transaction_block_number }
           isLoading={ isLoading }
-          fontWeight={ 600 }
+          fontWeight="semibold"
         />
       </ListItemMobileGrid.Value>
 

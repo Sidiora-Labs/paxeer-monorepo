@@ -98,7 +98,21 @@ export class Assets {
     vaultAddress?: string;
     /** token decimals on chain */
     decimals?: number;
-  }) { const { getNativeVault } = await import('@paxeer-network/paxeer-backend/nativeClient'); const {getAllowance} = await import('@paxeer-network/paxeer-backend/hooks/perps/useVault');const {getNativeSnapshot}=await import('@paxeer-network/paxeer-backend/runtime');const {formatUnits}=await import('viem');const owner=getNativeSnapshot().address;if(!owner)return '0';let vault;try{vault=await getNativeVault();}catch{return '0';}return formatUnits(await getAllowance(inputs.address as `0x${string}`,owner,vault),inputs.decimals??6); }
+  }) {
+    const { PERPS_SPENDER } =
+      await import("@paxeer-network/paxeer-backend/core/network/approvals");
+    const { getAllowance } =
+      await import("@paxeer-network/paxeer-backend/hooks/perps/useVault");
+    const { getNativeSnapshot } =
+      await import("@paxeer-network/paxeer-backend/runtime");
+    const { formatUnits } = await import("viem");
+    const owner = getNativeSnapshot().address;
+    if (!owner) return "0";
+    return formatUnits(
+      await getAllowance(inputs.address as `0x${string}`, owner, PERPS_SPENDER),
+      inputs.decimals ?? 6,
+    );
+  }
 
   async approve(inputs: {
     /** token address */
@@ -110,7 +124,21 @@ export class Assets {
     /** token amount */
     amount?: string;
     isSetMaxValue?: boolean;
-  }) { const {getNativeVault,nativeToken}=await import('@paxeer-network/paxeer-backend/nativeClient');const {approveToken}=await import('@paxeer-network/paxeer-backend/hooks/perps/useVault');const {parseUnits}=await import('viem');if(!inputs.amount)throw new Error('Enter the amount to approve.');const token=nativeToken(inputs.address??'USDC');const amount=parseUnits(inputs.amount,token.decimals);if(amount<0n)throw new Error('Approval amount must not be negative.');const receipt=await approveToken(token.address,await getNativeVault(true),amount);return {...receipt,hash:receipt.transactionHash}; }
+  }) {
+    const { nativeToken } =
+      await import("@paxeer-network/paxeer-backend/nativeClient");
+    const { PERPS_SPENDER } =
+      await import("@paxeer-network/paxeer-backend/core/network/approvals");
+    const { approveToken } =
+      await import("@paxeer-network/paxeer-backend/hooks/perps/useVault");
+    const { parseUnits } = await import("viem");
+    if (!inputs.amount) throw new Error("Enter the amount to approve.");
+    const token = nativeToken(inputs.address ?? "USDC");
+    const amount = parseUnits(inputs.amount, token.decimals);
+    if (amount < 0n) throw new Error("Approval amount must not be negative.");
+    const receipt = await approveToken(token.address, PERPS_SPENDER, amount);
+    return { ...receipt, hash: receipt.transactionHash };
+  }
 
   /**
    * @deprecated use approve instead, will be removed in the future
@@ -148,7 +176,9 @@ export class Assets {
     token?: string;
     /** token address */
     address?: string;
-  }) { return 0n; }
+  }) {
+    return 0n;
+  }
 
   async estimateDepositGasFee(inputs: {
     amount: string;
@@ -160,7 +190,22 @@ export class Assets {
     address?: string;
     /** vault address */
     vaultAddress: string;
-  }) { const {getPublicClient}=await import('@wagmi/core');const {wagmiConfig}=await import('@paxeer-network/paxeer-backend/core/wagmi');const {getNativeVault,nativeToken}=await import('@paxeer-network/paxeer-backend/nativeClient');const {getNativeSnapshot}=await import('@paxeer-network/paxeer-backend/runtime');const {TradingAccountABI}=await import('@paxeer-network/paxeer-backend/core/network/abi/TradingAccount');const {parseUnits}=await import('viem');const client=getPublicClient(wagmiConfig)!;const token=nativeToken(inputs.address??'USDC');const gas=await client.estimateContractGas({address:await getNativeVault(),abi:TradingAccountABI,functionName:'deposit',args:[token.address,parseUnits(inputs.amount,token.decimals)],account:getNativeSnapshot().address!});return gas*await client.getGasPrice(); }
+  }) {
+    const { estimateDepositFee } =
+      await import("@paxeer-network/paxeer-backend/hooks/perps/useAccount");
+    const { nativeToken } =
+      await import("@paxeer-network/paxeer-backend/nativeClient");
+    const { getNativeSnapshot } =
+      await import("@paxeer-network/paxeer-backend/runtime");
+    const { parseUnits } = await import("viem");
+    const token = nativeToken(inputs.address ?? "USDL");
+    const address = getNativeSnapshot().address;
+    if (!address) return 0n;
+    return estimateDepositFee(
+      address,
+      parseUnits(inputs.amount, token.decimals),
+    );
+  }
 
   async estimateNativeDepositGasFee(inputs: {
     amount: string;
@@ -172,7 +217,9 @@ export class Assets {
     address?: string;
     /** vault address */
     vaultAddress: string;
-  }): Promise<never> { throw new Error('Paxeer vaults accept USDC, USDT and USDL collateral.'); }
+  }): Promise<never> {
+    throw new Error("Paxeer vaults accept USDC, USDT and USDL collateral.");
+  }
 
   async getDepositData(inputs: {
     amount: string;
@@ -260,7 +307,11 @@ export class Assets {
     address?: string;
     /** vault address */
     vaultAddress: string;
-  }) { const {nativeDeposit}=await import('@paxeer-network/paxeer-backend/nativeClient');return nativeDeposit(inputs); }
+  }) {
+    const { nativeDeposit } =
+      await import("@paxeer-network/paxeer-backend/nativeClient");
+    return nativeDeposit(inputs);
+  }
 
   /** deposit native token */
   async depositNativeToken(inputs: {
@@ -270,7 +321,9 @@ export class Assets {
     decimals: number;
     token?: string;
     vaultAddress: string;
-  }): Promise<never> { throw new Error('Paxeer vaults accept USDC, USDT and USDL collateral.'); }
+  }): Promise<never> {
+    throw new Error("Paxeer vaults accept USDC, USDT and USDL collateral.");
+  }
 
   async withdraw(inputs: {
     chainId: number;
@@ -280,7 +333,16 @@ export class Assets {
     decimals: number;
     receiver?: string;
     allowCrossChainWithdraw: boolean;
-  }) { const {nativeWithdraw}=await import('@paxeer-network/paxeer-backend/nativeClient');const receipt=await nativeWithdraw(inputs);return {success:true,data:{transaction_hash:receipt.transactionHash},timestamp:Date.now()}; }
+  }) {
+    const { nativeWithdraw } =
+      await import("@paxeer-network/paxeer-backend/nativeClient");
+    const receipt = await nativeWithdraw(inputs);
+    return {
+      success: true,
+      data: { transaction_hash: receipt.transactionHash },
+      timestamp: Date.now(),
+    };
+  }
 
   private async getWithdrawalNonce(): Promise<number> {
     const timestamp = getTimestamp().toString();
@@ -313,7 +375,11 @@ export class Assets {
     receiver: string;
     /** paxeer-network token decimals */
     decimals: number;
-  }) { throw new Error('Transfers between exchange subaccounts are not available for Paxeer vaults.'); }
+  }) {
+    throw new Error(
+      "Transfers between exchange subaccounts are not available for Paxeer vaults.",
+    );
+  }
 
   /**
    * Convert assets to or from USDC manually
@@ -323,7 +389,40 @@ export class Assets {
     amount: number;
     converted_asset: string;
     received_asset?: string;
-  }) { throw new Error('Paxeer collateral conversion requires a swap transaction.'); }
+  }) {
+    const converted_asset = inputs.converted_asset.trim().toUpperCase();
+    const received_asset = inputs.received_asset?.trim().toUpperCase();
+    const collateral = new Set(["USDT", "USDG", "USDL"]);
+    if (
+      !(converted_asset === "USDC"
+        ? received_asset !== undefined && collateral.has(received_asset)
+        : collateral.has(converted_asset) &&
+          (inputs.received_asset === undefined || received_asset === "USDC"))
+    ) {
+      throw new Error("Invalid conversion pair");
+    }
+    const body = JSON.stringify({
+      ...inputs,
+      converted_asset,
+      ...(inputs.received_asset === undefined ? {} : { received_asset }),
+    });
+    const timestamp = getTimestamp().toString();
+    const url = "/v1/asset/manual_convert";
+    const { publicKey, signature } = await this.account.signer.signText(
+      `${timestamp}POST${url}${body}`,
+    );
+    return this._simpleFetch(url, {
+      method: "POST",
+      body,
+      headers: {
+        "Content-Type": "application/json;charset=utf-8",
+        "paxeer-network-account-id": this.account.stateValue.accountId!,
+        "paxeer-network-key": publicKey,
+        "paxeer-network-timestamp": timestamp,
+        "paxeer-network-signature": signature,
+      },
+    });
+  }
 
   private async getTransferNonce(): Promise<number> {
     const timestamp = getTimestamp().toString();
@@ -350,7 +449,11 @@ export class Assets {
     }
   }
 
-  private async _simpleFetch(url: string, init: RequestInit = {}) { const {nativeRequest}=await import("@paxeer-network/paxeer-backend/nativeClient");return nativeRequest(url,init); }
+  private async _simpleFetch(url: string, init: RequestInit = {}) {
+    const { nativeRequest } =
+      await import("@paxeer-network/paxeer-backend/nativeClient");
+    return nativeRequest(url, init);
+  }
 
   get usdcAddress() {
     return this.contractManger.getContractInfoByEnv().usdcAddress;

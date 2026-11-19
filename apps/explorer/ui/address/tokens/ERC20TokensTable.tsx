@@ -15,7 +15,7 @@ interface Props {
 
 const ERC20TokensTable = ({ data, top, isLoading, hasAdditionalTokenTypes }: Props) => {
   return (
-    <TableRoot>
+    <TableRoot aria-label="ERC-20 token balances" aria-busy={ isLoading }>
       <TableHeaderSticky top={ top }>
         <TableRow>
           <TableColumnHeader width="30%">Asset</TableColumnHeader>

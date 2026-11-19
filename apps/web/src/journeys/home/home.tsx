@@ -5,7 +5,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { copyEntry } from "../../../copy/runtime.ts";
 import { humanApi } from "../../api/index.ts";
-import { ActionGrid, BalanceSummary, CountBadge, KitList, KitListItem, KitSectionHeader, KitViewAllChip } from "../../kit/display";
+import {
+  ActionGrid,
+  BalanceSummary,
+  CountBadge,
+  KitList,
+  KitListItem,
+  KitSectionHeader,
+  KitViewAllChip,
+} from "../../kit/display";
 import { KitButton } from "../../kit/control";
 import { LabelValue, SignedWordedAmount, StatusPill } from "../../kit/money";
 import { ScreenCard, StateFrame } from "../../kit/surface";
@@ -30,33 +38,61 @@ import {
 } from "./model.ts";
 
 type HomeLoad =
-  | Readonly<{ kind: "loading"; }>
-  | Readonly<{ kind: "loaded"; data: HomeData; }>
-  | Readonly<{ kind: "offline"; }>
-  | Readonly<{ kind: "error"; }>;
+  | Readonly<{ kind: "loading" }>
+  | Readonly<{ kind: "loaded"; data: HomeData }>
+  | Readonly<{ kind: "offline" }>
+  | Readonly<{ kind: "error" }>;
 
-export function HomeQuickActions({ onNavigate }: Readonly<{ onNavigate: (route: string) => void }>) {
-  return <ActionGrid actions={homeActions()} onAction={(id) => { onNavigate(homeAction(id).route); }} />;
+export function HomeQuickActions({
+  onNavigate,
+}: Readonly<{ onNavigate: (route: string) => void }>) {
+  return (
+    <ActionGrid
+      actions={homeActions()}
+      onAction={(id) => {
+        onNavigate(homeAction(id).route);
+      }}
+    />
+  );
 }
 
-export function HomeActivityList({ entries }: Readonly<{ entries: HomeData["entries"] }>) {
+export function HomeActivityList({
+  entries,
+}: Readonly<{ entries: HomeData["entries"] }>) {
   const activity = homeActivityRows(entries);
-  return <KitList>
-    {activity.map((row) => (
-    <KitListItem key={row.id} title={row.title} subtitle={row.when} trailing={
-      <span className="flex items-center gap-2">
-        {row.amount === undefined || row.currency === undefined ? null : (
-          <PrivateFigure className="contents"><SignedWordedAmount
-            value={protocolAmount(row.direction === "outbound" ? row.amount * -1 : row.amount)}
-            currency={row.currency} locale={AMOUNT_LOCALE} decimals={0}
-            {...(row.direction === undefined ? {} : { direction: row.direction })}
-          /></PrivateFigure>
-        )}
-        <StatusPill status={row.status} />
-      </span>
-    } />
-    ))}
-  </KitList>;
+  return (
+    <KitList>
+      {activity.map((row) => (
+        <KitListItem
+          key={row.id}
+          title={row.title}
+          subtitle={row.when}
+          trailing={
+            <span className="flex max-w-full flex-wrap items-center justify-end gap-2">
+              {row.amount === undefined || row.currency === undefined ? null : (
+                <PrivateFigure className="contents">
+                  <SignedWordedAmount
+                    value={protocolAmount(
+                      row.direction === "outbound"
+                        ? row.amount * -1
+                        : row.amount,
+                    )}
+                    currency={row.currency}
+                    locale={AMOUNT_LOCALE}
+                    decimals={0}
+                    {...(row.direction === undefined
+                      ? {}
+                      : { direction: row.direction })}
+                  />
+                </PrivateFigure>
+              )}
+              <StatusPill status={row.status} />
+            </span>
+          }
+        />
+      ))}
+    </KitList>
+  );
 }
 
 export function Home() {
@@ -84,7 +120,9 @@ export function Home() {
 
   useEffect(() => {
     refresh();
-    return () => { generation.current += 1; };
+    return () => {
+      generation.current += 1;
+    };
   }, [refresh, revision]);
 
   if (load.kind === "loading") {
@@ -102,21 +140,30 @@ export function Home() {
         description={copyEntry("state.error.body").message}
       >
         <div className="flex flex-wrap gap-3">
-          <KitButton variant="primary" onClick={refresh}>{copyEntry("action.retry").message}</KitButton>
+          <KitButton variant="primary" onClick={refresh}>
+            {copyEntry("action.retry").message}
+          </KitButton>
         </div>
       </StateFrame>
     );
   }
 
   const balance = homeBalance(load.data.balance);
-  const approvals = approvalBadge(load.data.approvals, load.data.programApprovals);
+  const approvals = approvalBadge(
+    load.data.approvals,
+    load.data.programApprovals,
+  );
   const agents = homeAgentRows(load.data.agents);
   const activity = homeActivityRows(load.data.entries);
   const dense = shell === "desktop";
 
   return (
     <ScreenCard landmark="section" title={copyEntry("navigation.home").message}>
-      <div className={dense ? "grid grid-cols-2 gap-8" : "flex flex-col gap-6"}>
+      <div
+        className={
+          dense ? "grid min-w-0 grid-cols-2 gap-8" : "flex flex-col gap-6"
+        }
+      >
         <section className="flex flex-col gap-4">
           {balance.kind === "verified" ? (
             <div className="flex flex-col gap-1">
@@ -131,12 +178,22 @@ export function Home() {
                 />
               </PrivateFigure>
               {masked ? (
-                <KitButton variant="secondary" size="sm" onClick={() => { setMasked(false); }}>
+                <KitButton
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setMasked(false);
+                  }}
+                >
                   {copyEntry("home.balance.show").message}
                 </KitButton>
               ) : null}
               <p
-                className={balance.current ? "text-sm text-muted-foreground" : "text-sm text-warning"}
+                className={
+                  balance.current
+                    ? "text-sm text-muted-foreground"
+                    : "text-sm text-warning"
+                }
                 role={balance.current ? undefined : "status"}
               >
                 {`${balance.verification} · ${balance.freshness}`}
@@ -154,15 +211,25 @@ export function Home() {
                     setMasked(!masked);
                   }}
                 >
-                  {copyEntry(masked ? "home.balance.show" : "home.balance.hide").message}
+                  {
+                    copyEntry(
+                      masked ? "home.balance.show" : "home.balance.hide",
+                    ).message
+                  }
                 </KitButton>
               </div>
               {masked ? (
-                <p className="text-sm text-muted-foreground">{copyEntry("home.balance.hidden").message}</p>
+                <p className="text-sm text-muted-foreground">
+                  {copyEntry("home.balance.hidden").message}
+                </p>
               ) : null}
             </div>
           )}
-          <HomeQuickActions onNavigate={(route) => { router.push(route); }} />
+          <HomeQuickActions
+            onNavigate={(route) => {
+              router.push(route);
+            }}
+          />
           <div className="flex items-center gap-3">
             <CountBadge
               variant={approvals.count > 0 ? "warning" : "neutral"}
@@ -191,7 +258,9 @@ export function Home() {
                 />
               }
             />
-            <p className="text-sm text-muted-foreground">{agentsSummary(load.data.agents)}</p>
+            <p className="text-sm text-muted-foreground">
+              {agentsSummary(load.data.agents)}
+            </p>
             {agents.length === 0 ? null : (
               <KitList>
                 {agents.map((agent) => (
@@ -222,7 +291,9 @@ export function Home() {
               }
             />
             {activity.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{copyEntry("home.activity.empty").message}</p>
+              <p className="text-sm text-muted-foreground">
+                {copyEntry("home.activity.empty").message}
+              </p>
             ) : (
               <HomeActivityList entries={load.data.entries} />
             )}

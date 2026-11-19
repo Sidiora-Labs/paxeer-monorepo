@@ -6,12 +6,38 @@ defmodule Explorer.Migrator.DeleteZeroValueInternalTransactionsTest do
   alias Explorer.Repo
   alias Explorer.Utility.{AddressIdToAddressHash, InternalTransactionsAddressPlaceholder}
 
+  setup do
+    settings =
+      Enum.map(
+        [Explorer.Migrator.ShrinkInternalTransactions, DeleteZeroValueInternalTransactions],
+        &{&1, Application.fetch_env(:explorer, &1)}
+      )
+
+    Application.put_env(:explorer, Explorer.Migrator.ShrinkInternalTransactions, enabled: false)
+
+    Application.put_env(:explorer, DeleteZeroValueInternalTransactions,
+      batch_size: 1,
+      storage_period: :timer.hours(24 * 30),
+      check_interval: :timer.minutes(1),
+      dependency_check_interval: 10
+    )
+
+    on_exit(fn ->
+      Enum.each(settings, fn
+        {module, {:ok, config}} -> Application.put_env(:explorer, module, config)
+        {module, :error} -> Application.delete_env(:explorer, module)
+      end)
+    end)
+
+    :ok
+  end
+
   test "Deletes zero value calls" do
     address_1 = insert(:address)
     address_2 = insert(:address)
     address_3 = insert(:address)
 
-    block = insert(:block, timestamp: Timex.shift(Timex.now(), days: -40))
+    block = insert(:block, number: 1, timestamp: Timex.shift(Timex.now(), days: -40))
 
     Enum.map(1..3, fn i ->
       transaction =
@@ -70,11 +96,13 @@ defmodule Explorer.Migrator.DeleteZeroValueInternalTransactionsTest do
       )
     end)
 
+    recent_block = insert(:block, number: 2, timestamp: Timex.now())
+
     Enum.map(1..4, fn i ->
       transaction =
         :transaction
         |> insert()
-        |> with_block()
+        |> with_block(recent_block)
 
       insert(:internal_transaction,
         index: 10,
@@ -91,7 +119,7 @@ defmodule Explorer.Migrator.DeleteZeroValueInternalTransactionsTest do
       transaction =
         :transaction
         |> insert()
-        |> with_block()
+        |> with_block(recent_block)
 
       insert(:internal_transaction_create,
         index: 10,
@@ -107,7 +135,7 @@ defmodule Explorer.Migrator.DeleteZeroValueInternalTransactionsTest do
       transaction =
         :transaction
         |> insert()
-        |> with_block()
+        |> with_block(recent_block)
 
       insert(:internal_transaction,
         index: 10,
@@ -122,15 +150,9 @@ defmodule Explorer.Migrator.DeleteZeroValueInternalTransactionsTest do
 
     assert MigrationStatus.get_status("delete_zero_value_internal_transactions") == nil
 
-    DeleteZeroValueInternalTransactions.start_link([])
-
-    wait_for_results(fn ->
-      Repo.one!(
-        from(ms in MigrationStatus,
-          where: ms.migration_name == ^"delete_zero_value_internal_transactions" and ms.status == "completed"
-        )
-      )
-    end)
+    start_supervised!(DeleteZeroValueInternalTransactions)
+    wait_for_migration(15)
+    stop_supervised!(DeleteZeroValueInternalTransactions)
 
     all_internal_transactions = Repo.all(InternalTransaction)
 
@@ -176,36 +198,51 @@ defmodule Explorer.Migrator.DeleteZeroValueInternalTransactionsTest do
            end)
   end
 
-  describe "ShrinkInternalTransactions migration dependency handling" do
-    setup do
-      original_shrink_config = Application.get_env(:explorer, Explorer.Migrator.ShrinkInternalTransactions)
-      original_delete_config = Application.get_env(:explorer, Explorer.Migrator.DeleteZeroValueInternalTransactions)
+  test "Deletes every eligible block across batches with equal timestamps" do
+    timestamp = Timex.shift(Timex.now(), days: -40)
+    from_address = insert(:address)
+    to_address = insert(:address)
 
-      # Set a short dependency check interval for tests
-      Application.put_env(:explorer, Explorer.Migrator.DeleteZeroValueInternalTransactions,
-        dependency_check_interval: 100
+    Enum.each([3, 0, 2, 1], fn number ->
+      block = insert(:block, number: number, timestamp: timestamp)
+      transaction = :transaction |> insert() |> with_block(block)
+
+      insert(:internal_transaction,
+        index: 10,
+        transaction: transaction,
+        block_hash: block.hash,
+        block_number: number,
+        transaction_index: transaction.index,
+        from_address: from_address,
+        to_address: to_address,
+        type: :call,
+        value: 0
       )
+    end)
 
-      on_exit(fn ->
-        if original_shrink_config do
-          Application.put_env(:explorer, Explorer.Migrator.ShrinkInternalTransactions, original_shrink_config)
-        else
-          Application.delete_env(:explorer, Explorer.Migrator.ShrinkInternalTransactions)
-        end
+    assert DeleteZeroValueInternalTransactions.border_number() == 3
 
-        if original_delete_config do
-          Application.put_env(:explorer, Explorer.Migrator.DeleteZeroValueInternalTransactions, original_delete_config)
-        else
-          Application.delete_env(:explorer, Explorer.Migrator.DeleteZeroValueInternalTransactions)
-        end
-      end)
+    start_supervised!(DeleteZeroValueInternalTransactions)
+    wait_for_migration(0)
+    stop_supervised!(DeleteZeroValueInternalTransactions)
+
+    assert Repo.aggregate(InternalTransaction, :count) == 0
+
+    placeholders = Repo.all(InternalTransactionsAddressPlaceholder)
+    assert length(placeholders) == 8
+
+    for number <- 0..3 do
+      assert Enum.count(placeholders, &(&1.block_number == number and &1.count_froms == 1 and &1.count_tos == 0)) == 1
+      assert Enum.count(placeholders, &(&1.block_number == number and &1.count_froms == 0 and &1.count_tos == 1)) == 1
     end
+  end
 
+  describe "ShrinkInternalTransactions migration dependency handling" do
     test "Waits for ShrinkInternalTransactions migration to complete before starting" do
       address_1 = insert(:address)
       address_2 = insert(:address)
 
-      block = insert(:block, timestamp: Timex.shift(Timex.now(), days: -40))
+      block = insert(:block, number: 1, timestamp: Timex.shift(Timex.now(), days: -40))
 
       transaction =
         :transaction
@@ -231,10 +268,8 @@ defmodule Explorer.Migrator.DeleteZeroValueInternalTransactionsTest do
       Application.put_env(:explorer, Explorer.Migrator.ShrinkInternalTransactions, enabled: true)
 
       # Start the migration without ShrinkInternalTransactions being completed
-      DeleteZeroValueInternalTransactions.start_link([])
-
-      # Give it time to check for the dependency
-      Process.sleep(100)
+      migrator = start_supervised!(DeleteZeroValueInternalTransactions)
+      assert :sys.get_state(migrator) == %{}
 
       # Migration should not be initialized yet
       migration_status = MigrationStatus.fetch("delete_zero_value_internal_transactions")
@@ -248,13 +283,8 @@ defmodule Explorer.Migrator.DeleteZeroValueInternalTransactionsTest do
       MigrationStatus.set_status("shrink_internal_transactions", "completed")
 
       # Wait for DeleteZeroValueInternalTransactions to detect completion and start
-      wait_for_results(fn ->
-        Repo.one!(
-          from(ms in MigrationStatus,
-            where: ms.migration_name == ^"delete_zero_value_internal_transactions" and ms.status == "completed"
-          )
-        )
-      end)
+      wait_for_migration(0)
+      stop_supervised!(DeleteZeroValueInternalTransactions)
 
       # Now the internal transaction should be deleted
       remaining_internal_transactions = Repo.all(InternalTransaction)
@@ -265,7 +295,7 @@ defmodule Explorer.Migrator.DeleteZeroValueInternalTransactionsTest do
       address_1 = insert(:address)
       address_2 = insert(:address)
 
-      block = insert(:block, timestamp: Timex.shift(Timex.now(), days: -40))
+      block = insert(:block, number: 1, timestamp: Timex.shift(Timex.now(), days: -40))
 
       transaction =
         :transaction
@@ -291,20 +321,37 @@ defmodule Explorer.Migrator.DeleteZeroValueInternalTransactionsTest do
       Application.put_env(:explorer, Explorer.Migrator.ShrinkInternalTransactions, enabled: false)
 
       # Start the migration
-      DeleteZeroValueInternalTransactions.start_link([])
+      start_supervised!(DeleteZeroValueInternalTransactions)
 
       # Wait for DeleteZeroValueInternalTransactions to start and complete
-      wait_for_results(fn ->
-        Repo.one!(
-          from(ms in MigrationStatus,
-            where: ms.migration_name == ^"delete_zero_value_internal_transactions" and ms.status == "completed"
-          )
-        )
-      end)
+      wait_for_migration(0)
+      stop_supervised!(DeleteZeroValueInternalTransactions)
 
       # Internal transaction should be deleted
       remaining_internal_transactions = Repo.all(InternalTransaction)
       assert Enum.count(remaining_internal_transactions) == 0
+    end
+  end
+
+  defp wait_for_migration(expected_count) do
+    wait_for_migration(expected_count, System.monotonic_time(:millisecond) + 5_000)
+  end
+
+  defp wait_for_migration(expected_count, deadline) do
+    status = MigrationStatus.get_status("delete_zero_value_internal_transactions")
+    count = Repo.aggregate(InternalTransaction, :count)
+
+    cond do
+      status == "completed" and count == expected_count ->
+        :ok
+
+      System.monotonic_time(:millisecond) < deadline ->
+        Process.sleep(10)
+        wait_for_migration(expected_count, deadline)
+
+      true ->
+        assert status == "completed"
+        assert count == expected_count
     end
   end
 end

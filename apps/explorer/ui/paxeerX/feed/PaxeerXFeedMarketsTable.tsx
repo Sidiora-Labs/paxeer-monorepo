@@ -9,6 +9,7 @@ import useInitialList from 'lib/hooks/useInitialList';
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { TableBody, TableCell, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import TableScrollArea from 'ui/blocks/TableScrollArea';
 import BlockEntity from 'ui/shared/entities/block/BlockEntity';
 import HashStringShorten from 'ui/shared/HashStringShorten';
 import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
@@ -31,61 +32,67 @@ const PaxeerXFeedMarketsTable = ({ items, top = 0, isLoading }: Props) => {
   const initialList = useInitialList({ data: items, idFn: rowId, enabled: !isLoading });
 
   return (
-    <TableRoot variant="scan" minW="900px" data-label="paxeer-x-feed-markets">
-      <TableHeaderSticky top={ top }>
-        <TableRow>
-          <TableColumnHeader width="18%">Market</TableColumnHeader>
-          <TableColumnHeader width="16%" isNumeric>Index price</TableColumnHeader>
-          <TableColumnHeader width="16%" isNumeric>Mark price</TableColumnHeader>
-          <TableColumnHeader width="14%">Source time</TableColumnHeader>
-          <TableColumnHeader width="22%">Last update</TableColumnHeader>
-          <TableColumnHeader width="14%">Block</TableColumnHeader>
-        </TableRow>
-      </TableHeaderSticky>
-      <TableBody>
-        { items.map((market, index) => {
-          const { latest } = market;
+    <TableScrollArea label="Markets">
+      <TableRoot aria-label="Markets" variant="scan" minW="max-content" data-label="paxeer-x-feed-markets">
+        <TableHeaderSticky top={ top }>
+          <TableRow>
+            <TableColumnHeader width="18%">Market</TableColumnHeader>
+            <TableColumnHeader width="16%" isNumeric>Index price</TableColumnHeader>
+            <TableColumnHeader width="16%" isNumeric>Mark price</TableColumnHeader>
+            <TableColumnHeader width="14%">Source time</TableColumnHeader>
+            <TableColumnHeader width="22%">Last update</TableColumnHeader>
+            <TableColumnHeader width="14%" isNumeric>Block</TableColumnHeader>
+          </TableRow>
+        </TableHeaderSticky>
+        <TableBody>
+          { items.map((market, index) => {
+            const { latest } = market;
 
-          return (
-            <TableRow
-              key={ rowId(market) + (isLoading ? `-${ index }` : '') }
-              data-market={ market.market_id }
-              animation={ isLoading ? undefined : initialList.getAnimationProp(market) }
-            >
-              <TableCell verticalAlign="middle">
-                <Skeleton loading={ isLoading } fontWeight={ 600 }>
-                  <Link href={ route({ pathname: '/feed/market/[id]', query: { id: String(market.market_id) } }) }>
-                    { market.symbol }
-                  </Link>
-                </Skeleton>
-                <Skeleton loading={ isLoading } color="text.secondary" textStyle="xs">{ market.chainflow_symbol }</Skeleton>
-              </TableCell>
-              <TableCell verticalAlign="middle" isNumeric>
-                { latest ? <PriceValue value={ latest.index_price } isLoading={ isLoading }/> : dash }
-              </TableCell>
-              <TableCell verticalAlign="middle" isNumeric>
-                { latest ? <PriceValue value={ latest.mark_price } isLoading={ isLoading }/> : dash }
-              </TableCell>
-              <TableCell verticalAlign="middle" color="text.secondary">
-                { latest ? <TimeWithTooltip timestamp={ latest.source_timestamp_ms } isLoading={ isLoading } enableIncrement/> : dash }
-              </TableCell>
-              <TableCell verticalAlign="middle">
-                { latest ? (
-                  <Skeleton loading={ isLoading }>
-                    <Link href={ route({ pathname: '/feed/update/[hash]', query: { hash: latest.update_hash } }) }>
-                      <HashStringShorten hash={ latest.update_hash } type="long"/>
+            return (
+              <TableRow
+                key={ rowId(market) + (isLoading ? `-${ index }` : '') }
+                data-market={ market.market_id }
+                animation={ isLoading ? undefined : initialList.getAnimationProp(market) }
+              >
+                <TableCell verticalAlign="middle">
+                  <Skeleton loading={ isLoading } fontWeight="semibold">
+                    <Link href={ route({ pathname: '/feed/market/[id]', query: { id: String(market.market_id) } }) }>
+                      { market.symbol }
                     </Link>
                   </Skeleton>
-                ) : dash }
-              </TableCell>
-              <TableCell verticalAlign="middle">
-                { latest ? <BlockEntity number={ latest.block_number } isLoading={ isLoading } truncation="none" noIcon/> : dash }
-              </TableCell>
-            </TableRow>
-          );
-        }) }
-      </TableBody>
-    </TableRoot>
+                  { market.symbol.toLowerCase() !== market.chainflow_symbol.toLowerCase() && (
+                    <Skeleton loading={ isLoading } color="text.secondary" textStyle="text.xs">{ market.chainflow_symbol }</Skeleton>
+                  ) }
+                </TableCell>
+                <TableCell verticalAlign="middle" isNumeric>
+                  { latest ? <PriceValue value={ latest.index_price } isLoading={ isLoading }/> : dash }
+                </TableCell>
+                <TableCell verticalAlign="middle" isNumeric>
+                  { latest ? <PriceValue value={ latest.mark_price } isLoading={ isLoading }/> : dash }
+                </TableCell>
+                <TableCell verticalAlign="middle" color="text.secondary">
+                  { latest ? <TimeWithTooltip timestamp={ latest.source_timestamp_ms } isLoading={ isLoading } enableIncrement/> : dash }
+                </TableCell>
+                <TableCell verticalAlign="middle">
+                  { latest ? (
+                    <Skeleton loading={ isLoading }>
+                      <Link href={ route({ pathname: '/feed/update/[hash]', query: { hash: latest.update_hash } }) }>
+                        <HashStringShorten hash={ latest.update_hash } type="long"/>
+                      </Link>
+                    </Skeleton>
+                  ) : dash }
+                </TableCell>
+                <TableCell verticalAlign="middle" isNumeric>
+                  { latest ? (
+                    <BlockEntity justifyContent="flex-end" number={ latest.block_number } isLoading={ isLoading } truncation="none" noIcon/>
+                  ) : dash }
+                </TableCell>
+              </TableRow>
+            );
+          }) }
+        </TableBody>
+      </TableRoot>
+    </TableScrollArea>
   );
 };
 

@@ -7,6 +7,9 @@ import ts from 'typescript';
 import {
   createPublicClient,
   encodeDeployData,
+  encodeFunctionData,
+  decodeFunctionData,
+  zeroAddress,
   http as viemHttp,
   type EIP1193Provider,
   type Address,
@@ -37,11 +40,19 @@ const { JSDOM } = createRequire(import.meta.url)('jsdom') as {
 const dom = new JSDOM('<html><body><main id="root"></main></body></html>', {
   url: 'http://localhost:3050',
 });
-const browserGlobals = ['window', 'document', 'IS_REACT_ACT_ENVIRONMENT'] as const;
+const browserGlobals = [
+  'window',
+  'document',
+  'Event',
+  'CustomEvent',
+  'IS_REACT_ACT_ENVIRONMENT',
+] as const;
 const oldGlobals = new Map(
   browserGlobals.map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)])
 );
 Object.defineProperty(globalThis, 'window', { value: dom.window, configurable: true });
+Object.defineProperty(globalThis, 'Event', { value: dom.window.Event, configurable: true });
+Object.defineProperty(globalThis, 'CustomEvent', { value: dom.window.CustomEvent, configurable: true });
 Object.defineProperty(globalThis, 'document', {
   value: dom.window.document,
   configurable: true,
@@ -60,8 +71,9 @@ const { createRoot } = await import('react-dom/client');
 const { createConfig, http, WagmiProvider } = await import('wagmi');
 const { connect, disconnect } = await import('wagmi/actions');
 const { injected } = await import('wagmi/connectors');
-const { erc20ApprovalRequest, useWriteErc20Approve } = await import('./contracts');
+const { erc20ApprovalRequest, useWriteErc20Approve, useReadErc20Allowance } = await import('./contracts');
 const { CORE_DEPLOYMENT } = await import('./deployment');
+const { swapAllowanceRequest } = await import('@/widgets/swap/swap-panel');
 const { useWriteMetaAGRouterSwapBestRoute } = await import('../clients/meta-ag');
 const { getWalletClient } = await import('../wallet-sdk/client');
 const chain = {
@@ -119,7 +131,7 @@ test('all19active raw contract dispatches pin chain125', () => {
           expect(
             erc20ApprovalRequest({
               token: '0x0000000000000000000000000000000000000001',
-              spender: CORE_DEPLOYMENT.router,
+              spender: CORE_DEPLOYMENT.launchpadPrecompile,
               amount: 1n,
             }).chainId
           ).toBe(125);
@@ -285,7 +297,7 @@ test('actual approval hook rejects actual chain1 with zero transaction dispatch'
       await connect(config, { connector: config.connectors[0]! });
     });
     await act(async () => {
-      current!.write({ token: accounts[1]!, spender: CORE_DEPLOYMENT.router, amount: 1n });
+      current!.write({ token: accounts[1]!, spender: CORE_DEPLOYMENT.launchpadPrecompile, amount: 1n });
     });
     await waitForObservedMutation(() => current?.isError === true);
     expect(current?.error?.message).toMatch(/chain|network/i);
@@ -343,7 +355,7 @@ test('actual approval hook rejects actual chain1 with zero transaction dispatch'
     const token = deploymentReceipt.contractAddress!;
     await resetApproval();
     await act(async () => {
-      current!.write({ token, spender: CORE_DEPLOYMENT.router, amount: 12345n });
+      current!.write({ token, spender: CORE_DEPLOYMENT.launchpadPrecompile, amount: 12345n });
     });
     await waitForObservedMutation(
       () => current?.isSuccess === true || current?.isError === true
@@ -358,7 +370,7 @@ test('actual approval hook rejects actual chain1 with zero transaction dispatch'
         address: token,
         abi: artifact.abi,
         functionName: 'allowance',
-        args: [accounts[0]!, CORE_DEPLOYMENT.router],
+        args: [accounts[0]!, CORE_DEPLOYMENT.launchpadPrecompile],
       })
     ).toBe(12345n);
     expect(sends).toBe(1);
@@ -372,3 +384,73 @@ test('actual approval hook rejects actual chain1 with zero transaction dispatch'
     }
   }
 }, 15000);
+
+async function swapApprovalAndAllowanceUseDeploymentSpender() {
+  await nodeRpc('anvil_setChainId', [125]);
+  const accounts = (await nodeRpc('eth_accounts')) as Address[];
+  const owner = accounts[0]!;
+  const config = createConfig({ chains: [chain], transports: { 125: http(url, { retryCount: 0 }) } });
+  const query = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  const container = document.createElement('div');
+  document.body.append(container);
+  const root = createRoot(container);
+  let current: ReturnType<typeof useReadErc20Allowance>;
+  function Allowance({ token }: { token: Address }) {
+    current = useReadErc20Allowance(swapAllowanceRequest(token, owner));
+    return null;
+  }
+  try {
+    const artifact = JSON.parse(readFileSync(
+      process.env.DISPATCH_TEST_ERC20_ARTIFACT ?? new URL(
+        '../../../../../../contracts/launchpad/artifacts/contracts/core/SidioraERC20.sol/SidioraERC20.json', import.meta.url,
+      ), 'utf8',
+    )) as { abi: Abi; bytecode: Hex };
+    for (const symbol of ['USDL', 'MARKET']) {
+      const deployHash = await nodeRpc('eth_sendTransaction', [{
+        from: owner,
+        data: encodeDeployData({ abi: artifact.abi, bytecode: artifact.bytecode, args: [symbol, symbol, 1000000n, owner] }),
+        gas: '0x4c4b40',
+      }]) as Hex;
+      const deployed = await rpc.waitForTransactionReceipt({ hash: deployHash });
+      expect(deployed.status).toBe('success');
+      const token = deployed.contractAddress!;
+      const allowanceRequest = swapAllowanceRequest(token, owner);
+      expect(allowanceRequest).toEqual({ token, owner, spender: CORE_DEPLOYMENT.launchpadPrecompile });
+      const request = erc20ApprovalRequest({ ...allowanceRequest, amount: 12345n });
+      expect(request.args).toEqual([CORE_DEPLOYMENT.launchpadPrecompile, 12345n]);
+      const routerHash = await nodeRpc('eth_sendTransaction', [{
+        from: owner, to: token, gas: '0x186a0',
+        data: encodeFunctionData({ abi: artifact.abi, functionName: 'approve', args: [CORE_DEPLOYMENT.router, 12345n] }),
+      }]) as Hex;
+      expect((await rpc.waitForTransactionReceipt({ hash: routerHash })).status).toBe('success');
+      await act(async () => root.render(React.createElement(
+        WagmiProvider, { config, reconnectOnMount: false },
+        React.createElement(QueryClientProvider, { client: query }, React.createElement(Allowance, { token })),
+      )));
+      const read = await current!.refetch();
+      expect(read.error).toBeNull();
+      expect(read.data).toBe(0n);
+      const approvalHash = await nodeRpc('eth_sendTransaction', [{
+        from: owner, to: request.address, gas: '0x186a0',
+        data: encodeFunctionData({ abi: request.abi, functionName: request.functionName, args: request.args }),
+      }]) as Hex;
+      expect((await rpc.waitForTransactionReceipt({ hash: approvalHash })).status).toBe('success');
+      const transaction = await rpc.getTransaction({ hash: approvalHash });
+      expect(transaction.to?.toLowerCase()).toBe(token.toLowerCase());
+      expect(decodeFunctionData({ abi: request.abi, data: transaction.input })).toMatchObject({
+        functionName: 'approve', args: [CORE_DEPLOYMENT.launchpadPrecompile, 12345n],
+      });
+      const refreshed = await current!.refetch();
+      expect(refreshed.error).toBeNull();
+      expect(refreshed.data).toBe(12345n);
+    }
+    expect(swapAllowanceRequest(CORE_DEPLOYMENT.usdl, zeroAddress).spender).toBe(CORE_DEPLOYMENT.launchpadPrecompile);
+  } finally {
+    await act(async () => root.unmount());
+    query.clear();
+    container.remove();
+    await nodeRpc('anvil_setChainId', [1]);
+  }
+}
+
+test(swapApprovalAndAllowanceUseDeploymentSpender.name, swapApprovalAndAllowanceUseDeploymentSpender, 30000);

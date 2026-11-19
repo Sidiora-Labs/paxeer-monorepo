@@ -9,7 +9,7 @@
     "build": "tsup",
     "generate:ver": "genversion src/version.js --es6",
     "generate:docs": "typedoc --out docs src",
-    "test": "jest"
+    "test": "vitest run"
   },
   "keywords": [],
   "files": [
@@ -30,9 +30,6 @@
   },
   "devDependencies": {
     "tsconfig": "workspace:*"
-  },
-  "jest": {
-    "transformIgnorePatterns": []
   },
   "publishConfig": {
     "access": "public"

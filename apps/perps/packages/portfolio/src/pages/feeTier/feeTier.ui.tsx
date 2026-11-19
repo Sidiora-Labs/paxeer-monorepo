@@ -15,11 +15,7 @@ import {
 } from "@paxeer-network/ui";
 import type { FeeDataType, useFeeTierScriptReturn } from "./feeTier.script";
 
-const LazyFeeTierHeader = React.lazy(() =>
-  import("./feeTierHeader").then((mod) => {
-    return { default: mod.FeeTierHeader };
-  }),
-);
+import { FeeTierHeader } from "./feeTierHeader";
 
 export type FeeTierProps = useFeeTierScriptReturn;
 
@@ -180,7 +176,7 @@ export const FeeTier: React.FC<FeeTierProps> = (props) => {
     >
       {!isMobile && <Divider />}
       <React.Suspense fallback={null}>
-        <LazyFeeTierHeader
+        <FeeTierHeader
           vol={vol}
           tier={tier}
           headerDataAdapter={headerDataAdapter}

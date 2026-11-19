@@ -3,6 +3,7 @@ package sequencer
 import (
 	"bytes"
 	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -32,6 +33,18 @@ var (
 // entries that pin its public key.
 type ReceiptKey struct {
 	*receiptKeyState
+}
+
+// NewApplyCheckReceiptKey creates an ephemeral receipt signer for an offline
+// applycheck run. Its seed is never persisted.
+func NewApplyCheckReceiptKey() (*ReceiptKey, error) {
+	public, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	key := &ReceiptKey{receiptKeyState: &receiptKeyState{private: private}}
+	copy(key.public[:], public)
+	return key, nil
 }
 
 // Copies of ReceiptKey share the signing identity and its atomic pin slot.

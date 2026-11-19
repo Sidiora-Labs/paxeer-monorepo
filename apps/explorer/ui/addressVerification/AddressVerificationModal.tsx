@@ -112,10 +112,6 @@ const AddressVerificationModal = ({ defaultAddress, open, onOpenChange, onSubmit
       open={ open }
       onOpenChange={ handleOpenChange }
       size={{ lgDown: 'full', lg: 'md' }}
-      closeOnInteractOutside={ false }
-      modal={ false }
-      trapFocus={ false }
-      preventScroll={ false }
     >
       <DialogContent>
         <DialogHeader onBackToClick={ stepIndex !== 0 ? handleGoToPrevStep : undefined }>

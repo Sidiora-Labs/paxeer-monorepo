@@ -7,7 +7,9 @@ import type { AggregatedTokenInfo } from 'types/client/multichainAggregator';
 import { TableBody, TableColumnHeader, TableColumnHeaderSortable, TableHeader, TableRoot, TableRow } from 'toolkit/chakra/table';
 import { LIST_TABLE_STYLES } from 'ui/shared/Page/ListPage';
 import { default as getNextSortValueShared } from 'ui/shared/sort/getNextSortValue';
+import { ResponsiveTableRegion } from 'ui/token/ResponsiveTableRegion';
 
+import { hasTokenChanges } from './tokenChange';
 import TokensTableItem from './TokensTableItem';
 
 const SORT_SEQUENCE: Record<TokensSortingField, Array<TokensSortingValue>> = {
@@ -30,6 +32,7 @@ type Props = {
 const TokensTable = ({ items, page, isLoading, sorting, setSorting }: Props) => {
 
   const hasSorting = setSorting && sorting;
+  const showChange = !isLoading && hasTokenChanges(items);
 
   const sort = React.useCallback((field: TokensSortingField) => {
     if (!hasSorting) {
@@ -40,79 +43,81 @@ const TokensTable = ({ items, page, isLoading, sorting, setSorting }: Props) => 
   }, [ sorting, setSorting, hasSorting ]);
 
   return (
-    <TableRoot variant="scan" css={ LIST_TABLE_STYLES } data-tokens-table>
-      <TableHeader>
-        <TableRow>
-          <TableColumnHeader w="56px" isNumeric>#</TableColumnHeader>
-          <TableColumnHeader w="26%">Token</TableColumnHeader>
-          { hasSorting ? (
-            <TableColumnHeaderSortable
-              isNumeric
-              w="14%"
-              sortField="fiat_value"
-              sortValue={ sorting }
-              onSortToggle={ sort }
-              indicatorPosition="right"
-            >
-              Price
-            </TableColumnHeaderSortable>
-          ) : (
-            <TableColumnHeader isNumeric w="14%">
-              Price
-            </TableColumnHeader>
-          ) }
-          <TableColumnHeader isNumeric w="12%">Change 24h</TableColumnHeader>
-          { hasSorting ? (
-            <TableColumnHeaderSortable
-              isNumeric
-              w="15%"
-              sortField="circulating_market_cap"
-              sortValue={ sorting }
-              onSortToggle={ sort }
-              indicatorPosition="right"
-            >
-              Market cap
-            </TableColumnHeaderSortable>
-          ) : (
-            <TableColumnHeader isNumeric w="15%">
-              Market cap
-            </TableColumnHeader>
-          ) }
-          <TableColumnHeader isNumeric w="14%">Volume 24h</TableColumnHeader>
-          { hasSorting ? (
-            <TableColumnHeaderSortable
-              isNumeric
-              w="10%"
-              sortField="holders_count"
-              sortValue={ sorting }
-              onSortToggle={ sort }
-              indicatorPosition="right"
-            >
-              Holders
-            </TableColumnHeaderSortable>
-          ) : (
-            <TableColumnHeader isNumeric w="10%">
-              Holders
-            </TableColumnHeader>
-          ) }
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        { items.map((item, index) => {
-          const chainIds = 'chain_infos' in item ? Object.keys(item.chain_infos).join(',') : undefined;
+    <ResponsiveTableRegion label="Token markets" minWidth="100%">
+      <TableRoot variant="scan" css={ LIST_TABLE_STYLES } tableLayout="fixed" w="100%" data-tokens-table>
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader w="14" isNumeric>#</TableColumnHeader>
+            <TableColumnHeader w={ showChange ? '26%' : '30%' }>Token</TableColumnHeader>
+            { hasSorting ? (
+              <TableColumnHeaderSortable
+                isNumeric
+                w={ showChange ? '14%' : '17%' }
+                sortField="fiat_value"
+                sortValue={ sorting }
+                onSortToggle={ sort }
+                indicatorPosition="right"
+              >
+                Price
+              </TableColumnHeaderSortable>
+            ) : (
+              <TableColumnHeader isNumeric w={ showChange ? '14%' : '17%' }>
+                Price
+              </TableColumnHeader>
+            ) }
+            { showChange && <TableColumnHeader isNumeric w="12%">Change 24h</TableColumnHeader> }
+            { hasSorting ? (
+              <TableColumnHeaderSortable
+                isNumeric
+                w={ showChange ? '15%' : '18%' }
+                sortField="circulating_market_cap"
+                sortValue={ sorting }
+                onSortToggle={ sort }
+                indicatorPosition="right"
+              >
+                Market cap
+              </TableColumnHeaderSortable>
+            ) : (
+              <TableColumnHeader isNumeric w={ showChange ? '15%' : '18%' }>
+                Market cap
+              </TableColumnHeader>
+            ) }
+            <TableColumnHeader isNumeric w={ showChange ? '14%' : '17%' }>Volume 24h</TableColumnHeader>
+            { hasSorting ? (
+              <TableColumnHeaderSortable
+                isNumeric
+                sortField="holders_count"
+                sortValue={ sorting }
+                onSortToggle={ sort }
+                indicatorPosition="right"
+              >
+                Holders
+              </TableColumnHeaderSortable>
+            ) : (
+              <TableColumnHeader isNumeric>
+                Holders
+              </TableColumnHeader>
+            ) }
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          { items.map((item, index) => {
+            const chainIds = 'chain_infos' in item ? Object.keys(item.chain_infos).join(',') : undefined;
 
-          return (
-            <TokensTableItem
-              key={ item.address_hash + (isLoading ? index : '') + (chainIds ? chainIds : '') }
-              token={ item }
-              index={ index }
-              page={ page }
-              isLoading={ isLoading }
-            />
-          );
-        }) }
-      </TableBody>
-    </TableRoot>
+            return (
+              <TokensTableItem
+                key={ item.address_hash + (isLoading ? index : '') + (chainIds ? chainIds : '') }
+                token={ item }
+                index={ index }
+                page={ page }
+                isLoading={ isLoading }
+                showChange={ showChange }
+              />
+            );
+          }) }
+        </TableBody>
+      </TableRoot>
+    </ResponsiveTableRegion>
   );
 };
 

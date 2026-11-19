@@ -31,7 +31,7 @@ const NftTokenTransferSnippet = ({ value, token, tokenId, instance }: Props) => 
         id={ tokenId }
         instance={ instance }
         variant="content"
-        maxW={{ base: '100%', lg: '150px' }}
+        maxW={{ base: '100%', lg: 'var(--chakra-spacing-37\\.5)' }}
         w="auto"
         flexShrink={ 0 }
       />

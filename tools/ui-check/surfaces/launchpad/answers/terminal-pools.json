@@ -1,0 +1,42 @@
+{
+  "data": {
+    "items": [
+      {
+        "chainId": "125",
+        "createdAt": "2025-10-09T08:53:20.000Z",
+        "createdPosition": {
+          "blockHash": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+          "chainId": "125",
+          "height": "11",
+          "logIndex": "11",
+          "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+          "transactionIndex": "3"
+        },
+        "creator": "0x4444444444444444444444444444444444444444",
+        "effectivePricingUsdlReserveRaw": "1250000000",
+        "feeBps": 100,
+        "poolAddress": "0x1111111111111111111111111111111111111111",
+        "quoteAssetAddress": "0x85fcd13735f4309833a503ee804ea32395851479",
+        "quoteAssetDecimals": 6,
+        "realUsdlBalanceRaw": "250000000",
+        "tokenAddress": "0x3333333333333333333333333333333333333333",
+        "tokenReserveRaw": "800000000000000000000000000",
+        "virtualUsdlReserveRaw": "1000000000",
+        "homeChain": "0"
+      }
+    ]
+  },
+  "generatedAt": "2026-10-12T00:00:00.000Z",
+  "nextCursor": null,
+  "quality": "partial",
+  "requestId": "f8643f67-7a8d-4573-824c-0f4c3e24f7fe",
+  "revision": "1",
+  "watermark": {
+    "blockHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+    "chainId": "125",
+    "height": "1",
+    "integrity": "healthy",
+    "observedAt": "2026-10-09T00:00:00.000Z",
+    "projectionRevision": "1"
+  }
+}

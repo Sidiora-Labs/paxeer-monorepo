@@ -1,11 +1,13 @@
 package referral
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -113,6 +115,10 @@ func productionReferralFixture(t *testing.T, inspect ...func(*rpc.Client, intern
 }
 
 func TestProductionReferralHTTPPersistsCodesConsentAndBinding(t *testing.T) {
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	defer slog.SetDefault(previous)
 	s, identity, alice, bob := productionReferralFixture(t)
 	ctx := context.Background()
 	authenticate := func(r *http.Request) (l18.Actor, error) {
@@ -188,9 +194,13 @@ func TestProductionReferralHTTPPersistsCodesConsentAndBinding(t *testing.T) {
 		{h.Click, "POST", "", `{"code":"absent","consent":true}`, uuid.NewString(), "Bearer owner-access", 404},
 		{h.Bind, "POST", "", `{"consent":false,"tokens":[]}`, uuid.NewString(), "Bearer owner-access", 403},
 	} {
+		logs.Reset()
 		out = request(tc.handler, tc.method, tc.query, tc.body, tc.key, tc.bearer)
 		if out.Code != tc.status {
 			t.Fatal(tc.method, tc.query, tc.body, out.Code, out.Body.String())
+		}
+		if tc.status == 503 && !strings.Contains(logs.String(), l18.ErrUnavailable.Error()) {
+			t.Fatal("referral dependency cause missing", logs.String())
 		}
 	}
 	if err = s.RunOnce(ctx); err != nil {

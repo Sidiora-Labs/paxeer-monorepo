@@ -44,12 +44,12 @@ export function ModerationCasePanel({ caseRecord, canResolve, action, onResolve 
       <fieldset disabled={busy} className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
           <label htmlFor={`${id}-status`} className={labelClass}>Decision</label>
-          <select id={`${id}-status`} name="status" className={cn(fieldClass, 'h-control-height-md')} defaultValue={caseRecord.State === 'triaged' ? 'actioned' : 'triaged'}>
+          <select id={`${id}-status`} name="status" autoComplete="off" className={cn(fieldClass, 'h-control-height-md')} defaultValue={caseRecord.State === 'triaged' ? 'actioned' : 'triaged'}>
             {caseRecord.State === 'open' && <option value="triaged">Mark for review</option>}<option value="actioned">Take action</option><option value="dismissed">Dismiss report</option>
           </select>
         </div>
-        <div className="flex flex-col gap-1.5"><label htmlFor={`${id}-reason`} className={labelClass}>Reason</label><textarea id={`${id}-reason`} name="reason" required maxLength={1000} className={cn(fieldClass, 'min-h-24 resize-y py-2 leading-5')}/></div>
-        <div className="flex flex-col gap-1.5"><label htmlFor={`${id}-policy`} className={labelClass}>Policy version</label><input id={`${id}-policy`} name="policy" required maxLength={160} className={cn(fieldClass, 'h-control-height-md')}/></div>
+        <div className="flex flex-col gap-1.5"><label htmlFor={`${id}-reason`} className={labelClass}>Reason</label><textarea id={`${id}-reason`} name="reason" autoComplete="off" required maxLength={1000} className={cn(fieldClass, 'min-h-24 resize-y py-2 leading-[var(--sl-leading-base)]')}/></div>
+        <div className="flex flex-col gap-1.5"><label htmlFor={`${id}-policy`} className={labelClass}>Policy version</label><input id={`${id}-policy`} name="policy" autoComplete="off" required maxLength={160} className={cn(fieldClass, 'h-control-height-md')}/></div>
         <div className="flex justify-end"><Button type="submit" variant="primary" size="md" loading={busy}>Submit decision</Button></div>
       </fieldset>
     </form>}
@@ -58,8 +58,9 @@ export function ModerationCasePanel({ caseRecord, canResolve, action, onResolve 
 }
 
 export function ConnectedModerationCases({client,canResolve}:{client:SafetyClient;canResolve:boolean}){
+ const [attempt,setAttempt]=useState(0);
  const [cases,setCases]=useState<SafetyCase[]>([]);const [loaded,setLoaded]=useState(false);const [state,setState]=useState<SafetyActionState>({state:'idle'});const lock=useRef(false);
- useEffect(()=>{const abort=new AbortController();client.cases(abort.signal).then(rows=>{setCases(rows??[]);setLoaded(true);}).catch(error=>{if(!abort.signal.aborted)setState({state:'failed',status:error instanceof SafetyRequestError?error.status:503});});return()=>abort.abort();},[client]);
+ useEffect(()=>{const abort=new AbortController();setCases([]);setLoaded(false);setState({state:'idle'});client.cases(abort.signal).then(rows=>{if(abort.signal.aborted)return;setCases(rows);setLoaded(true);}).catch(error=>{if(!abort.signal.aborted)setState({state:'failed',status:error instanceof SafetyRequestError?error.status:503});});return()=>abort.abort();},[client,attempt]);
  async function resolve(id:string,command:ResolveReportCommand){if(lock.current)return;lock.current=true;setState({state:'pending'});try{await client.resolve(id,command);setCases((await client.cases())??[]);setState({state:'acknowledged'});}catch(error){setState({state:'failed',status:error instanceof SafetyRequestError?error.status:503});}finally{lock.current=false;}}
- return <section aria-label="Moderation queue" className="flex flex-col gap-3"><h2 className="text-md font-bold text-text">Reports to review</h2>{loaded&&cases.length===0&&<EmptyState icon={ShieldCheck} title="No reports to review" body="New reports show up here" announce/>}{cases.map(record=><ModerationCasePanel key={record.ID} caseRecord={record} canResolve={canResolve} action={state} onResolve={resolve}/>)}<p role="status" className={cn('text-xs', state.state === 'failed' ? 'text-danger' : 'text-text-muted')}>{actionMessage(state)}</p></section>;
+ return <section aria-label="Moderation queue" className="flex flex-col gap-3"><h2 className="text-md font-bold text-text">Reports to review</h2>{!loaded&&state.state!=='failed'&&<p role="status" className="text-sm text-text-muted">Loading reports...</p>}{state.state==='failed'&&<Button variant="secondary" size="sm" onClick={()=>setAttempt(value=>value+1)}>Try again</Button>}{loaded&&cases.length===0&&<EmptyState icon={ShieldCheck} title="No reports to review" body="New reports show up here" announce/>}{cases.map(record=><ModerationCasePanel key={record.ID} caseRecord={record} canResolve={canResolve} action={state} onResolve={resolve}/>)}<p role="status" className={cn('text-xs', state.state === 'failed' ? 'text-danger' : 'text-text-muted')}>{actionMessage(state)}</p></section>;
 }

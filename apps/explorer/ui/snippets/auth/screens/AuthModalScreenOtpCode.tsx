@@ -110,18 +110,19 @@ const AuthModalScreenOtpCode = ({ email, onSuccess, isAuth }: Props) => {
       >
         <Text mb={ 6 }>
           Please check{ ' ' }
-          <chakra.span fontWeight="700">{ email }</chakra.span>{ ' ' }
+          <chakra.span fontWeight="bold">{ email }</chakra.span>{ ' ' }
           and enter your code below.
         </Text>
         <AuthModalFieldOtpCode isDisabled={ isCodeSending }/>
         <Button
           variant="link"
+          type="button"
           columnGap={ 2 }
           mt={ 3 }
           disabled={ isCodeSending || recaptcha.isInitError }
           onClick={ handleResendCodeClick }
         >
-          <IconSvg name="repeat" boxSize={ 5 }/>
+          <IconSvg aria-hidden={ true } name="repeat" boxSize={ 5 }/>
           <Box fontSize="sm">Resend code</Box>
         </Button>
         <ReCaptcha { ...recaptcha }/>
@@ -131,7 +132,6 @@ const AuthModalScreenOtpCode = ({ email, onSuccess, isAuth }: Props) => {
           loading={ formApi.formState.isSubmitting }
           disabled={ formApi.formState.isSubmitting || isCodeSending || recaptcha.isInitError }
           loadingText="Submit"
-          onClick={ formApi.handleSubmit(onFormSubmit) }
         >
           Submit
         </Button>

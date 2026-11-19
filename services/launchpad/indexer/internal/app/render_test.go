@@ -155,6 +155,7 @@ func TestRenderedProductionDocumentsBoot(t *testing.T) {
 	if err = bindRuntimeAnchor(&tampered, receiptDoc.Production); err == nil {
 		t.Fatal("start checkpoint not bound to the chain anchor")
 	}
+	exerciseComposedProductionStartup(t, docs)
 }
 
 // Inventory enrichment is bound as one unit at boot: a generation without the
@@ -226,5 +227,35 @@ func TestDeliveryInventoryBindingValidated(t *testing.T) {
 	}
 	if md.Policy.Subjects["accounting.inventory.v1"] || md.Subjects["accounting.inventory.v1"] != "" {
 		t.Fatal("inventory subject approved without a generation")
+	}
+}
+
+func TestDeliveryDeploymentIdentityMatchesManifestVersionRule(t *testing.T) {
+	parameters := DefaultDeliveryParameters()
+	parameters.MaxDeliveryLagMS = 60000
+	docs, err := RenderRuntimeDocuments(renderInputs(t), parameters)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rendered deliveryRuntimeDocument
+	if err := json.Unmarshal(docs["delivery.json"].Bytes, &rendered); err != nil {
+		t.Fatal(err)
+	}
+	if err := rendered.validateIdentity(); err != nil {
+		t.Fatalf("rendered deployment identity refused: %v", err)
+	}
+	for _, version := range []string{"a", "a.b", string([]byte{'a'}) + strings.Repeat("-", 95)} {
+		candidate := rendered
+		candidate.DeploymentID = version
+		if err := candidate.validateIdentity(); err != nil {
+			t.Fatalf("manifest version %q refused: %v", version, err)
+		}
+	}
+	for _, version := range []string{"", "a b", "a/b", ".a", "_a", strings.Repeat("a", 97)} {
+		candidate := rendered
+		candidate.DeploymentID = version
+		if err := candidate.validateIdentity(); err == nil {
+			t.Fatalf("invalid manifest version %q admitted", version)
+		}
 	}
 }

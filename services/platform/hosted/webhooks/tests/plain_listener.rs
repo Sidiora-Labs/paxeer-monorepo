@@ -321,10 +321,211 @@ fn readiness(service: &mut Service, arguments: &[&str]) -> (u16, Value) {
 }
 
 fn assert_readiness((status, document): (u16, Value)) {
+    assert_eq!(document["version"], env!("CARGO_PKG_VERSION"));
     let ready = document["ready"]
         .as_bool()
         .unwrap_or_else(|| panic!("readiness must report ready: {document}"));
     assert_eq!(status, if ready { 200 } else { 503 }, "{document}");
+}
+
+fn role_environment(material: &Material, port: u16, role: &str) -> Vec<(String, String)> {
+    let mut environment = environment(material, port);
+    environment.retain(|(name, _)| name != "LAYERX_WEBHOOKS_NETWORK_ID");
+    if role == "ingress" {
+        environment.retain(|(name, _)| {
+            name != "LAYERX_WEBHOOKS_IDENTITY_TOKEN_FILE" && name != "LAYERX_WEBHOOKS_ROLE"
+        });
+        let directory = &material.directory;
+        let mut public_key = vec![0x66_u8; 32];
+        public_key[0] = 0x58;
+        let policy = serde_json::json!({
+            "chain_id": "paxeer-health",
+            "validators": [{ "public_key": public_key, "voting_power": 1 }],
+        });
+        environment.extend([
+            ("LAYERX_WEBHOOKS_ROLE".to_owned(), "ingress".to_owned()),
+            (
+                "LAYERX_WEBHOOKS_INGRESS_CLIENT_CA_DER".to_owned(),
+                path(&directory.join("server.der")),
+            ),
+            (
+                "LAYERX_WEBHOOKS_SOURCE_TRIGGER_TOKEN_FILE".to_owned(),
+                secret(directory, "source-trigger-token", "source-trigger-token"),
+            ),
+            (
+                "LAYERX_WEBHOOKS_OPERATOR_TOKEN_FILE".to_owned(),
+                secret(directory, "operator-token", "operator-token"),
+            ),
+            (
+                "LAYERX_WEBHOOKS_CHAIN_POLICY_FILE".to_owned(),
+                secret(directory, "chain.json", &policy.to_string()),
+            ),
+            (
+                "LAYERX_WEBHOOKS_NODE_URL".to_owned(),
+                format!("https://localhost:{}", free_port()),
+            ),
+            (
+                "LAYERX_WEBHOOKS_COMET_URL".to_owned(),
+                format!("https://localhost:{}", free_port()),
+            ),
+            (
+                "LAYERX_WEBHOOKS_NODE_TOKEN_FILE".to_owned(),
+                secret(directory, "node-token", "node-token"),
+            ),
+        ]);
+    }
+    environment
+}
+
+#[test]
+fn health_identity_in_both_roles_with_and_without_network() {
+    let material = material("health-identity");
+    let ca = path(&material.directory.join("server.pem"));
+    let certificate = path(&material.directory.join("client.pem"));
+    let key = path(&material.directory.join("client-key.pem"));
+    let request = path(&material.directory.join("client.csr"));
+    let extensions = path(&material.directory.join("client.ext"));
+    fs::write(&extensions, "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=clientAuth\n")
+        .unwrap_or_else(|error| panic!("client extensions must be written: {error}"));
+    run(
+        "openssl",
+        &[
+            "req",
+            "-new",
+            "-newkey",
+            "rsa:2048",
+            "-nodes",
+            "-keyout",
+            &key,
+            "-out",
+            &request,
+            "-subj",
+            "/CN=webhooks-health-client",
+        ],
+    );
+    run(
+        "openssl",
+        &[
+            "x509",
+            "-req",
+            "-in",
+            &request,
+            "-CA",
+            &ca,
+            "-CAkey",
+            &path(&material.directory.join("server-key.pem")),
+            "-CAcreateserial",
+            "-out",
+            &certificate,
+            "-days",
+            "1",
+            "-extfile",
+            &extensions,
+        ],
+    );
+    for (role, mode) in [("public", "plain"), ("public", "tls"), ("ingress", "tls")] {
+        for network in [
+            None,
+            Some("!".to_owned()),
+            Some(r#"network!"\label"#.to_owned()),
+            Some("~".repeat(64)),
+        ] {
+            let port = free_port();
+            let health_port = free_port();
+            let mut environment = role_environment(&material, port, role);
+            if mode == "plain" {
+                environment
+                    .retain(|(name, _)| !LISTENER_CERTIFICATE_VARIABLES.contains(&name.as_str()));
+            }
+            environment.push(("LAYERX_WEBHOOKS_LISTENER".to_owned(), mode.to_owned()));
+            environment.push((
+                "LAYERX_WEBHOOKS_HEALTH_LISTEN".to_owned(),
+                format!("127.0.0.1:{health_port}"),
+            ));
+            if let Some(network) = &network {
+                environment.push(("LAYERX_WEBHOOKS_NETWORK_ID".to_owned(), network.clone()));
+            }
+            let mut service = start(&environment);
+            let url = format!(
+                "{}://localhost:{port}/healthz",
+                if mode == "tls" { "https" } else { "http" }
+            );
+            let (status, document) = readiness(
+                &mut service,
+                &["--cacert", &ca, "--cert", &certificate, "--key", &key, &url],
+            );
+            assert_eq!(status, 503, "{document}");
+            assert_eq!(document["ready"], false);
+            assert_eq!(document["role"], role);
+            assert_eq!(document["version"], env!("CARGO_PKG_VERSION"));
+            assert_eq!(document["components"]["delivery_state_and_signer"], false);
+            assert!(document["worker_failure_count"].is_u64());
+            if role == "ingress" {
+                assert_eq!(
+                    document["components"]["canonical_sources_and_node_receipts"],
+                    false
+                );
+            }
+            match network {
+                Some(network) => assert_eq!(document["network_id"], network),
+                None => assert!(document.get("network_id").is_none(), "{document}"),
+            }
+            let (private_status, private_document) = readiness(
+                &mut service,
+                &[&format!("http://127.0.0.1:{health_port}/healthz")],
+            );
+            assert_eq!(private_status, status);
+            for field in ["ready", "role", "version", "network_id"] {
+                assert_eq!(private_document.get(field), document.get(field));
+            }
+            for url in [
+                format!(
+                    "{}://localhost:{port}/livez",
+                    if mode == "tls" { "https" } else { "http" }
+                ),
+                format!("http://127.0.0.1:{health_port}/livez"),
+            ] {
+                let (status, document) = readiness(
+                    &mut service,
+                    &["--cacert", &ca, "--cert", &certificate, "--key", &key, &url],
+                );
+                assert_eq!(status, 200);
+                assert_eq!(document, serde_json::json!({ "live": true, "role": role }));
+            }
+        }
+    }
+}
+
+#[test]
+fn invalid_network_labels_refuse_start_in_both_roles() {
+    let material = material("network-refusal");
+    for (role, mode) in [("public", "plain"), ("public", "tls"), ("ingress", "tls")] {
+        for network in [
+            "",
+            "has space",
+            " leading",
+            "trailing ",
+            "tab\tlabel",
+            "line\nlabel",
+            "\u{1f}",
+            "\u{7f}",
+            "réseau",
+            &"a".repeat(65),
+        ] {
+            let mut environment = role_environment(&material, free_port(), role);
+            if mode == "plain" {
+                environment
+                    .retain(|(name, _)| !LISTENER_CERTIFICATE_VARIABLES.contains(&name.as_str()));
+            }
+            environment.push(("LAYERX_WEBHOOKS_LISTENER".to_owned(), mode.to_owned()));
+            environment.push(("LAYERX_WEBHOOKS_NETWORK_ID".to_owned(), network.to_owned()));
+            let output = command(&environment)
+                .output()
+                .unwrap_or_else(|error| panic!("layerx-webhooks must run: {error}"));
+            assert_eq!(output.status.code(), Some(2), "{role}/{mode}: {network:?}");
+            assert_eq!(String::from_utf8_lossy(&output.stderr).trim_end(), "layerx-webhooks: LAYERX_WEBHOOKS_NETWORK_ID must be 1-64 printable ASCII bytes without spaces");
+        }
+    }
 }
 
 #[test]

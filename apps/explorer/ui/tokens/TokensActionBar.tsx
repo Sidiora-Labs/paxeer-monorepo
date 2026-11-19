@@ -32,7 +32,7 @@ const TokensActionBar = ({
   }, [ onSortChange ]);
 
   return (
-    <HStack gap={ 2 } flexWrap="wrap" data-tokens-controls>
+    <HStack gap={ 2 } flexWrap="wrap" minW={ 0 } maxW="100%" data-tokens-controls>
       { filter }
       <Sort
         name="tokens_sorting"
@@ -42,7 +42,7 @@ const TokensActionBar = ({
         hideFrom="lg"
       />
       <FilterInput
-        w={{ base: '100%', lg: '260px' }}
+        w={{ base: '100%', lg: '64' }}
         size="sm"
         onChange={ onSearchChange }
         placeholder="Token name or symbol"

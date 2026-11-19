@@ -5,6 +5,8 @@ import React, { useCallback } from 'react';
 
 import type { TokenInfo } from 'types/api/token';
 
+import { route } from 'nextjs-routes';
+
 import config from 'configs/app';
 import type { ResourceError } from 'lib/api/resources';
 import useApiQuery from 'lib/api/useApiQuery';
@@ -58,16 +60,6 @@ const TokenDetails = ({ tokenQuery }: Props) => {
 
   const appActionData = useAppActionData(hash);
 
-  const changeUrl = useCallback((tab: TokenTabs) => () => {
-    router.push(
-      chainSlug ?
-        { pathname: '/chain/[chain_slug]/token/[hash]', query: { hash: hash || '', tab, chain_slug: chainSlug } } :
-        { pathname: '/token/[hash]', query: { hash: hash || '', tab } },
-      undefined,
-      { shallow: true },
-    );
-  }, [ chainSlug, hash, router ]);
-
   const countersItem = useCallback((item: 'token_holders_count' | 'transfers_count') => {
     const itemValue = tokenCountersQuery.data?.[item];
     if (!itemValue) {
@@ -80,11 +72,17 @@ const TokenDetails = ({ tokenQuery }: Props) => {
     const tab: TokenTabs = item === 'token_holders_count' ? 'holders' : 'token_transfers';
 
     return (
-      <Link onClick={ changeUrl(tab) } loading={ tokenCountersQuery.isPlaceholderData }>
+      <Link
+        href={ route(chainSlug ?
+          { pathname: '/chain/[chain_slug]/token/[hash]', query: { hash: hash || '', tab, chain_slug: chainSlug } } :
+          { pathname: '/token/[hash]', query: { hash: hash || '', tab } }) }
+        shallow
+        loading={ tokenCountersQuery.isPlaceholderData }
+      >
         { Number(itemValue).toLocaleString() }
       </Link>
     );
-  }, [ tokenCountersQuery.data, tokenCountersQuery.isPlaceholderData, changeUrl ]);
+  }, [ tokenCountersQuery.data, tokenCountersQuery.isPlaceholderData, chainSlug, hash ]);
 
   throwOnResourceLoadError(tokenQuery);
 
@@ -181,7 +179,7 @@ const TokenDetails = ({ tokenQuery }: Props) => {
 
       { (type !== 'ERC-20' && config.UI.views.nft.marketplaces.length === 0 && appActionData) && (
         <ScanKeyValue label="Dapp" hint="Link to the dapp">
-          <AppActionButton data={ appActionData } height="30px" source="NFT collection"/>
+          <AppActionButton data={ appActionData } height="touchTarget" source="NFT collection"/>
         </ScanKeyValue>
       ) }
 

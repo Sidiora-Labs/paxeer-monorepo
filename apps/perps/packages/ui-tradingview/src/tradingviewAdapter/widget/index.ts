@@ -6,7 +6,7 @@ import {
   ThemeName,
   type ChartingLibraryWidgetOptions,
 } from "../charting_library";
-import type {Datafeed} from "../datafeed/datafeed";
+import type { Datafeed } from "../datafeed/datafeed";
 import type {
   ChartMode,
   IBrokerConnectionAdapterHost,
@@ -108,7 +108,7 @@ export class Widget {
 
   public remove() {
     this.unsubscribeClick();
-    this._datafeed?.remove();
+    (this._datafeed as (Datafeed & { remove?: () => void }) | null)?.remove?.();
     this._broker?.remove();
     this._instance?.remove();
     this.debounceSaveChart.cancel();
@@ -259,7 +259,8 @@ export class Widget {
       interval: options.interval ?? "1",
       custom_css_url: options.customCssUrl,
       custom_font_family: options.customFontFamily,
-      datafeed: options.datafeed as unknown as ChartingLibraryWidgetOptions["datafeed"],
+      datafeed:
+        options.datafeed as unknown as ChartingLibraryWidgetOptions["datafeed"],
       studies_overrides: options.studiesOverrides,
       locale: options.locale as LanguageCode,
       direction: options.direction,

@@ -64,7 +64,10 @@ export const WalletConnectContent = (props: WalletConnectContentProps) => {
   );
   useEffect(() => {
     return () => {
-      localStorage.setItem("paxeer-network-first-show-wallet-connector-dialog", "1");
+      localStorage.setItem(
+        "paxeer-network-first-show-wallet-connector-dialog",
+        "1",
+      );
     };
   }, []);
 

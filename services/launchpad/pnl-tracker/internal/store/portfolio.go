@@ -22,8 +22,8 @@ type PortfolioPosition struct {
 	TokenLogo     *string `json:"tokenLogo"`
 }
 
-// Portfolio returns a user's positions enriched with stats.pool_stats market
-// data and metadata.token_metadata (both cross-schema, same DB — i2/L3), plus
+// Portfolio returns a user's positions enriched with stats.pool_market_context_v1 market
+// data and metadata.token_search_v1 (both cross-schema, same DB — i2/L3), plus
 // the total mark-to-market USDL value of all holdings (sum of priceWad*holdings
 // / WAD, computed with math/big — i1). Positions are returned newest-first.
 func (s *Store) Portfolio(ctx context.Context, user string) ([]PortfolioPosition, string, error) {
@@ -34,8 +34,8 @@ func (s *Store) Portfolio(ctx context.Context, user string) ([]PortfolioPosition
 		       p.first_buy_ts, p.last_trade_ts, p.trade_count,
 		       ps.price, ps.market_cap, m.symbol, m.name
 		FROM pnl.user_positions p
-		LEFT JOIN stats.pool_stats ps ON ps.pool_address = p.pool_address
-		LEFT JOIN metadata.token_metadata m ON m.token_address = p.token_address
+		LEFT JOIN stats.pool_market_context_v1 ps ON ps.pool_address = p.pool_address
+		LEFT JOIN metadata.token_search_v1 m ON m.token_address = p.token_address
 		WHERE p.user_address = $1
 		ORDER BY p.last_trade_ts DESC, p.pool_address ASC`, strings.ToLower(user))
 	if err != nil {

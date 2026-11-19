@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { applySurfaceTestStyle } from '@/core/app-foundation/surface-test-style';
 import React, { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
@@ -15,7 +16,10 @@ import { feeStrategies } from './strategy-picker';
 import { OpticalPresetPicker, STANDARD_OPTICAL } from './optical-preset-picker';
 import { validateCreationDraft, type CreationDraftV2 } from './creation-storage';
 
-beforeAll(() => { (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
+beforeAll(() => {
+  applySurfaceTestStyle();
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
 
 // Real wagmi + react-query + Next router contexts. Next's own adapter wraps its
 // singleton router (any navigation would throw "No router instance found"; these
@@ -133,6 +137,7 @@ describe('CreateWizard reference layout', () => {
     expect(nameRow).not.toBeNull();
     expect(nameRow!.contains(field(container, 'create-symbol'))).toBe(true);
     expect(classes(nameRow)).toContain('sm:grid-cols-2');
+    expect(classes(nameRow)).toContain('sm:gap-3');
     const text = container.textContent ?? '';
     expect(text).not.toContain(`0/${NAME_MAX_BYTES}`);
     expect(text).not.toContain(`0/${SYMBOL_MAX_BYTES}`);
@@ -149,7 +154,8 @@ describe('CreateWizard reference layout', () => {
     expect(container.textContent).not.toContain('The factory takes no quote parameter');
     const info = container.querySelector<HTMLButtonElement>('button[aria-label="About creator rewards"]')!;
     act(() => info.focus());
-    const tip = document.querySelector('[role="tooltip"]');
+    const tip = document.getElementById(info.getAttribute('aria-describedby')!);
+    expect(tip?.getAttribute('role')).toBe('tooltip');
     expect(tip?.textContent).toBe(FEE_RIGHTS_DETAIL);
     expect(info.getAttribute('aria-describedby')).toBe(tip!.id);
     // The strategy picker is a segmented track; only the selected strategy's summary is spelled out.
@@ -214,7 +220,7 @@ describe('OpticalPresetPicker registered presets', () => {
     expect(radios).toHaveLength(1);
     expect(radios[0].getAttribute('aria-checked')).toBe('true');
     expect(radios[0].textContent).toContain('Standard');
-    const toggle = container.querySelector<HTMLButtonElement>('button[aria-expanded]')!;
+    const toggle = container.querySelector<HTMLElement>('summary[aria-expanded]')!;
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(toggle.textContent).toContain('Custom rules');
     expect(toggle.textContent).toContain('5, coming soon');
@@ -223,7 +229,7 @@ describe('OpticalPresetPicker registered presets', () => {
 
   it('shows muted locked notes when opened, and clicking a locked card keeps Standard AMM selected', () => {
     const container = mount(<Harness />);
-    const toggle = container.querySelector<HTMLButtonElement>('button[aria-expanded]')!;
+    const toggle = container.querySelector<HTMLElement>('summary[aria-expanded]')!;
     act(() => toggle.click());
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
 
@@ -247,7 +253,7 @@ describe('OpticalPresetPicker registered presets', () => {
 
   it('keeps the disclosure open when a registered preset is already selected', () => {
     const container = mount(<Harness initial={registered[1]} />);
-    const toggle = container.querySelector<HTMLButtonElement>('button[aria-expanded]')!;
+    const toggle = container.querySelector<HTMLElement>('summary[aria-expanded]')!;
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
     const selected = container.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]')!;
     expect(selected.textContent).toContain('Coming soon');

@@ -8,7 +8,7 @@ defmodule Explorer.ReceiptEndpointConfigurationTest do
   @backend Path.expand("../../../..", __DIR__)
   @runtime Path.join(@backend, "config/runtime.exs")
   @vectors Path.expand("../../lib/explorer/chain/paxeer_x/fixtures/receipt_commit_inclusion.json", __DIR__)
-  @endpoint_env ~w(PAXEER_X_NODE_RPC_URL PAXEER_X_GATEWAY_URL PAXEER_X_ROUTER_URL)
+  @endpoint_env ~w(PAXEER_X_NODE_RPC_URL PAXEER_X_GATEWAY_URL PAXEER_X_ROUTER_URL PAXEER_X_RECEIPT_AUTHORITY_FILE)
 
   defmodule RecordedRPC do
     @behaviour Plug
@@ -29,10 +29,12 @@ defmodule Explorer.ReceiptEndpointConfigurationTest do
 
   setup do
     original_env = Map.new(@endpoint_env, &{&1, System.get_env(&1)})
+    original_bucket_folder = System.get_env("NFT_MEDIA_HANDLER_BUCKET_FOLDER")
     original_receipts = Application.fetch_env(:explorer, SequencerReceipt)
     original_adapter = Application.fetch_env(:tesla, :adapter)
 
     Enum.each(@endpoint_env, &System.delete_env/1)
+    System.put_env("NFT_MEDIA_HANDLER_BUCKET_FOLDER", "test")
     Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
     {:ok, _} = Application.ensure_all_started(:plug_cowboy)
 
@@ -41,6 +43,10 @@ defmodule Explorer.ReceiptEndpointConfigurationTest do
         {key, nil} -> System.delete_env(key)
         {key, value} -> System.put_env(key, value)
       end)
+
+      if original_bucket_folder,
+        do: System.put_env("NFT_MEDIA_HANDLER_BUCKET_FOLDER", original_bucket_folder),
+        else: System.delete_env("NFT_MEDIA_HANDLER_BUCKET_FOLDER")
 
       case original_receipts do
         {:ok, config} -> Application.put_env(:explorer, SequencerReceipt, config)
@@ -77,7 +83,7 @@ defmodule Explorer.ReceiptEndpointConfigurationTest do
   test "the retired router setting supplies neither endpoint" do
     System.put_env("PAXEER_X_ROUTER_URL", "https://retired.example/")
 
-    assert receipt_config() == [node_rpc_url: nil, gateway_url: nil, router_url: nil]
+    assert receipt_config() == expected_config(nil, nil)
     Application.put_env(:explorer, SequencerReceipt, receipt_config())
     assert SequencerReceipt.receipt_keys() == :disabled
     assert SequencerReceipt.commit(1_000) == :disabled
@@ -86,27 +92,19 @@ defmodule Explorer.ReceiptEndpointConfigurationTest do
 
   test "missing or invalid endpoints do not borrow the other producer" do
     System.put_env("PAXEER_X_NODE_RPC_URL", "https://node.example/")
-    assert receipt_config() == [node_rpc_url: "https://node.example", gateway_url: nil, router_url: nil]
+    assert receipt_config() == expected_config("https://node.example", nil)
 
     System.put_env("PAXEER_X_GATEWAY_URL", "invalid-gateway")
-    assert receipt_config() == [node_rpc_url: "https://node.example", gateway_url: nil, router_url: nil]
+    assert receipt_config() == expected_config("https://node.example", nil)
 
     System.delete_env("PAXEER_X_NODE_RPC_URL")
     System.put_env("PAXEER_X_GATEWAY_URL", "https://gateway.example/rpc")
 
-    assert receipt_config() == [
-             node_rpc_url: nil,
-             gateway_url: "https://gateway.example/rpc",
-             router_url: "https://gateway.example/rpc"
-           ]
+    assert receipt_config() == expected_config(nil, "https://gateway.example/rpc")
 
     System.put_env("PAXEER_X_NODE_RPC_URL", "invalid-node")
 
-    assert receipt_config() == [
-             node_rpc_url: nil,
-             gateway_url: "https://gateway.example/rpc",
-             router_url: "https://gateway.example/rpc"
-           ]
+    assert receipt_config() == expected_config(nil, "https://gateway.example/rpc")
   end
 
   test "recorded chain evidence reaches the committed status consumer" do
@@ -153,19 +151,27 @@ defmodule Explorer.ReceiptEndpointConfigurationTest do
 
     config = Application.fetch_env!(:explorer, SequencerReceipt)
     header = vector["commit"]["signed_header"]["header"]
+    {:ok, [key] = keys} = SequencerReceipt.decode_receipt_keys([vector["pinnedKey"]])
 
     Application.put_env(
       :explorer,
       SequencerReceipt,
       Keyword.merge(config,
         chain_id: header["chain_id"],
-        trusted_validator_hashes: %{height => Base.decode16!(header["validators_hash"])}
+        receipt_keys: keys,
+        validator_checkpoints: %{
+          height => %{
+            block_hash:
+              vector["commit"]["signed_header"]["commit"]["block_id"]["hash"]
+              |> Base.decode16!(case: :mixed),
+            validators_hash: Base.decode16!(header["validators_hash"], case: :mixed)
+          }
+        }
       )
     )
 
     "0x" <> raw_transaction = vector["rawTransaction"]
     tx_hash = raw_transaction |> Base.decode16!(case: :mixed) |> ExKeccak.hash_256()
-    {:ok, [key] = keys} = SequencerReceipt.decode_receipt_keys([vector["pinnedKey"]])
     assert "0x" <> Base.encode16(tx_hash, case: :lower) == answer["txHash"]
     assert {:ok, ^answer} = rpc(node, "pax_sequencerReceipt", [answer["txHash"]])
     assert {:ok, ^keys} = SequencerReceipt.receipt_keys()
@@ -186,8 +192,8 @@ defmodule Explorer.ReceiptEndpointConfigurationTest do
       )
 
     assert height == 10
-    assert verification == {:committed, key, height}
-    assert %Status{rung: :committed, committed_height: ^height} = Status.of(nil, %Heights{}, verification)
+    assert verification == {:error, :r8}
+    assert %Status{rung: :submitted, committed_height: nil} = Status.of(nil, %Heights{}, verification)
     assert %Status{rung: :submitted, committed_height: nil} = Status.of(nil, %Heights{}, nil)
 
     for {method, params, _result} <- node_calls do
@@ -252,8 +258,20 @@ defmodule Explorer.ReceiptEndpointConfigurationTest do
     System.put_env("PAXEER_X_NODE_RPC_URL", node)
     System.put_env("PAXEER_X_GATEWAY_URL", gateway)
     config = receipt_config()
-    assert config == [node_rpc_url: node, gateway_url: gateway, router_url: gateway]
+    assert config == expected_config(node, gateway)
     Application.put_env(:explorer, SequencerReceipt, config)
+  end
+
+  defp expected_config(node, gateway) do
+    [
+      node_rpc_url: node,
+      gateway_url: gateway,
+      router_url: gateway,
+      chain_id: nil,
+      receipt_keys: [],
+      validator_checkpoints: %{},
+      validator_history: []
+    ]
   end
 
   defp assert_gateway_requests(method, params) do

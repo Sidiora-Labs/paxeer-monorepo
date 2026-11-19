@@ -25,7 +25,7 @@ const menuTexts = () => {
 
   const list = menu.querySelector('ul');
 
-  return Array.from(list?.children ?? []).map((item) => item.textContent?.trim());
+  return Array.from(list?.children ?? []).map((item) => item.querySelector('[data-label="nav-group"]')?.textContent?.trim());
 };
 
 describe('NavigationDesktop', () => {
@@ -34,20 +34,20 @@ describe('NavigationDesktop', () => {
     routerState.query = {};
   });
 
-  it('carries the three navigation buttons in one row', () => {
+  it('carries the four navigation buttons in one row', () => {
     const { container } = render(<NavigationDesktop/>);
 
     const row = container.querySelector('nav');
 
     expect(row).toBeTruthy();
-    expect(row?.querySelectorAll('button')).toHaveLength(3);
+    expect(row?.querySelectorAll('button')).toHaveLength(4);
     expect(row?.getAttribute('aria-label')).toBe('Main navigation');
   });
 
   it('groups the menu the way the scan layout orders it', () => {
     render(<NavigationDesktop/>);
 
-    expect(menuTexts()).toEqual([ 'Explore', 'Network', 'Developers' ]);
+    expect(menuTexts()).toEqual([ 'Explore', 'Paxeer X', 'Network', 'Developers' ]);
   });
 
   it('marks the group the current page belongs to', () => {

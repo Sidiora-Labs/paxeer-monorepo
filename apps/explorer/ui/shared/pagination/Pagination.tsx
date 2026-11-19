@@ -11,26 +11,27 @@ interface Props extends PaginationParams, Omit<HTMLChakraProps<'div'>, 'page' | 
   pageCount?: number;
   onLastPageClick?: () => void;
   showRows?: React.ReactNode;
+  reserveSpace?: boolean;
 }
 
 const Pagination = (props: Props) => {
-  const { showRows, page, hasPages, isLoading, isVisible, className, ...rest } = props;
+  const { showRows, page, hasPages, isLoading, isVisible, className, reserveSpace, ...rest } = props;
 
-  if (!isVisible) {
+  if (!isVisible && !reserveSpace) {
     return null;
   }
 
   const showSkeleton = page === 1 && !hasPages && isLoading;
 
   return (
-    <Flex alignItems="center" columnGap={ 3 } className={ className } data-pagination>
+    <Flex alignItems="center" columnGap={ 3 } className={ className } data-pagination visibility={ isVisible ? undefined : 'hidden' }>
       <Skeleton loading={ showSkeleton }>
         <ScanPagination
           { ...rest }
           page={ page }
           hasPages={ hasPages }
           isLoading={ isLoading }
-          isVisible={ isVisible }
+          isVisible={ isVisible || Boolean(reserveSpace) }
         />
       </Skeleton>
       { showRows }

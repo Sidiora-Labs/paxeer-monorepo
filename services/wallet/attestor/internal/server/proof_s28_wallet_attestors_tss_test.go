@@ -393,7 +393,7 @@ func proofS28KMS(t *testing.T, c *testCluster, root string, generate GenerateReq
 	for _, n := range c.nodes {
 		nodes = append(nodes, n.id+"="+n.apiAddr)
 	}
-	manifest := fmt.Sprintf("[package]\nname = \"s28-kms-consumer\"\nversion = \"0.0.0\"\nedition = \"2024\"\n[workspace]\n[dependencies]\nlayerx-human-kms = { path = %q }\n", filepath.Join(root, "services/human/crates/layerx-human-kms"))
+	manifest := fmt.Sprintf("[package]\nname = \"s28-kms-consumer\"\nversion = \"0.0.0\"\nedition = \"2024\"\n[workspace]\n[dependencies]\nlayerx-human-kms = { path = %q }\nlayerx-types = { path = %q }\n", filepath.Join(root, "services/human/crates/layerx-human-kms"), filepath.Join(root, "services/agent/crates/layerx-types"))
 	proofS28Write(t, filepath.Join(dir, "Cargo.toml"), []byte(manifest))
 	if err := os.Mkdir(filepath.Join(dir, "src"), 0700); err != nil {
 		t.Fatal(err)
@@ -427,12 +427,21 @@ func proofS28KMS(t *testing.T, c *testCluster, root string, generate GenerateReq
 
 const proofS28KMSProgram = `
 use layerx_human_kms::attestor::{AttestorClient, AttestorError};
-use std::{env,fs,net::SocketAddr,time::Duration};
+use layerx_types::clock::{Clock, ClockError, ClockReading};
+use std::{env,fs,net::SocketAddr,sync::Arc,time::{Duration,Instant,SystemTime,UNIX_EPOCH}};
+struct WallClock { start: Instant }
+impl Clock for WallClock {
+ fn sample(&self, _: Duration) -> Result<ClockReading, ClockError> {
+  let unix_milliseconds = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| ClockError::Unavailable)?.as_millis() as u64;
+  let monotonic_nanoseconds = self.start.elapsed().as_nanos() as u64;
+  Ok(ClockReading { generation: [1; 16], unix_milliseconds, monotonic_nanoseconds })
+ }
+}
 fn main() {
  let args: Vec<String> = env::args().collect();
  let read = |name: &str| fs::read(format!("{}/{}",args[1],name)).unwrap();
  let nodes: Vec<(String,SocketAddr)> = args[2].split(',').map(|v| {let (id,addr)=v.split_once('=').unwrap();(id.to_string(),addr.parse().unwrap())}).collect();
- let client=AttestorClient::new(&nodes,&[read("ca.der")],&[read("client.der")],&read("private.der"),Duration::from_secs(20)).unwrap();
+ let client=AttestorClient::new(&nodes,&[read("ca.der")],&[read("client.der")],&read("private.der"),Duration::from_secs(20)).unwrap().with_clock(Arc::new(WallClock { start: Instant::now() }));
  for (id,_) in &nodes {let health=client.health(id).unwrap();assert_eq!(health.node_id,*id);assert!(health.ready);assert!(health.audit_sequence>0);}
  let key=client.generate_ed25519(&args[3],&args[4],&args[5]).unwrap();
  let public:String=key.public_key.iter().map(|b|format!("{b:02x}")).collect();
@@ -450,16 +459,21 @@ func proofS28Loadtest(t *testing.T, c *testCluster, wallet string) {
 	t.Helper()
 	dir := t.TempDir()
 	cert := c.ca.issue(t, dir, "proof-loadtest", x509.ExtKeyUsageClientAuth)
-	var nodes []string
-	for _, n := range c.nodes {
+	var nodes, pins []string
+	for i, n := range c.nodes {
 		nodes = append(nodes, n.id+"="+n.apiAddr)
+		pins = append(pins, n.id+"="+c.peers[i].SPKISHA256)
 	}
+	args := []string{"run", "./cmd/loadtest", "--endpoints", strings.Join(nodes, ","), "--client-cert", cert.certPath, "--client-key", cert.keyPath, "--ca", c.ca.pemPath, "--chain-id", "125", "--token", c.idp.mint(t, c.idp.key, testOwner), "--duration", "1ms", "--concurrency", "1", "--manifest", filepath.Join(dir, "run.json")}
+	proofS28Run(t, filepath.Join(wallet, "attestor"), nil, "go", append(args, "--phase", "export", "--pins", strings.Join(pins, ","))...)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "go", "run", "./cmd/loadtest", "--endpoints", strings.Join(nodes, ","), "--client-cert", cert.certPath, "--client-key", cert.keyPath, "--ca", c.ca.pemPath, "--chain-id", "125", "--token", c.idp.mint(t, c.idp.key, testOwner), "--duration", "1ms", "--concurrency", "1")
+	cmd := exec.CommandContext(ctx, "go", append(args, "--phase", "generate")...)
 	cmd.Dir = filepath.Join(wallet, "attestor")
 	out, err := cmd.CombinedOutput()
-	if err == nil || !bytes.Contains(out, []byte(CodeKeyInvalidShare)) {
+	exit, ok := err.(*exec.ExitError)
+	refusal := fmt.Sprintf("loadtest: generate secp256k1 on %s refused (%s):", c.nodes[0].id, CodeKeyInvalidShare)
+	if !ok || exit.ExitCode() != 1 || !bytes.Contains(out, []byte(refusal)) {
 		t.Fatalf("loadtest must report real inventory refusal: %v\n%s", err, out)
 	}
 }

@@ -1,0 +1,2242 @@
+{
+  "name": "LayerX Developer dashboard",
+  "directory": "../../../services/platform/hosted/dashboard/web",
+  "build": "npm --prefix ../../../../../apps/web run build:ui && DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm run build",
+  "start": "node ../../../../../tools/ui-check/surfaces/dashboard/start.mjs",
+  "address": "http://localhost:4175",
+  "readyPath": "/healthz",
+  "views": [
+    {
+      "name": "dashboard",
+      "path": "/",
+      "states": [
+        {
+          "name": "keys",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-keys"
+            },
+            {
+              "action": "wait",
+              "text": "API keys and current quota windows"
+            }
+          ]
+        },
+        {
+          "name": "requests",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-requests"
+            },
+            {
+              "action": "wait",
+              "text": "Principal-isolated request log"
+            }
+          ]
+        },
+        {
+          "name": "webhooks",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-webhooks"
+            },
+            {
+              "action": "wait",
+              "text": "Webhook endpoints"
+            }
+          ]
+        },
+        {
+          "name": "payments",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-payments"
+            },
+            {
+              "action": "wait",
+              "text": "Real test payments and verified receipts"
+            }
+          ]
+        },
+        {
+          "name": "receipt",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-payments"
+            },
+            {
+              "action": "click",
+              "selector": "button:has-text(\"View receipt\")"
+            },
+            {
+              "action": "wait",
+              "text": "Verified receipt"
+            }
+          ]
+        },
+        {
+          "name": "keys-active",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-keys"
+            },
+            {
+              "action": "wait",
+              "text": "API keys and current quota windows"
+            }
+          ]
+        },
+        {
+          "name": "keys-revoked",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-keys"
+            },
+            {
+              "action": "wait",
+              "text": "API keys and current quota windows"
+            }
+          ]
+        },
+        {
+          "name": "navigation-keys",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".dashboard-shell nav[aria-label=\"Primary\"] button:has-text(\"Keys\")"
+            },
+            {
+              "action": "wait",
+              "text": "API keys and current quota windows"
+            }
+          ]
+        },
+        {
+          "name": "navigation-logs",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".dashboard-shell nav[aria-label=\"Primary\"] button:has-text(\"Logs\")"
+            },
+            {
+              "action": "wait",
+              "text": "Principal-isolated request log"
+            }
+          ]
+        },
+        {
+          "name": "navigation-webhooks",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".dashboard-shell nav[aria-label=\"Primary\"] button:has-text(\"Webhooks\")"
+            },
+            {
+              "action": "wait",
+              "text": "Delivery log"
+            }
+          ]
+        },
+        {
+          "name": "navigation-overview",
+          "steps": [
+            {
+              "action": "click",
+              "selector": ".dashboard-shell nav[aria-label=\"Primary\"] button:has-text(\"Keys\")"
+            },
+            {
+              "action": "wait",
+              "text": "API keys and current quota windows"
+            },
+            {
+              "action": "click",
+              "selector": ".dashboard-shell nav[aria-label=\"Primary\"] button:has-text(\"Overview\")"
+            },
+            {
+              "action": "wait",
+              "text": "Recent protocol activity"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
+        }
+      ]
+    },
+    {
+      "name": "empty",
+      "path": "/?fixture=empty",
+      "states": [
+        {
+          "name": "keys",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-keys"
+            },
+            {
+              "action": "wait",
+              "text": "API keys and current quota windows"
+            }
+          ]
+        },
+        {
+          "name": "requests",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-requests"
+            },
+            {
+              "action": "wait",
+              "text": "Principal-isolated request log"
+            }
+          ]
+        },
+        {
+          "name": "webhooks",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-webhooks"
+            },
+            {
+              "action": "wait",
+              "text": "Webhook endpoints"
+            }
+          ]
+        },
+        {
+          "name": "payments",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-payments"
+            },
+            {
+              "action": "wait",
+              "text": "Real test payments and verified receipts"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        }
+      ]
+    },
+    {
+      "name": "loading",
+      "path": "/?fixture=loading",
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "[role=\"tab\"][aria-selected=\"true\"]"
+        },
+        {
+          "name": "loading-card",
+          "selector": "main .rounded-lg >> nth=0"
+        }
+      ]
+    },
+    {
+      "name": "unavailable",
+      "path": "/?fixture=unavailable",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/overview",
+          "status": 503
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+          "status": 503
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+          "status": 503
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "[role=\"tab\"][aria-selected=\"true\"]"
+        },
+        {
+          "name": "unavailable-card",
+          "selector": "main .rounded-lg:has-text(\"Dashboard unavailable\") >> nth=0"
+        }
+      ]
+    },
+    {
+      "name": "sign-in",
+      "path": "/?fixture=sign-in",
+      "states": [
+        {
+          "name": "validation",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "form[aria-label=\"Session token sign-in\"] button[type=\"submit\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Enter a valid session token."
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/overview",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+              "status": 401
+            }
+          ]
+        },
+        {
+          "name": "filled-token",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "#session-token",
+              "value": "session_fixture_opaque"
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/overview",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+              "status": 401
+            }
+          ]
+        },
+        {
+          "name": "validation-corrected",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "form[aria-label=\"Session token sign-in\"] button[type=\"submit\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Enter a valid session token."
+            },
+            {
+              "action": "fill",
+              "selector": "#session-token",
+              "value": "session_fixture_opaque"
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/overview",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+              "status": 401
+            }
+          ]
+        },
+        {
+          "name": "held-key",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[name=\"key-action\"]"
+            },
+            {
+              "action": "wait",
+              "text": "The registration proof was not accepted."
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/overview",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+              "status": 401
+            },
+            {
+              "method": "POST",
+              "pattern": "http://localhost:4175/session/registration",
+              "status": 401
+            }
+          ]
+        },
+        {
+          "name": "key-refused",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[name=\"key-action\"]"
+            },
+            {
+              "action": "wait",
+              "text": "The registration proof was not accepted."
+            },
+            {
+              "action": "click",
+              "selector": "button[name=\"key-action\"]"
+            },
+            {
+              "action": "wait",
+              "text": "The registration proof was not accepted."
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/overview",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+              "status": 401
+            },
+            {
+              "method": "POST",
+              "pattern": "http://localhost:4175/session/registration",
+              "status": 401
+            }
+          ]
+        },
+        {
+          "name": "public-key-copied",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[name=\"key-action\"]"
+            },
+            {
+              "action": "wait",
+              "text": "The registration proof was not accepted."
+            },
+            {
+              "action": "click",
+              "selector": "button:has-text(\"Copy public key\")"
+            },
+            {
+              "action": "wait",
+              "text": "Public key copied"
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/overview",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+              "status": 401
+            },
+            {
+              "method": "POST",
+              "pattern": "http://localhost:4175/session/registration",
+              "status": 401
+            }
+          ]
+        },
+        {
+          "name": "token-refused",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "#session-token",
+              "value": "invalid_fixture"
+            },
+            {
+              "action": "click",
+              "selector": "form[aria-label=\"Session token sign-in\"] button[type=\"submit\"]"
+            },
+            {
+              "action": "wait",
+              "text": "The session token was not accepted."
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/overview",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+              "status": 401
+            },
+            {
+              "method": "POST",
+              "pattern": "http://localhost:4175/session",
+              "status": 401
+            }
+          ]
+        },
+        {
+          "name": "signed-in",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "#session-token",
+              "value": "session_fixture_opaque"
+            },
+            {
+              "action": "click",
+              "selector": "form[aria-label=\"Session token sign-in\"] button[type=\"submit\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Recent protocol activity"
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/overview",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+              "status": 401
+            }
+          ]
+        }
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/overview",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+          "status": 401
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
+        }
+      ]
+    },
+    {
+      "name": "sign-in-copy-refused",
+      "path": "/?fixture=sign-in-copy-refused",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/overview",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+          "status": 401
+        }
+      ],
+      "states": [
+        {
+          "name": "public-key-copy-refused",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[name=\"key-action\"]"
+            },
+            {
+              "action": "wait",
+              "text": "The registration proof was not accepted."
+            },
+            {
+              "action": "click",
+              "selector": "button:has-text(\"Copy public key\")"
+            },
+            {
+              "action": "wait",
+              "text": "The public key could not be copied."
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/overview",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+              "status": 401
+            },
+            {
+              "method": "POST",
+              "pattern": "http://localhost:4175/session/registration",
+              "status": 401
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
+        }
+      ]
+    },
+    {
+      "name": "sign-in-unconfigured",
+      "path": "/?fixture=sign-in-unconfigured",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/overview",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+          "status": 401
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
+        }
+      ]
+    },
+    {
+      "name": "sign-in-unsupported",
+      "path": "/?fixture=sign-in-unsupported",
+      "states": [
+        {
+          "name": "unsupported",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "This browser does not support Ed25519 keys"
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/overview",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+              "status": 401
+            }
+          ]
+        }
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/overview",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+          "status": 401
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
+        }
+      ]
+    },
+    {
+      "name": "sign-in-storage",
+      "path": "/?fixture=sign-in-storage",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/overview",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+          "status": 401
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
+        }
+      ]
+    },
+    {
+      "name": "sign-in-key-loading",
+      "path": "/?fixture=sign-in-key-loading",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/overview",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+          "status": 401
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
+        }
+      ]
+    },
+    {
+      "name": "sign-in-token-busy",
+      "path": "/?fixture=sign-in-token-busy",
+      "states": [
+        {
+          "name": "submitting",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "#session-token",
+              "value": "session_fixture_opaque"
+            },
+            {
+              "action": "click",
+              "selector": "form[aria-label=\"Session token sign-in\"] button[type=\"submit\"]"
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/overview",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+              "status": 401
+            }
+          ]
+        }
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/overview",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+          "status": 401
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
+        }
+      ]
+    },
+    {
+      "name": "sign-in-key-busy",
+      "path": "/?fixture=sign-in-key-busy",
+      "states": [
+        {
+          "name": "creating",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[name=\"key-action\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Public key"
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/overview",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+              "status": 401
+            }
+          ]
+        }
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/overview",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+          "status": 401
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
+        }
+      ]
+    },
+    {
+      "name": "sign-in-held-busy",
+      "path": "/?fixture=sign-in-held-busy",
+      "states": [
+        {
+          "name": "submitting",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button[name=\"key-action\"]"
+            },
+            {
+              "action": "wait",
+              "text": "The registration proof was not accepted."
+            },
+            {
+              "action": "click",
+              "selector": "button[name=\"key-action\"]"
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/overview",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+              "status": 401
+            },
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+              "status": 401
+            },
+            {
+              "method": "POST",
+              "pattern": "http://localhost:4175/session/registration",
+              "status": 401
+            }
+          ]
+        }
+      ],
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/overview",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/requests?limit=100",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4175/v1/dashboard/webhook-deliveries?limit=100",
+          "status": 401
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "sign-in-card",
+          "selector": "main .rounded-lg:has-text(\"Sign in to your developer dashboard\")"
+        },
+        {
+          "name": "primary-control",
+          "selector": "main form:has(#session-token) button[type=\"submit\"]"
+        },
+        {
+          "name": "session-token",
+          "selector": "#session-token"
+        }
+      ]
+    },
+    {
+      "name": "sign-out",
+      "path": "/",
+      "states": [
+        {
+          "name": "signed-out",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button:has-text(\"Sign out\")"
+            },
+            {
+              "action": "wait",
+              "text": "Sign in to your developer dashboard"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
+        }
+      ]
+    },
+    {
+      "name": "sign-out-busy",
+      "path": "/?fixture=sign-out-busy",
+      "states": [
+        {
+          "name": "submitting",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button:has-text(\"Sign out\")"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
+        }
+      ]
+    },
+    {
+      "name": "sign-out-refused",
+      "path": "/?fixture=sign-out-refused",
+      "states": [
+        {
+          "name": "refused",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "button:has-text(\"Sign out\")"
+            },
+            {
+              "action": "wait",
+              "text": "Sign-out unavailable"
+            }
+          ],
+          "expects": [
+            {
+              "method": "DELETE",
+              "pattern": "http://localhost:4175/session",
+              "status": 502
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
+        }
+      ]
+    },
+    {
+      "name": "receipt-loading",
+      "path": "/?fixture=receipt-loading",
+      "states": [
+        {
+          "name": "loading",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-payments"
+            },
+            {
+              "action": "click",
+              "selector": "button:has-text(\"View receipt\")"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
+        }
+      ]
+    },
+    {
+      "name": "receipt-unavailable",
+      "path": "/?fixture=receipt-unavailable",
+      "states": [
+        {
+          "name": "unavailable",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-payments"
+            },
+            {
+              "action": "click",
+              "selector": "button:has-text(\"View receipt\")"
+            },
+            {
+              "action": "wait",
+              "text": "Dashboard unavailable"
+            }
+          ],
+          "expects": [
+            {
+              "method": "GET",
+              "pattern": "http://localhost:4175/v1/dashboard/receipts/*",
+              "status": 503
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
+        }
+      ]
+    },
+    {
+      "name": "requests-long",
+      "path": "/?fixture=requests-long",
+      "states": [
+        {
+          "name": "requests",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-requests"
+            },
+            {
+              "action": "wait",
+              "text": "Principal-isolated request log"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
+        }
+      ]
+    },
+    {
+      "name": "payments-long",
+      "path": "/?fixture=payments-long",
+      "states": [
+        {
+          "name": "payments",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-payments"
+            },
+            {
+              "action": "wait",
+              "text": "Real test payments and verified receipts"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
+        }
+      ]
+    },
+    {
+      "name": "health",
+      "path": "/healthz",
+      "parts": [
+        {
+          "name": "document",
+          "selector": "body"
+        },
+        {
+          "name": "health-response",
+          "selector": "pre"
+        }
+      ]
+    },
+    {
+      "name": "keys-secret",
+      "path": "/?fixture=keys-secret",
+      "states": [
+        {
+          "name": "new-key-secret",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-keys"
+            },
+            {
+              "action": "click",
+              "selector": "button:has-text(\"Issue key\")"
+            },
+            {
+              "action": "wait",
+              "text": "Your new key secret"
+            }
+          ]
+        },
+        {
+          "name": "secret-copied",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-keys"
+            },
+            {
+              "action": "click",
+              "selector": "button:has-text(\"Issue key\")"
+            },
+            {
+              "action": "wait",
+              "text": "Your new key secret"
+            },
+            {
+              "action": "click",
+              "selector": "dialog button:has-text(\"Copy secret\")"
+            },
+            {
+              "action": "wait",
+              "text": "Key secret copied"
+            }
+          ]
+        },
+        {
+          "name": "secret-dismissed",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-keys"
+            },
+            {
+              "action": "click",
+              "selector": "button:has-text(\"Issue key\")"
+            },
+            {
+              "action": "wait",
+              "text": "Your new key secret"
+            },
+            {
+              "action": "click",
+              "selector": "dialog button:has-text(\"Done\")"
+            },
+            {
+              "action": "fill",
+              "selector": "#key-quota-requests",
+              "value": "2000"
+            }
+          ]
+        },
+        {
+          "name": "secret-dismissed-escape",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-keys"
+            },
+            {
+              "action": "click",
+              "selector": "button:has-text(\"Issue key\")"
+            },
+            {
+              "action": "wait",
+              "text": "Your new key secret"
+            },
+            {
+              "action": "press",
+              "selector": "dialog[open]",
+              "key": "Escape"
+            },
+            {
+              "action": "fill",
+              "selector": "#key-quota-requests",
+              "value": "2000"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
+        }
+      ]
+    },
+    {
+      "name": "keys-revoked",
+      "path": "/?fixture=keys-revoked",
+      "states": [
+        {
+          "name": "revoke-confirmation",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-keys"
+            },
+            {
+              "action": "click",
+              "selector": ".dashboard-key-actions button:text-is(\"Revoke\")"
+            },
+            {
+              "action": "wait",
+              "text": "Revoke this key?"
+            }
+          ]
+        },
+        {
+          "name": "kept",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-keys"
+            },
+            {
+              "action": "click",
+              "selector": ".dashboard-key-actions button:text-is(\"Revoke\")"
+            },
+            {
+              "action": "wait",
+              "text": "Revoke this key?"
+            },
+            {
+              "action": "click",
+              "selector": "dialog button:has-text(\"Keep key\")"
+            },
+            {
+              "action": "fill",
+              "selector": "#key-quota-requests",
+              "value": "2000"
+            }
+          ]
+        },
+        {
+          "name": "confirmation-dismissed",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "#tab-keys"
+            },
+            {
+              "action": "click",
+              "selector": ".dashboard-key-actions button:text-is(\"Revoke\")"
+            },
+            {
+              "action": "wait",
+              "text": "Revoke this key?"
+            },
+            {
+              "action": "press",
+              "selector": "dialog[open]",
+              "key": "Escape"
+            },
+            {
+              "action": "fill",
+              "selector": "#key-quota-requests",
+              "value": "2000"
+            }
+          ]
+        }
+      ],
+      "parts": [
+        {
+          "name": "header",
+          "selector": "header"
+        },
+        {
+          "name": "main",
+          "selector": "main"
+        },
+        {
+          "name": "first-heading",
+          "selector": "main :is(h1, h2, h3):visible >> nth=0"
+        },
+        {
+          "name": "navigation",
+          "selector": "[role=\"tablist\"]"
+        },
+        {
+          "name": "primary-control",
+          "selector": "header button:has-text(\"Sign out\")"
+        },
+        {
+          "name": "usage-card",
+          "selector": "main .rounded-lg:not([role=\"tablist\"]):not([role=\"tab\"]) >> nth=0"
+        },
+        {
+          "name": "live-keys-card",
+          "selector": "main .rounded-lg:has-text(\"Live API keys\")"
+        },
+        {
+          "name": "webhook-count-card",
+          "selector": "main .rounded-lg:has-text(\"Webhook endpoints\")"
+        },
+        {
+          "name": "payments-count-card",
+          "selector": "main .rounded-lg:has-text(\"Verified test payments\")"
+        },
+        {
+          "name": "activity-card",
+          "selector": "main .rounded-lg:has(:is(h2, h3):text-is(\"Recent protocol activity\"))"
+        },
+        {
+          "name": "activity-first-row",
+          "selector": "main [role=\"listitem\"] >> nth=0"
+        }
+      ]
+    }
+  ],
+  "answers": [
+    {
+      "method": "GET",
+      "pattern": "https://dashboard.example/answers/overview.json",
+      "file": "dashboard/overview.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://dashboard.example/answers/filled.json",
+      "file": "dashboard/filled.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://dashboard.example/answers/empty.json",
+      "file": "dashboard/empty.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://dashboard.example/answers/empty-list.json",
+      "file": "dashboard/empty-list.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://dashboard.example/answers/requests.json",
+      "file": "dashboard/requests.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://dashboard.example/answers/deliveries.json",
+      "file": "dashboard/deliveries.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://dashboard.example/answers/requests-long.json",
+      "file": "dashboard/requests-long.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://dashboard.example/answers/payments-long.json",
+      "file": "dashboard/payments-long.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://dashboard.example/answers/receipt.json",
+      "file": "dashboard/receipt.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://dashboard.example/answers/session-required.json",
+      "file": "dashboard/session-required.json",
+      "status": 401,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://dashboard.example/answers/unavailable.json",
+      "file": "dashboard/unavailable.json",
+      "status": 503,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "POST",
+      "pattern": "https://dashboard.example/answers/registration-refused.json",
+      "file": "dashboard/registration-refused.json",
+      "status": 401,
+      "headers": {
+        "content-type": "application/json",
+        "set-cookie": "dashboard-key-held=true; HttpOnly; SameSite=Strict; Path=/",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "POST",
+      "pattern": "https://dashboard.example/answers/token-refused.json",
+      "file": "dashboard/session-required.json",
+      "status": 401,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "POST",
+      "pattern": "https://dashboard.example/answers/signed-in.txt",
+      "file": "dashboard/session-empty.txt",
+      "status": 204,
+      "headers": {
+        "content-type": "application/json",
+        "set-cookie": "__Host-layerx-session=session_fixture_opaque; Secure; HttpOnly; SameSite=Strict; Path=/",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "DELETE",
+      "pattern": "https://dashboard.example/answers/signed-out.txt",
+      "file": "dashboard/session-empty.txt",
+      "status": 204,
+      "headers": {
+        "content-type": "application/json",
+        "set-cookie": "__Host-layerx-session=; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=0",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "DELETE",
+      "pattern": "https://dashboard.example/answers/unavailable.json",
+      "file": "dashboard/unavailable.json",
+      "status": 502,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "GET",
+      "pattern": "https://dashboard.example/answers/key-issued.json",
+      "file": "dashboard/key-issued.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    },
+    {
+      "method": "POST",
+      "pattern": "https://dashboard.example/answers/key-issued.json",
+      "file": "dashboard/key-issued.json",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json",
+        "access-control-allow-origin": "null",
+        "access-control-allow-credentials": "true"
+      }
+    }
+  ],
+  "typeScale": [9, 10, 11, 13, 15, 16, 17, 20, 28],
+  "geometry": {
+    "file": "dashboard/geometry.json",
+    "widths": [390, 1280, 1440, 1920, 2560]
+  }
+}

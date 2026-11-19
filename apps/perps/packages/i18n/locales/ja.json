@@ -618,6 +618,7 @@
   "orderEntry.bbo.disabled.tips": "TP/SL、ポストのみ、IOC、またはFOKが選択されている場合、BBOはサポートされません。",
   "orderEntry.estLiqPrice": "推定清算価格",
   "orderEntry.disableOrderConfirm": "注文確認を無効化",
+  "orderEntry.nativeFunding.twoTransactions": "不足している担保の入金、その後の注文発注という2つのトランザクションが続きます。トークンの承認が必要になる場合もあります。",
   "orderEntry.orderConfirm": "注文確認",
   "orderEntry.confirmScaledOrder": "スケール注文の確認",
   "orderEntry.hidden": "非表示",

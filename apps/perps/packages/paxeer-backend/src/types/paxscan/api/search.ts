@@ -1,27 +1,28 @@
 // @coord dropped @blockscout/bens-types — external package not pulled in (see ens.ts for context).
 // @coord dropped @blockscout/tac-operation-lifecycle-types — external package not pulled in; TAC operation details narrowed to `unknown`.
-import type { AddressMetadataTagApi } from './addressMetadata';
-import type { TokenReputation, TokenType } from './token';
+import type { AddressMetadataTagApi } from "./addressMetadata";
+import type { TokenReputation, TokenType } from "./token";
 
 export const SEARCH_RESULT_TYPES = {
-  token: 'token',
-  address: 'address',
-  block: 'block',
-  transaction: 'transaction',
-  contract: 'contract',
-  ens_domain: 'ens_domain',
-  cluster: 'cluster',
-  label: 'label',
-  user_operation: 'user_operation',
-  blob: 'blob',
-  metadata_tag: 'metadata_tag',
-  tac_operation: 'tac_operation',
+  token: "token",
+  address: "address",
+  block: "block",
+  transaction: "transaction",
+  contract: "contract",
+  ens_domain: "ens_domain",
+  cluster: "cluster",
+  label: "label",
+  user_operation: "user_operation",
+  blob: "blob",
+  metadata_tag: "metadata_tag",
+  tac_operation: "tac_operation",
 } as const;
 
-export type SearchResultType = typeof SEARCH_RESULT_TYPES[keyof typeof SEARCH_RESULT_TYPES];
+export type SearchResultType =
+  (typeof SEARCH_RESULT_TYPES)[keyof typeof SEARCH_RESULT_TYPES];
 
 export interface SearchResultToken {
-  type: 'token';
+  type: "token";
   name: string;
   symbol: string;
   address_hash: string;
@@ -57,24 +58,27 @@ interface SearchResultAddressData {
 }
 
 export interface SearchResultAddressOrContract extends SearchResultAddressData {
-  type: 'address' | 'contract';
+  type: "address" | "contract";
   ens_info?: SearchResultEnsInfo;
 }
 
 export interface SearchResultTacOperation {
-  type: 'tac_operation';
+  type: "tac_operation";
   // @coord dropped tac.OperationDetails — out of trading-app scope
   tac_operation: unknown;
 }
 
 export interface SearchResultMetadataTag extends SearchResultAddressData {
-  type: 'metadata_tag';
+  type: "metadata_tag";
   ens_info?: SearchResultEnsInfo;
   metadata: AddressMetadataTagApi;
 }
 
-export interface SearchResultDomain extends Omit<SearchResultAddressData, 'address_hash'> {
-  type: 'ens_domain';
+export interface SearchResultDomain extends Omit<
+  SearchResultAddressData,
+  "address_hash"
+> {
+  type: "ens_domain";
   ens_info: {
     address_hash: string | null;
     expiry_date?: string;
@@ -87,7 +91,7 @@ export interface SearchResultDomain extends Omit<SearchResultAddressData, 'addre
 }
 
 export interface SearchResultCluster extends SearchResultAddressData {
-  type: 'cluster';
+  type: "cluster";
   cluster_info: {
     cluster_id: string;
     name: string;
@@ -100,7 +104,7 @@ export interface SearchResultCluster extends SearchResultAddressData {
 }
 
 export interface SearchResultLabel {
-  type: 'label';
+  type: "label";
   address_hash: string;
   filecoin_robust_address?: string | null;
   name: string;
@@ -110,8 +114,8 @@ export interface SearchResultLabel {
 }
 
 export interface SearchResultBlock {
-  type: 'block';
-  block_type?: 'block' | 'reorg' | 'uncle';
+  type: "block";
+  block_type?: "block" | "reorg" | "uncle";
   block_number: number | string;
   block_hash: string;
   timestamp: string;
@@ -119,37 +123,37 @@ export interface SearchResultBlock {
 }
 
 export interface SearchResultTx {
-  type: 'transaction';
+  type: "transaction";
   transaction_hash: string;
   timestamp: string;
   url?: string; // not used by the frontend, we build the url ourselves
 }
 
 export interface SearchResultBlob {
-  type: 'blob';
+  type: "blob";
   blob_hash: string;
   timestamp: null;
 }
 
 export interface SearchResultUserOp {
-  type: 'user_operation';
+  type: "user_operation";
   user_operation_hash: string;
   timestamp: string;
   url?: string; // not used by the frontend, we build the url ourselves
 }
 
 export type SearchResultItem =
-  SearchResultToken |
-  SearchResultAddressOrContract |
-  SearchResultBlock |
-  SearchResultTx |
-  SearchResultLabel |
-  SearchResultUserOp |
-  SearchResultBlob |
-  SearchResultDomain |
-  SearchResultCluster |
-  SearchResultMetadataTag |
-  SearchResultTacOperation;
+  | SearchResultToken
+  | SearchResultAddressOrContract
+  | SearchResultBlock
+  | SearchResultTx
+  | SearchResultLabel
+  | SearchResultUserOp
+  | SearchResultBlob
+  | SearchResultDomain
+  | SearchResultCluster
+  | SearchResultMetadataTag
+  | SearchResultTacOperation;
 
 export interface SearchResult {
   items: Array<SearchResultItem>;
@@ -173,5 +177,12 @@ export interface SearchResultFilters {
 export interface SearchRedirectResult {
   parameter: string | null;
   redirect: boolean;
-  type: 'address' | 'block' | 'transaction' | 'user_operation' | 'blob' | 'ens_domain' | null;
+  type:
+    | "address"
+    | "block"
+    | "transaction"
+    | "user_operation"
+    | "blob"
+    | "ens_domain"
+    | null;
 }

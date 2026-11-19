@@ -162,7 +162,7 @@ fn current_account(
         receipt_sequence: session.receipt_sequence,
         timestamp: session.timestamp,
         checkpoint: session.checkpoint_id,
-        authorization: config.authorization,
+        authorization: config.replica.as_ref().ok_or_else(refused)?.authorization,
         session,
     })
 }

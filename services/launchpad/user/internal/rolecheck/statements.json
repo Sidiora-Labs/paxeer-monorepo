@@ -1,0 +1,4008 @@
+[
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/legacyProfileInventory/1/1",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "legacyProfileInventory",
+    "call": 1,
+    "bindings": {
+      "query": "SELECT to_jsonb(p) FROM users.user_profiles p WHERE lower(wallet_address)=$1 ORDER BY wallet_address FOR SHARE"
+    },
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.user_profiles"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.lower",
+      "pg_catalog.to_jsonb"
+    ],
+    "columns": [
+      "p",
+      "wallet_address"
+    ],
+    "sql": "SELECT to_jsonb(p) FROM users.user_profiles p WHERE lower(wallet_address)=$1 ORDER BY wallet_address FOR SHARE"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/legacyProfileInventory/1/2",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "legacyProfileInventory",
+    "call": 1,
+    "bindings": {
+      "query": "SELECT to_jsonb(i) FROM users.user_images i WHERE lower(wallet_address)=$1 ORDER BY image_type,id FOR SHARE"
+    },
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.user_images"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.lower",
+      "pg_catalog.to_jsonb"
+    ],
+    "columns": [
+      "i",
+      "id",
+      "image_type",
+      "wallet_address"
+    ],
+    "sql": "SELECT to_jsonb(i) FROM users.user_images i WHERE lower(wallet_address)=$1 ORDER BY image_type,id FOR SHARE"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/legacyWatchInventory/1",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "legacyWatchInventory",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.watchlists"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.lower",
+      "pg_catalog.min"
+    ],
+    "columns": [
+      "added_at",
+      "pool_address",
+      "wallet_address"
+    ],
+    "sql": "SELECT lower(pool_address),min(added_at) FROM users.watchlists WHERE lower(wallet_address)=$1 GROUP BY lower(pool_address) ORDER BY lower(pool_address)"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/quarantineLegacyProfile/1",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "quarantineLegacyProfile",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_backfill"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "excluded.reason",
+      "reason",
+      "source_key",
+      "state"
+    ],
+    "sql": "INSERT INTO account_backfill VALUES($1,$2,$3,'quarantined',$4) ON CONFLICT(source_key) DO UPDATE SET state='quarantined',reason=EXCLUDED.reason"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/1",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/2",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/3",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 3,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_backfill_range"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "after_wallet",
+      "batch_limit",
+      "range_id",
+      "result"
+    ],
+    "sql": "SELECT result FROM account_backfill_range WHERE range_id=$1 AND after_wallet=$2 AND batch_limit=$3"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/4",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 4,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.user_profiles"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.lower"
+    ],
+    "columns": [
+      "wallet_address"
+    ],
+    "sql": "SELECT lower(wallet_address) FROM users.user_profiles WHERE lower(wallet_address)>$1 GROUP BY lower(wallet_address) ORDER BY lower(wallet_address) LIMIT $2"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/5",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 5,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/6",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 6,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/7",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 7,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.identity_wallet_links"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "chain_id",
+      "state",
+      "wallet"
+    ],
+    "sql": "SELECT account_id FROM identity_wallet_links WHERE chain_id=125 AND wallet=$1 AND state='verified'"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/8",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 8,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_backfill"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "source_key"
+    ],
+    "sql": "INSERT INTO account_backfill VALUES($1,$2,NULL,'quarantined','ambiguous legacy source or no verified identity') ON CONFLICT(source_key) DO NOTHING"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/9",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 9,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/10",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 10,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "deleted",
+      "wallet"
+    ],
+    "sql": "SELECT wallet,deleted FROM account_state WHERE account_id=$1 FOR UPDATE"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/11",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 11,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_backfill"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "source_hash",
+      "source_key"
+    ],
+    "sql": "SELECT source_hash FROM account_backfill WHERE source_key=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/12",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 12,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_backfill"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "reason",
+      "source_key",
+      "state"
+    ],
+    "sql": "UPDATE account_backfill SET state='quarantined',reason='source bytes changed; reviewed resolution required' WHERE source_key=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/13",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 13,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_backfill"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "source_key",
+      "state"
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM account_backfill WHERE source_key=$1 AND state='quarantined')"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/14",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 14,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_backfill"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "excluded.reason",
+      "reason",
+      "source_key",
+      "state"
+    ],
+    "sql": "INSERT INTO account_backfill VALUES($1,$2,$3,'quarantined','legacy profile field or asset requires reviewed migration') ON CONFLICT(source_key) DO UPDATE SET state='quarantined',reason=EXCLUDED.reason"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/15",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 15,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_watch",
+      "users.watchlists"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count",
+      "pg_catalog.lower"
+    ],
+    "columns": [
+      "account_id",
+      "pool",
+      "pool_address",
+      "wallet_address"
+    ],
+    "sql": "SELECT count(*) FROM (SELECT pool FROM account_watch WHERE account_id=$1 UNION SELECT lower(pool_address) FROM users.watchlists WHERE lower(wallet_address)=$2) pools"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/16",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 16,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_backfill"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "excluded.reason",
+      "reason",
+      "source_key",
+      "state"
+    ],
+    "sql": "INSERT INTO account_backfill VALUES($1,$2,$3,'quarantined','legacy watchlist violates frozen capacity or pool validation') ON CONFLICT(source_key) DO UPDATE SET state='quarantined',reason=EXCLUDED.reason"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/17",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 17,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "preferences",
+      "profile",
+      "wallet"
+    ],
+    "sql": "INSERT INTO account_state(account_id,wallet,profile,preferences) VALUES($1,$2,$3,$4) ON CONFLICT(account_id) DO NOTHING"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/18",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 18,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "kind"
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM account_outbox WHERE account_id=$1 AND kind='profile.updated')"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/19",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 19,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "profile",
+      "updated_at"
+    ],
+    "sql": "UPDATE account_state SET profile=$2,updated_at=$3 WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/20",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 20,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_watch",
+      "users.watchlists"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.lower",
+      "pg_catalog.min",
+      "pg_catalog.to_timestamp"
+    ],
+    "columns": [
+      "account_id",
+      "added_at",
+      "alert_enabled",
+      "chain_id",
+      "pool",
+      "pool_address",
+      "revision",
+      "wallet_address"
+    ],
+    "sql": "INSERT INTO account_watch(account_id,chain_id,pool,added_at,revision,alert_enabled) SELECT $1,125,lower(pool_address),to_timestamp(min(added_at)),0,false FROM users.watchlists WHERE lower(wallet_address)=$2 GROUP BY lower(pool_address) ON CONFLICT DO NOTHING"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/21",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 21,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_backfill"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "source_key"
+    ],
+    "sql": "INSERT INTO account_backfill VALUES($1,$2,$3,'linked','') ON CONFLICT(source_key) DO NOTHING"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.BackfillLegacyRange/22",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.BackfillLegacyRange",
+    "call": 22,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_backfill_range"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "after_wallet",
+      "batch_limit",
+      "completed_at",
+      "range_id",
+      "result"
+    ],
+    "sql": "INSERT INTO account_backfill_range(range_id,after_wallet,batch_limit,result,completed_at) VALUES($1,$2,$3,$4,$5)"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.SetStableAccountReads/1",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.SetStableAccountReads",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_read_switch"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_read_switch.generation",
+      "account_read_switch.stable_reads",
+      "changed_at",
+      "excluded.changed_at",
+      "excluded.stable_reads",
+      "generation",
+      "singleton",
+      "stable_reads"
+    ],
+    "sql": "INSERT INTO account_read_switch(singleton,stable_reads,changed_at,generation) VALUES(true,$1,$2,1) ON CONFLICT(singleton) DO UPDATE SET stable_reads=EXCLUDED.stable_reads,changed_at=EXCLUDED.changed_at,generation=account_read_switch.generation+CASE WHEN account_read_switch.stable_reads<>EXCLUDED.stable_reads THEN 1 ELSE 0 END"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.SetStableAccountReads/2",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.SetStableAccountReads",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.SetStableAccountReads/3",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.SetStableAccountReads",
+    "call": 3,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "LOCK",
+    "tables": [
+      "users.user_images",
+      "users.user_profiles",
+      "users.watchlists"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sql": "LOCK TABLE users.user_profiles,users.user_images,users.watchlists IN SHARE MODE"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.SetStableAccountReads/4",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.SetStableAccountReads",
+    "call": 4,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_backfill",
+      "users.user_images",
+      "users.user_profiles"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.lower"
+    ],
+    "columns": [
+      "b.source_key",
+      "b.state",
+      "i.wallet_address",
+      "p.wallet_address",
+      "state"
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM account_backfill WHERE state='quarantined') OR EXISTS(SELECT 1 FROM users.user_profiles p WHERE NOT EXISTS(SELECT 1 FROM account_backfill b WHERE b.source_key='legacy:'||lower(p.wallet_address) AND b.state='linked')) OR EXISTS(SELECT 1 FROM users.user_images i WHERE NOT EXISTS(SELECT 1 FROM account_backfill b WHERE b.source_key='legacy:'||lower(i.wallet_address) AND b.state='linked'))"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.SetStableAccountReads/5",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.SetStableAccountReads",
+    "call": 5,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.user_profiles"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.lower"
+    ],
+    "columns": [
+      "wallet_address"
+    ],
+    "sql": "SELECT DISTINCT lower(wallet_address) FROM users.user_profiles ORDER BY 1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.SetStableAccountReads/6",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.SetStableAccountReads",
+    "call": 6,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_backfill"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "source_hash",
+      "source_key",
+      "state"
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM account_backfill WHERE source_key=$1 AND state='linked' AND source_hash=$2)"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.SetStableAccountReads/7",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.SetStableAccountReads",
+    "call": 7,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_read_switch"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_read_switch.generation",
+      "account_read_switch.stable_reads",
+      "changed_at",
+      "excluded.changed_at",
+      "generation",
+      "singleton",
+      "stable_reads"
+    ],
+    "sql": "INSERT INTO account_read_switch(singleton,stable_reads,changed_at,generation) VALUES(true,true,$1,1) ON CONFLICT(singleton) DO UPDATE SET stable_reads=true,changed_at=EXCLUDED.changed_at,generation=account_read_switch.generation+CASE WHEN NOT account_read_switch.stable_reads THEN 1 ELSE 0 END"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.PublicFromReadSwitch/1",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.PublicFromReadSwitch",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_read_switch",
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "deleted",
+      "generation",
+      "singleton",
+      "stable_reads",
+      "wallet"
+    ],
+    "sql": "SELECT coalesce((SELECT stable_reads FROM account_read_switch WHERE singleton),true),deleted,coalesce((SELECT generation FROM account_read_switch WHERE singleton),1) FROM account_state WHERE wallet=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/backfill.go/Store.PublicFromReadSwitch/2",
+    "file": "services/launchpad/user/internal/account/backfill.go",
+    "function": "Store.PublicFromReadSwitch",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.user_profiles"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.lower"
+    ],
+    "columns": [
+      "bio",
+      "display_name",
+      "wallet_address",
+      "website"
+    ],
+    "sql": "SELECT coalesce(display_name,''),coalesce(bio,''),nullif(website,'') FROM users.user_profiles WHERE lower(wallet_address)=$1 ORDER BY wallet_address LIMIT 1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/devices_http.go/HTTP.devicePut/1",
+    "file": "services/launchpad/user/internal/account/devices_http.go",
+    "function": "HTTP.devicePut",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.identity_accounts",
+      "users.identity_sessions",
+      "users.identity_wallet_links"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "a.account_id",
+      "a.auth_epoch",
+      "s.access_expires_at",
+      "s.account_id",
+      "s.auth_epoch",
+      "s.revoked_at",
+      "s.session_id",
+      "s.wallet",
+      "w.account_id",
+      "w.state",
+      "w.wallet"
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM identity_sessions s JOIN identity_accounts a USING(account_id) JOIN identity_wallet_links w ON w.account_id=a.account_id AND w.wallet=s.wallet AND w.state='verified' WHERE s.session_id=$1 AND s.account_id=$2 AND s.wallet=$3 AND s.auth_epoch=$4 AND s.auth_epoch=a.auth_epoch AND s.revoked_at IS NULL AND s.access_expires_at>clock_timestamp())"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/devices_http.go/HTTP.devicePut/2",
+    "file": "services/launchpad/user/internal/account/devices_http.go",
+    "function": "HTTP.devicePut",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_device_installation"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "installation_id"
+    ],
+    "sql": "SELECT account_id FROM account_device_installation WHERE installation_id=$1 FOR UPDATE"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/devices_http.go/HTTP.devicePut/3",
+    "file": "services/launchpad/user/internal/account/devices_http.go",
+    "function": "HTTP.devicePut",
+    "call": 3,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_device_installation"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "excluded.platform",
+      "excluded.provider",
+      "excluded.session_id",
+      "excluded.verified_at",
+      "installation_id",
+      "platform",
+      "provider",
+      "revoked",
+      "session_id",
+      "verified_at"
+    ],
+    "sql": "INSERT INTO account_device_installation(installation_id,account_id,session_id,provider,platform,verified_at,revoked) VALUES($1,$2,$3,$4,$5,$6,false) ON CONFLICT(installation_id) DO UPDATE SET session_id=EXCLUDED.session_id,provider=EXCLUDED.provider,platform=EXCLUDED.platform,verified_at=EXCLUDED.verified_at,revoked=false"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/devices_http.go/HTTP.devicePut/4",
+    "file": "services/launchpad/user/internal/account/devices_http.go",
+    "function": "HTTP.devicePut",
+    "call": 4,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_endpoint"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count"
+    ],
+    "columns": [
+      "account_id",
+      "device_id"
+    ],
+    "sql": "SELECT count(*),count(*) FILTER(WHERE device_id=$2) FROM account_endpoint WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/devices_http.go/HTTP.devicePut/5",
+    "file": "services/launchpad/user/internal/account/devices_http.go",
+    "function": "HTTP.devicePut",
+    "call": 5,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_endpoint_proof"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sql": "INSERT INTO account_endpoint_proof VALUES($1,$2) ON CONFLICT DO NOTHING"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/devices_http.go/HTTP.devicePut/6",
+    "file": "services/launchpad/user/internal/account/devices_http.go",
+    "function": "HTTP.devicePut",
+    "call": 6,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "DELETE",
+    "tables": [
+      "users.account_endpoint"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "device_id"
+    ],
+    "sql": "DELETE FROM account_endpoint WHERE account_id=$1 AND device_id=$2"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/devices_http.go/HTTP.devicePut/7",
+    "file": "services/launchpad/user/internal/account/devices_http.go",
+    "function": "HTTP.devicePut",
+    "call": 7,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_endpoint"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "ciphertext",
+      "consent_revision",
+      "device_id",
+      "excluded.account_id",
+      "excluded.ciphertext",
+      "excluded.consent_revision",
+      "excluded.device_id",
+      "excluded.platform",
+      "excluded.provider",
+      "excluded.session_id",
+      "excluded.validated_at",
+      "fingerprint",
+      "platform",
+      "provider",
+      "revoked",
+      "session_id",
+      "validated_at"
+    ],
+    "sql": "INSERT INTO account_endpoint(fingerprint,account_id,ciphertext,platform,consent_revision,validated_at,revoked,device_id,provider,session_id) VALUES($1,$2,$3,$4,$5,$6,false,$7,$8,$9) ON CONFLICT(fingerprint) DO UPDATE SET account_id=EXCLUDED.account_id,ciphertext=EXCLUDED.ciphertext,platform=EXCLUDED.platform,consent_revision=EXCLUDED.consent_revision,validated_at=EXCLUDED.validated_at,revoked=false,device_id=EXCLUDED.device_id,provider=EXCLUDED.provider,session_id=EXCLUDED.session_id"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/devices_http.go/HTTP.deviceDelete/1",
+    "file": "services/launchpad/user/internal/account/devices_http.go",
+    "function": "HTTP.deviceDelete",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_device_installation"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "installation_id",
+      "revoked"
+    ],
+    "sql": "UPDATE account_device_installation SET revoked=true WHERE installation_id=$1 AND account_id=$2"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/devices_http.go/HTTP.deviceDelete/2",
+    "file": "services/launchpad/user/internal/account/devices_http.go",
+    "function": "HTTP.deviceDelete",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_endpoint"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "consent_revision",
+      "device_id",
+      "revoked"
+    ],
+    "sql": "UPDATE account_endpoint SET revoked=true,consent_revision=$3 WHERE account_id=$1 AND device_id=$2 AND NOT revoked"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/devices_http.go/Store.EndpointEligible/1",
+    "file": "services/launchpad/user/internal/account/devices_http.go",
+    "function": "Store.EndpointEligible",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_device_installation",
+      "users.account_endpoint",
+      "users.identity_accounts",
+      "users.identity_sessions",
+      "users.identity_wallet_links"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "a.account_id",
+      "a.auth_epoch",
+      "d.account_id",
+      "d.installation_id",
+      "d.revoked",
+      "d.session_id",
+      "d.verified_at",
+      "e.account_id",
+      "e.device_id",
+      "e.revoked",
+      "e.session_id",
+      "e.validated_at",
+      "s.access_expires_at",
+      "s.account_id",
+      "s.auth_epoch",
+      "s.revoked_at",
+      "s.session_id",
+      "s.wallet",
+      "w.account_id",
+      "w.chain_id",
+      "w.state",
+      "w.wallet"
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM account_endpoint e JOIN account_device_installation d ON d.installation_id=e.device_id AND d.account_id=e.account_id AND d.session_id=e.session_id JOIN identity_sessions s ON s.session_id=e.session_id AND s.account_id=e.account_id JOIN identity_accounts a ON a.account_id=s.account_id JOIN identity_wallet_links w ON w.account_id=a.account_id AND w.wallet=s.wallet AND w.chain_id=125 AND w.state='verified' WHERE e.account_id=$1 AND e.device_id=$2 AND NOT e.revoked AND NOT d.revoked AND e.validated_at>$3 AND d.verified_at>$3 AND s.revoked_at IS NULL AND s.auth_epoch=a.auth_epoch AND s.access_expires_at>clock_timestamp())"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/devices_http.go/Store.Devices/1",
+    "file": "services/launchpad/user/internal/account/devices_http.go",
+    "function": "Store.Devices",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_endpoint"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "device_id",
+      "platform",
+      "provider",
+      "revoked",
+      "validated_at"
+    ],
+    "sql": "SELECT device_id,platform,provider,revoked,validated_at FROM account_endpoint WHERE account_id=$1 ORDER BY device_id"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/events.go/Store.ConsumeConsent/1",
+    "file": "services/launchpad/user/internal/account/events.go",
+    "function": "Store.ConsumeConsent",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_revision_inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "digest",
+      "event_id",
+      "revision"
+    ],
+    "sql": "INSERT INTO account_revision_inbox(event_id,digest,account_id,revision) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/events.go/Store.ConsumeConsent/2",
+    "file": "services/launchpad/user/internal/account/events.go",
+    "function": "Store.ConsumeConsent",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_revision_inbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "digest",
+      "event_id"
+    ],
+    "sql": "SELECT digest FROM account_revision_inbox WHERE event_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/events.go/Store.ConsumeConsent/3",
+    "file": "services/launchpad/user/internal/account/events.go",
+    "function": "Store.ConsumeConsent",
+    "call": 3,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_consent"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "category",
+      "channel",
+      "revision",
+      "revoke_revision"
+    ],
+    "sql": "SELECT revision,revoke_revision FROM account_consent WHERE account_id=$1 AND category=$2 AND channel=$3 FOR UPDATE"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/events.go/Store.ConsumeConsent/4",
+    "file": "services/launchpad/user/internal/account/events.go",
+    "function": "Store.ConsumeConsent",
+    "call": 4,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_consent"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "category",
+      "changed_at",
+      "channel",
+      "enabled",
+      "excluded.changed_at",
+      "excluded.enabled",
+      "excluded.revision",
+      "excluded.revoke_revision",
+      "revision",
+      "revoke_revision"
+    ],
+    "sql": "INSERT INTO account_consent VALUES($1,$2,$3,$4,'revision-consumer','1',$5,$6,$7) ON CONFLICT(account_id,category,channel) DO UPDATE SET enabled=EXCLUDED.enabled,revision=EXCLUDED.revision,revoke_revision=EXCLUDED.revoke_revision,changed_at=EXCLUDED.changed_at"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/events.go/Store.ConsumeConsent/5",
+    "file": "services/launchpad/user/internal/account/events.go",
+    "function": "Store.ConsumeConsent",
+    "call": 5,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "preferences",
+      "profile",
+      "revision",
+      "updated_at"
+    ],
+    "sql": "UPDATE account_state SET revision=$2,profile=$3,preferences=$4,updated_at=$5 WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/http.go/HTTP.profileGet/1",
+    "file": "services/launchpad/user/internal/account/http.go",
+    "function": "HTTP.profileGet",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "deleted",
+      "updated_at",
+      "wallet"
+    ],
+    "sql": "SELECT deleted,updated_at FROM account_state WHERE wallet=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/http.go/HTTP.ownedWallet/1",
+    "file": "services/launchpad/user/internal/account/http.go",
+    "function": "HTTP.ownedWallet",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "deleted",
+      "wallet"
+    ],
+    "sql": "SELECT wallet FROM account_state WHERE account_id=$1 AND NOT deleted"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/http.go/HTTP.watchSnapshot/1",
+    "file": "services/launchpad/user/internal/account/http.go",
+    "function": "HTTP.watchSnapshot",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_watch"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "added_at",
+      "alert_enabled",
+      "pool",
+      "revision"
+    ],
+    "sql": "SELECT pool,added_at,revision,alert_enabled FROM account_watch WHERE account_id=$1 ORDER BY added_at,pool LIMIT 501"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_http.go/HTTP.jobGet/1",
+    "file": "services/launchpad/user/internal/account/jobs_http.go",
+    "function": "HTTP.jobGet",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "expires_at",
+      "job_id",
+      "kind",
+      "payload",
+      "requested_at",
+      "state"
+    ],
+    "sql": "SELECT job_id,account_id,kind,state,requested_at,expires_at,payload FROM account_job WHERE job_id=$1 AND account_id=$2 AND kind=$3"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/Worker.claim/1",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "Worker.claim",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "fence",
+      "j.account_id",
+      "j.fence",
+      "j.job_id",
+      "j.kind",
+      "j.requested_at",
+      "j.state",
+      "job_id",
+      "lease_owner",
+      "lease_until",
+      "picked.job_id",
+      "requested_at",
+      "state"
+    ],
+    "sql": "WITH picked AS(SELECT job_id FROM account_job WHERE state IN('requested','preparing','processing','failed') AND (lease_until IS NULL OR lease_until<clock_timestamp()) ORDER BY requested_at,job_id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE account_job j SET lease_owner=$1,lease_until=clock_timestamp()+($2::bigint*interval '1 millisecond'),fence=j.fence+1,state=CASE WHEN j.kind='export' THEN 'preparing' ELSE 'processing' END FROM picked WHERE j.job_id=picked.job_id RETURNING j.job_id,j.account_id,j.kind,j.state,j.requested_at,j.fence"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/Worker.RunOnce/1",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "Worker.RunOnce",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "expires_at",
+      "kind",
+      "state"
+    ],
+    "sql": "UPDATE account_job SET state='expired' WHERE kind='export' AND state='ready' AND expires_at<=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/Worker.RunOnce/2",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "Worker.RunOnce",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "fence",
+      "job_id",
+      "lease_owner",
+      "lease_until",
+      "state"
+    ],
+    "sql": "UPDATE account_job SET state='failed',lease_until=NULL WHERE job_id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp()"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/Worker.prepareExport/1",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "Worker.prepareExport",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_job",
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "a.account_id",
+      "a.deleted",
+      "account_job.account_id",
+      "download_hash",
+      "expires_at",
+      "fence",
+      "job_id",
+      "lease_owner",
+      "lease_until",
+      "payload",
+      "state"
+    ],
+    "sql": "UPDATE account_job SET state='ready',payload=$4,expires_at=$5,download_hash=$6,lease_until=NULL WHERE job_id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() AND EXISTS(SELECT 1 FROM account_state a WHERE a.account_id=account_job.account_id AND NOT a.deleted)"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/Worker.processDeletion/1",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "Worker.processDeletion",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "fence",
+      "job_id",
+      "lease_owner",
+      "lease_until",
+      "payload"
+    ],
+    "sql": "SELECT payload FROM account_job WHERE job_id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp()"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/Worker.processDeletion/2",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "Worker.processDeletion",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "fence",
+      "job_id",
+      "lease_owner",
+      "lease_until",
+      "payload"
+    ],
+    "sql": "UPDATE account_job SET payload=$4 WHERE job_id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp()"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/Worker.processDeletion/3",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "Worker.processDeletion",
+    "call": 3,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "fence",
+      "job_id",
+      "lease_owner",
+      "lease_until",
+      "state"
+    ],
+    "sql": "UPDATE account_job SET state='completed',lease_until=NULL WHERE job_id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp()"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/Worker.PurgeExpiredExports/1",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "Worker.PurgeExpiredExports",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "job_id",
+      "kind",
+      "payload",
+      "requested_at"
+    ],
+    "sql": "SELECT job_id,payload FROM account_job WHERE kind='export' AND payload ? 'encryptedObject' AND (payload->>'retainUntil')::timestamptz <= $1 ORDER BY requested_at LIMIT $2"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/Worker.PurgeExpiredExports/2",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "Worker.PurgeExpiredExports",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "download_hash",
+      "job_id",
+      "payload",
+      "state"
+    ],
+    "sql": "UPDATE account_job SET state='expired',payload='{}',download_hash=NULL WHERE job_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/ImagePurger.DeleteAccount/1",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "ImagePurger.DeleteAccount",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "deleted",
+      "wallet"
+    ],
+    "sql": "SELECT wallet,deleted FROM account_state WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/ImagePurger.DeleteAccount/2",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "ImagePurger.DeleteAccount",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "job_id",
+      "kind",
+      "payload"
+    ],
+    "sql": "SELECT job_id,payload FROM account_job WHERE account_id=$1 AND kind='export' AND payload ? 'encryptedObject'"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/ImagePurger.DeleteAccount/3",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "ImagePurger.DeleteAccount",
+    "call": 3,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "download_hash",
+      "job_id",
+      "payload",
+      "state"
+    ],
+    "sql": "UPDATE account_job SET state='expired',payload='{}',download_hash=NULL WHERE job_id=$1 AND account_id=$2"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/ImagePurger.DeleteAccount/4",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "ImagePurger.DeleteAccount",
+    "call": 4,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.user_images"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.lower"
+    ],
+    "columns": [
+      "storage_key",
+      "wallet_address"
+    ],
+    "sql": "SELECT storage_key FROM users.user_images WHERE lower(wallet_address)=$1 ORDER BY storage_key"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/ImagePurger.DeleteAccount/5",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "ImagePurger.DeleteAccount",
+    "call": 5,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "DELETE",
+    "tables": [
+      "users.user_images"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.lower"
+    ],
+    "columns": [
+      "wallet_address"
+    ],
+    "sql": "DELETE FROM users.user_images WHERE lower(wallet_address)=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/ImagePurger.DeleteAccount/6",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "ImagePurger.DeleteAccount",
+    "call": 6,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "DELETE",
+    "tables": [
+      "users.user_profiles"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.lower"
+    ],
+    "columns": [
+      "wallet_address"
+    ],
+    "sql": "DELETE FROM users.user_profiles WHERE lower(wallet_address)=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/ImagePurger.DeleteAccount/7",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "ImagePurger.DeleteAccount",
+    "call": 7,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "DELETE",
+    "tables": [
+      "users.watchlists"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.lower"
+    ],
+    "columns": [
+      "wallet_address"
+    ],
+    "sql": "DELETE FROM users.watchlists WHERE lower(wallet_address)=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/ImagePurger.DeleteAccount/8",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "ImagePurger.DeleteAccount",
+    "call": 8,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "DELETE",
+    "tables": [
+      "users.account_endpoint"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id"
+    ],
+    "sql": "DELETE FROM account_endpoint WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/jobs_worker.go/NewConnectedHTTP/1",
+    "file": "services/launchpad/user/internal/account/jobs_worker.go",
+    "function": "NewConnectedHTTP",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_canonical_creations_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "pool"
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM indexer.indexer_canonical_creations_v1 WHERE pool=$1)"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/observability.go/Store.Stats/1",
+    "file": "services/launchpad/user/internal/account/observability.go",
+    "function": "Store.Stats",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count",
+      "pg_catalog.extract",
+      "pg_catalog.min"
+    ],
+    "columns": [
+      "kind",
+      "requested_at",
+      "state"
+    ],
+    "sql": "SELECT count(*) FILTER(WHERE kind='export'),count(*) FILTER(WHERE kind='deletion'),coalesce(extract(epoch FROM $1-min(requested_at) FILTER(WHERE kind='export'))::bigint,0),coalesce(extract(epoch FROM $1-min(requested_at) FILTER(WHERE kind='deletion'))::bigint,0),count(*) FILTER(WHERE kind='deletion' AND requested_at<$1-interval '30 days') FROM account_job WHERE state NOT IN('completed','expired','ready')"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/observability.go/Store.Stats/2",
+    "file": "services/launchpad/user/internal/account/observability.go",
+    "function": "Store.Stats",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_backfill",
+      "users.account_endpoint",
+      "users.account_watch"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count",
+      "pg_catalog.max"
+    ],
+    "columns": [
+      "account_id",
+      "n",
+      "state",
+      "validated_at"
+    ],
+    "sql": "SELECT (SELECT count(*) FROM account_endpoint WHERE validated_at<$1::timestamptz-interval '30 days'),(SELECT count(*) FROM account_backfill WHERE state='quarantined'),coalesce((SELECT max(n) FROM(SELECT count(*) n FROM account_watch GROUP BY account_id) sizes),0)"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/preferences_http.go/Store.PatchExtendedPreferences/1",
+    "file": "services/launchpad/user/internal/account/preferences_http.go",
+    "function": "Store.PatchExtendedPreferences",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_consent"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "category",
+      "channel",
+      "revoke_revision"
+    ],
+    "sql": "SELECT revoke_revision FROM account_consent WHERE account_id=$1 AND category=$2 AND channel=$3"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/preferences_http.go/Store.PatchExtendedPreferences/2",
+    "file": "services/launchpad/user/internal/account/preferences_http.go",
+    "function": "Store.PatchExtendedPreferences",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_consent"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "category",
+      "changed_at",
+      "channel",
+      "enabled",
+      "excluded.changed_at",
+      "excluded.enabled",
+      "excluded.policy_version",
+      "excluded.revision",
+      "excluded.revoke_revision",
+      "excluded.source",
+      "policy_version",
+      "revision",
+      "revoke_revision",
+      "source"
+    ],
+    "sql": "INSERT INTO account_consent VALUES($1,$2,$3,$4,'settings','1',$5,$6,$7) ON CONFLICT(account_id,category,channel) DO UPDATE SET enabled=EXCLUDED.enabled,source=EXCLUDED.source,policy_version=EXCLUDED.policy_version,revision=EXCLUDED.revision,revoke_revision=EXCLUDED.revoke_revision,changed_at=EXCLUDED.changed_at"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/preferences_http.go/HTTP.GatewayHandler/1",
+    "file": "services/launchpad/user/internal/account/preferences_http.go",
+    "function": "HTTP.GatewayHandler",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_idempotency"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "digest",
+      "expires_at",
+      "key",
+      "method",
+      "path",
+      "result"
+    ],
+    "sql": "SELECT digest,result,expires_at FROM account_idempotency WHERE account_id=$1 AND method=$2 AND path=$3 AND key=$4"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/preferences_http.go/HTTP.GatewayHandler/2",
+    "file": "services/launchpad/user/internal/account/preferences_http.go",
+    "function": "HTTP.GatewayHandler",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_idempotency"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "digest",
+      "excluded.digest",
+      "excluded.expires_at",
+      "excluded.result",
+      "expires_at",
+      "key",
+      "method",
+      "path",
+      "result"
+    ],
+    "sql": "INSERT INTO account_idempotency VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(account_id,method,path,key) DO UPDATE SET digest=EXCLUDED.digest,result=EXCLUDED.result,expires_at=EXCLUDED.expires_at"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/preferences_http.go/Store.PublicPresentation/1",
+    "file": "services/launchpad/user/internal/account/preferences_http.go",
+    "function": "Store.PublicPresentation",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "deleted",
+      "profile",
+      "wallet"
+    ],
+    "sql": "SELECT profile,deleted FROM account_state WHERE wallet=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/preferences_http.go/Store.PublicPresentation/2",
+    "file": "services/launchpad/user/internal/account/preferences_http.go",
+    "function": "Store.PublicPresentation",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "indexer.indexer_canonical_creations_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.to_timestamp"
+    ],
+    "columns": [
+      "block_timestamp",
+      "creator",
+      "height",
+      "log_index",
+      "pool",
+      "token",
+      "transaction_index"
+    ],
+    "sql": "SELECT pool,token,to_timestamp(block_timestamp) FROM indexer.indexer_canonical_creations_v1 WHERE creator=$1 ORDER BY height DESC,transaction_index DESC,log_index DESC LIMIT 100"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/preferences_http.go/Store.ensureIdentityAccount/1",
+    "file": "services/launchpad/user/internal/account/preferences_http.go",
+    "function": "Store.ensureIdentityAccount",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/preferences_http.go/Store.ensureIdentityAccount/2",
+    "file": "services/launchpad/user/internal/account/preferences_http.go",
+    "function": "Store.ensureIdentityAccount",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id"
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM account_state WHERE account_id=$1)"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/preferences_http.go/Store.ensureIdentityAccount/3",
+    "file": "services/launchpad/user/internal/account/preferences_http.go",
+    "function": "Store.ensureIdentityAccount",
+    "call": 3,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_consent",
+      "users.account_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "kind"
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM account_outbox WHERE account_id=$1 AND kind IN ('preferences.updated','consent.updated')) OR EXISTS(SELECT 1 FROM account_consent WHERE account_id=$1)"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/preferences_http.go/Store.ensureIdentityAccount/4",
+    "file": "services/launchpad/user/internal/account/preferences_http.go",
+    "function": "Store.ensureIdentityAccount",
+    "call": 4,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "preferences",
+      "updated_at"
+    ],
+    "sql": "UPDATE account_state SET preferences=$2,updated_at=$3 WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/preferences_http.go/Store.ensureIdentityAccount/5",
+    "file": "services/launchpad/user/internal/account/preferences_http.go",
+    "function": "Store.ensureIdentityAccount",
+    "call": 5,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.identity_wallet_links"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "link_id",
+      "linked_at",
+      "state",
+      "wallet"
+    ],
+    "sql": "SELECT wallet FROM identity_wallet_links WHERE account_id=$1 AND state='verified' ORDER BY linked_at,link_id LIMIT 1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/preferences_http.go/Store.ensureIdentityAccount/6",
+    "file": "services/launchpad/user/internal/account/preferences_http.go",
+    "function": "Store.ensureIdentityAccount",
+    "call": 6,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "preferences",
+      "profile",
+      "wallet"
+    ],
+    "sql": "INSERT INTO account_state(account_id,wallet,profile,preferences) VALUES($1,$2,$3,$4) ON CONFLICT(account_id) DO NOTHING"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/preferences_http.go/HTTP.extendedPreferencesGet/1",
+    "file": "services/launchpad/user/internal/account/preferences_http.go",
+    "function": "HTTP.extendedPreferencesGet",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_consent"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "category",
+      "changed_at",
+      "channel",
+      "enabled",
+      "policy_version",
+      "revision",
+      "revoke_revision",
+      "source"
+    ],
+    "sql": "SELECT category,channel,enabled,source,policy_version,revision,revoke_revision,changed_at FROM account_consent WHERE account_id=$1 ORDER BY category,channel"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.BindEndpoint/1",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.BindEndpoint",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_endpoint_proof"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sql": "INSERT INTO account_endpoint_proof VALUES($1,$2) ON CONFLICT DO NOTHING"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.BindEndpoint/2",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.BindEndpoint",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_endpoint"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "ciphertext",
+      "consent_revision",
+      "excluded.account_id",
+      "excluded.ciphertext",
+      "excluded.consent_revision",
+      "excluded.platform",
+      "excluded.validated_at",
+      "fingerprint",
+      "platform",
+      "revoked",
+      "validated_at"
+    ],
+    "sql": "INSERT INTO account_endpoint VALUES($1,$2,$3,$4,$5,$6,false) ON CONFLICT(fingerprint) DO UPDATE SET account_id=EXCLUDED.account_id,ciphertext=EXCLUDED.ciphertext,platform=EXCLUDED.platform,consent_revision=EXCLUDED.consent_revision,validated_at=EXCLUDED.validated_at,revoked=false"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.RevokeEndpoint/1",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.RevokeEndpoint",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_endpoint"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "fingerprint",
+      "revoked"
+    ],
+    "sql": "UPDATE account_endpoint SET revoked=true WHERE fingerprint=$1 AND account_id=$2"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.deletionMutation/1/1",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.deletionMutation",
+    "call": 1,
+    "bindings": {
+      "table": "account_watch"
+    },
+    "role": "users_runtime",
+    "kind": "DELETE",
+    "tables": [
+      "users.account_watch"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id"
+    ],
+    "sql": "DELETE FROM account_watch WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.deletionMutation/1/2",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.deletionMutation",
+    "call": 1,
+    "bindings": {
+      "table": "account_consent"
+    },
+    "role": "users_runtime",
+    "kind": "DELETE",
+    "tables": [
+      "users.account_consent"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id"
+    ],
+    "sql": "DELETE FROM account_consent WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.deletionMutation/1/3",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.deletionMutation",
+    "call": 1,
+    "bindings": {
+      "table": "account_endpoint"
+    },
+    "role": "users_runtime",
+    "kind": "DELETE",
+    "tables": [
+      "users.account_endpoint"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id"
+    ],
+    "sql": "DELETE FROM account_endpoint WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.deletionMutation/1/4",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.deletionMutation",
+    "call": 1,
+    "bindings": {
+      "table": "account_device_installation"
+    },
+    "role": "users_runtime",
+    "kind": "DELETE",
+    "tables": [
+      "users.account_device_installation"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id"
+    ],
+    "sql": "DELETE FROM account_device_installation WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.deletionMutation/1/5",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.deletionMutation",
+    "call": 1,
+    "bindings": {
+      "table": "account_idempotency"
+    },
+    "role": "users_runtime",
+    "kind": "DELETE",
+    "tables": [
+      "users.account_idempotency"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id"
+    ],
+    "sql": "DELETE FROM account_idempotency WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.deletionMutation/2",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.deletionMutation",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "job_id",
+      "kind",
+      "payload",
+      "requested_at",
+      "state"
+    ],
+    "sql": "INSERT INTO account_job(job_id,account_id,kind,state,requested_at,payload) VALUES($1,$2,'deletion','processing',$3,$4)"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.RequestDeletionOperation/1",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.RequestDeletionOperation",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "users.consume_account_deletion_reauth"
+    ],
+    "columns": [],
+    "sql": "SELECT users.consume_account_deletion_reauth($1,$2,$3)"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.RequestDeletionOperation/2",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.RequestDeletionOperation",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "wallet"
+    ],
+    "sql": "SELECT wallet FROM account_state WHERE account_id=$1 FOR UPDATE"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.RequestDeletionOperation/3",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.RequestDeletionOperation",
+    "call": 3,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_idempotency"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "digest",
+      "expires_at",
+      "key",
+      "method",
+      "path",
+      "result"
+    ],
+    "sql": "SELECT digest,result,expires_at FROM account_idempotency WHERE account_id=$1 AND method=$2 AND path=$3 AND key=$4"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.RequestDeletionOperation/4",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.RequestDeletionOperation",
+    "call": 4,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "users.revoke_account_sessions"
+    ],
+    "columns": [],
+    "sql": "SELECT users.revoke_account_sessions($1)"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.RequestDeletionOperation/5",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.RequestDeletionOperation",
+    "call": 5,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "revision"
+    ],
+    "sql": "SELECT revision FROM account_state WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.RequestDeletionOperation/6",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.RequestDeletionOperation",
+    "call": 6,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_idempotency"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "digest",
+      "excluded.digest",
+      "excluded.expires_at",
+      "excluded.result",
+      "expires_at",
+      "key",
+      "method",
+      "path",
+      "result"
+    ],
+    "sql": "INSERT INTO account_idempotency VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(account_id,method,path,key) DO UPDATE SET digest=EXCLUDED.digest,result=EXCLUDED.result,expires_at=EXCLUDED.expires_at"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.RequestExport/1",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.RequestExport",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "job_id",
+      "kind",
+      "payload",
+      "requested_at",
+      "state"
+    ],
+    "sql": "INSERT INTO account_job(job_id,account_id,kind,state,requested_at,payload) VALUES($1,$2,'export','requested',$3,'{}')"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.ExportSnapshot/1",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.ExportSnapshot",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_watch"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "added_at",
+      "alert_enabled",
+      "pool",
+      "revision"
+    ],
+    "sql": "SELECT pool,added_at,revision,alert_enabled FROM account_watch WHERE account_id=$1 ORDER BY added_at,pool LIMIT 500"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.ExportSnapshot/2",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.ExportSnapshot",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_consent"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "category",
+      "changed_at",
+      "channel",
+      "enabled",
+      "policy_version",
+      "revision",
+      "revoke_revision",
+      "source"
+    ],
+    "sql": "SELECT category,channel,enabled,source,policy_version,revision,revoke_revision,changed_at FROM account_consent WHERE account_id=$1 ORDER BY category,channel"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.ReadyExport/1",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.ReadyExport",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "download_hash",
+      "expires_at",
+      "job_id",
+      "kind",
+      "payload",
+      "state"
+    ],
+    "sql": "UPDATE account_job SET state='ready',expires_at=$2,download_hash=$3,payload=$4 WHERE job_id=$1 AND kind='export' AND state IN ('requested','preparing','failed')"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/postgresExportDownloadRecords.update/1",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "postgresExportDownloadRecords.update",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_job",
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "a.account_id",
+      "a.deleted",
+      "j.account_id",
+      "j.consumed_at",
+      "j.download_hash",
+      "j.expires_at",
+      "j.fence",
+      "j.job_id",
+      "j.kind",
+      "j.lease_owner",
+      "j.lease_until",
+      "j.payload",
+      "j.state"
+    ],
+    "sql": "SELECT j.payload,j.expires_at,j.download_hash,j.consumed_at,j.lease_owner,j.lease_until,j.fence,j.state,a.deleted FROM account_job j JOIN account_state a ON a.account_id=j.account_id WHERE j.job_id=$1 AND j.account_id=$2 AND j.kind='export' FOR UPDATE OF a,j"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/postgresExportDownloadRecords.update/2",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "postgresExportDownloadRecords.update",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "consumed_at",
+      "fence",
+      "job_id",
+      "lease_owner",
+      "lease_until"
+    ],
+    "sql": "UPDATE account_job SET consumed_at=$2,lease_owner=$3,lease_until=$4,fence=$5 WHERE job_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.AckDeletion/1",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.AckDeletion",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "job_id",
+      "kind",
+      "payload",
+      "state"
+    ],
+    "sql": "SELECT payload FROM account_job WHERE job_id=$1 AND kind='deletion' AND state='processing' FOR UPDATE"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.AckDeletion/2",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.AckDeletion",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_job"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "job_id",
+      "payload",
+      "state"
+    ],
+    "sql": "UPDATE account_job SET state=$2,payload=$3 WHERE job_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.Backfill/1",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.Backfill",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.Backfill/2",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.Backfill",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.Backfill/3",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.Backfill",
+    "call": 3,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "wallet"
+    ],
+    "sql": "SELECT account_id FROM account_state WHERE wallet=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.Backfill/4",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.Backfill",
+    "call": 4,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_backfill"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "source_hash",
+      "source_key",
+      "state"
+    ],
+    "sql": "SELECT source_hash,account_id,state FROM account_backfill WHERE source_key=$1 FOR UPDATE"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.Backfill/5",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.Backfill",
+    "call": 5,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "preferences",
+      "profile",
+      "wallet"
+    ],
+    "sql": "INSERT INTO account_state(account_id,wallet,profile,preferences) VALUES($1,$2,$3,$4) ON CONFLICT(account_id) DO NOTHING"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.Backfill/6",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.Backfill",
+    "call": 6,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "wallet"
+    ],
+    "sql": "SELECT wallet FROM account_state WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/privacy.go/Store.Backfill/7",
+    "file": "services/launchpad/user/internal/account/privacy.go",
+    "function": "Store.Backfill",
+    "call": 7,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_backfill"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_backfill.state",
+      "excluded.reason",
+      "excluded.state",
+      "reason",
+      "source_key",
+      "state"
+    ],
+    "sql": "INSERT INTO account_backfill VALUES($1,$2,$3,$4,$5) ON CONFLICT(source_key) DO UPDATE SET state=CASE WHEN account_backfill.state='quarantined' THEN 'quarantined' ELSE EXCLUDED.state END,reason=EXCLUDED.reason"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/load/1",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "load",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "deleted",
+      "preferences",
+      "profile",
+      "revision",
+      "wallet"
+    ],
+    "sql": "SELECT wallet,revision,deleted,profile,preferences FROM account_state WHERE account_id=$1 FOR UPDATE"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/Store.Create/1",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "Store.Create",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "preferences",
+      "profile",
+      "wallet"
+    ],
+    "sql": "INSERT INTO account_state(account_id,wallet,profile,preferences) VALUES($1,$2,$3,$4)"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/emitIdentity/1",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "emitIdentity",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "event_id",
+      "kind",
+      "payload",
+      "revision"
+    ],
+    "sql": "INSERT INTO account_outbox(event_id,account_id,revision,kind,payload) VALUES($1,$2,$3,$4,$5) ON CONFLICT(event_id) DO NOTHING"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/emitIdentity/2",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "emitIdentity",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "event_id",
+      "kind",
+      "payload",
+      "revision"
+    ],
+    "sql": "SELECT account_id=$2 AND revision=$3 AND kind=$4 AND payload=$5::jsonb FROM account_outbox WHERE event_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/Store.mutateTx/1",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "Store.mutateTx",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "deleted",
+      "preferences",
+      "profile",
+      "revision",
+      "updated_at"
+    ],
+    "sql": "UPDATE account_state SET revision=$2,profile=$3,preferences=$4,deleted=$5,updated_at=$6 WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/Store.Public/1",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "Store.Public",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "deleted",
+      "profile",
+      "revision",
+      "wallet"
+    ],
+    "sql": "SELECT profile,deleted,revision FROM account_state WHERE wallet=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/Store.ReadPreferences/1",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "Store.ReadPreferences",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "deleted",
+      "preferences"
+    ],
+    "sql": "SELECT preferences FROM account_state WHERE account_id=$1 AND NOT deleted"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/Store.PutWatch/1",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "Store.PutWatch",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_watch"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "alert_enabled",
+      "chain_id",
+      "pool"
+    ],
+    "sql": "SELECT alert_enabled FROM account_watch WHERE account_id=$1 AND chain_id=125 AND pool=$2"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/Store.PutWatch/2",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "Store.PutWatch",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_watch"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "alert_enabled",
+      "chain_id",
+      "pool",
+      "revision"
+    ],
+    "sql": "UPDATE account_watch SET alert_enabled=$3,revision=$4 WHERE account_id=$1 AND pool=$2 AND chain_id=125"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/Store.PutWatch/3",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "Store.PutWatch",
+    "call": 3,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_watch"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count"
+    ],
+    "columns": [
+      "account_id"
+    ],
+    "sql": "SELECT count(*) FROM account_watch WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/Store.PutWatch/4",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "Store.PutWatch",
+    "call": 4,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_watch"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sql": "INSERT INTO account_watch VALUES($1,125,$2,$3,$4,$5)"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/Store.DeleteWatch/1",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "Store.DeleteWatch",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "DELETE",
+    "tables": [
+      "users.account_watch"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "chain_id",
+      "pool"
+    ],
+    "sql": "DELETE FROM account_watch WHERE account_id=$1 AND chain_id=125 AND pool=$2"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/Store.Watches/1",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "Store.Watches",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_watch"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "added_at",
+      "alert_enabled",
+      "pool",
+      "revision"
+    ],
+    "sql": "SELECT pool,added_at,revision,alert_enabled FROM account_watch WHERE account_id=$1 AND (added_at,pool)>($2,$3) ORDER BY added_at,pool LIMIT $4"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/Store.SetConsent/1",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "Store.SetConsent",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_consent"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "category",
+      "channel",
+      "revision",
+      "revoke_revision"
+    ],
+    "sql": "SELECT revision,revoke_revision FROM account_consent WHERE account_id=$1 AND category=$2 AND channel=$3"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/Store.SetConsent/2",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "Store.SetConsent",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_consent"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "category",
+      "changed_at",
+      "channel",
+      "enabled",
+      "excluded.changed_at",
+      "excluded.enabled",
+      "excluded.policy_version",
+      "excluded.revision",
+      "excluded.revoke_revision",
+      "excluded.source",
+      "policy_version",
+      "revision",
+      "revoke_revision",
+      "source"
+    ],
+    "sql": "INSERT INTO account_consent VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(account_id,category,channel) DO UPDATE SET enabled=EXCLUDED.enabled,source=EXCLUDED.source,policy_version=EXCLUDED.policy_version,revision=EXCLUDED.revision,revoke_revision=EXCLUDED.revoke_revision,changed_at=EXCLUDED.changed_at"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/Store.Eligible/1",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "Store.Eligible",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_consent",
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "a.deleted",
+      "c.account_id",
+      "c.category",
+      "c.channel",
+      "c.enabled",
+      "c.revision"
+    ],
+    "sql": "SELECT c.enabled,c.revision FROM account_consent c JOIN account_state a USING(account_id) WHERE c.account_id=$1 AND c.category=$2 AND c.channel=$3 AND NOT a.deleted"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/Store.Idempotent/1",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "Store.Idempotent",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_idempotency"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "digest",
+      "expires_at",
+      "key",
+      "method",
+      "path",
+      "result"
+    ],
+    "sql": "SELECT digest,result,expires_at FROM account_idempotency WHERE account_id=$1 AND method=$2 AND path=$3 AND key=$4"
+  },
+  {
+    "id": "services/launchpad/user/internal/account/store.go/Store.Idempotent/2",
+    "file": "services/launchpad/user/internal/account/store.go",
+    "function": "Store.Idempotent",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.account_idempotency"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "digest",
+      "excluded.digest",
+      "excluded.expires_at",
+      "excluded.result",
+      "expires_at",
+      "key",
+      "method",
+      "path",
+      "result"
+    ],
+    "sql": "INSERT INTO account_idempotency VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(account_id,method,path,key) DO UPDATE SET digest=EXCLUDED.digest,result=EXCLUDED.result,expires_at=EXCLUDED.expires_at RETURNING result"
+  },
+  {
+    "id": "services/launchpad/user/internal/app/app.go/accountAssetsAuthority.DeleteAccount/1",
+    "file": "services/launchpad/user/internal/app/app.go",
+    "function": "accountAssetsAuthority.DeleteAccount",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "deleted",
+      "wallet"
+    ],
+    "sql": "SELECT wallet,deleted FROM account_state WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/app/app.go/accountImageDeletionOwner.DeleteAccount/1",
+    "file": "services/launchpad/user/internal/app/app.go",
+    "function": "accountImageDeletionOwner.DeleteAccount",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "wallet"
+    ],
+    "sql": "SELECT wallet FROM account_state WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/app/app.go/accountNotificationAuthority/1",
+    "file": "services/launchpad/user/internal/app/app.go",
+    "function": "accountNotificationAuthority",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_device_installation",
+      "users.account_endpoint",
+      "users.account_state",
+      "users.identity_accounts",
+      "users.identity_sessions",
+      "users.identity_wallet_links"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "a.deleted",
+      "a.revision",
+      "e.account_id",
+      "e.ciphertext",
+      "e.consent_revision",
+      "e.device_id",
+      "e.fingerprint",
+      "e.provider",
+      "e.revoked",
+      "e.session_id",
+      "e.validated_at",
+      "i.account_id",
+      "i.installation_id",
+      "i.revoked",
+      "i.session_id",
+      "i.verified_at",
+      "ia.account_id",
+      "ia.auth_epoch",
+      "s.access_expires_at",
+      "s.account_id",
+      "s.auth_epoch",
+      "s.revoked_at",
+      "s.session_id",
+      "s.wallet",
+      "w.account_id",
+      "w.chain_id",
+      "w.state",
+      "w.wallet"
+    ],
+    "sql": "SELECT e.provider,e.fingerprint,e.ciphertext,e.consent_revision,e.validated_at,a.revision,\n\t\t\tcoalesce(NOT e.revoked AND NOT i.revoked AND e.validated_at>$3 AND i.verified_at>$3 AND i.session_id=e.session_id AND EXISTS(\n\t\t\t\tSELECT 1 FROM identity_sessions s\n\t\t\t\tJOIN identity_accounts ia ON ia.account_id=s.account_id\n\t\t\t\tJOIN identity_wallet_links w ON w.account_id=ia.account_id AND w.wallet=s.wallet AND w.chain_id=125 AND w.state='verified'\n\t\t\t\tWHERE s.session_id=e.session_id AND s.account_id=e.account_id AND s.revoked_at IS NULL\n\t\t\t\tAND s.auth_epoch=ia.auth_epoch AND s.access_expires_at>clock_timestamp()),false)\n\t\t\tFROM account_endpoint e JOIN account_state a USING(account_id)\n\t\t\tLEFT JOIN account_device_installation i ON i.installation_id=e.device_id AND i.account_id=e.account_id\n\t\t\tWHERE e.account_id=$1 AND e.device_id=$2 AND NOT a.deleted"
+  },
+  {
+    "id": "services/launchpad/user/internal/app/app.go/accountNotificationAuthority/2",
+    "file": "services/launchpad/user/internal/app/app.go",
+    "function": "accountNotificationAuthority",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_consent"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "category",
+      "channel",
+      "enabled"
+    ],
+    "sql": "SELECT category,channel,enabled FROM account_consent WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/app/app.go/accountNotificationAuthority/3",
+    "file": "services/launchpad/user/internal/app/app.go",
+    "function": "accountNotificationAuthority",
+    "call": 3,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.identity_wallet_links"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "chain_id",
+      "state"
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM identity_wallet_links WHERE account_id=$1 AND chain_id=125 AND state='verified')"
+  },
+  {
+    "id": "services/launchpad/user/internal/app/app.go/accountNotificationAuthority/4",
+    "file": "services/launchpad/user/internal/app/app.go",
+    "function": "accountNotificationAuthority",
+    "call": 4,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_endpoint",
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "a.deleted",
+      "e.account_id",
+      "e.device_id"
+    ],
+    "sql": "SELECT e.device_id FROM account_endpoint e JOIN account_state a USING(account_id) WHERE e.account_id=$1 AND NOT a.deleted ORDER BY e.device_id LIMIT 33"
+  },
+  {
+    "id": "services/launchpad/user/internal/app/app.go/accountNotificationAuthority/5",
+    "file": "services/launchpad/user/internal/app/app.go",
+    "function": "accountNotificationAuthority",
+    "call": 5,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_endpoint"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "consent_revision",
+      "device_id",
+      "fingerprint",
+      "revoked"
+    ],
+    "sql": "UPDATE account_endpoint SET revoked=true WHERE account_id=$1 AND device_id=$2 AND consent_revision=$3 AND fingerprint=$4"
+  },
+  {
+    "id": "services/launchpad/user/internal/app/app.go/accountNotificationAuthority/6",
+    "file": "services/launchpad/user/internal/app/app.go",
+    "function": "accountNotificationAuthority",
+    "call": 6,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.account_endpoint"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "revoked"
+    ],
+    "sql": "UPDATE account_endpoint SET revoked=true WHERE account_id=$1"
+  },
+  {
+    "id": "services/launchpad/user/internal/app/app.go/accountNotificationAuthority/7",
+    "file": "services/launchpad/user/internal/app/app.go",
+    "function": "accountNotificationAuthority",
+    "call": 7,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state",
+      "users.identity_wallet_links"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "a.deleted",
+      "l.account_id",
+      "l.chain_id",
+      "l.state"
+    ],
+    "sql": "SELECT EXISTS(SELECT 1 FROM identity_wallet_links l JOIN account_state a USING(account_id) WHERE l.account_id=$1 AND l.chain_id=125 AND l.state='verified' AND NOT a.deleted)"
+  },
+  {
+    "id": "services/launchpad/user/internal/app/app.go/accountNotificationAuthority/8",
+    "file": "services/launchpad/user/internal/app/app.go",
+    "function": "accountNotificationAuthority",
+    "call": 8,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "deleted",
+      "revision"
+    ],
+    "sql": "SELECT revision FROM account_state WHERE account_id=$1 AND NOT deleted"
+  },
+  {
+    "id": "services/launchpad/user/internal/app/app.go/accountNotificationAuthority/9",
+    "file": "services/launchpad/user/internal/app/app.go",
+    "function": "accountNotificationAuthority",
+    "call": 9,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_watch"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "added_at",
+      "alert_enabled",
+      "pool"
+    ],
+    "sql": "SELECT pool,alert_enabled,added_at FROM account_watch WHERE account_id=$1 ORDER BY added_at,pool LIMIT 500"
+  },
+  {
+    "id": "services/launchpad/user/internal/app/app.go/accountNotificationAuthority/10",
+    "file": "services/launchpad/user/internal/app/app.go",
+    "function": "accountNotificationAuthority",
+    "call": 10,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.account_state",
+      "users.identity_wallet_links"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "a.deleted",
+      "a.wallet",
+      "l.account_id",
+      "l.chain_id",
+      "l.state",
+      "l.visibility",
+      "l.wallet"
+    ],
+    "sql": "SELECT l.account_id::text,l.visibility FROM identity_wallet_links l JOIN account_state a USING(account_id) WHERE l.chain_id=125 AND l.wallet=$1 AND l.state='verified' AND NOT a.deleted AND a.wallet=l.wallet"
+  },
+  {
+    "id": "sdk/launchpad/shared/auth/contract.go/PostgresCommittedBlockProvider.CommittedBlock/1",
+    "file": "sdk/launchpad/shared/auth/contract.go",
+    "function": "PostgresCommittedBlockProvider.CommittedBlock",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.auth_committed_blocks"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "block_hash",
+      "chain_id",
+      "height",
+      "integrity"
+    ],
+    "sql": "SELECT height::text,block_hash,integrity FROM auth_committed_blocks AS heads WHERE chain_id=125 ORDER BY heads.height DESC LIMIT 1"
+  },
+  {
+    "id": "sdk/launchpad/shared/auth/ledger.go/Ledger.ExecuteValidatedTx/1",
+    "file": "sdk/launchpad/shared/auth/ledger.go",
+    "function": "Ledger.ExecuteValidatedTx",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.hashtextextended",
+      "pg_catalog.pg_advisory_xact_lock"
+    ],
+    "columns": [],
+    "sql": "SELECT pg_advisory_xact_lock(hashtextextended($1,0))"
+  },
+  {
+    "id": "sdk/launchpad/shared/auth/ledger.go/Ledger.ExecuteValidatedTx/2",
+    "file": "sdk/launchpad/shared/auth/ledger.go",
+    "function": "Ledger.ExecuteValidatedTx",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [],
+    "sql": "SELECT clock_timestamp()"
+  },
+  {
+    "id": "sdk/launchpad/shared/auth/ledger.go/Ledger.ExecuteValidatedTx/3",
+    "file": "sdk/launchpad/shared/auth/ledger.go",
+    "function": "Ledger.ExecuteValidatedTx",
+    "call": 3,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.operation_ledger"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "action",
+      "actor",
+      "body_digest",
+      "envelope_digest",
+      "nonce",
+      "response",
+      "response_digest"
+    ],
+    "sql": "SELECT envelope_digest,body_digest,response,response_digest FROM operation_ledger WHERE actor=$1 AND action=$2 AND nonce=$3"
+  },
+  {
+    "id": "sdk/launchpad/shared/auth/ledger.go/Ledger.ExecuteValidatedTx/4",
+    "file": "sdk/launchpad/shared/auth/ledger.go",
+    "function": "Ledger.ExecuteValidatedTx",
+    "call": 4,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.operation_ledger"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "action",
+      "actor",
+      "body_digest",
+      "envelope_digest",
+      "nonce",
+      "request_id",
+      "response",
+      "response_digest"
+    ],
+    "sql": "INSERT INTO operation_ledger(actor,action,nonce,envelope_digest,body_digest,request_id,response,response_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8)"
+  },
+  {
+    "id": "sdk/launchpad/shared/auth/ledger.go/AppendAudit/1",
+    "file": "sdk/launchpad/shared/auth/ledger.go",
+    "function": "AppendAudit",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.security_audit_outbox"
+    ],
+    "sequences": [
+      "users.security_audit_outbox_id_seq"
+    ],
+    "functions": [],
+    "columns": [
+      "action",
+      "actor_pseudonym",
+      "policy_version",
+      "request_digest",
+      "request_id",
+      "result"
+    ],
+    "sql": "INSERT INTO security_audit_outbox(request_id,actor_pseudonym,action,result,policy_version,request_digest) VALUES($1,$2,$3,$4,$5,$6)"
+  },
+  {
+    "id": "sdk/launchpad/shared/auth/http_authorization.go/PostgresIdentityResolver.Resolve/1",
+    "file": "sdk/launchpad/shared/auth/http_authorization.go",
+    "function": "PostgresIdentityResolver.Resolve",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.identity_accounts",
+      "users.identity_sessions",
+      "users.identity_wallet_links"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "a.account_id",
+      "a.auth_epoch",
+      "s.access_expires_at",
+      "s.auth_epoch",
+      "s.reauthenticated_at",
+      "s.revoked_at",
+      "s.session_id",
+      "s.wallet",
+      "w.account_id",
+      "w.chain_id",
+      "w.state",
+      "w.wallet"
+    ],
+    "sql": "SELECT a.account_id::text,s.session_id::text,s.wallet,s.auth_epoch,s.reauthenticated_at,s.access_expires_at FROM identity_sessions s JOIN identity_accounts a USING(account_id) JOIN identity_wallet_links w ON w.account_id=a.account_id AND w.wallet=s.wallet AND w.state='verified' WHERE s.session_id=$1 AND s.wallet=$2 AND s.auth_epoch=a.auth_epoch AND s.revoked_at IS NULL AND s.access_expires_at>clock_timestamp() AND w.chain_id=125"
+  },
+  {
+    "id": "sdk/launchpad/shared/auth/http_authorization.go/PostgresIdentityResolver.ResolveTx/1",
+    "file": "sdk/launchpad/shared/auth/http_authorization.go",
+    "function": "PostgresIdentityResolver.ResolveTx",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "users.identity_guard_v2"
+    ],
+    "columns": [
+      "access_expires_at",
+      "account_id",
+      "auth_epoch",
+      "proof_at",
+      "session_id",
+      "wallet"
+    ],
+    "sql": "SELECT account_id::text,session_id::text,wallet,auth_epoch,proof_at,access_expires_at FROM \"users\".\"identity_guard_v2\"($1::uuid,$2::text)"
+  },
+  {
+    "id": "sdk/launchpad/shared/auth/http_authorization.go/PostgresIdentityResolver.ResolveTx/2",
+    "file": "sdk/launchpad/shared/auth/http_authorization.go",
+    "function": "PostgresIdentityResolver.ResolveTx",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.identity_accounts",
+      "users.identity_sessions",
+      "users.identity_wallet_links"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "a.account_id",
+      "a.auth_epoch",
+      "s.access_expires_at",
+      "s.auth_epoch",
+      "s.reauthenticated_at",
+      "s.revoked_at",
+      "s.session_id",
+      "s.wallet",
+      "w.account_id",
+      "w.chain_id",
+      "w.state",
+      "w.wallet"
+    ],
+    "sql": "SELECT a.account_id::text,s.session_id::text,s.wallet,s.auth_epoch,s.reauthenticated_at,s.access_expires_at FROM identity_sessions s JOIN identity_accounts a USING(account_id) JOIN identity_wallet_links w ON w.account_id=a.account_id AND w.wallet=s.wallet AND w.state='verified' WHERE s.session_id=$1 AND s.wallet=$2 AND s.auth_epoch=a.auth_epoch AND s.revoked_at IS NULL AND s.access_expires_at>clock_timestamp() AND w.chain_id=125 FOR SHARE OF a,s,w"
+  },
+  {
+    "id": "sdk/launchpad/shared/delivery/store.go/Store.Enqueue/1",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.Enqueue",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "users.delivery_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "envelope",
+      "event_id",
+      "payload_hash",
+      "schema_version",
+      "subject"
+    ],
+    "sql": "INSERT INTO \"users\".delivery_outbox(event_id,schema_version,subject,payload_hash,envelope) VALUES($1,$2,$3,$4,$5) ON CONFLICT(event_id) DO NOTHING"
+  },
+  {
+    "id": "sdk/launchpad/shared/delivery/store.go/Store.Enqueue/2",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.Enqueue",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "users.delivery_outbox"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "envelope",
+      "event_id",
+      "subject"
+    ],
+    "sql": "SELECT subject,envelope FROM \"users\".delivery_outbox WHERE event_id=$1"
+  },
+  {
+    "id": "sdk/launchpad/shared/delivery/store.go/Store.Claim/1",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.Claim",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.delivery_outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "attempts",
+      "available_at",
+      "claimed_at",
+      "created_at",
+      "event_id",
+      "fence",
+      "lease_expiry_count",
+      "lease_owner",
+      "lease_until",
+      "o.attempts",
+      "o.envelope",
+      "o.event_id",
+      "o.fence",
+      "o.lease_expiry_count",
+      "o.lease_until",
+      "o.subject",
+      "picked.event_id",
+      "state"
+    ],
+    "sql": "WITH picked AS (SELECT event_id FROM \"users\".delivery_outbox WHERE state='pending' AND available_at<=clock_timestamp() AND (lease_until IS NULL OR lease_until<=clock_timestamp()) ORDER BY created_at,event_id FOR UPDATE SKIP LOCKED LIMIT $1)\n UPDATE \"users\".delivery_outbox o SET lease_expiry_count=o.lease_expiry_count+CASE WHEN o.lease_until<=clock_timestamp() THEN 1 ELSE 0 END,claimed_at=clock_timestamp(),lease_owner=$2,lease_until=clock_timestamp()+($3::bigint*interval '1 millisecond'),fence=o.fence+1,attempts=o.attempts+1 FROM picked WHERE o.event_id=picked.event_id RETURNING o.event_id,o.subject,o.envelope,o.fence,o.attempts"
+  },
+  {
+    "id": "sdk/launchpad/shared/delivery/store.go/Store.MarkPublished/1",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.MarkPublished",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.delivery_outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp",
+      "pg_catalog.extract"
+    ],
+    "columns": [
+      "acknowledgement_latency_ms",
+      "broker_sequence",
+      "broker_stream",
+      "claimed_at",
+      "event_id",
+      "failure_class",
+      "fence",
+      "lease_owner",
+      "lease_until",
+      "published_at",
+      "state"
+    ],
+    "sql": "UPDATE \"users\".delivery_outbox SET acknowledgement_latency_ms=GREATEST(0,EXTRACT(EPOCH FROM (clock_timestamp()-claimed_at))*1000)::bigint,state='published',broker_stream=$4,broker_sequence=$5,published_at=clock_timestamp(),lease_owner=NULL,lease_until=NULL,failure_class=NULL WHERE event_id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() AND state='pending'"
+  },
+  {
+    "id": "sdk/launchpad/shared/delivery/store.go/Store.Retry/1",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.Retry",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.delivery_outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "attempts",
+      "available_at",
+      "event_id",
+      "failure_class",
+      "fence",
+      "lease_owner",
+      "lease_until",
+      "state"
+    ],
+    "sql": "UPDATE \"users\".delivery_outbox SET state=CASE WHEN attempts >= $4 OR $5 <> 'transient' THEN 'quarantined' ELSE 'pending' END,failure_class=$5,available_at=clock_timestamp()+($6::bigint*interval '1 millisecond'),lease_owner=NULL,lease_until=NULL WHERE event_id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() AND state='pending'"
+  },
+  {
+    "id": "sdk/launchpad/shared/delivery/store.go/Store.CheckAttemptBudget/1",
+    "file": "sdk/launchpad/shared/delivery/store.go",
+    "function": "Store.CheckAttemptBudget",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "UPDATE",
+    "tables": [
+      "users.delivery_outbox"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "attempts",
+      "event_id",
+      "failure_class",
+      "fence",
+      "lease_owner",
+      "lease_until",
+      "state"
+    ],
+    "sql": "UPDATE \"users\".delivery_outbox SET state=CASE WHEN attempts>$4 THEN 'quarantined' ELSE state END,failure_class=CASE WHEN attempts>$4 THEN 'transient' ELSE failure_class END,lease_owner=CASE WHEN attempts>$4 THEN NULL ELSE lease_owner END,lease_until=CASE WHEN attempts>$4 THEN NULL ELSE lease_until END WHERE event_id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() AND state='pending' RETURNING attempts>$4"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations.go/CatalogFingerprint/1",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CatalogFingerprint",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_attrdef",
+      "pg_catalog.pg_attribute",
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_constraint",
+      "pg_catalog.pg_namespace",
+      "pg_catalog.pg_proc",
+      "pg_catalog.pg_trigger"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.concat_ws",
+      "pg_catalog.format_type",
+      "pg_catalog.pg_get_constraintdef",
+      "pg_catalog.pg_get_expr",
+      "pg_catalog.pg_get_function_identity_arguments",
+      "pg_catalog.pg_get_functiondef",
+      "pg_catalog.pg_get_indexdef",
+      "pg_catalog.pg_get_triggerdef",
+      "pg_catalog.pg_get_userbyid",
+      "pg_catalog.pg_get_viewdef"
+    ],
+    "columns": [
+      "a.attidentity",
+      "a.attisdropped",
+      "a.attname",
+      "a.attnotnull",
+      "a.attnum",
+      "a.attrelid",
+      "a.atttypid",
+      "a.atttypmod",
+      "c.oid",
+      "c.relforcerowsecurity",
+      "c.relkind",
+      "c.relname",
+      "c.relnamespace",
+      "c.relowner",
+      "c.relrowsecurity",
+      "d.adbin",
+      "d.adnum",
+      "d.adrelid",
+      "definition",
+      "identity",
+      "k.conname",
+      "k.conrelid",
+      "k.oid",
+      "kind",
+      "n.nspname",
+      "n.oid",
+      "p.oid",
+      "p.proname",
+      "p.pronamespace",
+      "p.proowner",
+      "t.oid",
+      "t.tgisinternal",
+      "t.tgname",
+      "t.tgrelid"
+    ],
+    "sql": "SELECT kind,identity,definition FROM (\n SELECT 'relation'::text kind,c.relname identity,concat_ws('|',c.relkind::text,pg_get_userbyid(c.relowner),c.relrowsecurity::text,c.relforcerowsecurity::text) definition FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind IN ('r','p','v','S')\n UNION ALL SELECT 'column',c.relname||'.'||a.attname,concat_ws('|',a.attnum::text,format_type(a.atttypid,a.atttypmod),a.attnotnull::text,a.attidentity::text,coalesce(pg_get_expr(d.adbin,d.adrelid),'')) FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_attrdef d ON d.adrelid=c.oid AND d.adnum=a.attnum WHERE n.nspname=$1 AND a.attnum>0 AND NOT a.attisdropped\n UNION ALL SELECT 'constraint',c.relname||'.'||k.conname,pg_get_constraintdef(k.oid,true) FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1\n UNION ALL SELECT 'index',c.relname,pg_get_indexdef(c.oid) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind='i'\n UNION ALL SELECT 'trigger',c.relname||'.'||t.tgname,pg_get_triggerdef(t.oid,true) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND NOT t.tgisinternal\n UNION ALL SELECT 'function',p.proname||'('||pg_get_function_identity_arguments(p.oid)||')',pg_get_functiondef(p.oid)||'|'||pg_get_userbyid(p.proowner) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1\n UNION ALL SELECT 'view',c.relname,pg_get_viewdef(c.oid,true) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind='v'\n ) catalog ORDER BY kind,identity,definition"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations.go/CheckReadiness/1",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "VARIABLESET",
+    "tables": [],
+    "sequences": [],
+    "functions": [],
+    "columns": [],
+    "sql": "SET LOCAL search_path TO public"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations.go/CheckReadiness/2",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace",
+      "pg_catalog.pg_roles"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_schema_privilege",
+      "pg_catalog.pg_has_role"
+    ],
+    "columns": [
+      "c.relnamespace",
+      "c.relowner",
+      "n.nspname",
+      "n.nspowner",
+      "n.oid",
+      "nspname",
+      "oid",
+      "r.oid",
+      "r.rolbypassrls",
+      "r.rolcreatedb",
+      "r.rolcreaterole",
+      "r.rolname",
+      "r.rolsuper"
+    ],
+    "sql": "SELECT current_user,r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolbypassrls OR EXISTS(SELECT 1 FROM pg_class c WHERE c.relowner=r.oid AND c.relnamespace NOT IN (SELECT oid FROM pg_namespace WHERE nspname LIKE 'pg_%')) OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname NOT LIKE 'pg_%' AND (pg_has_role(current_user,n.nspowner,'MEMBER') OR has_schema_privilege(current_user,n.oid,'CREATE'))) FROM pg_roles r WHERE r.rolname=current_user"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations.go/CheckReadiness/3",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "call": 3,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "migration_control.readiness"
+    ],
+    "columns": [
+      "interface_digest",
+      "migrations",
+      "reader_min_version",
+      "registry_digest"
+    ],
+    "sql": "SELECT registry_digest,interface_digest,reader_min_version,migrations FROM migration_control.readiness($1)"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations.go/CheckReadiness/4",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "call": 4,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_namespace"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_schema_privilege",
+      "pg_catalog.pg_has_role"
+    ],
+    "columns": [
+      "n.nspname",
+      "n.nspowner"
+    ],
+    "sql": "SELECT has_schema_privilege(current_user,$1,'CREATE') OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname=$1 AND pg_has_role(current_user,n.nspowner,'MEMBER'))"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations.go/CheckReadiness/5",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "CheckReadiness",
+    "call": 5,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "recovery.current_epoch"
+    ],
+    "columns": [
+      "epoch",
+      "region"
+    ],
+    "sql": "SELECT epoch,region FROM recovery.current_epoch()"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations.go/checkPrivilege/1",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkPrivilege",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_function_privilege"
+    ],
+    "columns": [],
+    "sql": "SELECT has_function_privilege($1,$2,$3)"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations.go/checkPrivilege/2",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkPrivilege",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_sequence_privilege"
+    ],
+    "columns": [],
+    "sql": "SELECT has_sequence_privilege($1,$2,$3)"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations.go/checkPrivilege/3",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkPrivilege",
+    "call": 3,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_column_privilege"
+    ],
+    "columns": [],
+    "sql": "SELECT has_column_privilege($1,$2,$3,$4)"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations.go/checkPrivilege/4",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkPrivilege",
+    "call": 4,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_table_privilege"
+    ],
+    "columns": [],
+    "sql": "SELECT has_table_privilege($1,$2,$3)"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations.go/checkUnexpectedPrivileges/1",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkUnexpectedPrivileges",
+    "call": 1,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_table_privilege"
+    ],
+    "columns": [
+      "c.oid",
+      "c.relkind",
+      "c.relname",
+      "c.relnamespace",
+      "n.nspname",
+      "n.oid",
+      "p.privilege"
+    ],
+    "sql": "SELECT n.nspname,c.relname,p.privilege,has_table_privilege($1,c.oid,p.privilege),has_table_privilege($1,c.oid,p.privilege||' WITH GRANT OPTION') FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('DELETE'),('TRUNCATE'),('REFERENCES'),('TRIGGER')) p(privilege) WHERE n.nspname=ANY($2) AND c.relkind IN ('r','p','v')"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations.go/checkUnexpectedPrivileges/2",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkUnexpectedPrivileges",
+    "call": 2,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_attribute",
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_column_privilege"
+    ],
+    "columns": [
+      "a.attisdropped",
+      "a.attname",
+      "a.attnum",
+      "a.attrelid",
+      "c.oid",
+      "c.relkind",
+      "c.relname",
+      "c.relnamespace",
+      "n.nspname",
+      "n.oid",
+      "p.privilege"
+    ],
+    "sql": "SELECT n.nspname,c.relname,a.attname,p.privilege,has_column_privilege($1,c.oid,a.attnum,p.privilege),has_column_privilege($1,c.oid,a.attnum,p.privilege||' WITH GRANT OPTION') FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('REFERENCES')) p(privilege) WHERE n.nspname=ANY($2) AND c.relkind IN ('r','p','v') AND a.attnum>0 AND NOT a.attisdropped"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations.go/checkUnexpectedPrivileges/3",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkUnexpectedPrivileges",
+    "call": 3,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_namespace",
+      "pg_catalog.pg_proc"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_function_privilege",
+      "pg_catalog.oidvectortypes"
+    ],
+    "columns": [
+      "n.nspname",
+      "n.oid",
+      "p.oid",
+      "p.proargtypes",
+      "p.proname",
+      "p.pronamespace"
+    ],
+    "sql": "SELECT n.nspname,p.proname,oidvectortypes(p.proargtypes),has_function_privilege($1,p.oid,'EXECUTE'),has_function_privilege($1,p.oid,'EXECUTE WITH GRANT OPTION') FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=ANY($2)"
+  },
+  {
+    "id": "sdk/launchpad/shared/db/production/migrations.go/checkUnexpectedPrivileges/4",
+    "file": "sdk/launchpad/shared/db/production/migrations.go",
+    "function": "checkUnexpectedPrivileges",
+    "call": 4,
+    "bindings": {},
+    "role": "users_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pg_catalog.pg_class",
+      "pg_catalog.pg_namespace"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.has_sequence_privilege"
+    ],
+    "columns": [
+      "c.oid",
+      "c.relkind",
+      "c.relname",
+      "c.relnamespace",
+      "n.nspname",
+      "n.oid",
+      "p.privilege"
+    ],
+    "sql": "SELECT n.nspname,c.relname,p.privilege,has_sequence_privilege($1,c.oid,p.privilege),has_sequence_privilege($1,c.oid,p.privilege||' WITH GRANT OPTION') FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN (VALUES ('USAGE'),('SELECT'),('UPDATE')) p(privilege) WHERE n.nspname=ANY($2) AND c.relkind='S'"
+  }
+]

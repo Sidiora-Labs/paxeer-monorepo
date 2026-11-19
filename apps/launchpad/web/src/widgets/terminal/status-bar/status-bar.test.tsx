@@ -1,3 +1,5 @@
+import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
+import { applyBrowserSurface } from '@/core/app-foundation/browser-surface.test-support';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
@@ -25,6 +27,7 @@ browserGlobals.CustomEvent = dom.window.CustomEvent;
 browserGlobals.window = dom.window;
 browserGlobals.document = dom.window.document;
 browserGlobals.IS_REACT_ACT_ENVIRONMENT = true;
+const closeBrowserSurface = applyBrowserSurface();
 
 type Seen = { method: string; url: string; headers: IncomingMessage['headers']; body: string };
 type Responder = (seen: Seen) => { status: number; body?: unknown };
@@ -227,7 +230,7 @@ describe('TerminalStatusBar', () => {
     expect(mounted.container.querySelector('a[href="https://t.me/Sidiorafunsupport"]')).not.toBeNull();
     expect(text).toContain('No wallet connected');
     expect(dialogs(mounted.container)).toHaveLength(0);
-    expect(mounted.container.innerHTML).not.toMatch(BORDER);
+    expect(assertControlEdges(mounted.container.innerHTML)).not.toMatch(BORDER);
     unmount(mounted);
   });
 
@@ -344,3 +347,5 @@ describe('TerminalStatusBar', () => {
     unmount(mounted);
   });
 });
+
+afterAll(closeBrowserSurface);

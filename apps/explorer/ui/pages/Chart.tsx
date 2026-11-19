@@ -195,8 +195,8 @@ const Chart = () => {
         secondRow={ info?.description || lineQuery.data?.info?.description }
         withTextAd
       />
-      <Flex alignItems="center" justifyContent="space-between">
-        <Flex alignItems="center" gap={{ base: 3, lg: 6 }} maxW="100%">
+      <Flex alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={ 3 } minW={ 0 }>
+        <Flex alignItems="center" gap={{ base: 3, lg: 6 }} maxW="100%" minW={ 0 } flexWrap="wrap">
           { multichainContext?.chain && (
             <ChainSelect
               value={ chainSelect.value }
@@ -219,9 +219,10 @@ const Chart = () => {
               <Select
                 collection={ resolutionCollection }
                 placeholder="Select resolution"
+                triggerProps={{ 'aria-label': 'Resolution' }}
                 defaultValue={ [ defaultResolution ] }
                 onValueChange={ onResolutionChange }
-                w={{ base: 'fit-content', lg: '160px' }}
+                w={{ base: 'fit-content', lg: 'var(--chakra-spacing-40)' }}
                 loading={ isInfoLoading }
               />
             </Flex>
@@ -230,6 +231,7 @@ const Chart = () => {
             <Button
               variant="link"
               onClick={ handleReset }
+              aria-label="Reset chart"
               display="flex"
               alignItems="center"
               gap={ 2 }
@@ -253,6 +255,7 @@ const Chart = () => {
                 variant="icon_background"
                 size="md"
                 boxSize={ 8 }
+                px={ 0 }
               />
             )
           )) }
@@ -275,7 +278,8 @@ const Chart = () => {
       <Flex
         ref={ ref }
         flexGrow={ 1 }
-        h="50vh"
+        h="50dvh"
+        minH="var(--chakra-spacing-65)"
         mt={ 3 }
         position="relative"
       >

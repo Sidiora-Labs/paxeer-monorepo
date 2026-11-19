@@ -92,7 +92,7 @@ describe.each([ 'light', 'dark' ] as const)('ScanMethodChip in %s appearance', (
     expect(declarations).toContain('min-height:26px');
     expect(declarations).toMatch(/padding-(?:block|top):2px/);
     expect(declarations).toMatch(/padding-(?:block|bottom):2px/);
-    expect(declarations).toContain('border-width:1px');
+    expect(declarations).toContain('border-width:var(--chakra-border-widths-1)');
     expect(declarations).toMatch(/(?:^|;)height:auto/);
     expect(declarations).not.toMatch(/(?:^|;)height:(?!auto(?:;|$))[^;]+/);
     expect(declarations).not.toMatch(/(?:^|;)max-height:/);

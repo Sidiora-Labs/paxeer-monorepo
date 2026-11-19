@@ -23,7 +23,7 @@ export const Fee: FC<FeeProps> = (props) => {
     });
   };
 
-  const showFeeQty = !!dstGasFee && dstGasFee !== "0";
+  const showFeeQty = props.showFeeQty || (!!dstGasFee && dstGasFee !== "0");
 
   return (
     <Text
@@ -33,12 +33,14 @@ export const Fee: FC<FeeProps> = (props) => {
       onClick={onShowFee}
     >
       {`${t("transfer.deposit.estGasFee")} ≈ `}
-      <Text size="2xs" intensity={80}>
-        $
-        <Text.numeral dp={2} padding={false} rm={Decimal.ROUND_UP}>
-          {feeAmount!}
-        </Text.numeral>{" "}
-      </Text>
+      {feeAmount !== undefined && (
+        <Text size="2xs" intensity={80}>
+          $
+          <Text.numeral dp={2} padding={false} rm={Decimal.ROUND_UP}>
+            {feeAmount!}
+          </Text.numeral>{" "}
+        </Text>
+      )}
       {showFeeQty && (
         <span>
           (

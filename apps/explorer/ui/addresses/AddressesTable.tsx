@@ -19,13 +19,18 @@ interface Props {
 }
 
 const AddressesTable = ({ items, totalSupply, pageStartIndex, isLoading }: Props) => {
-  const hasPercentage = !totalSupply.eq(ZERO);
+  const hasPercentage = isLoading || !totalSupply.eq(ZERO);
 
   return (
-    <TableRoot variant="scan" css={ LIST_TABLE_STYLES } data-addresses-table>
+    <TableRoot
+      variant="scan"
+      css={ LIST_TABLE_STYLES }
+      data-addresses-table
+      aria-label="Accounts by balance"
+    >
       <TableHeader>
         <TableRow>
-          <TableColumnHeader w="56px" isNumeric>#</TableColumnHeader>
+          <TableColumnHeader w={ 14 } isNumeric>#</TableColumnHeader>
           <TableColumnHeader w={ hasPercentage ? '32%' : '40%' }>Address</TableColumnHeader>
           <TableColumnHeader w={ hasPercentage ? '20%' : '22%' }>Name tag</TableColumnHeader>
           <TableColumnHeader w={ hasPercentage ? '22%' : '26%' } isNumeric>{ `Balance ${ currencyUnits.ether }` }</TableColumnHeader>

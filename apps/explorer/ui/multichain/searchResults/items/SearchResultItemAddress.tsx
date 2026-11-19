@@ -23,7 +23,7 @@ const SearchResultItemAddress = ({ data, isMobile }: Props) => {
     <SearchResultListItem
       href={ route({ pathname: '/address/[hash]', query: { hash: data.hash } }) }
     >
-      <Box w={{ base: '100%', lg: '200px' }}>
+      <Box w={{ base: '100%', lg: 'calc(var(--chakra-spacing-1) * 50)' }}>
         <AddressEntity
           address={{
             hash: data.hash,
@@ -33,11 +33,11 @@ const SearchResultItemAddress = ({ data, isMobile }: Props) => {
           truncation={ !isMobile ? 'constant' : 'dynamic' }
           noLink
           noCopy
-          fontWeight={{ base: '600', lg: '700' }}
+          fontWeight={{ base: 'semibold', lg: 'bold' }}
         />
       </Box>
       { contractName && (
-        <Box color="text.secondary" _groupHover={{ color: 'inherit' }} fontWeight={{ base: '400', lg: '500' }}>
+        <Box color="text.secondary" _groupHover={{ color: 'inherit' }} fontWeight={{ base: 'normal', lg: 'medium' }}>
           { contractName }
         </Box>
       ) }

@@ -75,7 +75,7 @@ export function HoldingsGrid({
 
       {holdings.length === 0 && (
         <>
-          <div className="bg-pax-surface rounded-[20px] p-4 flex items-center justify-center min-h-[110px]">
+          <div className="bg-pax-surface rounded-3xl p-4 flex items-center justify-center min-h-card-token">
             <p className="text-xs text-pax-muted">No tokens yet</p>
           </div>
           <div />
@@ -111,7 +111,7 @@ export function HoldingsGrid({
       ))}
 
       {hiddenCount > 0 && holdings.length > 0 && (
-        <div className="col-span-2 text-center text-[11px] text-pax-muted py-1">
+        <div className="col-span-2 text-center text-size-11 text-pax-muted py-1">
           {hiddenCount} token{hiddenCount > 1 ? 's' : ''} hidden by filter
         </div>
       )}

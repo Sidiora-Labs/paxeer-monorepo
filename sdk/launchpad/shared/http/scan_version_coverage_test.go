@@ -1,100 +1,56 @@
 package http
 
 import (
-	"bytes"
+	"bufio"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
+	"io"
 	"net"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 )
 
-func scannerServiceFixture(t *testing.T) (string, int, string) {
+func scannerServiceFixture(t *testing.T) (string, int, string, string) {
 	t.Helper()
-	root := t.TempDir()
-	for name, body := range map[string]string{"COPYING": "Public domain test signatures.\n", "daily.ndb": "Test.Eicar:0:*:45494341522d5354414e444152442d414e544956495255532d544553542d46494c45\n"} {
-		if err := os.WriteFile(filepath.Join(root, name), []byte(body), 0600); err != nil {
-			t.Fatal(err)
-		}
+	host := os.Getenv("CLAMAV_HOST")
+	port, err := strconv.Atoi(os.Getenv("CLAMAV_PORT"))
+	if host == "" || err != nil || port < 1 || port > 65535 {
+		t.Fatal("CLAMAV_HOST and CLAMAV_PORT must name a running scanner")
 	}
-	build := exec.Command("sigtool", "--build=daily.cud", "--unsigned", "--cvd-version=17", "--no-cdiff")
-	build.Dir = root
-	build.Stdin = strings.NewReader("test\n")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("signature database: %v %s", err, out)
-	}
-	// The compiled database contains the signature and its published revision.
-	for _, name := range []string{"daily.ndb", "daily.info"} {
-		if err := os.Remove(filepath.Join(root, name)); err != nil {
-			t.Fatal(err)
-		}
-	}
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	connection, err := net.DialTimeout("tcp", net.JoinHostPort(host, strconv.Itoa(port)), time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	if err := listener.Close(); err != nil {
+	defer connection.Close()
+	if err := connection.SetDeadline(time.Now().Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	config := filepath.Join(root, "clamd.conf")
-	raw := fmt.Sprintf("Foreground yes\nTCPSocket %d\nTCPAddr 127.0.0.1\nDatabaseDirectory %s\nOfficialDatabaseOnly no\n", port, root)
-	if err := os.WriteFile(config, []byte(raw), 0600); err != nil {
+	if _, err := io.WriteString(connection, "nVERSION\n"); err != nil {
 		t.Fatal(err)
 	}
-	command := exec.Command("clamd", "--config-file="+config)
-	var output bytes.Buffer
-	command.Stdout = &output
-	command.Stderr = &output
-	if err := command.Start(); err != nil {
-		t.Fatal(err)
+	version, err := bufio.NewReader(io.LimitReader(connection, 1025)).ReadString('\n')
+	if err != nil || len(version) > 1024 {
+		t.Fatalf("scanner version: %q: %v", version, err)
 	}
-	exited := make(chan error, 1)
-	go func() { exited <- command.Wait() }()
-	t.Cleanup(func() {
-		_ = command.Process.Kill()
-		select {
-		case <-exited:
-		case <-time.After(5 * time.Second):
-			t.Error("scanner did not stop")
-		}
-	})
-	deadline := time.Now().Add(15 * time.Second)
-	for {
-		connection, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), 100*time.Millisecond)
-		if err == nil {
-			_ = connection.Close()
-			break
-		}
-		select {
-		case err := <-exited:
-			exited <- err
-			t.Fatalf("scanner startup: %v %s", err, output.String())
-		default:
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("scanner startup deadline")
-		}
-		time.Sleep(20 * time.Millisecond)
+	parts := strings.Split(strings.TrimSuffix(version, "\n"), "/")
+	if len(parts) != 3 || !strings.HasPrefix(parts[0], "ClamAV ") || strings.TrimSpace(parts[2]) == "" {
+		t.Fatalf("scanner version: %q", version)
 	}
-	version, err := exec.Command("clamd", "--version").Output()
-	if err != nil {
-		t.Fatal(err)
+	revision, err := strconv.ParseUint(parts[1], 10, 64)
+	if err != nil || revision == 0 {
+		t.Fatalf("scanner signature revision: %q: %v", parts[1], err)
 	}
-	return "127.0.0.1", port, strings.TrimSpace(strings.SplitN(string(version), "/", 2)[0])
+	return host, port, parts[0], parts[1]
 }
 
 func TestScannerVersionBindsCleanScan(t *testing.T) {
-	host, port, engine := scannerServiceFixture(t)
+	host, port, engine, revision := scannerServiceFixture(t)
 	opts, err := ScannerVersion(context.Background(), ScanOptions{Host: host, Port: port, Timeout: time.Second})
-	if err != nil || opts.Engine != engine || opts.SignatureRevision != "17" || opts.Host != host || opts.Port != port {
+	if err != nil || opts.Engine != engine || opts.SignatureRevision != revision || opts.Host != host || opts.Port != port {
 		t.Fatalf("scanner authority: %+v, %v", opts, err)
 	}
 	payload := []byte("clean payload")
@@ -103,13 +59,13 @@ func TestScannerVersionBindsCleanScan(t *testing.T) {
 	if !result.Clean || result.Verdict != ScanClean || result.ContentHash != hex.EncodeToString(digest[:]) || result.Size != int64(len(payload)) || result.Engine != opts.Engine || result.SignatureRevision != opts.SignatureRevision {
 		t.Fatalf("version-bound clean scan: %+v", result)
 	}
-	infected := ScanVerifiedBuffer(context.Background(), []byte("EICAR-STANDARD-ANTIVIRUS-TEST-FILE"), ScanOptions{Host: host, Port: port, Timeout: time.Second})
+	infected := ScanVerifiedBuffer(context.Background(), []byte(`X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*`), ScanOptions{Host: host, Port: port, Timeout: time.Second})
 	if infected.Clean || infected.Verdict != ScanInfected || infected.Reason != "malware-detected" {
 		t.Fatalf("signature verdict: %+v", infected)
 	}
 	t.Setenv("CLAMAV_HOST", host)
 	t.Setenv("CLAMAV_PORT", strconv.Itoa(port))
-	if configured, err := ScannerVersion(context.Background(), ScanOptions{}); err != nil || configured.Engine != engine || configured.SignatureRevision != "17" {
+	if configured, err := ScannerVersion(context.Background(), ScanOptions{}); err != nil || configured.Engine != engine || configured.SignatureRevision != revision {
 		t.Fatalf("configured scanner: %+v %v", configured, err)
 	}
 }

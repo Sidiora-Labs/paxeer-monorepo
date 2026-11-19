@@ -2,12 +2,7 @@ import { FC, useState } from "react";
 import { useBoolean } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
 import { MarginMode } from "@paxeer-network/types";
-import {
-  SimpleDialog,
-  SimpleSheet,
-  Text,
-  useScreen,
-} from "@paxeer-network/ui";
+import { SimpleDialog, SimpleSheet, Text, useScreen } from "@paxeer-network/ui";
 import { FundingFeeHistoryUI } from "./fundingFeeHistory.ui";
 
 type FundingFeeButtonProps = {

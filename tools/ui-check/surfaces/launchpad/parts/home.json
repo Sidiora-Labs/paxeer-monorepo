@@ -1,0 +1,378 @@
+{
+  "name": "Sidiora Launchpad — home",
+  "directory": "../../../../../",
+  "build": "node tools/ui-check/surfaces/launchpad/build.mjs",
+  "start": "node tools/ui-check/surfaces/launchpad/start.mjs",
+  "address": "https://sidiora.test:4173",
+  "readyPath": "/",
+  "views": [
+    {
+      "name": "home",
+      "path": "/",
+      "states": [
+        {
+          "name": "search-dialog",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "callouts yet"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label^=\"Search coins and users (\"]:visible"
+            },
+            {
+              "action": "wait",
+              "text": "Remember recent views on this device"
+            }
+          ]
+        },
+        {
+          "name": "sign-in-dialog",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "callouts yet"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) header button:has-text(\"Sign in\")"
+            },
+            {
+              "action": "wait",
+              "text": "Connect a wallet to sign in"
+            }
+          ]
+        },
+        {
+          "name": "paste-address-dialog",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "callouts yet"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Open a coin from a pasted address\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Paste the coin address here"
+            }
+          ]
+        },
+        {
+          "name": "search-filled",
+          "steps": [
+            {
+              "action": "wait",
+              "text": "callouts yet"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label^=\"Search coins and users (\"]:visible"
+            },
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) input[aria-label=\"Search coins and users by name, symbol, wallet or address\"]",
+              "value": "science"
+            },
+            {
+              "action": "wait",
+              "text": "2 coins, 0 users"
+            }
+          ]
+        }
+      ],
+      "ready": [
+        {
+          "action": "wait",
+          "text": "callouts yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x111111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
+    },
+    {
+      "name": "first-visit",
+      "path": "/?render=first-visit",
+      "states": [
+        {
+          "name": "cookie-consent",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"I understand and agree\")"
+            }
+          ]
+        },
+        {
+          "name": "cookie-accepted",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"I understand and agree\")"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"Accept\")"
+            }
+          ]
+        }
+      ],
+      "ready": [
+        {
+          "action": "wait",
+          "text": "callouts yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x111111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
+    },
+    {
+      "name": "home-empty",
+      "path": "/?render=empty",
+      "ready": [
+        {
+          "action": "wait",
+          "text": "callouts yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"No coins trending yet\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"No traders yet\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"No top earners in the last 24h\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
+    },
+    {
+      "name": "home-error",
+      "path": "/?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/*",
+          "status": 503
+        }
+      ],
+      "ready": [
+        {
+          "action": "wait",
+          "text": "Callouts are not available yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Trending is not available yet\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"Leaderboard is not available yet\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible:has(button[role=\"radio\"][aria-label=\"Top earners\"][aria-checked=\"true\"]) > div:last-child:empty)",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Platform activity is not available yet"
+        }
+      ]
+    },
+    {
+      "name": "home-loading",
+      "path": "/?render=loading",
+      "ready": [
+        {
+          "action": "wait",
+          "text": "Loading callouts"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x111111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
+    },
+    {
+      "name": "auth-callback",
+      "path": "/auth/callback",
+      "ready": [
+        {
+          "action": "wait",
+          "text": "Email sign-in is not available yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
+    },
+    {
+      "name": "new",
+      "path": "/new",
+      "ready": [
+        {
+          "action": "wait",
+          "text": "0x111111...1111"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(#main-content table tbody tr :text(\"0x111111...1111\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Pool details: Prices are not loading right now, try again"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
+    },
+    {
+      "name": "not-found",
+      "path": "/page-not-found",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/page-not-found",
+          "status": 404
+        }
+      ],
+      "ready": [
+        {
+          "action": "wait",
+          "text": "Page not found"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
+    }
+  ],
+  "answers": [
+    {
+      "method": "GET",
+      "pattern": "https://www.google-analytics.com/analytics.js",
+      "file": "answers/analytics.js",
+      "status": 204,
+      "headers": {
+        "content-type": "text/javascript"
+      }
+    }
+  ],
+  "typeScale": [
+    {
+      "min": 11,
+      "max": 12
+    },
+    {
+      "min": 12,
+      "max": 13
+    },
+    {
+      "min": 13,
+      "max": 14
+    },
+    {
+      "min": 14,
+      "max": 16
+    },
+    {
+      "min": 16,
+      "max": 18
+    },
+    {
+      "min": 20,
+      "max": 24
+    },
+    {
+      "min": 24,
+      "max": 28
+    },
+    {
+      "min": 32,
+      "max": 40
+    },
+    {
+      "min": 48,
+      "max": 64
+    },
+    {
+      "min": 16,
+      "max": 28
+    }
+  ],
+  "buildMs": 600000
+}

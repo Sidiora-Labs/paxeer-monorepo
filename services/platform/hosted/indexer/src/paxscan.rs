@@ -121,12 +121,10 @@ fn get<'a, T: postgres::types::FromSql<'a>>(row: &'a Row, index: usize) -> Resul
 pub fn resolve_transaction_domains(
     rows: &mut BlockscoutRange,
     node: &crate::paxeer::PaxeerIngester,
+    batch_size: usize,
+    readers: usize,
 ) -> Result<(), IndexError> {
-    let domains = rows
-        .transactions
-        .iter()
-        .map(|row| node.transaction_domain(row))
-        .collect::<Result<Vec<_>, _>>()?;
+    let domains = node.transaction_domains(&rows.transactions, batch_size, readers)?;
     for (row, domain) in rows.transactions.iter_mut().zip(domains) {
         row.set_verified_domain(domain);
     }
@@ -187,9 +185,11 @@ impl PaxscanDatabase {
         from: u64,
         to: u64,
         node: &crate::paxeer::PaxeerIngester,
+        batch_size: usize,
+        readers: usize,
     ) -> Result<BlockscoutRange, IndexError> {
         let mut rows = self.range(from, to)?;
-        resolve_transaction_domains(&mut rows, node)?;
+        resolve_transaction_domains(&mut rows, node, batch_size, readers)?;
         Ok(rows)
     }
 

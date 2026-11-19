@@ -1,4 +1,4 @@
-import { decodeEventLog, parseAbi, type AddEthereumChainParameter, type Address, type Hex } from 'viem';
+import { decodeEventLog, parseAbi, sha256, stringToHex, type AddEthereumChainParameter, type Address, type Hex } from 'viem';
 import { CHAIN_LAUNCH_ABI, LAUNCHPAD_ADDRESS } from '@/core/network/contracts';
 import { address, raw } from '../create/creation-domain';
 import { NAME_MAX_BYTES, SYMBOL_MAX_BYTES } from '../create/create-form-fields';
@@ -15,6 +15,11 @@ export type SizeTier = keyof typeof SIZE_TIERS;
 export function chainIdOf(id: number): number {
   if (!Number.isSafeInteger(id) || id < 1 || id > 0xffffffff) throw new Error('invalid_chain_id');
   return VIRTUAL_CHAIN_ID_BASE + id;
+}
+
+export function chainRevenueOperator(id: number): Address {
+  chainIdOf(id);
+  return sha256(stringToHex(`launchpad_chain_revenue_${id}`)).slice(0, 42) as Address;
 }
 
 export function validateChainName(name: string): 'invalid_chain_name' | null {

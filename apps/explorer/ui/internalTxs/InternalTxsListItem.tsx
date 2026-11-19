@@ -40,14 +40,14 @@ const InternalTxsListItem = ({
   return (
     <ListItemMobile rowGap={ 3 }>
       <Flex columnGap={ 2 }>
-        { typeTitle && <Badge colorPalette="cyan" loading={ isLoading }>{ typeTitle }</Badge> }
+        { typeTitle && <Badge colorPalette="cyan" _light={{ color: 'cyan.800' }} loading={ isLoading }>{ typeTitle }</Badge> }
         { !success && <TxStatus status="error" errorText={ error } isLoading={ isLoading }/> }
       </Flex>
       <Flex justifyContent="space-between" width="100%">
         <TxEntity
           hash={ txnHash }
           isLoading={ isLoading }
-          fontWeight={ 700 }
+          fontWeight="bold"
           truncation="constant_long"
           chain={ chainData }
         />
@@ -55,13 +55,13 @@ const InternalTxsListItem = ({
           timestamp={ timestamp }
           isLoading={ isLoading }
           color="text.secondary"
-          fontWeight="400"
+          fontWeight="normal"
           fontSize="sm"
         />
       </Flex>
       { showBlockInfo && (
         <HStack gap={ 1 }>
-          <Skeleton loading={ isLoading } fontSize="sm" fontWeight={ 500 }>Block</Skeleton>
+          <Skeleton loading={ isLoading } fontSize="sm" fontWeight="medium">Block</Skeleton>
           <BlockEntity
             isLoading={ isLoading }
             number={ blockNumber }
@@ -76,9 +76,10 @@ const InternalTxsListItem = ({
         current={ currentAddress }
         isLoading={ isLoading }
         w="100%"
+        css={{ '& [data-entity]': { flexWrap: 'wrap', minW: 0, maxW: 'full' } }}
       />
       <HStack gap={ 3 }>
-        <Skeleton loading={ isLoading } fontSize="sm" fontWeight={ 500 }>Value { currencyUnits.ether }</Skeleton>
+        <Skeleton loading={ isLoading } fontSize="sm" fontWeight="medium">Value { currencyUnits.ether }</Skeleton>
         <NativeCoinValue
           amount={ value }
           noSymbol

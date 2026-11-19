@@ -4,7 +4,9 @@ import React from 'react';
 
 import PageNextJs from 'nextjs/PageNextJs';
 
-const ApiDocs = dynamic(() => import('ui/pages/ApiDocs'), { ssr: false });
+import { ContentLoader } from 'toolkit/components/loaders/ContentLoader';
+
+const ApiDocs = dynamic(() => import('ui/pages/ApiDocs'), { ssr: false, loading: () => <ContentLoader/> });
 
 const Page: NextPage = () => {
   return (

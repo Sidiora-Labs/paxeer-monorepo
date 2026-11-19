@@ -19,7 +19,7 @@ export interface ExploreToolbarProps {
   onToggleSettings: () => void;
 }
 
-const toolClass = 'relative inline-flex size-control-height-md shrink-0 items-center justify-center rounded-sm bg-surface-1 text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text focus-visible:outline-2 focus-visible:outline-focus [&_svg]:size-icon-md';
+const toolClass = 'relative inline-flex border border-control-edge size-control-height-md shrink-0 items-center justify-center rounded-sm bg-surface-1 text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text focus-visible:outline-2 focus-visible:outline-focus [&_svg]:size-icon-md';
 const toolPressed = 'bg-surface-3 text-text';
 
 /**
@@ -29,8 +29,8 @@ const toolPressed = 'bg-surface-3 text-text';
  */
 export function ExploreToolbar({ leading, filterOpen, filterCount, filterPanelId, onToggleFilter, view, onViewChange, settingsOpen, settingsPanelId, onToggleSettings }: ExploreToolbarProps) {
   return (
-    <div className="flex items-center gap-2">
-      <div className="min-w-0 flex-1">{leading}</div>
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="min-w-0 flex-1 basis-64">{leading}</div>
       <div className="flex shrink-0 items-center gap-2">
         <button
           type="button"

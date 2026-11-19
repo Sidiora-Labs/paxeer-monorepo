@@ -13,7 +13,16 @@ const TestnetBadge = ({ className }: Props) => {
     return null;
   }
 
-  return <Image className={ className } src="/explorer/static/labels/testnet.svg" h="14px" w="37px" color="red.400"/>;
+  return (
+    <Image
+      className={ className }
+      src="/explorer/static/labels/testnet.svg"
+      alt="Test network"
+      h={ 'var(--chakra-spacing-3\\.5)' }
+      w="calc(var(--chakra-spacing-9) + var(--chakra-spacing-1) / 4)"
+      color="negative"
+    />
+  );
 };
 
 export default React.memo(chakra(TestnetBadge));

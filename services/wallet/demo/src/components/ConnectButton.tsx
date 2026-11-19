@@ -21,12 +21,25 @@ export function ConnectButton() {
     }
   }, []);
 
-  return <>
-    <button type="button" data-wallet-connect onClick={() => setOpen(true)} disabled={!client}
-      className="rounded-xl bg-[#004ced] px-5 py-3 text-white disabled:opacity-50">
-      {error ? 'Wallet unavailable' : client ? 'Connect wallet' : 'Loading…'}
-    </button>
-    {error && <p role="status" className="max-w-sm text-sm text-neutral-400">{error}</p>}
-    {client && <WalletModal open={open} onOpenChange={setOpen} paxeer={client} origin={origin} />}
-  </>;
+  return (
+    <div className="connect-control">
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        data-wallet-connect
+        onClick={() => setOpen(true)}
+        disabled={!client}
+        className="button primary"
+      >
+        {error ? 'Wallet unavailable' : client ? 'Connect wallet' : 'Loading…'}
+      </button>
+      {error && (
+        <p role="status" className="small-copy error">
+          {error}
+        </p>
+      )}
+      {client && <WalletModal open={open} onOpenChange={setOpen} paxeer={client} origin={origin} />}
+    </div>
+  );
 }

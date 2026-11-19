@@ -7,4 +7,4 @@ export function webRouterAbiMatchesPrecompileRole() {
   expect(canonicalAbi(webRouterAbi)).toEqual(canonicalAbi(precompileRouterAbi));
 }
 
-test(webRouterAbiMatchesPrecompileRole);
+test(webRouterAbiMatchesPrecompileRole.name, webRouterAbiMatchesPrecompileRole);

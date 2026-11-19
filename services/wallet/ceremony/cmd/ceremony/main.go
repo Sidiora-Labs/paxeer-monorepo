@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/archive"
@@ -19,9 +21,10 @@ import (
 )
 
 const (
-	usage            = "usage: ceremony plan | deliver [--report-only-counts] | archive [--report-only-counts] | rehearse [--report-only-counts] | move [--delta]"
-	reportOnlyCounts = "--report-only-counts"
-	deltaFlag        = "--delta"
+	usage                 = "usage: ceremony plan [--inventory-requests /absolute/path] | deliver [--report-only-counts] | archive [--report-only-counts] | rehearse [--report-only-counts] | move [--delta]"
+	reportOnlyCounts      = "--report-only-counts"
+	deltaFlag             = "--delta"
+	inventoryRequestsFlag = "--inventory-requests"
 )
 
 var errNotMigrated = errors.New("eligible wallets are not migrated")
@@ -34,7 +37,25 @@ func main() {
 }
 
 func run(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
-	if len(args) < 1 || len(args) > 2 {
+	if len(args) < 1 {
+		fmt.Fprintln(stderr, usage)
+		return 2
+	}
+	requestsPath := ""
+	if args[0] == "plan" && len(args) > 1 {
+		switch {
+		case len(args) == 3 && args[1] == inventoryRequestsFlag:
+			requestsPath = args[2]
+		case len(args) == 2 && strings.HasPrefix(args[1], inventoryRequestsFlag+"="):
+			requestsPath = strings.TrimPrefix(args[1], inventoryRequestsFlag+"=")
+		}
+		if !filepath.IsAbs(requestsPath) {
+			fmt.Fprintln(stderr, usage)
+			return 2
+		}
+		args = args[:1]
+	}
+	if len(args) > 2 {
 		fmt.Fprintln(stderr, usage)
 		return 2
 	}
@@ -52,7 +73,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 	var err error
 	switch args[0] {
 	case "plan":
-		err = runPlan(ctx, getenv, stdout)
+		err = runPlan(ctx, getenv, stdout, requestsPath)
 	case "deliver":
 		if counts {
 			err = runDeliverCounts(ctx, getenv, stdout)
@@ -81,7 +102,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 	return 0
 }
 
-func runPlan(ctx context.Context, getenv func(string) string, stdout io.Writer) error {
+func runPlan(ctx context.Context, getenv func(string) string, stdout io.Writer, requestsPath string) error {
 	db, err := migrate.Open(getenv)
 	if err != nil {
 		return err
@@ -91,8 +112,21 @@ func runPlan(ctx context.Context, getenv func(string) string, stdout io.Writer) 
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "wallets=%d eligible=%d funded=%d already_migrated=%d\n", plan.Total, len(plan.Eligible), len(plan.Funded), plan.AlreadyMigrated)
-	return nil
+	if requestsPath == "" {
+		_, err = fmt.Fprintf(stdout, "wallets=%d eligible=%d funded=%d already_migrated=%d deliverable=%d waiting_identity=%d external_identity=%d\n", plan.Total, len(plan.Eligible), len(plan.Funded), plan.AlreadyMigrated, len(plan.Deliverable), len(plan.WaitingIdentity), len(plan.ExternalIdentity))
+		return err
+	}
+	masterKey, err := envelope.LoadMasterKey(getenv)
+	if err != nil {
+		return err
+	}
+	defer zero(masterKey)
+	requests, err := plan.WriteInventoryRequests(ctx, db, masterKey, requestsPath)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(stdout, "wallets=%d eligible=%d funded=%d already_migrated=%d deliverable=%d waiting_identity=%d external_identity=%d inventory_requests=%d\n", plan.Total, len(plan.Eligible), len(plan.Funded), plan.AlreadyMigrated, len(plan.Deliverable), len(plan.WaitingIdentity), len(plan.ExternalIdentity), requests)
+	return err
 }
 
 func runDeliver(ctx context.Context, getenv func(string) string, stdout io.Writer) error {
@@ -138,13 +172,13 @@ func runDeliver(ctx context.Context, getenv func(string) string, stdout io.Write
 	}
 	defer zero(options.JournalKey)
 	report, err := migrate.Deliver(ctx, db, client, masterKey, plan, options)
-	fmt.Fprintf(stdout, "eligible=%d funded_archived=%d read=%d verified=%d imported=%d refreshed=%d test_signed=%d matched=%d\n",
-		len(plan.Eligible), verified.Rows, report.Read, report.Verified, report.Imported, report.Refreshed, report.TestSigned, report.Matched)
+	fmt.Fprintf(stdout, "eligible=%d deliverable=%d waiting_identity=%d external_identity=%d funded_archived=%d read=%d verified=%d imported=%d refreshed=%d test_signed=%d matched=%d\n",
+		len(plan.Eligible), len(plan.Deliverable), len(plan.WaitingIdentity), len(plan.ExternalIdentity), verified.Rows, report.Read, report.Verified, report.Imported, report.Refreshed, report.TestSigned, report.Matched)
 	if err != nil {
 		return err
 	}
-	if report.Matched != len(plan.Eligible) {
-		return fmt.Errorf("matched %d of %d eligible wallets", report.Matched, len(plan.Eligible))
+	if report.Matched != len(plan.Deliverable) {
+		return fmt.Errorf("matched %d of %d deliverable wallets", report.Matched, len(plan.Deliverable))
 	}
 	return nil
 }
@@ -198,11 +232,11 @@ func runDeliverCounts(ctx context.Context, getenv func(string) string, stdout io
 	if err != nil {
 		return err
 	}
-	pending := len(plan.Eligible)
-	fmt.Fprintf(stdout, "wallets=%d eligible=%d funded=%d migrated=%d eligible_not_migrated=%d\n",
-		plan.Total, pending+plan.AlreadyMigrated, len(plan.Funded), plan.AlreadyMigrated, pending)
+	pending := len(plan.Deliverable)
+	fmt.Fprintf(stdout, "wallets=%d eligible=%d funded=%d migrated=%d deliverable=%d waiting_identity=%d external_identity=%d eligible_not_migrated=%d\n",
+		plan.Total, len(plan.Eligible)+plan.AlreadyMigrated, len(plan.Funded), plan.AlreadyMigrated, len(plan.Deliverable), len(plan.WaitingIdentity), len(plan.ExternalIdentity), len(plan.Eligible))
 	if pending > 0 {
-		return fmt.Errorf("%w: %d of %d", errNotMigrated, pending, pending+plan.AlreadyMigrated)
+		return fmt.Errorf("%w: %d deliverable wallets", errNotMigrated, pending)
 	}
 	return nil
 }

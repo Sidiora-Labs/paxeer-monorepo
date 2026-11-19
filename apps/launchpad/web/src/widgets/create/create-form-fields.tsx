@@ -40,7 +40,7 @@ export interface CreateFormFieldsProps {
 }
 
 /** Shown inside the field once the user has typed, so the empty form keeps the reference's density. */
-function InlineCounter({ id, count, max }: { id: string; count: number; max: number }) {
+export function InlineCounter({ id, count, max }: { id: string; count: number; max: number }) {
   if (count === 0) return null;
   const tone = count >= max ? 'text-danger' : count >= max * 0.9 ? 'text-warning' : 'text-text-faint';
   return (
@@ -113,12 +113,12 @@ export const FEE_RIGHTS_DETAIL = 'When you create a coin, you get a creator rewa
 /** One line plus an info tooltip, at the reference's "Share creator rewards" density. */
 export function FeeRightsNote() {
   return (
-    <div className="flex items-start gap-3 rounded-md bg-surface-2 px-3 py-2.5">
+    <div className="flex flex-wrap items-start gap-3 rounded-md bg-surface-2 px-3 py-2.5">
       <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-pill bg-surface-3 text-text-muted">
         <KeyRound className="size-icon-md" />
       </span>
-      <div className="min-w-0">
-        <p className="flex items-center gap-1 text-sm font-bold text-text">
+      <div className="min-w-0 flex-1 basis-40">
+        <p className="flex flex-wrap items-center gap-1 text-sm font-bold text-text">
           Creator rewards
           <InfoTip label="About creator rewards" content={FEE_RIGHTS_DETAIL} />
         </p>

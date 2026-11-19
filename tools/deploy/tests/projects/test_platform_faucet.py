@@ -69,13 +69,13 @@ def test_platform_faucet_definition_matches_sources() -> None:
     inputs = sections["inputs.faucet"]
 
     assert service["kind"] == "repo"
-    assert service["container"] == "docker/platform-faucet/Dockerfile"
+    assert service["dockerfile"] == "docker/platform-faucet/Dockerfile"
     assert service["root"] == "."
     assert service["health"] == "/livez"
     assert service["restart"] == "ALWAYS"
     assert service["replicas"] == 3
     assert service["public"] == 1
-    assert service["order"] == 12
+    assert service["order"] == 15
     assert {"router", "core-boundary", "testnet-control"}.issubset(service["needs"])
 
     source_variables, defaults = _source_variables()

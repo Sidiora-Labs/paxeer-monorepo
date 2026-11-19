@@ -1,75 +1,75 @@
-import * as React from "react";
+import { cn } from '@/lib/utils';
+import * as React from 'react';
 
-import { cn } from "@/lib/utils";
+type CardProps = React.ComponentProps<'div'> & {
 
-type CardProps = React.ComponentProps<"div"> & {
   /** `outline` = hairline on surface, `tonal` = filled container, `elevated` = floating */
-  variant?: "outline" | "tonal" | "elevated";
+  variant?: 'outline' | 'tonal' | 'elevated';
 };
 
-function Card({ className, variant = "outline", ...props }: CardProps) {
+function Card({ className, variant = 'outline', ...props }: CardProps) {
   return (
     <div
       data-slot="card"
-      data-variant={variant}
-      className={cn(
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl py-6",
-        variant === "outline" && "border border-border",
-        variant === "tonal" && "bg-container",
-        variant === "elevated" && "shadow-float",
+      data-variant={ variant }
+      className={ cn(
+        'bg-card text-card-foreground @container/card flex min-w-0 flex-col gap-6 rounded-xl py-6',
+        variant === 'outline' && 'border border-border',
+        variant === 'tonal' && 'bg-container',
+        variant === 'elevated' && 'shadow-float',
         className,
-      )}
-      {...props}
+      ) }
+      { ...props }
     />
   );
 }
 
-function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
+function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-header"
-      className={cn(
-        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
+      className={ cn(
+        '@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6',
         className,
-      )}
-      {...props}
+      ) }
+      { ...props }
     />
   );
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+function CardTitle({ className, as: Heading = 'h3', ...props }: React.ComponentProps<'h3'> & { as?: 'h2' | 'h3' }) {
   return (
-    <div
+    <Heading
       data-slot="card-title"
-      className={cn("text-[17px] leading-tight font-medium tracking-[-0.01em]", className)}
-      {...props}
+      className={ cn('text-card-title leading-tight font-medium tracking-(--tracking-label)', className) }
+      { ...props }
     />
   );
 }
 
-function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
+function CardDescription({ className, ...props }: React.ComponentProps<'div'>) {
   return (
-    <div data-slot="card-description" className={cn("text-muted-foreground text-sm", className)} {...props} />
+    <div data-slot="card-description" className={ cn('text-muted-foreground text-sm', className) } { ...props }/>
   );
 }
 
-function CardAction({ className, ...props }: React.ComponentProps<"div">) {
+function CardAction({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-action"
-      className={cn("col-start-2 row-span-2 row-start-1 self-start justify-self-end", className)}
-      {...props}
+      className={ cn('col-start-2 row-span-2 row-start-1 self-start justify-self-end', className) }
+      { ...props }
     />
   );
 }
 
-function CardContent({ className, ...props }: React.ComponentProps<"div">) {
-  return <div data-slot="card-content" className={cn("px-6", className)} {...props} />;
+function CardContent({ className, ...props }: React.ComponentProps<'div'>) {
+  return <div data-slot="card-content" className={ cn('px-6', className) } { ...props }/>;
 }
 
-function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
+function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
   return (
-    <div data-slot="card-footer" className={cn("flex items-center px-6 [.border-t]:pt-6", className)} {...props} />
+    <div data-slot="card-footer" className={ cn('flex items-center px-6 [.border-t]:pt-6', className) } { ...props }/>
   );
 }
 

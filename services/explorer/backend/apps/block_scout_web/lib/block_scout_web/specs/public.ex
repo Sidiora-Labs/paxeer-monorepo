@@ -3,7 +3,7 @@ defmodule BlockScoutWeb.Specs.Public do
   This module defines the public API specification for the BlockScoutWeb application.
   """
 
-  alias BlockScoutWeb.Routers.{ApiRouter, SmartContractsApiV2Router, TokensApiV2Router}
+  alias BlockScoutWeb.Routers.{ApiRouter, SmartContractsApiV2Router, TokensApiV2Router, UtilsApiV2Router}
   alias BlockScoutWeb.Specs
   alias BlockScoutWeb.Specs.Private
   alias OpenApiSpex.{Contact, Info, OpenApi, Paths, Server}
@@ -33,6 +33,7 @@ defmodule BlockScoutWeb.Specs.Public do
         |> Map.merge(Private.account_paths(:public))
         |> Map.merge(Paths.from_routes(Specs.routes_with_prefix(TokensApiV2Router, "/v2/tokens")))
         |> Map.merge(Paths.from_routes(Specs.routes_with_prefix(SmartContractsApiV2Router, "/v2/smart-contracts")))
+        |> Map.merge(Paths.from_routes(Specs.routes_with_prefix(UtilsApiV2Router, "/v2/utils")))
     }
     |> OpenApiSpex.resolve_schema_modules()
   end

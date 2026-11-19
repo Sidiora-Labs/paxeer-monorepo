@@ -56,7 +56,7 @@ const TxDetailsAction = ({ action }: Props) => {
       };
 
       return (
-        <Flex flexWrap="wrap" columnGap={ 2 } rowGap={ 2 } alignItems="center" fontWeight={ 500 }>
+        <Flex flexWrap="wrap" columnGap={ 2 } rowGap={ 2 } alignItems="center" fontWeight="medium">
           <chakra.span color="text.secondary">{ text0 }</chakra.span>
 
           <span>{ amount0 }</span>
@@ -68,7 +68,7 @@ const TxDetailsAction = ({ action }: Props) => {
             noIcon
             noSymbol
             w="auto"
-            maxW="200px"
+            maxW="var(--chakra-spacing-48)"
             flexShrink={ 0 }
           />
 
@@ -83,14 +83,14 @@ const TxDetailsAction = ({ action }: Props) => {
             noCopy
             noSymbol
             w="auto"
-            maxW="200px"
+            maxW="var(--chakra-spacing-48)"
             flexShrink={ 0 }
           />
 
           <chakra.span color="text.secondary">{ text1 }</chakra.span>
 
           <Flex columnGap={ 2 }>
-            <IconSvg name="uniswap" boxSize={ 5 } color="white" bgColor="brand.uniswap" borderRadius="full" p="2px"/>
+            <IconSvg name="uniswap" boxSize={ 5 } color="onAccent" bgColor="brand.uniswap" borderRadius="full" p="var(--chakra-spacing-0\.5)"/>
             <chakra.span>Uniswap V3</chakra.span>
           </Flex>
         </Flex>
@@ -109,7 +109,7 @@ const TxDetailsAction = ({ action }: Props) => {
 
       return (
         <div>
-          <Flex rowGap={ 2 } columnGap={ 2 } flexWrap="wrap" alignItems="center" whiteSpace="pre-wrap" fontWeight={ 500 }>
+          <Flex rowGap={ 2 } columnGap={ 2 } flexWrap="wrap" alignItems="center" whiteSpace="pre-wrap" fontWeight="medium">
             <chakra.span color="text.secondary">Minted</chakra.span>
 
             <TokenEntity
@@ -129,7 +129,7 @@ const TxDetailsAction = ({ action }: Props) => {
             />
           </Flex>
 
-          <Flex columnGap={ 1 } rowGap={ 2 } pl={ 3 } flexDirection="column" mt={ 2 } fontWeight={ 500 }>
+          <Flex columnGap={ 1 } rowGap={ 2 } pl={ 3 } flexDirection="column" mt={ 2 } fontWeight="medium">
             {
               data.ids.map((id: string) => {
                 return (

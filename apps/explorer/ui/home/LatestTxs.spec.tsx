@@ -21,7 +21,12 @@ vi.hoisted(() => {
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
+import { HomeRpcDataContextProvider } from './fallbacks/rpcDataContext';
 import Transactions from './Transactions';
+
+const renderTransactions = (children: React.ReactNode = <Transactions/>) => render(
+  <HomeRpcDataContextProvider>{ children }</HomeRpcDataContextProvider>,
+);
 
 const TOPIC = 'transactions:new_transaction';
 
@@ -45,7 +50,7 @@ describe('LatestTxs', () => {
   });
 
   it('lists the transactions in the order the api returns them', async() => {
-    const { container } = render(<Transactions/>);
+    const { container } = renderTransactions();
 
     await screen.findByRole('link', { name: 'View all transactions' });
 
@@ -58,7 +63,7 @@ describe('LatestTxs', () => {
   });
 
   it('keeps a mobile row and a desktop row for every transaction', async() => {
-    const { container } = render(<Transactions/>);
+    const { container } = renderTransactions();
 
     await screen.findByRole('link', { name: 'View all transactions' });
 
@@ -68,7 +73,7 @@ describe('LatestTxs', () => {
   });
 
   it('lets the desktop rows fit the half-width card with the parties and the value as columns', async() => {
-    const { container } = render(<Transactions/>);
+    const { container } = renderTransactions();
 
     await screen.findByRole('link', { name: 'View all transactions' });
 
@@ -86,7 +91,7 @@ describe('LatestTxs', () => {
   });
 
   it('links to every transaction from the label row', async() => {
-    const { container } = render(<Transactions/>);
+    const { container } = renderTransactions();
 
     const footer = await screen.findByRole('link', { name: 'View all transactions' });
 
@@ -99,7 +104,7 @@ describe('LatestTxs', () => {
     const socket = await createTestSocket();
 
     try {
-      const { container } = render(
+      const { container } = renderTransactions(
         <SocketProvider url={ socket.url }>
           <Transactions/>
         </SocketProvider>,
@@ -146,7 +151,7 @@ describe('LatestTxs', () => {
     const socket = await createTestSocket();
 
     try {
-      const { container } = render(
+      const { container } = renderTransactions(
         <SocketProvider url={ socket.url }>
           <Transactions/>
         </SocketProvider>,

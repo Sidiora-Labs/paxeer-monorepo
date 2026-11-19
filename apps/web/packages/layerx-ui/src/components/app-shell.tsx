@@ -1,7 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { Home, Bot, Activity, Grid2x2, Search, Bell, Settings, Compass, Plus } from "lucide-react";
+import {
+  Home,
+  Bot,
+  Activity,
+  Grid2x2,
+  Search,
+  Bell,
+  Settings,
+  Compass,
+  Plus,
+} from "lucide-react";
 import { cn } from "../lib/utils";
 import { usePlatform, type PlatformSetting } from "../lib/platform";
 import { Avatar } from "./avatar";
@@ -16,13 +26,59 @@ export interface NavItem {
 }
 
 const DEFAULT_ICONS: Record<string, React.ReactNode> = {
-  home: <Home className="size-[22px]" />,
-  agents: <Bot className="size-[22px]" />,
-  activity: <Activity className="size-[22px]" />,
-  more: <Grid2x2 className="size-[22px]" />,
+  home: <Home className="size-icon-md" />,
+  agents: <Bot className="size-icon-md" />,
+  activity: <Activity className="size-icon-md" />,
+  more: <Grid2x2 className="size-icon-md" />,
 };
 
 /* ----------------------------------------------------------- BottomTabBar */
+
+function BottomTab({
+  item,
+  active,
+  onNavigate,
+}: {
+  item: NavItem;
+  active: boolean;
+  onNavigate?: (id: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onNavigate?.(item.id)}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "relative flex min-w-16 flex-1 shrink-0 flex-col items-center gap-0.5 rounded-md py-1",
+        active ? "bg-accent text-accent-foreground" : undefined,
+      )}
+    >
+      <span
+        className={cn(
+          "transition-colors",
+          active ? "text-accent-foreground" : "text-faint-foreground",
+        )}
+      >
+        {item.icon ?? DEFAULT_ICONS[item.id] ?? (
+          <Grid2x2 className="size-icon-md" />
+        )}
+      </span>
+      <span
+        className={cn(
+          "whitespace-nowrap text-micro font-semibold transition-colors",
+          active ? "text-accent-foreground" : "text-faint-foreground",
+        )}
+      >
+        {item.label}
+      </span>
+      {!!item.badge && (
+        <span className="absolute -top-1 right-1/2 translate-x-4 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-caption font-bold text-destructive-foreground">
+          {item.badge}
+        </span>
+      )}
+    </button>
+  );
+}
 
 /**
  * Mobile navigation with a raised center action button at thumb reach.
@@ -47,58 +103,39 @@ export function BottomTabBar({
   const left = items.slice(0, middle);
   const right = items.slice(middle);
 
-  const Tab = ({ item }: { item: NavItem }) => {
-    const active = item.id === activeId;
-    return (
-      <button
-        type="button"
-        onClick={() => onNavigate?.(item.id)}
-        aria-current={active ? "page" : undefined}
-        className="relative flex min-w-16 flex-1 shrink-0 flex-col items-center gap-0.5 py-1 outline-none"
-      >
-        <span className={cn("transition-colors", active ? "text-accent" : "text-faint-foreground")}>
-          {item.icon ?? DEFAULT_ICONS[item.id] ?? <Grid2x2 className="size-[22px]" />}
-        </span>
-        <span
-          className={cn(
-            "text-[11px] font-semibold transition-colors",
-            active ? "text-accent" : "text-faint-foreground",
-          )}
-        >
-          {item.label}
-        </span>
-        {!!item.badge && (
-          <span className="absolute -top-1 right-1/2 translate-x-4 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
-            {item.badge}
-          </span>
-        )}
-      </button>
-    );
-  };
-
   return (
     <nav
       aria-label="Primary"
       className={cn(
-        "relative z-30 flex items-end overflow-x-auto border-t border-border bg-surface px-2 pt-8 pb-[max(0.5rem,env(safe-area-inset-bottom))]",
+        "relative z-30 flex items-end overflow-x-auto border-t border-border bg-surface px-2 pt-8 lx-safe-tab-bottom",
         className,
       )}
     >
       {left.map((item) => (
-        <Tab key={item.id} item={item} />
+        <BottomTab
+          key={item.id}
+          item={item}
+          active={item.id === activeId}
+          onNavigate={onNavigate}
+        />
       ))}
       <div className="flex min-w-16 flex-1 shrink-0 justify-center">
         <button
           type="button"
           onClick={onFab}
           aria-label="New action"
-          className="-mt-7 inline-flex size-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-overlay transition-transform active:scale-95"
+          className="-mt-7 inline-flex size-14 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-overlay transition-transform active:scale-95 focus-visible:bg-accent-strong focus-visible:ring-2 focus-visible:ring-accent-strong focus-visible:ring-offset-2"
         >
           {fabIcon ?? <Plus className="size-6" />}
         </button>
       </div>
       {right.map((item) => (
-        <Tab key={item.id} item={item} />
+        <BottomTab
+          key={item.id}
+          item={item}
+          active={item.id === activeId}
+          onNavigate={onNavigate}
+        />
       ))}
     </nav>
   );
@@ -136,14 +173,14 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "flex h-full w-[248px] shrink-0 flex-col border-r border-border bg-surface",
+        "flex h-full w-sidebar shrink-0 flex-col border-r border-border bg-surface",
         className,
       )}
     >
       <div className="flex h-16 items-center px-5 text-lg font-extrabold tracking-tight text-foreground">
         {logo ?? (
           <span className="flex items-center gap-2">
-            <span className="inline-flex size-7 items-center justify-center rounded-md bg-primary text-[13px] font-black text-primary-foreground">
+            <span className="inline-flex size-7 items-center justify-center rounded-md bg-primary text-label font-black text-primary-foreground">
               LX
             </span>
             LayerX
@@ -151,7 +188,10 @@ export function Sidebar({
         )}
       </div>
 
-      <nav aria-label="Primary" className="flex flex-1 flex-col gap-1 px-3 py-2">
+      <nav
+        aria-label="Primary"
+        className="flex flex-1 flex-col gap-1 px-3 py-2"
+      >
         {items.map((item) => {
           const active = item.id === activeId;
           return (
@@ -161,14 +201,21 @@ export function Sidebar({
               onClick={() => onNavigate?.(item.id)}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/30",
+                "flex items-center gap-3 rounded-md px-3 py-2.5 text-body-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent-strong",
                 active
-                  ? "bg-surface-sunken text-foreground"
+                  ? "bg-accent text-accent-foreground"
                   : "text-muted-foreground hover:bg-surface-sunken/60 hover:text-foreground",
               )}
             >
-              <span className={cn("[&_svg]:size-5", active ? "text-accent" : "text-faint-foreground")}>
-                {item.icon ?? DEFAULT_ICONS[item.id] ?? <Grid2x2 className="size-5" />}
+              <span
+                className={cn(
+                  "[&_svg]:size-5",
+                  active ? "text-accent-foreground" : "text-faint-foreground",
+                )}
+              >
+                {item.icon ?? DEFAULT_ICONS[item.id] ?? (
+                  <Grid2x2 className="size-5" />
+                )}
               </span>
               <span className="flex-1 text-left">{item.label}</span>
               {!!item.badge && (
@@ -183,7 +230,7 @@ export function Sidebar({
         <button
           type="button"
           onClick={onExplorer}
-          className="mt-4 flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-semibold text-muted-foreground transition-colors hover:bg-surface-sunken/60 hover:text-foreground"
+          className="mt-4 flex items-center gap-3 rounded-md px-3 py-2.5 text-body-sm font-semibold text-muted-foreground transition-colors hover:bg-surface-sunken/60 hover:text-foreground"
         >
           <Compass className="size-5 text-faint-foreground" />
           <span className="flex-1 text-left">{explorerLabel}</span>
@@ -194,18 +241,27 @@ export function Sidebar({
         <button
           type="button"
           onClick={onSettings}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-semibold text-muted-foreground transition-colors hover:bg-surface-sunken/60 hover:text-foreground"
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-body-sm font-semibold text-muted-foreground transition-colors hover:bg-surface-sunken/60 hover:text-foreground"
         >
           <Settings className="size-5 text-faint-foreground" />
           <span className="flex-1 text-left">{settingsLabel}</span>
         </button>
         {user && (
           <div className="mt-1 flex items-center gap-3 rounded-md px-3 py-2">
-            <Avatar alt={user.name} src={user.avatarSrc} size="sm" tone="primary" />
+            <Avatar
+              alt={user.name}
+              src={user.avatarSrc}
+              size="sm"
+              tone="primary"
+            />
             <div className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-semibold text-foreground">{user.name}</span>
+              <span className="truncate text-sm font-semibold text-foreground">
+                {user.name}
+              </span>
               {user.subtitle && (
-                <span className="truncate text-xs text-muted-foreground">{user.subtitle}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {user.subtitle}
+                </span>
               )}
             </div>
           </div>
@@ -276,23 +332,34 @@ export function AppShell({
   if (resolved === "mobile") {
     return (
       <div className={cn("flex h-dvh flex-col bg-background", className)}>
-        <header className="flex items-center gap-3 border-b border-border bg-surface px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
-          <Avatar alt={user?.name ?? "Account"} src={user?.avatarSrc} initials={user?.initials} size="sm" tone="primary" />
+        <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border bg-surface px-4 lx-safe-top-min pb-3">
+          <Avatar
+            alt={user?.name ?? "Account"}
+            src={user?.avatarSrc}
+            initials={user?.initials}
+            size="sm"
+            tone="primary"
+          />
           <button
             type="button"
             onClick={onSearch}
-            className="flex h-10 flex-1 items-center gap-2.5 rounded-full border border-border bg-surface px-4 text-[15px] text-faint-foreground transition-colors hover:bg-surface-sunken/50"
+            className="flex min-h-11 min-w-max flex-1 items-center gap-2.5 whitespace-nowrap rounded-full border border-accent bg-surface px-4 py-2 text-body-sm text-faint-foreground transition-colors hover:bg-surface-sunken/50"
           >
-            <Search className="size-4" aria-hidden />
+            <Search className="size-4 shrink-0" aria-hidden />
             Search
           </button>
           {notificationControl ?? (
             <div className="relative">
-              <IconButton variant="outline" size="sm" onClick={onNotifications} aria-label="Notifications">
+              <IconButton
+                variant="outline"
+                size="sm"
+                onClick={onNotifications}
+                aria-label="Notifications"
+              >
                 <Bell />
               </IconButton>
               {!!notificationCount && (
-                <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-caption font-bold text-destructive-foreground">
                   {notificationCount}
                 </span>
               )}
@@ -300,7 +367,9 @@ export function AppShell({
           )}
         </header>
 
-        <main className="lx-scroll flex-1 overflow-y-auto">{children}</main>
+        <main className="lx-scroll min-w-0 flex-1 overflow-y-auto">
+          {children}
+        </main>
 
         <BottomTabBar
           items={nav}
@@ -324,32 +393,41 @@ export function AppShell({
         onSettings={onSettings}
         user={
           user
-            ? { name: user.name, subtitle: "LayerX account", avatarSrc: user.avatarSrc }
+            ? {
+                name: user.name,
+                subtitle: "LayerX account",
+                avatarSrc: user.avatarSrc,
+              }
             : undefined
         }
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-surface px-6">
+        <header className="flex min-h-16 shrink-0 flex-wrap items-center gap-4 border-b border-border bg-surface px-6">
           <h1 className="text-lg font-bold text-foreground">{title}</h1>
           <div className="flex-1" />
           <button
             type="button"
             onClick={onSearch}
-            className="flex h-10 w-64 items-center gap-2.5 rounded-full border border-border bg-surface px-4 text-sm text-faint-foreground transition-colors hover:bg-surface-sunken/50"
+            className="flex min-h-10 w-64 max-w-full items-center gap-2.5 rounded-full border border-accent bg-surface px-4 text-sm text-faint-foreground transition-colors hover:bg-surface-sunken/50"
           >
-            <Search className="size-4" aria-hidden />
+            <Search className="size-4 shrink-0" aria-hidden />
             <span className="flex-1 text-left">Search</span>
-            <kbd className="rounded border border-border bg-surface-sunken px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+            <kbd className="rounded border border-border-strong bg-surface-sunken px-1.5 py-0.5 text-caption font-semibold text-muted-foreground">
               ⌘K
             </kbd>
           </button>
           {notificationControl ?? (
             <div className="relative">
-              <IconButton variant="outline" size="sm" onClick={onNotifications} aria-label="Notifications">
+              <IconButton
+                variant="outline"
+                size="sm"
+                onClick={onNotifications}
+                aria-label="Notifications"
+              >
                 <Bell />
               </IconButton>
               {!!notificationCount && (
-                <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-caption font-bold text-destructive-foreground">
                   {notificationCount}
                 </span>
               )}
@@ -357,7 +435,9 @@ export function AppShell({
           )}
           {headerActions}
         </header>
-        <main className="lx-scroll flex-1 overflow-y-auto">{children}</main>
+        <main className="lx-scroll min-w-0 flex-1 overflow-y-auto">
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -45,14 +45,14 @@ const ColorModeToggle = () => {
 
   return (
     <Tooltip content={ label } disableOnMobile>
-      <IconButton
+      <IconButton minH="touchTarget" minW="touchTarget"
         variant="link"
         size="2xs"
         borderRadius="sm"
         aria-label={ label }
         onClick={ handleClick }
       >
-        <IconSvg name={ colorMode === 'dark' ? 'sun' : 'moon' }/>
+        <IconSvg aria-hidden={ true } name={ colorMode === 'dark' ? 'sun' : 'moon' }/>
       </IconButton>
     </Tooltip>
   );

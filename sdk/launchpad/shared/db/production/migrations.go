@@ -63,6 +63,7 @@ type MigrationManifest struct {
 	Path                   string                 `json:"path"`
 	SHA256                 string                 `json:"sha256"`
 	PredecessorIDs         []int64                `json:"predecessor_ids"`
+	LegacyDependencies     []string               `json:"legacy_dependencies,omitempty"`
 	LegacyPredecessors     []LegacyMigrationAlias `json:"legacy_predecessors"`
 	InterfaceDigest        string                 `json:"interface_digest"`
 	ReaderMinVersion       int64                  `json:"reader_min_version"`
@@ -73,7 +74,16 @@ type MigrationManifest struct {
 	Destructive            bool                   `json:"destructive"`
 	ApprovalManifestDigest string                 `json:"approval_manifest_digest"`
 	// All deployed readers must have positive compatibility evidence before contraction.
-	ReaderCompatibilityProof string `json:"reader_compatibility_proof,omitempty"`
+	ReaderCompatibilityProof string           `json:"reader_compatibility_proof,omitempty"`
+	SourceInputs             []SourceInput    `json:"source_inputs,omitempty"`
+	OnlineIndex              *OnlineIndexPlan `json:"online_index,omitempty"`
+}
+
+// SourceInput binds a reviewed source consumed by a migration.  Approval
+// checks the bytes at the recorded monorepo path before admitting a release.
+type SourceInput struct {
+	Path   string `json:"path"`
+	SHA256 string `json:"sha256"`
 }
 
 func Checksum(sql []byte) string { s := sha256.Sum256(sql); return hex.EncodeToString(s[:]) }
@@ -116,8 +126,14 @@ func (m MigrationManifest) Validate(sql []byte, registry map[int64]MigrationMani
 	if m.ReaderMinVersion < 1 || deployedReaderMin < m.ReaderMinVersion || m.EstimatedLockMS <= 0 || m.EstimatedLockMS > 2000 || m.RollbackStrategy == "" || m.BackfillStrategy == "" {
 		return fmt.Errorf("missing safety metadata or incompatible reader")
 	}
-	if m.TransactionMode != valueTransactional && m.TransactionMode != "nontransactional" {
+	if m.TransactionMode != valueTransactional && m.TransactionMode != valueNontransactional {
 		return fmt.Errorf("unknown transaction mode")
+	}
+	if m.OnlineIndex != nil {
+		statement, err := m.OnlineIndex.CreateSQL()
+		if err != nil || m.TransactionMode != valueNontransactional || m.OnlineIndex.Schema != m.Schema || string(sql) != statement {
+			return fmt.Errorf("online index differs from registered SQL")
+		}
 	}
 	if m.Destructive && !validDigest(m.ReaderCompatibilityProof) {
 		return fmt.Errorf("destructive migration requires reader compatibility evidence")
@@ -224,10 +240,11 @@ func (a LegacyMigrationAlias) Key() (string, error) {
 }
 
 type MigrationRegistry struct {
-	SchemaVersion    int                 `json:"schema_version"`
-	ApplicationOrder []int64             `json:"application_order"`
-	Registrations    []MigrationManifest `json:"registrations"`
-	ApprovalDigest   string              `json:"approval_digest"`
+	SchemaVersion      int                 `json:"schema_version"`
+	ApplicationOrder   []int64             `json:"application_order"`
+	Registrations      []MigrationManifest `json:"registrations"`
+	ApprovalDigest     string              `json:"approval_digest"`
+	ServerMajorVersion int                 `json:"server_major_version"`
 }
 
 func (r MigrationRegistry) ValidateOrder() (map[int64]MigrationManifest, error) {

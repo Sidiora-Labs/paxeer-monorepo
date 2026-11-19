@@ -1,3 +1,4 @@
+import { applyBrowserSurface } from '@/core/app-foundation/browser-surface.test-support';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
@@ -34,6 +35,7 @@ browserGlobals.CustomEvent = dom.window.CustomEvent;
 browserGlobals.window = dom.window;
 browserGlobals.document = dom.window.document;
 browserGlobals.IS_REACT_ACT_ENVIRONMENT = true;
+const closeBrowserSurface = applyBrowserSurface();
 
 const pool = '0xce20da50f92d21d8bee497910c782e9aa25b6263';
 const token = '0x0f92fdd087c96dd3413ef98646b94d0d986192fa';
@@ -66,6 +68,7 @@ const server: Server = createServer((request, response) => {
     if (request.method === 'GET' && url.startsWith(`/v1/pools/${pool}/holders`)) return send(404, { code: 'NOT_FOUND', message: 'NOT_FOUND', requestId, retryable: false, retryAfterMs: null, fieldErrors: [], details: null });
     if (request.method === 'GET' && url === `/stats/${pool}/holders?limit=100`) return send(200, statsHostHolders);
     if (request.method === 'GET' && url === `/v2/tokens/${token}/metadata`) return send(200, metadata);
+    console.warn(`Unanswered request: ${request.method} ${url}`);
     response.statusCode = 404;
     response.end();
   });
@@ -164,3 +167,5 @@ describe('coin page units for production pool 0xce20…6263', () => {
     unmount(view);
   });
 });
+
+afterAll(closeBrowserSurface);

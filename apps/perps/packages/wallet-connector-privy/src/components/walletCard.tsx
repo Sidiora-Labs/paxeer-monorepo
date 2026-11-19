@@ -79,8 +79,7 @@ export function WalletCard(props: WalletCardProps) {
           position: "absolute",
           top: 0,
           right: -20,
-          background:
-            "url('/assets/static/sdk/wallet-card-bg.png')",
+          background: "url('/assets/static/sdk/wallet-card-bg.png')",
           width: "110px",
           height: "110px",
           backgroundSize: "contain",
@@ -206,10 +205,7 @@ const RenderWalletType = ({ walletType }: { walletType: WalletType }) => {
     return (
       <div className="oui-flex oui-items-center oui-justify-start oui-gap-1">
         <div className="">
-          <img
-            src="/assets/static/sdk/solana-logo.png"
-            className="oui-w-4"
-          />
+          <img src="/assets/static/sdk/solana-logo.png" className="oui-w-4" />
         </div>
         <div className="oui-text-2xs oui-font-semibold oui-text-secondary">
           Solana

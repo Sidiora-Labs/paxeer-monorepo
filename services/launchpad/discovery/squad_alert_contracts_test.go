@@ -597,6 +597,9 @@ func TestAlertEvaluatorUnwired(t *testing.T) {
 	if !errors.Is(err, ErrInvalid) {
 		t.Fatalf("publish failure must propagate after durable evaluation: %v", err)
 	}
+	if !strings.Contains(err.Error(), "publish discovery events") {
+		t.Fatalf("event publication context: %v", err)
+	}
 	checkpoint := squadAlertCheckpoint(t, h.store, rule.ID)
 	if checkpoint.MetricRevision != 2 || checkpoint.Armed || checkpoint.LastTrigger.IsZero() {
 		t.Fatal(checkpoint)

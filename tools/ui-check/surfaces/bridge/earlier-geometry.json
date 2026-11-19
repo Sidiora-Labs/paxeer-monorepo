@@ -1,0 +1,6655 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 54,
+        "top": 643.25,
+        "width": 196,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 16,
+        "top": 375,
+        "width": 358,
+        "height": 1415.125,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 16,
+        "top": 2768.625,
+        "width": 358,
+        "height": 965,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 40,
+        "top": 1004.625,
+        "width": 310,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 40,
+        "top": 773.75,
+        "width": 310,
+        "height": 189,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 40,
+        "top": 1616.125,
+        "width": 147,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 16,
+        "top": 121,
+        "width": 358,
+        "height": 72,
+        "fontSize": 30,
+        "lineHeight": 36
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 37,
+        "top": 2983.125,
+        "width": 316,
+        "height": 69,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 3765.625,
+        "width": 390,
+        "height": 133,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 57,
+        "width": 390,
+        "height": 3708.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 16,
+        "top": 12,
+        "width": 141.125,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 40,
+        "top": 1718.125,
+        "width": 310,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 40,
+        "top": 544.75,
+        "width": 310,
+        "height": 189,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 16,
+        "top": 2118.125,
+        "width": 358,
+        "height": 203.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 334,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 16,
+        "top": 1902.125,
+        "width": 358,
+        "height": 132,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 16,
+        "top": 1830.125,
+        "width": 358,
+        "height": 204,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 390,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 184,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 394,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 352,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 152,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 376,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 376,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 376,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 152,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 173,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 1280,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 128,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 440.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 376,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 376,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 152,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1088,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 152,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 152,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1280,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 938,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 474,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 432,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 232,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 456,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 456,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 456,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 232,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 253,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 1440,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 208,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 520.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 456,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 456,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 232,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1168,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 232,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 232,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1440,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 1018,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 714,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 672,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 472,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 696,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 696,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 696,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 472,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 493,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 1920,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 448,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 760.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 696,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 696,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 472,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1408,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 472,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 472,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 1920,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 1258,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 1034,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 992,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 792,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 1016,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 1016,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 1016,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 792,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 813,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 2560,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 768,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 1080.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 1016,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 1016,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 792,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1728,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 792,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 792,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "deposit transfer",
+      "width": 2560,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 1578,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 54,
+        "top": 643.25,
+        "width": 196,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 16,
+        "top": 375,
+        "width": 358,
+        "height": 1415.125,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 16,
+        "top": 2768.625,
+        "width": 358,
+        "height": 965,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 40,
+        "top": 1004.625,
+        "width": 310,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 40,
+        "top": 773.75,
+        "width": 310,
+        "height": 189,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 40,
+        "top": 1616.125,
+        "width": 147,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 16,
+        "top": 121,
+        "width": 358,
+        "height": 72,
+        "fontSize": 30,
+        "lineHeight": 36
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 37,
+        "top": 2983.125,
+        "width": 316,
+        "height": 69,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 3765.625,
+        "width": 390,
+        "height": 133,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 57,
+        "width": 390,
+        "height": 3708.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 16,
+        "top": 12,
+        "width": 141.125,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 40,
+        "top": 1718.125,
+        "width": 310,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 40,
+        "top": 544.75,
+        "width": 310,
+        "height": 189,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 16,
+        "top": 2118.125,
+        "width": 358,
+        "height": 203.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 334,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 16,
+        "top": 1902.125,
+        "width": 358,
+        "height": 132,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 16,
+        "top": 1830.125,
+        "width": 358,
+        "height": 204,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 390,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 184,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 394,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 352,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 152,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 376,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 376,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 376,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 152,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 173,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 1280,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 128,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 440.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 376,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 376,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 152,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1088,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 152,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 152,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1280,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 938,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 474,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 432,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 232,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 456,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 456,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 456,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 232,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 253,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 1440,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 208,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 520.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 456,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 456,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 232,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1168,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 232,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 232,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1440,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 1018,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 714,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 672,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 472,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 696,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 696,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 696,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 472,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 493,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 1920,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 448,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 760.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 696,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 696,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 472,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1408,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 472,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 472,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 1920,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 1258,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 1034,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 992,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 792,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 1016,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 1016,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 1016,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 792,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 813,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 2560,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 768,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 1080.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 1016,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 1016,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 792,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1728,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 792,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 792,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "import transfer",
+      "width": 2560,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 1578,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 54,
+        "top": 643.25,
+        "width": 196,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 16,
+        "top": 375,
+        "width": 358,
+        "height": 1415.125,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 16,
+        "top": 2768.625,
+        "width": 358,
+        "height": 965,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 40,
+        "top": 1004.625,
+        "width": 310,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 40,
+        "top": 773.75,
+        "width": 310,
+        "height": 189,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 40,
+        "top": 1616.125,
+        "width": 147,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 16,
+        "top": 121,
+        "width": 358,
+        "height": 72,
+        "fontSize": 30,
+        "lineHeight": 36
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 37,
+        "top": 2983.125,
+        "width": 316,
+        "height": 69,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 3765.625,
+        "width": 390,
+        "height": 133,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 57,
+        "width": 390,
+        "height": 3708.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 16,
+        "top": 12,
+        "width": 141.125,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 40,
+        "top": 1718.125,
+        "width": 310,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 40,
+        "top": 544.75,
+        "width": 310,
+        "height": 189,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 16,
+        "top": 2118.125,
+        "width": 358,
+        "height": 203.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 334,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 16,
+        "top": 1902.125,
+        "width": 358,
+        "height": 132,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 16,
+        "top": 1830.125,
+        "width": 358,
+        "height": 204,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 390,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 184,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 394,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 352,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 152,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 376,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 376,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 376,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 152,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 173,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 1280,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 128,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 440.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 376,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 376,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 152,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1088,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 152,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 152,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1280,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 938,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 474,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 432,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 232,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 456,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 456,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 456,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 232,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 253,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 1440,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 208,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 520.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 456,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 456,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 232,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1168,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 232,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 232,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1440,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 1018,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 714,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 672,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 472,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 696,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 696,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 696,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 472,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 493,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 1920,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 448,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 760.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 696,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 696,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 472,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1408,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 472,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 472,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 1920,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 1258,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 1034,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 992,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 792,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 1016,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 1016,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 1016,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 792,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 813,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 2560,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 768,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 1080.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 1016,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 1016,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 792,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1728,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 792,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 792,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "theme and wallet controls",
+      "width": 2560,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 1578,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 54,
+        "top": 643.25,
+        "width": 196,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 16,
+        "top": 375,
+        "width": 358,
+        "height": 1415.125,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 16,
+        "top": 2768.625,
+        "width": 358,
+        "height": 965,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 40,
+        "top": 1004.625,
+        "width": 310,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 40,
+        "top": 773.75,
+        "width": 310,
+        "height": 189,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 40,
+        "top": 1616.125,
+        "width": 147,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 16,
+        "top": 121,
+        "width": 358,
+        "height": 72,
+        "fontSize": 30,
+        "lineHeight": 36
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 37,
+        "top": 2983.125,
+        "width": 316,
+        "height": 69,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 3765.625,
+        "width": 390,
+        "height": 133,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 57,
+        "width": 390,
+        "height": 3708.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 16,
+        "top": 12,
+        "width": 141.125,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 40,
+        "top": 1718.125,
+        "width": 310,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 40,
+        "top": 544.75,
+        "width": 310,
+        "height": 189,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 16,
+        "top": 2118.125,
+        "width": 358,
+        "height": 203.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 334,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 16,
+        "top": 1902.125,
+        "width": 358,
+        "height": 132,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 16,
+        "top": 1830.125,
+        "width": 358,
+        "height": 204,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 390,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 184,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 394,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 352,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 152,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 376,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 376,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 376,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 152,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 173,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 1280,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 128,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 440.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 376,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 376,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 152,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1088,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 152,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 152,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1280,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 938,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 474,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 432,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 232,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 456,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 456,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 456,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 232,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 253,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 1440,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 208,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 520.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 456,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 456,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 232,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1168,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 232,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 232,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1440,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 1018,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 714,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 672,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 472,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 696,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 696,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 696,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 472,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 493,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 1920,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 448,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 760.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 696,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 696,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 472,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1408,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 472,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 472,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 1920,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 1258,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 1034,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 992,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 792,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 1016,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 1016,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 1016,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 792,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 813,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 2560,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 768,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 1080.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 1016,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 1016,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 792,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1728,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 792,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 792,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "transfer history",
+      "width": 2560,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 1578,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 54,
+        "top": 643.25,
+        "width": 196,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 16,
+        "top": 375,
+        "width": 358,
+        "height": 1415.125,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 16,
+        "top": 2768.625,
+        "width": 358,
+        "height": 965,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 40,
+        "top": 1004.625,
+        "width": 310,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 40,
+        "top": 773.75,
+        "width": 310,
+        "height": 189,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 40,
+        "top": 1616.125,
+        "width": 147,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 16,
+        "top": 121,
+        "width": 358,
+        "height": 72,
+        "fontSize": 30,
+        "lineHeight": 36
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 37,
+        "top": 2983.125,
+        "width": 316,
+        "height": 69,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 3765.625,
+        "width": 390,
+        "height": 133,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 390,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 0,
+        "top": 57,
+        "width": 390,
+        "height": 3708.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 16,
+        "top": 12,
+        "width": 141.125,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 40,
+        "top": 1718.125,
+        "width": 310,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 40,
+        "top": 544.75,
+        "width": 310,
+        "height": 189,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 16,
+        "top": 2118.125,
+        "width": 358,
+        "height": 203.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 334,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 16,
+        "top": 1902.125,
+        "width": 358,
+        "height": 132,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 16,
+        "top": 1830.125,
+        "width": 358,
+        "height": 204,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 390,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 184,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 394,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 352,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 152,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 376,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 376,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 376,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 152,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 173,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 1280,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1280,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 128,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 440.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 376,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 376,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 152,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1088,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 152,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 152,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1280,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 938,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 474,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 432,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 232,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 456,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 456,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 456,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 232,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 253,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 1440,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1440,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 208,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 520.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 456,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 456,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 232,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1168,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 232,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 232,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1440,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 1018,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 714,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 672,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 472,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 696,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 696,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 696,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 472,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 493,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 1920,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 1920,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 448,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 760.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 696,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 696,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 472,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1408,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 472,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 472,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 1920,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 1258,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "amount input",
+      "selector": "#bridge-amount",
+      "values": {
+        "left": 1034,
+        "top": 591.25,
+        "width": 406,
+        "height": 54,
+        "fontSize": 20,
+        "lineHeight": 28
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "bridge card",
+      "selector": "#bridge > [data-slot=\"card\"]",
+      "values": {
+        "left": 992,
+        "top": 339,
+        "width": 576,
+        "height": 1264.625,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "contracts card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"outline\"]",
+      "values": {
+        "left": 792,
+        "top": 2105.875,
+        "width": 976,
+        "height": 590.5,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "destination input",
+      "selector": "#bridge-destination",
+      "values": {
+        "left": 1016,
+        "top": 964.625,
+        "width": 528,
+        "height": 40,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "destination route card",
+      "selector": "section[aria-label=\"To\"]",
+      "values": {
+        "left": 1016,
+        "top": 725.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "first bridge metric",
+      "selector": "#bridge dl > div:first-child",
+      "values": {
+        "left": 1016,
+        "top": 1476.625,
+        "width": 120,
+        "height": 39,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "first heading",
+      "selector": "main h1",
+      "values": {
+        "left": 792,
+        "top": 129,
+        "width": 576,
+        "height": 80,
+        "fontSize": 36,
+        "lineHeight": 40
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "first route row",
+      "selector": "#how-it-works ul > li:first-child",
+      "values": {
+        "left": 813,
+        "top": 2256.375,
+        "width": 934,
+        "height": 41,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "footer",
+      "selector": "footer",
+      "values": {
+        "left": 0,
+        "top": 2736.375,
+        "width": 2560,
+        "height": 85,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "header",
+      "selector": "header",
+      "values": {
+        "left": 0,
+        "top": 0,
+        "width": 2560,
+        "height": 57,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "main",
+      "selector": "main",
+      "values": {
+        "left": 768,
+        "top": 57,
+        "width": 1024,
+        "height": 2679.375,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "navigation",
+      "selector": "header nav:visible, header:not(:has(nav:visible)) a[aria-label=\"Paxeer Bridge home\"]",
+      "values": {
+        "left": 1080.125,
+        "top": 12,
+        "width": 271,
+        "height": 32,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "primary control",
+      "selector": "#bridge [data-slot=\"card-content\"] > button:last-of-type",
+      "values": {
+        "left": 1016,
+        "top": 1531.625,
+        "width": 528,
+        "height": 48,
+        "fontSize": 15,
+        "lineHeight": 22.5
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "source route card",
+      "selector": "section[aria-label=\"From\"]",
+      "values": {
+        "left": 1016,
+        "top": 488.75,
+        "width": 528,
+        "height": 197,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "step card",
+      "selector": "#how-it-works [data-slot=\"card\"][data-variant=\"tonal\"]:nth-child(1)",
+      "values": {
+        "left": 792,
+        "top": 1863.625,
+        "width": 317.328125,
+        "height": 226.25,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "theme control",
+      "selector": "button[data-slot=\"theme-toggle\"]",
+      "values": {
+        "left": 1728,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "transfer history message",
+      "selector": "#transfers [role=\"alert\"]",
+      "values": {
+        "left": 792,
+        "top": 1687.625,
+        "width": 976,
+        "height": 92,
+        "fontSize": 14,
+        "lineHeight": 20
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "transfer history region",
+      "selector": "#transfers",
+      "values": {
+        "left": 792,
+        "top": 1643.625,
+        "width": 976,
+        "height": 136,
+        "fontSize": 16,
+        "lineHeight": 24
+      }
+    },
+    {
+      "view": "withdrawal transfer",
+      "width": 2560,
+      "part": "wallet control",
+      "selector": "header button:has-text(\"Connect wallet\"), header button:has-text(\"No wallet found\")",
+      "values": {
+        "left": 1578,
+        "top": 12,
+        "width": 144,
+        "height": 32,
+        "fontSize": 13,
+        "lineHeight": 19.5
+      }
+    }
+  ]
+}

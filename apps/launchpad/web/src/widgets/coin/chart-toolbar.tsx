@@ -46,7 +46,7 @@ export function ChartToolbar({ interval, onIntervalChange, mode, onModeChange, m
 
   return (
     <div className={cn('flex min-h-11 flex-wrap items-center gap-x-3 gap-y-2 bg-surface-1 px-3 py-2', className)}>
-      <div className="flex items-center gap-1">
+      <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
         <SegmentedControl label="Candle interval" options={segments} value={interval} onChange={onIntervalChange} shape="sm" />
         <DropdownMenu
           label="More intervals"
@@ -56,7 +56,7 @@ export function ChartToolbar({ interval, onIntervalChange, mode, onModeChange, m
         />
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
         <SegmentedControl<ChartMode>
           label="Chart value"
           options={[{ value: 'price', label: 'Price' }, { value: 'mcap', label: 'MCap', disabled: mcapDisabled }]}
@@ -73,7 +73,7 @@ export function ChartToolbar({ interval, onIntervalChange, mode, onModeChange, m
         ) : null}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
         <span id={markersId} className="text-sm font-bold text-text-muted">Trade markers</span>
         <Toggle checked={markers} onChange={onMarkersChange} labelledBy={markersId} size="sm" />
         {markers && markerActors.length > 0 ? (
@@ -87,7 +87,7 @@ export function ChartToolbar({ interval, onIntervalChange, mode, onModeChange, m
         ) : null}
       </div>
 
-      <span title="Prices are shown in USDL" className="rounded-sm bg-surface-2 px-2 py-0.5 text-2xs font-bold uppercase tracking-[.04em] text-text-muted">USDL</span>
+      <span title="Prices are shown in USDL" className="rounded-sm bg-surface-2 px-2 py-0.5 text-2xs font-bold uppercase tracking-wider text-text-muted">USDL</span>
 
       <div role="status" aria-live="polite" className="ml-auto flex items-center gap-2 text-xs text-text-faint">
         <span className={cn('inline-flex items-center gap-1.5', live && 'text-success')}>

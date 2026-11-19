@@ -28,7 +28,7 @@ export function holderCountOf(raw: string | null | undefined): number | undefine
 
 function FillFilterChips({ value, onChange, wallets }: { value: FillFilter; onChange: (next: FillFilter) => void; wallets: FillFilterWallets }) {
   return (
-    <div role="group" aria-label="Fill filter" className="flex items-center gap-1">
+    <div role="group" aria-label="Fill filter" className="flex flex-wrap items-center gap-1">
       {fillFilterOptions(wallets).map(option => {
         if (option.unavailable) {
           return (
@@ -98,9 +98,9 @@ export default function TerminalActivityTabs({ poolAddress }: { poolAddress: str
   }
 
   return (
-    <section aria-label="Pair activity" className="flex min-h-0 flex-col rounded-md bg-surface-1">
+    <section aria-label="Pair activity" className="flex min-h-0 shrink-0 flex-col rounded-md bg-surface-1">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-1">
-        <TabStrip idPrefix={idPrefix} variant="filled" manual label="Pair activity" tabs={tabs} active={tab} onChange={setTab} className="min-w-0 flex-1" />
+        <TabStrip idPrefix={idPrefix} variant="filled" manual label="Pair activity" tabs={tabs} active={tab} onChange={setTab} className="min-w-0 flex-1 basis-64 min-[835px]:basis-0" />
         <div className="flex flex-wrap items-center gap-2">
           {tab === 'trades' ? <FillFilterChips value={activeFilter} onChange={setFilter} wallets={wallets} /> : null}
           <SwitchRow id={`${idPrefix}-instant`} label="Instant trade" icon={<Zap />} checked={instant} onChange={setInstant} />
@@ -113,7 +113,7 @@ export default function TerminalActivityTabs({ poolAddress }: { poolAddress: str
         </div>
         {callouts
           ? (
-            <aside aria-label="Callouts" className="flex w-[340px] max-w-[50%] shrink-0 flex-col overflow-auto bg-surface-2">
+            <aside aria-label="Callouts" className="flex w-85 max-w-[50%] shrink-0 flex-col overflow-auto bg-surface-2">
               <HotCalloutsPanel poolAddress={pool} initialFeed="coin" />
             </aside>
           )

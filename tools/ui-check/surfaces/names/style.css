@@ -1,0 +1,6 @@
+*, *::before, *::after { box-sizing: border-box; }
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; color: #152033; background: #f4f7fb; }
+body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 2rem; overflow-wrap: anywhere; }
+main { width: min(100%, 42rem); max-width: 100%; padding: 3rem; border: 1px solid #9baabe; border-radius: 1.25rem; background: #fff; }
+.eyebrow { color: #0b4cae; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+@media (prefers-color-scheme: dark) { :root { color: #eef4fb; background: #101722; } main { border-color: #61738d; background: #182333; } .eyebrow { color: #9ec3ff; } }

@@ -1,4 +1,5 @@
-// Package coordinatortest bootstraps a private PostgreSQL database the way the
+// Package coordinatortest shares migration source and owner interface helpers
+// with launchpad-schema and bootstraps a private PostgreSQL database the way the
 // production migration coordinator does (spec/production-system/integration
 // postgres-contracts.go -action bootstrap, fixtureBoot, as run by
 // kindle-migrate), scoped to the registered migrations a set of runtime roles
@@ -21,7 +22,7 @@
 // reviewed sha256 is verified. The database and every role it created are
 // dropped when the test ends. It never starts containers: the caller passes
 // the DSN of an already running server whose role may CREATE DATABASE and
-// CREATE ROLE. It is imported only by tests.
+// CREATE ROLE.
 package coordinatortest
 
 import (
@@ -37,8 +38,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/util"
 
 	"github.com/jackc/pgx/v5"
 
@@ -132,21 +131,9 @@ func RepositoryRoot(t testing.TB) string {
 
 func readBound(t testing.TB, root, relative, want string) []byte {
 	t.Helper()
-	if strings.HasPrefix(relative, "spec/production-system/") {
-		relative = "launchpad/" + relative
-	}
-	for _, prefix := range []string{"core/", "media/"} {
-		if strings.HasPrefix(relative, prefix) {
-			relative = "services/launchpad/" + strings.TrimPrefix(relative, prefix)
-			break
-		}
-	}
-	raw, err := util.ReadFilePath(filepath.Join(root, relative))
+	raw, err := ReadMigrationSource(root, relative, want)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if want != "" && production.Checksum(raw) != want {
-		t.Fatalf("%s differs from its reviewed sha256", relative)
 	}
 	return raw
 }
@@ -273,6 +260,17 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 			include(m.MigrationID)
 		}
 	}
+	var readiness struct {
+		Additional map[string][]int64 `json:"additional_required_migrations_by_role"`
+	}
+	if err := json.Unmarshal(readBound(t, root, migrationsDir+"/readiness.json", ""), &readiness); err != nil {
+		t.Fatal(err)
+	}
+	for _, role := range runtimeRoles {
+		for _, id := range readiness.Additional[role] {
+			include(id)
+		}
+	}
 	plan := []production.MigrationManifest{}
 	schemas := map[string]bool{}
 	services := map[string]bool{}
@@ -393,6 +391,7 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 	}
 	exec("migration control owner", "DO $$ BEGIN "+ddl[:first+1]+" EXCEPTION WHEN duplicate_object THEN NULL; END $$")
 	exec("migration control", ddl[first+1:])
+	exec("migration attempts", production.OnlineIndexControlDDL())
 
 	// Owner roles of every planned schema (NOLOGIN, no attributes).
 	planSchemas := make([]string, 0, len(schemas))
@@ -468,34 +467,34 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 	// of a planned schema (registered SQL may grant to any of their runtime
 	// roles). Schema capabilities outside the plan are not provisioned.
 	for _, m := range roleDoc.Roles {
-		if !schemas[m.Schema] {
-			continue
-		}
-		scoped := production.RoleManifest{Service: m.Service, Schema: m.Schema, OwnerRole: rename(m.OwnerRole), RuntimeRole: rename(m.RuntimeRole)}
-		statements, err := scoped.ProvisionSQL()
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, statement := range statements {
-			if strings.HasPrefix(statement, "CREATE ROLE ") {
-				role := strings.Trim(strings.SplitN(strings.TrimPrefix(statement, "CREATE ROLE "), " ", 2)[0], `"`)
-				if roleCreated[role] {
-					continue
-				}
-				roleCreated[role] = true
-				created = append(created, role)
+		scopes := []production.SchemaCapability{{Service: m.Service, Schema: m.Schema, OwnerRole: m.OwnerRole}}
+		scopes = append(scopes, m.SchemaCapabilities...)
+		for _, scope := range scopes {
+			if !schemas[scope.Schema] {
+				continue
 			}
-			exec("provision", statement)
+			scoped := production.RoleManifest{Service: scope.Service, Schema: scope.Schema, OwnerRole: rename(scope.OwnerRole), RuntimeRole: rename(m.RuntimeRole)}
+			statements, err := scoped.ProvisionSQL()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, statement := range statements {
+				if strings.HasPrefix(statement, "CREATE ROLE ") {
+					role := strings.Trim(strings.SplitN(strings.TrimPrefix(statement, "CREATE ROLE "), " ", 2)[0], `"`)
+					if roleCreated[role] {
+						continue
+					}
+					roleCreated[role] = true
+					created = append(created, role)
+				}
+				exec("provision", statement)
+			}
 		}
 	}
 
 	// Owner interfaces (owner_read_grants) of every planned owner, rendered
 	// by the reviewed GrantSQL; each is granted once its source exists.
-	type ownerRead struct {
-		manifest production.RoleManifest
-		grant    production.Grant
-	}
-	ownerReads := []ownerRead{}
+	ownerReads := []production.RoleManifest{}
 	for _, m := range roleDoc.Roles {
 		if !roleCreated[rename(m.OwnerRole)] {
 			continue
@@ -503,32 +502,17 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 		for _, g := range m.OwnerReadGrants {
 			if schemas[g.Schema] {
 				scoped := production.RoleManifest{Service: m.Service, Schema: m.Schema, OwnerRole: rename(m.OwnerRole), RuntimeRole: rename(m.RuntimeRole), OwnerReadGrants: []production.Grant{g}}
-				ownerReads = append(ownerReads, ownerRead{scoped, g})
+				ownerReads = append(ownerReads, scoped)
 			}
 		}
 	}
 	grantOwnerReads := func(tx pgx.Tx, owner string) {
 		t.Helper()
-		for _, read := range ownerReads {
-			if owner != "" && read.manifest.OwnerRole != rename(owner) {
-				continue
-			}
-			var present bool
-			if err := tx.QueryRow(ctx, "SELECT to_regclass($1) IS NOT NULL", pgx.Identifier{read.grant.Schema, read.grant.Object}.Sanitize()).Scan(&present); err != nil {
-				t.Fatal(err)
-			}
-			if !present {
-				continue
-			}
-			statements, err := read.manifest.GrantSQL()
-			if err != nil {
-				t.Fatalf("owner interface %s.%s: %v", read.grant.Schema, read.grant.Object, err)
-			}
-			for _, statement := range statements {
-				if _, err = tx.Exec(ctx, statement); err != nil {
-					t.Fatalf("owner interface %s.%s: %v", read.grant.Schema, read.grant.Object, err)
-				}
-			}
+		if owner != "" {
+			owner = rename(owner)
+		}
+		if err := GrantPresentOwnerInterfaces(ctx, tx, ownerReads, owner); err != nil {
+			t.Fatalf("owner interfaces: %v", err)
 		}
 	}
 
@@ -550,6 +534,20 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 			}
 			exec("history", historyDDL)
 			histories[m.Service] = true
+		}
+		if m.TransactionMode == "nontransactional" {
+			if m.OnlineIndex == nil {
+				t.Fatalf("migration %d requires an online index plan", m.MigrationID)
+			}
+			statement, err := m.OnlineIndex.CreateSQL()
+			if err != nil || string(raw) != statement {
+				t.Fatalf("migration %d online index source differs: %v", m.MigrationID, err)
+			}
+			if err = production.ApplyOnlineIndexMigrationAsOwner(ctx, conn, m, *m.OnlineIndex, rename(owner), registered, production.Checksum(rolesBytes), registry.ApprovalDigest, 1, nil); err != nil {
+				t.Fatalf("migration %d: %v", m.MigrationID, err)
+			}
+			db.Applied[m.MigrationID] = m.SHA256
+			continue
 		}
 		tx, err := conn.Begin(ctx)
 		if err != nil {
@@ -589,13 +587,13 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 	// The reviewed runtime privileges of every requested role.
 	for _, m := range requested {
 		scoped := m
-		scoped.OwnerRole, scoped.RuntimeRole, scoped.OwnerReadGrants, scoped.SchemaCapabilities = rename(m.OwnerRole), rename(m.RuntimeRole), nil, nil
+		scoped.OwnerReadGrants = nil
 		grants, err := scoped.GrantSQL()
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, statement := range grants {
-			exec("runtime grant "+m.RuntimeRole, statement)
+			exec("runtime grant "+m.RuntimeRole, bind([]byte(statement)))
 		}
 	}
 	if schemas["recovery"] {

@@ -4,61 +4,124 @@ import Script from 'next/script';
 import React from 'react';
 
 import config from 'configs/app';
-import useIsMobile from 'lib/hooks/useIsMobile';
 import { Button } from 'toolkit/chakra/button';
 import { Heading } from 'toolkit/chakra/heading';
 import { Link } from 'toolkit/chakra/link';
 const easterEggBadgeFeature = config.features.easterEggBadge;
 
+interface RunnerInstance extends EventListenerObject {
+  canvas: HTMLCanvasElement | null;
+  activated: boolean;
+  distanceRan: number;
+  distanceMeter: { update: (deltaTime: number, distance: number) => void };
+  stop: () => void;
+}
+
 const CapybaraRunner = () => {
   const [ hasReachedHighScore, setHasReachedHighScore ] = React.useState(false);
+  const [ scriptReady, setScriptReady ] = React.useState(false);
 
-  const isMobile = useIsMobile();
+  const gameRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    const preventDefaultKeys = (e: KeyboardEvent) => {
-      if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'ArrowDown') {
-        e.preventDefault();
-      }
-    };
-
     const handleHighScore = () => {
       setHasReachedHighScore(true);
     };
 
     window.addEventListener('reachedHighScore', handleHighScore);
-    window.addEventListener('keydown', preventDefaultKeys);
 
     return () => {
-      window.removeEventListener('keydown', preventDefaultKeys);
       window.removeEventListener('reachedHighScore', handleHighScore);
     };
   }, []);
 
+  const handleScriptReady = React.useCallback(() => setScriptReady(true), []);
+
+  React.useEffect(() => {
+    const container = gameRef.current;
+    if (!scriptReady || !container) {
+      return;
+    }
+    let runner: RunnerInstance | undefined;
+    const handleKey = (event: KeyboardEvent) => {
+      if ([ 'Space', 'ArrowUp', 'ArrowDown', 'Enter' ].includes(event.code)) {
+        event.preventDefault();
+        runner?.handleEvent(event);
+      }
+    };
+    const handlePointer = (event: MouseEvent) => {
+      container.focus();
+      runner?.handleEvent(event);
+    };
+    const handleBlur = (event: FocusEvent) => {
+      if (!(event.relatedTarget instanceof Node) || !container.contains(event.relatedTarget)) {
+        runner?.stop();
+      }
+    };
+    const bindRunner = () => {
+      const instance = (window as Window & { Runner?: { instance_?: RunnerInstance } }).Runner?.instance_;
+      if (!instance?.canvas || runner) {
+        return;
+      }
+      runner = instance;
+      for (const event of [ 'keydown', 'keyup', 'mousedown', 'mouseup' ]) {
+        document.removeEventListener(event, runner);
+      }
+      container.addEventListener('keydown', handleKey);
+      container.addEventListener('keyup', handleKey);
+      container.addEventListener('mousedown', handlePointer);
+      container.addEventListener('mouseup', handlePointer);
+      container.addEventListener('focusout', handleBlur);
+    };
+    const updateRunner = () => {
+      bindRunner();
+      if (runner && !runner.activated) {
+        runner.distanceMeter.update(0, Math.ceil(runner.distanceRan));
+      }
+    };
+    const observer = new MutationObserver(updateRunner);
+    observer.observe(container, { childList: true, subtree: true, attributes: true, attributeFilter: [ 'width', 'height' ] });
+    updateRunner();
+    return () => {
+      observer.disconnect();
+      container.removeEventListener('keydown', handleKey);
+      container.removeEventListener('keyup', handleKey);
+      container.removeEventListener('mousedown', handlePointer);
+      container.removeEventListener('mouseup', handlePointer);
+      container.removeEventListener('focusout', handleBlur);
+      runner?.stop();
+    };
+  }, [ scriptReady ]);
+
   return (
     <>
       <Heading level="2" mt={ 12 } mb={ 2 }>Score 1000 to win a special prize!</Heading>
-      <Box mb={ 4 }>{ isMobile ? 'Tap below to start' : 'Press space to start' }</Box>
-      <Script strategy="lazyOnload" src="/explorer/static/capybara/index.js"/>
-      <Box width={{ base: '100%', lg: '600px' }} height="300px" p="50px 0">
-        <div id="main-frame-error" className="interstitial-wrapper" style={{ marginTop: '20px' }}>
+      <Box mb={ 4 } textWrap="balance">Tap the game or focus it and press Space to start</Box>
+      <Script strategy="lazyOnload" src="/explorer/static/capybara/index.js" onReady={ handleScriptReady }/>
+      <Box
+        ref={ gameRef }
+        tabIndex={ 0 }
+        role="region"
+        aria-label="Capybara runner game"
+        width={{ base: '100%', lg: 'calc(var(--chakra-spacing-1) * 150)' }}
+        minH="var(--chakra-spacing-75)"
+        p="calc(var(--chakra-spacing-1) * 12.5) 0"
+      >
+        <Box id="main-frame-error" className="interstitial-wrapper" mt={ 5 }>
           <div id="main-content"></div>
           <div id="offline-resources" style={{ display: 'none' }}>
-            <img id="offline-resources-1x" src="/explorer/static/capybara/capybaraSprite.png"/>
-            <img id="offline-resources-2x" src="/explorer/static/capybara/capybaraSpriteX2.png"/>
+            <img alt="" width="1200" height="66" id="offline-resources-1x" src="/explorer/static/capybara/capybaraSprite.png"/>
+            <img alt="" width="2400" height="131" id="offline-resources-2x" src="/explorer/static/capybara/capybaraSpriteX2.png"/>
           </div>
-        </div>
+        </Box>
       </Box>
       { easterEggBadgeFeature.isEnabled && hasReachedHighScore && (
         <Flex flexDirection="column" alignItems="center" justifyContent="center" gap={ 4 } mt={ 10 }>
           <Text fontSize="2xl" fontWeight="bold">You unlocked a hidden badge!</Text>
           <Text fontSize="lg" textAlign="center">Congratulations! You’re eligible to claim an epic hidden badge!</Text>
-          <Link
-            href={ easterEggBadgeFeature.badgeClaimLink }
-            external noIcon
-          >
-            <Button>Claim</Button>
-          </Link>
+          <Button asChild>
+            <Link href={ easterEggBadgeFeature.badgeClaimLink } external noIcon>Claim</Link>
+          </Button>
         </Flex>
       ) }
     </>

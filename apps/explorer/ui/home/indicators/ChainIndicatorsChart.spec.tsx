@@ -4,12 +4,14 @@ import React from 'react';
 
 import type { TimeChartData } from 'toolkit/components/charts/types';
 
+import theme from 'toolkit/theme/theme';
 import { render } from 'ui/shared/layout/testWrapper';
 import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
 import ChainIndicatorsChart from './ChainIndicatorsChart';
+import ChainIndicatorsContainer from './ChainIndicatorsContainer';
 import { getChartData } from './utils/chart';
 
 const buildData = (days: number): TimeChartData => ([ {
@@ -78,5 +80,39 @@ describe('ChainIndicatorsChart', () => {
     );
 
     expect(container.querySelector('[data-label="sparkline"]')).toBeNull();
+  });
+
+  it('keeps the chart inside the tile padding at every width', function keepsChartInsideTilePadding() {
+    for (const width of [ 240, 320, 375, 768, 1440, 2560 ]) {
+      const { container, unmount } = render(
+        <div style={{ width }}>
+          <ChainIndicatorsContainer>
+            <ChainIndicatorsChart
+              isLoading={ false }
+              title="Daily transactions"
+              chartQuery={{ isError: false, isPending: false, data: buildData(14) }}
+            />
+          </ChainIndicatorsContainer>
+        </div>,
+      );
+      const chart = container.querySelector('[data-label="chain-indicator-chart"]')!;
+      const svg = chart.querySelector('svg[data-label="sparkline"]')!;
+      const content = svg.parentElement!;
+      const chartContainer = content.parentElement!;
+      const style = getComputedStyle(chartContainer);
+
+      expect(chart.querySelector('[data-title]')?.textContent).toBe('Daily transactions');
+      expect(getComputedStyle(chart).minWidth).toBe('0');
+      expect(style.minWidth).toBe('0');
+      expect(style.width).toBe('var(--chakra-sizes-full)');
+      expect(theme.token('sizes.full')).toBe('100%');
+      expect(style.marginInline).toBe('');
+      expect(style.marginLeft).toBe('');
+      expect(style.marginRight).toBe('');
+      expect(style.marginBlock).toBe('');
+      expect(svg.getAttribute('width')).toBe('100%');
+      expect(style.height).toBe('var(--chakra-sizes-full)');
+      unmount();
+    }
   });
 });

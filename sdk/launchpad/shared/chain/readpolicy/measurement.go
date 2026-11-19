@@ -221,14 +221,18 @@ func (c *MeasurementCapture) OpenArtifact(name string, artifact BoundMeasurement
 	return file, nil
 }
 
+var (
+	measurementSampleIdentity  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
+	measurementSampleBlockHash = regexp.MustCompile(`^0x[0-9a-f]{64}$`)
+)
+
 func (c *MeasurementCapture) Append(sample MeasurementSample) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.closed || c.failed != nil {
 		return errors.New("measurement capture closed or failed")
 	}
-	valid := regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
-	if !valid.MatchString(sample.RequestID) || !valid.MatchString(sample.Scenario) || sample.ChainID != "125" || sample.ObservedUTCNS <= 0 || sample.FinishedUTCNS < sample.ObservedUTCNS || sample.ElapsedNS < 0 || sample.DurableVisibilityNS < 0 || sample.RawCount < 0 || !valid.MatchString(sample.Outcome) {
+	if !measurementSampleIdentity.MatchString(sample.RequestID) || !measurementSampleIdentity.MatchString(sample.Scenario) || sample.ChainID != "125" || sample.ObservedUTCNS <= 0 || sample.FinishedUTCNS < sample.ObservedUTCNS || sample.ElapsedNS < 0 || sample.DurableVisibilityNS < 0 || sample.RawCount < 0 || !measurementSampleIdentity.MatchString(sample.Outcome) {
 		c.failed = errors.New("invalid measured sample identity/timestamps")
 		return c.failed
 	}
@@ -238,7 +242,7 @@ func (c *MeasurementCapture) Append(sample MeasurementSample) error {
 			return err
 		}
 	}
-	if sample.BlockHash != "" && !regexp.MustCompile(`^0x[0-9a-f]{64}$`).MatchString(sample.BlockHash) {
+	if sample.BlockHash != "" && !measurementSampleBlockHash.MatchString(sample.BlockHash) {
 		c.failed = errors.New("invalid measured block hash")
 		return c.failed
 	}

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Switch focus</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/base.css">
+<style>
+  label { display: inline-flex; align-items: center; gap: 16px; min-height: 64px; padding: 8px; }
+  input { appearance: none; margin: 0; }
+  input:focus-visible { outline: none; }
+  input.clipped { position: absolute; left: -100px; top: -100px; width: 1px; height: 1px; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 0; background: transparent; overflow: hidden; clip-path: inset(50%); }
+  .track { display: inline-block; width: 64px; height: 32px; border: 2px solid black; border-radius: 16px; }
+  html.marked input.clipped:focus-visible + .track, html.marked input:not(.clipped):focus-visible { outline: 3px solid blue; outline-offset: 2px; }
+</style>
+<body>
+<label id="control"><input id="switch" class="clipped" type="checkbox" role="switch"><span class="track" aria-hidden="true"></span>Alerts</label>
+<script>
+  const options = new URLSearchParams(location.search);
+  document.documentElement.classList.toggle("marked", !options.has("unmarked"));
+  if (options.has("visible")) document.querySelector("input").classList.remove("clipped");
+</script>
+</body>
+</html>

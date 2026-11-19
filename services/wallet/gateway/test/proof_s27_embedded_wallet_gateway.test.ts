@@ -17,7 +17,6 @@ import { TestChain } from './support/chain.js';
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { createServer, type AddressInfo } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import {
@@ -31,13 +30,13 @@ import {
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
 import { startIdentityProvider, type IdentityProvider } from './support/identity.js';
+import { assertProcessRunning, startOnReservedPorts } from './support/ports.js';
 
 const gatewayDir = fileURLToPath(new URL('..', import.meta.url));
 const children: Array<{ child: ChildProcess; logs: string[] }> = [];
 let pg: EphemeralPostgres;
 let identity: IdentityProvider;
 let gateway: ChildProcess;
-let gatewayPort: number;
 let base: string;
 let rpcUrl: string;
 const chain = new TestChain(125, 'evm');
@@ -45,19 +44,6 @@ let db: typeof import('../src/db/pool.js');
 let rpcModule: typeof import('../src/rpc/pool.js');
 let rpc: InstanceType<typeof import('../src/rpc/pool.js').RpcPool>;
 let childEnv: NodeJS.ProcessEnv;
-
-async function freePort(): Promise<number> {
-  const server = createServer();
-  await new Promise<void>((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', resolve);
-  });
-  const port = (server.address() as AddressInfo).port;
-  await new Promise<void>((resolve, reject) =>
-    server.close((error) => (error ? reject(error) : resolve()))
-  );
-  return port;
-}
 
 function launch(command: string, args: string[], env: NodeJS.ProcessEnv = childEnv) {
   const child = spawn(command, args, {
@@ -86,8 +72,7 @@ async function stop(child: ChildProcess | undefined): Promise<void> {
 async function waitFor(url: string, child: ChildProcess, logs: string[], method = 'GET') {
   const deadline = Date.now() + 20_000;
   for (;;) {
-    if (!child.pid || child.exitCode !== null || child.signalCode !== null)
-      throw new Error(`process exited before serving ${url}: ${logs.join('')}`);
+    assertProcessRunning(child, logs);
     const response = await fetch(url, {
       method,
       ...(method === 'POST'
@@ -105,18 +90,29 @@ async function waitFor(url: string, child: ChildProcess, logs: string[], method 
     }).catch(() => null);
     if (response?.ok) {
       await response.text();
-      return;
+      assertProcessRunning(child, logs);
+      if (logs.join('').includes('paxeer-wallet-api listening on')) return;
     }
-    if (response) await response.text();
+    if (response && !response.ok) await response.text();
     if (Date.now() >= deadline) throw new Error(`process did not serve ${url}: ${logs.join('')}`);
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
 }
 
 async function startGateway() {
-  const launched = launch(process.execPath, ['--import', 'tsx', 'src/index.ts']);
-  gateway = launched.child;
-  await waitFor(`${base}/healthz`, gateway, launched.logs);
+  await startOnReservedPorts(
+    1,
+    async ([reservation]) => {
+      childEnv.PORT = String(reservation!.port);
+      base = `http://127.0.0.1:${reservation!.port}`;
+      await reservation!.release();
+      const launched = launch(process.execPath, ['--import', 'tsx', 'src/index.ts']);
+      gateway = launched.child;
+      await waitFor(`${base}/healthz`, gateway, launched.logs);
+    },
+    () => stop(gateway),
+    '::'
+  );
 }
 
 async function request(path: string, token?: string, body?: unknown) {
@@ -136,9 +132,7 @@ async function request(path: string, token?: string, body?: unknown) {
 beforeAll(async () => {
   identity = await startIdentityProvider();
   await chain.start();
-  gatewayPort = await freePort();
   rpcUrl = chain.url;
-  base = `http://127.0.0.1:${gatewayPort}`;
   process.env.SUPABASE_URL = identity.url;
   process.env.RPC_URLS = rpcUrl;
   process.env.HYPERPAXEER_RPC_URL = rpcUrl;
@@ -156,7 +150,7 @@ beforeAll(async () => {
   ])
     delete process.env[key];
   pg = await startPostgres();
-  childEnv = { ...process.env, PORT: String(gatewayPort), API_WORKERS: '1' };
+  childEnv = { ...process.env, API_WORKERS: '1', LOG_LEVEL: 'info' };
   db = await import('../src/db/pool.js');
   rpcModule = await import('../src/rpc/pool.js');
   const { env } = await import('../src/env.js');
@@ -451,9 +445,8 @@ test(
 
 async function s27ProvisioningAndBackfillPreserveTypedRefusals() {
   const { NonceStore } = await import('../src/nonce/store.js');
-  const { provisionAccount, ProvisionError, requireProvisionStation } = await import(
-    '../src/provision/state.js'
-  );
+  const { provisionAccount, ProvisionError, requireProvisionStation } =
+    await import('../src/provision/state.js');
   const jobs = await import('../src/jobs/backfillAccounts.js');
   const deps = {
     pool: db.getPool(),

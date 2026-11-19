@@ -1,9 +1,13 @@
 'use client';
 
-import { useEffect, useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useAccount, useConnect } from 'wagmi';
 import { Button, FormField, NoticeBar } from '@/ui/primitives';
-import { PAXEER_CONNECTOR_ID, usePaxeerOptional, type SignInProvider } from '@/core/wallet-sdk/embedded_sdk/embedded';
+import {
+  PAXEER_CONNECTOR_ID,
+  usePaxeerOptional,
+  type SignInProvider,
+} from '@/core/wallet-sdk/embedded_sdk/embedded';
 
 export const PAXEER_RETURN_KEY = 'paxeer:return';
 
@@ -41,27 +45,59 @@ export function readReturnPath(): string {
  * and the auth callback page, so a user returning from a magic link or OAuth
  * redirect lands in the normal "sign" step without choosing a wallet.
  */
-export function useEmbeddedAutoConnect(enabled = true): { connecting: boolean; error: string | null } {
+export function useEmbeddedAutoConnect(enabled = true): {
+  connecting: boolean;
+  error: string | null;
+  retry(): void;
+} {
   const paxeer = usePaxeerOptional();
+  return useEmbeddedConnection(enabled, paxeer?.isAuthenticated ? paxeer.user?.id ?? null : null);
+}
+
+export function useEmbeddedConnection(enabled: boolean, identity: string | null, connectorId = PAXEER_CONNECTOR_ID): { connecting: boolean; error: string | null; retry(): void } {
   const { connectors, connectAsync } = useConnect();
   const { isConnected, status } = useAccount();
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const connector = connectors.find(candidate => candidate.id === PAXEER_CONNECTOR_ID);
-  const ready = Boolean(enabled && paxeer?.isAuthenticated && connector && !isConnected && status === 'disconnected');
+  const [retryTick, setRetryTick] = useState(0);
+  const attempted = useRef<string | null>(null);
+  const generation = useRef(0);
+  const connector = connectors.find((candidate) => candidate.id === connectorId);
+  const ready = Boolean(
+    enabled && identity && connector && !isConnected && status === 'disconnected'
+  );
+
+  useEffect(() => {
+    generation.current++;
+    attempted.current = null;
+    setConnecting(false);
+    setError(null);
+    return () => { generation.current++; };
+  }, [enabled, identity]);
 
   useEffect(() => {
     if (!ready || !connector) return;
-    let alive = true;
+    const attempt = `${connector.id}:${retryTick}`;
+    if (attempted.current === attempt) return;
+    attempted.current = attempt;
+    const observed = generation.current;
     setConnecting(true);
     void connectAsync({ connector })
-      .then(() => { if (alive) setError(null); })
-      .catch((failure: unknown) => { if (alive) { console.error('[sign-in] embedded wallet connect failed:', failure); setError("Couldn't connect your wallet. Try again"); } })
-      .finally(() => { if (alive) setConnecting(false); });
-    return () => { alive = false; };
-  }, [ready, connector, connectAsync]);
+      .then(() => {
+        if (observed === generation.current) setError(null);
+      })
+      .catch((failure: unknown) => {
+        if (observed === generation.current) {
+          console.error('[sign-in] embedded wallet connect failed:', failure);
+          setError("Couldn't connect your wallet. Try again");
+        }
+      })
+      .finally(() => {
+        if (observed === generation.current) setConnecting(false);
+      });
+  }, [ready, connector, connectAsync, retryTick]);
 
-  return { connecting, error };
+  return { connecting, error, retry: () => { setError(null); setRetryTick(value => value + 1); } };
 }
 
 interface EmbeddedSignInProps {
@@ -90,56 +126,140 @@ export default function EmbeddedSignIn({ disabled = false }: EmbeddedSignInProps
     event.preventDefault();
     if (busy) return;
     const trimmed = email.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) { setLocalError('Enter a valid email'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setLocalError('Enter a valid email');
+      return;
+    }
     setLocalError(null);
     rememberReturnPath();
     const result = await paxeer.signInWithEmail(trimmed);
     if (result.ok) setSent(true);
-    else { if (result.error) console.error('[sign-in] email link failed:', result.error); setLocalError("Couldn't send the email. Try again"); }
+    else {
+      if (result.error) console.error('[sign-in] email link failed:', result.error);
+      setLocalError("Couldn't send the email. Try again");
+    }
   };
 
   const startOAuth = async (provider: SignInProvider) => {
     if (busy) return;
-    setLocalError(null); setRedirecting(provider);
+    setLocalError(null);
+    setRedirecting(provider);
     rememberReturnPath();
-    try { await paxeer.signInWithOAuth(provider); }
-    catch (failure: unknown) { console.error('[sign-in] social sign-in failed:', failure); setLocalError("Couldn't start sign-in. Try again"); setRedirecting(null); }
+    try {
+      await paxeer.signInWithOAuth(provider);
+    } catch (failure: unknown) {
+      console.error('[sign-in] social sign-in failed:', failure);
+      setLocalError("Couldn't start sign-in. Try again");
+      setRedirecting(null);
+    }
   };
 
   if (paxeer.isAuthenticated) {
     return (
-      <section aria-label="Embedded wallet" className="flex flex-col gap-2 rounded-md bg-surface-2 p-3">
-        <p className="text-sm text-text">Signed in as {paxeer.user?.email ?? 'your Paxeer account'}.</p>
-        <p className="text-xs text-text-muted">{auto.connecting ? 'Connecting your wallet...' : 'Your wallet is ready. Sign in below'}</p>
-        {auto.error ? <NoticeBar tone="danger" surface={2}>{auto.error}</NoticeBar> : null}
-        <Button variant="ghost" size="sm" disabled={busy} onClick={() => { void paxeer.signOut(); }}>Use a different account</Button>
+      <section
+        aria-label="Embedded wallet"
+        className="flex flex-col gap-2 rounded-md bg-surface-2 p-3"
+      >
+        <p className="text-sm text-text">
+          Signed in as {paxeer.user?.email ?? 'your Paxeer account'}.
+        </p>
+        <p className="text-xs text-text-muted">
+          {auto.connecting ? 'Connecting your wallet...' : 'Your wallet is ready. Sign in below'}
+        </p>
+        {auto.error ? (
+          <NoticeBar tone="danger" surface={2}>
+            {auto.error}
+            <Button variant="ghost" size="sm" disabled={busy} onClick={auto.retry}>Try connecting again</Button>
+          </NoticeBar>
+        ) : null}
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          onClick={() => {
+            void paxeer.signOut();
+          }}
+        >
+          Use a different account
+        </Button>
       </section>
     );
   }
 
   return (
-    <section aria-label="Email or social sign-in" className="flex flex-col gap-3 rounded-md bg-surface-2 p-3">
+    <section
+      aria-label="Email or social sign-in"
+      className="flex flex-col gap-3 rounded-md bg-surface-2 p-3"
+    >
       <div className="flex flex-col gap-0.5">
         <h3 className="text-sm font-bold text-text">Continue with email or a social account</h3>
         <p className="text-xs text-text-muted">We make a wallet for you, no extension needed</p>
       </div>
       {sent ? (
-        <NoticeBar tone="success" surface={2}>Check {email.trim()} for a sign-in link. Opening it finishes sign-in on this device.</NoticeBar>
+        <NoticeBar tone="success" surface={2}>
+          Check {email.trim()} for a sign-in link. Opening it finishes sign-in on this device.
+        </NoticeBar>
       ) : (
-        <form className="flex flex-col gap-2" onSubmit={event => { void submitEmail(event); }} noValidate>
-          <FormField id={emailId} label="Email" surface="surface-2" error={localError}
-            inputProps={{ type: 'email', autoComplete: 'email', inputMode: 'email', placeholder: 'you@example.com', value: email, disabled: busy, onChange: event => setEmail(event.target.value) }} />
-          <Button type="submit" variant="secondary" size="md" fullWidth loading={paxeer.authBusy && redirecting === null} disabled={busy}>Send sign-in link</Button>
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(event) => {
+            void submitEmail(event);
+          }}
+          noValidate
+        >
+          <FormField
+            id={emailId}
+            label="Email"
+            surface="surface-2"
+            error={localError}
+            inputProps={{
+              type: 'email',
+              autoComplete: 'email',
+              inputMode: 'email',
+              placeholder: 'you@example.com',
+              value: email,
+              disabled: busy,
+              onChange: (event) => setEmail(event.target.value),
+            }}
+          />
+          <Button
+            type="submit"
+            variant="secondary"
+            size="md"
+            fullWidth
+            loading={paxeer.authBusy && redirecting === null}
+            disabled={busy}
+          >
+            Send sign-in link
+          </Button>
         </form>
       )}
-      <div className="grid grid-cols-5 gap-2" role="group" aria-label="Social sign-in">
-        {OAUTH_PROVIDERS.map(provider => (
-          <Button key={provider.id} variant="ghost" size="md" loading={redirecting === provider.id} disabled={busy} onClick={() => { void startOAuth(provider.id); }} aria-label={`Continue with ${provider.label}`}>
+      <div
+        className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-social-min-width)),1fr))] gap-2"
+        role="group"
+        aria-label="Social sign-in"
+      >
+        {OAUTH_PROVIDERS.map((provider) => (
+          <Button
+            key={provider.id}
+            variant="ghost"
+            size="md"
+            loading={redirecting === provider.id}
+            disabled={busy}
+            onClick={() => {
+              void startOAuth(provider.id);
+            }}
+            aria-label={`Continue with ${provider.label}`}
+          >
             {provider.label}
           </Button>
         ))}
       </div>
-      {paxeer.authError && !localError ? <NoticeBar tone="danger" surface={2}>{paxeer.authError}</NoticeBar> : null}
+      {paxeer.authError && !localError ? (
+        <NoticeBar tone="danger" surface={2}>
+          {paxeer.authError}
+        </NoticeBar>
+      ) : null}
     </section>
   );
 }

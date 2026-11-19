@@ -24,15 +24,33 @@ export interface ScanStatCardProps {
 }
 
 const ScanStatCard = ({ label, value, secondary, delta, hint, icon, isLoading, className }: ScanStatCardProps) => {
+  const valueText = typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
+
   return (
-    <Stat.Root variant="scan" className={ className } data-scan-stat={ label }>
-      <Stat.Label>
+    <Stat.Root variant="scan" className={ className } data-scan-stat={ label } minW={ 0 } h="100%">
+      <Stat.Label h={ 4 } minH="fit-content" flexShrink={ 0 } maxW="full" flexWrap="nowrap" whiteSpace="nowrap" alignItems="flex-start">
         { icon }
-        <chakra.span data-label>{ label }</chakra.span>
-        { hint && <Hint label={ hint } isLoading={ isLoading } boxSize={ 4 }/> }
+        <chakra.span data-label minW={ 0 } whiteSpace="normal" lineClamp={ 2 } textOverflow="ellipsis" overflowWrap="anywhere" title={ label }>
+          { label }
+        </chakra.span>
+        { hint && (
+          <chakra.span position="relative" boxSize={ 4 } flexShrink={ 0 }>
+            <Hint label={ hint } isLoading={ isLoading } boxSize={ 4 } position="absolute" top="50%" transform="translateY(-50%)"/>
+          </chakra.span>
+        ) }
       </Stat.Label>
-      <Stat.ValueText>
-        <Skeleton loading={ isLoading } data-value>{ value }</Skeleton>
+      <Stat.ValueText mt="auto" minW={ 0 } maxW="100%">
+        <Skeleton
+          loading={ isLoading }
+          data-value
+          whiteSpace="nowrap"
+          minW={ 0 }
+          maxW="100%"
+          truncate={ valueText !== undefined }
+          title={ valueText }
+        >
+          { value }
+        </Skeleton>
         { secondary !== undefined && secondary !== null && (
           <chakra.span data-secondary>({ secondary })</chakra.span>
         ) }

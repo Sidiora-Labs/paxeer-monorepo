@@ -3,7 +3,7 @@ import { Card } from "@layerx/ui/components/card";
 import { Input } from "@layerx/ui/components/input";
 import { cn } from "@layerx/ui/cn";
 import Link from "next/link";
-import type { ReactNode, TextareaHTMLAttributes } from "react";
+import { useId, type ReactNode, type TextareaHTMLAttributes } from "react";
 
 import { KitButton } from "./control";
 
@@ -49,8 +49,8 @@ export function ExplorerTable({
   rows: readonly Readonly<{ id: string; cells: readonly ReactNode[] }>[];
 }>) {
   return (
-    <div className="overflow-x-auto rounded-md border border-border">
-      <table className="w-full min-w-[44rem] border-collapse text-left text-sm">
+    <div className="human-table-scroll rounded-md border border-border" tabIndex={-1}>
+      <table className="human-data-table border-collapse text-left text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead className="bg-surface-sunken text-foreground-secondary">
           <tr>
@@ -138,11 +138,19 @@ export function ExplorerLookupForm({
   placeholder: string;
   submitLabel: string;
 }>) {
+  const inputId = useId();
   return (
     <form action={action} method="get" className="flex flex-col gap-2 sm:flex-row sm:items-end">
-      <label className="flex flex-1 flex-col gap-1 text-sm font-semibold text-foreground">
+      <label htmlFor={inputId} className="flex flex-1 flex-col gap-1 text-sm font-semibold text-foreground">
         {label}
-        <Input name="identifier" placeholder={placeholder} required autoComplete="off" spellCheck={false} />
+        <Input
+          id={inputId}
+          name="identifier"
+          placeholder={placeholder}
+          required
+          autoComplete="off"
+          spellCheck={false}
+        />
       </label>
       <input type="hidden" name="kind" value={kind} />
       <KitButton type="submit">{submitLabel}</KitButton>

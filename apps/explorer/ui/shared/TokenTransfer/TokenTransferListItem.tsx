@@ -66,13 +66,13 @@ const TokenTransferListItem = ({
         <NftEntity hash={ token.address_hash } id={ total.token_id } instance={ total.token_instance } isLoading={ isLoading }/>
       ) }
       { showTxInfo && (
-        <Flex justifyContent="space-between" alignItems="center" lineHeight="24px" width="100%">
+        <Flex justifyContent="space-between" alignItems="center" lineHeight="h2" width="100%">
           { txHash && (
             <TxEntity
               isLoading={ isLoading }
               hash={ txHash }
               truncation="constant_long"
-              fontWeight="700"
+              fontWeight="bold"
               chain={ chainData }
             />
           ) }
@@ -81,7 +81,7 @@ const TokenTransferListItem = ({
             enableIncrement={ enableTimeIncrement }
             isLoading={ isLoading }
             color="text.secondary"
-            fontWeight="400"
+            fontWeight="normal"
             fontSize="sm"
           />
         </Flex>
@@ -92,10 +92,16 @@ const TokenTransferListItem = ({
         current={ baseAddress }
         isLoading={ isLoading }
         w="100%"
+        minW={ 0 }
+        css={{
+          gridTemplateColumns: 'minmax(0, max-content) max-content minmax(0, max-content)',
+          '& [data-entity]': { minW: 0, maxW: '100%', flexWrap: 'wrap' },
+          '& [data-entity-content]': { whiteSpace: 'normal', overflowWrap: 'anywhere' },
+        }}
       />
       { total && 'value' in total && total.value !== null && (
-        <Flex columnGap={ 2 } w="100%">
-          <Skeleton loading={ isLoading } fontWeight={ 500 } flexShrink={ 0 }>Value</Skeleton>
+        <Flex columnGap={ 2 } w="100%" flexWrap="wrap">
+          <Skeleton loading={ isLoading } fontWeight="medium" flexShrink={ 0 }>Value</Skeleton>
           <AssetValue
             amount={ total && 'value' in total && total.value !== null ? total.value : null }
             decimals={ total && 'decimals' in total ? total.decimals || '0' : '0' }
@@ -107,8 +113,8 @@ const TokenTransferListItem = ({
       ) }
 
       { token && isConfidentialTokenType(token.type) && (!total || !('value' in total) || total.value === null) && (
-        <Flex columnGap={ 2 } w="100%">
-          <Skeleton loading={ isLoading } fontWeight={ 500 } flexShrink={ 0 }>Value</Skeleton>
+        <Flex columnGap={ 2 } w="100%" flexWrap="wrap">
+          <Skeleton loading={ isLoading } fontWeight="medium" flexShrink={ 0 }>Value</Skeleton>
           <ConfidentialValue loading={ isLoading } color="text.secondary"/>
         </Flex>
       ) }

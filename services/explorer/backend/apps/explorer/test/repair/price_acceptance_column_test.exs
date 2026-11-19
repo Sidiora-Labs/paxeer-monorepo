@@ -14,7 +14,8 @@ defmodule Explorer.Repair.PriceAcceptanceColumnTest do
   import Explorer.Factory
 
   alias Explorer.Chain.Block
-  alias Explorer.Chain.PaxeerX.{PriceFeed, PriceObservation}
+  alias Explorer.Chain.Cache.Counters.LastFetchedCounter
+  alias Explorer.Chain.PaxeerX.{PriceFeed, PriceFeedScannedBlock, PriceObservation}
   alias Explorer.PaxeerX.CosmosRest
   alias Explorer.Repo
 
@@ -31,8 +32,9 @@ defmodule Explorer.Repair.PriceAcceptanceColumnTest do
   @index "paxeer_x_price_acceptance_backfill_next_job_index"
 
   setup do
-    assert :ok = Ecto.Migrator.down(Repo, @version, RelaxPaxeerXPriceObservationAccepted, log: false)
-    assert :ok = Ecto.Migrator.down(Repo, @queue_version, BackfillPaxeerXPriceAcceptance, log: false)
+    Explorer.MigrationCase.start_owner!()
+    down_migration(@version, RelaxPaxeerXPriceObservationAccepted)
+    down_migration(@queue_version, BackfillPaxeerXPriceAcceptance)
 
     body = fixture("block_txs.json")
     results = refuse_market(fixture("block_results.json")["txs_results"], 2)
@@ -46,8 +48,11 @@ defmodule Explorer.Repair.PriceAcceptanceColumnTest do
 
     on_exit(fn ->
       Repo.delete_all(from(b in Block, where: b.hash == ^block.hash))
-      Ecto.Migrator.up(Repo, @version, RelaxPaxeerXPriceObservationAccepted, log: false)
-      Ecto.Migrator.up(Repo, @queue_version, BackfillPaxeerXPriceAcceptance, log: false)
+      Repo.delete_all(from(s in PriceFeedScannedBlock, where: s.block_number == @height))
+      LastFetchedCounter.delete("paxeer_x_price_update_total")
+      up_migration(@queue_version, BackfillPaxeerXPriceAcceptance)
+      up_migration(@version, RelaxPaxeerXPriceObservationAccepted)
+      Ecto.Adapters.SQL.Sandbox.mode(Repo, :auto)
     end)
 
     %{block: block, transactions: transactions, results: results, update: update}
@@ -84,10 +89,10 @@ defmodule Explorer.Repair.PriceAcceptanceColumnTest do
     assert :already_up = Ecto.Migrator.up(Repo, @version, RelaxPaxeerXPriceObservationAccepted, log: false)
     assert {accepted_column(), index_state()} == state
 
-    {:ok, worker} = PriceAcceptanceBackfill.start_link()
+    worker = start_supervised!({PriceAcceptanceBackfill, []})
     assert :ok = PriceAcceptanceBackfill.retain(worker, @height, context.transactions, context.results)
     assert {:ok, 18} = PriceAcceptanceBackfill.step(worker, 18)
-    assert :ok = GenServer.stop(worker)
+    assert :ok = stop_supervised(PriceAcceptanceBackfill)
 
     assert %{rows: [[true]]} =
              Repo.query!("SELECT completed FROM paxeer_x_price_acceptance_backfill WHERE block_number = $1", [@height])
@@ -101,6 +106,14 @@ defmodule Explorer.Repair.PriceAcceptanceColumnTest do
                """,
                [@height]
              )
+  end
+
+  defp down_migration(version, migration) do
+    assert Ecto.Migrator.down(Repo, version, migration, log: false) in [:ok, :already_down]
+  end
+
+  defp up_migration(version, migration) do
+    assert Ecto.Migrator.up(Repo, version, migration, log: false) in [:ok, :already_up]
   end
 
   defp accepted_column do

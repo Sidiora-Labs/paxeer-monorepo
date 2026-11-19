@@ -38,9 +38,7 @@ export function PriceChart({
   onScrubMove,
   onScrubLeave,
 }: PriceChartProps) {
-  const chartColor = positive
-    ? 'var(--color-status-success)'
-    : 'var(--color-status-danger)';
+  const chartColor = positive ? 'var(--color-status-success)' : 'var(--color-status-danger)';
 
   const handleMove = (state: any) => {
     if (state?.activePayload?.[0]) {
@@ -52,10 +50,7 @@ export function PriceChart({
     <div className="relative mt-2">
       {chartLoading && (
         <div className="absolute inset-0 flex items-center justify-center z-10">
-          <Loader2
-            aria-label="Loading chart"
-            className="h-5 w-5 animate-spin text-pax-accent"
-          />
+          <Loader2 aria-label="Loading chart" className="h-5 w-5 animate-spin text-pax-accent" />
         </div>
       )}
       <div
@@ -69,7 +64,7 @@ export function PriceChart({
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={points}
-              margin={{ top: 8, right: 0, bottom: 0, left: 0 }}
+              margin={{ top: 8, right: 8, bottom: 0, left: 8 }}
               onMouseMove={handleMove}
               onMouseLeave={onScrubLeave}
             >
@@ -93,7 +88,12 @@ export function PriceChart({
                 fill="url(#premiumGrad)"
                 animationDuration={400}
                 dot={false}
-                activeDot={{ r: 4, fill: chartColor, stroke: 'var(--color-surface-base)', strokeWidth: 2 }}
+                activeDot={{
+                  r: 4,
+                  fill: chartColor,
+                  stroke: 'var(--color-surface-base)',
+                  strokeWidth: 2,
+                }}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -106,13 +106,16 @@ export function PriceChart({
         )}
       </div>
 
-      <div className="flex items-center justify-center gap-1 px-5 mt-3">
+      <div className="flex flex-wrap items-center justify-center gap-1 px-5 mt-3">
         {TIME_PERIODS.map((tp) => (
           <button
+            type="button"
             key={tp.id}
             onClick={() => onPeriodChange(tp.id)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all press-scale ${
-              period === tp.id ? 'bg-white/10 text-white' : 'text-pax-muted hover:text-white/60'
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all press-scale ${
+              period === tp.id
+                ? 'bg-pax-overlay text-pax-light'
+                : 'text-pax-muted hover:text-pax-light/60'
             }`}
           >
             {tp.label}

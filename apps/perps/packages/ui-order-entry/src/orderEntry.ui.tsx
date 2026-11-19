@@ -94,7 +94,10 @@ export const OrderEntry: React.FC<OrderEntryProps> = (props) => {
   const [selectedExtraId, setSelectedExtraId] = useState<string | null>(null);
 
   const [permissionlessAcknowledgedKeys, setPermissionlessAcknowledgedKeys] =
-    useLocalStorage<string[]>("paxeer-network-permissionless-market-notice", []);
+    useLocalStorage<string[]>(
+      "paxeer-network-permissionless-market-notice",
+      [],
+    );
 
   const { t } = useTranslation();
 
@@ -115,13 +118,20 @@ export const OrderEntry: React.FC<OrderEntryProps> = (props) => {
     true,
   );
   const [showTPSLAdvanced, setShowTPSLAdvanced] = useState(false);
-  const [hidden, setHidden] = useLocalStorage("paxeer-network-order-hidden", false);
+  const [hidden, setHidden] = useLocalStorage(
+    "paxeer-network-order-hidden",
+    false,
+  );
 
-  const [slippage, setSlippage] = useLocalStorage("paxeer-network-slippage", "1", {
-    parseJSON: ((value: string | null) => {
-      return !value || value === '""' ? "1" : JSON.parse(value);
-    }) as any,
-  });
+  const [slippage, setSlippage] = useLocalStorage(
+    "paxeer-network-slippage",
+    "1",
+    {
+      parseJSON: ((value: string | null) => {
+        return !value || value === '""' ? "1" : JSON.parse(value);
+      }) as any,
+    },
+  );
 
   const { notification } = usePaxeerNetworkContext();
 

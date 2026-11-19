@@ -1,6 +1,6 @@
 import { decodeContract, errorsText } from './validate.js';
 import type { ContractTypes } from './types.gen.js';
-import type { ContractTypes as GeneratedV2ContractTypes, PoolDetailData as GeneratedPoolDetailData, PoolDetailResponse as GeneratedPoolDetailResponse } from '@kindle/sdk-v2/types';
+import type { ContractTypes as GeneratedV2ContractTypes, PoolDetailData as GeneratedPoolDetailData, PoolDetailResponse as GeneratedPoolDetailResponse } from './types-v2.gen.js';
 import { v2ContractValidators } from './validators-v2.gen.js';
 
 export function decodeV2Contract<N extends keyof V2ContractTypes>(
@@ -148,6 +148,7 @@ async function readBoundedResponseText(
   response: Response,
   maxBytes: number,
   signal?: AbortSignal,
+  requireObject = false,
 ): Promise<string> {
   const tooLarge = () =>
     new HttpError(response.status, undefined, 'RESPONSE_TOO_LARGE');
@@ -167,6 +168,7 @@ async function readBoundedResponseText(
   let complete = false;
   let bytes = new Uint8Array(0);
   let size = 0;
+  let objectStarted = false;
   try {
     for (;;) {
       signal?.throwIfAborted();
@@ -175,6 +177,13 @@ async function readBoundedResponseText(
       if (done) {
         complete = true;
         return new TextDecoder().decode(bytes.subarray(0, size));
+      }
+      if (requireObject && !objectStarted) {
+        const first = value.find(byte => ![0x20, 0x09, 0x0a, 0x0d].includes(byte));
+        if (first !== undefined) {
+          if (first !== 0x7b) return '';
+          objectStarted = true;
+        }
       }
       if (value.byteLength > maxBytes - size) throw tooLarge();
       const nextSize = size + value.byteLength;
@@ -370,13 +379,16 @@ export class SdkClient {
     const headers: Record<string, string> = { Accept: 'application/json' };
     for (const [key, value] of Object.entries(options.headers ?? {})) {
       if (
-        !/^(?:Idempotency-Key|X-Kindle-Operation(?:-Signature)?|X-Action-(?:Wallet|Signature|Nonce|Expires|Audience)|If-Match)$/i.test(
-          key,
-        ) ||
+        (!(path.split('?')[0] === '/v2/stream/sse' &&
+            ((key.toLowerCase() === 'accept' && value === 'text/event-stream') ||
+              key.toLowerCase() === 'last-event-id')) &&
+          !/^(?:Idempotency-Key|X-Kindle-Operation(?:-Signature)?|X-Action-(?:Wallet|Signature|Nonce|Expires|Audience)|If-Match|X-Recovery-Receipt)$/i.test(
+            key,
+          )) ||
         /[\r\n]/.test(value)
       )
         throw new TypeError('Unsupported operation header');
-      headers[key] = value;
+      headers[key.toLowerCase() === 'accept' ? 'Accept' : key] = value;
     }
     if (options.requestId !== undefined) {
       if (
@@ -480,7 +492,7 @@ export class SdkClient {
         await result.body?.cancel();
         throw new HttpError(result.status, undefined, 'UNEXPECTED_REDIRECT');
       }
-      if (result.status === 501 || (result.status === 404 && major === 1)) {
+      if (result.status === 501) {
         await result.body?.cancel();
         throw new CapabilityUnavailableError(
           `Unavailable endpoint ${path.split('?')[0]}`,
@@ -488,17 +500,17 @@ export class SdkClient {
         );
       }
       let envelope: V2ContractTypes['Error'] | undefined;
-      if (!result.ok && major !== 1) {
+      if (!result.ok) {
         const text = await readBoundedResponseText(
           result,
           ERROR_RESPONSE_MAX_BYTES,
           options.signal,
+          major === 1,
         );
         try {
-          const decoded = decodeV2Contract(
-            'Error',
-            JSON.parse(text) as unknown,
-          );
+          const decoded = major === 1
+            ? decodeContract('Error', JSON.parse(text) as unknown)
+            : decodeV2Contract('Error', JSON.parse(text) as unknown);
           envelope = {
             code: decoded.code,
             message: decoded.code,
@@ -532,7 +544,6 @@ export class SdkClient {
           : retry
             ? Date.parse(retry) - Date.now()
             : 0;
-        if (major === 1) await result.body?.cancel();
         await abortableDelay(
           Math.min(
             30000,
@@ -543,7 +554,6 @@ export class SdkClient {
         continue;
       }
       if (!result.ok) {
-        if (major === 1) await result.body?.cancel();
         throw new HttpError(result.status, envelope);
       }
       if (result.status === 204) {

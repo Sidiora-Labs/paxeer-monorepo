@@ -11,7 +11,8 @@
 //! there because the EVM walk already indexed them.
 
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::mpsc;
 use std::sync::OnceLock;
 
 use serde_json::{json, Map, Value};
@@ -25,7 +26,7 @@ use crate::codec::{
 };
 use crate::follow::{walk_back, FollowPolicy, StepOutcome};
 use crate::store::{AssetRow, EventRow, HolderRow, Position, Store, TransferRow, Unit};
-use crate::transport::Endpoint;
+use crate::transport::{Endpoint, RpcBatchAnswer};
 use crate::IndexError;
 
 /// The chain label of every Paxeer row.
@@ -983,6 +984,70 @@ impl PaxeerIngester {
         Ok(Some((block, receipts)))
     }
 
+    /// Reads several heights through bounded JSON-RPC batches and a bounded
+    /// number of concurrent readers. The returned entries follow `heights`.
+    ///
+    /// A missing or error response member is retried with the corresponding
+    /// single request. A source failure splits the batch into smaller reads.
+    ///
+    /// # Errors
+    /// Returns source, decode and integrity failures from the node reads.
+    pub fn blocks_with_receipts(
+        &self,
+        heights: &[u64],
+        batch_blocks: usize,
+        readers: usize,
+    ) -> Result<Vec<(u64, Option<(Value, BTreeMap<String, Value>)>)>, IndexError> {
+        if heights.is_empty() {
+            return Ok(Vec::new());
+        }
+        if batch_blocks == 1 && readers == 1 {
+            return heights
+                .iter()
+                .map(|height| {
+                    self.block_with_receipts(*height)
+                        .map(|block| (*height, block))
+                })
+                .collect();
+        }
+        let batch_size = batch_blocks.max(1);
+        let batches: Vec<Vec<u64>> = heights.chunks(batch_size).map(ToOwned::to_owned).collect();
+        let next = AtomicUsize::new(0);
+        let (sender, receiver) = mpsc::channel();
+        let worker_count = readers.max(1).min(batches.len());
+        let mut ordered = BTreeMap::new();
+        std::thread::scope(|scope| {
+            for _ in 0..worker_count {
+                let sender = sender.clone();
+                let next = &next;
+                let batches = &batches;
+                let node = self;
+                scope.spawn(move || loop {
+                    let index = next.fetch_add(1, Ordering::Relaxed);
+                    let Some(batch) = batches.get(index) else {
+                        break;
+                    };
+                    let result = node.read_block_batch(batch, batch_size);
+                    if sender.send((index, result)).is_err() {
+                        break;
+                    }
+                });
+            }
+            drop(sender);
+            for (index, result) in receiver {
+                ordered.insert(index, result);
+            }
+        });
+        let mut output = Vec::with_capacity(heights.len());
+        for index in 0..batches.len() {
+            let result = ordered.remove(&index).ok_or_else(|| {
+                IndexError::Source("a batch reader stopped before answering".to_owned())
+            })?;
+            output.extend(result?);
+        }
+        Ok(output)
+    }
+
     /// The `CometBFT` `tx_search` results for `from..=to`, grouped by height,
     /// exactly as [`PaxeerIngester::step`] reads them.
     ///
@@ -1020,12 +1085,16 @@ impl PaxeerIngester {
     }
 
     fn block(&self, height: u64) -> Result<Option<Value>, IndexError> {
-        let mut block = self
+        let block = self
             .evm
             .rpc("eth_getBlockByNumber", &json!([to_quantity(height), true]))?;
         if block.is_null() {
             return Ok(None);
         }
+        self.complete_block(block, height).map(Some)
+    }
+
+    fn complete_block(&self, mut block: Value, height: u64) -> Result<Value, IndexError> {
         let block_hash = hash_text(&block, "hash")?;
         let transactions = block
             .get_mut("transactions")
@@ -1049,7 +1118,7 @@ impl PaxeerIngester {
             }
             quantity_u64(field_str(transaction, "chainId")?)?;
         }
-        Ok(Some(block))
+        Ok(block)
     }
 
     fn block_hash(&self, height: u64) -> Result<Option<String>, IndexError> {
@@ -1065,15 +1134,105 @@ impl PaxeerIngester {
             .map_or(&[][..], Vec::as_slice)
         {
             let hash = hash_text(transaction, "hash")?;
-            let receipt = self.evm.rpc("eth_getTransactionReceipt", &json!([hash]))?;
-            if receipt.is_null() {
-                return Err(IndexError::Source(format!(
-                    "receipt of {hash} is not available"
-                )));
-            }
+            let receipt = self.receipt(&hash)?;
             receipts.insert(hash, receipt);
         }
         Ok(receipts)
+    }
+
+    fn receipt(&self, hash: &str) -> Result<Value, IndexError> {
+        let receipt = self.evm.rpc("eth_getTransactionReceipt", &json!([hash]))?;
+        if receipt.is_null() {
+            return Err(IndexError::Source(format!(
+                "receipt of {hash} is not available"
+            )));
+        }
+        Ok(receipt)
+    }
+
+    fn read_rpc_batch(&self, calls: &[(&str, Value)]) -> Result<Vec<RpcBatchAnswer>, IndexError> {
+        match self.evm.rpc_batch(calls) {
+            Err(IndexError::Source(_)) if calls.len() > 1 => {
+                let (left, right) = calls.split_at(calls.len() / 2);
+                let mut answers = self.read_rpc_batch(left)?;
+                answers.extend(self.read_rpc_batch(right)?);
+                Ok(answers)
+            }
+            result => result,
+        }
+    }
+
+    fn read_block_batch(
+        &self,
+        heights: &[u64],
+        batch_size: usize,
+    ) -> Result<Vec<(u64, Option<(Value, BTreeMap<String, Value>)>)>, IndexError> {
+        let calls: Vec<_> = heights
+            .iter()
+            .map(|height| ("eth_getBlockByNumber", json!([to_quantity(*height), true])))
+            .collect();
+        let answers = self.read_rpc_batch(&calls)?;
+        let mut blocks = Vec::with_capacity(heights.len());
+        for (height, answer) in heights.iter().copied().zip(answers) {
+            let block = match answer {
+                RpcBatchAnswer::Result(value) => {
+                    if value.is_null() {
+                        None
+                    } else {
+                        Some(self.complete_block(value, height)?)
+                    }
+                }
+                RpcBatchAnswer::Error(_) | RpcBatchAnswer::Missing => self.block(height)?,
+            };
+            blocks.push((height, block));
+        }
+
+        let mut receipt_requests = Vec::new();
+        for (height, block) in &blocks {
+            let Some(block) = block else {
+                continue;
+            };
+            for transaction in field(block, "transactions")?
+                .as_array()
+                .map_or(&[][..], Vec::as_slice)
+            {
+                receipt_requests.push((*height, hash_text(transaction, "hash")?.to_owned()));
+            }
+        }
+        let mut receipt_rows: BTreeMap<u64, BTreeMap<String, Value>> = BTreeMap::new();
+        for chunk in receipt_requests.chunks(batch_size.max(1)) {
+            let calls: Vec<_> = chunk
+                .iter()
+                .map(|(_, hash)| ("eth_getTransactionReceipt", json!([hash])))
+                .collect();
+            let answers = self.read_rpc_batch(&calls)?;
+            for ((height, hash), answer) in chunk.iter().zip(answers) {
+                let receipt = match answer {
+                    RpcBatchAnswer::Result(value) if !value.is_null() => value,
+                    RpcBatchAnswer::Result(_) => {
+                        return Err(IndexError::Source(format!(
+                            "receipt of {hash} is not available"
+                        )));
+                    }
+                    RpcBatchAnswer::Error(_) | RpcBatchAnswer::Missing => self.receipt(hash)?,
+                };
+                receipt_rows
+                    .entry(*height)
+                    .or_default()
+                    .insert(hash.clone(), receipt);
+            }
+        }
+        blocks
+            .into_iter()
+            .map(|(height, block)| {
+                block
+                    .map(|block| {
+                        let receipts = receipt_rows.remove(&height).unwrap_or_default();
+                        (block, receipts)
+                    })
+                    .map_or(Ok((height, None)), |pair| Ok((height, Some(pair))))
+            })
+            .collect()
     }
 
     fn tx_search(&self, from: u64, to: u64) -> Result<BTreeMap<u64, Vec<Value>>, IndexError> {
@@ -1209,15 +1368,84 @@ impl PaxeerIngester {
     ) -> Result<u64, IndexError> {
         let hash = hex0x(&row.hash);
         let tx = self.evm.rpc("eth_getTransactionByHash", &json!([hash]))?;
-        if hash_text(&tx, "hash")? != hash
-            || quantity_u64(field_str(&tx, "blockNumber")?)? != row.block_number
-            || quantity_u64(field_str(&tx, "transactionIndex")?)? != row.index
+        Self::transaction_domain_from_answer(row, &tx)
+    }
+
+    /// Resolves transaction domains in row order with bounded batches and readers.
+    ///
+    /// # Errors
+    /// As [`Self::transaction_domain`].
+    pub fn transaction_domains(
+        &self,
+        rows: &[crate::blockscout::TransactionRow],
+        batch_size: usize,
+        readers: usize,
+    ) -> Result<Vec<u64>, IndexError> {
+        let batches: Vec<_> = rows.chunks(batch_size.max(1)).collect();
+        let next = AtomicUsize::new(0);
+        let (sender, receiver) = mpsc::channel();
+        let mut ordered = BTreeMap::new();
+        std::thread::scope(|scope| {
+            for _ in 0..readers.max(1).min(batches.len()) {
+                let sender = sender.clone();
+                let next = &next;
+                let batches = &batches;
+                scope.spawn(move || loop {
+                    let index = next.fetch_add(1, Ordering::Relaxed);
+                    let Some(batch) = batches.get(index) else {
+                        break;
+                    };
+                    let result = self.read_domain_batch(batch);
+                    if sender.send((index, result)).is_err() {
+                        break;
+                    }
+                });
+            }
+            drop(sender);
+            for (index, result) in receiver {
+                ordered.insert(index, result);
+            }
+        });
+        let mut domains = Vec::with_capacity(rows.len());
+        for index in 0..batches.len() {
+            domains.extend(ordered.remove(&index).ok_or_else(|| {
+                IndexError::Source("a domain reader stopped before answering".to_owned())
+            })??);
+        }
+        Ok(domains)
+    }
+
+    fn read_domain_batch(
+        &self,
+        rows: &[crate::blockscout::TransactionRow],
+    ) -> Result<Vec<u64>, IndexError> {
+        let calls: Vec<_> = rows
+            .iter()
+            .map(|row| ("eth_getTransactionByHash", json!([hex0x(&row.hash)])))
+            .collect();
+        rows.iter()
+            .zip(self.read_rpc_batch(&calls)?)
+            .map(|(row, answer)| match answer {
+                RpcBatchAnswer::Result(tx) => Self::transaction_domain_from_answer(row, &tx),
+                RpcBatchAnswer::Error(_) | RpcBatchAnswer::Missing => self.transaction_domain(row),
+            })
+            .collect()
+    }
+
+    fn transaction_domain_from_answer(
+        row: &crate::blockscout::TransactionRow,
+        tx: &Value,
+    ) -> Result<u64, IndexError> {
+        let hash = hex0x(&row.hash);
+        if hash_text(tx, "hash")? != hash
+            || quantity_u64(field_str(tx, "blockNumber")?)? != row.block_number
+            || quantity_u64(field_str(tx, "transactionIndex")?)? != row.index
         {
             return Err(IndexError::Integrity(
                 "transaction domain response has another position".to_owned(),
             ));
         }
-        quantity_u64(field_str(&tx, "chainId")?)
+        quantity_u64(field_str(tx, "chainId")?)
     }
 
     /// Runs one bounded step: confirms the durable head block is still

@@ -216,7 +216,7 @@ impl Store {
     }
 
     /// # Errors
-    /// Rejects invalid cursors or page sizes, an uninitialized index, malformed
+    /// Rejects invalid cursors or page sizes, an unversioned nonempty index, malformed
     /// entries, foreign principal bindings or a cursor that does not move back.
     pub fn requests_page(
         &self,
@@ -233,14 +233,26 @@ impl Store {
             .map_err(|_| DashboardError::InvalidRequest)?;
         let digest = principal_digest(principal);
         let key = format!("gateway:principal:{digest}:audit");
-        if self
+        match self
             .command(&["GET", &format!("{key}:version")])
-            .ok()
-            .and_then(|value| text(&value))
-            .as_deref()
-            != Some("1")
+            .map_err(|_| DashboardError::CorruptStore)?
         {
-            return Err(DashboardError::CorruptStore);
+            Resp::Bulk(Some(value)) if value == b"1" => {}
+            Resp::Bulk(None) => {
+                match self
+                    .command(&["XREVRANGE", &key, "+", "-", "COUNT", "1"])
+                    .map_err(|_| DashboardError::CorruptStore)?
+                {
+                    Resp::Array(entries) if entries.is_empty() => {
+                        return Ok(RequestPage {
+                            records: Vec::new(),
+                            next_cursor: None,
+                        })
+                    }
+                    _ => return Err(DashboardError::CorruptStore),
+                }
+            }
+            _ => return Err(DashboardError::CorruptStore),
         }
         let start = before.map_or_else(|| "+".to_owned(), |cursor| format!("({cursor}"));
         let response = self

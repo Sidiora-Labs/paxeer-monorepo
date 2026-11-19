@@ -34,6 +34,7 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
   @default_page_size 50
   @total_update_counter "paxeer_x_price_update_total"
   @last_successful_scan_counter "paxeer_x_price_feed_last_successful_scan"
+  @update_count_24h_cache_key {__MODULE__, :update_count_24h}
 
   @type filters :: [feeder: Hash.Address.t() | nil, market_id: non_neg_integer() | nil]
 
@@ -222,11 +223,19 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
   defp add_to_total_update_count(0), do: :ok
 
   defp add_to_total_update_count(delta) do
-    seed = Repo.aggregate(PriceUpdate, :count)
+    {updated, _} =
+      Repo.update_all(
+        from(counter in LastFetchedCounter, where: counter.counter_type == @total_update_counter),
+        inc: [value: delta]
+      )
 
-    %LastFetchedCounter{}
-    |> LastFetchedCounter.changeset(%{counter_type: @total_update_counter, value: seed})
-    |> Repo.insert!(on_conflict: [inc: [value: delta]], conflict_target: :counter_type)
+    if updated == 0 do
+      seed = Repo.aggregate(PriceUpdate, :count)
+
+      %LastFetchedCounter{}
+      |> LastFetchedCounter.changeset(%{counter_type: @total_update_counter, value: seed})
+      |> Repo.insert!(on_conflict: [inc: [value: delta]], conflict_target: :counter_type)
+    end
 
     :ok
   end
@@ -618,6 +627,50 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
 
   @spec update_count_24h() :: non_neg_integer()
   def update_count_24h do
+    period = Application.get_env(:explorer, __MODULE__, []) |> Keyword.get(:update_count_24h_cache_period, 60_000)
+
+    if period == 0 do
+      count_updates_24h()
+    else
+      case cached_update_count_24h(period) do
+        {:ok, count} ->
+          count
+
+        :expired ->
+          :global.trans({@update_count_24h_cache_key, self()}, fn -> refresh_update_count_24h(period) end, [node()])
+      end
+    end
+  end
+
+  defp cached_update_count_24h(period) do
+    now = System.monotonic_time(:millisecond)
+
+    case :persistent_term.get(@update_count_24h_cache_key, nil) do
+      {count, fetched_at} when now - fetched_at < period -> {:ok, count}
+      _ -> :expired
+    end
+  end
+
+  defp refresh_update_count_24h(period) do
+    case cached_update_count_24h(period) do
+      {:ok, count} ->
+        count
+
+      :expired ->
+        count = count_updates_24h()
+        :persistent_term.put(@update_count_24h_cache_key, {count, System.monotonic_time(:millisecond)})
+        count
+    end
+  end
+
+  @doc false
+  @spec clear_update_count_24h_cache() :: :ok
+  def clear_update_count_24h_cache do
+    :persistent_term.erase(@update_count_24h_cache_key)
+    :ok
+  end
+
+  defp count_updates_24h do
     consensus_updates_query()
     |> where([update], update.timestamp >= ago(24, "hour"))
     |> Repo.aggregate(:count)

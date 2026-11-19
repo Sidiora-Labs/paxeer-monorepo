@@ -1,8 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
-import type { SocketMessageParams } from './types';
+import type { SocketMessageParams } from "./types";
 
-export function usePaxscanSocketMessage({ channel, event, handler }: SocketMessageParams) {
+export function usePaxscanSocketMessage({
+  channel,
+  event,
+  handler,
+}: SocketMessageParams) {
   const handlerRef = useRef(handler);
   handlerRef.current = handler;
 
@@ -18,5 +22,5 @@ export function usePaxscanSocketMessage({ channel, event, handler }: SocketMessa
     return () => {
       channel.off(event, ref);
     };
-  }, [ channel, event ]);
+  }, [channel, event]);
 }

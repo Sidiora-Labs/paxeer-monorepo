@@ -7,8 +7,7 @@ import scrollbar from './globals/scrollbar';
 
 const webkitAutofillOverrides = {
   WebkitTextFillColor: 'var(--chakra-colors-input-fg)',
-  '-webkit-box-shadow': '0 0 0px 1000px var(--chakra-colors-input-bg) inset',
-  transition: 'background-color 5000s ease-in-out 0s',
+  WebkitBoxShadow: 'var(--chakra-shadows-autofill)',
 };
 
 const webkitAutofillRules = {
@@ -18,14 +17,71 @@ const webkitAutofillRules = {
 };
 
 const globalCss: SystemConfig['globalCss'] = {
+  '*, *::before, *::after': {
+    boxSizing: 'border-box',
+    '@media (prefers-reduced-motion: reduce)': {
+      animation: 'none !important',
+      transition: 'none !important',
+      scrollBehavior: 'auto !important',
+    },
+  },
+  ':root': {
+    colorScheme: 'light dark',
+  },
+  ':root.light': {
+    colorScheme: 'light',
+  },
+  ':root.dark': {
+    colorScheme: 'dark',
+  },
+  html: {
+    minWidth: 0,
+    scrollbarGutter: 'stable',
+    scrollPaddingBlock: 'spacing.4',
+    textSizeAdjust: '100%',
+  },
   body: {
     bg: 'global.body.bg',
     color: 'global.body.fg',
     textStyle: 'body',
     fontFamily: 'body',
+    fontSizeAdjust: 'from-font',
+    overflowWrap: 'anywhere',
+    minWidth: 0,
     WebkitTapHighlightColor: 'transparent',
     fontVariantLigatures: 'no-contextual',
-    focusRingStyle: 'hidden',
+    textRendering: 'optimizeLegibility',
+  },
+  ':where(h1, h2, h3, h4, h5, h6)': {
+    textWrap: 'balance',
+  },
+  ':where(p, li, dd, blockquote)': {
+    textWrap: 'pretty',
+  },
+  ':where(img, video, svg, canvas)': {
+    maxWidth: '100%',
+    height: 'auto',
+  },
+  ':where(button, input, textarea, select)': {
+    font: 'inherit',
+  },
+  ':where(a, button, input, select, textarea, [tabindex])': {
+    scrollMarginBlock: 'spacing.20',
+  },
+  [ ':where(a[href], button, input:not([type=checkbox], [type=radio], [type=hidden]), select, textarea, ' +
+    '[role=tab], [role=menuitem], [role=option], label:has(input[type=checkbox], input[type=radio]))' ]: {
+    '@media (max-width: 834px)': {
+      minBlockSize: 'var(--chakra-sizes-touch-target) !important',
+      minInlineSize: 'var(--chakra-sizes-touch-target) !important',
+    },
+  },
+  ':where(input, select, textarea)': {
+    '@media (pointer: coarse)': { fontSize: 'max(var(--chakra-font-sizes-text-md), 1em)' },
+  },
+  ':focus-visible': {
+    outline: 'var(--chakra-border-widths-2) solid !important',
+    outlineColor: 'var(--chakra-colors-focus-ring) !important',
+    outlineOffset: 'var(--chakra-spacing-0\\.5)',
   },
   mark: {
     bg: 'global.mark.bg',

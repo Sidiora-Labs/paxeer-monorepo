@@ -14,7 +14,6 @@ import { Heading } from 'toolkit/chakra/heading';
 import { Image } from 'toolkit/chakra/image';
 import { Link } from 'toolkit/chakra/link';
 import { ContentLoader } from 'toolkit/components/loaders/ContentLoader';
-import { TruncatedText } from 'toolkit/components/truncation/TruncatedText';
 import { downloadBlob } from 'toolkit/utils/file';
 import BlockCountdownTimer from 'ui/blockCountdown/BlockCountdownTimer';
 import createGoogleCalendarLink from 'ui/blockCountdown/createGoogleCalendarLink';
@@ -72,23 +71,24 @@ const BlockCountdown = ({ hideCapybaraRunner }: Props) => {
 
   return (
     <Center h="100%" alignItems={{ base: 'flex-start', lg: 'center' }}>
-      <Flex flexDir="column" w="fit-content" maxW={{ base: '100%', lg: '700px', xl: '1000px' }}>
-        <Flex columnGap={ 8 } alignItems="flex-start" justifyContent={{ base: 'space-between', lg: undefined }} w="100%">
-          <Box maxW={{ base: 'calc(100% - 65px - 32px)', lg: 'calc(100% - 125px - 32px)' }}>
+      <Flex flexDir="column" w="fit-content" maxW={{ base: '100%', lg: 'var(--chakra-spacing-182)', xl: 'var(--chakra-spacing-200)' }}>
+        <Flex gap={ 8 } alignItems="flex-start" justifyContent="space-between" w="100%" flexWrap="wrap">
+          <Box flex="1 1 max-content" minW={ 0 } maxW="full">
             <Heading
               level="1"
             >
-              <TruncatedText text={ `Block #${ height }` } w="100%"/>
+              { `Block #${ height }` }
             </Heading>
             <Box mt={ 2 } color="text.secondary">
-              <Box fontWeight={ 600 }>Estimated target date</Box>
+              <Box fontWeight="semibold">Estimated target date</Box>
               <Time timestamp={ dayjs().add(Number(data.result.EstimateTimeInSec), 's').valueOf() }/>
             </Box>
-            <Flex columnGap={ 2 } mt={ 3 }>
+            <Flex gap={ 2 } mt={ 3 } flexWrap="wrap">
               <Link
                 external
                 variant="underlaid"
                 textStyle="sm"
+                minH="touchTarget"
                 px={ 2 }
                 display="inline-flex"
                 href={ createGoogleCalendarLink({ blockHeight: height, timeFromNow: Number(data.result.EstimateTimeInSec), multichainContext }) }
@@ -104,6 +104,9 @@ const BlockCountdown = ({ hideCapybaraRunner }: Props) => {
                 color="link.primary"
                 _hover={{ color: 'link.primary.hover' }}
                 bgColor="link.underlaid.bg"
+                borderWidth="var(--chakra-border-widths-1)"
+                borderStyle="solid"
+                borderColor="border.strong"
                 display="inline-flex"
                 onClick={ handleAddToAppleCalClick }
               >
@@ -112,21 +115,22 @@ const BlockCountdown = ({ hideCapybaraRunner }: Props) => {
               </Button>
             </Flex>
           </Box>
-          <Box position="relative">
+          <Box position="relative" flexShrink={ 0 }>
             <IconSvg
               name="block"
-              w={{ base: '65px', lg: '125px' }}
-              h={{ base: '75px', lg: '140px' }}
-              color={{ _light: 'gray.300', _dark: 'gray.600' }}
+              w={{ base: 'var(--chakra-spacing-16)', lg: 'var(--chakra-spacing-30)' }}
+              h="auto"
+              aspectRatio={ 1 }
+              color="icon.secondary"
               flexShrink={ 0 }
             />
             { multichainContext?.chain && (
               <ChainIcon
                 data={ multichainContext.chain }
                 position="absolute"
-                bottom={{ base: '5px', lg: '6px' }}
-                right={{ base: '45px', lg: '86px' }}
-                boxSize={{ lg: '60px' }}
+                bottom={{ base: 'var(--chakra-spacing-1\\.25)', lg: 'var(--chakra-spacing-1\\.5)' }}
+                right={{ base: 'var(--chakra-spacing-11)', lg: 'var(--chakra-spacing-20)' }}
+                boxSize={{ lg: 'var(--chakra-spacing-15)' }}
                 bgColor="bg.primary"
                 borderRadius="full"
               />
@@ -139,7 +143,7 @@ const BlockCountdown = ({ hideCapybaraRunner }: Props) => {
             onFinish={ handleTimerFinish }
           />
         ) }
-        <Grid gridTemplateColumns="repeat(2, calc(50% - 4px))" columnGap={ 2 } mt={ 2 }>
+        <Grid gridTemplateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-65)), 1fr))" columnGap={ 2 } mt={ 2 }>
           <StatsWidget label="Remaining blocks" value={ data.result.RemainingBlock } icon="apps"/>
           <StatsWidget label="Current block" value={ data.result.CurrentBlock } icon="block"/>
         </Grid>

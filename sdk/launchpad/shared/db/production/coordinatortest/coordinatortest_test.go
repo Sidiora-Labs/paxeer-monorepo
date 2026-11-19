@@ -14,18 +14,17 @@ import (
 // role may CREATE DATABASE and CREATE ROLE.
 const PostgresDSNEnv = "COORDINATOR_TEST_POSTGRES_DSN"
 
-// The registered migrations and reviewed grants of the two platform runtimes
-// that read the coordinator-owned chat schema, applied together the way the
-// coordinator applies them, pass the production readiness check as each
-// least-privilege runtime role.
+// The registered migrations and reviewed grants pass production readiness
+// for every connected service runtime role.
 func TestPlatformRuntimeRolesPassReadiness(t *testing.T) {
 	admin := os.Getenv(PostgresDSNEnv)
 	if admin == "" {
 		t.Skipf("%s is not set: point it at a running PostgreSQL whose role may CREATE DATABASE and CREATE ROLE; tests never start containers", PostgresDSNEnv)
 	}
-	db := Bootstrap(t, admin, "chat_runtime", "livestream_runtime")
+	roles := []string{"chat_runtime", "livestream_runtime", "candles_runtime", "stats_runtime", "identity_runtime", "control_runtime", "ranking_runtime", "pnl_runtime", "indexer_runtime", "api_runtime", "api_rest_runtime", "api_sockets_runtime", "metadata_runtime", "users_runtime"}
+	db := Bootstrap(t, admin, roles...)
 	ctx := context.Background()
-	for _, role := range []string{"chat_runtime", "livestream_runtime"} {
+	for _, role := range roles {
 		rt := db.Runtimes[role]
 		want, err := production.LoadExpectedSchema(rt.ExpectedSchema, rt.ExpectedSchemaSHA256)
 		if err != nil {
@@ -60,6 +59,9 @@ func TestPlatformRuntimeRolesPassReadiness(t *testing.T) {
 			t.Fatalf("%s from migration %d: present=%v %v", object, id, present, err)
 		}
 	}
+	assertConnectedInterfaces(t, db, conn)
+	assertMountedReadiness(t, db)
+	assertOrderedBatchRecovery(t, db, conn)
 	var goose bool
 	if err = conn.QueryRow(ctx, `SELECT to_regclass('public.goose_db_version') IS NOT NULL`).Scan(&goose); err != nil || goose {
 		t.Fatalf("coordinator bootstrap left a goose history: %v %v", goose, err)

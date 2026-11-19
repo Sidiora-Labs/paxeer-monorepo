@@ -618,6 +618,7 @@
   "orderEntry.bbo.disabled.tips": "وقتی TP/SL، Post-Only، IOC یا FOK فعال است از BBO پشتیبانی نمی‌شود.",
   "orderEntry.estLiqPrice": "قیمت لیکویید تخمینی",
   "orderEntry.disableOrderConfirm": "غیرفعال کردن تأیید سفارش",
+  "orderEntry.nativeFunding.twoTransactions": "دو تراکنش انجام می‌شود: واریز وثیقهٔ کسری و سپس ثبت سفارش. ممکن است تأیید توکن نیز لازم باشد.",
   "orderEntry.orderConfirm": "تأیید سفارش",
   "orderEntry.confirmScaledOrder": "تأیید سفارش مقیاس‌دار",
   "orderEntry.hidden": "مخفی",

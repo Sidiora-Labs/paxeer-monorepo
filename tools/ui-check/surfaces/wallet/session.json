@@ -1,0 +1,21 @@
+{
+  "access_token": "surface-test-access-token-not-valid-in-any-system",
+  "refresh_token": "surface-test-refresh-token-not-valid-in-any-system",
+  "token_type": "bearer",
+  "expires_in": 86400,
+  "user": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "surface-holder@example.test",
+    "email_confirmed_at": "2026-01-01T00:00:00Z",
+    "created_at": "2026-01-01T00:00:00Z",
+    "app_metadata": {
+      "provider": "email",
+      "providers": ["email"]
+    },
+    "user_metadata": {
+      "name": "Surface test account"
+    }
+  }
+}

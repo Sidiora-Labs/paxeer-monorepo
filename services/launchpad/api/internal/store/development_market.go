@@ -70,6 +70,7 @@ type DevelopmentEventRef struct {
 // the fee rate observed on its latest qualifying swap.
 type DevelopmentPool struct {
 	Pool                string
+	HomeChain           string
 	Token               string
 	Creator             string
 	Optical             string
@@ -94,7 +95,7 @@ func (s *Store) DevelopmentPools(ctx context.Context, pools []string) (map[strin
 	}
 	defer cancel()
 	defer rollbackRead(tx)
-	rows, err := tx.Query(ctx, `SELECT lower(p.pool_address), lower(p.token_address), lower(p.creator), lower(p.optical), lower(p.pool_id), p.created_at, p.created_block, lower(p.tx_hash),
+	rows, err := tx.Query(ctx, `SELECT lower(p.pool_address), p.home_chain::text, lower(p.token_address), lower(p.creator), lower(p.optical), lower(p.pool_id), p.created_at, p.created_block, lower(p.tx_hash),
 	st.virtual_reserve, st.real_reserve, st.token_reserve, st.block_number, lower(st.tx_hash), st.log_index, sw.amount_in, sw.fee
 FROM indexer.pools p
 LEFT JOIN LATERAL (SELECT virtual_reserve, real_reserve, token_reserve, block_number, tx_hash, log_index FROM indexer.pool_state_snapshots WHERE pool_id=p.pool_id ORDER BY block_number DESC, log_index DESC LIMIT 1) st ON true
@@ -109,8 +110,12 @@ WHERE lower(p.pool_address)=ANY($1)`, pools)
 		var p DevelopmentPool
 		var virtual, real, token, stateTx, amountIn, fee *string
 		var stateHeight, stateLog *int64
-		if err = rows.Scan(&p.Pool, &p.Token, &p.Creator, &p.Optical, &p.PoolID, &p.CreatedAt, &p.CreatedHeight, &p.CreationTransaction, &virtual, &real, &token, &stateHeight, &stateTx, &stateLog, &amountIn, &fee); err != nil {
+		if err = rows.Scan(&p.Pool, &p.HomeChain, &p.Token, &p.Creator, &p.Optical, &p.PoolID, &p.CreatedAt, &p.CreatedHeight, &p.CreationTransaction, &virtual, &real, &token, &stateHeight, &stateTx, &stateLog, &amountIn, &fee); err != nil {
 			return nil, err
+		}
+		homeChain, parseErr := strconv.ParseUint(p.HomeChain, 10, 32)
+		if parseErr != nil || strconv.FormatUint(homeChain, 10) != p.HomeChain {
+			return nil, ErrDataIntegrity
 		}
 		for _, address := range []string{p.Pool, p.Token, p.Creator} {
 			if _, addressErr := Address(address); addressErr != nil {

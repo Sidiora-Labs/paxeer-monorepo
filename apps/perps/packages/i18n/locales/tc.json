@@ -618,6 +618,7 @@
   "orderEntry.bbo.disabled.tips": "選擇止盈止損、僅掛單、立即成交或取消、全部成交或取消時不支援最佳買賣報價。",
   "orderEntry.estLiqPrice": "預計清算價格",
   "orderEntry.disableOrderConfirm": "停用訂單確認",
+  "orderEntry.nativeFunding.twoTransactions": "接下來將進行兩筆交易：先存入不足的保證金，再下單。可能還需要代幣授權。",
   "orderEntry.orderConfirm": "訂單確認",
   "orderEntry.confirmScaledOrder": "確認階梯訂單",
   "orderEntry.hidden": "隱藏",

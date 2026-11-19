@@ -29,7 +29,8 @@ func marketDocumentWatermark(t *testing.T) store.ChainWatermark {
 func marketDocumentPool() store.DevelopmentPool {
 	fee := 100
 	return store.DevelopmentPool{
-		Pool: "0x" + strings.Repeat("a1", 20), Token: "0x" + strings.Repeat("0a", 20), Creator: "0x" + strings.Repeat("ce", 20), Optical: "0x" + strings.Repeat("0", 40),
+		HomeChain: "0",
+		Pool:      "0x" + strings.Repeat("a1", 20), Token: "0x" + strings.Repeat("0a", 20), Creator: "0x" + strings.Repeat("ce", 20), Optical: "0x" + strings.Repeat("0", 40),
 		PoolID: "0x" + strings.Repeat("a1", 32), CreatedAt: 1760000000, CreatedHeight: 33800000, CreationTransaction: "0x" + strings.Repeat("12", 32),
 		Reserves:   &store.PoolReserves{VirtualUsdl: "1000000000", RealUsdl: "250000000", Token: "800000000000000000000000000", Height: 33800001},
 		StateEvent: &store.DevelopmentEventRef{TransactionHash: "0x" + strings.Repeat("34", 32), Height: 33800001, LogIndex: 4},

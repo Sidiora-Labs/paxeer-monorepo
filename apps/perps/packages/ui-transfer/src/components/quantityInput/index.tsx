@@ -18,6 +18,8 @@ import { Decimal } from "@paxeer-network/utils";
 import { InputStatus } from "../../types";
 import { TokenOption } from "./tokenOption";
 
+const EMPTY_TOKENS: API.TokenInfo[] = [];
+
 export type QuantityInputProps = {
   token?: API.TokenInfo;
   tokens?: API.TokenInfo[];
@@ -48,7 +50,7 @@ export type QuantityInputProps = {
 export const QuantityInput: FC<QuantityInputProps> = (props) => {
   const {
     token,
-    tokens = [],
+    tokens = EMPTY_TOKENS,
     classNames,
     label,
     status,

@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { ArrowDownUp } from 'lucide-react';
-import { AgeChip, Avatar, DropdownMenu, EmptyState, ErrorState, Skeleton, Tooltip, UnavailableState } from '@/ui/primitives';
+import { AgeChip, Avatar, Button, DropdownMenu, EmptyState, ErrorState, Tooltip, UnavailableState } from '@/ui/primitives';
 import { formatUsdl } from '@/utils/format';
 import { sortSimilar, useSimilarTokens, type SimilarRow, type SimilarSort } from './similar-tokens';
 import { userFacingMessage } from '@/core/user-facing-error';
@@ -22,7 +22,7 @@ function Figure({ raw, unit, reason }: { raw: string | null; unit: string; reaso
 function Row({ row, liqReason }: { row: SimilarRow; liqReason: string }) {
   return (
     <li>
-      <Link href={row.href} className="flex items-center gap-2 rounded-sm bg-surface-2 p-2 transition-colors duration-fast hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+      <Link prefetch={false} href={row.href} className="flex items-center gap-2 rounded-sm bg-surface-2 p-2 transition-colors duration-fast hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
         <Avatar src={row.image} name={row.symbol} size="lg" shape="square" decorative />
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="flex min-w-0 items-baseline gap-1">
@@ -54,10 +54,14 @@ export function SimilarSortMenu({ sort, onChange }: { sort: SimilarSort; onChang
   );
 }
 
-export function SimilarTokensList({ poolAddress, symbol, sort }: { poolAddress: string; symbol: string | null; sort: SimilarSort }) {
+export function SimilarTokensList({ poolAddress, symbol, sort, symbolPending = false, symbolError, onRetrySymbol }: { poolAddress: string; symbol: string | null; sort: SimilarSort; symbolPending?: boolean; symbolError?: unknown; onRetrySymbol?: () => void }) {
   const state = useSimilarTokens(poolAddress, symbol);
-  if (!symbol) return <p className="text-xs text-text-faint">Loading...</p>;
-  if (state.search.state === 'loading') return <Skeleton variant="rows" rows={4} label="similar coins" />;
+  if (!symbol?.trim()) {
+    if (symbolPending) return <p role="status" className="text-xs text-text-faint">Loading...</p>;
+    if (symbolError) return <ErrorState variant="inline" message={`Similar coins can't load right now. ${userFacingMessage(symbolError)}`} onRetry={onRetrySymbol} />;
+    return <><p className="text-xs text-text-faint">Similar coins are not available yet. This coin has no symbol to search for.</p>{onRetrySymbol ? <Button size="sm" variant="secondary" onClick={onRetrySymbol}>Refresh coin</Button> : null}</>;
+  }
+  if (state.search.state === 'loading') return <p role="status" className="text-xs text-text-faint">Loading...</p>;
   if (state.search.state === 'unsupported') return <UnavailableState variant="inline" title="Similar coins" operation={state.search.operation} status={state.search.status} />;
   if (state.search.state === 'error') return <ErrorState variant="inline" message={`Similar coins can't load right now. ${userFacingMessage(state.search.error)}`} onRetry={state.search.retry} />;
   if (state.rows.length === 0) return <EmptyState variant="inline" title="No similar coins yet" body={`No other coin uses the symbol ${symbol}.`} />;

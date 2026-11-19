@@ -1,0 +1,1427 @@
+{
+  "data": {
+    "snapshot": {
+      "snapshotId": "11111111-1111-4111-8111-111111111111",
+      "resumeCursor": "opaque.cursor",
+      "generatedAt": "2026-10-12T15:00:00.000Z",
+      "topics": [
+        {
+          "topic": "market.candles.0x1111111111111111111111111111111111111111.1m",
+          "sequence": "0",
+          "revision": "1",
+          "watermark": {
+            "chainId": "125",
+            "height": "4200",
+            "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+            "projectionRevision": "7",
+            "integrity": "healthy",
+            "observedAt": "2026-10-12T15:00:00.000Z"
+          },
+          "payload": {
+            "poolAddress": "0x1111111111111111111111111111111111111111",
+            "interval": "1m",
+            "start": "2026-10-12T15:00:00.000Z",
+            "open": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "high": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "low": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "close": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "coverage": "complete",
+            "firstPosition": {
+              "chainId": "125",
+              "height": "10",
+              "transactionIndex": "0",
+              "logIndex": "0",
+              "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "lastPosition": {
+              "chainId": "125",
+              "height": "10",
+              "transactionIndex": "0",
+              "logIndex": "0",
+              "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "buyVolumeUsdlRaw": "1",
+            "sellVolumeUsdlRaw": "1",
+            "volumeUsdlRaw": "2",
+            "volumeTokenRaw": "2",
+            "trades": "1",
+            "largeTradeCount": null,
+            "largeTradePolicyId": null,
+            "largeTradeThresholdUsdlRaw": null,
+            "revision": "1",
+            "seriesModelVersion": "candles-v1",
+            "snapshotId": "0f0e2a8e-5b3c-4d8a-9a1e-2c6d7b8f9a01",
+            "synthetic": false,
+            "uniqueTraderCount": null
+          }
+        },
+        {
+          "topic": "market.candles.0x1111111111111111111111111111111111111111.5m",
+          "sequence": "0",
+          "revision": "1",
+          "watermark": {
+            "chainId": "125",
+            "height": "4200",
+            "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+            "projectionRevision": "7",
+            "integrity": "healthy",
+            "observedAt": "2026-10-12T15:00:00.000Z"
+          },
+          "payload": {
+            "poolAddress": "0x1111111111111111111111111111111111111111",
+            "interval": "5m",
+            "start": "2026-10-12T15:00:00.000Z",
+            "open": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "high": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "low": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "close": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "coverage": "complete",
+            "firstPosition": {
+              "chainId": "125",
+              "height": "10",
+              "transactionIndex": "0",
+              "logIndex": "0",
+              "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "lastPosition": {
+              "chainId": "125",
+              "height": "10",
+              "transactionIndex": "0",
+              "logIndex": "0",
+              "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "buyVolumeUsdlRaw": "1",
+            "sellVolumeUsdlRaw": "1",
+            "volumeUsdlRaw": "2",
+            "volumeTokenRaw": "2",
+            "trades": "1",
+            "largeTradeCount": null,
+            "largeTradePolicyId": null,
+            "largeTradeThresholdUsdlRaw": null,
+            "revision": "1",
+            "seriesModelVersion": "candles-v1",
+            "snapshotId": "0f0e2a8e-5b3c-4d8a-9a1e-2c6d7b8f9a01",
+            "synthetic": false,
+            "uniqueTraderCount": null
+          }
+        },
+        {
+          "topic": "market.candles.0x1111111111111111111111111111111111111111.15m",
+          "sequence": "0",
+          "revision": "1",
+          "watermark": {
+            "chainId": "125",
+            "height": "4200",
+            "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+            "projectionRevision": "7",
+            "integrity": "healthy",
+            "observedAt": "2026-10-12T15:00:00.000Z"
+          },
+          "payload": {
+            "poolAddress": "0x1111111111111111111111111111111111111111",
+            "interval": "15m",
+            "start": "2026-10-12T15:00:00.000Z",
+            "open": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "high": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "low": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "close": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "coverage": "complete",
+            "firstPosition": {
+              "chainId": "125",
+              "height": "10",
+              "transactionIndex": "0",
+              "logIndex": "0",
+              "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "lastPosition": {
+              "chainId": "125",
+              "height": "10",
+              "transactionIndex": "0",
+              "logIndex": "0",
+              "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "buyVolumeUsdlRaw": "1",
+            "sellVolumeUsdlRaw": "1",
+            "volumeUsdlRaw": "2",
+            "volumeTokenRaw": "2",
+            "trades": "1",
+            "largeTradeCount": null,
+            "largeTradePolicyId": null,
+            "largeTradeThresholdUsdlRaw": null,
+            "revision": "1",
+            "seriesModelVersion": "candles-v1",
+            "snapshotId": "0f0e2a8e-5b3c-4d8a-9a1e-2c6d7b8f9a01",
+            "synthetic": false,
+            "uniqueTraderCount": null
+          }
+        },
+        {
+          "topic": "market.candles.0x1111111111111111111111111111111111111111.1h",
+          "sequence": "0",
+          "revision": "1",
+          "watermark": {
+            "chainId": "125",
+            "height": "4200",
+            "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+            "projectionRevision": "7",
+            "integrity": "healthy",
+            "observedAt": "2026-10-12T15:00:00.000Z"
+          },
+          "payload": {
+            "poolAddress": "0x1111111111111111111111111111111111111111",
+            "interval": "1h",
+            "start": "2026-10-12T15:00:00.000Z",
+            "open": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "high": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "low": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "close": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "coverage": "complete",
+            "firstPosition": {
+              "chainId": "125",
+              "height": "10",
+              "transactionIndex": "0",
+              "logIndex": "0",
+              "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "lastPosition": {
+              "chainId": "125",
+              "height": "10",
+              "transactionIndex": "0",
+              "logIndex": "0",
+              "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "buyVolumeUsdlRaw": "1",
+            "sellVolumeUsdlRaw": "1",
+            "volumeUsdlRaw": "2",
+            "volumeTokenRaw": "2",
+            "trades": "1",
+            "largeTradeCount": null,
+            "largeTradePolicyId": null,
+            "largeTradeThresholdUsdlRaw": null,
+            "revision": "1",
+            "seriesModelVersion": "candles-v1",
+            "snapshotId": "0f0e2a8e-5b3c-4d8a-9a1e-2c6d7b8f9a01",
+            "synthetic": false,
+            "uniqueTraderCount": null
+          }
+        },
+        {
+          "topic": "market.candles.0x1111111111111111111111111111111111111111.4h",
+          "sequence": "0",
+          "revision": "1",
+          "watermark": {
+            "chainId": "125",
+            "height": "4200",
+            "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+            "projectionRevision": "7",
+            "integrity": "healthy",
+            "observedAt": "2026-10-12T15:00:00.000Z"
+          },
+          "payload": {
+            "poolAddress": "0x1111111111111111111111111111111111111111",
+            "interval": "4h",
+            "start": "2026-10-12T15:00:00.000Z",
+            "open": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "high": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "low": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "close": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "coverage": "complete",
+            "firstPosition": {
+              "chainId": "125",
+              "height": "10",
+              "transactionIndex": "0",
+              "logIndex": "0",
+              "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "lastPosition": {
+              "chainId": "125",
+              "height": "10",
+              "transactionIndex": "0",
+              "logIndex": "0",
+              "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "buyVolumeUsdlRaw": "1",
+            "sellVolumeUsdlRaw": "1",
+            "volumeUsdlRaw": "2",
+            "volumeTokenRaw": "2",
+            "trades": "1",
+            "largeTradeCount": null,
+            "largeTradePolicyId": null,
+            "largeTradeThresholdUsdlRaw": null,
+            "revision": "1",
+            "seriesModelVersion": "candles-v1",
+            "snapshotId": "0f0e2a8e-5b3c-4d8a-9a1e-2c6d7b8f9a01",
+            "synthetic": false,
+            "uniqueTraderCount": null
+          }
+        },
+        {
+          "topic": "market.candles.0x1111111111111111111111111111111111111111.1d",
+          "sequence": "0",
+          "revision": "1",
+          "watermark": {
+            "chainId": "125",
+            "height": "4200",
+            "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+            "projectionRevision": "7",
+            "integrity": "healthy",
+            "observedAt": "2026-10-12T15:00:00.000Z"
+          },
+          "payload": {
+            "poolAddress": "0x1111111111111111111111111111111111111111",
+            "interval": "1d",
+            "start": "2026-10-12T15:00:00.000Z",
+            "open": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "high": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "low": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "close": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "coverage": "complete",
+            "firstPosition": {
+              "chainId": "125",
+              "height": "10",
+              "transactionIndex": "0",
+              "logIndex": "0",
+              "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "lastPosition": {
+              "chainId": "125",
+              "height": "10",
+              "transactionIndex": "0",
+              "logIndex": "0",
+              "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "buyVolumeUsdlRaw": "1",
+            "sellVolumeUsdlRaw": "1",
+            "volumeUsdlRaw": "2",
+            "volumeTokenRaw": "2",
+            "trades": "1",
+            "largeTradeCount": null,
+            "largeTradePolicyId": null,
+            "largeTradeThresholdUsdlRaw": null,
+            "revision": "1",
+            "seriesModelVersion": "candles-v1",
+            "snapshotId": "0f0e2a8e-5b3c-4d8a-9a1e-2c6d7b8f9a01",
+            "synthetic": false,
+            "uniqueTraderCount": null
+          }
+        },
+        {
+          "topic": "market.candles.0x1111111111111111111111111111111111111111.1w",
+          "sequence": "0",
+          "revision": "1",
+          "watermark": {
+            "chainId": "125",
+            "height": "4200",
+            "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+            "projectionRevision": "7",
+            "integrity": "healthy",
+            "observedAt": "2026-10-12T15:00:00.000Z"
+          },
+          "payload": {
+            "poolAddress": "0x1111111111111111111111111111111111111111",
+            "interval": "1w",
+            "start": "2026-10-12T15:00:00.000Z",
+            "open": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "high": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "low": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "close": {
+              "numerator": "1000000",
+              "denominator": "1000000",
+              "baseAsset": {
+                "address": "0x3333333333333333333333333333333333333333",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 18,
+                "kind": "erc20"
+              },
+              "quoteAsset": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "chainId": "125",
+                "currencyCode": null,
+                "decimals": 6,
+                "kind": "erc20"
+              },
+              "source": {
+                "amountBasis": "paid_input",
+                "kind": "gross_execution",
+                "observedAt": "2026-10-12T15:00:00.000Z",
+                "position": {
+                  "chainId": "125",
+                  "height": "10",
+                  "transactionIndex": "0",
+                  "logIndex": "0",
+                  "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                  "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "providerId": null,
+                "sourceEventId": "fill-1",
+                "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+              }
+            },
+            "coverage": "complete",
+            "firstPosition": {
+              "chainId": "125",
+              "height": "10",
+              "transactionIndex": "0",
+              "logIndex": "0",
+              "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "lastPosition": {
+              "chainId": "125",
+              "height": "10",
+              "transactionIndex": "0",
+              "logIndex": "0",
+              "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "buyVolumeUsdlRaw": "1",
+            "sellVolumeUsdlRaw": "1",
+            "volumeUsdlRaw": "2",
+            "volumeTokenRaw": "2",
+            "trades": "1",
+            "largeTradeCount": null,
+            "largeTradePolicyId": null,
+            "largeTradeThresholdUsdlRaw": null,
+            "revision": "1",
+            "seriesModelVersion": "candles-v1",
+            "snapshotId": "0f0e2a8e-5b3c-4d8a-9a1e-2c6d7b8f9a01",
+            "synthetic": false,
+            "uniqueTraderCount": null
+          }
+        },
+        {
+          "topic": "market.price.0x1111111111111111111111111111111111111111",
+          "sequence": "0",
+          "revision": "1",
+          "watermark": null,
+          "payload": {
+            "numerator": "1000000",
+            "denominator": "1000000",
+            "baseAsset": {
+              "address": "0x3333333333333333333333333333333333333333",
+              "chainId": "125",
+              "currencyCode": null,
+              "decimals": 18,
+              "kind": "erc20"
+            },
+            "quoteAsset": {
+              "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+              "chainId": "125",
+              "currencyCode": null,
+              "decimals": 6,
+              "kind": "erc20"
+            },
+            "source": {
+              "amountBasis": "paid_input",
+              "kind": "gross_execution",
+              "observedAt": "2026-10-12T15:00:00.000Z",
+              "position": {
+                "chainId": "125",
+                "height": "10",
+                "transactionIndex": "0",
+                "logIndex": "0",
+                "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+              },
+              "providerId": null,
+              "sourceEventId": "fill-1",
+              "sourceReference": "0x1111111111111111111111111111111111111111111111111111111111111111"
+            }
+          }
+        },
+        {
+          "topic": "market.stats.0x1111111111111111111111111111111111111111",
+          "sequence": "0",
+          "revision": "1",
+          "watermark": null,
+          "payload": {
+            "buys24h": "1",
+            "changeBaselineQuality": "complete",
+            "circulatingMarketCapUsdlRaw": "1",
+            "holderCount": "1",
+            "indicativeTvlUsdlRaw": "1",
+            "poolAddress": "0x1111111111111111111111111111111111111111",
+            "priceChangeBps24h": "1",
+            "realUsdlBalanceRaw": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+            "sells24h": "1",
+            "sourceUpperPosition": {
+              "blockHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "chainId": "125",
+              "height": "1",
+              "logIndex": "1",
+              "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "transactionIndex": "1"
+            },
+            "supplyValuationQuality": "verified",
+            "totalSupplyValuationUsdlRaw": "1",
+            "valuationChangeUsdlRaw": "1",
+            "valuationMethod": "s",
+            "volume24hRaw": "1000000",
+            "watermark": {
+              "blockHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "chainId": "125",
+              "height": "1",
+              "integrity": "healthy",
+              "observedAt": "2026-10-09T00:00:00.000Z",
+              "projectionRevision": "1"
+            },
+            "windowEnd": "2026-10-09T00:00:00.000Z",
+            "windowStart": "2026-10-08T00:00:00.000Z"
+          }
+        },
+        {
+          "topic": "market.trades.0x1111111111111111111111111111111111111111",
+          "sequence": "0",
+          "revision": "1",
+          "watermark": null,
+          "payload": {
+            "eventId": "fill-1",
+            "poolAddress": "0x1111111111111111111111111111111111111111",
+            "sender": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "recipient": null,
+            "side": "buy",
+            "tokenAmountRaw": "9007199254740993",
+            "usdlAmountRaw": "1000000",
+            "position": {
+              "chainId": "125",
+              "height": "10",
+              "transactionIndex": "0",
+              "logIndex": "0",
+              "transactionHash": "0x1111111111111111111111111111111111111111111111111111111111111111",
+              "blockHash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "feeRaw": "10",
+            "feeAssetAddress": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "feeAssetDecimals": 6,
+            "feeDisposition": "distributed_usdl",
+            "paidInputRaw": "1000000",
+            "pricedInputRaw": "999990",
+            "ammInputAfterFeeRaw": "999980",
+            "inputDerivationQuality": "exact",
+            "recipientAttribution": "unavailable",
+            "recipientEvidenceRefs": [],
+            "emittingContract": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "codeEpoch": "1"
+          }
+        }
+      ]
+    }
+  },
+  "generatedAt": "2026-10-12T15:00:01.000Z",
+  "nextCursor": null,
+  "quality": "complete",
+  "revision": "7",
+  "watermark": {
+    "chainId": "125",
+    "height": "4200",
+    "blockHash": "0x6666666666666666666666666666666666666666666666666666666666666666",
+    "projectionRevision": "7",
+    "integrity": "healthy",
+    "observedAt": "2026-10-12T15:00:00.000Z"
+  },
+  "requestId": "0f0e2a8e-5b3c-4d8a-9a1e-2c6d7b8f9a01"
+}

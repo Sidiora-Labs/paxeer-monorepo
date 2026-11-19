@@ -18,6 +18,8 @@ import IconSvg from 'ui/shared/IconSvg';
 import SimpleValue from 'ui/shared/value/SimpleValue';
 import { DEFAULT_ACCURACY_USD } from 'ui/shared/value/utils';
 
+import { getTokenChange } from './tokenChange';
+
 export type TokensTableToken = TokenInfo | AggregatedTokenInfo;
 
 // The token list carries no figure for every column the scan layout shows, and a figure the payload
@@ -131,6 +133,7 @@ type Props = {
   page: number;
   isLoading?: boolean;
   coinPrice?: string | null;
+  showChange?: boolean;
 };
 
 const bridgedTokensFeature = config.features.bridgedTokens;
@@ -140,6 +143,7 @@ const TokensTableItem = ({
   page,
   index,
   isLoading,
+  showChange,
 }: Props) => {
 
   const {
@@ -166,6 +170,27 @@ const TokensTableItem = ({
     return chain;
   }, [ chainInfos ]);
 
+  if (isLoading) {
+    return (
+      <TableRow data-token-row aria-busy="true">
+        <TableCell isNumeric><Skeleton loading display="inline-block" w={ 5 } h="1lh"/></TableCell>
+        <TableCell>
+          <Flex alignItems="center" gap={ 2 }>
+            <Skeleton loading boxSize="20px" flexShrink={ 0 }/>
+            <Skeleton loading h="1lh" flex={ 1 } minW={ 0 }/>
+            <Tag loading variant="outlined">{ getTokenTypeName(type, chainInfo?.app_config) }</Tag>
+            <Skeleton loading boxSize="touchTarget" flexShrink={ 0 }/>
+          </Flex>
+        </TableCell>
+        { [ 'price', 'change', 'market-cap', 'volume', 'holders' ].map((field) => (
+          <TableCell key={ field } isNumeric data-market-field={ field }>
+            <Skeleton loading display="inline-block" h="1lh" w={ 12 } maxW="100%"/>
+          </TableCell>
+        )) }
+      </TableRow>
+    );
+  }
+
   return (
     <TableRow className="group" data-token-row>
       <TableCell isNumeric>
@@ -181,7 +206,7 @@ const TokensTableItem = ({
             isLoading={ isLoading }
             jointSymbol
             textStyle="sm"
-            fontWeight="600"
+            fontWeight="semibold"
             noLink={ type === 'NATIVE' }
           />
           <Flex flexShrink={ 0 } columnGap={ 1 } alignItems="center">
@@ -209,9 +234,11 @@ const TokensTableItem = ({
           />
         </Flex>
       </TableCell>
-      <TableCell isNumeric data-market-field="change">
-        <TokenChangePercent isLoading={ isLoading }/>
-      </TableCell>
+      { showChange && !isLoading && (
+        <TableCell isNumeric data-market-field="change">
+          <TokenChangePercent value={ getTokenChange(token)?.toNumber() }/>
+        </TableCell>
+      ) }
       <TableCell isNumeric data-market-field="market-cap">
         <TokenFiatValue value={ marketCap ? BigNumber(marketCap) : undefined } isLoading={ isLoading }/>
       </TableCell>

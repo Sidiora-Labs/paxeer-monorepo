@@ -33,6 +33,19 @@ defmodule Explorer.DataCase do
   setup tags do
     ExVCR.Config.cassette_library_dir("test/support/fixture/vcr_cassettes")
 
+    if !tags[:async] do
+      for repo <- [Explorer.Repo, Explorer.Repo.Account, Explorer.Repo.EventNotifications] do
+        :ok = Ecto.Adapters.SQL.Sandbox.mode(repo, :manual)
+      end
+
+      cache = Explorer.Chain.Cache.BackgroundMigrations
+      settings = Enum.map(cache.cache_keys(), &{&1, ConCache.get(cache.cache_name(), &1)})
+
+      on_exit(fn ->
+        Enum.each(settings, fn {key, value} -> cache.set(key, value) end)
+      end)
+    end
+
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Explorer.Repo)
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Explorer.Repo.Account)
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Explorer.Repo.EventNotifications)
@@ -45,6 +58,12 @@ defmodule Explorer.DataCase do
 
     Supervisor.terminate_child(Explorer.Supervisor, Explorer.Chain.Cache.BlockNumber.child_id())
     Supervisor.restart_child(Explorer.Supervisor, Explorer.Chain.Cache.BlockNumber.child_id())
+
+    on_exit(fn ->
+      Supervisor.terminate_child(Explorer.Supervisor, Explorer.Chain.Cache.BlockNumber.child_id())
+      Supervisor.restart_child(Explorer.Supervisor, Explorer.Chain.Cache.BlockNumber.child_id())
+    end)
+
     Supervisor.terminate_child(Explorer.Supervisor, Explorer.Chain.Cache.Blocks.child_id())
     Supervisor.restart_child(Explorer.Supervisor, Explorer.Chain.Cache.Blocks.child_id())
     Supervisor.terminate_child(Explorer.Supervisor, Explorer.Chain.Cache.Transactions.child_id())

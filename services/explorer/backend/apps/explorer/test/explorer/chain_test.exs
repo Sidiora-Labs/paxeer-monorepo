@@ -32,6 +32,8 @@ defmodule Explorer.ChainTest do
     PendingTransactionOperationCount
   }
 
+  alias Explorer.Chain.Cache.Counters.LastFetchedCounter
+
   alias Explorer.Chain.MultichainSearchDb.{BalancesExportQueue, MainExportQueue}
 
   alias Explorer.Chain.Supply.ProofOfAuthority
@@ -50,6 +52,12 @@ defmodule Explorer.ChainTest do
   setup :verify_on_exit!
 
   describe "address_estimated_count/0" do
+    setup do
+      Repo.delete_all(Address)
+      LastFetchedCounter.delete("addresses_count")
+      :ok
+    end
+
     test "returns the number of all addresses" do
       insert(:address, fetched_coin_balance: 0)
       insert(:address, fetched_coin_balance: 1)
@@ -66,6 +74,7 @@ defmodule Explorer.ChainTest do
 
     test "returns 0 on empty table" do
       start_supervised!(AddressesCount)
+      AddressesCount.consolidate()
       assert 0 == AddressesCount.fetch()
     end
   end
@@ -530,7 +539,9 @@ defmodule Explorer.ChainTest do
 
       on_exit(fn ->
         Supervisor.terminate_child(Explorer.Supervisor, PendingBlockOperationCount.child_id())
+        Supervisor.restart_child(Explorer.Supervisor, PendingBlockOperationCount.child_id())
         Supervisor.terminate_child(Explorer.Supervisor, PendingTransactionOperationCount.child_id())
+        Supervisor.restart_child(Explorer.Supervisor, PendingTransactionOperationCount.child_id())
       end)
     end
 
@@ -839,13 +850,20 @@ defmodule Explorer.ChainTest do
       Supervisor.terminate_child(Explorer.Supervisor, PendingTransactionOperationCount.child_id())
       Supervisor.restart_child(Explorer.Supervisor, PendingTransactionOperationCount.child_id())
       configuration = Application.get_env(:indexer, Indexer.Fetcher.InternalTransaction.Supervisor)
+      trace_first_block = Application.fetch_env(:indexer, :trace_first_block)
       Application.put_env(:indexer, Indexer.Fetcher.InternalTransaction.Supervisor, disabled?: false)
 
       on_exit(fn ->
-        Application.put_env(:indexer, :trace_first_block, 0)
+        case trace_first_block do
+          {:ok, value} -> Application.put_env(:indexer, :trace_first_block, value)
+          :error -> Application.delete_env(:indexer, :trace_first_block)
+        end
+
         Application.put_env(:indexer, Indexer.Fetcher.InternalTransaction.Supervisor, configuration)
         Supervisor.terminate_child(Explorer.Supervisor, PendingBlockOperationCount.child_id())
+        Supervisor.restart_child(Explorer.Supervisor, PendingBlockOperationCount.child_id())
         Supervisor.terminate_child(Explorer.Supervisor, PendingTransactionOperationCount.child_id())
+        Supervisor.restart_child(Explorer.Supervisor, PendingTransactionOperationCount.child_id())
       end)
     end
 

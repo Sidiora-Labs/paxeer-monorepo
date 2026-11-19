@@ -20,6 +20,14 @@ fail() {
 python3 - "$manifest" "$fixture" "$tmp/replay.json" <<'PY'
 import json, sys
 services = list(json.load(open(sys.argv[1])))
+manifest = json.load(open(sys.argv[1]))
+assert manifest["api"]["fixed"]["API_PRIVATE_LISTEN_ADDRESS"] == "[::]:8443"
+assert "API_PRIVATE_LISTEN_ADDRESS" not in manifest["api-sockets"]["fixed"]
+for service in services:
+
+    entry = manifest[service]
+    if "EXPECTED_SCHEMA_SHA256" in entry.get("required", []):
+        assert entry.get("documentSources", {}).get("EXPECTED_SCHEMA_DOCUMENT") == "EXPECTED_SCHEMA_FILE", service
 replay = json.load(open(sys.argv[2]))
 project = next(e for e in replay if e["op"] == "Project")
 env = next(n["node"]["id"] for n in project["data"]["project"]["environments"]["edges"] if n["node"]["name"] == "production")
@@ -51,7 +59,9 @@ want="$tmp/want"
 		for n in $runtime; do echo "$s $n"; done
 	done
 	for s in api api-sockets social livestream metadata user; do for n in $db; do echo "$s $n"; done; done
-	for n in $identity ACCOUNTING_READ_CONFIG_DOCUMENT ACCOUNTING_READ_CONFIG_SHA256 STATS_SERVICE_URL; do echo "api $n"; done
+	for n in $identity ACCOUNTING_READ_CONFIG_DOCUMENT ACCOUNTING_READ_CONFIG_SHA256 STATS_SERVICE_URL \
+		DISCOVERY_RUNTIME_CONFIG_DOCUMENT DISCOVERY_RUNTIME_CONFIG_SHA256 STREAM_RELAY_CONFIG_DOCUMENT STREAM_RELAY_CONFIG_SHA256 \
+		NETWORK_AUTHORITY_CONFIG_DOCUMENT NETWORK_AUTHORITY_CONFIG_SHA256 NATS_CREDENTIALS NATS_URL; do echo "api $n"; done
 	for n in $identity NATS_CREDENTIALS NATS_URL STREAM_CONSUMER_CONFIG_DOCUMENT STREAM_CONSUMER_CONFIG_SHA256; do
 		echo "api-sockets $n"
 	done
@@ -74,10 +84,28 @@ want="$tmp/want"
 		IDENTITY_CERT_SHA256 IDENTITY_SERVICE_URL METADATA_CERT_SHA256 METADATA_SERVICE_URL NOTIFICATION_CERT_SHA256 \
 		NOTIFICATION_D11_TOKEN NOTIFICATION_SERVICE_TOKEN NOTIFICATION_SERVICE_URL; do echo "user $n"; done
 	for n in SOCIAL_RUNTIME_DOCUMENT SOCIAL_RUNTIME_SHA256; do echo "social $n"; done
-	for n in $s3 S3_BUCKET S3_APPROVED_BUCKET S3_QUARANTINE_BUCKET CLAMAV_HOST IDENTITY_AUDIENCE IDENTITY_SERVICE_TOKEN \
-		IDENTITY_SERVICE_URL METADATA_PUBLICATION_AUDIT_KEY METADATA_PUBLICATION_CONFIG_DOCUMENT \
+	for n in ACCOUNT_SERVICE_TOKEN SOCIAL_SERVICE_TOKEN DISCOVERY_CURSOR_KEY DISCOVERY_INTERNAL_TOKEN; do echo "api $n"; done
+	for n in TEST_RANKING_CURSOR_KEY TEST_RANKING_CLIENT_KEY_PEM TEST_RANKING_SERVER_KEY_PEM; do echo "ranking $n"; done
+	for n in IDENTITY_ASSERTION_SIGNING_KEY SOCIAL_TLS_KEY_PEM IDENTITY_MTLS_CLIENT_KEY_PEM SOCIAL_NATS_CREDENTIALS SOCIAL_CURSOR_KEY NOTIFICATION_SERVICE_TOKEN; do echo "social $n"; done
+	for n in GATEWAY_ASSERTION_KEY GATEWAY_AUDIT_KEY GATEWAY_CLIENT_KEY GATEWAY_CONTROL_DATABASE_URL \
+		GATEWAY_DELETE_ORIGINAL_ACCESS GATEWAY_DELETE_ORIGINAL_SECRET GATEWAY_DELETE_TEMPORARY_ACCESS GATEWAY_DELETE_TEMPORARY_SECRET \
+		GATEWAY_DELETE_VARIANT_ACCESS GATEWAY_DELETE_VARIANT_SECRET GATEWAY_IDENTITY_KEY GATEWAY_INCIDENT_CREDENTIAL \
+		GATEWAY_INVENTORY_ORIGINAL_ACCESS GATEWAY_INVENTORY_ORIGINAL_SECRET GATEWAY_INVENTORY_TEMPORARY_ACCESS GATEWAY_INVENTORY_TEMPORARY_SECRET \
+		GATEWAY_INVENTORY_VARIANT_ACCESS GATEWAY_INVENTORY_VARIANT_SECRET GATEWAY_NATS_CREDENTIALS GATEWAY_PURGE_TOKEN GATEWAY_REVOCATION_TOKEN GATEWAY_SERVER_KEY; do echo "gateway $n"; done
+	for n in $s3 S3_BUCKET S3_APPROVED_BUCKET S3_QUARANTINE_BUCKET CLAMAV_HOST IDENTITY_AUDIENCE \
+		GATEWAY_ASSERTION_PUBLIC_KEY_HEX GATEWAY_PEER_CERT_SHA256 IDENTITY_ENDPOINT IDENTITY_PEER_CERT_SHA256 \
+		METADATA_ASSERTION_PRIVATE_KEY_HEX USER_ASSERTION_PUBLIC_KEY_HEX USER_PEER_CERT_SHA256 \
+		METADATA_TLS_CERT_PEM METADATA_TLS_KEY_PEM METADATA_TLS_CLIENT_CA_PEM METADATA_PUBLICATION_AUDIT_KEY METADATA_PUBLICATION_CONFIG_DOCUMENT \
 		METADATA_PUBLICATION_CONFIG_SHA256 PUBLIC_URL; do echo "metadata $n"; done
 	for n in IDENTITY_SERVICE_TOKEN LIVEPEER_API_KEY LIVEPEER_WEBHOOK_SECRET; do echo "livestream $n"; done
+	for n in ACTION_ENVIRONMENT ACTION_AUDIT_KEY LIVESTREAM_VIEWER_TOKEN_KEY \
+		LIVESTREAM_VAULT_TRANSIT_URL LIVESTREAM_VAULT_TRANSIT_TOKEN LIVESTREAM_VAULT_TRANSIT_KEY \
+		LIVESTREAM_INGEST_ENDPOINT IDENTITY_SERVICE_URL IDENTITY_ASSERTION_SIGNING_KEY \
+		IDENTITY_MTLS_CA_FILE IDENTITY_MTLS_CLIENT_CERT_FILE IDENTITY_MTLS_CLIENT_KEY_FILE \
+		IDENTITY_MTLS_PEER_CERT_SHA256 LIVEPEER_PLAYBACK_WEBHOOK_ID LIVEPEER_PLAYBACK_WEBHOOK_URL \
+		LIVEPEER_PLAYBACK_WEBHOOK_SECRET LIVESTREAM_BUDGET_ALERT_URL LIVESTREAM_BUDGET_ALERT_KEY \
+		LIVESTREAM_BUDGET_POLICY_DOCUMENT LIVESTREAM_BUDGET_POLICY_SHA256 \
+		LIVEPEER_WEBHOOK_TIMESTAMP_UNIT MAX_GLOBAL_STREAMS; do echo "livestream $n"; done
 	for n in SUPABASE_PUBLISHABLE_KEY SUPABASE_URL WALLETCONNECT_PROJECT_ID WALLET_IFRAME_ORIGIN; do echo "web NEXT_PUBLIC_$n"; done
 } | sort >"$want"
 awk '/^service /{svc=$2} /^  unresolved /{print svc, $2}' "$tmp/plan.out" | sort >"$tmp/got"
@@ -85,10 +113,12 @@ diff -u "$want" "$tmp/got" || fail "unresolved names differ from the reported op
 
 grep -q 'not in project' "$tmp/plan.out" && fail "a manifest service is missing from the replay"
 grep -q '^  missing RPC_URL = https://api5.mainnet-beta.paxeer.network$' "$tmp/plan.out" || fail "RPC_URL not taken from the values file"
+grep -q '^  missing NETWORK_RPC_URL = https://api5.mainnet-beta.paxeer.network$' "$tmp/plan.out" || fail "NETWORK_RPC_URL not taken from the values file"
 grep -q '^  missing LIVEPEER_API_URL = https://livepeer.studio/api$' "$tmp/plan.out" || fail "LIVEPEER_API_URL not taken"
-grep -q '^  missing METADATA_INGRESS = edge$' "$tmp/plan.out" || fail "metadata ingress is not edge"
-grep -q '^  missing MODERATION_SOURCE = database$' "$tmp/plan.out" || fail "edge metadata does not read moderation from the database"
+grep -q '^  missing METADATA_INGRESS = mtls$' "$tmp/plan.out" || fail "metadata ingress is not mtls"
+grep -q '^  missing MODERATION_SOURCE = database$' "$tmp/plan.out" || fail "metadata does not read moderation from the database"
 [ "$(grep -c '^  missing PORT = 8080$' "$tmp/plan.out")" -eq 12 ] || fail "not every Go service binds the container port 8080"
+[ "$(grep -Fxc '  missing API_PRIVATE_LISTEN_ADDRESS = [::]:8443' "$tmp/plan.out")" -eq 1 ] || fail "the API private listener fixed value is missing"
 grep -q '^  missing NEXT_PUBLIC_EXPLORER_API = https://api.paxscan.io/api/v2$' "$tmp/plan.out" || fail "explorer API not taken"
 for kv in DATA_API_URL=https://api.sidiora.fun GATEWAY_URL=https://gateway.sidiora.fun \
 	METADATA_API_URL=https://gateway.sidiora.fun PNL_API_URL=https://pnl.sidiora.fun \
@@ -106,8 +136,9 @@ web = json.load(open(sys.argv[2]))["web"]
 assert all(args.get(k) == v for k, v in web.items()), f"web.buildArgs differs from the web values: {set(web.items()) - set(args.items())}"
 declared = set(re.findall(r"^ARG ((?:NEXT_PUBLIC|WEB)_[A-Z_]+)", open(sys.argv[3]).read(), re.M))
 undecided = {f"NEXT_PUBLIC_{n}" for n in """ANALYTICS_KEY MARKET_SOCIAL_ORIGINS PRIVATE_QUALIFICATION_AUTHORITY_PROFILE
-    SENTRY_DSN SENTRY_RELEASE SOCIAL_API_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_URL
-    USER_API_URL WALLETCONNECT_PROJECT_ID WALLET_IFRAME_ORIGIN""".split()}
+    SENTRY_DSN SENTRY_RELEASE SUPABASE_PUBLISHABLE_KEY SUPABASE_URL
+    WALLETCONNECT_PROJECT_ID WALLET_IFRAME_ORIGIN""".split()}
+assert not {"NEXT_PUBLIC_SOCIAL_API_URL", "NEXT_PUBLIC_USER_API_URL"} & declared
 public = {"DATA_API_URL": "https://api.sidiora.fun", "GATEWAY_URL": "https://gateway.sidiora.fun",
     "METADATA_API_URL": "https://gateway.sidiora.fun", "PNL_API_URL": "https://pnl.sidiora.fun",
     "STATS_API_URL": "https://stats.sidiora.fun", "LIVESTREAM_API_URL": "https://live.sidiora.fun"}
@@ -115,5 +146,87 @@ assert all(args.get(f"NEXT_PUBLIC_{n}") == v == web.get(f"NEXT_PUBLIC_{n}") for 
 assert set(args) <= declared, f"build args Dockerfile.web does not declare: {set(args) - declared}"
 assert declared - set(args) == undecided, f"unfilled build args differ from the decision list: {(declared - set(args)) ^ undecided}"
 assert all(v and not any(c.isspace() for c in v) for v in args.values()), "a build arg is empty or has whitespace"
+PY
+
+# Both livestream forms use the same manifest vocabulary and composer.
+python3 - "$root" "$tmp" <<'PY'
+import base64
+import importlib.util
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+root, temporary = map(Path, sys.argv[1:])
+documents = root / "deploy/launchpad/documents"
+sys.path.insert(0, str(documents))
+sys.path.insert(0, str(root / "tools/deploy"))
+from test_compose import _schema
+
+spec = importlib.util.spec_from_file_location("railway_variables", root / "tools/deploy/railway-apply-variables.py")
+apply = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(apply)
+values = temporary / "livestream-values"
+shutil.copytree(documents / "values", values)
+schemas = values / "expected-schema"
+schemas.mkdir(exist_ok=True)
+for service in ("livestream", "gateway"):
+    (schemas / f"{service}.json").write_text(json.dumps(_schema(service)))
+composer = documents / "compose.py"
+for profile in ("container", "platform"):
+    suffix = ".platform" if profile == "platform" else ""
+    manifest_path = root / f"deploy/launchpad/railway/variables{suffix}.json"
+    manifest = json.loads(manifest_path.read_bytes())
+    deployment = json.loads((root / f"deploy/launchpad/railway-values{suffix}.json").read_bytes())
+    loaded = apply.load_manifest(manifest_path)
+    contract = manifest["livestream"]
+    assert contract["fixed"]["RUNTIME_PROFILE"] == profile
+    assert contract["fixed"]["LIVEPEER_PROVIDER_MODE"] == ("unavailable" if suffix else "available")
+    assert contract["fixed"]["LIVESTREAM_CONNECTED_ENABLED"] == ("false" if suffix else "true")
+    selected = json.loads((documents / f"values/livestream{suffix}.example.json").read_bytes())
+    (values / "gateway.json").write_bytes((documents / f"values/gateway{suffix}.example.json").read_bytes())
+    (values / "livestream.json").write_text(json.dumps(selected))
+    out = temporary / profile
+    command = ["python3", str(composer), "--values", str(values), "--out", str(out),
+               "--service", "livestream", "--service", "gateway", "--service", "web"]
+    result = subprocess.run(command, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    env = json.loads((out / "livestream.json").read_bytes())
+    web = json.loads((out / "web.json").read_bytes())
+    planned, problems = apply.desired("livestream", loaded["livestream"], {"livestream": env | {
+        "DATABASE_URL": "postgres://livestream@postgres.kindlelaunch.example/launchpad",
+        "REDIS_URL": "redis://redis.kindlelaunch.example:6379",
+        "DB_POOL_ID": "livestreamd_pool", "INSTANCE_ID": "livestreamd-1",
+        "IDENTITY_SERVICE_TOKEN": "example-identity-service-token",
+    }}, False)
+    assert not problems, problems
+    assert all(planned[name] == value for name, value in contract["fixed"].items())
+    assert env["LIVESTREAM_VIEWER_TOKEN_KEY"] and len(env["LIVESTREAM_VIEWER_TOKEN_KEY"].encode()) >= 32
+    assert env["RUNTIME_PROFILE"] == deployment["livestream"]["RUNTIME_PROFILE"]
+    for name in ("NEXT_PUBLIC_GATEWAY_URL", "NEXT_PUBLIC_LIVESTREAM_API_URL"):
+        assert web[name] == deployment["web"][name] == manifest["web"]["buildArgs"][name]
+    if suffix:
+        assert web["NEXT_PUBLIC_LIVESTREAM_API_URL"] == web["NEXT_PUBLIC_GATEWAY_URL"]
+        assert env["LIVESTREAM_PRIVATE_LISTEN_ADDRESS"] == "[::]:8443"
+        assert all(env[name] == "" for name in ("LIVEPEER_API_KEY", "LIVEPEER_WEBHOOK_SECRET", "LIVESTREAM_BUDGET_POLICY_DOCUMENT"))
+        for part in ("CERT", "KEY", "CLIENT_CA"):
+            assert env[f"LIVESTREAM_TLS_{part}_PEM"] and not env[f"LIVESTREAM_TLS_{part}_FILE"]
+        gateway = json.loads((out / "gateway.json").read_bytes())
+        runtime = json.loads(base64.b64decode(gateway["GATEWAY_RUNTIME_DOCUMENT"]))
+        assert next(upstream["url"] for upstream in runtime["upstreams"] if upstream["name"] == "livestream") == "https://livestream.kindlelaunch.example:8443"
+        selected["web"]["NEXT_PUBLIC_LIVESTREAM_API_URL"] = "https://live.sidiora.fun"
+        expected = "NEXT_PUBLIC_LIVESTREAM_API_URL must equal NEXT_PUBLIC_GATEWAY_URL"
+    else:
+        assert env["LIVEPEER_API_KEY"] == "test"
+        assert env["LIVESTREAM_CONNECTED_ENABLED"] == "true"
+        assert len(env["LIVEPEER_WEBHOOK_SECRET"].encode()) >= 32
+        assert env["LIVESTREAM_BUDGET_POLICY_DOCUMENT"]
+        selected["environment"].pop("LIVESTREAM_CONNECTED_ENABLED")
+        expected = "LIVEPEER_PROVIDER_MODE=available requires LIVESTREAM_CONNECTED_ENABLED=true"
+    (values / "livestream.json").write_text(json.dumps(selected))
+    refused = subprocess.run(command, capture_output=True, text=True)
+    assert refused.returncode == 2, refused.stderr
+    assert expected in refused.stderr
 PY
 echo PASS railway-values

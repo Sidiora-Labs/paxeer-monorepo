@@ -1,9 +1,9 @@
 'use client';
 
 import { Radio } from 'lucide-react';
-import { Button, EmptyState, NoticeBar, StateNotice } from '@/ui/primitives';
+import { Button, EmptyState, NoticeBar, Skeleton, StateNotice } from '@/ui/primitives';
 import type { Loadable } from '@/core/market/unsupported';
-import { HeroCarousel, HeroCarouselSkeleton, HeroFramePlaceholder } from '@/widgets/live/hero-carousel';
+import { HeroCarousel, HeroFramePlaceholder } from '@/widgets/live/hero-carousel';
 import { LiveUnavailable } from '@/widgets/live/live-unavailable';
 import { RankedRow } from '@/widgets/live/ranked-row';
 import { useLiveDirectory, type LiveDirectory, type LiveDirectoryData, type SourceState } from '@/widgets/live/use-live-directory';
@@ -56,18 +56,35 @@ export function DirectoryNotices({ directory }: { directory: LiveDirectory }) {
   );
 }
 
-export function NobodyLive() {
+export function NobodyLive({ sizing = false }: { sizing?: boolean } = {}) {
   return (
     <EmptyState
       icon={Radio}
       title="No live streams right now"
       body="Streams show up here as soon as a creator goes live from their coin page"
-      action={<Button href="/create" size="sm">Create coin</Button>}
-      secondaryAction={<Button href="/explore" variant="secondary" size="sm" className="bg-surface-3">Browse coins</Button>}
+      action={<Button href="/create" variant={sizing ? 'primary' : 'secondary'} size="sm">Create coin</Button>}
+      secondaryAction={<Button href="/explore" variant={sizing ? 'primary' : 'secondary'} size="sm" className="bg-surface-3">Browse coins</Button>}
       headingLevel={2}
       announce
       className="p-4 sm:p-8"
     />
+  );
+}
+
+function LiveDirectoryHero({ loading = false, failure, refresh }: { loading?: boolean; failure: DirectoryFailure | null; refresh: () => void }) {
+  return (
+    <HeroFramePlaceholder>
+      <div className="grid w-full min-w-0">
+        <div aria-hidden="true" inert className="invisible col-start-1 row-start-1 pointer-events-none">
+          <NobodyLive sizing />
+        </div>
+        <div className="col-start-1 row-start-1 flex min-w-0 items-center justify-center">
+          {loading ? <Skeleton variant="block" className="size-full" /> : failure ? (
+            <LiveUnavailable operation={failure.operation} status={failure.status} message={failure.message} onRetry={refresh} surface={2} />
+          ) : <NobodyLive />}
+        </div>
+      </div>
+    </HeroFramePlaceholder>
   );
 }
 
@@ -78,16 +95,9 @@ export default function LiveModule() {
   const ready = state.state === 'ready' && directory.entries.length > 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-[1920px] flex-col gap-10 px-4 pb-8 pt-3 md:px-6">
+    <div className="mx-auto flex w-full min-w-0 max-w-480 flex-col gap-10 px-4 pb-8 pt-3 md:px-6">
       <LiveHeading />
-      {state.state === 'loading' ? (
-        <div aria-busy="true" className="flex flex-col gap-10">
-          <span className="sr-only" role="status">Loading streams</span>
-          <HeroCarouselSkeleton />
-          <RankedRow sort="viewers" entries={[]} creatorLabel={directory.creatorLabel} loading />
-          <RankedRow sort="mcap" entries={[]} creatorLabel={directory.creatorLabel} loading />
-        </div>
-      ) : ready ? (
+      {ready ? (
         <>
           <DirectoryNotices directory={directory} />
           <HeroCarousel entries={directory.featured} creatorLabel={directory.creatorLabel} />
@@ -95,28 +105,23 @@ export default function LiveModule() {
           <RankedRow sort="mcap" entries={directory.byMcap} creatorLabel={directory.creatorLabel} />
         </>
       ) : (
-        // Unavailable or nobody live: the hero frame and both row frames stay, each carrying a compact notice.
-        <>
-          <HeroFramePlaceholder>
-            {failure ? (
-              <LiveUnavailable operation={failure.operation} status={failure.status} message={failure.message} onRetry={directory.refresh} surface={2} />
-            ) : (
-              <NobodyLive />
-            )}
-          </HeroFramePlaceholder>
+        <div aria-busy={state.state === 'loading' || directory.isRefreshing || undefined} className="flex flex-col gap-10">
+          {state.state === 'loading' ? <span className="sr-only" role="status">Loading streams</span> : null}
+          <LiveDirectoryHero loading={state.state === 'loading'} failure={failure} refresh={directory.refresh} />
           {(['viewers', 'mcap'] as const).map(sort => (
             <RankedRow
               key={sort}
               sort={sort}
               entries={[]}
               creatorLabel={directory.creatorLabel}
-              placeholder
+              loading={state.state === 'loading'}
+              placeholder={state.state !== 'loading'}
               notice={failure
                 ? <LiveUnavailable operation={failure.operation} status={failure.status} surface={2} />
                 : <StateNotice kind="empty" surface={2}>No live streams right now</StateNotice>}
             />
           ))}
-        </>
+        </div>
       )}
     </div>
   );

@@ -9,9 +9,6 @@
 
 import { formatPrice } from '@/lib/format';
 
-const POS_COLOR = 'var(--color-status-success)';
-const NEG_COLOR = 'var(--color-status-danger)';
-
 export interface PriceChangeInfo {
   pct: number;
   dollar: number;
@@ -62,15 +59,15 @@ export function PriceHero({
     );
   }
 
-  const colorClass = change?.positive ? `text-[${POS_COLOR}]` : `text-[${NEG_COLOR}]`;
+  const colorClass = change?.positive ? 'text-pax-success' : 'text-pax-error';
   const bgColorClass = change?.positive
-    ? `bg-[${POS_COLOR}]/15 text-[${POS_COLOR}]`
-    : `bg-[${NEG_COLOR}]/15 text-[${NEG_COLOR}]`;
+    ? 'bg-pax-success-muted text-pax-success'
+    : 'bg-pax-error-muted text-pax-error';
 
   return (
     <div className="px-5 pt-3 pb-1">
       {isScrubbing && scrubTime && (
-        <p className="text-[11px] text-pax-muted font-medium mb-0.5">
+        <p className="text-size-11 text-pax-muted font-medium mb-0.5">
           {new Date(scrubTime * 1000).toLocaleString('en-US', {
             month: 'short',
             day: 'numeric',
@@ -80,8 +77,8 @@ export function PriceHero({
         </p>
       )}
       <p
-        className={`text-[32px] font-bold leading-tight tracking-tight transition-opacity duration-100 ${
-          isScrubbing ? 'text-white' : ''
+        className={`text-size-32 font-bold leading-tight tracking-tight transition-opacity duration-fast ${
+          isScrubbing ? 'text-pax-light' : ''
         }`}
       >
         {formatPrice(displayPrice)}

@@ -28,7 +28,7 @@ export const recipe = defineSlotRecipe({
       alignItems: 'center',
       justifyContent: 'flex-start',
       width: 'full',
-      minH: 'var(--select-trigger-height)',
+      minH: 'touchTarget',
       pr: 'var(--select-trigger-padding-right)',
       pl: 'var(--select-trigger-padding-left)',
       borderRadius: 'base',
@@ -37,13 +37,13 @@ export const recipe = defineSlotRecipe({
       fontWeight: 'medium',
       cursor: 'pointer',
       focusVisibleRing: 'none',
+      _focusVisible: {
+        outline: 'var(--chakra-border-widths-2) solid',
+        outlineColor: 'focusRing',
+        outlineOffset: 'var(--chakra-spacing-0\\.5)',
+      },
       _disabled: {
         opacity: 'control.disabled',
-      },
-      _placeholderShown: {
-        '& [data-part=value-text]': {
-          display: '-webkit-box',
-        },
       },
     },
     indicatorGroup: {
@@ -81,14 +81,14 @@ export const recipe = defineSlotRecipe({
       boxShadowColor: 'colors.popover.shadow',
       maxH: '96',
       overflowY: 'auto',
-      minWidth: '150px',
+      minWidth: 'var(--chakra-spacing-37\\.5)',
       rowGap: '2',
       _open: {
-        animationStyle: 'slide-fade-in',
+        _motionSafe: { animationStyle: 'slide-fade-in' },
         animationDuration: 'fast',
       },
       _closed: {
-        animationStyle: 'slide-fade-out',
+        _motionSafe: { animationStyle: 'slide-fade-out' },
         animationDuration: 'fastest',
       },
     },
@@ -103,6 +103,7 @@ export const recipe = defineSlotRecipe({
       flex: '1',
       textAlign: 'start',
       borderRadius: 'none',
+      minH: 'touchTarget',
       _disabled: {
         pointerEvents: 'none',
         opacity: 'control.disabled',
@@ -133,11 +134,12 @@ export const recipe = defineSlotRecipe({
       },
     },
     valueText: {
-      display: 'flex',
-      flexDirection: 'column',
-      lineClamp: '1',
+      display: 'block',
+      minW: 0,
       maxW: '100%',
-      wordBreak: 'break-all',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
     },
   },
 
@@ -145,7 +147,7 @@ export const recipe = defineSlotRecipe({
     variant: {
       outline: {
         trigger: {
-          borderWidth: '1px',
+          borderWidth: 'var(--chakra-border-widths-1)',
           bg: 'input.bg',
           color: 'select.trigger.outline.fg',
           borderColor: 'input.border.filled',
@@ -239,14 +241,14 @@ export const recipe = defineSlotRecipe({
           pl: '1',
         },
         item: {
-          py: '5px',
+          py: 'var(--chakra-spacing-1\\.25)',
           px: '4',
         },
       },
       lg: {
         root: {
-          '--select-trigger-height': '60px',
-          '--select-trigger-padding-right': '44px',
+          '--select-trigger-height': 'var(--chakra-spacing-15)',
+          '--select-trigger-padding-right': 'var(--chakra-spacing-11)',
           '--select-trigger-padding-left': 'spacing.4',
         },
         content: {
@@ -258,7 +260,7 @@ export const recipe = defineSlotRecipe({
           py: '2',
         },
         item: {
-          py: '5px',
+          py: 'var(--chakra-spacing-1\\.25)',
           px: '4',
         },
         indicatorGroup: {

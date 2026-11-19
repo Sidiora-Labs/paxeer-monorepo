@@ -4,7 +4,6 @@ import React from 'react';
 import type { TokenInfo, TokenInstance } from 'types/api/token';
 
 import config from 'configs/app';
-import useIsMounted from 'lib/hooks/useIsMounted';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import AppActionButton from 'ui/shared/AppActionButton/AppActionButton';
 import useAppActionData from 'ui/shared/AppActionButton/useAppActionData';
@@ -33,7 +32,7 @@ const DetailsCard = ({ title, children, mt }: CardProps) => {
       mt={ mt }
       data-token-card={ title }
       bg="bg.surface"
-      borderWidth="1px"
+      borderWidth="1"
       borderStyle="solid"
       borderColor="border.divider"
       borderRadius="md"
@@ -42,7 +41,7 @@ const DetailsCard = ({ title, children, mt }: CardProps) => {
       py={ 4 }
       minW={ 0 }
     >
-      <chakra.h2 textStyle="sm" fontWeight="600" color="text.primary" mb={ 3 } data-card-title>{ title }</chakra.h2>
+      <chakra.h2 textStyle="sm" fontWeight="semibold" color="text.primary" mb={ 3 } data-card-title>{ title }</chakra.h2>
       <DetailedInfo.Container
         templateColumns="minmax(0, 1fr)"
         columnGap={ 0 }
@@ -64,7 +63,6 @@ interface Props {
 
 const TokenInstanceDetails = ({ data, token, scrollRef, isLoading }: Props) => {
   const appActionData = useAppActionData(token?.address_hash, !isLoading);
-  const isMounted = useIsMounted();
 
   const handleCounterItemClick = React.useCallback(() => {
     window.setTimeout(() => {
@@ -73,7 +71,7 @@ const TokenInstanceDetails = ({ data, token, scrollRef, isLoading }: Props) => {
     }, 500);
   }, [ scrollRef ]);
 
-  if (!data || !token || !isMounted) {
+  if (!data || !token) {
     return null;
   }
 
@@ -91,7 +89,7 @@ const TokenInstanceDetails = ({ data, token, scrollRef, isLoading }: Props) => {
             size="md"
             withFullscreen
             w="100%"
-            maxW="250px"
+            maxW="64"
             alignSelf="center"
           />
         </DetailsCard>
@@ -145,7 +143,7 @@ const TokenInstanceDetails = ({ data, token, scrollRef, isLoading }: Props) => {
 
           { (config.UI.views.nft.marketplaces.length === 0 && appActionData) && (
             <ScanKeyValue label="Dapp" hint="Link to the dapp">
-              <AppActionButton data={ appActionData } height="30px" source="NFT item"/>
+              <AppActionButton data={ appActionData } height="touchTarget" source="NFT item"/>
             </ScanKeyValue>
           ) }
 

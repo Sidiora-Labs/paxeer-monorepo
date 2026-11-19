@@ -157,8 +157,8 @@ defmodule Explorer.MetadataValidationAndExportRecoveryTest do
     respond(responses, fn _, _ -> {200, Jason.encode!(%{"names" => %{checksum => "recorded.eth"}})} end)
 
     for {protocols, path, expected_body} <- [
-          {[], "/api/v1/125/addresses:batch-resolve-names", %{"addresses" => [hash]}},
-          {["ens", "base-ens"], "/api/v1/addresses:batch-resolve",
+          {[], "/api/v1/125/addresses%3Abatch-resolve-names", %{"addresses" => [hash]}},
+          {["ens", "base-ens"], "/api/v1/addresses%3Abatch-resolve",
            %{"addresses" => [hash], "protocols" => "ens,base-ens"}}
         ] do
       config = Application.fetch_env!(:explorer, BENS)

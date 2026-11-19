@@ -746,6 +746,76 @@ defmodule Indexer.Transform.PaxeerXLogs do
         {"timestamp", {:uint, 256}, false},
         {"blockNumber", {:uint, 256}, false}
       ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @launchpad_precompile,
+      name: "ChainLaunched",
+      signature: "ChainLaunched(uint32,address,address,uint64,uint256,address,uint256,uint256)",
+      topic: "0xcc3fdcbf1588c99f8d97297b1e742174af195b321237d1f9517f600bdb62817d",
+      domain: :launchpad,
+      kind: "chain_launched",
+      arguments: [
+        {"chain", {:uint, 32}, true},
+        {"pool", :address, true},
+        {"token", :address, true},
+        {"chainId", {:uint, 64}, false},
+        {"nftId", {:uint, 256}, false},
+        {"creator", :address, false},
+        {"timestamp", {:uint, 256}, false},
+        {"blockNumber", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @launchpad_precompile,
+      name: "ChainRevenueEpochOpened",
+      signature: "ChainRevenueEpochOpened(uint32,uint64,uint256,uint64,uint256,uint256,uint256)",
+      topic: "0x052cccce5cfb5c079d591a2ac716ddd1759e66d62f036bd44be608ac47615703",
+      domain: :launchpad,
+      kind: "chain_revenue_epoch_opened",
+      arguments: [
+        {"chain", {:uint, 32}, true},
+        {"epoch", {:uint, 64}, true},
+        {"epochAmount", {:uint, 256}, false},
+        {"snapshotBlock", {:uint, 64}, false},
+        {"eligibleSupply", {:uint, 256}, false},
+        {"timestamp", {:uint, 256}, false},
+        {"blockNumber", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @launchpad_precompile,
+      name: "ChainRevenueClaimed",
+      signature: "ChainRevenueClaimed(uint32,uint64,address,uint256,uint256,uint256)",
+      topic: "0x1e561bbeb84dbf638f5444931d883ff8a4ff458bea55b7c85f2f198bcd17630e",
+      domain: :launchpad,
+      kind: "chain_revenue_claimed",
+      arguments: [
+        {"chain", {:uint, 32}, true},
+        {"epoch", {:uint, 64}, true},
+        {"holder", :address, true},
+        {"amount", {:uint, 256}, false},
+        {"timestamp", {:uint, 256}, false},
+        {"blockNumber", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @launchpad_precompile,
+      name: "LaunchedChainRetired",
+      signature: "LaunchedChainRetired(uint32,address,uint256,uint256,uint256)",
+      topic: "0x562436e1654eaa173e7e0825a3f072b8d0f9056f0ae31ef5c72a894137a0392a",
+      domain: :launchpad,
+      kind: "launched_chain_retired",
+      arguments: [
+        {"chain", {:uint, 32}, true},
+        {"holder", :address, true},
+        {"bond", {:uint, 256}, false},
+        {"timestamp", {:uint, 256}, false},
+        {"blockNumber", {:uint, 256}, false}
+      ]
     }
   ]
 

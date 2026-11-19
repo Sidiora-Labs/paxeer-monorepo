@@ -1,5 +1,9 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
 import type { ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import type { V2ContractTypes } from '@kindle/sdk';
+import { queryKeys } from '@/core/query-keys';
 import { AtSign, Bell, Globe, Link as LinkIcon, MessageCircle, Send, Settings, Share2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { AgeChip, Avatar, DropdownMenu, IconButton, Skeleton, StageBadge, StatTile, Tooltip, UnavailableState } from '@/ui/primitives';
@@ -111,7 +115,7 @@ function StripTile({ stat }: { stat: StripStat }) {
       value={value}
       unit={stat.value !== null && !stat.reason ? stat.unit : undefined}
       size="row"
-      className="min-w-16 [&>dd]:text-sm"
+      className="min-w-16 [&>dd]:text-sm [&>dd]:tabular-nums"
     />
   );
 }
@@ -121,14 +125,15 @@ export default function TerminalTokenStrip({ poolAddress }: { poolAddress: strin
   const snapshot = usePoolSnapshot(poolAddress);
   const data = snapshot.data ?? null;
   const live = useTerminalLive(poolAddress);
+  const initialPrice = useQueryClient().getQueryData<V2ContractTypes['Price'] | null>(queryKeys.poolPriceSnapshot(poolAddress));
   const watchlist = useWatchlist();
   const image = useTokenMetadata(data?.pool.tokenAddress ?? null);
 
   if (snapshot.isPending) {
     return (
       <header aria-busy="true" className="flex min-h-13 items-center gap-3 rounded-md bg-surface-1 px-3 py-1">
-        <Skeleton variant="block" width={44} height={44} label="coin image" />
-        <div className="flex flex-1 flex-col gap-1"><Skeleton variant="text" width={140} /><Skeleton variant="text" width={200} /></div>
+        <Skeleton variant="block" width={surfaceSpacing(11)} height={surfaceSpacing(11)} label="coin image" />
+        <div className="flex flex-1 flex-col gap-1"><Skeleton variant="text" width={surfaceSpacing(35)} /><Skeleton variant="text" width={surfaceSpacing(50)} /></div>
       </header>
     );
   }
@@ -148,14 +153,14 @@ export default function TerminalTokenStrip({ poolAddress }: { poolAddress: strin
   const createdMs = data.createdAt ? Date.parse(data.createdAt) : NaN;
   const stage = stageFor(Number.isFinite(createdMs) ? live.now - createdMs : null);
   const socials = (data.metadata?.socialLinks ?? []).map(link => ({ ...link, href: socialHref(link.url) })).filter(link => link.href !== null);
-  const stats = tokenStripStats({ stats: live.state.stats ?? data.stats, token: data.token, livePrice: priceNumber(live.state.price) });
+  const stats = tokenStripStats({ stats: live.state.stats ?? data.stats, token: data.token, livePrice: priceNumber(live.state.price ?? initialPrice ?? null) });
 
   return (
-    <header aria-label={`${symbol} summary`} className="flex min-h-13 flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-surface-1 px-3 py-1">
-      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+    <header aria-label={`${symbol} summary`} className="flex min-h-13 shrink-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-surface-1 px-3 py-1">
+      <div className="flex min-w-0 flex-1 basis-64 items-center gap-2.5">
         <Avatar src={image.data?.images?.logo ?? null} name={symbol} size="lg" shape="square" decorative className="size-11" badge={stage ? <StageBadge stage={stage} size={14} surface={1} /> : undefined} />
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <div className="flex min-w-0 items-center gap-1.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <h1 className="truncate text-sm font-extrabold text-text">{symbol}</h1>
             {name ? <span className="truncate text-xs text-text-muted">{name}</span> : null}
             <CopyAddress address={data.pool.tokenAddress} variant="icon" />
@@ -163,7 +168,7 @@ export default function TerminalTokenStrip({ poolAddress }: { poolAddress: strin
             <IconButton label="Share coin link" icon={<Share2 />} size="sm" className="size-6" onClick={() => { void shareCurrentPage(`${symbol} on Sidiora`); }} />
             <IconButton label="Price alerts" icon={<Bell />} size="sm" className="size-6" onClick={() => window.dispatchEvent(new CustomEvent(terminalOpenPanelEvent, { detail: 'alerts' }))} />
           </div>
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <AgeChip iso={data.createdAt} now={live.now} className="font-bold text-accent" />
             {socials.length ? (
               <ul aria-label="Links" className="flex items-center gap-0.5">

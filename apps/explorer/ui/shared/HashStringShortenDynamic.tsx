@@ -41,12 +41,17 @@ const HashStringShortenDynamic = ({ hash, fontWeight = '400', noTooltip, tailLen
 
   const calculateString = useCallback(() => {
     const parent = elementRef?.current?.parentNode as HTMLElement;
-    if (!parent) {
+    if (!parent || !elementRef.current) {
       return;
     }
 
     const shadowEl = document.createElement('span');
-    shadowEl.style.opacity = '0';
+    shadowEl.style.position = 'absolute';
+    shadowEl.style.left = '0';
+    shadowEl.style.top = '0';
+    shadowEl.style.whiteSpace = 'nowrap';
+    shadowEl.style.visibility = 'hidden';
+    shadowEl.style.font = window.getComputedStyle(elementRef.current).font;
     parent.appendChild(shadowEl);
     shadowEl.textContent = hash;
 

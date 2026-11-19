@@ -12,6 +12,7 @@ vi.hoisted(() => {
     ...window.__envs,
     NEXT_PUBLIC_IS_ACCOUNT_SUPPORTED: 'false',
     NEXT_PUBLIC_MARKETPLACE_CONFIG_URL: '',
+    NEXT_PUBLIC_ASSISTANT_ENABLED: 'true',
   };
 });
 
@@ -38,6 +39,7 @@ describe('SearchBarDesktop', () => {
   beforeEach(() => {
     routerState.pathname = '/';
     routerState.query = {};
+    window.localStorage.clear();
     fetchMock.resetMocks();
     fetchMock.mockResponse((request) => {
       const body = request.url.includes('/api/v2/search/quick') ? RESULTS : {};
@@ -52,7 +54,7 @@ describe('SearchBarDesktop', () => {
     typeTerm(container);
 
     await vi.waitFor(() => {
-      expect(shownCategories()).toEqual([ 'transaction', 'address', 'block' ]);
+      expect(shownCategories()).toEqual([ 'address', 'transaction', 'block' ]);
     }, { timeout: 30_000, interval: 100 });
   });
 
@@ -64,5 +66,35 @@ describe('SearchBarDesktop', () => {
     await vi.waitFor(() => {
       expect(shownCategories()).toEqual([ 'transaction' ]);
     }, { timeout: 30_000, interval: 100 });
+  });
+
+  it('widens the assistant panel while preserving the ordinary panel and search field widths', async function assistantPanelUsesMoreSpace() {
+    for (const variant of [ {}, { isHeroBanner: true }, { isHeroBanner: true, compact: true } ]) {
+      const { container, unmount } = render(<SearchBarDesktop { ...variant }/>);
+      typeTerm(container);
+      await vi.waitFor(() => expect(shownCategories()).toEqual([ 'address', 'transaction', 'block' ]));
+      const panel = document.querySelector<HTMLElement>('[aria-label="Search suggestions"]')!;
+      const form = container.querySelector('form')!;
+      const originalWidth = window.getComputedStyle(form).width;
+      const ordinaryWidth = variant.isHeroBanner && !variant.compact ? 'calc(var(--chakra-spacing-80) * 2)' : 'var(--chakra-spacing-80)';
+
+      expect(window.getComputedStyle(panel).width).toBe(ordinaryWidth);
+      expect(window.getComputedStyle(panel).minWidth).toBe('');
+
+      fireEvent.change(container.querySelector('input')!, { target: { value: 'What does the kernel do?' } });
+      await vi.waitFor(() => expect(panel.textContent).toContain('Ask: What does the kernel do?'));
+
+      expect(window.getComputedStyle(panel).minWidth)
+        .toBe('min(calc(var(--chakra-spacing-80) * 2), calc(100dvw - var(--chakra-spacing-8)))');
+      expect(window.getComputedStyle(panel).maxWidth).toBe('calc(100dvw - var(--chakra-spacing-8))');
+      expect(window.getComputedStyle(form).width).toBe(originalWidth);
+
+      typeTerm(container);
+      await vi.waitFor(() => expect(panel.textContent).not.toContain('Ask:'));
+      expect(window.getComputedStyle(panel).minWidth).toBe('');
+      expect(window.getComputedStyle(panel).width).toBe(ordinaryWidth);
+      expect(window.getComputedStyle(form).width).toBe(originalWidth);
+      unmount();
+    }
   });
 });

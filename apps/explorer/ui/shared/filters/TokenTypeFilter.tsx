@@ -37,7 +37,7 @@ const TokenTypeFilter = <T extends TokenType | NFTTokenType>({ nftOnly, onChange
   return (
     <>
       <Flex justifyContent="space-between" textStyle="sm">
-        <Text fontWeight={ 600 } color="text.secondary">Type</Text>
+        <Text fontWeight="semibold" color="text.secondary">Type</Text>
         <Button
           variant="link"
           onClick={ handleReset }

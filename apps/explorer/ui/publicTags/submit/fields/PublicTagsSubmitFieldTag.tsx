@@ -18,8 +18,8 @@ import PublicTagsSubmitFieldTagIcon from './PublicTagsSubmitFieldTagIcon';
 import PublicTagsSubmitFieldTagType from './PublicTagsSubmitFieldTagType';
 
 const CIRCLE_BG_COLOR_DEFAULT = {
-  bgColor: { _light: 'gray.100', _dark: 'gray.700' },
-  textColor: { _light: 'blackAlpha.800', _dark: 'whiteAlpha.800' },
+  bgColor: 'bg.surface',
+  textColor: 'text.primary',
 };
 
 interface Props {
@@ -34,8 +34,8 @@ interface Props {
 
 const PublicTagsSubmitFieldTag = ({ index, isDisabled, errors, onAddClick, onRemoveClick, tagTypes, field }: Props) => {
   const isMobile = useIsMobile();
-  const bgColorDefault = { _light: 'blackAlpha.50', _dark: 'whiteAlpha.100' };
-  const bgColorError = { _light: 'red.50', _dark: 'red.900' };
+  const bgColorDefault = 'bg.surface';
+  const bgColorError = 'feedback.error.bg';
 
   const handleAddClick = React.useCallback(() => {
     onAddClick?.(index);
@@ -47,7 +47,7 @@ const PublicTagsSubmitFieldTag = ({ index, isDisabled, errors, onAddClick, onRem
 
   return (
     <>
-      <GridItem colSpan={{ base: 1, lg: 2 }} p="10px" borderRadius="base" bgColor={ errors ? bgColorError : bgColorDefault }>
+      <GridItem colSpan={{ base: 1, lg: 2 }} p="2.5" borderRadius="base" bgColor={ errors ? bgColorError : bgColorDefault }>
         <Grid
           rowGap={ 3 }
           columnGap={ 3 }
@@ -87,19 +87,19 @@ const PublicTagsSubmitFieldTag = ({ index, isDisabled, errors, onAddClick, onRem
             <FormFieldText<FormFields>
               name={ `tags.${ index }.tooltipDescription` }
               placeholder="Label description (max 80 characters)"
-              maxH="160px"
+              maxH="40"
               rules={{ maxLength: 80 }}
               asComponent="Textarea"
             />
           </GridItem>
         </Grid>
       </GridItem>
-      <GridItem py={{ lg: '10px' }}>
+      <GridItem py={{ lg: '2.5' }}>
         <Flex
           alignItems="center"
           columnGap={ 3 }
           justifyContent={{ base: 'flex-end', lg: 'flex-start' }}
-          h={{ base: 'auto', lg: '60px' }}
+          h={{ base: 'auto', lg: '14' }}
         >
           { onAddClick && (
             <AddButton

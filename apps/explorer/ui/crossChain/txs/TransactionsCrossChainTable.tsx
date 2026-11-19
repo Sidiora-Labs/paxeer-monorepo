@@ -25,8 +25,8 @@ const TransactionsCrossChainTable = ({ data, isLoading, top, stickyHeader, curre
       <TableRoot tableLayout="auto">
         <TableHeaderComponent top={ stickyHeader ? top : undefined }>
           <TableRow>
-            <TableColumnHeader w="42px"/>
-            { currentAddress && <TableColumnHeader w="44px"/> }
+            <TableColumnHeader w="calc(var(--chakra-spacing-1) * 10.5)"/>
+            { currentAddress && <TableColumnHeader w="var(--chakra-spacing-11)"/> }
             <TableColumnHeader>Message</TableColumnHeader>
             <TableColumnHeader>
               <Flex alignItems="center" flexWrap="nowrap">

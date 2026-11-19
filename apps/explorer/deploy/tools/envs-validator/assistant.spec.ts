@@ -30,7 +30,7 @@ function loadPaxeerPreset(directory: string): Record<string, string> {
   expect(downloadOffset).toBeGreaterThan(0);
   const exported = spawnSync('bash', [ '-c', `${ entrypoint.slice(0, downloadOffset) }\nenv -0` ], {
     cwd: directory,
-    env: { PATH: process.env.PATH, ...baseEnvs, ENVS_PRESET: 'paxeer-x' },
+    env: { NODE_ENV: process.env.NODE_ENV, PATH: process.env.PATH, ...baseEnvs, ENVS_PRESET: 'paxeer-x' },
     encoding: 'utf8',
     timeout: 10_000,
   });
@@ -56,7 +56,7 @@ function explorerAssistantStartupValidation() {
       join(repositoryDir, 'docs/explorer/ENVS.md'),
     ], {
       cwd: directory,
-      env: { PATH: process.env.PATH },
+      env: { NODE_ENV: process.env.NODE_ENV, PATH: process.env.PATH },
       encoding: 'utf8',
       timeout: 10_000,
     });
@@ -65,7 +65,7 @@ function explorerAssistantStartupValidation() {
 
     const validate = (appEnvs: Record<string, string>) => spawnSync(process.execPath, [ validator ], {
       cwd: tmpdir(),
-      env: { PATH: process.env.PATH, ...appEnvs },
+      env: { NODE_ENV: process.env.NODE_ENV, PATH: process.env.PATH, ...appEnvs },
       encoding: 'utf8',
       timeout: 10_000,
     });

@@ -39,6 +39,11 @@ describe('StatsFilters', () => {
     const { container } = renderFilters({ interval: 'threeMonths' });
 
     expect(container.querySelector('[data-stats-filter-interval] [data-chart-interval-select="threeMonths"]')).not.toBeNull();
+    const selected = container.querySelector('[data-id="threeMonths"]') as HTMLButtonElement;
+    expect(selected.tagName).toBe('BUTTON');
+    expect(selected.type).toBe('button');
+    expect(selected.getAttribute('aria-pressed')).toBe('true');
+    expect(selected.getAttribute('aria-label')).toBe('3 months');
   });
 
   it('hands a chosen interval back to the page', () => {
@@ -57,5 +62,12 @@ describe('StatsFilters', () => {
     const input = container.querySelector('[data-stats-filter-input] input') as HTMLInputElement;
 
     expect(input.placeholder).toBe('Find chart, metric...');
+    expect(input.type).toBe('search');
+    expect(input.name).toBe('q');
+    expect(input.labels?.[0].textContent).toBe('Find chart, metric');
+    const section = container.querySelector('[data-stats-filter-section] button[role="combobox"]') as HTMLButtonElement;
+    expect(section.getAttribute('aria-label')).toBe('Section');
+    expect(container.querySelector(`label[for="${ section.id }"]`)?.textContent).toBe('Section');
+    expect(container.querySelector('fieldset legend')?.textContent).toBe('Interval');
   });
 });

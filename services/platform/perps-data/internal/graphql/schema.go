@@ -14,7 +14,7 @@ type Query = Resolver
 
 func NewSchema(db *sql.DB) (*graphql.Schema, error) {
 	return graphql.ParseSchema(SDL, &Query{DB: db},
-		graphql.UseFieldResolvers(), graphql.MaxDepth(10), graphql.MaxParallelism(20))
+		graphql.UseFieldResolvers(), graphql.UseStringDescriptions(), graphql.MaxDepth(10), graphql.MaxParallelism(20))
 }
 
 const SDL = `scalar BigDecimal
@@ -545,6 +545,7 @@ type Query {
   markets: [Market!]!
 
   latestPrices: [LatestPrice!]!
+  "Pricefeed aggregates in source order. Beyond PERPS_PRICE_RETENTION_DAYS (seven days by default), history retains the last aggregate per market per UTC minute and each market's newest observation."
   priceHistory(
     marketId: Int!
     limit: Int
@@ -572,6 +573,7 @@ type Query {
 
   feeConfig: FeeConfig
 
+  "Stored protocol events in source order. For blocks older than PERPS_PRICE_RETENTION_DAYS (seven days by default), raw pricefeed_aggregate and pricefeed_aggregate_skipped events expire; queries return the remaining events."
   protocolEvents(
     eventName: String
     limit: Int

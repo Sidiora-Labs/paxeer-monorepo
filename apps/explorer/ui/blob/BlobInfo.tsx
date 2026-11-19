@@ -6,9 +6,9 @@ import type { Blob } from 'types/api/blobs';
 import { Alert } from 'toolkit/chakra/alert';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
-import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import DetailedInfoSponsoredItem from 'ui/shared/DetailedInfo/DetailedInfoSponsoredItem';
 import TxEntity from 'ui/shared/entities/tx/TxEntity';
+import * as DetailedInfo from 'ui/tx/ActivityDetails';
 
 import BlobData from './BlobData';
 
@@ -19,9 +19,7 @@ interface Props {
 
 const BlobInfo = ({ data, isLoading }: Props) => {
   return (
-    <DetailedInfo.Container
-      templateColumns={{ base: 'minmax(0, 1fr)', lg: '216px minmax(728px, auto)' }}
-    >
+    <DetailedInfo.Container>
       { !data.blob_data && (
         <GridItem colSpan={{ base: undefined, lg: 2 }} mb={ 3 }>
           <Skeleton loading={ isLoading }>

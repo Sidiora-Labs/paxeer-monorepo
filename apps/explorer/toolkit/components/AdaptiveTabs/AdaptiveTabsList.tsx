@@ -37,8 +37,8 @@ interface Props extends BaseProps {
 
 const HIDDEN_ITEM_STYLES: HTMLChakraProps<'button'> = {
   position: 'absolute',
-  top: '-9999px',
-  left: '-9999px',
+  top: 0,
+  left: 0,
   visibility: 'hidden',
 };
 
@@ -98,14 +98,14 @@ const AdaptiveTabsList = (props: Props) => {
       whiteSpace="nowrap"
       bgColor="bg.primary"
       marginBottom={ 6 }
-      mx={{ base: '-12px', lg: 'unset' }}
-      px={{ base: '12px', lg: 'unset' }}
-      w={{ base: 'calc(100% + 24px)', lg: '100%' }}
+      mx={{ base: 'calc(var(--chakra-spacing-3) * -1)', lg: 'unset' }}
+      px={{ base: 'var(--chakra-spacing-3)', lg: 'unset' }}
+      w={{ base: 'calc(100% + var(--chakra-spacing-6))', lg: '100%' }}
       overflowX={{ base: 'auto', lg: 'initial' }}
       overscrollBehaviorX="contain"
       css={{
         scrollSnapType: 'x mandatory',
-        scrollPaddingInline: '12px', // mobile page padding
+        scrollPaddingInline: 'var(--chakra-spacing-3)', // mobile page padding
         // hide scrollbar
         '&::-webkit-scrollbar': { /* Chromiums */
           display: 'none',
@@ -173,6 +173,7 @@ const AdaptiveTabsList = (props: Props) => {
           <TabsTrigger
             key={ value }
             value={ value }
+            disabled
             flexShrink={ 0 }
             bgColor={
               activeTabIndex === index && (variant === 'solid' || variant === undefined) ?

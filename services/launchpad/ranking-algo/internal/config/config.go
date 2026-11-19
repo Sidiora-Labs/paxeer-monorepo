@@ -10,11 +10,14 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -39,6 +42,7 @@ type Config struct {
 	RuntimeMetricsEnvironment string `env:"METRICS_ENVIRONMENT" envDefault:"production"`
 	RuntimeProfile            string `env:"RUNTIME_PROFILE"`
 	BindAddress               string `env:"BIND_ADDRESS"`
+	PrivateListenAddress      string `env:"RANKING_PRIVATE_LISTEN_ADDRESS"`
 	RuntimeBudgetFile         string `env:"DB_BUDGET_FILE"`
 	RuntimeBudgetDocument     string `env:"DB_BUDGET_DOCUMENT"`
 	RuntimeBudgetSHA256       string `env:"DB_BUDGET_SHA256"`
@@ -98,6 +102,26 @@ func (c Config) NewTickInterval() time.Duration {
 	return time.Duration(c.RankingNewTickIntervalMS) * time.Millisecond
 }
 
+func (c *Config) Validate() error {
+	errs := []error{c.BaseEnv.Validate()}
+	if c.NodeEnv == productionEnv && c.RuntimeProfile != "" {
+		errs = append(errs, c.validatePrivateListenAddress())
+	}
+	return errors.Join(errs...)
+}
+
+func (c *Config) validatePrivateListenAddress() error {
+	host, port, err := net.SplitHostPort(c.PrivateListenAddress)
+	if err != nil || net.ParseIP(host) == nil {
+		return fmt.Errorf("RANKING_PRIVATE_LISTEN_ADDRESS must be an IP:port distinct from PORT (e.g. [::]:8443)")
+	}
+	privatePort, err := strconv.Atoi(port)
+	if err != nil || privatePort < 1 || privatePort > 65535 || privatePort == c.Port {
+		return fmt.Errorf("RANKING_PRIVATE_LISTEN_ADDRESS must be an IP:port distinct from PORT (e.g. [::]:8443)")
+	}
+	return nil
+}
+
 func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Context) error, context.CancelFunc, error) {
 	if c.NodeEnv != productionEnv {
 		if c.NodeEnv != "" && c.NodeEnv != "test" && c.NodeEnv != "development" {
@@ -135,21 +159,39 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 	var mu sync.Mutex
 	var failure error
 	check := func(checkCtx context.Context) error {
+		if err := checkCtx.Err(); err != nil {
+			return err
+		}
 		mu.Lock()
 		defer mu.Unlock()
+		if err := checkCtx.Err(); err != nil {
+			return err
+		}
 		if failure != nil {
 			return failure
 		}
 		for key, old := range consumed {
+			if err := checkCtx.Err(); err != nil {
+				return err
+			}
 			value, err := provider.GetRequired(checkCtx, key)
 			if err != nil {
+				if contextErr := checkCtx.Err(); contextErr != nil {
+					return contextErr
+				}
 				failure = fmt.Errorf("required_secret_unavailable: %s", key)
 				return failure
+			}
+			if contextErr := checkCtx.Err(); contextErr != nil {
+				return contextErr
 			}
 			if value != old {
 				failure = fmt.Errorf("required_secret_rotated_restart_required: %s", key)
 				return failure
 			}
+		}
+		if err := checkCtx.Err(); err != nil {
+			return err
 		}
 		return nil
 	}
@@ -257,6 +299,11 @@ func (c *Config) registerInlineDocuments() error {
 	for _, p := range pairs {
 		if p.file != "" && p.inline != "" {
 			return fmt.Errorf("%s_FILE and %s_DOCUMENT are both set", p.name, p.name)
+		}
+		if p.file != "" || p.inline != "" || p.digest != "" {
+			if _, err := boundBytes(p.file, p.inline, p.digest); err != nil {
+				return fmt.Errorf("%s: %w", p.name, err)
+			}
 		}
 		if p.inline != "" {
 			documents[p.digest] = p.inline

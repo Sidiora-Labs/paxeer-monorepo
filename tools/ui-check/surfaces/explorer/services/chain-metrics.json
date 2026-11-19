@@ -1,0 +1,30 @@
+{
+  "items": [
+    {
+      "chain_id": "420",
+      "active_accounts": {
+        "current_full_week": "1000",
+        "previous_full_week": "900",
+        "wow_diff_percent": "10"
+      }
+    },
+    {
+      "chain_id": "421",
+      "tps": "42",
+      "new_addresses": {
+        "current_full_week": "200",
+        "previous_full_week": "210",
+        "wow_diff_percent": "-10"
+      }
+    },
+    {
+      "chain_id": "422",
+      "tps": "3.21",
+      "daily_transactions": {
+        "current_full_week": "3343480",
+        "previous_full_week": "3343480",
+        "wow_diff_percent": "0"
+      }
+    }
+  ]
+}

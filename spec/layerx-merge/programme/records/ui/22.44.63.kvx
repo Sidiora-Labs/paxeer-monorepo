@@ -1,0 +1,38 @@
+[manifest]
+task = "22.44.63"
+surface = "Paxeer Wallet"
+routes = 14
+views = 14
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560, "844x390"]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[production]
+outputs = [".next", "public/sw.js", "public/manifest.json"]
+
+[render]
+count = 3128
+
+[coverage]
+onboarding = ["default", "email form", "invalid email error", "invalid code error"]
+wallet_shell = ["default", "portfolio populated", "portfolio empty", "portfolio expanded", "portfolio filters", "account menu", "send filled", "send validation", "send confirmation", "send token sheet", "receive", "swap filled", "swap quote unavailable", "swap settings", "swap token sheet", "asset detail", "transactions with rows", "transactions without rows", "token transfers", "transaction detail", "settings", "settings preferences", "settings appearance", "settings network", "settings advanced", "settings notifications", "contacts without rows", "contact form", "contacts with rows", "contact edit", "contact delete dialog", "send contact sheet", "discover", "names", "names owned", "swap confirmation", "swap output token sheet", "names search", "names validation", "contact validation"]
+account = ["default", "signed in"]
+account_history = ["default", "signed in"]
+account_plan = ["default", "signed in"]
+privacy = ["default"]
+offline = ["default"]
+auth_callback = ["default"]
+bridge = ["default", "connected", "filled", "validation", "read unavailable"]
+inference = ["default", "connected", "filled", "validation", "read unavailable"]
+exchange = ["default", "connected", "filled", "validation", "read unavailable", "close filled", "cancel filled", "deposit filled", "withdraw filled"]
+fees = ["default", "connected", "filled", "validation", "read unavailable"]
+launchpad = ["default", "connected", "filled", "validation", "read unavailable", "sell filled", "create filled", "claim filled"]
+web_data = ["default", "connected", "filled", "validation", "read unavailable", "search filled", "refund filled"]
+
+[session]
+entry = "Email code confirmation"
+identity = "Synthetic wallet holder"
+data = "Fixed synthetic account, balances, assets, transactions and service responses"
+
+[review]
+corrections = ["Signed-in views follow email code confirmation and use the selected system colour scheme.", "Controls use distinct fills, readable labels and inset keyboard focus indicators.", "Wallet amounts, transaction rows and connected forms wrap within narrow layouts.", "Swap amounts and token sheets keep stable dimensions while reads settle.", "Status text and badges retain contrast on light cards and muted surfaces; primary actions use matching fill and text colours in each scheme.", "Discover banners and ranking tabs show keyboard focus within the viewport.", "The send summary reserves fee mode and nonce rows while estimates load."]

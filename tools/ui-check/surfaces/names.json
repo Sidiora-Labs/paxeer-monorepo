@@ -1,0 +1,37 @@
+{
+  "name": "Paxeer Names shell",
+  "directory": "../../../apps/names",
+  "build": "pnpm run build",
+  "start": "node ../../tools/ui-check/surfaces/names/start.mjs",
+  "address": "http://localhost:4173/",
+  "readyPath": "/",
+  "views": [
+    {
+      "name": "status",
+      "path": "/",
+      "states": [
+        {
+          "name": "invalid-name",
+          "steps": [
+            { "action": "fill", "selector": "#name", "value": "unknown.pax" },
+            { "action": "click", "selector": "button[type=submit]" },
+            { "action": "wait", "text": "Site verification failed (HTTP 502)." }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "published-site",
+      "path": "/published"
+    }
+  ],
+  "answers": [],
+  "typeScale": [
+    { "min": 12, "max": 13 },
+    { "min": 14, "max": 15 },
+    { "min": 16, "max": 18 },
+    { "min": 20, "max": 26 },
+    { "min": 28, "max": 44 },
+    { "min": 37.6, "max": 72 }
+  ]
+}

@@ -1,0 +1,334 @@
+[manifest]
+task = "22.44.6"
+surface = "Paxscan explorer home, statistics, blocks, validators, epochs, gas and Paxeer X views"
+paths = ["apps/explorer/ui/block", "apps/explorer/ui/blockCountdown", "apps/explorer/ui/blocks", "apps/explorer/ui/epochs", "apps/explorer/ui/gasTracker", "apps/explorer/ui/home", "apps/explorer/ui/paxeerX", "apps/explorer/ui/stats", "apps/explorer/ui/validators"]
+
+[guide.css]
+id = "css"
+directories = ["apps/explorer/ui/block", "apps/explorer/ui/blockCountdown", "apps/explorer/ui/blocks", "apps/explorer/ui/epochs", "apps/explorer/ui/gasTracker", "apps/explorer/ui/home", "apps/explorer/ui/paxeerX", "apps/explorer/ui/stats", "apps/explorer/ui/validators"]
+
+[guide.html]
+id = "html"
+directories = ["apps/explorer/ui/block", "apps/explorer/ui/blockCountdown", "apps/explorer/ui/blocks", "apps/explorer/ui/epochs", "apps/explorer/ui/gasTracker", "apps/explorer/ui/home", "apps/explorer/ui/paxeerX", "apps/explorer/ui/stats", "apps/explorer/ui/validators"]
+
+[guide.accessibility]
+id = "accessibility"
+directories = ["apps/explorer/ui/block", "apps/explorer/ui/blockCountdown", "apps/explorer/ui/blocks", "apps/explorer/ui/epochs", "apps/explorer/ui/gasTracker", "apps/explorer/ui/home", "apps/explorer/ui/paxeerX", "apps/explorer/ui/stats", "apps/explorer/ui/validators"]
+
+[guide.color]
+id = "color"
+directories = ["apps/explorer/ui/block", "apps/explorer/ui/blockCountdown", "apps/explorer/ui/blocks", "apps/explorer/ui/epochs", "apps/explorer/ui/gasTracker", "apps/explorer/ui/home", "apps/explorer/ui/paxeerX", "apps/explorer/ui/stats", "apps/explorer/ui/validators"]
+
+[guide.typography]
+id = "typography"
+directories = ["apps/explorer/ui/block", "apps/explorer/ui/blockCountdown", "apps/explorer/ui/blocks", "apps/explorer/ui/epochs", "apps/explorer/ui/gasTracker", "apps/explorer/ui/home", "apps/explorer/ui/paxeerX", "apps/explorer/ui/stats", "apps/explorer/ui/validators"]
+
+[guide.dark_mode]
+id = "dark-mode"
+directories = ["apps/explorer/ui/block", "apps/explorer/ui/blockCountdown", "apps/explorer/ui/blocks", "apps/explorer/ui/epochs", "apps/explorer/ui/gasTracker", "apps/explorer/ui/home", "apps/explorer/ui/paxeerX", "apps/explorer/ui/stats", "apps/explorer/ui/validators"]
+
+[guide.responsive_design]
+id = "responsive-design"
+directories = ["apps/explorer/ui/block", "apps/explorer/ui/blockCountdown", "apps/explorer/ui/blocks", "apps/explorer/ui/epochs", "apps/explorer/ui/gasTracker", "apps/explorer/ui/home", "apps/explorer/ui/paxeerX", "apps/explorer/ui/stats", "apps/explorer/ui/validators"]
+
+[guide.motion]
+id = "motion"
+directories = ["apps/explorer/ui/block", "apps/explorer/ui/blockCountdown", "apps/explorer/ui/blocks", "apps/explorer/ui/epochs", "apps/explorer/ui/gasTracker", "apps/explorer/ui/home", "apps/explorer/ui/paxeerX", "apps/explorer/ui/stats", "apps/explorer/ui/validators"]
+
+[guide.performance]
+id = "performance"
+directories = ["apps/explorer/ui/block", "apps/explorer/ui/blockCountdown", "apps/explorer/ui/blocks", "apps/explorer/ui/epochs", "apps/explorer/ui/gasTracker", "apps/explorer/ui/home", "apps/explorer/ui/paxeerX", "apps/explorer/ui/stats", "apps/explorer/ui/validators"]
+
+[guide.css_layout]
+id = "css-layout"
+directories = ["apps/explorer/ui/block", "apps/explorer/ui/blockCountdown", "apps/explorer/ui/blocks", "apps/explorer/ui/epochs", "apps/explorer/ui/gasTracker", "apps/explorer/ui/home", "apps/explorer/ui/paxeerX", "apps/explorer/ui/stats", "apps/explorer/ui/validators"]
+
+[guide.responsive_table]
+id = "responsive-table"
+directories = ["apps/explorer/ui/blocks", "apps/explorer/ui/epochs", "apps/explorer/ui/validators", "apps/explorer/ui/paxeerX", "apps/explorer/ui/home", "apps/explorer/ui/gasTracker"]
+
+[guide.forms]
+id = "forms"
+directories = ["apps/explorer/ui/stats", "apps/explorer/ui/paxeerX/account"]
+
+[guide.accordion]
+id = "accordion"
+directories = ["apps/explorer/ui/block", "apps/explorer/ui/gasTracker", "apps/explorer/ui/epochs"]
+
+[guide.icons]
+id = "icons"
+directories = ["apps/explorer/ui/block", "apps/explorer/ui/blockCountdown", "apps/explorer/ui/blocks", "apps/explorer/ui/epochs", "apps/explorer/ui/gasTracker", "apps/explorer/ui/home", "apps/explorer/ui/paxeerX", "apps/explorer/ui/stats", "apps/explorer/ui/validators"]
+
+[guide.tabs]
+id = "tabs"
+directories = ["apps/explorer/ui/blocks", "apps/explorer/ui/block", "apps/explorer/ui/paxeerX"]
+
+[guide.respect_os_text_scale]
+id = "respect-os-text-scale"
+directories = ["apps/explorer/ui/block", "apps/explorer/ui/blockCountdown", "apps/explorer/ui/blocks", "apps/explorer/ui/epochs", "apps/explorer/ui/gasTracker", "apps/explorer/ui/home", "apps/explorer/ui/paxeerX", "apps/explorer/ui/stats", "apps/explorer/ui/validators"]
+
+[patterns]
+layout = "Intrinsic grids and wrapping rows follow the content container."
+tables = "Named keyboard scroll regions preserve table headers and local horizontal navigation."
+controls = "Chart selectors use native buttons; filters expose visible labels; reward controls expose expansion state."
+disclosures = "Gas questions use details and summary; quorum certificates use the shared accordion."
+media = "Chart descriptions include dated values; promotional images reserve their dimensions."
+schemes = "Surface, text, focus and status roles serve light and dark schemes."
+
+[guide.dialog]
+id = "dialog"
+directories = ["apps/explorer/ui/block", "apps/explorer/ui/home"]
+
+[guide.menu]
+id = "menu"
+directories = ["apps/explorer/ui/stats", "apps/explorer/ui/blocks"]
+
+[guide.spinner]
+id = "spinner"
+directories = ["apps/explorer/ui/block", "apps/explorer/ui/epochs", "apps/explorer/ui/stats"]
+
+[guide.interest_triggered_tooltips]
+id = "interest-triggered-tooltips"
+directories = ["apps/explorer/ui/block", "apps/explorer/ui/home", "apps/explorer/ui/gasTracker", "apps/explorer/ui/stats"]
+
+[guide.select_menu_interaction]
+id = "select-menu-interaction"
+directories = ["apps/explorer/ui/stats", "apps/explorer/ui/paxeerX/account"]
+
+[guide.form_factor_adaptation]
+id = "form-factor-adaptation"
+directories = ["apps/explorer/ui/blockCountdown", "apps/explorer/ui/blocks", "apps/explorer/ui/epochs", "apps/explorer/ui/validators", "apps/explorer/ui/home", "apps/explorer/ui/stats", "apps/explorer/ui/paxeerX"]
+
+[guide.defer_rendering_heavy_content]
+id = "defer-rendering-heavy-content"
+directories = ["apps/explorer/ui/epochs", "apps/explorer/ui/paxeerX"]
+
+[guide.visually_stable_font_fallbacks]
+id = "visually-stable-font-fallbacks"
+directories = ["apps/explorer/ui/home", "apps/explorer/ui/stats"]
+
+[view.home]
+route = "/"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.statistics]
+content = "Chart search, section menu, keyboard interval controls, chart grid and recent blocks"
+route = "/stats"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.statistic]
+route = "/stats/averageGasPrice"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.blocks]
+route = "/blocks"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.block]
+route = "/block/30146364?tab=index"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.block_celo]
+route = "/block/30146364?tab=index"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.countdown]
+route = "/block/countdown/100000000"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.validators]
+route = "/validators"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.validators_stability]
+route = "/validators"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.validators_blackfort]
+route = "/validators"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.validator]
+route = "/validators/[id]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.epochs]
+route = "/epochs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.epoch]
+content = "Epoch summary and expanded election reward details"
+route = "/epochs/1739"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.gas]
+content = "Gas prices, fee estimates, chart and expanded frequently asked questions"
+route = "/gas-tracker"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.feed]
+route = "/feed"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.market]
+route = "/feed/market/0"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.update]
+route = "/feed/update/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.account]
+route = "/paxeer-x/account/[hash]"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.account_assets]
+route = "/paxeer-x/account/[hash]?tab=assets"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.account_activity]
+route = "/paxeer-x/account/[hash]?tab=activity"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.chains]
+content = "Chain navigation and loading status"
+route = "/chains"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.chain]
+content = "Chain title, navigation and loading status"
+route = "/chains/1"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.block_quorum]
+content = "Expanded quorum certificates"
+route = "/block/30146364?tab=index"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.flashblocks]
+content = "Live feed controls, rate statistics, mobile rows and desktop table"
+route = "/blocks?tab=flashblocks"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.block_internal]
+content = "Internal transaction rows, parties, operation labels and values"
+route = "/block/30146364?tab=internal_txs"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.block_deposits]
+content = "Beacon deposit fields, statuses and page controls"
+route = "/block/30146364?tab=deposits"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true
+
+[view.block_withdrawals]
+content = "Beacon withdrawal fields, recipients and page controls"
+route = "/block/30146364?tab=withdrawals"
+widths = [360, 768, 1440]
+schemes = ["light", "dark"]
+text_scale = 2
+reduced_motion = true
+keyboard = true

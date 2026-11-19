@@ -81,7 +81,7 @@ export const ChartWidgetContent = React.memo(({
         resolution={ resolution }
         axesConfig={ axesConfig }
       />
-      { !noWatermark && <ChartWatermark w="162px" h="15%"/> }
+      { !noWatermark && <ChartWatermark w={ 'var(--chakra-spacing-40\\.5)' } h="15%"/> }
     </Box>
   );
 });

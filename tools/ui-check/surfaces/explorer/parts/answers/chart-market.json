@@ -1,0 +1,89 @@
+{
+  "chart_data": [
+    {
+      "date": "2026-01-01",
+      "closing_price": "1.25",
+      "market_cap": "1000000",
+      "tvl": "500000"
+    },
+    {
+      "date": "2026-01-02",
+      "closing_price": "1.25",
+      "market_cap": "1000000",
+      "tvl": "500000"
+    },
+    {
+      "date": "2026-01-03",
+      "closing_price": "1.25",
+      "market_cap": "1000000",
+      "tvl": "500000"
+    },
+    {
+      "date": "2026-01-04",
+      "closing_price": "1.25",
+      "market_cap": "1000000",
+      "tvl": "500000"
+    },
+    {
+      "date": "2026-01-05",
+      "closing_price": "1.25",
+      "market_cap": "1000000",
+      "tvl": "500000"
+    },
+    {
+      "date": "2026-01-06",
+      "closing_price": "1.25",
+      "market_cap": "1000000",
+      "tvl": "500000"
+    },
+    {
+      "date": "2026-01-07",
+      "closing_price": "1.25",
+      "market_cap": "1000000",
+      "tvl": "500000"
+    },
+    {
+      "date": "2026-01-08",
+      "closing_price": "1.25",
+      "market_cap": "1000000",
+      "tvl": "500000"
+    },
+    {
+      "date": "2026-01-09",
+      "closing_price": "1.25",
+      "market_cap": "1000000",
+      "tvl": "500000"
+    },
+    {
+      "date": "2026-01-10",
+      "closing_price": "1.25",
+      "market_cap": "1000000",
+      "tvl": "500000"
+    },
+    {
+      "date": "2026-01-11",
+      "closing_price": "1.25",
+      "market_cap": "1000000",
+      "tvl": "500000"
+    },
+    {
+      "date": "2026-01-12",
+      "closing_price": "1.25",
+      "market_cap": "1000000",
+      "tvl": "500000"
+    },
+    {
+      "date": "2026-01-13",
+      "closing_price": "1.25",
+      "market_cap": "1000000",
+      "tvl": "500000"
+    },
+    {
+      "date": "2026-01-14",
+      "closing_price": "1.25",
+      "market_cap": "1000000",
+      "tvl": "500000"
+    }
+  ],
+  "available_supply": "1000000"
+}

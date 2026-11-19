@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 export const useOrderBookAndTradesScript = (symbol: string) => {
   const [containerSize, setContainerSize] = useState<
@@ -13,20 +14,19 @@ export const useOrderBookAndTradesScript = (symbol: string) => {
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
-        setContainerSize({
-          width,
-          height,
-        });
+        flushSync(() => setContainerSize({ width, height }));
       }
     });
 
     const targetDiv = containerRef.current;
 
     if (targetDiv) {
+      const { width, height } = targetDiv.getBoundingClientRect();
+      setContainerSize({ width, height });
       resizeObserver.observe(targetDiv);
     }
 

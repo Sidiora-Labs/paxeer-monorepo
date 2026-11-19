@@ -229,6 +229,7 @@ defmodule Indexer.MassiveBlockRangeHandoffTest do
       end
 
       eventually(fn -> assert :sys.get_state(pid).low_priority_blocks == [@first] end)
+      :ok = :sys.suspend(pid)
       assert Repo.get!(MassiveBlock, @first)
       refute Repo.get_by(Block, number: @first)
       assert MissingBlockRange.get_latest_batch(2) == []
@@ -236,6 +237,7 @@ defmodule Indexer.MassiveBlockRangeHandoffTest do
       Process.exit(pid, :shutdown)
       assert_receive {:DOWN, ^monitor, :process, ^pid, :shutdown}, 2_000
       refute Process.alive?(pid)
+      eventually(fn -> assert Task.Supervisor.children(TaskSupervisor) == [] end)
       assert Repo.get!(MassiveBlock, @first)
 
       {:ok, supervisor} = ExUnit.fetch_test_supervisor()
@@ -362,4 +364,3 @@ defmodule Indexer.MassiveBlockRangeHandoffTest do
     end)
   end
 end
-

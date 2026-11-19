@@ -10,7 +10,7 @@ restart = "ALWAYS"
 replicas = 1
 volume = "/var/lib/layerx/ai-evaluator"
 order = 12
-needs = ["router"]
+needs = ["gateway"]
 
 [vars.ai-evaluator]
 LAYERX_AI_EVALUATOR_CONFIG = "env:PLATFORM_AI_EVALUATOR_LAYERX_AI_EVALUATOR_CONFIG"

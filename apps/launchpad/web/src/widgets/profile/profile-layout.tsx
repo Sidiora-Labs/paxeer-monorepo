@@ -14,36 +14,28 @@ export interface ProfileLayoutProps {
   className?: string;
 }
 
-/**
- * S16 grid, flush like the reference: `| left 360 | centre (max 960) | right 360 |`
- * with every column starting at the top of the content area and no gutters.
- * Columns are told apart by surface contrast only: the rails sit on surface-1,
- * the centre on the canvas. The left rail appears from 2xl (the reference
- * drops it at 1280 and 1440), the right rail sits beside the centre from lg
- * (320, 360 from xl) and stacks under it below lg. Breakpoint classes use
- * ranges (`xl:max-2xl:`) because the 2xl breakpoint (1440px) is emitted ahead of
- * the rem-based xl rules, so a bare `xl:` would win at 2xl. A missing slot collapses
- * its column so the centre never sits beside an empty gutter.
- */
+/** Flush profile columns adapt to the content width; absent rails leave no empty column. */
 export default function ProfileLayout({ left, center, right, rightLabel = 'Top trades', className }: ProfileLayoutProps) {
   const hasLeft = left !== undefined && left !== null;
   const hasRight = right !== undefined && right !== null;
   const columns = hasLeft && hasRight
-    ? 'lg:max-xl:grid-cols-[minmax(0,1fr)_320px] xl:max-2xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(300px,360px)_minmax(0,960px)_minmax(300px,360px)]'
+    ? '@market-two/profile:grid-cols-[minmax(0,1fr)_var(--sl-right-rail-width)] xl:max-2xl:@market-two/profile:grid-cols-[minmax(0,1fr)_var(--sl-right-rail-width-wide)] @market-three/profile:grid-cols-[minmax(var(--sl-stream-card-min-width),var(--sl-right-rail-width-wide))_minmax(0,var(--sl-form-max-width))_minmax(var(--sl-stream-card-min-width),var(--sl-right-rail-width-wide))]'
     : hasRight
-      ? 'lg:max-xl:grid-cols-[minmax(0,1fr)_320px] xl:max-2xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,960px)_minmax(300px,360px)]'
+      ? '@market-two/profile:grid-cols-[minmax(0,1fr)_var(--sl-right-rail-width)] xl:max-2xl:@market-two/profile:grid-cols-[minmax(0,1fr)_var(--sl-right-rail-width-wide)] @market-three/profile:grid-cols-[minmax(0,var(--sl-form-max-width))_minmax(var(--sl-stream-card-min-width),var(--sl-right-rail-width-wide))]'
       : hasLeft
-        ? '2xl:grid-cols-[minmax(300px,360px)_minmax(0,960px)]'
-        : 'lg:max-2xl:grid-cols-[minmax(0,960px)] 2xl:grid-cols-[minmax(0,960px)]';
+        ? '@market-three/profile:grid-cols-[minmax(var(--sl-stream-card-min-width),var(--sl-right-rail-width-wide))_minmax(0,var(--sl-form-max-width))]'
+        : '@market-two/profile:grid-cols-[minmax(0,var(--sl-form-max-width))]';
   return (
-    <div data-profile-layout className={cn('grid w-full grid-cols-1 items-stretch lg:min-h-[calc(100dvh-var(--sl-shell-top-total))] 2xl:justify-center', columns, className)}>
-      {hasLeft ? (
-        <aside aria-label="Leaderboard" className="hidden min-w-0 bg-surface-1 2xl:block">
-          <div className="sticky top-0">{left}</div>
-        </aside>
-      ) : null}
-      <div data-profile-col="center" className="flex w-full min-w-0 flex-col">{center}</div>
-      {hasRight ? <aside aria-label={rightLabel} className="flex min-w-0 flex-col gap-2 bg-surface-1 max-lg:mt-2">{right}</aside> : null}
+    <div className="@container/profile w-full min-w-0">
+      <div data-profile-layout className={cn('grid w-full grid-cols-1 items-stretch lg:min-h-[calc(100dvh-var(--sl-shell-top-total))] @market-three/profile:justify-center', columns, className)}>
+        {hasLeft ? (
+          <aside aria-label="Leaderboard" className="hidden min-w-0 bg-surface-1 @market-three/profile:block">
+            <div className="sticky top-[var(--shell-top)]">{left}</div>
+          </aside>
+        ) : null}
+        <div data-profile-col="center" className="flex w-full min-w-0 flex-col">{center}</div>
+        {hasRight ? <aside aria-label={rightLabel} className="flex min-w-0 flex-col gap-2 bg-surface-1 mt-2 @market-two/profile:mt-0">{right}</aside> : null}
+      </div>
     </div>
   );
 }

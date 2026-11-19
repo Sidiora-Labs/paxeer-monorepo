@@ -1,14 +1,16 @@
 import UIKit
+import UserNotifications
 import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
 @main
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
  var window: UIWindow?
  var delegate: ReactNativeDelegate?
  var factory: RCTReactNativeFactory?
  func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
   PrivacyPreview.prepare()
+  UNUserNotificationCenter.current().delegate = self
   let delegate = ReactNativeDelegate()
   delegate.dependencyProvider = RCTAppDependencyProvider()
   let factory = RCTReactNativeFactory(delegate: delegate)
@@ -20,6 +22,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
  }
 }
 extension AppDelegate {
+ func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+  if let link = response.notification.request.content.userInfo["deepLink"] as? String, link.count <= 2048 {
+   SecureSession.pendingNotificationLink = link
+   NotificationCenter.default.post(name: NSNotification.Name("RCTOpenURLNotification"), object: nil, userInfo: ["url": link])
+  }
+  completionHandler()
+ }
+
  func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) { SecureSession.receivedAPNSToken(deviceToken) }
  func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) { SecureSession.failedAPNSRegistration(error) }
  func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool { RCTLinkingManager.application(app, open: url, options: options) }

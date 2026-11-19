@@ -77,7 +77,7 @@ export default function ConversationList() {
   }, [sessionMatches, session, sessionEpoch, attempt]);
 
   if (!sessionMatches || error?.signedOut) {
-    return <SignedOutState icon={MessageCircle} title="Sign in to see your messages" body="Your direct messages with other traders show up here." />;
+    return <SignedOutState icon={MessageCircle} title="Sign in to see your messages" body="Your direct messages with other traders show up here." className="chat-state px-8" />;
   }
 
   if (loading) {
@@ -105,25 +105,25 @@ export default function ConversationList() {
       {(scope === sessionEpoch ? conversations : []).map(convo => {
         const meta = peerMeta[convo.peer.toLowerCase()];
         return (
-          <Link
+          <Link prefetch={false}
             key={convo.id}
             href={`/chat/${encodeURIComponent(convo.id)}`}
-            className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-surface-2 transition"
+            className="flex min-h-touch-target-min items-center gap-3 rounded-lg px-4 py-3 transition-colors duration-fast hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-focus"
           >
-            <div className="w-10 h-10 rounded-full bg-surface-2 flex-shrink-0 flex items-center justify-center overflow-hidden">
+            <div className="flex size-avatar-lg shrink-0 items-center justify-center overflow-hidden rounded-pill bg-surface-2">
               <span className="text-xs font-bold text-text-faint">
                 {convo.peer.slice(2, 4).toUpperCase()}
               </span>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold text-text truncate">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-bold text-text">
                 {meta?.displayName || formatAddress(convo.peer, 6)}
               </div>
               <div className="text-2xs text-text-faint">
                 {relTime(convo.lastMessageAt)}{convo.unreadCount > 0 ? ` · ${convo.unreadCount} unread` : ''}
               </div>
             </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-text-faint flex-shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className="shrink-0 text-text-faint">
               <polyline points="9 18 15 12 9 6"/>
             </svg>
           </Link>

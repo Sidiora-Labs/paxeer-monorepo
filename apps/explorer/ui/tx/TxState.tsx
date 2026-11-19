@@ -1,4 +1,4 @@
-import { Box, Text } from '@chakra-ui/react';
+import { Text } from '@chakra-ui/react';
 import React from 'react';
 
 import { TX_STATE_CHANGES } from 'stubs/txStateChanges';
@@ -8,7 +8,9 @@ import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
 import { formatScanTableCount, ScanTableCard } from 'ui/shared/scan';
 import TxStateList from 'ui/tx/state/TxStateList';
 import TxStateTable from 'ui/tx/state/TxStateTable';
+import ActivityViews from 'ui/txs/ActivityViews';
 
+import ActivityLoading from './ActivityLoading';
 import TxPendingAlert from './TxPendingAlert';
 import TxSocketAlert from './TxSocketAlert';
 import type { TxQuery } from './useTxQuery';
@@ -37,16 +39,17 @@ const TxState = ({ txQuery }: Props) => {
     return txQuery.socketStatus ? <TxSocketAlert status={ txQuery.socketStatus }/> : <TxPendingAlert/>;
   }
 
-  const content = data ? (
-    <>
-      <Box hideBelow="lg">
-        <TxStateTable data={ data.items } isLoading={ isPlaceholderData } top={ 0 }/>
-      </Box>
-      <Box hideFrom="lg">
+  const loadedContent = data ? (
+    <ActivityViews
+      list={
         <TxStateList data={ data.items } isLoading={ isPlaceholderData }/>
-      </Box>
-    </>
+      }
+      table={
+        <TxStateTable data={ data.items } isLoading={ isPlaceholderData } top={ 0 }/>
+      }
+    />
   ) : null;
+  const content = isPlaceholderData ? <ActivityLoading label="Loading state changes"/> : loadedContent;
 
   const itemsNum = data?.items.length ?? 0;
 

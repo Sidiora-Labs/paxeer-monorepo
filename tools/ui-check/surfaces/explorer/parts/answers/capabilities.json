@@ -1,0 +1,7 @@
+{
+  "addr": true,
+  "exchange": true,
+  "bridge": true,
+  "launchpad": true,
+  "price_feed": true
+}

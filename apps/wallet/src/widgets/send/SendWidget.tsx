@@ -323,14 +323,15 @@ export function SendWidget({ onBack, preSelectTokenAddress, onPaxscan }: SendWid
   const resolvedContact = form.to ? findByAddress(form.to) : undefined;
 
   return (
-    <div className="min-h-screen flex flex-col px-4 pt-4 safe-area-pt">
+    <div className="min-h-screen w-full max-w-2xl mx-auto flex flex-col px-4 pt-4 safe-area-pt">
       <div className="flex items-center gap-3 mb-6">
-        <button type="button" onClick={onBack} aria-label="Back" className="p-2 -ml-2 press-scale">
-          <SvgIcon
-            name="arrow-left"
-            className="w-5 h-5"
-            style={{ filter: 'brightness(0) invert(0.6)' }}
-          />
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Back"
+          className="min-h-[var(--touch-target)] p-2 -ml-2 press-scale"
+        >
+          <SvgIcon name="arrow-left" className="w-5 h-5" />
         </button>
         <h2 className="text-lg font-bold">Send</h2>
       </div>
@@ -349,14 +350,14 @@ export function SendWidget({ onBack, preSelectTokenAddress, onPaxscan }: SendWid
         onApplyPercentage={(pct) => form.applyPercentage(pct, selectedToken)}
       />
 
-      {form.error && <p className="text-red-400 text-xs">{form.error}</p>}
+      {form.error && <p className="text-pax-error text-xs">{form.error}</p>}
       {feePreview === 'unavailable' && (
-        <p className="text-red-400 text-xs" role="status" data-role="fee-unavailable">
+        <p className="text-pax-error text-xs" role="status" data-role="fee-unavailable">
           The network fee could not be estimated right now.
         </p>
       )}
       {scanError && (
-        <p className="text-red-400 text-xs" role="alert">
+        <p className="text-pax-error text-xs" role="alert">
           {scanError}
         </p>
       )}

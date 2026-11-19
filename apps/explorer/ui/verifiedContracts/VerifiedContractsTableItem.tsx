@@ -98,21 +98,21 @@ const VerifiedContractsTableItem = ({ data, isLoading, chainData }: Props) => {
         <Tooltip content="Optimization" disabled={ isLoading }>
           <chakra.span display="inline-block">
             { data.optimization_enabled ?
-              <IconSvg name="check" boxSize={ 6 } color="green.500" cursor="pointer" isLoading={ isLoading }/> :
-              <IconSvg name="cross" boxSize={ 6 } color="red.600" cursor="pointer" isLoading={ isLoading }/> }
+              <IconSvg name="check" boxSize={ 6 } color="positive" cursor="pointer" isLoading={ isLoading }/> :
+              <IconSvg name="cross" boxSize={ 6 } color="negative" cursor="pointer" isLoading={ isLoading }/> }
           </chakra.span>
         </Tooltip>
         <Tooltip content="Constructor args" disabled={ isLoading }>
           <chakra.span display="inline-block" ml={ 2 }>
             { data.has_constructor_args ?
-              <IconSvg name="check" boxSize={ 6 } color="green.500" cursor="pointer" isLoading={ isLoading }/> :
-              <IconSvg name="cross" boxSize={ 6 } color="red.600" cursor="pointer" isLoading={ isLoading }/> }
+              <IconSvg name="check" boxSize={ 6 } color="positive" cursor="pointer" isLoading={ isLoading }/> :
+              <IconSvg name="cross" boxSize={ 6 } color="negative" cursor="pointer" isLoading={ isLoading }/> }
           </chakra.span>
         </Tooltip>
       </TableCell>
       <TableCell>
         <Flex alignItems="center" columnGap={ 2 } my={ 1 }>
-          <IconSvg name="status/success" boxSize={ 4 } color="green.500" isLoading={ isLoading }/>
+          <IconSvg name="status/success" boxSize={ 4 } color="positive" isLoading={ isLoading }/>
           <TimeWithTooltip
             timestamp={ data.verified_at }
             isLoading={ isLoading }

@@ -211,15 +211,15 @@ func (s Store) SearchIntegrated(ctx context.Context, r IntegratedRequest) (Integ
 	defer cancel()
 	tx, e := s.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if e != nil {
-		return IntegratedPage{}, fmt.Errorf("%w: begin", ErrUnavailable)
+		return IntegratedPage{}, fmt.Errorf("%w: begin: %w", ErrUnavailable, e)
 	}
 	defer rollbackSearch(tx)
 	if _, e = tx.Exec(ctx, "SET LOCAL statement_timeout='150ms'"); e != nil {
-		return IntegratedPage{}, ErrUnavailable
+		return IntegratedPage{}, fmt.Errorf("%w: %w", ErrUnavailable, e)
 	}
 	p := IntegratedPage{Items: []IntegratedHit{}, MatchKind: q.Kind, Status: "ok", ObservedAt: time.Now().UTC()}
 	if e = tx.QueryRow(ctx, "SELECT generation,revision,privacy_revision FROM stats_search.active_v2 WHERE singleton").Scan(&p.Generation, &p.Revision, &p.PrivacyRevision); e != nil {
-		return IntegratedPage{}, ErrUnavailable
+		return IntegratedPage{}, fmt.Errorf("%w: %w", ErrUnavailable, e)
 	}
 	after := ""
 	if c := r.Position; c != nil {
@@ -238,18 +238,22 @@ func (s Store) SearchIntegrated(ctx context.Context, r IntegratedRequest) (Integ
 	}
 	rows, e := tx.Query(ctx, query, args...)
 	if e != nil {
-		return IntegratedPage{}, fmt.Errorf("%w: query", ErrUnavailable)
+		return IntegratedPage{}, fmt.Errorf("%w: query: %w", ErrUnavailable, e)
 	}
 	for rows.Next() {
 		var raw []byte
 		var d IndexedDocument
 		if e = rows.Scan(&raw); e != nil {
 			rows.Close()
-			return IntegratedPage{}, ErrUnavailable
+			return IntegratedPage{}, fmt.Errorf("%w: %w", ErrUnavailable, e)
 		}
-		if e = json.Unmarshal(raw, &d); e != nil || d.Validate() != nil {
+		if e = json.Unmarshal(raw, &d); e != nil {
 			rows.Close()
-			return IntegratedPage{}, ErrUnavailable
+			return IntegratedPage{}, fmt.Errorf("%w: %w", ErrUnavailable, e)
+		}
+		if e = d.Validate(); e != nil {
+			rows.Close()
+			return IntegratedPage{}, fmt.Errorf("%w: document: %v", ErrUnavailable, e)
 		}
 		pool, token := d.PoolAddress, d.TokenAddress
 		p.Items = append(p.Items, IntegratedHit{Hit: Hit{Kind: r.Kind, ID: "125:" + pool, Label: d.Name, PoolAddress: &pool, TokenAddress: &token, Score: "1"}, Ticker: d.Ticker, CreatedAt: &d.CreatedAt, PoolStatus: d.PoolStatus, RiskFlags: d.RiskFlags, ConfusableWarnings: d.ConfusableWarnings, PublicExplanation: d.PublicExplanation, MetricsAt: d.MetricsAt, Creator: d.Creator})
@@ -257,7 +261,7 @@ func (s Store) SearchIntegrated(ctx context.Context, r IntegratedRequest) (Integ
 	e = rows.Err()
 	rows.Close()
 	if e != nil {
-		return IntegratedPage{}, ErrUnavailable
+		return IntegratedPage{}, fmt.Errorf("%w: %w", ErrUnavailable, e)
 	}
 	if len(p.Items) > r.Limit {
 		p.Items = p.Items[:r.Limit]
@@ -267,7 +271,7 @@ func (s Store) SearchIntegrated(ctx context.Context, r IntegratedRequest) (Integ
 		p.Status = valueNotIndexed
 	}
 	if e = tx.Commit(ctx); e != nil {
-		return IntegratedPage{}, ErrUnavailable
+		return IntegratedPage{}, fmt.Errorf("%w: %w", ErrUnavailable, e)
 	}
 	return p, nil
 }
@@ -283,7 +287,7 @@ func unavailable(err error) error {
 	if errors.Is(err, ErrInvalid) || errors.Is(err, ErrUnsupported) {
 		return err
 	}
-	return fmt.Errorf("%w: storage", ErrUnavailable)
+	return fmt.Errorf("%w: storage: %w", ErrUnavailable, err)
 }
 
 func tickerWarnings(ticker string) []string {
@@ -314,15 +318,15 @@ func (s Store) searchProfiles(ctx context.Context, q Query, r IntegratedRequest)
 	defer cancel()
 	tx, err := s.Pool.BeginTx(bounded, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
-		return IntegratedPage{}, ErrUnavailable
+		return IntegratedPage{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	defer rollbackSearch(tx)
 	if _, err = tx.Exec(bounded, "SET LOCAL statement_timeout='150ms'"); err != nil {
-		return IntegratedPage{}, ErrUnavailable
+		return IntegratedPage{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	page := IntegratedPage{Items: []IntegratedHit{}, MatchKind: q.Kind, Status: "ok", ObservedAt: time.Now().UTC()}
 	if err = tx.QueryRow(bounded, "SELECT generation,revision,privacy_revision FROM stats_search.active_v2 WHERE singleton").Scan(&page.Generation, &page.Revision, &page.PrivacyRevision); err != nil {
-		return IntegratedPage{}, ErrUnavailable
+		return IntegratedPage{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	after := ""
 	if c := r.Position; c != nil {
@@ -343,17 +347,17 @@ func (s Store) searchProfiles(ctx context.Context, q Query, r IntegratedRequest)
 	}
 	rows, err := tx.Query(bounded, `SELECT d.wallet,d.display_name FROM stats_search.profile_documents_v2 d JOIN users.account_public_search_v2 a USING(wallet) WHERE $1::text IS NOT NULL AND $2::text IS NOT NULL AND a.public AND NOT a.deleted AND a.revision=d.revision AND a.display_name=d.display_name AND NOT EXISTS(SELECT 1 FROM stats_search.profile_tombstones_v2 t WHERE t.wallet=d.wallet) AND (`+predicate+`) AND ($3='' OR d.wallet>$3) ORDER BY d.wallet LIMIT $4`, pattern, q.Key, after, r.Limit+1)
 	if err != nil {
-		return IntegratedPage{}, ErrUnavailable
+		return IntegratedPage{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	for rows.Next() {
 		var wallet, label string
 		if err = rows.Scan(&wallet, &label); err != nil {
 			rows.Close()
-			return IntegratedPage{}, ErrUnavailable
+			return IntegratedPage{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 		}
 		if !exactIdentity(wallet) || !boundedDisplay(label, 80, 320) {
 			rows.Close()
-			return IntegratedPage{}, ErrUnavailable
+			return IntegratedPage{}, fmt.Errorf("%w: profile document: %v", ErrUnavailable, ErrInvalid)
 		}
 		address := wallet
 		page.Items = append(page.Items, IntegratedHit{Hit: Hit{Kind: valueProfile, ID: "125:" + wallet, Label: label, Wallet: &address, Score: "1"}, Creator: wallet, RiskFlags: []string{}, ConfusableWarnings: []string{}})
@@ -361,7 +365,7 @@ func (s Store) searchProfiles(ctx context.Context, q Query, r IntegratedRequest)
 	err = rows.Err()
 	rows.Close()
 	if err != nil {
-		return IntegratedPage{}, ErrUnavailable
+		return IntegratedPage{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	if len(page.Items) > r.Limit {
 		page.Items = page.Items[:r.Limit]
@@ -371,7 +375,7 @@ func (s Store) searchProfiles(ctx context.Context, q Query, r IntegratedRequest)
 		page.Status = valueNotIndexed
 	}
 	if err = tx.Commit(bounded); err != nil {
-		return IntegratedPage{}, ErrUnavailable
+		return IntegratedPage{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	return page, nil
 }

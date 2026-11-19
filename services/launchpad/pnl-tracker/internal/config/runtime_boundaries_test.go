@@ -242,8 +242,8 @@ func TestRuntimeDocumentsRejectAmbiguousAndUnboundedInputs(t *testing.T) {
 			setBaseEnv(t)
 			t.Setenv("EXPECTED_SCHEMA_DOCUMENT", inline)
 			t.Setenv("EXPECTED_SCHEMA_SHA256", strings.Repeat("0", 64))
-			if _, err := config.Load(); err != nil {
-				t.Fatal(err)
+			if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "EXPECTED_SCHEMA_DOCUMENT") {
+				t.Fatalf("invalid inline schema accepted: %v", err)
 			}
 			if err := config.ReadBoundDocument("", strings.Repeat("0", 64), new(any)); err == nil {
 				t.Fatal("invalid inline document accepted")

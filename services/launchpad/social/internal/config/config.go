@@ -300,13 +300,38 @@ func Load() (Config, error) {
 	if err := cfg.Validate(); err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)
 	}
+	if err := cfg.validateBoundDocuments(); err != nil {
+		return Config{}, fmt.Errorf("config: %w", err)
+	}
 	cfg.registerInlineDocuments()
 	return cfg, nil
+}
+
+// validateBoundDocuments verifies every configured startup document before the
+// process begins wiring dependencies. Semantic checks remain with the package
+// that consumes each document.
+func (c *Config) validateBoundDocuments() error {
+	for _, document := range c.boundDocuments() {
+		if document[0] == "" && document[1] == "" && document[2] == "" {
+			continue
+		}
+		raw, err := boundBytes(document[0], document[1], document[2])
+		if err != nil {
+			return fmt.Errorf("%s_DOCUMENT: %w", document[3], err)
+		}
+		if !json.Valid(raw) {
+			return fmt.Errorf("%s_DOCUMENT: invalid JSON", document[3])
+		}
+	}
+	return nil
 }
 
 // Validate enforces field-level rules beyond presence.
 func (c *Config) Validate() error {
 	var errs []error
+	if c.NodeEnv == productionEnvironment && c.RuntimeProfile != "" && !c.Platform() {
+		errs = append(errs, c.validatePrivateListenAddress())
+	}
 	for _, d := range c.boundDocuments() {
 		if d[0] != "" && d[1] != "" {
 			errs = append(errs, fmt.Errorf("runtime_document_source_ambiguous: %s_FILE and %s_DOCUMENT are both set", d[3], d[3]))
@@ -348,6 +373,18 @@ func (c *Config) Validate() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func (c *Config) validatePrivateListenAddress() error {
+	host, port, err := net.SplitHostPort(c.PrivateListenAddress)
+	if err != nil || net.ParseIP(host) == nil {
+		return fmt.Errorf("SOCIAL_PRIVATE_LISTEN_ADDRESS must be an IP:port distinct from PORT (e.g. [::]:8443)")
+	}
+	privatePort, err := strconv.Atoi(port)
+	if err != nil || privatePort < 1 || privatePort > 65535 || privatePort == c.Port {
+		return fmt.Errorf("SOCIAL_PRIVATE_LISTEN_ADDRESS must be an IP:port distinct from PORT (e.g. [::]:8443)")
+	}
+	return nil
 }
 
 func requireURL(name, raw string) error {
@@ -408,21 +445,39 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 	var mu sync.Mutex
 	var failure error
 	check := func(checkCtx context.Context) error {
+		if err := checkCtx.Err(); err != nil {
+			return err
+		}
 		mu.Lock()
 		defer mu.Unlock()
+		if err := checkCtx.Err(); err != nil {
+			return err
+		}
 		if failure != nil {
 			return failure
 		}
 		for key, old := range consumed {
+			if err := checkCtx.Err(); err != nil {
+				return err
+			}
 			value, err := provider.GetRequired(checkCtx, key)
 			if err != nil {
+				if contextErr := checkCtx.Err(); contextErr != nil {
+					return contextErr
+				}
 				failure = fmt.Errorf("required_secret_unavailable: %s", key)
 				return failure
+			}
+			if contextErr := checkCtx.Err(); contextErr != nil {
+				return contextErr
 			}
 			if value != old {
 				failure = fmt.Errorf("required_secret_rotated_restart_required: %s", key)
 				return failure
 			}
+		}
+		if err := checkCtx.Err(); err != nil {
+			return err
 		}
 		return nil
 	}
