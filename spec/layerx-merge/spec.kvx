@@ -15892,6 +15892,12 @@ value = "One. Both test steps of .github/workflows/wallet-go-test.yml state a ti
 basis = "Gotcha 4723. Decision 3052."
 affects = []
 
+[decision.3797]
+title = "A case that reads class tokens follows the form its component holds, and the card image route bounds its body read itself"
+value = "One. The sizes of the views of the launchpad web application are settled by the parts of series 22.44 against the earlier build. A case of the web suite that reads class tokens of a shared primitive or of a view expects the tokens the component holds on the main line. Where case and component differ in a token of a size, the component stands and the case follows. Two. Such a case keeps what it proves: the element is present, it is the element the case names, and the tokens that did not move stay in the expectation. Only a token of a size that moved changes, and no case is removed or skipped. Three. A server route of the web application that reads the body of an answer of a service bounds that read itself, so that its answer does not wait on how the runtime reports the end of a cancelled body. When the bound passes, the route cancels the body and answers. The bound of the card image route over head and body together stays 5000 ms, and its statuses, headers and error texts stay as they are. Four. The case of a stopped body keeps its assertion of 6500 ms and its limit of 15 seconds. A helper of a case file that closes a server ends inside the limit of the case in every run. Tasks 22.39.950 and 22.39.951."
+basis = "Gotcha 4724. Decision 3052."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45552,6 +45558,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.951]
+title = "Bound the body read of the card image route of the launchpad web application itself"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/app/api/flow-server-routes.test.ts && pnpm --dir apps/launchpad/web run test src/app/api/flow-server-routes.test.ts && pnpm --dir apps/launchpad/web run test src/app/api/flow-server-routes.test.ts"
+do_1 = "do_1 Gotcha 4724 parts four and five, decision 3797 points three and four. Read the card image route under apps/launchpad/web/src/app/api/og/pnl, the case cardRouteFinishesWhenTheImageBodyStops in apps/launchpad/web/src/app/api/flow-server-routes.test.ts with the helpers listen, close and imageRequest and the server it puts in between, the case cardRouteFinishesWhenTheServiceDoesNotAnswer beside it, and the preparation of the file that publishes a card."
+symbols = []
+
+[capability.22.39.950]
+title = "Let the leaderboard state cases and the other cases of the launchpad web suite read the class tokens their components hold"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4724 parts one to three, decision 3797 points one and two. Read apps/launchpad/web/src/ui/primitives/states.tsx with its three state components and the history of the tokens of their panels, the case file apps/launchpad/web/src/widgets/leaderboard/leaderboard-states.test.tsx with the function that reads the panel, and the leaderboard components each caller renders in the empty and in the unavailable state."
+symbols = []
 
 [capability.22.39.949]
 title = "Hold the native profile cases of the wallet attestor over repeated runs"
@@ -178854,7 +178878,7 @@ do_6 = "do_6 Decision 3787, gotcha 4714. Since task 22.44.106 a view of the rend
 
 [task.22.44.107]
 title = "Close the coin, token and creation views of the launchpad again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.106"]
@@ -208562,6 +208586,68 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.951]
+title = "Bound the body read of the card image route of the launchpad web application itself"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.951"]
+interfaces = []
+do_1 = "do_1 Gotcha 4724 parts four and five, decision 3797 points three and four. Read the card image route under apps/launchpad/web/src/app/api/og/pnl, the case cardRouteFinishesWhenTheImageBodyStops in apps/launchpad/web/src/app/api/flow-server-routes.test.ts with the helpers listen, close and imageRequest and the server it puts in between, the case cardRouteFinishesWhenTheServiceDoesNotAnswer beside it, and the preparation of the file that publishes a card."
+do_2 = "do_2 Find where the time of the case goes. Run the case file at least fifty times by hand in a loop of single runs that stops at the first run that does not pass and keeps its whole output, with the processors limited to two and with a load beside it where runs alone all pass. For the reading only, mark the time at the return of the route, after the assertion and after the close of the server in between, and take the marks out again. Read how the runtime of the environment ends arrayBuffer when the signal fires after the head arrived."
+do_3 = "do_3 The route bounds the read of head and body together itself: a timer of 5000 ms from the start of the request to the service. When it passes, the route cancels the body and answers 502 with the error text it holds today, whether or not the body read has ended, and the timer is cleared on every path. The signal of the request still ends the route as before. No status, header or error text of the route changes for another answer. Where the reading of do_2 shows time in the close of the server in between, the helper close ends the held connections of both sides before it waits, and the server in between ends its request to the service when it is closed."
+do_4 = "do_4 Add a case to apps/launchpad/web/src/app/api/flow-server-routes.test.ts that proves the bound of the route without a server in between: for that one case the fetch of the route is replaced by one whose answer has the head of an image and a body that never ends and never reports a cancellation, and the route answers 502 inside 6500 ms. The replacement is undone at the end of the case on every path. The case of a stopped body keeps its assertion of 6500 ms and its limit of 15 seconds, and no other case of the file changes its expectation. Run the case file fifty times after the repair and name the count in the final message. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/app/api/flow-server-routes.test.ts && pnpm --dir apps/launchpad/web run test src/app/api/flow-server-routes.test.ts && pnpm --dir apps/launchpad/web run test src/app/api/flow-server-routes.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.950]
+title = "Let the leaderboard state cases and the other cases of the launchpad web suite read the class tokens their components hold"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.950"]
+interfaces = []
+do_1 = "do_1 Gotcha 4724 parts one to three, decision 3797 points one and two. Read apps/launchpad/web/src/ui/primitives/states.tsx with its three state components and the history of the tokens of their panels, the case file apps/launchpad/web/src/widgets/leaderboard/leaderboard-states.test.tsx with the function that reads the panel, and the leaderboard components each caller renders in the empty and in the unavailable state."
+do_2 = "do_2 The case expects for each caller and state the tokens of the component that caller renders on the main line: p-8 where the panel is the component EmptyState, px-4 and py-8 where it is one of the other two state components. The case takes which of them a caller renders from the component the view uses, and states it per caller and state. It keeps everything else it proves: the panel is present, it holds w-full, min-w-0 and gap-3, and its text is muted. The file apps/launchpad/web/src/ui/primitives/states.tsx and every other product file are read only."
+do_3 = "do_3 Run the whole web suite by the verification command and read every case that does not pass. Where such a case expects a class token of a size that its component no longer holds, read the component on the main line and the history of the token, and let the case follow the component in the way of do_2. Name each changed case with its file in the final message. The case cardRouteFinishesWhenTheImageBodyStops belongs to task 22.39.951: leave it and its route as they are."
+do_4 = "do_4 Take the main line into the branch by a merge before the counted verification, since further parts of series 22.44 join while this task runs, and settle in the same way what they moved. Only test files change. No case is removed, skipped or weakened beyond the token of a size that moved. The files are inside the paths of this task, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 200
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.949]
 title = "Hold the native profile cases of the wallet attestor over repeated runs"
 status = "pending"
@@ -208656,7 +208742,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.946]
 title = "Pass the lint, race and coverage targets of the launchpad Makefile in the social module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208749,7 +208835,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.943]
 title = "Pass the lint, race and coverage targets of the launchpad Makefile in the gateway module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.937"]
@@ -208873,7 +208959,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.939]
 title = "Pass the lint, race and coverage targets of the launchpad Makefile in the api module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
