@@ -64,7 +64,7 @@ function SkeletonRows({
             return (
               <td key={spec.id} className={cn('px-3 align-middle', spec.responsive)}>
                 {spec.id === 'coin' ? (
-                  <span className="flex min-h-[calc(var(--sl-leading-sm)+var(--sl-leading-xs))] max-[834px]:min-h-[calc(var(--sl-touch-target-min)+var(--sl-leading-xs))] w-36 items-center gap-2.5 md:w-56 xl:w-auto xl:min-w-56">
+                  <span className="flex min-h-[calc(var(--sl-leading-sm)+var(--sl-leading-xs))] [@media(max-width:834px)]:min-h-[calc(var(--sl-touch-target-min)+var(--sl-leading-xs))] w-36 items-center gap-2.5 md:w-56 xl:w-auto xl:min-w-56">
                     <span className="sl-skeleton h-3 w-5 shrink-0" />
                     <span className="sl-skeleton size-avatar-md shrink-0 rounded-pill" />
                     <span className="flex flex-1 flex-col gap-1.5">
