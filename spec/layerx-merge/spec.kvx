@@ -477949,7 +477949,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.967]
 title = "Let the market chart routes of the explorer keep the stored closing price where no current rate is known"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
