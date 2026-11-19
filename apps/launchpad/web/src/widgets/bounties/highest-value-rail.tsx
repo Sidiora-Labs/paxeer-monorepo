@@ -70,7 +70,7 @@ export function HighestValueRail({ enabled = true, serviceDown = false, limit = 
   const [featured, ...rest] = rows;
 
   return (
-    <section aria-labelledby="highest-value-title" className={cn('flex min-h-[var(--sl-bounty-highlight-min-height)] flex-col gap-3 rounded-lg bg-surface-1 p-4', className)}>
+    <section aria-labelledby="highest-value-title" className={cn('flex flex-col gap-3 rounded-lg bg-surface-1 p-4', className)}>
       <CardHeader id="highest-value-title" icon={<Flame aria-hidden="true" className="size-icon-sm text-accent" />} title="Highest value · open" href={allHref} action="All open" />
       {serviceDown ? (
         <p className="text-sm text-text-faint">Bounties can't load right now</p>
@@ -90,14 +90,14 @@ export function HighestValueRail({ enabled = true, serviceDown = false, limit = 
               <span className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Top open bounty</span>
             </div>
             <RewardValue valuation={featured.valuation} size="lg" />
-            <Link prefetch={false} href={bountyHref(featured.bounty)} className="line-clamp-2 min-h-touch-target-min min-w-touch-target-min content-center text-sm font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">{featured.bounty.title}</Link>
+            <Link prefetch={false} href={bountyHref(featured.bounty)} className="line-clamp-2 content-center text-sm font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">{featured.bounty.title}</Link>
             <Meta bounty={featured.bounty} now={now} />
           </li>
           {rest.map((row, index) => (
             <li key={row.bounty.bountyId} className="relative flex items-center gap-2 rounded-md p-2 transition-colors duration-fast hover:bg-surface-hover">
               <RankBadge rank={index + 2} variant="disc" />
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <Link prefetch={false} href={bountyHref(row.bounty)} className="block min-h-touch-target-min min-w-touch-target-min content-center truncate text-sm font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">{row.bounty.title}</Link>
+                <Link prefetch={false} href={bountyHref(row.bounty)} className="block content-center truncate text-sm font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">{row.bounty.title}</Link>
                 <Meta bounty={row.bounty} now={now} />
               </span>
               <RewardValue valuation={row.valuation} size="sm" />
@@ -127,7 +127,7 @@ export function RecentlyPaidCard({ enabled = true, serviceDown = false, limit = 
   const rows = list.items.slice(0, limit);
   const valuations = useBountyValuations(rows);
   return (
-    <section aria-labelledby="recently-paid-title" className={cn('flex min-h-60 flex-col gap-3 rounded-lg bg-surface-1 p-4', className)}>
+    <section aria-labelledby="recently-paid-title" className={cn('flex flex-col gap-3 rounded-lg bg-surface-1 p-4', className)}>
       <CardHeader id="recently-paid-title" icon={<BadgeCheck aria-hidden="true" className="size-icon-sm text-success" />} title="Recently paid" href={allHref} action="All paid" />
       {serviceDown ? (
         <p className="text-sm text-text-faint">Payouts show up here once bounties load</p>
@@ -143,7 +143,7 @@ export function RecentlyPaidCard({ enabled = true, serviceDown = false, limit = 
         <ul className="flex flex-col gap-1">
           {rows.map(bounty => (
             <li key={bounty.bountyId} className="relative flex items-center gap-2 rounded-md p-2 transition-colors duration-fast hover:bg-surface-hover">
-              <Link prefetch={false} href={bountyHref(bounty)} className="min-h-touch-target-min min-w-0 flex-1 content-center truncate text-sm font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">{bounty.title}</Link>
+              <Link prefetch={false} href={bountyHref(bounty)} className="min-w-0 flex-1 content-center truncate text-sm font-bold text-text after:absolute after:inset-0 after:rounded-md after:content-['']">{bounty.title}</Link>
               {bounty.winnersCount !== undefined ? <span className="shrink-0 text-xs tabular-nums text-text-faint" data-numeric>{formatCount(bounty.winnersCount)} {bounty.winnersCount === 1 ? 'winner' : 'winners'}</span> : null}
               <RewardValue valuation={valuations.valuationOf(bounty)} size="sm" />
             </li>

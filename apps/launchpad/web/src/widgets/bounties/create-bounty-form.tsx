@@ -172,7 +172,7 @@ export function CreateBountyForm({ className }: { className?: string }) {
   const failure = mutation.error;
 
   return (
-    <form noValidate onSubmit={submit} aria-labelledby={`${id}-heading`} className={cn('flex flex-col gap-5 rounded-lg bg-surface-1 p-4 md:p-6', className)}>
+    <form noValidate onSubmit={submit} aria-labelledby={`${id}-heading`} className={cn('flex flex-col gap-5 rounded-lg bg-surface-1 p-4 md:p-6 [&_.sl-field]:py-[calc(var(--sl-space-2)-var(--sl-edge-width))] [&_[role=radio]]:min-h-6 [&_[role=radio]]:py-0 [&_input:not([type=file])]:text-base [&_input:not([type=file])]:leading-[calc(var(--sl-leading-base)/var(--sl-text-base))] [&_textarea]:text-base [&_textarea]:leading-[calc(var(--sl-leading-base)/var(--sl-text-base))]', className)}>
       <h2 id={`${id}-heading`} className="text-lg font-bold text-text">Bounty details</h2>
       <FormField
         id={`${id}-title`}

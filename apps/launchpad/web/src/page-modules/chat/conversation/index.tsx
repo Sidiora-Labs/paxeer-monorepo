@@ -24,11 +24,11 @@ export default function ConversationModule(){
  const [value,setValue]=useState<{wallet:string;epoch:number;conversation:DmConversation}>();const [failure,setFailure]=useState<Failure>();const [attempt,setAttempt]=useState(0);
  useEffect(()=>{const controller=new AbortController();setValue(undefined);setFailure(undefined);const signal=session?AbortSignal.any([controller.signal,session.signal]):controller.signal;if(active)void getDmConversations(signal).then(rows=>{if(signal.aborted||accountSession()!==session)return;const conversation=rows.find(row=>row.id===id);if(!conversation){setFailure({kind:'not-found'});return;}setValue({wallet:address!,epoch:sessionEpoch,conversation});}).catch(cause=>{if(signal.aborted||accountSession()!==session)return;setFailure(isSignedOutError(cause)?{kind:'signed-out'}:{kind:'error',message:'Check your connection and try again'});});return()=>controller.abort();},[address,id,attempt,session,sessionEpoch,active]);
  const body=!active||failure?.kind==='signed-out'
-  ?<SignedOutState icon={MessageCircle} title="Sign in to read this conversation" body="Direct messages are only visible to the people in them."/>
+  ?<SignedOutState icon={MessageCircle} title="Sign in to read this conversation" body="Direct messages are only visible to the people in them." className="chat-state px-8"/>
   :failure?.kind==='not-found'
    ?<EmptyState icon={SearchX} title="Conversation not found" body="It may have been deleted, or it belongs to another wallet" action={<Button variant="secondary" size="sm" href="/chat">Back to messages</Button>}/>
    :failure?.kind==='error'
     ?<ErrorState title="Can't load this chat right now" message={failure.message} onRetry={()=>setAttempt(value=>value+1)}/>
     :value&&value.wallet===address&&value.epoch===sessionEpoch?<DmThread key={`${address}:${id}:${sessionEpoch}`} conversationId={id} peerAddress={value.conversation.peer}/>:<p role="status" className="p-4 text-sm text-text-faint">Loading...</p>;
- return <div className="mx-auto flex min-h-[calc(100dvh-var(--sl-shell-top-total))] w-full max-w-content-narrow-max-width flex-col gap-3 px-4 py-4 text-text md:px-6"><Link prefetch={false} href="/chat" className="inline-flex min-h-touch-target-min w-fit items-center text-sm text-text-muted underline-offset-2 hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-focus">Back to messages</Link>{body}</div>;
+ return <div className="mx-auto flex min-h-[calc(100vh-var(--sl-space)*15)] max-w-2xl flex-col text-text"><Link prefetch={false} href="/chat" className="inline-flex items-center text-md text-text-muted underline-offset-2 hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-focus">Back to messages</Link>{body}</div>;
 }

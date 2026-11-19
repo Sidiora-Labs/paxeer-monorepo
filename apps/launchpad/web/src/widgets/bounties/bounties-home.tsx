@@ -139,9 +139,9 @@ export default function BountiesHome({ requestedTab }: { requestedTab: string | 
         the list comes first and the highlight cards stack full width below it.
         From xl: the highlights sit in the right rail beside the tabs and list.
       */}
-      <div className="grid grid-cols-1 gap-4 @max-[18em]/bounties:[--sl-bounty-list-min-height:var(--sl-bounty-list-expanded-min-height)] @max-[18em]/bounties:[--sl-bounty-highlight-min-height:var(--sl-bounty-highlight-expanded-min-height)] xl:grid-cols-[minmax(0,1fr)_var(--spacing-right-rail-width)] xl:gap-x-6">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_var(--spacing-right-rail-width)] xl:gap-x-6">
         <BountiesTabs active={tab} onChange={selectTab} counts={counts} mineLocked={!address} className="min-w-0 xl:col-start-1 xl:row-start-1" />
-        <div role="tabpanel" id={panelIds.panel} aria-labelledby={panelIds.tab} tabIndex={0} data-region="bounty-list" className="order-2 flex min-h-[var(--sl-bounty-list-min-height)] min-w-0 flex-col gap-4 md:order-none xl:col-start-1 xl:row-start-2">
+        <div role="tabpanel" id={panelIds.panel} aria-labelledby={panelIds.tab} tabIndex={0} data-region="bounty-list" className="order-2 flex min-w-0 flex-col gap-4 md:order-none xl:col-start-1 xl:row-start-2">
           {content}
         </div>
         <aside aria-label="Bounty highlights" data-region="bounty-highlights" className="order-1 min-w-0 md:order-none xl:sticky xl:top-4 xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:self-start">
