@@ -732,7 +732,7 @@ func Run(parent context.Context) error {
 	if err != nil {
 		return err
 	}
-	logger := sharedlog.New("indexer", cfg.LogLevel)
+	logger := sharedlog.New(valueIndexer, cfg.LogLevel)
 	logger.Info("starting indexer service",
 		slog.String("mode", cfg.IndexerMode), slog.String("logSource", cfg.IndexerLogSource))
 
@@ -756,8 +756,8 @@ func Run(parent context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer listener.Close()
-	defer srv.Close()
+	defer func() { _ = listener.Close() }()
+	defer func() { _ = srv.Close() }()
 	serveErr := make(chan error, 2)
 	go func() {
 		logger.Info("http server listening", slog.Int("port", cfg.Port))
@@ -965,7 +965,7 @@ type deliveryRuntimeDocument struct {
 }
 
 func (d deliveryRuntimeDocument) validateIdentity() error {
-	if d.Schema != "indexer" || d.Owner == "" || d.CanonicalStreamID == "" || d.ProjectionVersion == "" || !delivery.ValidDeploymentVersion(d.DeploymentID) {
+	if d.Schema != valueIndexer || d.Owner == "" || d.CanonicalStreamID == "" || d.ProjectionVersion == "" || !delivery.ValidDeploymentVersion(d.DeploymentID) {
 		return errors.New("indexer: incomplete durable source configuration")
 	}
 	return nil
@@ -1136,7 +1136,7 @@ func (d *lifecycleRuntimeDocument) validate(deliveryDoc deliveryRuntimeDocument,
 		if err := store.ValidateReplayRequest(request); err != nil {
 			return err
 		}
-		if request.SourceStream != deliveryDoc.CanonicalStreamID || request.Mode != "backfill" || request.Target != "indexer" || request.Generation != deliveryDoc.Generation || request.ProjectionRevision != deliveryDoc.ProjectionVersion || request.CheckpointHeight != d.InitialCheckpointHeight || request.CheckpointHash != d.InitialCheckpointHash {
+		if request.SourceStream != deliveryDoc.CanonicalStreamID || request.Mode != valueBackfill || request.Target != valueIndexer || request.Generation != deliveryDoc.Generation || request.ProjectionRevision != deliveryDoc.ProjectionVersion || request.CheckpointHeight != d.InitialCheckpointHeight || request.CheckpointHash != d.InitialCheckpointHash {
 			return errors.New("indexer: historical backfill source or checkpoint mismatch")
 		}
 		if i > 0 && request.FromHeight != d.BackfillRequests[i-1].ToHeight+1 {
@@ -1150,7 +1150,7 @@ func (d *lifecycleRuntimeDocument) validate(deliveryDoc deliveryRuntimeDocument,
 		if err := store.ValidateReplayRequest(request); err != nil {
 			return err
 		}
-		if request.SourceStream != deliveryDoc.CanonicalStreamID || request.Mode == "backfill" {
+		if request.SourceStream != deliveryDoc.CanonicalStreamID || request.Mode == valueBackfill {
 			return errors.New("indexer: replay request source or mode mismatch")
 		}
 	}
@@ -1158,7 +1158,7 @@ func (d *lifecycleRuntimeDocument) validate(deliveryDoc deliveryRuntimeDocument,
 		if err := store.ValidateReplayRequest(*d.BackfillRequest); err != nil {
 			return err
 		}
-		if d.BackfillRequest.SourceStream != deliveryDoc.CanonicalStreamID || d.BackfillRequest.Mode != "backfill" {
+		if d.BackfillRequest.SourceStream != deliveryDoc.CanonicalStreamID || d.BackfillRequest.Mode != valueBackfill {
 			return errors.New("indexer: historical backfill source mismatch")
 		}
 	}
