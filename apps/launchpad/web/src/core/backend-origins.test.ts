@@ -149,7 +149,7 @@ async function middlewareConfigurationErrorsRemainRenderable() {
 
   for (const { values, variables } of cases) {
     configure({ ...valid, ...values });
-    const { default: RootLayout } = await import('@/app/layout');
+    const { default: RootLayout } = await import('@/app/root-layout');
     const origins = await import('@/core/backend-origins');
     const rpc = await import('@/core/rpc');
     const { middleware } = await import('@/middleware');
