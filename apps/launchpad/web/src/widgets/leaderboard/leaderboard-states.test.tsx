@@ -116,6 +116,12 @@ const limits: Record<Caller, number> = { ticker: 20, home: 50, traders: 100, pro
 const emptyCopy: Record<Caller, string> = {
   ticker: 'No top earners in the last 24h', home: 'No traders yet', traders: 'No traders yet', profile: 'No traders ranked yet',
 };
+const panelPadding: Record<Caller, Record<'empty' | 'unavailable', string[] | null>> = {
+  ticker: { empty: null, unavailable: null },
+  home: { empty: ['p-8'], unavailable: null },
+  traders: { empty: ['p-8'], unavailable: ['px-4', 'py-8'] },
+  profile: { empty: ['p-8'], unavailable: ['px-4', 'py-8'] },
+};
 const BORDER = /\b(border(?!-0\b|-none\b)(-[a-z0-9/\[\]-]+)?|divide-[a-z]|ring-(?!offset)[a-z0-9]|outline-(?!none|focus|2|offset)[a-z]+)\b/;
 const tokens = readFileSync(new URL('../../app/tokens.css', import.meta.url), 'utf8');
 let cleanup: (() => void) | null = null;
@@ -206,10 +212,14 @@ function expectTokens(container: HTMLElement, caller: Caller, state: ReadState, 
     expect(frame.className).toContain('rounded-lg');
     expect(frame.className).toContain(caller === 'traders' ? 'sm:p-4' : 'p-2');
   }
-  if ((caller !== 'ticker' && state === 'empty') || ((caller === 'traders' || caller === 'profile') && state === 'unavailable')) {
-    const panel = container.querySelector('[class*="@container/state"]')!;
-    expect(panel.className.split(/\s+/)).toEqual(expect.arrayContaining(['w-full', 'min-w-0', 'gap-3', 'px-4', 'py-8']));
-    expect(panel.querySelector('p')?.className).toContain('text-text-muted');
+  if (state === 'empty' || state === 'unavailable') {
+    const padding = panelPadding[caller][state];
+    if (padding !== null) {
+      const panel = container.querySelector(state === 'unavailable' ? '[class*="@container/state"][role="status"]' : '[class*="@container/state"]')!;
+      expect(panel).not.toBeNull();
+      expect(panel.className.split(/\s+/)).toEqual(expect.arrayContaining(['w-full', 'min-w-0', 'gap-3', ...padding]));
+      expect(panel.querySelector('p')?.className).toContain('text-text-muted');
+    }
   }
 }
 
