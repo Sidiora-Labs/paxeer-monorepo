@@ -208780,7 +208780,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.942]
 title = "Pass the lint, race and coverage targets of the launchpad Makefile in the ranking-algo module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
