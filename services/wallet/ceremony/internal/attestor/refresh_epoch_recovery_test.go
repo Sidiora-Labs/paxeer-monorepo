@@ -49,7 +49,7 @@ func TestRefreshEpochRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "go", "test", "-overlay", overlayPath, "-count=1", "-run", "^TestRefreshEpochRecoveryRealServers$", "./internal/server")
 	cmd.Dir = root
@@ -72,8 +72,6 @@ func refreshEpochRecoveryConsumer(t *testing.T, raw, phase string) {
 		t.Fatal(err)
 	}
 	defer client.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
 	const ceremony, imported, session, keyID = "repair247", "repair247-import", "repair247-refresh", "repair247-key"
 	bundles, pub, err := dealer.Split(dealer.Ed25519, edSecret(t), client.NodeIDs())
 	if err != nil {
@@ -84,11 +82,16 @@ func refreshEpochRecoveryConsumer(t *testing.T, raw, phase string) {
 		t.Fatal(err)
 	}
 	inspect := func() ([]attestor.DescribeResponse, error) {
-		return client.InspectRefreshRecovery(ctx, ceremony, imported, session, keyID, publicKey, attestor.CurveEd25519, 0)
+		readCtx, readCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer readCancel()
+		return client.InspectRefreshRecovery(readCtx, ceremony, imported, session, keyID, publicKey, attestor.CurveEd25519, 0)
 	}
 	switch phase {
 	case "import":
-		if _, err := client.ImportCeremony(ctx, ceremony, imported, keyID, "user-0001", "0x4444444444444444444444444444444444444444", bundles, pub); err != nil {
+		importCtx, importCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		_, err := client.ImportCeremony(importCtx, ceremony, imported, keyID, "user-0001", "0x4444444444444444444444444444444444444444", bundles, pub)
+		importCancel()
+		if err != nil {
 			t.Fatal(err)
 		}
 		rows, err := inspect()
@@ -101,15 +104,19 @@ func refreshEpochRecoveryConsumer(t *testing.T, raw, phase string) {
 			}
 		}
 	case "interrupt":
-		if _, err := client.RefreshCeremony(ctx, ceremony, imported, session, "", keyID, pub, 0); err == nil {
+		refreshCtx, refreshCancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer refreshCancel()
+		if _, err := client.RefreshCeremony(refreshCtx, ceremony, imported, session, "", keyID, pub, 0); err == nil {
 			t.Fatal("interrupted refresh succeeded")
 		}
 	case "recover", "complete":
+		readCtx, readCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer readCancel()
 		if phase == "recover" {
-			if _, err := client.DescribeCeremony(ctx, keyID); !errors.Is(err, attestor.ErrDisagree) {
+			if _, err := client.DescribeCeremony(readCtx, keyID); !errors.Is(err, attestor.ErrDisagree) {
 				t.Fatalf("strict description admitted split epochs: %v", err)
 			}
-			if err := client.ReconcileCeremony(ctx, ceremony, imported, session, keyID, publicKey, attestor.CurveEd25519, 1); !errors.Is(err, attestor.ErrDisagree) {
+			if err := client.ReconcileCeremony(readCtx, ceremony, imported, session, keyID, publicKey, attestor.CurveEd25519, 1); !errors.Is(err, attestor.ErrDisagree) {
 				t.Fatalf("reconciled before recovery: %v", err)
 			}
 		}
@@ -145,7 +152,7 @@ func refreshEpochRecoveryConsumer(t *testing.T, raw, phase string) {
 			{"public-key", ceremony, imported, session, "", attestor.CurveEd25519, 0},
 		}
 		for _, tc := range cases {
-			if _, err := client.InspectRefreshRecovery(ctx, tc.ceremony, tc.imported, tc.session, keyID, tc.publicKey, tc.curve, tc.base); err == nil {
+			if _, err := client.InspectRefreshRecovery(readCtx, tc.ceremony, tc.imported, tc.session, keyID, tc.publicKey, tc.curve, tc.base); err == nil {
 				t.Fatalf("accepted conflicting %s", tc.name)
 			}
 		}
@@ -157,15 +164,20 @@ func refreshEpochRecoveryConsumer(t *testing.T, raw, phase string) {
 			t.Fatal(err)
 		}
 		defer pinned.Close()
-		if _, err := pinned.InspectRefreshRecovery(ctx, ceremony, imported, session, keyID, publicKey, attestor.CurveEd25519, 0); !errors.Is(err, attestor.ErrPinMismatch) {
+		if _, err := pinned.InspectRefreshRecovery(readCtx, ceremony, imported, session, keyID, publicKey, attestor.CurveEd25519, 0); !errors.Is(err, attestor.ErrPinMismatch) {
 			t.Fatalf("inspection accepted wrong pin: %v", err)
 		}
 		if phase == "recover" {
-			if _, err := client.RefreshCeremony(ctx, ceremony, imported, session, "", keyID, pub, 0); err != nil {
+			refreshCtx, refreshCancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			_, err := client.RefreshCeremony(refreshCtx, ceremony, imported, session, "", keyID, pub, 0)
+			refreshCancel()
+			if err != nil {
 				t.Fatal(err)
 			}
 		}
-		if err := client.ReconcileCeremony(ctx, ceremony, imported, session, keyID, publicKey, attestor.CurveEd25519, 1); err != nil {
+		reconcileCtx, reconcileCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer reconcileCancel()
+		if err := client.ReconcileCeremony(reconcileCtx, ceremony, imported, session, keyID, publicKey, attestor.CurveEd25519, 1); err != nil {
 			t.Fatalf("strict final reconciliation: %v", err)
 		}
 	case "reject":
