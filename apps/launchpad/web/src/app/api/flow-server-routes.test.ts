@@ -1,13 +1,15 @@
 import Sentry from '@sentry/nextjs';
 import { NextRequest } from 'next/server';
 import { createHash, randomUUID } from 'node:crypto';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
 import { createWriteStream, existsSync } from 'node:fs';
 import { copyFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer, request as httpRequest, type Server, type ServerResponse } from 'node:http';
+import type { Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { promisify } from 'node:util';
 import { gunzipSync } from 'node:zlib';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { backendRewrites } from '@/core/next-build-config';
@@ -50,7 +52,17 @@ function environment(name: string, value: string) {
   process.env[name] = value;
 }
 
+const serverConnections = new WeakMap<Server, Set<Socket>>();
+
+function trackConnection(server: Server, socket: Socket) {
+  const connections = serverConnections.get(server) ?? new Set<Socket>();
+  serverConnections.set(server, connections);
+  connections.add(socket);
+  socket.once('close', () => connections.delete(socket));
+}
+
 async function listen(server: Server) {
+  server.on('connection', socket => trackConnection(server, socket));
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const address = server.address();
@@ -59,6 +71,7 @@ async function listen(server: Server) {
 }
 
 async function close(server: Server) {
+  for (const socket of serverConnections.get(server) ?? []) socket.destroy();
   server.closeAllConnections();
   await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
 }
@@ -250,11 +263,25 @@ async function cardRouteRejectsBadMissingAndWithdrawnCards() {
   await assertImageError(await imageRequest(published.revokedId), 410, 'Card withdrawn or expired');
 }
 
+const processStatus = promisify(execFile);
+
+async function suspendProcessGroup(pid: number) {
+  process.kill(-pid, 'SIGSTOP');
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const { stdout } = await processStatus('ps', ['-s', String(pid), '-L', '-o', 'stat='], { encoding: 'utf8', timeout: 1000 });
+    const states = stdout.trim().split(/\s+/);
+    if (states.length > 0 && states.every(state => state.startsWith('T'))) return;
+    await new Promise(resolve => setTimeout(resolve, 5));
+  }
+  throw new Error('Stopped PnL service required');
+}
+
 async function cardRouteFinishesWhenTheServiceDoesNotAnswer() {
   if (!pnl?.pid) throw new Error('Owned PnL process required');
-  process.kill(-pnl.pid, 'SIGSTOP');
-  const started = Date.now();
   try {
+    await suspendProcessGroup(pnl.pid);
+    const started = Date.now();
     await assertImageError(await imageRequest(published.id), 502, 'Card image service unavailable');
     expect(Date.now() - started).toBeLessThan(6500);
   } finally { process.kill(-pnl.pid, 'SIGCONT'); }
@@ -266,8 +293,9 @@ async function cardRouteFinishesWhenTheImageBodyStops() {
       response.writeHead(source.statusCode!, source.headers);
       response.flushHeaders();
       source.pause();
-      response.on('close', () => { source.destroy(); upstream.destroy(); });
     });
+    upstream.on('socket', socket => trackConnection(proxy, socket));
+    response.once('close', () => upstream.destroy());
     upstream.on('error', error => response.destroy(error));
     request.pipe(upstream);
   });
@@ -280,6 +308,35 @@ async function cardRouteFinishesWhenTheImageBodyStops() {
   } finally {
     environment('NEXT_PUBLIC_PNL_API_URL', published.origin);
     await close(proxy);
+  }
+}
+
+async function cardRouteFinishesWhenTheImageBodyIgnoresCancellation() {
+  const originalFetch = globalThis.fetch;
+  let cancelled = false;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) { controller.enqueue(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])); },
+    cancel() {
+      cancelled = true;
+      return new Promise<void>(() => { });
+    },
+  });
+  const started = Date.now();
+  try {
+    globalThis.fetch = async () => new Response(body, { headers: { 'Content-Type': 'image/png' } });
+    const response = await Promise.race([
+      imageRequest(published.id),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('Card image response exceeded 6500 ms')), 6500);
+      }),
+    ]);
+    await assertImageError(response, 502, 'Card image service unavailable');
+    expect(Date.now() - started).toBeLessThan(6500);
+    expect(cancelled).toBe(true);
+  } finally {
+    clearTimeout(timeout);
+    globalThis.fetch = originalFetch;
   }
 }
 
@@ -394,6 +451,7 @@ test(cardRouteReturnsThePublishedServiceImage, cardRouteReturnsThePublishedServi
 test(cardRouteRejectsBadMissingAndWithdrawnCards, cardRouteRejectsBadMissingAndWithdrawnCards);
 test(cardRouteFinishesWhenTheServiceDoesNotAnswer, cardRouteFinishesWhenTheServiceDoesNotAnswer, 15_000);
 test(cardRouteFinishesWhenTheImageBodyStops, cardRouteFinishesWhenTheImageBodyStops, 15_000);
+test(cardRouteFinishesWhenTheImageBodyIgnoresCancellation, cardRouteFinishesWhenTheImageBodyIgnoresCancellation, 15_000);
 test(cardRouteHonorsClientCancellation, cardRouteHonorsClientCancellation);
 test(rewriteTableReachesEachRegisteredServiceRoute, rewriteTableReachesEachRegisteredServiceRoute, 120_000);
 test.each(rewriteProbes().map(probe => probe.source))('rewriteReachesRegisteredServiceRoute %s', rewriteReachesRegisteredServiceRoute, 35_000);
