@@ -157,6 +157,10 @@ fn run() -> Result<(), IndexError> {
         api::Readiness {
             sources: Vec::new(),
             stall_after_secs,
+            max_units_per_step: config
+                .paxeer
+                .as_ref()
+                .map_or(1, |source| source.policy.max_units_per_step.max(1)),
             started_at: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map_or(0, |elapsed| elapsed.as_secs()),
