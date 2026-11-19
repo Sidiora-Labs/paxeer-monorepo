@@ -42,7 +42,11 @@ async function assertExplorerPortAvailable() {
   });
 }
 await assertExplorerPortAvailable();
-await run(process.execPath, ['--test', fileURLToPath(new URL('./routes.test.mjs', import.meta.url))]);
+await run(process.execPath, [
+  '--test',
+  fileURLToPath(new URL('./routes.test.mjs', import.meta.url)),
+  fileURLToPath(new URL('./trace-readlinks.test.mjs', import.meta.url)),
+]);
 await run('bash', ['-c', 'corepack enable && yarn install --frozen-lockfile --ignore-scripts']);
 await run(process.execPath, ['node_modules/svg-icons-cli/index.js', 'build', '-i', './icons', '-o', relative(process.cwd(), '/tmp/explorer-icons'), '--optimize']);
 await writeFile('/tmp/explorer-icons/registry.json', JSON.stringify(await icons('./icons')));
