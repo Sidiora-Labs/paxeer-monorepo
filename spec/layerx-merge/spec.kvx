@@ -208721,7 +208721,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.952]
 title = "Grant and read the allowances of the trade and swap flows of the launchpad web application at the spender of the deployment"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
