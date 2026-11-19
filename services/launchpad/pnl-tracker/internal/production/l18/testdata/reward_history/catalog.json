@@ -68,7 +68,7 @@
     "60006": "a054038d166fa9415af094d69b1bca1b21e5985d6ab8140874a003fe29d894e1"
   },
   "sources": {
-    "sdk/launchpad/shared/db/production/migrations.go": "b1128b321964e15f1e0278d2820c02757bd10e56850623f87fb45d4e76a70752",
+    "sdk/launchpad/shared/db/production/migrations.go": "f56d2b35592e8177a646b5581b27a331a240c435bfcb6a2181e1f96ed5605562",
     "services/launchpad/indexer/migrations/00001_init.sql": "ffaf548735e78a048f0e1de31b5e75dd2e684a5f6d968098bc5871706e39cbf5",
     "services/launchpad/indexer/migrations/00002_airdrop_claims.sql": "c1564eedaf42b200012365d15fd3013608d9cde146fb03e53ca8e514dec7f683",
     "services/launchpad/trading-charts/migrations/00001_init.sql": "263cc538d908e8cc1b96ace9e4bf67d375bafc7d3bbbaa8824a5f6b0bdc5a1ed",
