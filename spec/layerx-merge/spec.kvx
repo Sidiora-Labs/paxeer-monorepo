@@ -178067,7 +178067,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.129]
 title = "Let the render check render a view once again after a capture that ran into its time limit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
