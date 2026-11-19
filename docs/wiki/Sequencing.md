@@ -114,9 +114,12 @@ Microbatch mode additionally requires positive `sequencer.microbatch-window`
 and `sequencer.microbatch-max-count`. Enabled roles require positive nonce-queue
 bounds (`sequencer.nonce-queue-max-per-sender` and
 `sequencer.nonce-queue-max-total`), with the total at least the per-sender bound.
+`sequencer.nonce-queue-lifetime` bounds how long future-nonce transactions are held;
+it must be positive when enabled and defaults to `3s`, independently of the lease.
 Lease duration must also be positive. These settings configure the integrated
-node role. Replication additionally requires mutual TLS credentials and an
-authorized peer configured through `sequencer.replication-tls-cert`,
+node role. Enabled nodes log the effective lease duration, nonce queue lifetime
+and both queue bounds once at start. Replication additionally requires mutual TLS
+credentials and an authorized peer configured through `sequencer.replication-tls-cert`,
 `sequencer.replication-tls-key`, `sequencer.replication-tls-ca`,
 `sequencer.replication-peer-name` and `sequencer.replication-peer-spki`.
 `sequencer.receipt-forward-url` configures receipt forwarding when sequencing

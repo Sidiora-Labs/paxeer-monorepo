@@ -20,6 +20,7 @@ Storage rows distinguish generated `config/app.toml` defaults from absent-key co
 | `config/app.toml` / `[sequencer]` / `microbatch-window` | Positive group waiting interval in microbatch mode. | `0s` | No | `node/sequencer/config.go` |
 | `config/app.toml` / `[sequencer]` / `nonce-queue-max-per-sender` | Positive future-nonce queue bound per sender when enabled. | `0` | No | `node/sequencer/config.go` |
 | `config/app.toml` / `[sequencer]` / `nonce-queue-max-total` | Positive total queue bound, at least the per-sender bound, when enabled. | `0` | No | `node/sequencer/config.go` |
+| `config/app.toml` / `[sequencer]` / `nonce-queue-lifetime` | Maximum time to hold future-nonce transactions; positive when enabled and independent of the lease duration. | `3s` | No | `node/sequencer/config.go` |
 | `config/app.toml` / `[sequencer]` / `receipt-key-file` | Receipt signing seed file when enabled; separate from the consensus key and restricted to mode `0600`. | Empty | No; file contents are secret | `node/sequencer/config.go`, `node/sequencer/receiptkey.go` |
 | `config/app.toml` / `[sequencer]` / `replication-peer-name` | Authorized peer certificate DNS identity for replication. | Empty | No | `node/sequencer/config.go`, `node/sequencer/dial.go` |
 | `config/app.toml` / `[sequencer]` / `replication-peer-spki` | Peer certificate SHA-256 public-key digest for replication. | Empty | No | `node/sequencer/config.go`, `node/sequencer/dial.go` |
