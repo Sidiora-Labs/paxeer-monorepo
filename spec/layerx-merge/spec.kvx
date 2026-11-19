@@ -477852,7 +477852,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.966]
 title = "Give the cases of the token price fetcher a form that does not depend on the order of its requests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
