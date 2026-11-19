@@ -103,7 +103,7 @@ export default function CookieBanner() {
           >
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
           </svg>
-          <p className="text-xs text-text-muted leading-[var(--sl-leading-base)]">
+          <p className="text-xs text-text-muted leading-[var(--sl-leading-sm)]">
             We use cookies to improve your experience and see how the site is used. See our{' '}
             <Link
               prefetch={false}
@@ -119,7 +119,7 @@ export default function CookieBanner() {
           <button
             type="button"
             onClick={decline}
-            className="border border-control-edge px-4 py-1.5 rounded-lg bg-surface-2 text-xs text-text-faint hover:bg-surface-hover hover:text-text transition"
+            className="border border-control-edge px-[calc(var(--sl-space-4)-var(--sl-edge-width))] py-[calc(var(--sl-space-1)*1.5-var(--sl-edge-width))] rounded-lg bg-surface-2 text-xs text-text-faint hover:bg-surface-hover hover:text-text transition"
           >
             Decline
           </button>

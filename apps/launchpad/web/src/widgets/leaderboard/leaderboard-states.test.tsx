@@ -197,7 +197,7 @@ function expectTokens(container: HTMLElement, caller: Caller, state: ReadState, 
   expect(container.innerHTML).not.toMatch(/(?:color|background-color):\s*(?:#|rgb)/);
   if (caller === 'ticker') {
     const frame = container.querySelector('section[aria-label="Market ticker"]')!;
-    expect(frame.className.split(/\s+/)).toEqual(expect.arrayContaining(['hidden', 'md:flex', 'min-h-ticker-height', 'gap-2', 'bg-canvas', 'px-3', 'sm:px-4']));
+    expect(frame.className.split(/\s+/)).toEqual(expect.arrayContaining(['hidden', 'md:flex', 'min-h-ticker-height', 'min-[835px]:h-ticker-height', 'min-[835px]:flex-nowrap', 'gap-2', 'bg-canvas', 'px-3', 'sm:px-4']));
     expect(container.querySelectorAll('[role="radio"]')).toHaveLength(5);
   } else if (caller === 'home') {
     expect(container.firstElementChild?.className).toContain('min-h-0');
@@ -449,6 +449,9 @@ async function leaderboardTickerKeepsItsOtherFeeds() {
   expect(container.querySelector('a[href^="/profile/"]')).toBeNull();
   expect(container.textContent).not.toMatch(/not available yet|DEPENDENCY_UNAVAILABLE|Loading/);
   expect(container.querySelectorAll('[role="radio"]')).toHaveLength(5);
+  const feed = container.querySelector('section[aria-label="Market ticker"] > div:last-child')!;
+  await waitFor(() => feed.childElementCount === 0);
+  expect(feed.innerHTML).toBe('');
   const recent = container.querySelector<HTMLButtonElement>('button[aria-label="Recently viewed"]')!;
   act(() => recent.click());
   expect(container.textContent).toContain('Coins you open show up here');

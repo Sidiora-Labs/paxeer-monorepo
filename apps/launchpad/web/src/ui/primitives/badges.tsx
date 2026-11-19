@@ -61,6 +61,12 @@ export function Chip({
       : size === 'sm'
         ? 'min-h-control-height-sm px-3 py-1 text-sm'
         : 'min-h-control-height-md px-4 py-1 text-sm',
+    interactive &&
+      (variant === 'token'
+        ? 'px-[calc(var(--sl-space-2)-var(--sl-edge-width))] py-[calc(var(--sl-space-1)*0.5-var(--sl-edge-width))]'
+        : size === 'sm'
+          ? 'px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space-1)-var(--sl-edge-width))]'
+          : 'px-[calc(var(--sl-space-4)-var(--sl-edge-width))] py-[calc(var(--sl-space-1)-var(--sl-edge-width))]'),
     isOn
       ? variant === 'preset'
         ? 'bg-accent text-on-accent'
