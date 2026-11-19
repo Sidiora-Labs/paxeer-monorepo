@@ -178106,7 +178106,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.132]
 title = "Let the tags of a row of the latest transactions of the home view show whole"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.120"]
