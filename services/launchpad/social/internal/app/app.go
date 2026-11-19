@@ -68,6 +68,8 @@ const (
 	rateLimitWindow = 60 * time.Second
 )
 
+const calloutResource = "callout"
+
 // App is a fully-wired, ready-to-serve social service.
 type App struct {
 	platform *platformIdentity
@@ -1494,7 +1496,7 @@ func (r *socialConnectedRuntime) authorityRoutes(w http.ResponseWriter, req *htt
 		decoder := json.NewDecoder(http.MaxBytesReader(w, req.Body, 4096))
 		decoder.DisallowUnknownFields()
 		e = decoder.Decode(&input)
-		if e == nil && input.TargetKind == "callout" && input.Revision > 0 && !input.CreatedAt.IsZero() {
+		if e == nil && input.TargetKind == calloutResource && input.Revision > 0 && !input.CreatedAt.IsZero() {
 			var wallet string
 			e = r.pool.QueryRow(req.Context(), `SELECT chat.social_wallet_for_account($1::uuid)`, input.Actor).Scan(&wallet)
 			if e == nil {
@@ -1531,7 +1533,7 @@ func (r *socialConnectedRuntime) authorityRoutes(w http.ResponseWriter, req *htt
 
 func (r *socialConnectedRuntime) publicResource(ctx context.Context, kind, id string) (discovery.PublicResource, error) {
 	var result discovery.PublicResource
-	if r.pool == nil || kind != "callout" || id == "" {
+	if r.pool == nil || kind != calloutResource || id == "" {
 		return result, safety.ErrInvalid
 	}
 	var (
@@ -1644,7 +1646,7 @@ func (r *socialConnectedRuntime) visibilityAuthority(ctx context.Context, kind, 
 	var removed bool
 	var revision int64
 	switch kind {
-	case "callout":
+	case calloutResource:
 		e = tx.QueryRow(ctx, `SELECT actor,removed,revision FROM interaction_callout_authority WHERE id=$1 ORDER BY revision DESC LIMIT 1`, id).Scan(&actor, &removed, &revision)
 	case commentAction:
 		e = tx.QueryRow(ctx, `SELECT author,removed,revision FROM interaction_comments WHERE id=$1`, id).Scan(&actor, &removed, &revision)

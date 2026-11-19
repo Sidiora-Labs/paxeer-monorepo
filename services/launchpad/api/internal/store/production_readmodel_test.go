@@ -436,6 +436,9 @@ func TestAccountingReadModelDerivesPerPoolSourceCheckpoints(t *testing.T) {
 			}
 			stored[digest] = true
 		}
+		if _, err := db.Exec(ctx, "ANALYZE"); err != nil {
+			t.Fatal(err)
+		}
 		got, err := model.Trades(ctx, store.AccountingPageRequest{Pool: p.address, Limit: 10})
 		if err != nil {
 			t.Fatalf("pool %s refused: %v", p.address, err)

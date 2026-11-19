@@ -12,6 +12,7 @@ import (
 
 func ApplyIndexerTables(t *testing.T, pool *pgxpool.Pool, tables ...string) {
 	t.Helper()
+	//nolint:gosec // The migration path is selected from the repository fixture.
 	raw, err := os.ReadFile(filepath.Join(RepositoryRoot(t), "services/launchpad/indexer/migrations/00001_init.sql"))
 	if err != nil {
 		t.Fatal(err)
@@ -37,6 +38,7 @@ func ApplyIndexerTables(t *testing.T, pool *pgxpool.Pool, tables ...string) {
 func ApplyReadMigrations(t *testing.T, pool *pgxpool.Pool, names ...string) {
 	t.Helper()
 	for _, name := range names {
+		//nolint:gosec // The migration names are selected from the repository fixture.
 		raw, err := os.ReadFile(filepath.Join(RepositoryRoot(t), "migrations", name+".sql"))
 		if err != nil {
 			t.Fatal(err)
