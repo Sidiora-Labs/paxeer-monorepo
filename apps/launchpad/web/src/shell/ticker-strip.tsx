@@ -194,6 +194,14 @@ function Marquee({ chips, mode }: { chips: TickerChip[]; mode: TickerModeConfig 
 }
 
 function FeedView({ feed, mode }: { feed: TickerFeed; mode: TickerModeConfig }) {
+  return (
+    <div className="contents" data-ticker-state={feed.state}>
+      <FeedContent feed={feed} mode={mode} />
+    </div>
+  );
+}
+
+function FeedContent({ feed, mode }: { feed: TickerFeed; mode: TickerModeConfig }) {
   switch (feed.state) {
     case 'loading':
       return (
