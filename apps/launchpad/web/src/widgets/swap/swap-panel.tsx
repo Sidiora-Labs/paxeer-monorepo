@@ -170,7 +170,7 @@ function TokenSelectorModal({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name, symbol, or address"
-          className="w-full border border-control-edge bg-surface-2 rounded-xl px-3 py-2.5 text-xs text-text transition placeholder:text-text-faint"
+          className="w-full border border-control-edge bg-surface-2 rounded-xl px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space)*2.5-var(--sl-edge-width))] text-xs text-text transition placeholder:text-text-faint"
         />
       </div>
 
@@ -298,7 +298,7 @@ export function TokenInputBox({
         <button
           type="button"
           onClick={onSelectClick}
-          className="flex items-center gap-2 border border-control-edge bg-surface-3 hover:bg-surface-hover rounded-xl px-3 py-2 transition max-w-full flex-shrink-0"
+          className="flex min-h-8 items-center gap-2 border border-control-edge bg-surface-3 hover:bg-surface-hover rounded-xl px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space-1)-var(--sl-edge-width))] transition max-w-full flex-shrink-0"
         >
           {token ? (
             <>
