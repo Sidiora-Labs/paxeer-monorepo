@@ -15922,6 +15922,12 @@ value = "One. Above the width 834 the strip under the top bar holds the height o
 basis = "Gotcha 4728. Decision 3708."
 affects = []
 
+[decision.3802]
+title = "One producer renders the deployment helper of the launchpad client with the approval spender at the launchpad precompile, a waiting form reserves the row of its loaded form, and a case pins the statement its control holds"
+value = "One. The producer tools/launchpad/production/interfaces/contracts/client-deployment.cjs renders the check of the approval spender against the launchpad precompile, the address task 22.39.952 set for the allowances. The producer of the web side renders the same bytes without replacing a statement of the first, and the file of the client equals the output of both. The router is no approval spender: the cases of both sides hold that the launchpad precompile is accepted in any letter case and that the router, a stale address, another role and a malformed value are refused. No address, no digest and no other line of the helper changes. Two. A file that a producer writes changes through its producer: a task that needs another form of such a file changes the producer and renders the file again, in the same change. Three. The waiting form of a ranking table reserves the row height of its loaded form at every width the case reads. The loaded form keeps the height it has; the waiting form follows it. Four. A case that pins a class of a control pins the statement the control holds today, and keeps every assertion on what the statement is for: the text of a segment stands on one line and is not cut. Tasks 22.39.958 and 22.44.119."
+basis = "Gotcha 4729. Decisions 3708 and 3801."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45582,6 +45588,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.119]
+title = "Let the waiting form of the ranking table of the launchpad reserve the row of its loaded form, and let the case of the trending tabs pin the padding its control holds"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4729 parts two and three, decision 3802 points three and four. Read apps/launchpad/web/src/widgets/explore/explore-loading-layout.test.tsx with the pairs of forms and the widths it reads, the waiting and the loaded form of the ranking table under apps/launchpad/web/src/widgets/explore, apps/launchpad/web/src/widgets/home/home-panel-state.test.tsx with the case for the trending tabs, and the segmented control in apps/launchpad/web/src/ui/primitives/controls.tsx. Run both case files by hand once and read at which widths and for which pair the row heights differ."
+symbols = []
+
+[capability.22.39.958]
+title = "Render the approval spender of the deployment helper of the launchpad client at the launchpad precompile in its producer"
+reqs = ["22998.1"]
+touches = ["tools/launchpad/production/interfaces/contracts", "apps/launchpad/web/src/core/network", "sdk/launchpad/shared/config/deployment"]
+tests = []
+verification_contract = "node --test tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs && cd sdk/launchpad/shared && go test -count=1 ./config/deployment -run ^TestEveryFrontendGeneratedRoleMatchesGoManifest$"
+do_1 = "do_1 Gotcha 4729 part one, decision 3802 points one and two. Read tools/launchpad/production/interfaces/contracts/client-deployment.cjs with the function that renders the helper and the function that checks the client, tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs, apps/launchpad/web/src/core/network/deployment-generation.cjs, apps/launchpad/web/src/core/network/deployment-regeneration.test.ts, apps/launchpad/web/src/core/network/deployment.ts and the case TestEveryFrontendGeneratedRoleMatchesGoManifest in sdk/launchpad/shared/config/deployment/manifest_test.go with the command it runs. Run node --test tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs once by hand and read which cases compare the file of the client with the output of the producer."
+symbols = []
 
 [capability.22.44.118]
 title = "Keep the edge of the coin button of the swap view of the launchpad inside the box the button held before"
@@ -208821,6 +208845,68 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.119]
+title = "Let the waiting form of the ranking table of the launchpad reserve the row of its loaded form, and let the case of the trending tabs pin the padding its control holds"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.119"]
+interfaces = []
+do_1 = "do_1 Gotcha 4729 parts two and three, decision 3802 points three and four. Read apps/launchpad/web/src/widgets/explore/explore-loading-layout.test.tsx with the pairs of forms and the widths it reads, the waiting and the loaded form of the ranking table under apps/launchpad/web/src/widgets/explore, apps/launchpad/web/src/widgets/home/home-panel-state.test.tsx with the case for the trending tabs, and the segmented control in apps/launchpad/web/src/ui/primitives/controls.tsx. Run both case files by hand once and read at which widths and for which pair the row heights differ."
+do_2 = "do_2 Correct the waiting form so that its row has the height of the row of the loaded form at every width the case reads, for every pair. The loaded form keeps its row height: decision 3708 holds, and no size of text, no line height, no distance and no height of a row grows above the value of the earlier state. The body, the table, the foot and the count of rows of the waiting form keep the sizes of the loaded form as the case holds them. The case itself keeps every assertion."
+do_3 = "do_3 Bring the case of the trending tabs to the statement the segmented control holds for its inline padding today. The case keeps its assertions that a segment does not wrap, is not cut and shows its short text, and it states the padding in a form that follows the control: the class the control holds, or the measured padding in a real render where the case has one. The control itself does not change."
+do_4 = "do_4 Run the whole suite of the web application by hand once before the counted run and read its summary: every case of the suite passes at the final revision. Another task can change files under apps/launchpad/web/src at the same time: change only what this task names. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.958]
+title = "Render the approval spender of the deployment helper of the launchpad client at the launchpad precompile in its producer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.958"]
+interfaces = []
+do_1 = "do_1 Gotcha 4729 part one, decision 3802 points one and two. Read tools/launchpad/production/interfaces/contracts/client-deployment.cjs with the function that renders the helper and the function that checks the client, tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs, apps/launchpad/web/src/core/network/deployment-generation.cjs, apps/launchpad/web/src/core/network/deployment-regeneration.test.ts, apps/launchpad/web/src/core/network/deployment.ts and the case TestEveryFrontendGeneratedRoleMatchesGoManifest in sdk/launchpad/shared/config/deployment/manifest_test.go with the command it runs. Run node --test tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs once by hand and read which cases compare the file of the client with the output of the producer."
+do_2 = "do_2 Change the producer tools/launchpad/production/interfaces/contracts/client-deployment.cjs so that it renders the check of the approval spender against the launchpad precompile. Remove the replacement of that statement from apps/launchpad/web/src/core/network/deployment-generation.cjs, so that the producer of the web side returns what the first producer renders; an assertion there that the rendered text holds the binding of the spender stays, in the form of the launchpad precompile. Render apps/launchpad/web/src/core/network/deployment.ts again with the producer: its bytes stay as they are today. No address, no digest, no role and no other line of the helper changes."
+do_3 = "do_3 Bring the cases of tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs to the rule: the launchpad precompile is accepted in any letter case, and the router, a stale address, an optional spender, another role and a malformed value are refused. A case changes only where it states the earlier spender; no other assertion is weakened or removed. Run the case file apps/launchpad/web/src/core/network/deployment-regeneration.test.ts by hand with the test runner of the web application and read that it passes without a change, or change only what the removed replacement requires."
+do_4 = "do_4 Read every other reader of the rendered helper under tools/launchpad/production/interfaces and sdk/launchpad/shared/config/deployment for a statement of the approval spender at the router, and bring each to the same rule inside the paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/launchpad/production/interfaces/contracts", "apps/launchpad/web/src/core/network", "sdk/launchpad/shared/config/deployment"]
+tests = []
+planned_paths = []
+build_cmd = "node --check tools/launchpad/production/interfaces/contracts/client-deployment.cjs && cd sdk/launchpad/shared && go build ./config/deployment"
+verify_cmd = "node --test tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs && cd sdk/launchpad/shared && go test -count=1 ./config/deployment -run ^TestEveryFrontendGeneratedRoleMatchesGoManifest$"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
