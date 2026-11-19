@@ -15,7 +15,7 @@ import (
 func RegisteredObjectSQL(t *testing.T, migration int64, kind, name string) string {
 	t.Helper()
 	root := coordinatortest.RepositoryRoot(t)
-	raw, err := os.ReadFile(filepath.Join(root, "migrations/registry.json"))
+	raw, err := os.ReadFile(filepath.Join(root, "migrations/registry.json")) //nolint:gosec // The repository root and migration registry path are fixed fixtures.
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +46,7 @@ func RegisteredObjectSQL(t *testing.T, migration int64, kind, name string) strin
 func RewardRegistryFixture(t *testing.T, root string) ([]byte, []byte, []byte) {
 	t.Helper()
 	read := func(path string) []byte {
-		raw, err := os.ReadFile(filepath.Join(root, path))
+		raw, err := os.ReadFile(filepath.Join(root, path)) //nolint:gosec // Callers below select fixed repository fixture paths.
 		if err != nil {
 			t.Fatal(err)
 		}

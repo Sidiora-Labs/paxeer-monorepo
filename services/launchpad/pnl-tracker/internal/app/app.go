@@ -85,6 +85,7 @@ type App struct {
 	nats              *nats.Conn
 	rpc               *ethclient.Client
 	secretStop        context.CancelFunc
+	readinessStop     context.CancelFunc
 	tracker           *sharedprocess.Tracker
 	Router            http.Handler
 
@@ -102,8 +103,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		return nil, secretErr
 	}
 	secretOwned := false
+	readinessCtx, readinessStop := context.WithCancel(ctx)
 	defer func() {
 		if !secretOwned {
+			readinessStop()
 			secretStop()
 		}
 	}()
@@ -285,7 +288,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		Health: sharedhttp.HealthDeps{
 			Custom: secretChecks,
 			State:  tracker.Ready,
-			DB: readinessCheck(logger, "database", func(c context.Context) error {
+			DB: readinessCheck(logger, "database", serviceReadiness(readinessCtx, func(c context.Context) error {
 				if err := cfg.CheckRuntimeSchema(c, pool); err != nil {
 					return err
 				}
@@ -293,7 +296,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 					return checkRewardRequestSchema(c, pool, journeys.schema)
 				}
 				return nil
-			}),
+			})),
 			Redis: readinessCheck(logger, "redis", func(c context.Context) error { return rdb.Ping(c).Err() }),
 		},
 	})
@@ -364,7 +367,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		return nil, err
 	}
 	secretOwned = true
-	return &App{secretStop: secretStop, tracker: tracker, journeys: journeys,
+	return &App{secretStop: secretStop, readinessStop: readinessStop, tracker: tracker, journeys: journeys,
 		fixtureAckBarrier: cfg.FixtureCommitAckBarrier, baseline: baselineAuthority, baselineAhead: baselineAhead, archiveRPC: archiveRPC, accounting: accountingConsumer, transport: transport, nats: nc, rpc: rpc,
 		Router:      runtimeHandler(tracker, handler, metrics),
 		logger:      logger,
@@ -409,6 +412,9 @@ func shareLabel(shareOrigin, code string) string {
 
 // Close releases all resources.
 func (a *App) Close() {
+	if a.readinessStop != nil {
+		a.readinessStop()
+	}
 	if a.journeys != nil && a.journeys.second != nil {
 		a.journeys.second.Close()
 	}
@@ -532,11 +538,8 @@ func runConfigured(parent context.Context, cfg config.Config, logger *slog.Logge
 				return
 			}
 			defer release()
-			if e := app.runAccounting(ctx); !errors.Is(e, context.Canceled) {
-				if e == nil {
-					e = errors.New("inventory consumer stopped unexpectedly")
-				}
-				runtimeErr <- fmt.Errorf("pnl: inventory consumer failed: %w", e)
+			if e := accountingRuntimeError(ctx, app.runAccounting(ctx)); e != nil {
+				runtimeErr <- e
 				logger.Error("inventory consumer failed", slog.Any("err", e))
 				app.tracker.BeginDrain()
 				cancel()
