@@ -129,6 +129,22 @@ async function readAnswers(value, label, base, required = false) {
   return answers;
 }
 
+function readSteps(steps, label, nonempty = false) {
+  array(steps, label, nonempty);
+  for (const step of steps) {
+    const keys = {
+      click: ["action", "selector"], fill: ["action", "selector", "value"],
+      press: ["action", "selector", "key"], wait: ["action", "text"],
+    }[step?.action];
+    if (!keys) throw new Error("State action must be click, fill, press or wait");
+    object(step, keys, "step");
+    for (const key of keys.filter((key) => key !== "action")) {
+      if (key === "value" && step[key] === "") continue;
+      text(step[key], `step.${key}`);
+    }
+  }
+}
+
 export async function readSurface(filename) {
   const file = await realpath(resolve(filename));
   const base = dirname(file);
@@ -185,8 +201,9 @@ export async function readSurface(filename) {
   localPath(value.readyPath, "surface.readyPath");
   array(value.views, "surface.views", true);
   for (const view of value.views) {
-    object(view, ["name", "path", "states", "expects", "answers", "modes", "parts"], "view");
+    object(view, ["name", "path", "ready", "states", "expects", "answers", "modes", "parts"], "view");
     text(view.name, "view.name");
+    if (view.ready !== undefined) readSteps(view.ready, "view.ready");
     if (view.parts !== undefined) {
       array(view.parts, `View ${view.name} parts`);
       for (const part of view.parts) {
@@ -209,19 +226,7 @@ export async function readSurface(filename) {
         if (state.name === "default") throw new Error("State name default is reserved");
         state.expects = expectations(state.expects, "state.expects");
         state.answers = await readAnswers(state.answers, `View ${view.name} state ${state.name} answers`, base);
-        array(state.steps, "state.steps", true);
-        for (const step of state.steps) {
-          const keys = {
-            click: ["action", "selector"], fill: ["action", "selector", "value"],
-            press: ["action", "selector", "key"], wait: ["action", "text"],
-          }[step?.action];
-          if (!keys) throw new Error("State action must be click, fill, press or wait");
-          object(step, keys, "step");
-          for (const key of keys.filter((key) => key !== "action")) {
-            if (key === "value" && step[key] === "") continue;
-            text(step[key], `step.${key}`);
-          }
-        }
+        readSteps(state.steps, "state.steps", true);
       }
       uniqueNames(view.states, "State");
     }
@@ -566,8 +571,11 @@ async function renderView(worker, surface, view, state, configuration, out, inde
       navigationPending = false;
       if (!response || (!response.ok() && !expectedResponses.has(response))) throw new Error(`View did not answer successfully: ${response?.status() ?? "no response"}`);
       if (new URL(page.url()).origin !== surface.address) throw new Error("View navigated outside the surface");
-      if (state.steps.length) {
-        await withIntentionalShifts(page, () => applySteps(page, state.steps));
+      if (view.ready?.length || state.steps.length) {
+        await withIntentionalShifts(page, async () => {
+          await applySteps(page, view.ready ?? []);
+          await applySteps(page, state.steps);
+        });
       }
       if (mode === "double-text") {
         await withIntentionalShifts(page, () => page.evaluate(doubleText));

@@ -21,38 +21,6 @@
   line-gap-override: 0%;
 }
 
-@font-face {
-  font-family: 'Manrope';
-  src: url('/fonts/manrope-medium.otf') format('opentype');
-  font-weight: 500;
-  font-style: normal;
-  font-display: optional;
-}
-
-@font-face {
-  font-family: 'Manrope';
-  src: url('/fonts/manrope-semibold.otf') format('opentype');
-  font-weight: 600;
-  font-style: normal;
-  font-display: optional;
-}
-
-@font-face {
-  font-family: 'Manrope';
-  src: url('/fonts/manrope-bold.otf') format('opentype');
-  font-weight: 700;
-  font-style: normal;
-  font-display: optional;
-}
-
-@font-face {
-  font-family: 'Manrope';
-  src: url('/fonts/manrope-extrabold.otf') format('opentype');
-  font-weight: 800;
-  font-style: normal;
-  font-display: optional;
-}
-
 /* Motion utilities: Tailwind v4 has no --duration-* theme namespace, so these map to the motion tokens. */
 @utility duration-instant {
   transition-duration: var(--sl-duration-instant);
@@ -88,9 +56,9 @@
     background: var(--sl-canvas);
     color: var(--sl-text);
     font-family: var(--sl-font-sans);
-    font-size: var(--sl-text-base);
+    font-size: var(--sl-text-md);
     font-weight: var(--sl-weight-semibold);
-    line-height: var(--sl-leading-base);
+    line-height: var(--sl-leading-md);
     font-size-adjust: var(--sl-font-size-adjust);
     overflow-wrap: anywhere;
   }
@@ -120,25 +88,74 @@
 
 /* Legal doc prose */
 .prose-legal {
-  container-type: inline-size;
-  max-inline-size: var(--sl-prose-measure);
   color: var(--sl-text-muted);
+}
+.prose-legal li {
+  overflow-wrap: normal;
+}
+@container legal (width < 18em) {
+  .prose-legal li {
+    overflow-wrap: anywhere;
+  }
 }
 .prose-legal h1 {
   font-weight: var(--sl-weight-bold);
-  font-size: var(--sl-text-page-title);
+  font-size: 22px;
+  line-height: calc(33px / 22px);
   color: var(--sl-text);
   margin-bottom: var(--sl-space-1);
 }
 .prose-legal p.updated {
-  font-size: var(--sl-text-xs);
+  font-size: var(--sl-text-2xs);
   color: var(--sl-text-faint);
   margin-bottom: calc(var(--sl-space) * 5);
 }
 .prose-legal > p {
-  font-size: var(--sl-text-base);
+  font-size: var(--sl-text-sm);
   line-height: var(--sl-leading-prose);
   margin-bottom: var(--sl-space-3);
+}
+
+:where([data-shell-route-id='chat']) {
+  font-size-adjust: var(--sl-font-size-adjust);
+}
+
+:where([data-shell-route-id='bounties'], [data-shell-route-id='chat'], [data-shell-route-id='docs']) [data-shell-main] {
+  line-height: calc(var(--sl-leading-md) / var(--sl-text-md));
+
+  & .text-2xs {
+    line-height: var(--tw-leading, calc(var(--sl-leading-2xs) / var(--sl-text-2xs)));
+  }
+  & .text-xs {
+    line-height: var(--tw-leading, calc(var(--sl-leading-xs) / var(--sl-text-xs)));
+  }
+  & .text-sm {
+    line-height: var(--tw-leading, calc(var(--sl-leading-sm) / var(--sl-text-sm)));
+  }
+  & .text-base {
+    line-height: var(--tw-leading, calc(var(--sl-leading-base) / var(--sl-text-base)));
+  }
+  & .text-md {
+    line-height: var(--tw-leading, calc(var(--sl-leading-md) / var(--sl-text-md)));
+  }
+  & .text-lg {
+    line-height: var(--tw-leading, calc(var(--sl-leading-lg) / var(--sl-text-lg)));
+  }
+  & .text-xl {
+    line-height: var(--tw-leading, calc(var(--sl-leading-xl) / var(--sl-text-xl)));
+  }
+  & .text-2xl {
+    line-height: var(--tw-leading, calc(var(--sl-leading-2xl) / var(--sl-text-2xl)));
+  }
+  & .text-num-sm {
+    line-height: var(--tw-leading, calc(var(--sl-leading-num-sm) / var(--sl-text-num-sm)));
+  }
+  & .text-num-md {
+    line-height: var(--tw-leading, calc(var(--sl-leading-num-md) / var(--sl-text-num-md)));
+  }
+  & [class~='text-[length:var(--sl-text-card-title)]'] {
+    line-height: calc(var(--sl-leading-md) / var(--sl-text-card-title));
+  }
 }
 
 /* Scrollbar hide utility */
@@ -159,7 +176,6 @@
 @layer components {
   .foundation-shell {
     --sl-header-height: var(--sl-header-layout-height);
-    --sl-ticker-height: var(--sl-shell-control-size);
     --sl-rail-width: var(--sl-rail-layout-width);
     --sl-rail-expanded-width: var(--sl-rail-layout-expanded-width);
     --sl-bottom-nav-height: var(--sl-bottom-nav-layout-height);
@@ -169,10 +185,6 @@
   .foundation-shell section[aria-label='Market ticker'],
   .foundation-shell > nav[aria-label='Mobile navigation'] {
     --sl-space: var(--sl-shell-layout-space);
-    --sl-touch-target-min: var(--sl-shell-control-size);
-    --sl-control-height-sm: var(--sl-shell-control-size);
-    --sl-control-height-md: var(--sl-shell-control-size);
-    --sl-control-height-lg: var(--sl-shell-control-size);
   }
   .sl-field {
     border: var(--sl-edge-width) solid var(--sl-control-edge);
@@ -280,6 +292,18 @@
   .sl-native-select::picker(select) {
     appearance: base-select;
   }
+  .sl-native-select {
+    align-items: center;
+    column-gap: calc(var(--sl-space-1) * 1.25);
+  }
+  .sl-native-select::picker-icon {
+    content: '';
+    inline-size: var(--sl-icon-sm);
+    block-size: var(--sl-icon-sm);
+    background: currentColor;
+    color: inherit;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
   .sl-native-select::picker(select) {
     background: var(--sl-surface-3);
     color: var(--sl-text);
@@ -321,4 +345,8 @@
 
 .sl-chat-log:focus-visible {
   outline-offset: calc(-1 * var(--sl-focus-width));
+}
+
+.chat-state {
+  container-type: normal;
 }

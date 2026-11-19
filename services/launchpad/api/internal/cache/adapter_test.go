@@ -466,7 +466,28 @@ func TestRealHotExpiryAcrossTenReplicas(t *testing.T) {
 	}
 	var adapters [10]*Adapter
 	for i := range adapters {
-		adapters[i] = f.adapter(t, i)
+		client, err := sharedredis.NewBoundedClient(os.Getenv("L09_REDIS_URL"), 200*time.Millisecond)
+		if err != nil {
+			t.Fatal(err)
+		}
+		replica := f
+		replica.redis = client
+		t.Cleanup(func() { _ = replica.redis.Close() })
+		adapters[i] = replica.adapter(t, i)
+		connections := make([]*redisclient.Conn, 0, min(200/len(adapters), client.Options().PoolSize))
+		for range cap(connections) {
+			conn := client.Conn()
+			t.Cleanup(func() { _ = conn.Close() })
+			if err := conn.Ping(f.ctx).Err(); err != nil {
+				t.Fatal(err)
+			}
+			connections = append(connections, conn)
+		}
+		for _, conn := range connections {
+			if err := conn.Close(); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 	scope := VerifiedScope{NetworkID: "127.0.0.1"}
 	q := url.Values{"page": {"1"}}

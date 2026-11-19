@@ -37,7 +37,7 @@ interface JoinedConfiguration {
   rpc_url: string;
   processes: { role: string; env?: { DATABASE_URL: string; REDIS_URL: string } }[];
 }
-interface RewardsServices { origin: string; unavailable: string; pool: string; discovery: string }
+interface RewardsServices { origin: string; unavailable: string; pool: string; discovery: string; discoveryPending: string }
 let services: RewardsServices;
 let server: ChildProcess;
 let serverExit: Promise<number | null>;
@@ -179,7 +179,7 @@ async function rewards_top_rail_failure_has_a_retry_and_recovers() {
   await until(() => view.container.querySelector('tbody a') !== null);
   const notice = [...view.container.querySelectorAll('[role="status"]')].find(node => node.textContent?.includes('Try again'));
   expect(notice).toBeDefined();
-  expect(view.container.textContent).not.toContain('No holder rewards paid yet');
+  expect([...view.container.querySelectorAll('h3')].filter(node => node.textContent === 'No holder rewards paid yet')).toHaveLength(0);
   act(() => button(notice!, 'Try again').click());
   await until(() => view.container.querySelector('#top-paying-title') !== null);
   await until(() => view.container.querySelector('[aria-labelledby="top-paying-title"] ol') !== null);
@@ -222,7 +222,7 @@ async function rewards_trader_pages_follow_the_service_cursor_and_restart() {
   expect(view.container.querySelectorAll('[data-rank]')).toHaveLength(100);
   view.render(createElement(TradersBoard, { period: '1w' }));
   await until(() => view.container.querySelector('[data-rank="1"]') !== null && view.container.textContent?.includes('Last 7 days') === true);
-  expect(view.container.textContent).not.toContain('First page');
+  expect([...view.container.querySelectorAll('button')].filter(node => node.textContent === 'First page')).toHaveLength(0);
 }
 
 async function rewards_holder_page_retry_restarts_an_expired_snapshot() {
@@ -246,19 +246,56 @@ async function rewards_holder_page_retry_restarts_an_expired_snapshot() {
   expect(pools!.hasMore).toBe(false);
 }
 
-async function rewards_callouts_follow_the_discovery_cursor() {
-  const discoveryClient = sdk(services.discovery);
-  const page = await new Operations(discoveryClient).call('IF_CONNECTED_FEED', { query: { order: 'relevance', limit: 50 } });
+async function rewards_callouts_follow_the_discovery_cursor(poolReads: 'pending' | 'settled') {
+  const discoveryClient = sdk(poolReads === 'pending' ? services.discoveryPending : services.discovery);
+  const discovery = new Operations(discoveryClient);
+  const page = await discovery.call('IF_CONNECTED_FEED', { query: { order: 'relevance', limit: 50 } });
   expect(page.Entries).toHaveLength(50);
   expect(page.Cursor).not.toBe('');
+  const next = await discovery.call('IF_CONNECTED_FEED', { query: { order: 'relevance', limit: 50, cursor: page.Cursor } });
+  expect(next.Entries).toHaveLength(1);
+  const first = page.Entries[0];
+  const last = next.Entries[0];
+  expect(first.Body).toBe('Callout 1');
+  expect(last.Body).toBe('Callout 51');
+  expect(first.Source.Pools).not.toBeNull();
+  const pool = first.Source.Pools![0];
+  expect(pool).toMatch(/^0x[0-9a-f]{40}$/);
   const view = mount(createElement(MarketClientContext.Provider, { value: discoveryClient }, createElement(CalloutsRail)));
+
+  async function assertPoolReadState() {
+    const key = queryKeys.poolSnapshot(pool);
+    if (poolReads === 'settled') {
+      await until(() => {
+        const state = view.queries.getQueryState(key);
+        return state !== undefined && state.status !== 'pending' && state.fetchStatus === 'idle';
+      });
+      expect(view.queries.getQueryState(key)?.status).not.toBe('pending');
+      expect(view.queries.getQueryState(key)?.fetchStatus).toBe('idle');
+    } else {
+      expect(view.queries.getQueryState(key)?.status).toBe('pending');
+      expect(view.queries.getQueryState(key)?.fetchStatus).toBe('fetching');
+    }
+  }
+
   await until(() => view.container.querySelectorAll('[data-callout-id]').length === 50);
+  if (poolReads === 'pending') expect((await fetch(services.origin + '/pool-read-started')).status).toBe(204);
+  await assertPoolReadState();
+  expect(view.container.querySelector('[data-callout-id]')?.getAttribute('data-callout-id')).toBe(first.Source.ID);
+  expect(view.container.querySelector('[data-callout-id] > div > p')?.textContent).toBe(first.Body);
   act(() => button(view.container, 'Next page').click());
   await until(() => view.container.querySelectorAll('[data-callout-id]').length === 1);
-  expect(view.container.textContent).toContain('Callout 51');
+  await assertPoolReadState();
+  expect(view.container.querySelectorAll('[data-callout-id]')).toHaveLength(1);
+  expect(view.container.querySelector('[data-callout-id]')?.getAttribute('data-callout-id')).toBe(last.Source.ID);
+  expect(view.container.querySelector('[data-callout-id] > div > p')?.textContent).toBe(last.Body);
   act(() => button(view.container, 'First page').click());
   await until(() => view.container.querySelectorAll('[data-callout-id]').length === 50);
-  expect(view.container.textContent).not.toContain('Callout 51');
+  await assertPoolReadState();
+  expect(view.container.querySelector(`[data-callout-id="${last.Source.ID}"]`)).toBeNull();
+  expect(view.container.querySelectorAll('[data-callout-id]')).toHaveLength(50);
+  expect(view.container.querySelector('[data-callout-id]')?.getAttribute('data-callout-id')).toBe(first.Source.ID);
+  expect(view.container.querySelector('[data-callout-id] > div > p')?.textContent).toBe(first.Body);
 }
 
 async function rewards_unavailable_claims_explain_the_state_and_keep_read_retry() {
@@ -311,7 +348,7 @@ test(rewards_top_rail_failure_has_a_retry_and_recovers.name, rewards_top_rail_fa
 test(rewards_market_cap_failure_ends_the_loading_state.name, rewards_market_cap_failure_ends_the_loading_state, 30_000);
 test(rewards_trader_pages_follow_the_service_cursor_and_restart.name, rewards_trader_pages_follow_the_service_cursor_and_restart, 30_000);
 test(rewards_holder_page_retry_restarts_an_expired_snapshot.name, rewards_holder_page_retry_restarts_an_expired_snapshot, 30_000);
-test(rewards_callouts_follow_the_discovery_cursor.name, rewards_callouts_follow_the_discovery_cursor, 30_000);
+test.each(['pending', 'settled'] as const)(rewards_callouts_follow_the_discovery_cursor.name + ' (%s pool reads)', rewards_callouts_follow_the_discovery_cursor, 30_000);
 test(rewards_unavailable_claims_explain_the_state_and_keep_read_retry.name, rewards_unavailable_claims_explain_the_state_and_keep_read_retry, 30_000);
 test(rewards_wallet_rejection_releases_only_the_matching_reservation.name, rewards_wallet_rejection_releases_only_the_matching_reservation);
 test(rewards_short_links_reach_home_and_shared_cards.name, rewards_short_links_reach_home_and_shared_cards);

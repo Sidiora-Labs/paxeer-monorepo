@@ -38,7 +38,7 @@ export default function TerminalRightRail({ poolAddress }: { poolAddress: string
       <PositionSummary poolAddress={pool} tokenAddress={tokenAddress} />
 
       <section aria-label="Trade" className="flex flex-col gap-1 rounded-md bg-surface-1 p-1">
-        <div className="flex min-h-touch-target-min flex-wrap items-center gap-1">
+        <div className="flex min-h-7 flex-wrap items-center gap-1">
           <IconButton label="Edit trade presets" icon={<Settings />} size="sm" onClick={() => setEditorOpen(true)} />
           <SegmentedControl<`${PresetId}`>
             options={presetIds.map(id => ({ value: `${id}` as `${PresetId}`, label: `P${id}` }))}

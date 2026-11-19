@@ -322,15 +322,18 @@ func assertComposedChartStartup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	read := func() []byte {
+	read := func() composedChartSeriesRead {
 		t.Helper()
 		client := http.Client{Timeout: 3 * time.Second}
-		response, err := client.Get(fmt.Sprintf("http://127.0.0.1:8080/v2/series/%s/candles?interval=1m&from=%d&to=%d", fill.PoolAddress, from, from+60))
+		endpoint := fmt.Sprintf("http://127.0.0.1:8080/v2/series/%s/candles?interval=1m&from=%d&to=%d", fill.PoolAddress, from, from+60)
+		began := time.Now()
+		response, err := client.Get(endpoint)
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer response.Body.Close()
 		raw, err := io.ReadAll(response.Body)
+		ended := time.Now()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -346,7 +349,11 @@ func assertComposedChartStartup(t *testing.T) {
 		if response.StatusCode != 200 || body.SchemaVersion != 2 || body.Algorithm != engine.SeriesAlgorithm || body.NoData || len(body.Items) != 1 || body.Items[0].Trades != 1 || body.Items[0].CloseSource.SourceFillID != fill.SourceFillID || body.Items[0].VolumeUsdlRaw != fill.USDLAmountRaw {
 			t.Fatalf("committed chart series: %d %s", response.StatusCode, raw)
 		}
-		return raw
+		read, err := decodeComposedChartSeries(raw, began, ended)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return read
 	}
 	stop := start()
 	first := read()
@@ -371,8 +378,8 @@ func assertComposedChartStartup(t *testing.T) {
 	}
 	stop()
 	stop = start()
-	if second := read(); !bytes.Equal(first, second) {
-		t.Fatalf("chart series changed across restart: %s %s", first, second)
+	if err := compareComposedChartSeries(first, read()); err != nil {
+		t.Fatalf("chart series across restart: %v", err)
 	}
 	provisionBroker("check")
 	info, err := stream.Info(ctx)

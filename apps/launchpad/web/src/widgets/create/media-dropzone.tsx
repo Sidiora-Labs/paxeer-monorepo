@@ -101,7 +101,7 @@ export function MediaDropzone({ id, staged, onStaged, onClear, remembered = null
             disabled={disabled || busy}
             aria-describedby={error ? errorId : hintId}
             onClick={() => inputRef.current?.click()}
-            className={cn('flex min-h-56 w-full flex-col items-center justify-center gap-3 rounded-md text-center', disabled ? 'cursor-not-allowed' : 'hover:bg-surface-hover')}
+            className={cn('flex min-h-56! w-full flex-col items-center justify-center gap-3 rounded-md text-center', disabled ? 'cursor-not-allowed' : 'hover:bg-surface-hover')}
           >
             {busy
               ? <LoaderCircle aria-hidden="true" className="size-10 animate-spin text-text-faint" />

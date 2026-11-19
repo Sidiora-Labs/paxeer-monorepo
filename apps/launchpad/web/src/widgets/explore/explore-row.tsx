@@ -62,7 +62,7 @@ function CoinCell({ row }: CoinCellProps) {
         <Link prefetch={false}
           href={row.href}
           title={row.name}
-          className="block min-h-touch-target-min min-w-touch-target-min content-center truncate text-sm font-semibold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
+          className="block content-center truncate text-sm font-semibold text-text after:absolute after:inset-0 after:content-[''] focus-visible:outline-2 focus-visible:outline-focus"
         >
           {row.name}
           <span className="sr-only">{row.mcap === null ? ', no market cap yet' : `, market cap ${formatCompactUsd(row.mcap)}`}</span>

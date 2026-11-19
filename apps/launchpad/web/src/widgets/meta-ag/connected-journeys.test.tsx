@@ -373,7 +373,9 @@ test('advanced deployment and funded lifecycle use real chain125 contracts', asy
   await expect(lostReplyProvider.cancel(lostReplyActive)).rejects.toThrow();
   expect(lostReplyHash).toMatch(/^0x[0-9a-f]{64}$/);
   expect(cancellationSends).toBe(1);
-  expect((await client.getTransactionReceipt({ hash: lostReplyHash! })).status).toBe('success');
+  expect(
+    (await client.waitForTransactionReceipt({ hash: lostReplyHash!, timeout: 60_000 })).status
+  ).toBe('success');
   expect((await provider.order(lostReplyOrder.orderId, lostReplyOrder.family, lostReplyOrder.creationBlock)).state).toBe('cancelled');
   lostReplyProvider.close();
   const reopenedLostReply = await createAdvancedProvider({

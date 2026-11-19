@@ -68,6 +68,7 @@ export default function ProfileTabs({ isOwner, panels, idPrefix = 'profile-tabs'
 
   return (
     <section className={className}>
+      <h2 className="sr-only">{profileTabLabel[active]}</h2>
       <div className="px-2 md:px-3">
         <TabStrip
           label="Profile sections"
@@ -94,7 +95,7 @@ export default function ProfileTabs({ isOwner, panels, idPrefix = 'profile-tabs'
         aria-labelledby={inMore ? undefined : `${idPrefix}-tab-${active}`}
         aria-label={inMore ? profileTabLabel[active] : undefined}
         tabIndex={0}
-        className="min-h-60 px-4 py-3 md:px-5"
+        className="min-h-34 px-4 py-3 sm:min-h-[calc(var(--sl-space-6)+var(--sl-leading-2xs)+var(--sl-space-2)+var(--sl-table-row-comfortable))] md:px-5"
       >
         {panels[active] ?? null}
       </div>

@@ -326,8 +326,7 @@ async function openProvider(): Promise<{
   providers.push(provider);
   // Wait for the actual Supabase INITIAL_SESSION notification and its wallet lookup.
   await new Promise<void>((resolve) => {
-    let unsubscribe: (() => void) | undefined;
-    unsubscribe = wallet.onAuthStateChange((event) => {
+    const unsubscribe: (() => void) | undefined = wallet.onAuthStateChange((event) => {
       if (event === "INITIAL_SESSION") {
         queueMicrotask(() => unsubscribe?.());
         resolve();

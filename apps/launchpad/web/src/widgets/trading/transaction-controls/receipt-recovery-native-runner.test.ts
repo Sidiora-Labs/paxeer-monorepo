@@ -61,6 +61,7 @@ const poolAbi = parseAbi(['function tokenAddress() view returns(address)']);
 const deployment: TradeDeployment = {
   revision: 'receipt-loopback',
   router,
+  spender: router,
   quoter,
   registry,
   emitter,

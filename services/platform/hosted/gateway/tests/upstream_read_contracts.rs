@@ -2412,6 +2412,7 @@ fn readiness_ignores_legacy_backends_and_observes_live_dependencies() {
         let readiness = api::Readiness {
             sources: vec!["paxeer"],
             stall_after_secs: 300,
+            max_units_per_step: 1,
             started_at: 0,
             explorer: None,
         };

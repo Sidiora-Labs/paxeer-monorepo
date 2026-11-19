@@ -1105,6 +1105,36 @@
     "ctes": []
   },
   {
+    "id": "app/authority.networkAuthority.acceptsHead.1",
+    "file": "services/launchpad/api/internal/app/authority.go",
+    "function": "networkAuthority.acceptsHead",
+    "line": 336,
+    "expression": "\"SELECT EXISTS(SELECT 1 FROM \"+pgx.Identifier{a.config.SourceSchema, \"indexer_committed_heads_v2\"}.Sanitize()+\" AS heads WHERE heads.chain_id=125 AND heads.height=$1 AND lower(heads.block_hash)=lower($2) AND heads.integrity='healthy')\"",
+    "sql": "SELECT EXISTS(SELECT 1 FROM \"indexer\".\"indexer_committed_heads_v2\" AS heads WHERE heads.chain_id=125 AND heads.height=$1 AND lower(heads.block_hash)=lower($2) AND heads.integrity='healthy')",
+    "bindings": {},
+    "roles": [
+      "api_rest_runtime"
+    ],
+    "package": "services/launchpad/api/internal/app",
+    "kinds": [
+      "SELECT"
+    ],
+    "tables": [
+      "indexer.indexer_committed_heads_v2"
+    ],
+    "sequences": [],
+    "functions": [
+      "lower"
+    ],
+    "columns": [
+      "block_hash",
+      "chain_id",
+      "height",
+      "integrity"
+    ],
+    "ctes": []
+  },
+  {
     "id": "broker/handoff.PostgresStream.ConsumeCommitted.1",
     "file": "services/launchpad/api/internal/broker/handoff.go",
     "function": "PostgresStream.ConsumeCommitted",

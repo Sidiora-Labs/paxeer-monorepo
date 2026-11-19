@@ -45,7 +45,7 @@ const ActivityTable = React.forwardRef<HTMLTableElement, Props>(function Activit
 });
 
 export const ActivityTableHeader = (props: TableHeaderProps) => (
-  <TableHeader { ...props } position="sticky" top={ 0 } backgroundColor="canvas" zIndex="sticky"/>
+  <TableHeader { ...props } data-scroll-region-header position="sticky" top={ 0 } backgroundColor="canvas" zIndex="sticky"/>
 );
 
 export default ActivityTable;

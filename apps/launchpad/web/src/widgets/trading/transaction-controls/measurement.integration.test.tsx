@@ -24,7 +24,7 @@ const transport=measuredRpcTransport(configuration.rpc_url,sample=>{rpcSamples.p
 const chain=defineChain({id:125,name:'L26 measured actual fixture',nativeCurrency:{name:'PAX',symbol:'PAX',decimals:18},rpcUrls:{default:{http:[configuration.rpc_url]}}});
 const client=createPublicClient({chain,transport,cacheTime:0}),wallet=createWalletClient({chain,transport}),testClient=createTestClient({chain,transport,mode:'anvil'});
 const roles=fixture.manifest.roles;
-const deployment:TradeDeployment={revision:fixture.manifest.deploymentVersion,router:roles.Router.address,quoter:roles.Quoter.address,registry:roles.PoolRegistry.address,emitter:roles.EventEmitter.address,usdl:roles.USDL.address,pins:['Router','Quoter','PoolRegistry','EventEmitter'].map(role=>({address:roles[role].address,runtimeHash:roles[role].runtimeHash,implementation:roles[role].implementationAddress,implementationHash:roles[role].implementationHash}))};
+const deployment:TradeDeployment={revision:fixture.manifest.deploymentVersion,router:roles.Router.address,spender:roles.Router.address,quoter:roles.Quoter.address,registry:roles.PoolRegistry.address,emitter:roles.EventEmitter.address,usdl:roles.USDL.address,pins:['Router','Quoter','PoolRegistry','EventEmitter'].map(role=>({address:roles[role].address,runtimeHash:roles[role].runtimeHash,implementation:roles[role].implementationAddress,implementationHash:roles[role].implementationHash}))};
 const provider=new ChainTradeProvider(client,wallet,deployment);
 const wait=(ms:number)=>new Promise<void>(done=>setTimeout(done,ms));
 async function until(check:()=>boolean,timeout=30000){const deadline=performance.now()+timeout;while(!check()){if(performance.now()>=deadline)throw new Error('Actual measurement condition timed out');await wait(25);}}

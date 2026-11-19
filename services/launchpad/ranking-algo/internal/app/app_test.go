@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -34,6 +35,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	v1 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v1"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
 )
 
 const (
@@ -159,6 +161,7 @@ func contractEnv(t *testing.T) {
 // gateway identity. Publication uses a loopback social visibility transcript
 // served over mutually authenticated TLS.
 func TestNewServesAndRanks(t *testing.T) {
+	internaltest.RankingBroker(t)
 	db := internaltest.NewRankingRuntimeDatabase(t)
 	redisURL := internaltest.NewRedisURL(t)
 	ctx := context.Background()
@@ -190,13 +193,13 @@ func TestNewServesAndRanks(t *testing.T) {
 	binding := config.RankingRuntimeBinding{
 		Version: 2, RankingSchema: "ranking", StatsSchema: "stats", SourceSchema: "indexer",
 		SourceStream: sourceStream, ProjectionVersion: projection,
-		CacheNamespace: "snapshots", CursorKeyReference: "RANKING_CURSOR_KEY",
+		CacheNamespace: "snapshots", CursorKeyReference: "TEST_RANKING_CURSOR_KEY",
 		RecoverySchema: "recovery", RecoveryEpoch: db.Epoch, RecoveryRegion: db.Region,
 		VisibilityEndpoint: endpoint, VisibilityDNS: peerDNS, VisibilityCertSHA256: peerPin,
 		GatewayDNS: gatewayDNS, GatewayCertSHA256: gateway.pin(),
 		CAFile: filepath.Join(dir, "ca.pem"), CASHA256: pins["ca.pem"],
-		ClientCertFile: filepath.Join(dir, "client.pem"), ClientCertSHA256: pins["client.pem"], ClientKeyReference: "RANKING_CLIENT_KEY_PEM",
-		ServerCertFile: filepath.Join(dir, "server.pem"), ServerCertSHA256: pins["server.pem"], ServerKeyReference: "RANKING_SERVER_KEY_PEM",
+		ClientCertFile: filepath.Join(dir, "client.pem"), ClientCertSHA256: pins["client.pem"], ClientKeyReference: "TEST_RANKING_CLIENT_KEY_PEM",
+		ServerCertFile: filepath.Join(dir, "server.pem"), ServerCertSHA256: pins["server.pem"], ServerKeyReference: "TEST_RANKING_SERVER_KEY_PEM",
 		MaxAttempts: 10, MaximumReads: 16,
 	}
 	admin, err := pgx.Connect(ctx, db.AdminDSN)
@@ -230,14 +233,37 @@ func TestNewServesAndRanks(t *testing.T) {
 		"INSTANCE_ID":                    "ranking-test-1",
 		"RANKING_TICK_INTERVAL_MS":       "30000",
 		"RANKING_NEW_TICK_INTERVAL_MS":   "10000",
-		"RANKING_CLIENT_KEY_PEM":         string(clientKey),
-		"RANKING_SERVER_KEY_PEM":         string(server.keyPEM),
-		"RANKING_CURSOR_KEY":             base64.RawURLEncoding.EncodeToString(cursor),
+		"TEST_RANKING_CLIENT_KEY_PEM":    string(clientKey),
+		"TEST_RANKING_SERVER_KEY_PEM":    string(server.keyPEM),
+		"TEST_RANKING_CURSOR_KEY":        base64.RawURLEncoding.EncodeToString(cursor),
 	} {
 		t.Setenv(k, v)
 	}
 
 	composeStartup(t, db, binding, maxConnections)
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var loaded config.RankingRuntimeBinding
+	if err := config.ReadBoundDocument(cfg.RankingRuntimeFile, cfg.RankingRuntimeSHA256, &loaded); err != nil {
+		t.Fatal(err)
+	}
+	if loaded.CursorKeyReference != "TEST_RANKING_CURSOR_KEY" {
+		t.Fatal("loaded ranking binding must reference the deployment cursor key")
+	}
+	provider, err := secrets.NewChecked(secrets.Options{Provider: secrets.ProviderType(cfg.SecretsProvider)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := provider.GetRequired(ctx, loaded.CursorKeyReference)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := base64.RawURLEncoding.Strict().DecodeString(encoded)
+	if err != nil || len(decoded) < 32 || !bytes.Equal(decoded, cursor) {
+		t.Fatal("loaded ranking binding must resolve the generated cursor key")
+	}
 	provisionStartupBroker(t)
 	binary := startupBinary(t)
 

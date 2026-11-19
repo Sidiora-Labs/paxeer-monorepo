@@ -924,12 +924,20 @@ fn readiness_status(body: &Value) -> Option<&'static str> {
         source.get("consecutive_failures")?.as_u64()?;
         let state = source.get("state")?.as_str()?;
         let source_rank = match state {
-            "ready" => {
+            "ready" | "index_disabled" => {
                 if !source.get("reconciled")?.as_bool()?
                     || source.get("last_success_at")?.as_u64().is_none()
                     || source.get("freshness_secs")?.as_u64().is_none()
                     || source.get("consecutive_failures")?.as_u64()? != 0
-                    || source.get("source_head")? != source.get("indexed_cursor")?
+                {
+                    return None;
+                }
+                if state == "index_disabled" {
+                    if name != "comet" {
+                        return None;
+                    }
+                } else if source.get("indexed_cursor")?.as_u64()?
+                    > source.get("source_head")?.as_u64()?
                 {
                     return None;
                 }
@@ -1200,15 +1208,176 @@ mod tests {
 
     /// The indexer read API over `store` on a loopback port.
     fn serve(store: Store) -> Indexer {
+        serve_with_readiness(store, layerx_indexer::api::Readiness::default())
+    }
+
+    fn serve_with_readiness(store: Store, readiness: layerx_indexer::api::Readiness) -> Indexer {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error}"));
         let address = listener
             .local_addr()
             .unwrap_or_else(|error| panic!("{error}"));
         let store = Arc::new(store);
-        std::thread::spawn(move || layerx_indexer::api::serve(&listener, &store, None));
+        let readiness = Arc::new(readiness);
+        std::thread::spawn(move || {
+            layerx_indexer::api::serve_with(&listener, &store, &readiness, None)
+        });
         Indexer::parse(&format!("http://{address}")).unwrap_or_else(|error| panic!("{error}"))
     }
 
+    fn readiness_store(comet_disabled: bool) -> (Store, layerx_indexer::api::Readiness) {
+        let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
+        store
+            .commit(&unit("paxeer", 10, Vec::new(), Vec::new()), 2)
+            .unwrap_or_else(|error| panic!("{error}"));
+        store
+            .start_source("paxeer")
+            .unwrap_or_else(|error| panic!("{error}"));
+        store
+            .record_source_head("paxeer", Some(11))
+            .unwrap_or_else(|error| panic!("{error}"));
+        store
+            .record_source_success("paxeer", Some(11), Some(10))
+            .unwrap_or_else(|error| panic!("{error}"));
+        let mut sources = vec!["paxeer"];
+        if comet_disabled {
+            sources.push("comet");
+            store
+                .start_source("comet")
+                .unwrap_or_else(|error| panic!("{error}"));
+            store
+                .record_source_head("comet", Some(11))
+                .unwrap_or_else(|error| panic!("{error}"));
+            store
+                .record_comet_success(11, Some(10), true)
+                .unwrap_or_else(|error| panic!("{error}"));
+        }
+        let readiness = layerx_indexer::api::Readiness {
+            sources,
+            stall_after_secs: 30,
+            max_units_per_step: 4,
+            ..Default::default()
+        };
+        (store, readiness)
+    }
+
+    fn readiness_status_document(comet_disabled: bool) -> Value {
+        let (store, readiness) = readiness_store(comet_disabled);
+        let document = layerx_indexer::api::readiness_document(&store, &readiness)
+            .unwrap_or_else(|error| panic!("{error}"));
+        serde_json::to_value(document).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    #[test]
+    fn readiness_status_accepts_ready_cursor_below_head() {
+        let document = readiness_status_document(false);
+        assert_eq!(document["sources"][0]["source_head"], json!(11));
+        assert_eq!(document["sources"][0]["indexed_cursor"], json!(10));
+        assert_eq!(document["sources"][0]["state"], "ready");
+        assert_eq!(readiness_status(&document), Some("available"));
+    }
+
+    #[test]
+    fn readiness_status_accepts_comet_index_disabled_beside_ready_chain() {
+        let document = readiness_status_document(true);
+        assert_eq!(document["sources"][0]["state"], "ready");
+        assert_eq!(document["sources"][1]["source"], "comet");
+        assert_eq!(document["sources"][1]["state"], "index_disabled");
+        assert_eq!(readiness_status(&document), Some("available"));
+    }
+
+    #[test]
+    fn readiness_status_refuses_ready_cursor_above_head() {
+        let mut document = readiness_status_document(false);
+        document["sources"][0]["indexed_cursor"] = json!(12);
+        assert_eq!(readiness_status(&document), None);
+    }
+
+    #[test]
+    fn readiness_status_refuses_ready_without_numeric_heights() {
+        for field in ["source_head", "indexed_cursor"] {
+            for invalid in [Value::Null, json!("10")] {
+                let mut document = readiness_status_document(false);
+                document["sources"][0][field] = invalid;
+                assert_eq!(readiness_status(&document), None, "{document}");
+            }
+        }
+    }
+
+    #[test]
+    fn readiness_status_refuses_index_disabled_on_other_sources() {
+        for name in ["paxeer", "layerx"] {
+            let mut document = readiness_status_document(false);
+            document["sources"][0]["source"] = json!(name);
+            document["sources"][0]["state"] = json!("index_disabled");
+            assert_eq!(readiness_status(&document), None, "{document}");
+        }
+    }
+
+    #[test]
+    fn readiness_status_refuses_unknown_states() {
+        let mut document = readiness_status_document(true);
+        document["sources"][1]["state"] = json!("unknown");
+        assert_eq!(readiness_status(&document), None);
+    }
+
+    #[test]
+    fn readiness_status_requires_reconciled_fresh_success_without_failures() {
+        for comet_disabled in [false, true] {
+            let index = usize::from(comet_disabled);
+            for (field, invalid) in [
+                ("reconciled", json!(false)),
+                ("last_success_at", Value::Null),
+                ("freshness_secs", Value::Null),
+                ("consecutive_failures", json!(1)),
+            ] {
+                let mut document = readiness_status_document(comet_disabled);
+                document["sources"][index][field] = invalid;
+                assert_eq!(readiness_status(&document), None, "{document}");
+            }
+        }
+    }
+
+    #[test]
+    fn readiness_status_passes_indexer_freshness_through_history() {
+        for comet_disabled in [false, true] {
+            let (store, readiness) = readiness_store(comet_disabled);
+            let indexer = serve_with_readiness(store, readiness);
+            let document = raw(&indexer, "/readyz", "");
+            assert_eq!(readiness_status(&document), Some("available"));
+            let upstream = raw(&indexer, &format!("/v1/history/{EVE}"), "limit=100");
+            assert_eq!(readiness_status(&upstream["freshness"]), Some("available"));
+            for method in ["px_getHistory", "px_getUnifiedHistory"] {
+                let answer = answered(&indexer, method, &json!([EVE, null, 100, null]));
+                assert!(answer.get("error").is_none(), "{answer}");
+                assert_eq!(
+                    readiness_status(&answer["result"]["freshness"]),
+                    Some("available")
+                );
+                assert_eq!(
+                    answer["result"]["freshness"]["sources"][0]["indexed_cursor"],
+                    json!(10)
+                );
+                assert_eq!(
+                    answer["result"]["freshness"]["sources"][0]["source_head"],
+                    json!(11)
+                );
+                if comet_disabled {
+                    assert_eq!(
+                        answer["result"]["freshness"]["sources"][1]["state"],
+                        "index_disabled"
+                    );
+                }
+                let result = envelope(
+                    answer["result"].clone(),
+                    12,
+                    document.clone(),
+                    json!({}),
+                    None,
+                );
+                assert_eq!(result["freshness"], document);
+            }
+        }
+    }
     fn registry(_: &BTreeMap<String, Value>) -> Vec<Value> {
         vec![
             json!({"asset_id": LXP, "symbol": "LXP", "name": "LayerX Points", "decimals": 6, "denom": "ulxp"}),

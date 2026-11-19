@@ -344,8 +344,10 @@ async function joinedTokenReadsResolveTheIndexedCoinAndSwapInventory() {
   expect(snapshot.pool.tokenAddress).toBe(chain.token.toLowerCase());
   expect(snapshot.pool.poolAddress).toBe(chain.pool.toLowerCase());
   expect(snapshot.stats?.poolAddress).toBe(chain.pool.toLowerCase());
-  const tokens = await loadSwapTokens(operations, new AbortController().signal);
-  expect(tokens.find(token => token.poolAddress === chain.pool.toLowerCase())?.tokenAddress).toBe(chain.token.toLowerCase());
+  await expect.poll(async () => {
+    const tokens = await loadSwapTokens(operations, new AbortController().signal);
+    return tokens.find(token => token.poolAddress === chain.pool.toLowerCase())?.tokenAddress;
+  }, { timeout: 30_000, interval: 1_000 }).toBe(chain.token.toLowerCase());
   const page = await operations.call('IF_TRADES', { path: { poolAddress: chain.pool }, query: { limit: 100 } });
   expect(page.data.items.length).toBeGreaterThan(0);
   expect(page.data.items.every(item => item.poolAddress === chain.pool.toLowerCase())).toBe(true);

@@ -46,11 +46,25 @@ export default function AuthCallbackPage() {
 
   return (
     <div className="flex min-h-[var(--sl-page-min-height)] items-center justify-center px-4">
-      <div className="w-full max-w-modal-width-sm rounded-lg bg-surface-1 p-6 text-center" role="status" aria-live="polite">
-        <h1 className="text-sm font-bold text-text">{failed ? "Couldn't sign you in" : 'Finishing sign-in'}</h1>
-        <p className="mt-2 text-xs text-text-muted">{message ?? (auto.connecting ? 'Connecting your wallet...' : 'Signing you in...')}</p>
+      <div
+        className="w-full max-w-96 rounded-lg bg-surface-1 p-6 text-center"
+        role="status"
+        aria-live="polite"
+      >
+        <h1 className="text-sm font-bold text-text">
+          {failed ? "Couldn't sign you in" : 'Finishing sign-in'}
+        </h1>
+        <p className="mt-2 text-xs text-text-muted">
+          {message ?? (auto.connecting ? 'Connecting your wallet...' : 'Signing you in...')}
+        </p>
         {failed ? (
-          <Link prefetch={false} href="/" className="mt-4 inline-flex min-h-touch-target-min items-center justify-center rounded-md bg-accent px-4 py-2 text-xs font-bold text-on-accent hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">Go home</Link>
+          <Link
+            prefetch={false}
+            href="/"
+            className="mt-4 inline-flex items-center justify-center rounded-md bg-accent px-4 py-2 text-xs font-bold text-on-accent hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          >
+            Go home
+          </Link>
         ) : null}
       </div>
     </div>

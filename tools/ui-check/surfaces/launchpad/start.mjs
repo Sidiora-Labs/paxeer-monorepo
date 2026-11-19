@@ -12,7 +12,7 @@ const require = createRequire(new URL('../../../../apps/launchpad/web/package.js
 const { WebSocketServer } = require('ws');
 const directory = new URL('./answers/', import.meta.url);
 const answerNames = [
-  'pool', 'pools', 'stats', 'pool-stats', 'holder-rewards-stats', 'holder-rewards-stats-empty', 'holder-rewards-pools', 'items-empty', 'feed-empty',
+  'pool', 'coin-pool', 'pools', 'terminal-pools', 'stats', 'pool-stats', 'holder-rewards-stats', 'holder-rewards-stats-empty', 'holder-rewards-pools', 'items-empty', 'feed-empty',
   'streams-empty', 'platform', 'metadata', 'metadata-batch', 'metadata-batch-empty', 'metadata-v2', 'metadata-media', 'legacy-holders-empty', 'candles-empty', 'holders-empty', 'profile',
   'profile-empty', 'follow-stats', 'follow-stats-empty', 'portfolio', 'portfolio-empty', 'bounties', 'bounty', 'bounties-stats', 'unavailable',
   'rpc-unavailable', 'chart-config', 'chart-symbol', 'chart-time', 'chart-history-empty', 'not-found', 'explorer-empty', 'snapshot', 'stream-control', 'search', 'search-token', 'authority', 'public-share', 'cup-current-empty', 'comments-empty',
@@ -27,8 +27,10 @@ const answers = new Map(await Promise.all(answerNames.map(async name =>
   [name, await readFile(new URL(`${name}.json`, directory))])));
 const returning = await readFile(new URL('returning.js', directory));
 const loading = await readFile(new URL('loading.js', directory));
-const surface = JSON.parse(await readFile(new URL('./parts/explore.json', import.meta.url), 'utf8'));
-const loadingPaths = new Set(surface.views.filter(view => {
+const loadingSurfaces = await Promise.all(['explore', 'rewards', 'community'].map(async part => {
+  return JSON.parse(await readFile(new URL(`./parts/${part}.json`, import.meta.url), 'utf8'));
+}));
+const loadingPaths = new Set(loadingSurfaces.flatMap(surface => surface.views).filter(view => {
   const url = new URL(view.path, origin);
   return url.searchParams.get('render') === 'loading';
 }).map(view => view.path));
@@ -50,7 +52,7 @@ function scenario(incoming) {
   return ['empty', 'loading', 'error'].includes(value) ? value : 'filled';
 }
 
-function answerFor(url, state) {
+function answerFor(url, state, pagePath) {
   const path = url.pathname;
   const empty = state === 'empty';
   if (/^\/v1\/pools\/0x[0-9a-f]{40}\/holders$/.test(path)) return { name: 'holders-empty' };
@@ -76,7 +78,7 @@ function answerFor(url, state) {
   if (path === '/v2/platform/metrics') return { name: 'platform' };
   if (path === '/v2/pools/stats:batch') return { name: empty ? 'items-empty' : 'stats' };
   if (path === '/v2/pools') return { name: empty ? 'items-empty' : 'pools' };
-  if (path === '/v2/pools/0x1111111111111111111111111111111111111111') return { name: 'pool' };
+  if (path === '/v2/pools/0x1111111111111111111111111111111111111111') return { name: /^\/(coin|token)\/0x[0-9a-f]{40}$/i.test(pagePath) ? 'coin-pool' : 'pool' };
   if (/^\/v2\/pools\/0x[0-9a-f]{40}\/stats$/.test(path)) return { name: 'pool-stats' };
   if (/^\/v2\/pools\/0x[0-9a-f]{40}\/candles$/.test(path)) return { name: 'candles-empty' };
   if (/^\/v2\/pools\/0x[0-9a-f]{40}\/holders$/.test(path)) return { name: 'holders-empty' };
@@ -218,7 +220,8 @@ const server = createServer({ cert: await readFile(certificate), key: await read
       await new Promise(resolve => outgoing.once('close', resolve));
       return;
     }
-    const answer = answerFor(url, state);
+    const answer = answerFor(url, state, pagePath);
+    if (pagePath === '/swap' && answer.name === 'pools') answer.name = 'terminal-pools';
     let body = answers.get(answer.name);
     if (answer.name === 'snapshot') {
       const snapshot = JSON.parse(body);
@@ -344,22 +347,28 @@ async function warmPage(path) {
 server.keepAliveTimeoutBuffer = 5000;
 
 server.listen(4173, '203.0.113.1');
-await warmPage('/holder-rewards');
-await warmPage('/leaderboard');
-await warmPage('/meta-ag/orders');
-await warmPage('/meta-ag/swap');
-await warmPage('/swap');
-await warmPage('/terminal');
-await warmPage('/terminal/0x1111111111111111111111111111111111111111');
-await warmPage('/terminal/portfolio');
-await warmPage('/terminal/rewards');
-await warmPage('/terminal/track');
-await warmPage('/terminal/trenches');
-await warmPage('/terminal/trending');
+const warmPaths = [
+  '/holder-rewards',
+  '/leaderboard',
+  '/meta-ag/orders',
+  '/meta-ag/swap',
+  '/swap',
+  '/terminal',
+  '/terminal/0x1111111111111111111111111111111111111111',
+  '/terminal/portfolio',
+  '/terminal/rewards',
+  '/terminal/track',
+  '/terminal/trenches',
+  '/terminal/trending',
+];
 const warmDirectory = new URL('./warm/', import.meta.url);
 for (const file of (await readdir(warmDirectory)).sort()) {
-  for (const path of JSON.parse(await readFile(new URL(file, warmDirectory), 'utf8'))) await warmPage(path);
+  warmPaths.push(...JSON.parse(await readFile(new URL(file, warmDirectory), 'utf8')));
 }
+const pendingWarmPaths = [...new Set(warmPaths)];
+await Promise.all(Array.from({ length: 4 }, async () => {
+  while (pendingWarmPaths.length > 0) await warmPage(pendingWarmPaths.shift());
+}));
 pagesReady = true;
 function close() {
   for (const socket of sockets.clients) socket.terminate();

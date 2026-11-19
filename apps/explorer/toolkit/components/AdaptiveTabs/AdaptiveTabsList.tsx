@@ -173,6 +173,7 @@ const AdaptiveTabsList = (props: Props) => {
           <TabsTrigger
             key={ value }
             value={ value }
+            disabled
             flexShrink={ 0 }
             bgColor={
               activeTabIndex === index && (variant === 'solid' || variant === undefined) ?

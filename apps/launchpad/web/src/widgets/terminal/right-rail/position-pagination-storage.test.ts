@@ -158,6 +158,7 @@ function accordionStorageFallbackSurvivesBlockedReadsAndRemount() {
   const opaque = new JSDOM('<!DOCTYPE html><html><body></body></html>', {});
   browserGlobals.window = opaque.window;
   expect(() => opaque.window.localStorage).toThrow();
+  // eslint-disable-next-line react/no-children-prop -- AccordionCard requires children in its typed props.
   const node = React.createElement(AccordionCard, { id: 'trade', title: 'Trade', children: 'Trade contents' });
   const view = mount(node);
   expect(button(view, 'Trade').getAttribute('aria-expanded')).toBe('true');
@@ -177,6 +178,7 @@ function accordionStorageFallbackPreservesObservedStorageBaseline() {
   const full = new JSDOM('<!DOCTYPE html><html><body></body></html>', { url: 'http://localhost:3000', storageQuota: accordionStorageKey.length + raw.length });
   browserGlobals.window = full.window;
   full.window.localStorage.setItem(accordionStorageKey, raw);
+  // eslint-disable-next-line react/no-children-prop -- AccordionCard requires children in its typed props.
   const view = mount(React.createElement(AccordionCard, { id: 'trade', title: 'Trade', children: 'Trade contents' }));
   act(() => button(view, 'Trade').click());
   expect(full.window.localStorage.getItem(accordionStorageKey)).toBe(raw);
@@ -184,6 +186,7 @@ function accordionStorageFallbackPreservesObservedStorageBaseline() {
   view.render();
   expect(button(view, 'Trade').getAttribute('aria-expanded')).toBe('false');
   view.unmount();
+  // eslint-disable-next-line react/no-children-prop -- AccordionCard requires children in its typed props.
   const reopened = mount(React.createElement(AccordionCard, { id: 'trade', title: 'Trade', children: 'Trade contents' }));
   expect(button(reopened, 'Trade').getAttribute('aria-expanded')).toBe('false');
   expect(full.window.localStorage.getItem(accordionStorageKey)).toBe(raw);

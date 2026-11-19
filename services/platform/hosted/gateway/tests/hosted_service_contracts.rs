@@ -380,6 +380,7 @@ fn indexer_response(store: &Store, request: &IncomingRequest) -> OutgoingRespons
     let readiness = layerx_indexer::api::Readiness {
         sources: vec!["paxeer"],
         stall_after_secs: 60,
+        max_units_per_step: 1,
         started_at: 0,
         explorer: None,
     };
