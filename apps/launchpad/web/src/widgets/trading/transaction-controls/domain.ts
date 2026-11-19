@@ -260,6 +260,7 @@ export function attemptState(a: TxAttempt, now: number, receipt?: ReceiptEvidenc
       : 'submitted';
 }
 export interface ApprovalPlan {
+  spender: string;
   context: Readonly<TradeContext>;
   contextFingerprint: string;
   currentAllowanceRaw: bigint;
@@ -269,6 +270,7 @@ export interface ApprovalPlan {
 export function approvalPlan(
   context: TradeContext,
   verifiedRouter: string,
+  spender: string,
   allowance: bigint,
   resetRequired: boolean,
   unlimited = false
@@ -279,6 +281,7 @@ export function approvalPlan(
   const target = unlimited ? UINT256_MAX : raw(context.inputRaw);
   requireThat(target > 0n, 'zero_approval');
   return Object.freeze({
+    spender: address(spender),
     context: snapshot(context),
     contextFingerprint: fingerprint(contextKey(context)),
     currentAllowanceRaw: allowance,
@@ -298,7 +301,7 @@ export function approvalStepFingerprint(plan: ApprovalPlan, stepIndex: number): 
       plan.contextFingerprint,
       stepIndex,
       address(plan.context.token),
-      address(plan.context.router),
+      address(plan.spender),
       plan.steps[stepIndex].toString(),
     ])
   );
@@ -336,7 +339,7 @@ export function approvalMayContinue(
       allowance.chainId === 125 &&
       address(allowance.account) === address(current.sender) &&
       address(allowance.token) === address(current.token) &&
-      address(allowance.spender) === address(current.router) &&
+      address(allowance.spender) === address(plan.spender) &&
       allowance.stepFingerprint === step &&
       hash(allowance.approvalTxHash) === hash(attempt.txHash) &&
       allowance.blockHeight >= receipt.blockNumber &&

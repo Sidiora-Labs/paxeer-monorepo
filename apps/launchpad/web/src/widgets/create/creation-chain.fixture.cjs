@@ -616,6 +616,7 @@ async function fixture() {
           tradeDeployment: {
             revision,
             router: router.target,
+            spender: router.target,
             quoter: quoter.target,
             registry: registryProxy.target,
             emitter: eventEmitter.target,
