@@ -259865,7 +259865,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.962]
 title = "Give held transactions a lifetime setting of their own and write the sequencer settings in effect at start"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.961"]
