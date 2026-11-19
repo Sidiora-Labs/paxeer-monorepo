@@ -5,10 +5,8 @@ import MyTokenView from '@/widgets/my-token/my-token-view';
 
 export default function MyTokenPage() {
   return (
-    <div className="min-h-dvh">
-      <WalletGate message="Connect your wallet to manage your coins">
-        <MyTokenView />
-      </WalletGate>
-    </div>
+    <WalletGate message="Connect your wallet to manage your coins">
+      <MyTokenView />
+    </WalletGate>
   );
 }
