@@ -93,6 +93,7 @@ const code = '0x60006000' as const;
 const trade = {
   revision: revision.revisionSha256,
   router: a(1),
+  spender: native,
   quoter: a(2),
   registry: a(3),
   emitter: a(4),

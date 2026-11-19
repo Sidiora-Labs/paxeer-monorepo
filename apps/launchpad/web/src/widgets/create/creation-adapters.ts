@@ -34,7 +34,7 @@ export class ChainCreationAdapter {
   this.deployment=Object.freeze({...deployment});
   const authority=deployment.tradeDeployment??productionTradeDeployment;
   const tradeDeployment=Object.freeze({...authority,pins:Object.freeze(authority.pins.map(pin=>Object.freeze({...pin})))});
-  if(tradeDeployment.revision!==deployment.revision||address(tradeDeployment.router)!==address(deployment.router)||address(tradeDeployment.usdl)!==address(deployment.usdl)||address(tradeDeployment.registry)!==address(deployment.poolRegistry))throw new Error('Creation and trade deployment identities differ.');
+  if(tradeDeployment.revision!==deployment.revision||address(tradeDeployment.router)!==address(deployment.router)||address(tradeDeployment.usdl)!==address(deployment.usdl)||address(tradeDeployment.spender)!==address(deployment.usdlSpender)||address(tradeDeployment.registry)!==address(deployment.poolRegistry))throw new Error('Creation and trade deployment identities differ.');
   this.trade=new ChainTradeProvider(client,wallet,tradeDeployment);
  }
  scope(expected?:AccountScope) {

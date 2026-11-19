@@ -166,7 +166,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
         <TradeTabs
           side={side}
           onSwitch={next => t.switchMode(next === 'buy')}
-          trailing={<TradeSettingsPopover slippageBps={t.slippageBps} onSlippageChange={t.setSlippageBps} deadlineSeconds={EXECUTION_DEADLINE_SECONDS} spender={t.deployment?.router ?? null} size="md" />}
+          trailing={<TradeSettingsPopover slippageBps={t.slippageBps} onSlippageChange={t.setSlippageBps} deadlineSeconds={EXECUTION_DEADLINE_SECONDS} spender={t.deployment?.spender ?? null} size="md" />}
         />
 
         <fieldset className="m-0 min-w-0 space-y-3 p-0 border-0">
@@ -264,7 +264,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
               ) : (
                 <p>No price yet</p>
               )}
-              <p>Trade expires {EXECUTION_DEADLINE_SECONDS} seconds after you confirm. Approved contract {t.deployment?.router ? shortAddress(t.deployment.router) : '—'}.</p>
+              <p>Trade expires {EXECUTION_DEADLINE_SECONDS} seconds after you confirm. Approved contract {t.deployment?.spender ? shortAddress(t.deployment.spender) : '—'}.</p>
               <ul aria-label="Trading limits" className="list-none space-y-0.5 p-0">
                 {t.restrictions.map(restriction => <li key={restriction}>{restriction}</li>)}
               </ul>

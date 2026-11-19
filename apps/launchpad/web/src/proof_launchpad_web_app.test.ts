@@ -168,8 +168,8 @@ function deploymentFlowsIntoContractsAndTradeCalldata() {
   expect([ROUTER_ADDRESS, QUOTER_ADDRESS, FEES_ROUTER_ADDRESS, OPTICAL_REGISTRY_ADDRESS, USDL_ADDRESS, PROTOCOL_CONFIG_ADDRESS]).toEqual([
     CORE_DEPLOYMENT.router, CORE_DEPLOYMENT.quoter, CORE_DEPLOYMENT.feesRouter, CORE_DEPLOYMENT.opticalRegistry, CORE_DEPLOYMENT.usdl, CORE_DEPLOYMENT.protocolConfig,
   ]);
-  const approval = erc20ApprovalRequest({ token: USDL_ADDRESS, spender: ROUTER_ADDRESS, amount: 1_000_000n });
-  expect(approval).toMatchObject({ address: USDL_ADDRESS, chainId: 125, functionName: 'approve', args: [ROUTER_ADDRESS, 1_000_000n] });
+  const approval = erc20ApprovalRequest({ token: USDL_ADDRESS, spender: CORE_DEPLOYMENT.launchpadPrecompile, amount: 1_000_000n });
+  expect(approval).toMatchObject({ address: USDL_ADDRESS, chainId: 125, functionName: 'approve', args: [CORE_DEPLOYMENT.launchpadPrecompile, 1_000_000n] });
   expect(() => erc20ApprovalRequest({ token: USDL_ADDRESS, spender: QUOTER_ADDRESS, amount: 1_000_000n })).toThrow('Approval spender is unavailable');
   expect(productionTradeDeployment.pins).toHaveLength(CORE_TRADE_EXECUTION_ROLES.length);
   CORE_TRADE_EXECUTION_ROLES.forEach((role, index) => {
