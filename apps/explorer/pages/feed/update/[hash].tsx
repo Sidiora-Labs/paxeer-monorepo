@@ -1,5 +1,4 @@
 import type { GetServerSideProps, NextPage } from 'next';
-import dynamic from 'next/dynamic';
 import React from 'react';
 
 import type { Route } from 'nextjs-routes';
@@ -7,7 +6,7 @@ import type { Props } from 'nextjs/getServerSideProps/handlers';
 import * as gSSP from 'nextjs/getServerSideProps/main';
 import PageNextJs from 'nextjs/PageNextJs';
 
-const PaxeerXFeedUpdate = dynamic(() => import('ui/pages/PaxeerXFeedUpdate'), { ssr: false });
+import PaxeerXFeedUpdate from 'ui/pages/PaxeerXFeedUpdate';
 
 const pathname: Route['pathname'] = '/feed/update/[hash]';
 

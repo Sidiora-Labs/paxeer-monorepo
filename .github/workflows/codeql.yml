@@ -3,6 +3,9 @@ name: CodeQL
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - spec/**
+      - GOTCHA.kvx
   pull_request:
     branches: [main]
   schedule:

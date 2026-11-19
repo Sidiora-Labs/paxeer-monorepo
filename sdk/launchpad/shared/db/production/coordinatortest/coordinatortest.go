@@ -260,6 +260,17 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 			include(m.MigrationID)
 		}
 	}
+	var readiness struct {
+		Additional map[string][]int64 `json:"additional_required_migrations_by_role"`
+	}
+	if err := json.Unmarshal(readBound(t, root, migrationsDir+"/readiness.json", ""), &readiness); err != nil {
+		t.Fatal(err)
+	}
+	for _, role := range runtimeRoles {
+		for _, id := range readiness.Additional[role] {
+			include(id)
+		}
+	}
 	plan := []production.MigrationManifest{}
 	schemas := map[string]bool{}
 	services := map[string]bool{}

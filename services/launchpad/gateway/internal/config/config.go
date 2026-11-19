@@ -402,7 +402,7 @@ func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtim
 		return nil, err
 	}
 	if err = c.CheckRuntimeSchema(ctx, pool); err != nil {
-		pool.Close()
+		runtimedb.ClosePool(pool)
 		return nil, err
 	}
 	return pool, nil
@@ -587,19 +587,34 @@ func (c *Config) OpenSplitRuntimePools(ctx context.Context, split RuntimePoolSpl
 	controlOptions.MaxConns = split.ControlMaxConnections
 	controlOptions.PoolID = split.ControlPoolID
 	controlOptions.DatabaseUser = "control_runtime"
-	identity, err := runtimedb.NewPool(ctx, c.DatabaseURL, identityOptions)
+	identityURL, err := identityRuntimeURL(c.DatabaseURL)
+	if err != nil {
+		return nil, nil, err
+	}
+	identity, err := runtimedb.NewPool(ctx, identityURL, identityOptions)
 	if err != nil {
 		return nil, nil, err
 	}
 	control, err := runtimedb.NewPool(ctx, credential, controlOptions)
 	if err != nil {
-		identity.Close()
+		runtimedb.ClosePool(identity)
 		return nil, nil, err
 	}
 	if err = c.CheckRuntimeSchema(ctx, identity); err != nil {
-		identity.Close()
-		control.Close()
+		runtimedb.ClosePool(identity)
+		runtimedb.ClosePool(control)
 		return nil, nil, err
 	}
 	return identity, control, nil
+}
+
+func identityRuntimeURL(raw string) (string, error) {
+	endpoint, err := url.Parse(raw)
+	if err != nil || (endpoint.Scheme != "postgres" && endpoint.Scheme != "postgresql") || endpoint.Host == "" {
+		return "", fmt.Errorf("identity_database_url_invalid")
+	}
+	parameters := endpoint.Query()
+	parameters.Set("search_path", "users,pg_catalog")
+	endpoint.RawQuery = parameters.Encode()
+	return endpoint.String(), nil
 }

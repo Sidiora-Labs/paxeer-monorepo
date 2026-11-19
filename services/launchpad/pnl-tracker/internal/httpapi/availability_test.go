@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"image/png"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -24,6 +25,10 @@ import (
 )
 
 func TestArchiveImageRendersAndCachesItsStoredSnapshot(t *testing.T) {
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	defer slog.SetDefault(previous)
 	ctx := context.Background()
 	st := store.New(internaltest.NewPostgres(t))
 	rdb := internaltest.NewRedis(t)
@@ -44,6 +49,9 @@ func TestArchiveImageRendersAndCachesItsStoredSnapshot(t *testing.T) {
 			if response.Code != 500 || response.Body.String() != "{\"statusCode\":500,\"error\":\"Internal Server Error\",\"message\":\"An unexpected error occurred\"}\n" {
 				t.Fatal(response.Code, response.Body.String())
 			}
+			if !strings.Contains(logs.String(), "card render failed") || !strings.Contains(logs.String(), "err=") {
+				t.Fatal("render dependency cause missing", logs.String())
+			}
 			continue
 		}
 		config, err := png.DecodeConfig(bytes.NewReader(response.Body.Bytes()))
@@ -62,6 +70,10 @@ func TestArchiveImageRendersAndCachesItsStoredSnapshot(t *testing.T) {
 }
 
 func TestReadRoutesReportDatabaseCancellation(t *testing.T) {
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	defer slog.SetDefault(previous)
 	ctx := context.Background()
 	pool := internaltest.NewPostgres(t)
 	internaltest.EnsureIndexerSchema(t, pool)
@@ -88,21 +100,29 @@ func TestReadRoutesReportDatabaseCancellation(t *testing.T) {
 		{"/pnl/cards/" + uuid.NewString(), 1}, {"/pnl/cards/" + uuid.NewString() + "/og.png", 1}, {"/referrals/owner/stats", 1}, {"/status", 1}, {"/status", 2}, {"/status", 3},
 	} {
 		t.Run(tc.path+string(rune('0'+tc.query)), func(t *testing.T) {
+			logs.Reset()
 			tracer.Start(tc.query)
 			out := serve(t, router, "GET", tc.path, nil, nil)
 			queries := tracer.Stop()
 			if out.Code != 500 || len(queries) != tc.query || !json.Valid(out.Body.Bytes()) {
 				t.Fatal(out.Code, queries, out.Body.String())
 			}
+			if !strings.Contains(logs.String(), "context canceled") {
+				t.Fatal("database cancellation cause missing", logs.String())
+			}
 		})
 	}
 	request := httptest.NewRequest(http.MethodPost, "/pnl/events", strings.NewReader(`{"type":"click","shortCode":"known"}`))
+	logs.Reset()
 	tracer.Start(1)
 	out := httptest.NewRecorder()
 	router.ServeHTTP(out, request)
 	tracer.Stop()
 	if out.Code != 500 || out.Body.String() != "{\"statusCode\":500,\"error\":\"Internal Server Error\",\"message\":\"An unexpected error occurred\"}\n" {
 		t.Fatal(out.Code, out.Body.String())
+	}
+	if !strings.Contains(logs.String(), "context canceled") {
+		t.Fatal("event cancellation cause missing", logs.String())
 	}
 	out = serve(t, router, "POST", "/pnl/events", []byte(`{`), nil)
 	if out.Code != 400 || !strings.Contains(out.Body.String(), "invalid JSON body") {

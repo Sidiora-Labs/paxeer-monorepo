@@ -23,7 +23,7 @@ import {
 } from '../../src/runtime/offline-cache.ts';
 import { activityRoutes } from '../../src/runtime/routes/activity.ts';
 
-class PublicSnapshotDisk implements PublicSnapshotStorage {
+export class PublicSnapshotDisk implements PublicSnapshotStorage {
   readonly directory: string;
   private readonly handle: FileHandle;
   private constructor(

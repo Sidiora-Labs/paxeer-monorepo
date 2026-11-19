@@ -6,6 +6,7 @@ import { requireAccount, assertAccount } from '../profile/account-transport';
 import { address, hash, raw, review, selectOptical } from './creation-domain';
 import {
   ChainCreationAdapter,
+  KnownPurchaseNotSubmittedError,
   creationFunding,
   type AccountScope,
   type FirstPurchaseQuote,
@@ -1235,6 +1236,13 @@ export class CreationController {
         try {
           tx = hash(await this.chain.sendPurchase(quote, scope));
         } catch (error) {
+          if (error instanceof KnownPurchaseNotSubmittedError) {
+            attempt.purchaseState = 'review_required';
+            attempt.purchaseReview = undefined;
+            await this.storage.put(attempt);
+            this.set({ attempt, quote: undefined, phase: 'resolved' });
+            throw error;
+          }
           attempt.purchaseState = 'outcome_unknown';
           await this.storage.put(attempt);
           this.set({
@@ -1400,7 +1408,7 @@ export class CreationController {
         if (
           !attempt ||
           attempt.state !== 'resolved' ||
-          attempt.purchaseTxHash ||
+          (attempt.purchaseTxHash && attempt.purchaseState !== 'failed') ||
           ['signing_locked', 'outcome_unknown'].includes(attempt.purchaseState)
         )
           throw new Error('Resolve any pending purchase first.');
@@ -1432,6 +1440,13 @@ export class CreationController {
         if (!attempt) throw new Error('Unknown attempt.');
         attempt.deliberateNew = true;
         await this.storage.put(attempt);
+        clearTimeout(this.publicationTimer);
+        this.publicationTimer = undefined;
+        this.set({
+          attempt: undefined,
+          resolutionVerified: false,
+          publicationVerified: false,
+        });
         this.invalidate(
           'A separate new launch is allowed. Review its new intent before signing.',
         );

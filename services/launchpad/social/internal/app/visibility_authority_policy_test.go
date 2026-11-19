@@ -79,6 +79,29 @@ func TestVisibilityAuthorityReadsCommittedModerationPolicy(t *testing.T) {
 	if err := json.Unmarshal(raw, &result); err != nil || result.Visible || result.Revision != 1 {
 		t.Fatalf("moderated token = %+v: %v", result, err)
 	}
+	for _, status := range []string{"removed", "restored"} {
+		if _, err := h.dbConn.Exec(ctx, `UPDATE chat.safety_visibility SET status=$2,revision=revision+1 WHERE target_type='token' AND target_id=$1`, h.token, status); err != nil {
+			t.Fatal(err)
+		}
+		decision, err := runtime.reviewCallout(ctx, actor.AccountID, h.pool, "pool discussion")
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, err := json.Marshal(decision)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var review struct {
+			ResourceID string
+			Visible    bool
+		}
+		if err := json.Unmarshal(raw, &review); err != nil || review.ResourceID != h.pool || review.Visible != (status == "restored") {
+			t.Fatalf("callout review for %s token = %+v: %v", status, review, err)
+		}
+	}
+	if _, err := h.dbConn.Exec(ctx, `UPDATE chat.safety_visibility SET status='removed',revision=revision+1 WHERE target_type='token' AND target_id=$1`, h.token); err != nil {
+		t.Fatal(err)
+	}
 	h.wire.session("Bearer visibility-creator", h.creator)
 	content, err := runtime.contentVisibility(ctx, "token", h.pool)
 	if err != nil || content.Status != "allowed" {

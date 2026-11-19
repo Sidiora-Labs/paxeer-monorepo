@@ -58,7 +58,8 @@ export const FilterInput = ({
 
   return (
     <Skeleton
-      minW={ 'var(--chakra-spacing-62\\.5)' }
+      minW={ 'min(100%, var(--chakra-spacing-62\\.5))' }
+      maxW="100%"
       borderRadius="base"
       loading={ loading }
       { ...rest }
@@ -67,7 +68,10 @@ export const FilterInput = ({
         startElement={ startElement }
         startElementProps={{ px: 2 }}
         endElement={ endElement }
-        endElementProps={{ w: 'var(--chakra-spacing-8)' }}
+        endElementProps={{
+          w: 'var(--chakra-spacing-8)',
+          css: { '@media (max-width: 834px)': { width: 'var(--chakra-sizes-touch-target)' } },
+        }}
       >
         <Input
           ref={ inputRef }
@@ -77,6 +81,7 @@ export const FilterInput = ({
           onFocus={ onFocus }
           onBlur={ onBlur }
           placeholder={ placeholder }
+          aria-label={ placeholder }
           borderWidth="var(--chakra-border-widths-2)"
           textOverflow="ellipsis"
           whiteSpace="nowrap"

@@ -1,0 +1,172 @@
+package auth
+
+import (
+	"context"
+	"crypto/ecdsa"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"math/big"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+func TestSDKIdentityProducer(t *testing.T) {
+	ctx := context.Background()
+	admin, err := pgxpool.New(ctx, os.Getenv("L33_POSTGRES_DSN"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer admin.Close()
+	schema := "sdk_identity_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	if _, err = admin.Exec(ctx, "CREATE SCHEMA "+schema); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if _, err := admin.Exec(ctx, "DROP SCHEMA "+schema+" CASCADE"); err != nil {
+			t.Error(err)
+		}
+	}()
+	cfg, err := pgxpool.ParseConfig(os.Getenv("L33_POSTGRES_DSN"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.ConnConfig.RuntimeParams["search_path"] = schema
+	cfg.MaxConns = 8
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	migration, err := os.ReadFile(filepath.Join("..", "devidentity", "migrations", "00001_identity.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	up, _, found := strings.Cut(string(migration), "-- +goose Down")
+	if !found {
+		t.Fatal("identity migration requires an Up section")
+	}
+	if _, err = pool.Exec(ctx, up); err != nil {
+		t.Fatal(err)
+	}
+
+	listener, err := net.Listen("tcp", net.JoinHostPort(net.IPv4(127, 0, 0, 1).String(), "0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rpcAddress := listener.Addr().String()
+	port := listener.Addr().(*net.TCPAddr).Port
+	if err = listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+	chain := simulated.NewBackend(types.GenesisAlloc{}, func(n *node.Config, eth *ethconfig.Config) {
+		chainConfig := *eth.Genesis.Config
+		chainConfig.ChainID = big.NewInt(125)
+		eth.Genesis.Config = &chainConfig
+		n.HTTPHost = net.IPv4(127, 0, 0, 1).String()
+		n.HTTPPort = port
+		n.HTTPModules = []string{"eth"}
+	})
+	defer chain.Close()
+	chain.Commit()
+	rpcClient, err := rpc.DialContext(ctx, "http://"+rpcAddress)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rpcClient.Close()
+	secret, err := randomSecret()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SDK_IDENTITY_SIGNING_SECRET", secret)
+	application := "https://" + uuid.NewString() + ".example"
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	tokens, err := NewIdentityTokens(application, "sdk", "sdk", []SigningKey{{ID: "sdk", SecretReference: "SDK_IDENTITY_SIGNING_SECRET", ActiveAt: now.Add(-time.Minute), RetireAt: now.Add(time.Hour)}}, EnvironmentIdentitySecrets{}, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := NewIdentity(IdentityConfig{Pool: pool, Domain: strings.TrimPrefix(application, "https://"), URI: application + "/auth", AllowedOrigins: []string{application}, Verifier: Chain125ProofVerifier{Backend: sharedauth.NewReportedHashBackend(rpcClient)}, LimiterKey: []byte(secret), Tokens: tokens})
+	if err != nil {
+		t.Fatal(err)
+	}
+	serviceToken, err := randomSecret()
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := chi.NewRouter()
+	if err = identity.RegisterV2Routes(router, IdentityHTTPConfig{ServiceToken: serviceToken}); err != nil {
+		t.Fatal(err)
+	}
+	identity.registerOwnerV2Routes(router)
+	server := httptest.NewServer(router)
+	defer server.Close()
+	keys := make(map[string]*ecdsa.PrivateKey)
+	wallets := make([]string, 2)
+	for i := range wallets {
+		key, err := crypto.GenerateKey()
+		if err != nil {
+			t.Fatal(err)
+		}
+		wallets[i] = strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).Hex())
+		keys[wallets[i]] = key
+	}
+	emit := func(kind string, value any) {
+		data, err := json.Marshal(map[string]any{"kind": kind, "value": value})
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Printf("SDK_SERVICE %s\n", data)
+	}
+	stopped := make(chan struct{})
+	control := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/stop" {
+			close(stopped)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		var command struct {
+			Wallet  string `json:"wallet"`
+			Message string `json:"message"`
+		}
+		if r.URL.Path != "/sign" || json.NewDecoder(r.Body).Decode(&command) != nil || keys[command.Wallet] == nil {
+			http.Error(w, "wallet signing request required", http.StatusBadRequest)
+			return
+		}
+		signature, err := crypto.Sign(accounts.TextHash([]byte(command.Message)), keys[command.Wallet])
+		if err != nil {
+			t.Error(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		signature[64] += 27
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(WalletProof{Kind: "eoa_eip191", Wallet: command.Wallet, Signature: "0x" + hex.EncodeToString(signature)}); err != nil {
+			t.Error(err)
+		}
+	}))
+	defer control.Close()
+	emit("ready", map[string]any{"origin": server.URL, "application": application, "wallets": wallets, "serviceToken": serviceToken, "control": control.URL})
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Minute):
+		t.Fatal("identity consumer did not finish")
+	}
+}

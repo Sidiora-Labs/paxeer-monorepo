@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
@@ -230,22 +231,31 @@ func TestAuthorityReadinessFreshnessAndRecovery(t *testing.T) {
 func TestAuthorityReadinessRefreshLifecycle(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		a, reader, head := newAuthorityReadinessState(t)
-		headReads := 0
+		var headReads atomic.Int64
+		var headMu sync.Mutex
 		hold := make(chan struct{})
-		var canceled bool
+		var canceled atomic.Bool
 		a.readHead = func(ctx context.Context) (committedHead, error) {
-			headReads++
+			headReads.Add(1)
 			deadline, ok := ctx.Deadline()
 			if !ok || time.Until(deadline) > authorityAttestationTimeout {
 				return committedHead{}, fmt.Errorf("refresh deadline exceeds attestation policy")
 			}
+			headMu.Lock()
+			currentHead, currentHold := head, hold
+			headMu.Unlock()
 			select {
-			case <-hold:
-				return head, nil
+			case <-currentHold:
+				return currentHead, nil
 			case <-ctx.Done():
-				canceled = true
+				canceled.Store(true)
 				return committedHead{}, ctx.Err()
 			}
+		}
+		savedAt := func() time.Time {
+			a.mu.RLock()
+			defer a.mu.RUnlock()
+			return a.builtAt
 		}
 		if err := a.Ready(t.Context()); err == nil {
 			t.Fatal("authority ready before refresh")
@@ -253,7 +263,7 @@ func TestAuthorityReadinessRefreshLifecycle(t *testing.T) {
 		a.startRefresh(t.Context())
 		defer a.Close()
 		synctest.Wait()
-		if headReads != 1 || reader.reads.Load() != 0 {
+		if headReads.Load() != 1 || reader.reads.Load() != 0 {
 			t.Fatal("first refresh did not wait for the committed head")
 		}
 		if err := a.Ready(t.Context()); err == nil {
@@ -264,35 +274,41 @@ func TestAuthorityReadinessRefreshLifecycle(t *testing.T) {
 		if err := a.Ready(t.Context()); err != nil {
 			t.Fatal(err)
 		}
-		builtAt := a.builtAt
+		builtAt := savedAt()
+		headMu.Lock()
 		head.Hash = common.HexToHash("0x01").Hex()
+		headMu.Unlock()
 		time.Sleep(authorityRefreshInterval)
 		synctest.Wait()
-		if headReads != 2 || a.builtAt != builtAt {
+		if headReads.Load() != 2 || savedAt() != builtAt {
 			t.Fatal("failed periodic refresh changed the saved envelope")
 		}
 		if err := a.Ready(t.Context()); err != nil {
 			t.Fatal(err)
 		}
+		headMu.Lock()
 		head.Hash = reader.header.Hash().Hex()
+		headMu.Unlock()
 		time.Sleep(authorityRefreshInterval)
 		synctest.Wait()
-		if headReads != 3 || !a.builtAt.After(builtAt) {
+		if headReads.Load() != 3 || !savedAt().After(builtAt) {
 			t.Fatal("periodic refresh did not recover at the next interval")
 		}
+		headMu.Lock()
 		hold = make(chan struct{})
+		headMu.Unlock()
 		time.Sleep(authorityRefreshInterval)
 		synctest.Wait()
-		if headReads != 4 {
-			t.Fatalf("periodic head reads = %s", strconv.Itoa(headReads))
+		if headReads.Load() != 4 {
+			t.Fatalf("periodic head reads = %s", strconv.FormatInt(headReads.Load(), 10))
 		}
 		time.Sleep(authorityAttestationTimeout - time.Nanosecond)
 		synctest.Wait()
-		if headReads != 4 {
+		if headReads.Load() != 4 {
 			t.Fatal("refreshes overlapped")
 		}
 		a.Close()
-		if !canceled {
+		if !canceled.Load() {
 			t.Fatal("close did not cancel the active refresh")
 		}
 		select {
@@ -303,7 +319,7 @@ func TestAuthorityReadinessRefreshLifecycle(t *testing.T) {
 		reads := reader.reads.Load()
 		time.Sleep(3 * authorityRefreshInterval)
 		synctest.Wait()
-		if headReads != 4 || reader.reads.Load() != reads {
+		if headReads.Load() != 4 || reader.reads.Load() != reads {
 			t.Fatal("refresh continued after close")
 		}
 	})

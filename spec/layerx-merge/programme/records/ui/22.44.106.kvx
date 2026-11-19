@@ -1,0 +1,2423 @@
+[meta]
+title = "Launchpad size tokens and shell"
+task = "22.44.106"
+units = "CSS pixels"
+widths = [390, 1280, 1440, 1920, 2560]
+
+[typography]
+text_2xs = [11, 14]
+text_xs = [12, 16]
+text_sm = [13, 18]
+text_base = [14, 20]
+text_md = [16, 24]
+text_lg = [20, 28]
+text_xl = [24, 32]
+text_2xl = [32, 40]
+text_display = [48, 52]
+text_num_sm = [13, 18]
+text_num_md = [14, 20]
+body = [16, 24]
+values = "Each pair gives font size and line height at every viewport width."
+
+[shell]
+control_small = 28
+control_medium = 36
+control_large = 44
+header = 48
+ticker = 32
+navigation_row = 40
+column_collapsed = 24
+column_gutter = 4
+footer = "Copyright, legal links and activity figures share a row at desktop widths, with 11px text and a 14px line height."
+touch = "Controls have minimum dimensions of 44px at widths up to 834px."
+scrollbar = "The document reserves a stable scrollbar gutter."
+
+[derived_typography]
+card_title = [16, 24]
+page_title_size = 24
+prize_placeholder = [24, 32]
+leaderboard_title = "22px below 640px and 24px from 640px."
+
+[home]
+layout = "The home region fills the viewport between the header and footer; the feed body scrolls within its available space."
+
+[loading]
+layout = "New and explore reserve the coin table while the route loads, with 50 rows before the ranking arrives and the received row count while its details load; each waiting row reserves the coin name and symbol height. Pending footer figures reserve the width of formatted values. Loaded boxes retain their dimensions."
+
+[page_typography]
+bounties_title = "24/32px below 768px and 28/36px from 768px."
+holder_rewards_title = "28/34px below 640px and 40/46px from 640px."
+leaderboard_title_line_height = 56
+legal_title = [22, 33]
+legal_updated = [11, 14]
+legal_paragraph_size = 13
+legal_paragraph_line_height = 1.7
+pnl_title = [16, 24]
+search_input = [14, 20]
+
+[page_controls]
+documentation_back_link_height = 16
+bounties_back_link_height = 18
+compact = "The touch minimum applies to both links up to 834px."
+terminal = "The terminal content shares the main region without an additional viewport-height minimum."
+column_controls = "Collapsed-column controls stay mounted as column sizes change and remain hidden while their column is open."
+
+[geometry]
+widths = [390, 1280, 1440, 1920, 2560]
+differing_parts = [441, 362, 367, 373, 369]
+comparison = "Parts differ when a position, box dimension, font size or line height differs by more than one CSS pixel from the earlier geometry."
+scrollbar = "A stable scrollbar track reserves 15px of inline space at these widths."
+touch = "Links and controls reserve at least 44px in each dimension through 834px."
+fonts = "Manrope retains its fallback face and optional font loading."
+
+[view.home]
+differing_parts = [8, 5, 6, 5, 5]
+
+[part.home.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The home feed and board keep their current content and responsive placement within the stable scrollbar track."
+
+[part.home.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the home content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.home.footer-activity-first-row]
+widths = [1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.home.footer-navigation-first-link]
+widths = [390, 1440]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.home.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.home.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current home content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.home.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.home.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.home.primary-control]
+widths = [390]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The home feed and board keep their current content and responsive placement within the stable scrollbar track."
+
+[view.auth-callback]
+differing_parts = [8, 6, 6, 6, 6]
+
+[part.auth-callback.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The auth-callback content keeps its current placement, Manrope fallback and touch targets within the stable scrollbar track."
+
+[part.auth-callback.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the auth-callback content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.auth-callback.footer-activity-first-row]
+widths = [1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.auth-callback.footer-navigation-first-link]
+widths = [390]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.auth-callback.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.auth-callback.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current auth-callback content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.auth-callback.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.auth-callback.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.auth-callback.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The auth-callback content keeps its current placement, Manrope fallback and touch targets within the stable scrollbar track."
+
+[view.bounties]
+differing_parts = [13, 9, 10, 10, 10]
+
+[part.bounties.first-heading]
+widths = [390, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The bounties surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.bounties.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the bounties content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.bounties.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.bounties.footer-navigation-first-link]
+widths = [390]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.bounties.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.bounties.highest-value-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"highest-value-title\"]"
+cause = "The bounties surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.bounties.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current bounties content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.bounties.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.bounties.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.bounties.ol-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ol:visible >> nth=0 >> :scope > li:visible >> nth=0"
+cause = "The bounties surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.bounties.ol-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ol:visible >> nth=0"
+cause = "The bounties surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.bounties.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content >> role=button[name=/^(Post bounty|Create bounty)$/]"
+cause = "The bounties surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.bounties.recently-paid-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"recently-paid-title\"]"
+cause = "The bounties surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.bounties-bountyId]
+differing_parts = [12, 10, 10, 10, 10]
+
+[part.bounties-bountyId.bounty-description-heading-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"bounty-description-heading\"]"
+cause = "The bounties-bountyId surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.bounties-bountyId.bounty-header-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content header:visible >> nth=0"
+cause = "The bounties-bountyId surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.bounties-bountyId.bounty-submissions-heading-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"bounty-submissions-heading\"]"
+cause = "The bounties-bountyId surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.bounties-bountyId.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The bounties-bountyId surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.bounties-bountyId.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the bounties-bountyId content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.bounties-bountyId.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.bounties-bountyId.footer-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.bounties-bountyId.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.bounties-bountyId.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current bounties-bountyId content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.bounties-bountyId.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.bounties-bountyId.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.bounties-bountyId.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content >> role=button[name=\"Sign in to submit\"]"
+cause = "The bounties-bountyId surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.bounties-new]
+differing_parts = [9, 7, 7, 7, 7]
+
+[part.bounties-new.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The bounties-new surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.bounties-new.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the bounties-new content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.bounties-new.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.bounties-new.footer-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.bounties-new.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.bounties-new.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current bounties-new content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.bounties-new.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.bounties-new.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.bounties-new.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The bounties-new surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.chat]
+differing_parts = [8, 7, 6, 7, 6]
+
+[part.chat.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The chat surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.chat.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the chat content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.chat.footer-activity-first-row]
+widths = [1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.chat.footer-navigation-first-link]
+widths = [390, 1280, 1920]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.chat.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.chat.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current chat content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.chat.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.chat.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.chat.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The chat surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.chat-conversationId]
+differing_parts = [9, 7, 7, 7, 7]
+
+[part.chat-conversationId.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The conversation view includes its current navigation and message controls; the earlier view presents a different first control."
+
+[part.chat-conversationId.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the chat-conversationId content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.chat-conversationId.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.chat-conversationId.footer-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.chat-conversationId.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.chat-conversationId.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current chat-conversationId content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.chat-conversationId.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.chat-conversationId.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.chat-conversationId.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The conversation view includes its current navigation and message controls; the earlier view presents a different first control."
+
+[view.coin-address]
+differing_parts = [18, 16, 16, 16, 16]
+
+[part.coin-address.chain-revenue-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"chain-revenue-title\"]"
+cause = "The coin-address surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.coin-address.coin-details-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Coin details\"]"
+cause = "The coin-address surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.coin-address.creator-card-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"creator-card-title\"]"
+cause = "The coin-address surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.coin-address.description-card-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"description-card-title\"]"
+cause = "The coin-address surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.coin-address.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The coin view presents the coin identity before its details; the first visible heading selects different content at responsive widths."
+
+[part.coin-address.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the coin-address content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.coin-address.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.coin-address.footer-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.coin-address.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.coin-address.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current coin-address content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.coin-address.mc-ath-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"mc-ath-title\"]"
+cause = "The coin-address surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.coin-address.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.coin-address.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.coin-address.pool-info-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"pool-info-title\"]"
+cause = "The coin-address surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.coin-address.price-chart-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Price chart\"]"
+cause = "The coin-address surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.coin-address.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content button[aria-label=\"Share coin link\"]"
+cause = "The coin-address surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.coin-address.rail-holders-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"rail-holders-title\"]"
+cause = "The coin-address surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.coin-address.stats-and-audit-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Stats and audit\"]"
+cause = "The coin-address surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.create]
+differing_parts = [13, 10, 11, 11, 11]
+
+[part.create.create-costs-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"create-costs-title\"]"
+cause = "The create surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.create.create-details-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"create-details-title\"]"
+cause = "The create surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.create.create-media-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"create-media-title\"]"
+cause = "The create surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.create.create-preview-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"create-preview-title\"]"
+cause = "The create surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.create.first-heading]
+widths = [390, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The create surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.create.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the create content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.create.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.create.footer-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.create.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.create.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current create content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.create.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.create.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.create.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content >> role=button[name=\"Connect wallet to create\"]"
+cause = "The create surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.docs]
+differing_parts = [14, 11, 11, 12, 12]
+
+[part.docs.article-1-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content article:visible >> nth=0"
+cause = "The docs surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs.document-navigation]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content aside nav"
+cause = "The docs surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs.document-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content aside nav a >> nth=0"
+cause = "The docs surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The docs surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the docs content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.docs.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.docs.footer-navigation-first-link]
+widths = [390, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.docs.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.docs.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current docs content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.docs.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.docs.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.docs.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The docs surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs.ul-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0 >> :scope > li:visible >> nth=0"
+cause = "The docs surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0"
+cause = "The docs surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.docs-terms]
+differing_parts = [71, 69, 69, 69, 69]
+
+[part.docs-terms.1-introduction-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"1. Introduction\")):not(:has(section :is(h2,h3):text-is(\"1. Introduction\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.10-material-interests-and-conflicts-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"10. Material Interests and Conflicts\")):not(:has(section :is(h2,h3):text-is(\"10. Material Interests and Conflicts\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.11-transaction-limits-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"11. Transaction Limits\")):not(:has(section :is(h2,h3):text-is(\"11. Transaction Limits\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.12-security-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"12. Security\")):not(:has(section :is(h2,h3):text-is(\"12. Security\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.13-privacy-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"13. Privacy\")):not(:has(section :is(h2,h3):text-is(\"13. Privacy\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.14-amending-the-terms-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"14. Amending the Terms\")):not(:has(section :is(h2,h3):text-is(\"14. Amending the Terms\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.15-termination-suspensions-and-restrictions-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"15. Termination, Suspensions, and Restrictions\")):not(:has(section :is(h2,h3):text-is(\"15. Termination, Suspensions, and Restrictions\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.16-sidiora-ip-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"16. Sidiora IP\")):not(:has(section :is(h2,h3):text-is(\"16. Sidiora IP\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.17-licence-of-sidiora-ip-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"17. Licence of Sidiora IP\")):not(:has(section :is(h2,h3):text-is(\"17. Licence of Sidiora IP\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.18-licence-of-user-ip-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"18. Licence of User IP\")):not(:has(section :is(h2,h3):text-is(\"18. Licence of User IP\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.19-created-ip-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"19. Created IP\")):not(:has(section :is(h2,h3):text-is(\"19. Created IP\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.2-eligibility-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"2. Eligibility\")):not(:has(section :is(h2,h3):text-is(\"2. Eligibility\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.20-general-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"20. General\")):not(:has(section :is(h2,h3):text-is(\"20. General\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.21-prohibited-use-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"21. Prohibited Use\")):not(:has(section :is(h2,h3):text-is(\"21. Prohibited Use\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.22-representations-and-warranties-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"22. Representations and Warranties\")):not(:has(section :is(h2,h3):text-is(\"22. Representations and Warranties\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.23-technology-disclaimers-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"23. Technology Disclaimers\")):not(:has(section :is(h2,h3):text-is(\"23. Technology Disclaimers\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.24-indemnity-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"24. Indemnity\")):not(:has(section :is(h2,h3):text-is(\"24. Indemnity\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.25-liability-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"25. Liability\")):not(:has(section :is(h2,h3):text-is(\"25. Liability\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.26-governing-law-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"26. Governing Law\")):not(:has(section :is(h2,h3):text-is(\"26. Governing Law\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.27-dispute-resolution-arbitration-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"27. Dispute Resolution; Arbitration\")):not(:has(section :is(h2,h3):text-is(\"27. Dispute Resolution; Arbitration\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.28-contact-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"28. Contact\")):not(:has(section :is(h2,h3):text-is(\"28. Contact\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.29-general-terms-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"29. General Terms\")):not(:has(section :is(h2,h3):text-is(\"29. General Terms\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.3-sidiora-platform-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"3. Sidiora Platform\")):not(:has(section :is(h2,h3):text-is(\"3. Sidiora Platform\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.30-wallets-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"30. Wallets\")):not(:has(section :is(h2,h3):text-is(\"30. Wallets\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.31-voice-chat-feature-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"31. Voice Chat Feature\")):not(:has(section :is(h2,h3):text-is(\"31. Voice Chat Feature\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.32-definitions-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"32. Definitions\")):not(:has(section :is(h2,h3):text-is(\"32. Definitions\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.4-fees-and-calculations-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"4. Fees and Calculations\")):not(:has(section :is(h2,h3):text-is(\"4. Fees and Calculations\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.5-records-and-data-retention-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"5. Records and Data Retention\")):not(:has(section :is(h2,h3):text-is(\"5. Records and Data Retention\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.6-accessing-the-sidiora-platform-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"6. Accessing the Sidiora Platform\")):not(:has(section :is(h2,h3):text-is(\"6. Accessing the Sidiora Platform\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.7-transactions-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"7. Transactions\")):not(:has(section :is(h2,h3):text-is(\"7. Transactions\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.8-submission-of-instructions-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"8. Submission of Instructions\")):not(:has(section :is(h2,h3):text-is(\"8. Submission of Instructions\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.9-transactions-execution-and-records-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"9. Transactions (Execution and Records)\")):not(:has(section :is(h2,h3):text-is(\"9. Transactions (Execution and Records)\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.article-1-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content article:visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.document-navigation]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content aside nav"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.document-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content aside nav a >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the docs-terms content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.docs-terms.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.docs-terms.footer-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.docs-terms.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.docs-terms.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current docs-terms content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.docs-terms.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.docs-terms.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.docs-terms.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.risk-warning-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"RISK WARNING\")):not(:has(section :is(h2,h3):text-is(\"RISK WARNING\")))"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0 >> :scope > li:visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-10-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=9 >> :scope > li:visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-10-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=9"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-11-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=10 >> :scope > li:visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-11-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=10"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-12-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=11 >> :scope > li:visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-12-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=11"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-13-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=12 >> :scope > li:visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-13-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=12"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-2-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=1 >> :scope > li:visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-2-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=1"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-3-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=2 >> :scope > li:visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-3-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=2"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-4-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=3 >> :scope > li:visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-4-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=3"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-5-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=4 >> :scope > li:visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-5-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=4"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-6-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=5 >> :scope > li:visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-6-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=5"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-7-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=6 >> :scope > li:visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-7-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=6"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-8-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=7 >> :scope > li:visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-8-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=7"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-9-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=8 >> :scope > li:visible >> nth=0"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.docs-terms.ul-9-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=8"
+cause = "The docs-terms surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.explore]
+differing_parts = [12, 10, 10, 10, 10]
+
+[part.explore.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The explore surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.explore.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the explore content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.explore.footer-activity-first-row]
+widths = [1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.explore.footer-navigation-first-link]
+widths = [390]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.explore.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.explore.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current explore content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.explore.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.explore.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.explore.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The explore surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.explore.table-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content table:visible >> nth=0 >> tbody > tr:visible >> nth=0"
+cause = "The explore surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.explore.table-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content table:visible >> nth=0"
+cause = "The explore surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.explore.ul-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0 >> :scope > li:visible >> nth=0"
+cause = "The explore surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.explore.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0"
+cause = "The explore surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.holder-rewards]
+differing_parts = [18, 16, 16, 16, 16]
+
+[part.holder-rewards.all-holder-rewards-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"all-holder-rewards-title\"]"
+cause = "The holder-rewards surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.holder-rewards.article-1-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content article:visible >> nth=0"
+cause = "The holder-rewards surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.holder-rewards.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The holder-rewards surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.holder-rewards.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the holder-rewards content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.holder-rewards.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.holder-rewards.footer-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.holder-rewards.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.holder-rewards.holder-rewards-stats-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"holder-rewards-stats-title\"]"
+cause = "The holder-rewards surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.holder-rewards.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current holder-rewards content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.holder-rewards.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.holder-rewards.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.holder-rewards.ol-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ol:visible >> nth=0 >> :scope > li:visible >> nth=0"
+cause = "The holder-rewards surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.holder-rewards.ol-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ol:visible >> nth=0"
+cause = "The holder-rewards surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.holder-rewards.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content a[href=\"/create?strategy=airdrop\"]"
+cause = "The holder-rewards surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.holder-rewards.stats-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "section[aria-labelledby=\"holder-rewards-stats-title\"] dl > div >> nth=0"
+cause = "The holder-rewards surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.holder-rewards.table-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content table:visible >> nth=0 >> tbody > tr:visible >> nth=0"
+cause = "The holder-rewards surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.holder-rewards.table-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content table:visible >> nth=0"
+cause = "The holder-rewards surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.holder-rewards.top-paying-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"top-paying-title\"]"
+cause = "The holder-rewards surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.leaderboard]
+differing_parts = [13, 11, 11, 11, 11]
+
+[part.leaderboard.competition-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Competition\"]"
+cause = "The leaderboard surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.leaderboard.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The leaderboard surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.leaderboard.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the leaderboard content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.leaderboard.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.leaderboard.footer-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.leaderboard.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.leaderboard.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current leaderboard content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.leaderboard.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.leaderboard.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.leaderboard.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#leaderboard-tab-traders"
+cause = "The leaderboard surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.leaderboard.top-traders-last-24-hours-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ol[aria-label=\"Top traders, last 24 hours\"] >> :scope > li:visible >> nth=0"
+cause = "The leaderboard surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.leaderboard.top-traders-last-24-hours-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ol[aria-label=\"Top traders, last 24 hours\"]"
+cause = "The leaderboard surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.leaderboard.traders-board-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"traders-board-title\"]"
+cause = "The leaderboard surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.live]
+differing_parts = [16, 14, 14, 14, 14]
+
+[part.live.featured-live-streams-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Featured live streams\"]"
+cause = "The live surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.live.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The live surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.live.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the live content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.live.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.live.footer-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.live.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.live.highest-market-cap-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Highest market cap\"]"
+cause = "The live surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.live.highest-market-cap-no-streams-to-show-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ol[aria-label=\"Highest market cap: no streams to show\"] >> :scope > li:visible >> nth=0"
+cause = "The live surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.live.highest-market-cap-no-streams-to-show-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ol[aria-label=\"Highest market cap: no streams to show\"]"
+cause = "The live surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.live.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current live content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.live.most-viewers-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Most viewers\"]"
+cause = "The live surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.live.most-viewers-no-streams-to-show-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ol[aria-label=\"Most viewers: no streams to show\"] >> :scope > li:visible >> nth=0"
+cause = "The live surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.live.most-viewers-no-streams-to-show-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ol[aria-label=\"Most viewers: no streams to show\"]"
+cause = "The live surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.live.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.live.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.live.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The live surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.live-all]
+differing_parts = [9, 4, 4, 6, 7]
+
+[part.live-all.first-heading]
+widths = [390, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The live-all surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.live-all.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the live-all content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.live-all.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.live-all.footer-navigation-first-link]
+widths = [390, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.live-all.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.live-all.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current live-all content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.live-all.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.live-all.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.live-all.primary-control]
+widths = [390, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The live-all surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.meta-ag-orders]
+differing_parts = [7, 6, 6, 6, 6]
+
+[part.meta-ag-orders.first-heading]
+widths = [1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The meta-ag-orders surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.meta-ag-orders.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the meta-ag-orders content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.meta-ag-orders.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.meta-ag-orders.footer-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.meta-ag-orders.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.meta-ag-orders.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current meta-ag-orders content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.meta-ag-orders.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.meta-ag-orders.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[view.meta-ag-swap]
+differing_parts = [9, 7, 7, 7, 7]
+
+[part.meta-ag-swap.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The meta-ag-swap surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.meta-ag-swap.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the meta-ag-swap content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.meta-ag-swap.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.meta-ag-swap.footer-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.meta-ag-swap.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.meta-ag-swap.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current meta-ag-swap content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.meta-ag-swap.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.meta-ag-swap.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.meta-ag-swap.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The meta-ag-swap surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.not-found]
+differing_parts = [8, 6, 6, 8, 6]
+
+[part.not-found.first-heading]
+widths = [1920]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The not-found content keeps its current placement, Manrope fallback and touch targets within the stable scrollbar track."
+
+[part.not-found.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the not-found content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.not-found.footer-activity-first-row]
+widths = [1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.not-found.footer-navigation-first-link]
+widths = [390, 1920]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.not-found.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.not-found.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current not-found content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.not-found.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.not-found.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.not-found.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The not-found content keeps its current placement, Manrope fallback and touch targets within the stable scrollbar track."
+
+[part.not-found.section-1-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:visible >> nth=0"
+cause = "The not-found content keeps its current placement, Manrope fallback and touch targets within the stable scrollbar track."
+
+[view.pnl-cardId]
+differing_parts = [9, 6, 6, 7, 6]
+
+[part.pnl-cardId.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The pnl-cardId surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.pnl-cardId.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the pnl-cardId content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.pnl-cardId.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.pnl-cardId.footer-navigation-first-link]
+widths = [390, 1920]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.pnl-cardId.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.pnl-cardId.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current pnl-cardId content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.pnl-cardId.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.pnl-cardId.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.pnl-cardId.your-pnl-card-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Your PnL card\"]"
+cause = "The pnl-cardId surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.profile]
+differing_parts = [9, 6, 6, 7, 6]
+
+[part.profile.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The profile content keeps its current placement, Manrope fallback and touch targets within the stable scrollbar track."
+
+[part.profile.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the profile content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.profile.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.profile.footer-navigation-first-link]
+widths = [390, 1920]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.profile.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.profile.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current profile content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.profile.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.profile.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.profile.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The profile content keeps its current placement, Manrope fallback and touch targets within the stable scrollbar track."
+
+[view.profile-walletAddress]
+differing_parts = [16, 14, 14, 14, 14]
+
+[part.profile-walletAddress.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The profile-walletAddress surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.profile-walletAddress.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the profile-walletAddress content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.profile-walletAddress.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.profile-walletAddress.footer-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.profile-walletAddress.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.profile-walletAddress.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current profile-walletAddress content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.profile-walletAddress.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.profile-walletAddress.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.profile-walletAddress.open-positions-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul[aria-label=\"Open positions\"] >> :scope > li:visible >> nth=0"
+cause = "The profile-walletAddress surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.profile-walletAddress.open-positions-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul[aria-label=\"Open positions\"]"
+cause = "The profile-walletAddress surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.profile-walletAddress.portfolio-value-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"portfolio-value-title\"]"
+cause = "The profile-walletAddress surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.profile-walletAddress.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content button[aria-label=\"Share profile\"]"
+cause = "The profile-walletAddress surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.profile-walletAddress.profit-and-loss-summary-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Profit and loss summary\"]"
+cause = "The profile-walletAddress surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.profile-walletAddress.top-trades-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"top-trades-title\"]"
+cause = "The profile-walletAddress surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.profile-walletAddress.ul-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0 >> :scope > li:visible >> nth=0"
+cause = "The profile-walletAddress surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.profile-walletAddress.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0"
+cause = "The profile-walletAddress surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.rewards]
+differing_parts = [9, 6, 6, 6, 7]
+
+[part.rewards.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The rewards content keeps its current placement, Manrope fallback and touch targets within the stable scrollbar track."
+
+[part.rewards.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the rewards content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.rewards.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.rewards.footer-navigation-first-link]
+widths = [390, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.rewards.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.rewards.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current rewards content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.rewards.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.rewards.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.rewards.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The rewards content keeps its current placement, Manrope fallback and touch targets within the stable scrollbar track."
+
+[view.search]
+differing_parts = [10, 7, 8, 7, 7]
+
+[part.search.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The search surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.search.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the search content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.search.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.search.footer-navigation-first-link]
+widths = [390, 1440]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.search.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.search.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current search content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.search.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.search.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.search.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content input[role=\"combobox\"]"
+cause = "The search surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.search.trending-coins-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Trending coins\"]"
+cause = "The search surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.swap]
+differing_parts = [10, 8, 8, 8, 8]
+
+[part.swap.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The swap surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.swap.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the swap content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.swap.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.swap.footer-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.swap.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.swap.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current swap content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.swap.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.swap.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.swap.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The swap surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.swap.swap-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content h2:text-is(\"Swap\") >> xpath=../.."
+cause = "The swap surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.terminal]
+differing_parts = [11, 9, 9, 9, 9]
+
+[part.terminal.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The terminal surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current terminal content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.terminal.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The terminal surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal.table-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content table:visible >> nth=0 >> tbody > tr:visible >> nth=0"
+cause = "The terminal surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal.table-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content table:visible >> nth=0"
+cause = "The terminal surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal.ul-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0 >> :scope > li:visible >> nth=0"
+cause = "The terminal surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0"
+cause = "The terminal surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal.workspace-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Workspace\"]"
+cause = "The terminal surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.terminal-coin]
+differing_parts = [25, 23, 23, 23, 23]
+
+[part.terminal-coin.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal-coin.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current terminal-coin content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.terminal-coin.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal-coin.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal-coin.new-pairs-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"New pairs\")):not(:has(section :is(h2,h3):text-is(\"New pairs\")))"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.pair-activity-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Pair activity\"]"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.recent-trades-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Recent trades\"]"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.recently-viewed-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"Recently viewed\")):not(:has(section :is(h2,h3):text-is(\"Recently viewed\")))"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.terminal-accordion-security-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"terminal-accordion-security\"]"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.terminal-accordion-similar-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"terminal-accordion-similar\"]"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.trade-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Trade\"]"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.trending-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section:has(:is(h2,h3):text-is(\"Trending\")):not(:has(section :is(h2,h3):text-is(\"Trending\")))"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.ul-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0 >> :scope > li:visible >> nth=0"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.ul-2-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=1 >> :scope > li:visible >> nth=0"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.ul-2-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=1"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.ul-3-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=2 >> :scope > li:visible >> nth=0"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.ul-3-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=2"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.ul-4-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=3 >> :scope > li:visible >> nth=0"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.ul-4-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=3"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.window-stats-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Window stats\"]"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.workspace-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Workspace\"]"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-coin.your-position-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Your position\"]"
+cause = "The terminal-coin surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.terminal-portfolio]
+differing_parts = [9, 7, 7, 7, 7]
+
+[part.terminal-portfolio.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The terminal-portfolio surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-portfolio.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal-portfolio.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current terminal-portfolio content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.terminal-portfolio.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal-portfolio.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal-portfolio.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The terminal-portfolio surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-portfolio.ul-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0 >> :scope > li:visible >> nth=0"
+cause = "The terminal-portfolio surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-portfolio.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0"
+cause = "The terminal-portfolio surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-portfolio.workspace-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Workspace\"]"
+cause = "The terminal-portfolio surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.terminal-rewards]
+differing_parts = [9, 7, 7, 7, 7]
+
+[part.terminal-rewards.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The terminal-rewards surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-rewards.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal-rewards.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current terminal-rewards content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.terminal-rewards.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal-rewards.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal-rewards.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The terminal-rewards surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-rewards.ul-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0 >> :scope > li:visible >> nth=0"
+cause = "The terminal-rewards surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-rewards.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0"
+cause = "The terminal-rewards surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-rewards.workspace-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Workspace\"]"
+cause = "The terminal-rewards surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.terminal-track]
+differing_parts = [9, 7, 7, 7, 7]
+
+[part.terminal-track.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The terminal-track surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-track.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal-track.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current terminal-track content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.terminal-track.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal-track.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal-track.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The terminal-track surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-track.ul-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0 >> :scope > li:visible >> nth=0"
+cause = "The terminal-track surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-track.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0"
+cause = "The terminal-track surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-track.workspace-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Workspace\"]"
+cause = "The terminal-track surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.terminal-trenches]
+differing_parts = [14, 12, 12, 12, 12]
+
+[part.terminal-trenches.about-to-graduate-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"About to graduate\"]"
+cause = "The terminal-trenches surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-trenches.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The terminal-trenches surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-trenches.graduated-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Graduated\"]"
+cause = "The terminal-trenches surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-trenches.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal-trenches.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current terminal-trenches content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.terminal-trenches.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal-trenches.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.terminal-trenches.new-pairs-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"New pairs\"]"
+cause = "The terminal-trenches surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-trenches.new-pairs-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul[aria-label=\"New pairs\"] >> :scope > li:visible >> nth=0"
+cause = "The terminal-trenches surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-trenches.new-pairs-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul[aria-label=\"New pairs\"]"
+cause = "The terminal-trenches surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-trenches.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The terminal-trenches surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-trenches.ul-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0 >> :scope > li:visible >> nth=0"
+cause = "The terminal-trenches surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-trenches.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0"
+cause = "The terminal-trenches surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.terminal-trenches.workspace-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Workspace\"]"
+cause = "The terminal-trenches surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[view.token]
+differing_parts = [9, 7, 7, 7, 7]
+
+[part.token.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The token content keeps its current placement, Manrope fallback and touch targets within the stable scrollbar track."
+
+[part.token.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the token content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.token.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.token.footer-navigation-first-link]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.token.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.token.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current token content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.token.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.token.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.token.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The token content keeps its current placement, Manrope fallback and touch targets within the stable scrollbar track."
+
+[view.tokens-tokenAddress-metadata]
+differing_parts = [9, 6, 7, 7, 6]
+
+[part.tokens-tokenAddress-metadata.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The tokens-tokenAddress-metadata content keeps its current placement, Manrope fallback and touch targets within the stable scrollbar track."
+
+[part.tokens-tokenAddress-metadata.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the tokens-tokenAddress-metadata content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.tokens-tokenAddress-metadata.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.tokens-tokenAddress-metadata.footer-navigation-first-link]
+widths = [390, 1440, 1920]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.tokens-tokenAddress-metadata.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.tokens-tokenAddress-metadata.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current tokens-tokenAddress-metadata content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.tokens-tokenAddress-metadata.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.tokens-tokenAddress-metadata.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.tokens-tokenAddress-metadata.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The tokens-tokenAddress-metadata content keeps its current placement, Manrope fallback and touch targets within the stable scrollbar track."
+
+[view.watchlist]
+differing_parts = [8, 6, 7, 7, 7]
+
+[part.watchlist.first-heading]
+widths = [1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The watchlist surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.watchlist.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer follows the watchlist content layout, shares the inline space after the scrollbar track and reserves 44px legal links through 834px."
+
+[part.watchlist.footer-activity-first-row]
+widths = [1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The current six activity figures wrap within the footer after the reserved scrollbar track; their positions follow the page content."
+
+[part.watchlist.footer-navigation-first-link]
+widths = [390]
+selector = "footer nav a >> nth=0"
+cause = "Legal links use 11/14px Manrope with its fallback face and reserve 44px touch targets through 834px."
+
+[part.watchlist.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.watchlist.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region contains the current watchlist content layout within the stable scrollbar track and the mobile touch clearance."
+
+[part.watchlist.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.watchlist.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "The stable scrollbar track reduces available inline space; mobile navigation shares that space among its destinations."
+
+[part.watchlist.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The watchlist surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."
+
+[part.watchlist.table-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content table:visible >> nth=0"
+cause = "The watchlist surface retains its current content, responsive wrapping and component layout within the stable scrollbar track and touch targets."

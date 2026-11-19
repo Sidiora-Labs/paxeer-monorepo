@@ -52,7 +52,11 @@ const ServiceNumberWidgetsList = ({ counterSemantics }: Props) => {
   return (
     <Grid
       data-stats-number-widgets
-      gridTemplateColumns={{ base: 'repeat(1, minmax(0, 1fr))', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' }}
+      gridTemplateColumns={{
+        base: 'repeat(1, minmax(0, 1fr))',
+        sm: 'repeat(2, minmax(0, 1fr))',
+        lg: 'repeat(auto-fit, minmax(min(100%, max(calc((100% - 3 * var(--chakra-spacing-3)) / 4), 18ch)), 1fr))',
+      }}
       gap={{ base: 2, lg: 3 }}
     >
       {

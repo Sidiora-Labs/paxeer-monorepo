@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
 )
 
 type platformDocumentValues struct {
@@ -148,7 +150,7 @@ func (f platformDocumentValues) compose(t *testing.T, mode string) map[string]st
 	return composed
 }
 
-func platformEnvironment(t *testing.T, f platformDocumentValues, composed map[string]string) {
+func platformEnvironment(t *testing.T, f platformDocumentValues, composed, credentials map[string]string) {
 	t.Helper()
 	var clear func(reflect.Type)
 	clear = func(typ reflect.Type) {
@@ -171,6 +173,9 @@ func platformEnvironment(t *testing.T, f platformDocumentValues, composed map[st
 		"RPC_URL": "https://rpc.example.com", "ZONE": "mainnet-beta",
 		"DB_POOL_ID": "rankingd_pool", "INSTANCE_ID": "ranking-1",
 	}
+	for key, value := range credentials {
+		values[key] = value
+	}
 	for _, key := range f.required {
 		value, exists := composed[key]
 		if !exists {
@@ -192,7 +197,7 @@ func platformEnvironment(t *testing.T, f platformDocumentValues, composed map[st
 	}
 }
 
-func platformCertificates(t *testing.T, values map[string]any) {
+func platformCertificates(t *testing.T, values map[string]any) map[string]string {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -231,23 +236,53 @@ func platformCertificates(t *testing.T, values map[string]any) {
 	}
 	values["visibilityCertSHA256"] = production.Checksum(der)
 	values["gatewayCertSHA256"] = production.Checksum(der)
-	t.Setenv(values["clientKeyReference"].(string), string(keyPEM))
-	t.Setenv(values["serverKeyReference"].(string), string(keyPEM))
-	t.Setenv(values["cursorKeyReference"].(string), base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{0x45}, 32)))
+	return map[string]string{
+		values["clientKeyReference"].(string): string(keyPEM),
+		values["serverKeyReference"].(string): string(keyPEM),
+	}
+}
+
+func platformCursorKey(t *testing.T, cfg config.Config, want []byte) {
+	t.Helper()
+	var binding config.RankingRuntimeBinding
+	if err := config.ReadBoundDocument(cfg.RankingRuntimeFile, cfg.RankingRuntimeSHA256, &binding); err != nil {
+		t.Fatal(err)
+	}
+	if binding.CursorKeyReference != "TEST_RANKING_CURSOR_KEY" {
+		t.Fatal("loaded ranking binding must reference the deployment cursor key")
+	}
+	provider, err := secrets.NewChecked(secrets.Options{Provider: secrets.ProviderType(cfg.SecretsProvider)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := provider.GetRequired(context.Background(), binding.CursorKeyReference)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := base64.RawURLEncoding.Strict().DecodeString(encoded)
+	if err != nil || len(decoded) < 32 || !bytes.Equal(decoded, want) {
+		t.Fatal("loaded ranking binding must resolve the generated cursor key")
+	}
 }
 
 func TestPlatformDocuments(t *testing.T) {
 	f := platformValues(t)
-	platformCertificates(t, f.ranking)
+	credentials := platformCertificates(t, f.ranking)
+	cursor := make([]byte, 32)
+	if _, err := rand.Read(cursor); err != nil {
+		t.Fatal(err)
+	}
+	credentials["TEST_RANKING_CURSOR_KEY"] = base64.RawURLEncoding.EncodeToString(cursor)
 	platformWriteJSON(t, filepath.Join(f.values, "ranking.example.json"), f.ranking)
 	for _, mode := range []string{"--values", "--examples"} {
 		t.Run(mode, func(t *testing.T) {
 			composed := f.compose(t, mode)
-			platformEnvironment(t, f, composed)
+			platformEnvironment(t, f, composed, credentials)
 			cfg, err := config.Load()
 			if err != nil {
 				t.Fatalf("Load composed ranking documents: %v", err)
 			}
+			platformCursorKey(t, cfg, cursor)
 			if cfg.NodeEnv != "production" || cfg.ChainID != 125 || cfg.Port != 8080 || cfg.RuntimeProfile != "container" || cfg.BindAddress != "0.0.0.0" || cfg.SecretsProvider != "env" || cfg.RuntimeZone != "mainnet-beta" || cfg.RuntimePoolID != "rankingd_pool" || cfg.RuntimeInstanceID != "ranking-1" {
 				t.Fatal("ranking must use the platform contract's production configuration")
 			}
@@ -368,9 +403,14 @@ func TestPlatformDocumentsValueValidation(t *testing.T) {
 
 func TestPrivateListenAddressContract(t *testing.T) {
 	f := platformValues(t)
-	platformCertificates(t, f.ranking)
+	credentials := platformCertificates(t, f.ranking)
+	cursor := make([]byte, 32)
+	if _, err := rand.Read(cursor); err != nil {
+		t.Fatal(err)
+	}
+	credentials["TEST_RANKING_CURSOR_KEY"] = base64.RawURLEncoding.EncodeToString(cursor)
 	platformWriteJSON(t, filepath.Join(f.values, "ranking.example.json"), f.ranking)
-	platformEnvironment(t, f, f.compose(t, "--examples"))
+	platformEnvironment(t, f, f.compose(t, "--examples"), credentials)
 	root, err := filepath.Abs(filepath.Join("..", "..", "..", "..", ".."))
 	if err != nil {
 		t.Fatal(err)
@@ -394,6 +434,7 @@ func TestPrivateListenAddressContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load production contract: %v", err)
 	}
+	platformCursorKey(t, cfg, cursor)
 	if cfg.NodeEnv != "production" || cfg.RuntimeProfile != "container" || cfg.Port != 8080 || cfg.PrivateListenAddress != address {
 		t.Fatal("private listener must use the production contract")
 	}

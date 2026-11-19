@@ -58,6 +58,8 @@ const TxDetailsTokenTransfers = ({ data, txHash, isOverflow }: Props) => {
                     w="full"
                     minW={ 0 }
                     css={{
+                      '& [data-entity]': { flexWrap: 'wrap', maxW: 'full' },
+                      '& [data-entity-content]': { whiteSpace: 'normal', overflowWrap: 'anywhere' },
                       '& > div > div:first-child': {
                         minW: 0,
                         maxW: 'full',

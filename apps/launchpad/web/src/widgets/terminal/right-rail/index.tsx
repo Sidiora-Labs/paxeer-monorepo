@@ -38,7 +38,7 @@ export default function TerminalRightRail({ poolAddress }: { poolAddress: string
       <PositionSummary poolAddress={pool} tokenAddress={tokenAddress} />
 
       <section aria-label="Trade" className="flex flex-col gap-1 rounded-md bg-surface-1 p-1">
-        <div className="flex min-h-touch-target-min flex-wrap items-center gap-1">
+        <div className="flex min-h-7 flex-wrap items-center gap-1">
           <IconButton label="Edit trade presets" icon={<Settings />} size="sm" onClick={() => setEditorOpen(true)} />
           <SegmentedControl<`${PresetId}`>
             options={presetIds.map(id => ({ value: `${id}` as `${PresetId}`, label: `P${id}` }))}
@@ -66,7 +66,7 @@ export default function TerminalRightRail({ poolAddress }: { poolAddress: string
       </AccordionCard>
 
       <AccordionCard id="similar" title="Similar coins" trailing={<SimilarSortMenu sort={sort} onChange={setSort} />}>
-        <SimilarTokensList poolAddress={pool} symbol={symbol} sort={sort} />
+        <SimilarTokensList poolAddress={pool} symbol={symbol} sort={sort} symbolPending={snapshot.isPending} symbolError={snapshot.error} onRetrySymbol={() => { void snapshot.refetch(); }} />
       </AccordionCard>
 
       <PresetEditor open={editorOpen} onClose={() => setEditorOpen(false)} presets={presets} initial={active} onSave={(id, preset) => { updatePreset(id, preset); }} />

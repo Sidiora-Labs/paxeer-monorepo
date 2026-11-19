@@ -1,7 +1,12 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- The chain runner loads this module through CommonJS.
 const fs = require('node:fs');
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- The chain runner loads this module through CommonJS.
 const path = require('node:path');
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- The chain runner loads this module through CommonJS.
 const crypto = require('node:crypto');
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- The chain runner loads this module through CommonJS.
 const assert = require('node:assert/strict');
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- The chain runner loads this module through CommonJS.
 const { creationChainRoots } = require('./creation-chain-layout.cjs');
 
 function creationSourceAuthority(sourceRoot, manifest, candidateRevision) {
@@ -611,6 +616,7 @@ async function fixture() {
           tradeDeployment: {
             revision,
             router: router.target,
+            spender: router.target,
             quoter: quoter.target,
             registry: registryProxy.target,
             emitter: eventEmitter.target,

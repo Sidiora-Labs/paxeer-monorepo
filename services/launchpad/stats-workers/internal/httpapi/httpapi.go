@@ -7,7 +7,11 @@
 package httpapi
 
 import (
+	"log/slog"
+	"net/http"
 	"strconv"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // parseIntDefault parses raw as an int, returning def on empty or invalid input
@@ -44,4 +48,12 @@ func asStringPtr(v any) *string {
 func asBool(v any) bool {
 	b, ok := v.(bool)
 	return ok && b
+}
+
+func logReadError(r *http.Request, err error) {
+	route := r.Pattern
+	if context := chi.RouteContext(r.Context()); context != nil {
+		route = context.RoutePattern()
+	}
+	slog.ErrorContext(r.Context(), "statistics request failed", "method", r.Method, "route", route, "error", err)
 }

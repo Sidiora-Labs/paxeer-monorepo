@@ -1,0 +1,220 @@
+[manifest]
+task = "22.44.109"
+surface = "Sidiora Launchpad"
+part = "explore"
+views = 16
+named_states = 3
+states = 19
+routes = ["/explore", "/search", "/watchlist"]
+
+[coverage]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+additional_mode_widths = [390, 1440]
+complete_part_renders = 646
+
+[presentation]
+table = "Tables use natural column widths, 36px desktop headers and 48px default desktop rows. Sparklines retain their 96px width and table icons retain their size. Empty and unavailable notices follow the headers outside the horizontal scroller."
+loading = "Waiting rows reserve the coin name and symbol height at each viewport width."
+controls = "Desktop layout segments measure 32px and small segments measure 24px. Their padding includes the contrast border; touch controls retain minimum dimensions of 44px through 834px."
+search = "Search has a 768px maximum width and a 44px input with its search icon. The contrast edge fits within the field height."
+fonts = "The root layout preloads the four local Manrope faces through framework font loading and retains their fallback family."
+
+[renders.first]
+count = 646
+rendered = 646
+with_content = 646
+views = ["explore", "explore-breakout", "explore-empty", "explore-error", "explore-loading", "explore-mcap", "explore-new", "explore-trending", "explore-unusual", "explore-volume", "search", "search-q-science-empty", "search-q-science-error", "search-q-science-loading", "watchlist", "search-q-science"]
+states = 19
+
+[findings.first]
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 414
+motion = 0
+scale = 411
+geometry = 0
+shift = 118
+
+[renders.last]
+count = 646
+rendered = 646
+with_content = 646
+views = ["explore", "explore-breakout", "explore-empty", "explore-error", "explore-loading", "explore-mcap", "explore-new", "explore-trending", "explore-unusual", "explore-volume", "search", "search-q-science-empty", "search-q-science-error", "search-q-science-loading", "watchlist", "search-q-science"]
+states = 19
+result = "pass"
+
+[findings.last]
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+motion = 0
+scale = 0
+geometry = 0
+shift = 0
+
+[geometry]
+widths = [390, 1280, 1440, 1920, 2560]
+height = 900
+scheme = "dark"
+measured_parts = 165
+first_differing_parts = 127
+differing_parts = 123
+text_metric_differences = 0
+scrollbar = "The stable scrollbar track reserves 15px of inline space. Centered content moves by 7.5px when its maximum width applies."
+
+[geometry.explore]
+measured_parts = 65
+differing_parts = [12, 10, 10, 10, 10]
+distinct_differing_parts = 13
+
+[geometry.explore.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The scrollbar track reduces the available width or shifts the centered content by 7.5px."
+
+[geometry.explore.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The footer uses the inline space after the scrollbar track. Its 44px mobile legal links determine the mobile row height."
+
+[geometry.explore.footer-activity-first-row]
+widths = [1280, 1440, 1920, 2560]
+cause = "The activity figures occupy the footer inline space after the scrollbar track."
+
+[geometry.explore.footer-navigation-first-link]
+widths = [390]
+cause = "The mobile legal link has a 44px touch target and follows the footer rows within the scrollbar track."
+
+[geometry.explore.header]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The header uses the inline space after the 15px scrollbar track."
+
+[geometry.explore.main]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The main region uses the inline space after the 15px scrollbar track."
+
+[geometry.explore.navigation]
+widths = [390]
+cause = "The mobile navigation uses the inline space after the 15px scrollbar track."
+
+[geometry.explore.navigation-first-row]
+widths = [390]
+cause = "The mobile navigation distributes the inline space after the scrollbar track across its five items."
+
+[geometry.explore.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The pool-details notice supplies a retry control before the presets. Its position follows that content, the mobile touch minimum and the scrollbar track."
+
+[geometry.explore.table-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The pool-details notice precedes the table. Touch targets determine mobile row and column minimums; the scrollbar track determines the available width and centering."
+
+[geometry.explore.table-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The pool-details notice precedes the table. The mobile header is 44px high and interactive cells retain 44px minimum targets; the scrollbar track determines available width and centering."
+
+[geometry.explore.ul-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The pool-details notice precedes the preset list. The mobile preset target is 44px high and its position follows the content inside the scrollbar track."
+
+[geometry.explore.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The pool-details notice precedes the preset list. Mobile targets determine its height and the scrollbar track determines its centering."
+
+[geometry.search]
+measured_parts = 50
+differing_parts = [9, 7, 7, 7, 7]
+distinct_differing_parts = 10
+
+[geometry.search.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The scrollbar track reduces the available width or shifts the centered content by 7.5px."
+
+[geometry.search.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The footer uses the inline space after the scrollbar track. Its 44px mobile legal links determine the mobile row height."
+
+[geometry.search.footer-activity-first-row]
+widths = [1280, 1440, 1920, 2560]
+cause = "The activity figures occupy the footer inline space after the scrollbar track."
+
+[geometry.search.footer-navigation-first-link]
+widths = [390]
+cause = "The mobile legal link has a 44px touch target and follows the footer rows within the scrollbar track."
+
+[geometry.search.header]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The header uses the inline space after the 15px scrollbar track."
+
+[geometry.search.main]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The main region uses the inline space after the 15px scrollbar track."
+
+[geometry.search.navigation]
+widths = [390]
+cause = "The mobile navigation uses the inline space after the 15px scrollbar track."
+
+[geometry.search.navigation-first-row]
+widths = [390]
+cause = "The mobile navigation distributes the inline space after the scrollbar track across its five items."
+
+[geometry.search.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The scrollbar track determines centering and available width. The mobile paste target grows from 28px to 44px while the input remains 44px high."
+
+[geometry.search.trending-coins-card]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The scrollbar track reduces the available width or shifts the centered card by 7.5px."
+
+[geometry.watchlist]
+measured_parts = 50
+differing_parts = [8, 6, 6, 7, 7]
+distinct_differing_parts = 10
+
+[geometry.watchlist.first-heading]
+widths = [1920, 2560]
+cause = "The scrollbar track reduces the available width or shifts the centered content by 7.5px."
+
+[geometry.watchlist.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The footer uses the inline space after the scrollbar track. Its 44px mobile legal links determine the mobile row height."
+
+[geometry.watchlist.footer-activity-first-row]
+widths = [1280, 1440, 1920, 2560]
+cause = "The activity figures occupy the footer inline space after the scrollbar track."
+
+[geometry.watchlist.footer-navigation-first-link]
+widths = [390]
+cause = "The mobile legal link has a 44px touch target and follows the footer rows within the scrollbar track."
+
+[geometry.watchlist.header]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The header uses the inline space after the 15px scrollbar track."
+
+[geometry.watchlist.main]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The main region uses the inline space after the 15px scrollbar track."
+
+[geometry.watchlist.navigation]
+widths = [390]
+cause = "The mobile navigation uses the inline space after the 15px scrollbar track."
+
+[geometry.watchlist.navigation-first-row]
+widths = [390]
+cause = "The mobile navigation distributes the inline space after the scrollbar track across its five items."
+
+[geometry.watchlist.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The scrollbar track determines position. At 390px the 297px sign-in sentence wraps within 283px rather than 298px, adding one 18px line; toolbar targets measure 44px instead of 36px."
+
+[geometry.watchlist.table-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+cause = "The scrollbar track determines width and centering. At 390px the sign-in sentence wraps onto two lines and 44px toolbar and header targets determine the vertical positions and column minimums."

@@ -215,7 +215,7 @@ export default function CreateWizard() {
   const router = useRouter();
   const { openModal } = useAuthModal();
   const prefill = useCreatePrefill();
-  const { authority } = useRuntimeAuthority();
+  const { authority, unavailableReason } = useRuntimeAuthority();
   const authorityRef = useRef(authority);
   authorityRef.current = authority;
   const { address, chainId } = useAccount();
@@ -265,6 +265,7 @@ export default function CreateWizard() {
   const [newConsent, setNewConsent] = useState(false);
   const [verifiedPools, setVerifiedPools] = useState<string[]>([]);
   const [historyOffset, setHistoryOffset] = useState(0n);
+  const [historyExhausted, setHistoryExhausted] = useState(false);
   const launchedHere = useRef(false);
   const navigated = useRef(false);
   const autoUploaded = useRef<string | null>(null);
@@ -358,9 +359,13 @@ export default function CreateWizard() {
     setHistoryLoaded(false);
     setVerifiedPools([]);
     setHistoryOffset(0n);
+    setHistoryExhausted(false);
     setImageSkipped(false);
     setMetadataSkipped(false);
     autoReviewed.current = false;
+    launchedHere.current = false;
+    navigated.current = false;
+    autoUploaded.current = null;
     if (!controller || !address) {
       const current = draftRef.current;
       setDraft(current ? { ...current, creator: '' } : blankDraft(''));
@@ -717,7 +722,7 @@ export default function CreateWizard() {
       return {
         label: 'Create coin',
         disabled: true,
-        reason: 'Getting ready, try again in a moment',
+        reason: unavailableReason ?? 'Reconnect your wallet to create',
       };
     if (!draft) return null;
     if (Object.keys(visibleErrors).length > 0)
@@ -1157,6 +1162,18 @@ export default function CreateWizard() {
                 >
                   Check again
                 </Button>
+                {a.purchaseState === 'failed' ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={state.busy}
+                    onClick={() =>
+                      void perform(() => controller!.skipPurchase(a.intentId))
+                    }
+                  >
+                    Skip
+                  </Button>
+                ) : null}
               </div>
             )}
             {quote &&
@@ -1246,8 +1263,8 @@ export default function CreateWizard() {
 
   return (
     <div className="@container/create mx-auto w-full max-w-content-narrow-max-width px-4 py-4 lg:px-6">
-      <div className="flex flex-col gap-4 @market-two/create:flex-row @market-two/create:items-start @market-two/create:gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-4 @market-two/create:max-w-form-max-width">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-4 lg:max-w-form-max-width">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-md font-semibold text-text">Create new coin</h1>
             <Button variant="link" size="sm" href="/create/chain">
@@ -1379,7 +1396,12 @@ export default function CreateWizard() {
               </NoticeBar>
             ) : !controller ? (
               <NoticeBar tone="warning" announce wrap>
-                Getting ready. You can create in a moment.
+                {unavailableReason === 'Getting ready, one moment'
+                  ? 'Getting ready. You can create in a moment.'
+                  : unavailableReason ?? 'Reconnect your wallet to create'}
+                <Button variant="link" size="sm" href="/explore">
+                  Browse coins
+                </Button>
               </NoticeBar>
             ) : null}
             {action ? (
@@ -1475,13 +1497,26 @@ export default function CreateWizard() {
                     size="sm"
                     disabled={state.busy || !recoveryChecked || !newConsent}
                     onClick={() =>
-                      void perform(() =>
-                        controller.deliberateNew(
+                      void perform(async () => {
+                        await controller.deliberateNew(
                           attempt.intentId,
                           recoveryChecked,
                           newConsent,
-                        ),
-                      )
+                        );
+                        setDraft(carryOver(blankDraft(address!), draft!));
+                        setImageSkipped(false);
+                        setMetadataSkipped(false);
+                        setRecoveryChecked(false);
+                        setNewConsent(false);
+                        setLastRead(null);
+                        setRecoveryHash('');
+                        setImpactConsent(false);
+                        setSlippageConsent(false);
+                        autoReviewed.current = false;
+                        autoUploaded.current = null;
+                        launchedHere.current = false;
+                        navigated.current = false;
+                      })
                     }
                   >
                     Start a new coin
@@ -1538,7 +1573,7 @@ export default function CreateWizard() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      disabled={state.busy}
+                      disabled={state.busy || historyExhausted}
                       onClick={() =>
                         void perform(async () => {
                           const page = await controller.chain.createdPools(
@@ -1552,11 +1587,19 @@ export default function CreateWizard() {
                           setHistoryOffset(
                             (previous) => previous + BigInt(page.length),
                           );
+                          setHistoryExhausted(page.length < 25);
                         })
                       }
                     >
                       Show coins I created
                     </Button>
+                    {historyExhausted ? (
+                      <p role="status" className="text-xs text-text-faint">
+                        {verifiedPools.length === 0
+                          ? 'No coins created with this wallet yet'
+                          : 'All your coins are shown'}
+                      </p>
+                    ) : null}
                     {verifiedPools.map((pool) => (
                       <Button
                         key={pool}
@@ -1574,7 +1617,7 @@ export default function CreateWizard() {
           </section>
         </div>
 
-        <aside className="min-w-0 shrink-0 @market-two/create:sticky @market-two/create:top-4 @market-two/create:w-56">
+        <aside className="min-w-0 shrink-0 lg:sticky lg:top-4 lg:w-56 2xl:w-60">
           <CoinPreviewCard
             name={draft?.name ?? ''}
             symbol={draft?.symbol ?? ''}

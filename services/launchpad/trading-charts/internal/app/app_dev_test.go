@@ -58,6 +58,12 @@ func TestDevelopmentRegistersVersionedUDF(t *testing.T) {
 			t.Fatalf("%s: %d %v", mode, status, body)
 		}
 	}
+	if status, body := get("/config"); status != 200 || body["supports_search"] != false {
+		t.Fatalf("search capability %d %v", status, body)
+	}
+	if status, body := get("/symbols?symbol=" + pool); status != 503 || body["code"] != "DEPENDENCY_UNAVAILABLE" {
+		t.Fatalf("legacy symbols %d %v", status, body)
+	}
 	if status, body := get("/v2/udf/config"); status != 200 || body["supports_time"] != true {
 		t.Fatalf("config %d %v", status, body)
 	}

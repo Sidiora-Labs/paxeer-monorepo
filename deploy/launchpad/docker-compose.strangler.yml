@@ -11,12 +11,12 @@ services:
       RUNTIME_PROFILE: container
       BIND_ADDRESS: 0.0.0.0
       PORT: "8080"
-      API_PRIVATE_LISTEN_ADDRESS: "0.0.0.0:8443"
+      API_PRIVATE_LISTEN_ADDRESS: "[::]:8443"
       SECRETS_PROVIDER: env
       SECRETS_REFRESH_SECONDS: "30"
       API_ROLE: rest
     volumes:
-      - ${API_EVIDENCE_DIR:?reviewed startup documents required}:/run/kindle:ro
+      - ${API_EVIDENCE_DIR:?reviewed startup documents required}:/run/launchpad/api:ro
     read_only: true
     tmpfs: [/tmp]
     init: true
@@ -38,7 +38,7 @@ services:
       SECRETS_REFRESH_SECONDS: "30"
       API_ROLE: sockets
     volumes:
-      - ${SOCKETS_EVIDENCE_DIR:?reviewed startup documents required}:/run/kindle:ro
+      - ${SOCKETS_EVIDENCE_DIR:?reviewed startup documents required}:/run/launchpad/api-sockets:ro
     read_only: true
     tmpfs: [/tmp]
     init: true
@@ -59,7 +59,7 @@ services:
       SECRETS_PROVIDER: env
       SECRETS_REFRESH_SECONDS: "30"
     volumes:
-      - ${INDEXER_EVIDENCE_DIR:?reviewed startup documents required}:/run/kindle:ro
+      - ${INDEXER_EVIDENCE_DIR:?reviewed startup documents required}:/run/launchpad/indexer:ro
     read_only: true
     tmpfs: [/tmp]
     init: true
@@ -80,7 +80,7 @@ services:
       SECRETS_PROVIDER: env
       SECRETS_REFRESH_SECONDS: "30"
     volumes:
-      - ${CHARTS_EVIDENCE_DIR:?reviewed startup documents required}:/run/kindle:ro
+      - ${CHARTS_EVIDENCE_DIR:?reviewed startup documents required}:/run/launchpad/charts:ro
     read_only: true
     tmpfs: [/tmp]
     init: true
@@ -101,7 +101,7 @@ services:
       SECRETS_PROVIDER: env
       SECRETS_REFRESH_SECONDS: "30"
     volumes:
-      - ${STATS_EVIDENCE_DIR:?reviewed startup documents required}:/run/kindle:ro
+      - ${STATS_EVIDENCE_DIR:?reviewed startup documents required}:/run/launchpad/stats:ro
     read_only: true
     tmpfs: [/tmp]
     init: true
@@ -122,7 +122,7 @@ services:
       SECRETS_PROVIDER: env
       SECRETS_REFRESH_SECONDS: "30"
     volumes:
-      - ${PNL_EVIDENCE_DIR:?reviewed startup documents required}:/run/kindle:ro
+      - ${PNL_EVIDENCE_DIR:?reviewed startup documents required}:/run/launchpad/pnl:ro
     read_only: true
     tmpfs: [/tmp]
     init: true
@@ -140,11 +140,11 @@ services:
       RUNTIME_PROFILE: container
       BIND_ADDRESS: 0.0.0.0
       PORT: "8080"
-      RANKING_PRIVATE_LISTEN_ADDRESS: "0.0.0.0:8443"
+      RANKING_PRIVATE_LISTEN_ADDRESS: "[::]:8443"
       SECRETS_PROVIDER: env
       SECRETS_REFRESH_SECONDS: "30"
     volumes:
-      - ${RANKING_EVIDENCE_DIR:?reviewed startup documents required}:/run/kindle:ro
+      - ${RANKING_EVIDENCE_DIR:?reviewed startup documents required}:/run/launchpad/ranking:ro
     read_only: true
     tmpfs: [/tmp]
     init: true
@@ -165,7 +165,7 @@ services:
       SECRETS_PROVIDER: env
       SECRETS_REFRESH_SECONDS: "30"
     volumes:
-      - ${GATEWAY_EVIDENCE_DIR:?reviewed startup documents required}:/run/kindle:ro
+      - ${GATEWAY_EVIDENCE_DIR:?reviewed startup documents required}:/run/launchpad/gateway:ro
     read_only: true
     tmpfs: [/tmp]
     init: true
@@ -183,11 +183,11 @@ services:
       RUNTIME_PROFILE: container
       BIND_ADDRESS: 0.0.0.0
       PORT: "8080"
-      USER_PRIVATE_LISTEN_ADDRESS: "0.0.0.0:8443"
+      USER_PRIVATE_LISTEN_ADDRESS: "[::]:8443"
       SECRETS_PROVIDER: env
       SECRETS_REFRESH_SECONDS: "30"
     volumes:
-      - ${USER_EVIDENCE_DIR:?reviewed startup documents required}:/run/kindle:ro
+      - ${USER_EVIDENCE_DIR:?reviewed startup documents required}:/run/launchpad/user:ro
     read_only: true
     tmpfs: [/tmp]
     init: true
@@ -205,11 +205,11 @@ services:
       RUNTIME_PROFILE: container
       BIND_ADDRESS: 0.0.0.0
       PORT: "8080"
-      SOCIAL_PRIVATE_LISTEN_ADDRESS: "0.0.0.0:8443"
+      SOCIAL_PRIVATE_LISTEN_ADDRESS: "[::]:8443"
       SECRETS_PROVIDER: env
       SECRETS_REFRESH_SECONDS: "30"
     volumes:
-      - ${SOCIAL_EVIDENCE_DIR:?reviewed startup documents required}:/run/kindle:ro
+      - ${SOCIAL_EVIDENCE_DIR:?reviewed startup documents required}:/run/launchpad/social:ro
     read_only: true
     tmpfs: [/tmp]
     init: true
@@ -227,11 +227,11 @@ services:
       RUNTIME_PROFILE: container
       BIND_ADDRESS: 0.0.0.0
       PORT: "8080"
-      METADATA_PRIVATE_LISTEN_ADDRESS: "0.0.0.0:8443"
+      METADATA_PRIVATE_LISTEN_ADDRESS: "[::]:8443"
       SECRETS_PROVIDER: env
       SECRETS_REFRESH_SECONDS: "30"
     volumes:
-      - ${METADATA_EVIDENCE_DIR:?reviewed startup documents required}:/run/kindle:ro
+      - ${METADATA_EVIDENCE_DIR:?reviewed startup documents required}:/run/launchpad/metadata:ro
     read_only: true
     tmpfs: [/tmp]
     init: true
@@ -245,6 +245,7 @@ services:
       args: { SERVICE: livestream, BIN: livestreamd }
     env_file: ["${LIVESTREAM_ENV_FILE:?reviewed service environment required}"]
     environment:
+      LIVESTREAM_PRIVATE_LISTEN_ADDRESS: ""
       NODE_ENV: production
       RUNTIME_PROFILE: container
       BIND_ADDRESS: 0.0.0.0
@@ -252,7 +253,7 @@ services:
       SECRETS_PROVIDER: env
       SECRETS_REFRESH_SECONDS: "30"
     volumes:
-      - ${LIVESTREAM_EVIDENCE_DIR:?reviewed startup documents required}:/run/kindle:ro
+      - ${LIVESTREAM_EVIDENCE_DIR:?reviewed startup documents required}:/run/launchpad/livestream:ro
     read_only: true
     tmpfs: [/tmp]
     init: true

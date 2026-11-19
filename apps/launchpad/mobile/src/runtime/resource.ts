@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Runtime } from '../navigation.tsx';
 import { validatePublicSnapshot } from './offline-cache.ts';
+import { actionFailure, networkFailure } from './flow-state.ts';
 export function useResource<T>(
   runtime: Pick<Runtime, 'session' | 'cache'>,
   key: string,
@@ -22,14 +23,30 @@ export function useResource<T>(
     setData(undefined);
     setError(undefined);
     setOffline(false);
+    setStoredAt(undefined);
+    setLoading(false);
     if (privateData && !runtime.session.token) {
       setError('Sign in to view this account');
       return () => controller.abort();
     }
     setLoading(true);
-    const authAbort = () => controller.abort();
-    runtime.session.signal.addEventListener('abort', authAbort, { once: true });
-    void read(controller.signal)
+    const authAbort = () => {
+      controller.abort();
+      setData(undefined);
+      setLoading(false);
+      if (privateData) setError('Authorization changed. Sign in again.');
+    };
+    runtime.session.signal.addEventListener('abort', authAbort, {
+      once: true,
+    });
+    const timeout = setTimeout(() => {
+      setLoading(false);
+      setError('Service unavailable. Retry when connected.');
+      controller.abort();
+      onNetworkLost();
+    }, 30000);
+    void Promise.resolve()
+      .then(() => read(controller.signal))
       .then((value) => {
         if (
           controller.signal.aborted ||
@@ -45,7 +62,9 @@ export function useResource<T>(
           expiryTimer = setTimeout(
             () => {
               setData(undefined);
-              setError('Private snapshot expired. Refresh authorization.');
+              setError(
+                'Private snapshot expired. Refresh authorization.',
+              );
             },
             Math.max(0, until - Date.now()),
           );
@@ -65,11 +84,13 @@ export function useResource<T>(
           failure && typeof failure === 'object' && 'status' in failure
             ? failure.status
             : undefined;
-        if (status !== 401 && status !== 403) onNetworkLost();
-        const cached =
-          status === 401 || status === 403
-            ? undefined
-            : await runtime.cache.read<T>(key, account).catch(() => undefined);
+        const disconnected = networkFailure(failure);
+        if (disconnected) onNetworkLost();
+        const cached = !disconnected
+          ? undefined
+          : await runtime.cache
+              .read<T>(key, account)
+              .catch(() => undefined);
         if (
           controller.signal.aborted ||
           generation !== runtime.session.generation
@@ -90,12 +111,16 @@ export function useResource<T>(
           if (privateData) {
             const until = Math.min(
               cached.expiresAt,
-              Date.parse(runtime.session.current!.session.accessExpiresAt),
+              Date.parse(
+                runtime.session.current!.session.accessExpiresAt,
+              ),
             );
             expiryTimer = setTimeout(
               () => {
                 setData(undefined);
-                setError('Private snapshot expired. Refresh authorization.');
+                setError(
+                  'Private snapshot expired. Refresh authorization.',
+                );
               },
               Math.max(0, until - Date.now()),
             );
@@ -103,17 +128,16 @@ export function useResource<T>(
           setStoredAt(cached.storedAt);
           setOffline(true);
         }
-        setError(
-          status === 401 || status === 403
-            ? 'Authorization expired. Sign in again.'
-            : 'Service unavailable. Retry when connected.',
-        );
+        if (status === 401 || status === 403) setData(undefined);
+        setError(actionFailure(failure));
       })
       .finally(() => {
+        clearTimeout(timeout);
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => {
       if (expiryTimer) clearTimeout(expiryTimer);
+      clearTimeout(timeout);
       controller.abort();
       runtime.session.signal.removeEventListener('abort', authAbort);
     };

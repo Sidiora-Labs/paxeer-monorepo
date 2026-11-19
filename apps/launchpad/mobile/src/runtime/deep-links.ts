@@ -1,3 +1,4 @@
+import { notificationLinkPath } from './flow-state.ts';
 import {
   validatePending,
   decodePendingJournal,
@@ -162,6 +163,6 @@ export class PendingOperations {
       raw !== url.href
     )
       throw new Error('Invalid navigation origin');
-    return parseNativeRoute(url.pathname);
+    return parseNativeRoute(notificationLinkPath(url.pathname));
   }
 }

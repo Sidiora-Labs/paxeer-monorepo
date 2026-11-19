@@ -1,0 +1,12 @@
+diff --git a/dist/esm/index.js b/dist/esm/index.js
+--- a/dist/esm/index.js
++++ b/dist/esm/index.js
+@@ -1,7 +1,7 @@
+ // @ts-self-types="./index.d.ts"
+ import * as posixPath from './std__path/posix.js';
+ import * as windowsPath from './std__path/windows.js';
+-import minimatch from 'minimatch';
++import * as minimatch from 'minimatch';
+ import createDebug from 'debug';
+ import { ObjectSchema } from '@eslint/object-schema';
+ export { ObjectSchema } from '@eslint/object-schema';

@@ -1,3 +1,4 @@
+import { registerAccountInvalidator } from '@/widgets/profile/account-transport';
 import { socialWsUrl } from '@/core/sdk-config';
 import { plainText } from '@/core/user-facing-error';
 import { ChatError, decodeMessage, issueChatTicket, type DmMessage, type PoolMessage } from './chat-api';
@@ -127,3 +128,5 @@ export function sendDm(to: string, content: string, clientMessageId = crypto.ran
 export function getStatus() { return status; }
 
 export function unsubscribeDms(){if(dmSubscribed>1){dmSubscribed--;return;}if(!dmSubscribed)return;dmSubscribed=0;stop(false);void open();}
+
+registerAccountInvalidator(consumers, () => { disconnect(); consumers.clear(); });

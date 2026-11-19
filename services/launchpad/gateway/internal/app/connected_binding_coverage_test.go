@@ -31,7 +31,10 @@ import (
 	mediastore "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/storage"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/storage/testdata/objects"
 	control "github.com/Sidiora-Technologies/KindleLaunch/security/control"
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/testpki"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -318,6 +321,55 @@ func TestConnectedGatewayBindingUsesBoundIdentityAndMediaRoutes(t *testing.T) {
 			}
 		})
 	}
+	for _, schema := range []string{"users", connectedBinding.Audit.DeliverySchema, connectedBinding.Audit.SinkDeliverySchema} {
+		quoted := pgx.Identifier{schema}.Sanitize()
+		if _, err := admin.Exec(ctx, "CREATE SCHEMA "+quoted); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if _, err := admin.Exec(context.Background(), "DROP SCHEMA "+quoted+" CASCADE"); err != nil {
+				t.Error(err)
+			}
+		})
+		ddl, err := delivery.SchemaDDL(schema)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := admin.Exec(ctx, ddl); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := admin.Exec(ctx, "GRANT USAGE ON SCHEMA "+quoted+" TO identity_runtime; GRANT SELECT,UPDATE ON "+quoted+".delivery_outbox TO identity_runtime"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	epochTemplate, err := os.ReadFile("../../../../../deploy/launchpad/production/recovery/epoch.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	epochDDL, err := queue.RenderEpochSQL(connectedBinding.RecoverySchema, string(epochTemplate))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := admin.Exec(ctx, epochDDL); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := admin.Exec(ctx, "INSERT INTO users.recovery_control(singleton,epoch,region,revision,checkpoint_sha256) VALUES(true,$1,$2,1,$3)", connectedBinding.RecoveryEpoch, connectedBinding.RecoveryRegion, strings.Repeat("a", 64)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := admin.Exec(ctx, "GRANT EXECUTE ON FUNCTION users.assert_epoch(bigint,text) TO identity_runtime"); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := admin.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, "SET LOCAL search_path=users,pg_catalog;"+sharedauth.LedgerDDL+sharedauth.AuditDeliveryDDL+"GRANT SELECT ON security_audit_outbox,security_audit_delivery_receipts TO identity_runtime"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
 	runtime, err := newGatewayConnectedRuntime(ctx, cfg, identityPool, scopedControlPool, connectedBinding, rdb, cache.New(rdb, time.Minute), readers, nil)
 	if err != nil || runtime == nil || runtime.nc == nil || !runtime.nc.IsConnected() || len(runtime.upstreams) != 4 {
 		if runtime != nil {
@@ -325,6 +377,7 @@ func TestConnectedGatewayBindingUsesBoundIdentityAndMediaRoutes(t *testing.T) {
 		}
 		t.Fatalf("bound connected runtime: runtime=%v err=%v", runtime, err)
 	}
+	t.Cleanup(runtime.close)
 	if err := runtime.ready(ctx); err != nil {
 		t.Fatalf("connected runtime readiness: %v", err)
 	}
@@ -333,13 +386,37 @@ func TestConnectedGatewayBindingUsesBoundIdentityAndMediaRoutes(t *testing.T) {
 		t.Fatalf("changed broker binding remained ready: %v", err)
 	}
 	t.Setenv(connectedBinding.NATSCredentialsReference, brokerCredentials)
-	runtime.start(nil)
-	deadline := time.Now().Add(3 * time.Second)
-	for runtime.failure.Load() == nil && time.Now().Before(deadline) {
-		time.Sleep(20 * time.Millisecond)
+	if _, err := runtime.auditBridge.Stage(ctx, 32); err != nil {
+		t.Fatalf("connected audit dependency: %v", err)
 	}
-	if runtime.failure.Load() == nil || runtime.ready(ctx) == nil {
-		t.Fatal("connected worker dependency loss did not change readiness")
+	if _, err := admin.Exec(ctx, "ALTER TABLE users.security_audit_outbox RENAME TO security_audit_outbox_offline"); err != nil {
+		t.Fatal(err)
+	}
+	runtime.start(nil)
+	waitReady := func(wantReady bool) {
+		t.Helper()
+		deadline := time.Now().Add(12 * runtimeStepPeriod)
+		for {
+			err := runtime.ready(ctx)
+			if (err == nil) == wantReady {
+				return
+			}
+			if !time.Now().Before(deadline) {
+				t.Fatalf("connected worker readiness did not become %t: %v", wantReady, err)
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	}
+	waitReady(false)
+	if runtime.steps[runtimeAuditStage].Load() == nil || runtime.failure.Load() != nil {
+		t.Fatal("connected audit dependency loss did not report a recoverable step failure")
+	}
+	if _, err := admin.Exec(ctx, "ALTER TABLE users.security_audit_outbox_offline RENAME TO security_audit_outbox"); err != nil {
+		t.Fatal(err)
+	}
+	waitReady(true)
+	if runtime.steps[runtimeAuditStage].Load() != nil || runtime.failure.Load() != nil {
+		t.Fatal("connected audit dependency recovery retained a worker failure")
 	}
 	application := &App{runtimeStop: runtime.stop, runtimeWG: &runtime.wg, broker: runtime.nc, consumer: runtime.consumer, auditConsumer: runtime.auditConsumer, redis: rdb}
 	application.Close()
@@ -359,7 +436,7 @@ func startGatewayBrokerFixture(t *testing.T, pki *testpki.PKI, leaf testpki.Leaf
 		t.Fatal(err)
 	}
 	directory := t.TempDir()
-	configuration := fmt.Sprintf("host: 127.0.0.1\nport: %d\njetstream { store_dir: %q }\ntls { cert_file: %q; key_file: %q; ca_file: %q }\n", port, filepath.Join(directory, "store"), leaf.CertFile, leaf.KeyFile, pki.CAFile)
+	configuration := fmt.Sprintf("host: 127.0.0.1\nport: %d\nmax_payload: 2097152\njetstream { store_dir: %q }\ntls { cert_file: %q; key_file: %q; ca_file: %q }\n", port, filepath.Join(directory, "store"), leaf.CertFile, leaf.KeyFile, pki.CAFile)
 	path := filepath.Join(directory, "broker.conf")
 	if err := os.WriteFile(path, []byte(configuration), 0600); err != nil {
 		t.Fatal(err)

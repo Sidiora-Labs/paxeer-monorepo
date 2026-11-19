@@ -19,7 +19,7 @@ interface Props {
 }
 
 const AddressesTable = ({ items, totalSupply, pageStartIndex, isLoading }: Props) => {
-  const hasPercentage = !totalSupply.eq(ZERO);
+  const hasPercentage = isLoading || !totalSupply.eq(ZERO);
 
   return (
     <TableRoot

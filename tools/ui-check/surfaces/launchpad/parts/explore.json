@@ -20,6 +20,11 @@
             {
               "action": "wait",
               "text": "Filters apply to"
+            },
+            {
+              "action": "press",
+              "selector": "#main-content input[placeholder=\"Any\"] >> nth=4",
+              "key": "Shift"
             }
           ]
         },
@@ -57,15 +62,86 @@
             }
           ]
         }
+      ],
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(#main-content table tbody tr a[href])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Pool details: Prices are not loading right now, try again"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        }
       ]
     },
     {
       "name": "explore-breakout",
-      "path": "/explore?preset=breakout"
+      "path": "/explore?preset=breakout",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(#main-content table tbody tr a[href])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "explore-empty",
-      "path": "/explore?render=empty"
+      "path": "/explore?render=empty",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "No coins yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(#main-content [data-explore-empty]):not(:has(#main-content table tbody tr))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible [data-ticker-empty])",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "explore-error",
@@ -76,39 +152,227 @@
           "pattern": "https://sidiora.test:4173/*",
           "status": 503
         }
+      ],
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Coins are not available yet"
+        },
+        {
+          "action": "wait",
+          "text": "Platform activity is not available yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible):not(:has([data-ticker-loading]))",
+          "key": "Shift"
+        }
       ]
     },
     {
       "name": "explore-loading",
-      "path": "/explore?render=loading"
+      "path": "/explore?render=loading",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(#main-content table tbody tr[aria-hidden=\"true\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(footer dl[aria-label=\"Platform activity\"][aria-busy=\"true\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible [data-ticker-loading])",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "explore-mcap",
-      "path": "/explore?preset=mcap"
+      "path": "/explore?preset=mcap",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(#main-content table tbody tr a[href])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "explore-new",
-      "path": "/explore?preset=new"
+      "path": "/explore?preset=new",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(#main-content table tbody tr a[href])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "explore-trending",
-      "path": "/explore?preset=trending"
+      "path": "/explore?preset=trending",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(#main-content table tbody tr a[href])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "explore-unusual",
-      "path": "/explore?preset=unusual"
+      "path": "/explore?preset=unusual",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(#main-content table tbody tr a[href])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "explore-volume",
-      "path": "/explore?preset=volume"
+      "path": "/explore?preset=volume",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(#main-content table tbody tr a[href])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "search",
-      "path": "/search"
+      "path": "/search",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(#main-content section[aria-label=\"Trending coins\"] [role=\"option\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "search-q-science-empty",
-      "path": "/search?q=science&render=empty"
+      "path": "/search?q=science&render=empty",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "No coins or users match \"science\""
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible [data-ticker-empty])",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "search-q-science-error",
@@ -119,19 +383,100 @@
           "pattern": "https://sidiora.test:4173/*",
           "status": 503
         }
+      ],
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Search isn't working right now"
+        },
+        {
+          "action": "wait",
+          "text": "Platform activity is not available yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible):not(:has([data-ticker-loading]))",
+          "key": "Shift"
+        }
       ]
     },
     {
       "name": "search-q-science-loading",
-      "path": "/search?q=science&render=loading"
+      "path": "/search?q=science&render=loading",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Searching"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(footer dl[aria-label=\"Platform activity\"][aria-busy=\"true\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible [data-ticker-loading])",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "watchlist",
-      "path": "/watchlist"
+      "path": "/watchlist",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Your watchlist is empty"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "search-q-science",
-      "path": "/search?q=science"
+      "path": "/search?q=science",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2 coins, 0 users"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        }
+      ]
     }
   ],
   "answers": [

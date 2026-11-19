@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAccount } from 'wagmi';
 import { Users } from 'lucide-react';
@@ -28,7 +29,9 @@ const qualityNotes = { complete: null, partial: 'Still counting', unavailable: '
  */
 export function TradersBoard({ period, className }: TradersBoardProps) {
   const window: LeaderboardWindow = periodWindows[period];
-  const board = useLeaderboard('trader', window, leaderboardLimit);
+  const [page, setPage] = useState<{ window: LeaderboardWindow; cursor?: string }>({ window });
+  const cursor = page.window === window ? page.cursor : undefined;
+  const board = useLeaderboard('trader', window, leaderboardLimit, cursor);
   const wallets = board.state === 'ready' ? board.data.data.snapshot.entries.map(entry => entry.wallet) : [];
   const { identities } = useWalletIdentities(wallets);
   const account = useAccount();
@@ -38,15 +41,14 @@ export function TradersBoard({ period, className }: TradersBoardProps) {
   const empty = board.state === 'ready' && board.data.data.snapshot.entries.length === 0;
 
   return (
-    <section aria-labelledby="traders-board-title" className={cn('min-h-60 rounded-lg bg-surface-1 p-3 sm:p-4', className)}>
+    <section aria-labelledby="traders-board-title" className={cn('rounded-lg bg-surface-1 p-3 sm:p-4', className)}>
       <SectionHeader
         title={<span id="traders-board-title">Top traders</span>}
         description={`${periodLabels[period]}, ranked by profit`}
         loading={board.state === 'loading'}
-        className="[&_h2]:min-h-[2lh]"
       />
-      <div className="mt-3 grid min-w-0">
-        <div aria-hidden={!empty || undefined} inert={!empty || undefined} className={cn('col-start-1 row-start-1 min-w-0', !empty && 'invisible')}>
+      <div className="relative mt-3 grid min-w-0">
+        <div aria-hidden={!empty || undefined} inert={!empty || undefined} className={cn('col-start-1 row-start-1 min-w-0', !empty && 'absolute invisible')}>
           <EmptyState icon={Users} title="No traders yet" body={`Top traders from the ${periodLabels[period].toLowerCase()} show up here once people trade`} action={<Button href="/explore" variant="secondary" size="sm">Browse coins</Button>} />
         </div>
         <div className="col-start-1 row-start-1 min-w-0">
@@ -83,6 +85,8 @@ export function TradersBoard({ period, className }: TradersBoardProps) {
           ) : null}
         </div>
       </div>
+      {board.state === 'ready' && board.data.nextCursor ? <Button variant="secondary" size="sm" onClick={() => setPage({ window, cursor: board.data.nextCursor ?? undefined })}>Next page</Button> : null}
+      {cursor ? <Button variant="ghost" size="sm" onClick={() => setPage({ window })}>First page</Button> : null}
     </section>
   );
 }

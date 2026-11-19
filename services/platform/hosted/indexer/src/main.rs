@@ -181,7 +181,8 @@ fn run() -> Result<(), IndexError> {
             source.start_block,
             source.chain_id,
             source.encoding,
-        );
+        )
+        .with_read_limits(source.batch_blocks, source.readers);
         readiness.sources.push("paxeer");
         store.start_source("paxeer")?;
         follow("paxeer", Arc::clone(&store), config.poll, move |store| {

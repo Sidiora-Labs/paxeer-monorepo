@@ -167,7 +167,9 @@
   --sl-prose-measure: 62ch;
   --sl-bounty-notice-bottom: 8.5rem;
   --sl-chat-max-height: 26.25rem;
-  --sl-trade-cta-clearance: calc(var(--sl-bottom-nav-height) + var(--sl-control-height-lg) + var(--sl-space-12));
+  --sl-trade-cta-clearance: calc(
+    var(--sl-bottom-nav-height) + var(--sl-control-height-lg) + var(--sl-space-12)
+  );
   --sl-weight-normal: 400;
   --sl-tracking-wide: 0.025em;
   --sl-tracking-wider: 0.05em;
@@ -178,38 +180,38 @@
   /* type */
   --sl-font-sans: 'Manrope', 'Manrope Fallback', ui-sans-serif, system-ui, sans-serif;
   --sl-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --sl-text-2xs: clamp(0.6875rem, 0.6675rem + 0.05vw, 0.75rem);
-  --sl-leading-2xs: 1.4;
+  --sl-text-2xs: 11px;
+  --sl-leading-2xs: 14px;
   --sl-weight-2xs: 600;
-  --sl-text-xs: clamp(0.75rem, 0.73rem + 0.05vw, 0.8125rem);
-  --sl-leading-xs: 1.4;
+  --sl-text-xs: 12px;
+  --sl-leading-xs: 16px;
   --sl-weight-xs: 600;
-  --sl-text-sm: clamp(0.8125rem, 0.7925rem + 0.05vw, 0.875rem);
-  --sl-leading-sm: 1.45;
+  --sl-text-sm: 13px;
+  --sl-leading-sm: 18px;
   --sl-weight-sm: 600;
-  --sl-text-base: clamp(0.875rem, 0.855rem + 0.1vw, 1rem);
-  --sl-leading-base: 1.5;
+  --sl-text-base: 14px;
+  --sl-leading-base: 20px;
   --sl-weight-base: 600;
-  --sl-text-md: clamp(1rem, 0.98rem + 0.1vw, 1.125rem);
-  --sl-leading-md: 1.5;
+  --sl-text-md: 16px;
+  --sl-leading-md: 24px;
   --sl-weight-md: 700;
-  --sl-text-lg: clamp(1.25rem, 1.23rem + 0.2vw, 1.5rem);
-  --sl-leading-lg: 1.4;
+  --sl-text-lg: 20px;
+  --sl-leading-lg: 28px;
   --sl-weight-lg: 700;
-  --sl-text-xl: clamp(1.5rem, 1.48rem + 0.2vw, 1.75rem);
-  --sl-leading-xl: 1.35;
+  --sl-text-xl: 24px;
+  --sl-leading-xl: 32px;
   --sl-weight-xl: 800;
-  --sl-text-2xl: clamp(2rem, 1.98rem + 0.4vw, 2.5rem);
-  --sl-leading-2xl: 1.25;
+  --sl-text-2xl: 32px;
+  --sl-leading-2xl: 40px;
   --sl-weight-2xl: 800;
-  --sl-text-display: clamp(3rem, 2.98rem + 0.8vw, 4rem);
-  --sl-leading-display: 1.15;
+  --sl-text-display: 48px;
+  --sl-leading-display: 52px;
   --sl-weight-display: 800;
-  --sl-text-num-sm: var(--sl-text-sm);
-  --sl-leading-num-sm: 1.5;
+  --sl-text-num-sm: 13px;
+  --sl-leading-num-sm: 18px;
   --sl-weight-num-sm: 700;
-  --sl-text-num-md: var(--sl-text-base);
-  --sl-leading-num-md: 1.5;
+  --sl-text-num-md: 14px;
+  --sl-leading-num-md: 20px;
   --sl-weight-num-md: 700;
 
   /* radius */
@@ -237,14 +239,14 @@
   /* layout */
   --sl-rail-width: 3.5rem;
   --sl-rail-expanded-width: 14.5rem;
-  --sl-header-height: 3.25rem;
-  --sl-header-layout-height: 52px;
+  --sl-header-height: 48px;
+  --sl-header-layout-height: 48px;
   --sl-shell-layout-space: 4px;
   --sl-shell-control-size: 44px;
   --sl-rail-layout-width: 56px;
   --sl-rail-layout-expanded-width: 232px;
   --sl-bottom-nav-layout-height: 56px;
-  --sl-ticker-height: 2.75rem;
+  --sl-ticker-height: 32px;
   --sl-shell-top-total: 6.75rem;
   --sl-right-rail-width: 20rem;
   --sl-right-rail-width-wide: 22.5rem;
@@ -270,9 +272,9 @@
   --sl-bounty-card-min-width: 20rem;
   --sl-bounty-token-min-height: max(var(--sl-control-height-md), 2lh);
   --sl-token-card-min-width: 15rem;
-  --sl-control-height-sm: 2.75rem;
-  --sl-control-height-md: 2.75rem;
-  --sl-control-height-lg: 2.75rem;
+  --sl-control-height-sm: 28px;
+  --sl-control-height-md: 36px;
+  --sl-control-height-lg: 44px;
   --sl-icon-sm: 0.875rem;
   --sl-icon-md: 1rem;
   --sl-icon-lg: 1.25rem;
@@ -353,9 +355,9 @@
   --sl-bounty-entry-min-height: max(calc(var(--sl-space) * 160), 28lh);
   --sl-bounty-entry-expanded-min-height: 36lh;
   --sl-strategy-option-min-width: 7.5rem;
-  --sl-text-page-title: clamp(var(--sl-text-md), 6cqi, var(--sl-text-xl));
-  --sl-text-card-title: clamp(var(--sl-text-sm), 6cqi, var(--sl-text-md));
-  --sl-text-prize-placeholder: clamp(var(--sl-text-md), 8cqi, var(--sl-text-xl));
+  --sl-text-page-title: var(--sl-text-xl);
+  --sl-text-card-title: var(--sl-text-md);
+  --sl-text-prize-placeholder: var(--sl-text-xl);
   --sl-select-min-width: 10rem;
   --sl-search-max-width: 30rem;
   --sl-dialog-max-height: calc(100dvh - var(--sl-space-6));
@@ -725,29 +727,6 @@
   ) {
     touch-action: manipulation;
   }
-  :where(
-    button,
-    [role='button'],
-    summary,
-    select,
-    [role='tab'],
-    [role='menuitem'],
-    [role='menuitemradio'],
-    nav a,
-    a[href]:not(p a),
-    [tabindex='0']
-  ) {
-    min-block-size: var(--sl-touch-target-min);
-    min-inline-size: var(--sl-touch-target-min);
-  }
-  :where(a[href]:not(p a), span[tabindex='0']) {
-    display: inline-flex;
-    align-items: center;
-  }
-  :where(input:not([type='checkbox']):not([type='radio']):not([type='range']), textarea, select) {
-    font-size: var(--sl-text-md);
-    min-block-size: var(--sl-touch-target-min);
-  }
   :where(dialog:modal) {
     overscroll-behavior: contain;
   }
@@ -933,5 +912,35 @@
   }
   .foundation-shell[data-shell-route-id='coin'] main :focus-visible {
     scroll-margin-block-end: var(--sl-space-4);
+  }
+}
+
+@media (max-width: 834px) {
+  :where(
+    button,
+    [role='button'],
+    summary,
+    select,
+    input:not([type='hidden']),
+    textarea,
+    [role='tab'],
+    [role='menuitem'],
+    [role='menuitemradio'],
+    nav a,
+    section[aria-label='Market ticker'] a,
+    a[href]:not(p a),
+    [tabindex='0']
+  ) {
+    min-block-size: var(--sl-touch-target-min);
+    min-inline-size: var(--sl-touch-target-min);
+  }
+}
+
+@layer base {
+  @media (max-width: 834px) {
+    :where(a[href]:not(p a), span[tabindex='0']) {
+      display: inline-flex;
+      align-items: center;
+    }
   }
 }

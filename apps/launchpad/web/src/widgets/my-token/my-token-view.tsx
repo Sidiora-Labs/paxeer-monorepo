@@ -7,12 +7,12 @@ import { isAddress, zeroAddress, type Address } from 'viem';
 import { Coins } from 'lucide-react';
 import { useReadQuoterGetPoolsByCreator } from '@/core/network/contracts';
 import { CORE_DEPLOYMENT } from '@/core/network/deployment';
-import { formatAddress } from '@/utils/format';
 import { metadataApiUrl } from '@/core/sdk-config';
 import TxFeed from '@/widgets/trading/tx-feed';
 import HoldersPanel from '@/widgets/trading/holders-panel';
 import { Button, EmptyState, ErrorState, Skeleton } from '@/ui/primitives';
 import { SignedOutState } from '@/ui/shared/signed-out-state';
+import { poolPath } from '@/core/app-foundation/navigation';
 
 interface PoolMeta {
   poolAddress: Address;
@@ -52,7 +52,7 @@ export async function fetchCreatorPoolMetadata(
   if (tokenAddress === zeroAddress || tokenAddress.toLowerCase() === poolAddress.toLowerCase()) {
     throw new Error('Pool token identity is unavailable');
   }
-  const response = await fetch(metadataApiUrl(`/metadata/${tokenAddress}`), { signal });
+  const response = await fetch(metadataApiUrl(`/metadata/${tokenAddress}`), { signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000) });
   if (!response.ok) throw new Error('Coin metadata is unavailable');
   const data: unknown = await response.json();
   if (
@@ -94,7 +94,15 @@ function useCreatorPoolMetadata(creator: Address, poolAddress: Address) {
     },
     retry: false,
   });
-  return { ...metadata, isError: identity.isError || metadata.isError };
+  return {
+    ...metadata,
+    isPending: identity.isPending || metadata.isPending,
+    isError: identity.isError || metadata.isError,
+    retry: async () => {
+      if (identity.isError) await identity.refetch();
+      else await metadata.refetch();
+    },
+  };
 }
 
 function CreatorPoolButton({
@@ -119,12 +127,12 @@ function CreatorPoolButton({
           : 'bg-surface-2 text-text-faint hover:bg-surface-hover hover:text-text'
       }`}
     >
-      {metadata.data?.symbol || formatAddress(poolAddress, 4)}
+      {metadata.data?.symbol || poolAddress}
     </button>
   );
 }
 
-function CreatorPoolInfo({ creator, poolAddress }: {
+export function CreatorPoolInfo({ creator, poolAddress }: {
   creator: Address;
   poolAddress: Address;
 }) {
@@ -133,16 +141,19 @@ function CreatorPoolInfo({ creator, poolAddress }: {
     <div className="rounded-lg bg-surface-2 p-4">
       <h3 className="text-sm font-bold mb-2">Coin info</h3>
       {metadata.isError ? <p role="alert">Coin info unavailable</p> : null}
+      {metadata.isError ? <Button variant="link" size="sm" onClick={() => void metadata.retry()}>Try again</Button> : metadata.isPending ? <p role="status">Loading coin info...</p> : null}
       <div className="grid grid-cols-2 gap-2 text-2xs">
         <span className="text-text-faint">Pool address</span>
         <span className="truncate">{poolAddress}</span>
         <span className="text-text-faint">Token address</span>
-        <span className="truncate">{metadata.data?.tokenAddress || '...'}</span>
+        <span className="truncate">{metadata.data?.tokenAddress ?? '—'}</span>
         <span className="text-text-faint">Name</span>
-        <span>{metadata.data?.name || '...'}</span>
+        <span>{metadata.data?.name ?? '—'}</span>
         <span className="text-text-faint">Ticker</span>
-        <span>{metadata.data?.symbol || '...'}</span>
+        <span>{metadata.data?.symbol ?? '—'}</span>
       </div>
+      <Button variant="link" size="sm" href={poolPath(125, poolAddress)}>View coin</Button>
+      {metadata.data ? <Button variant="link" size="sm" href={`/tokens/${metadata.data.tokenAddress}/metadata`}>Edit coin details</Button> : null}
     </div>
   );
 }

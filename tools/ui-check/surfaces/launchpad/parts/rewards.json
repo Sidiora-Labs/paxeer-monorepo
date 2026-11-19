@@ -60,11 +60,56 @@
             }
           ]
         }
+      ],
+      "ready": [
+        {
+          "action": "wait",
+          "text": "Showing 1 of 1 loaded coins."
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-labelledby=\"top-paying-title\"] article :text(\"Science Inu\")):has(#main-content table :text(\"Science Inu\")):not(:has([aria-label=\"Loading market cap\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready]):not(:has(#main-content [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:not(:has(section[aria-label=\"Market ticker\"]:visible)), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
       ]
     },
     {
       "name": "holder-rewards-empty",
-      "path": "/holder-rewards?render=empty"
+      "path": "/holder-rewards?render=empty",
+      "ready": [
+        {
+          "action": "wait",
+          "text": "No holder rewards paid yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready]):not(:has(#main-content [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:not(:has(section[aria-label=\"Market ticker\"]:visible)), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"No top earners in the last 24h\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
     },
     {
       "name": "holder-rewards-error",
@@ -75,23 +120,117 @@
           "pattern": "https://sidiora.test:4173/*",
           "status": 503
         }
+      ],
+      "ready": [
+        {
+          "action": "wait",
+          "text": "Holder rewards are not available yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready]):not(:has(#main-content [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:not(:has(section[aria-label=\"Market ticker\"]:visible)), html:has(section[aria-label=\"Market ticker\"]:visible:has(button[role=\"radio\"][aria-label=\"Top earners\"][aria-checked=\"true\"]) > div:last-child:empty)",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Platform activity is not available yet"
+        }
       ]
     },
     {
       "name": "holder-rewards-loading",
-      "path": "/holder-rewards?render=loading"
+      "path": "/holder-rewards?render=loading",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready]):has(section[aria-labelledby=\"top-paying-title\"] [aria-busy=\"true\"]):has(section[aria-labelledby=\"holder-rewards-stats-title\"] [aria-busy=\"true\"]):has(section[aria-labelledby=\"all-holder-rewards-title\"] [aria-busy=\"true\"])",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "leaderboard",
-      "path": "/leaderboard"
+      "path": "/leaderboard",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-cup-state=\"unsupported\"]):has(#leaderboard-panel-traders [data-rank=\"1\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready]):not(:has(#main-content [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:not(:has(section[aria-label=\"Market ticker\"]:visible)), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
     },
     {
       "name": "leaderboard-callouts",
-      "path": "/leaderboard?tab=callouts"
+      "path": "/leaderboard?tab=callouts",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has(#leaderboard-panel-callouts aside:visible :text(\"No callouts yet\")), html:has(#leaderboard-panel-traders:visible [data-rank=\"1\"]):has(aside[aria-label=\"Best callouts\"]:visible :text(\"No callouts yet\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready]):not(:has(#main-content [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:not(:has(section[aria-label=\"Market ticker\"]:visible)), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
     },
     {
       "name": "leaderboard-empty",
-      "path": "/leaderboard?render=empty"
+      "path": "/leaderboard?render=empty",
+      "ready": [
+        {
+          "action": "wait",
+          "text": "No traders yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-cup-state=\"unsupported\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready]):not(:has(#main-content [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:not(:has(section[aria-label=\"Market ticker\"]:visible)), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"No top earners in the last 24h\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
     },
     {
       "name": "leaderboard-error",
@@ -102,35 +241,189 @@
           "pattern": "https://sidiora.test:4173/*",
           "status": 503
         }
+      ],
+      "ready": [
+        {
+          "action": "wait",
+          "text": "Leaderboard is not available yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready]):not(:has(#main-content [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:not(:has(section[aria-label=\"Market ticker\"]:visible)), html:has(section[aria-label=\"Market ticker\"]:visible:has(button[role=\"radio\"][aria-label=\"Top earners\"][aria-checked=\"true\"]) > div:last-child:empty)",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Platform activity is not available yet"
+        }
       ]
     },
     {
       "name": "leaderboard-loading",
-      "path": "/leaderboard?render=loading"
+      "path": "/leaderboard?render=loading",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready]):has([data-cup-state=\"unsupported\"]):has(#leaderboard-panel-traders .sl-skeleton)",
+          "key": "Shift"
+        }
+      ]
     },
     {
       "name": "leaderboard-month",
-      "path": "/leaderboard?period=1m"
+      "path": "/leaderboard?period=1m",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-cup-state=\"unsupported\"]):has(#leaderboard-panel-traders [data-rank=\"1\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready]):not(:has(#main-content [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:not(:has(section[aria-label=\"Market ticker\"]:visible)), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
     },
     {
       "name": "leaderboard-rewards",
-      "path": "/leaderboard?tab=rewards"
+      "path": "/leaderboard?tab=rewards",
+      "ready": [
+        {
+          "action": "wait",
+          "text": "Sign in to see your rewards"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready]):not(:has(#main-content [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:not(:has(section[aria-label=\"Market ticker\"]:visible)), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
     },
     {
       "name": "leaderboard-squads",
-      "path": "/leaderboard?tab=squads"
+      "path": "/leaderboard?tab=squads",
+      "ready": [
+        {
+          "action": "wait",
+          "text": "Squad rankings are not available yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready]):not(:has(#main-content [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:not(:has(section[aria-label=\"Market ticker\"]:visible)), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
     },
     {
       "name": "leaderboard-week",
-      "path": "/leaderboard?period=1w"
+      "path": "/leaderboard?period=1w",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-cup-state=\"unsupported\"]):has(#leaderboard-panel-traders [data-rank=\"1\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready]):not(:has(#main-content [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:not(:has(section[aria-label=\"Market ticker\"]:visible)), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
     },
     {
       "name": "r-shortCode",
-      "path": "/r/science"
+      "path": "/r/science",
+      "ready": [
+        {
+          "action": "wait",
+          "text": "callouts yet"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x111111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
     },
     {
       "name": "rewards",
-      "path": "/rewards"
+      "path": "/rewards",
+      "ready": [
+        {
+          "action": "wait",
+          "text": "Connect wallet to see your rewards"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready]):not(:has(#main-content [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:not(:has(section[aria-label=\"Market ticker\"]:visible)), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "2.00 USDL"
+        }
+      ]
     }
   ],
   "answers": [

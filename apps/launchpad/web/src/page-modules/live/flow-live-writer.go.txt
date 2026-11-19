@@ -1,0 +1,84 @@
+package main
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/streams"
+	"github.com/go-chi/chi/v5"
+)
+
+func main() {
+	var input struct{ RequestID, StreamID, OtherID, Pool, Wallet, Title string }
+	if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
+		panic(err)
+	}
+	at := time.Now().UTC()
+	output := map[string]any{}
+	for index, state := range []string{"REQUESTED", "PROVISIONING", "READY", "LIVE", "ENDING", "ENDED", "FAILED", "SUSPENDED"} {
+		op := streams.Operation{ID: input.StreamID, Pool: input.Pool, Wallet: input.Wallet, Title: input.Title, State: state, Revision: int64(index + 1), ProviderID: input.StreamID, ProviderTime: &at}
+		operation, err := streams.AdaptV2StreamOperationGet(input.RequestID, op, at)
+		if err != nil {
+			panic(err)
+		}
+		playback := ""
+		if state == "LIVE" {
+			playback = "https://livepeercdn.studio/hls/" + input.StreamID + "/index.m3u8"
+		}
+		view, err := streams.AdaptV2Stream(op, playback, nil, "unavailable")
+		if err != nil {
+			panic(err)
+		}
+		output[strings.ToLower(state)] = map[string]any{"operation": json.RawMessage(operation), "stream": view}
+		if state == "LIVE" {
+			op.Revision = 9
+			newer, err := streams.AdaptV2Stream(op, playback, nil, "unavailable")
+			if err != nil {
+				panic(err)
+			}
+			output["liveUpdated"] = newer
+			op.ID = input.OtherID
+			op.Revision = 10
+			other, err := streams.AdaptV2Stream(op, playback, nil, "unavailable")
+			if err != nil {
+				panic(err)
+			}
+			output["otherLive"] = other
+		}
+		if state == "REQUESTED" {
+			body, err := streams.AdaptV2StreamCreate(input.RequestID, op)
+			if err != nil {
+				panic(err)
+			}
+			output["create"] = json.RawMessage(body)
+		}
+		if state == "READY" {
+			body, err := streams.AdaptV2StreamStart(input.RequestID, op)
+			if err != nil {
+				panic(err)
+			}
+			output["start"] = json.RawMessage(body)
+		}
+		if state == "ENDING" {
+			body, err := streams.AdaptV2StreamEnd(input.RequestID, op)
+			if err != nil {
+				panic(err)
+			}
+			output["end"] = json.RawMessage(body)
+		}
+	}
+	router := chi.NewRouter()
+	streams.New(streams.Deps{BroadcastUnprovisioned: true}).RegisterRoutes(router)
+	for name, path := range map[string]string{"directoryError": "/v2/streams/live", "privateError": "/v2/streams/" + input.StreamID + "/private-playback"} {
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+		output[name] = map[string]any{"status": response.Code, "body": json.RawMessage(response.Body.Bytes())}
+	}
+	if err := json.NewEncoder(os.Stdout).Encode(output); err != nil {
+		panic(err)
+	}
+}

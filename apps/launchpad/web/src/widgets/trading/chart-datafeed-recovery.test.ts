@@ -974,7 +974,7 @@ try {
   let releaseVendorFailure;
   const vendorFailure = new Promise(resolve => { releaseVendorFailure = resolve; });
   await page.route('**/charting_library/charting_library.standalone.js', async route => { await vendorFailure; await route.abort(); });
-  await page.goto(new URL('/token/' + pool, origin).href, { waitUntil: 'load' });
+  await page.goto(new URL('/coin/' + pool, origin).href, { waitUntil: 'load' });
   await completeFirstVisit(page, touch);
   const inspect = page.locator('button[aria-controls="canonical-chart-table"]');
   await inspect.waitFor();
@@ -1047,7 +1047,7 @@ try {
    } });
   } });
  });
- await page.goto(new URL('/token/' + pool, origin).href, { waitUntil: 'load' });
+ await page.goto(new URL('/coin/' + pool, origin).href, { waitUntil: 'load' });
  await completeFirstVisit(page, false);
  await page.waitForFunction(() => window.__actualChartObservation?.ready === true);
  await page.waitForFunction(() => Boolean(window.__actualChartObservation?.widget.activeChart().symbolExt()?.timezone));
@@ -1085,6 +1085,59 @@ try {
  assert.equal(await daily.getAttribute('aria-checked'), 'true');
  await page.screenshot({ path: path.join(output, 'chart-mode-viewport.png'), fullPage: true });
  await context.tracing.stop({ path: path.join(output, 'chart-mode-viewport-trace.zip') });
+ await context.tracing.start({ screenshots: true, snapshots: true });
+ try {
+ const unknown = '0x' + '00'.repeat(19) + '01';
+ const missing = await page.request.get(new URL('/v2/pools/' + unknown, joined.api_origin).href, { headers: { 'X-Schema-Version': '2' } });
+ assert.equal(missing.status(), 404);
+ assert.equal((await missing.json()).code, 'NOT_FOUND');
+ for (const type of ['token', 'pool']) {
+  const search = new URL('/v2/search', joined.api_origin);
+  search.searchParams.set('q', unknown); search.searchParams.set('type', type); search.searchParams.set('limit', '10');
+  const response = await page.request.get(search.href, { headers: { 'X-Schema-Version': '2' } });
+  assert.equal(response.status(), 200);
+  assert.deepEqual((await response.json()).data.items, []);
+ }
+ let detailRequested = false, releaseDetail;
+ const detailReady = new Promise(resolve => { releaseDetail = resolve; });
+ const unknownSnapshots = [];
+ const observeSnapshot = request => {
+  const url = new URL(request.url());
+  if (url.pathname === '/v2/snapshots' && (url.searchParams.get('topics') ?? '').includes(unknown)) unknownSnapshots.push(url.href);
+ };
+ page.on('request', observeSnapshot);
+ await page.route('**/v2/pools/' + unknown, async route => { detailRequested = true; await detailReady; await route.continue(); });
+ await Promise.all([
+  page.goto(new URL('/terminal/' + unknown, origin).href, { waitUntil: 'domcontentloaded' }),
+  (async () => {
+   try {
+    await eventually(() => detailRequested);
+    await page.getByText('Loading pair header', { exact: true }).waitFor();
+    assert.deepEqual(unknownSnapshots, []);
+   } finally { releaseDetail(); }
+  })(),
+ ]);
+ await page.getByRole('heading', { name: 'Coin not found', exact: true }).waitFor();
+ assert.deepEqual(unknownSnapshots, []);
+ await page.getByRole('link', { name: 'Back to trending', exact: true }).click();
+ await page.waitForURL(new URL('/terminal', origin).href);
+ page.off('request', observeSnapshot);
+ await page.goto(new URL('/meta-ag/swap', origin).href, { waitUntil: 'load' });
+ await page.getByText('Swaps are not available yet', { exact: true }).waitFor();
+ assert.match(await page.getByText('Swap contract', { exact: true }).locator('..').innerText(), /Not available yet/);
+ assert.doesNotMatch(await page.locator('main').last().innerText(), /0x[0-9a-f]{4}/i);
+ await page.getByRole('link', { name: 'Classic swap', exact: false }).click();
+ await page.waitForURL(new URL('/swap', origin).href);
+ await page.goto(new URL('/meta-ag/orders', origin).href, { waitUntil: 'load' });
+ await page.getByText('Limit and stop orders are not available yet.', { exact: false }).waitFor();
+ assert.match(await page.getByText('Order bot', { exact: true }).locator('..').innerText(), /Not available yet/);
+ assert.match(await page.getByText('Orders contract', { exact: true }).locator('..').innerText(), /Not available yet/);
+ assert.equal(await page.getByRole('button', { name: 'Place order', exact: true }).count(), 0);
+ await page.getByRole('link', { name: 'Open the terminal to trade', exact: true }).click();
+ await page.waitForURL(new URL('/terminal', origin).href);
+ } finally {
+  await context.tracing.stop({ path: path.join(output, 'terminal-orders-trace.zip') });
+ }
  await context.close();
 } finally { await browser.close(); }
 `;

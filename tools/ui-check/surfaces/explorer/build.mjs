@@ -50,4 +50,5 @@ await run(process.execPath, [
   '--no-async-stack-traces', '--import', fileURLToPath(new URL('./build-config.mjs', import.meta.url)),
   'node_modules/next/dist/bin/next', 'build',
 ]);
+await (await import('./transactions.mjs')).prepareTransactionAnswers();
 await run(process.execPath, [fileURLToPath(new URL('./start.mjs', import.meta.url)), '--prepare']);

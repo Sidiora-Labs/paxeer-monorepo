@@ -74,7 +74,7 @@ func RenderRuntimeDocuments(in runtimedocs.Inputs, p DeliveryParameters) (map[st
 	receiptDoc := receiptRuntimeDocument{Realm: valueProduction, Production: authority}
 	deliveryDoc := deliveryRuntimeDocument{
 		MaxDeliveryLagMS: p.MaxDeliveryLagMS, DeadLetters: p.DeadLetters,
-		Schema: "indexer", Owner: p.Owner, Epoch: p.Epoch, Region: p.Region, Stream: p.Stream,
+		Schema: valueIndexer, Owner: p.Owner, Epoch: p.Epoch, Region: p.Region, Stream: p.Stream,
 		CanonicalStreamID: p.CanonicalStreamID, DeploymentID: authority.Manifest.DeploymentVersion,
 		ProjectionVersion: p.ProjectionVersion, InventoryProjectionVersion: p.InventoryProjectionVersion, Generation: p.InventoryGeneration,
 		Policy: delivery.Policy{

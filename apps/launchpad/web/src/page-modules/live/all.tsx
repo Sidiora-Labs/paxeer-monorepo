@@ -8,7 +8,7 @@ import { LoadMore, SegmentedControl } from '@/ui/primitives';
 import { StreamCard, StreamCardPlaceholder, StreamCardSkeleton } from '@/widgets/live/stream-card';
 import { LiveUnavailable } from '@/widgets/live/live-unavailable';
 import { liveSortLabels, parseLiveSort, streamGridClass, type LiveSort } from '@/widgets/live/ranked-row';
-import { rankByMarketCap, rankByViewers, useLiveDirectory, useLiveDirectoryContinuation, type LiveDirectoryEntry } from '@/widgets/live/use-live-directory';
+import { mergeLiveEntries, rankByMarketCap, rankByViewers, useLiveDirectory, useLiveDirectoryContinuation } from '@/widgets/live/use-live-directory';
 import { DirectoryNotices, NobodyLive, directoryFailure } from './index';
 
 export const liveAllPageSize = 24;
@@ -28,10 +28,9 @@ function LiveAllView() {
   const failure = directoryFailure(directory.state);
   const cursor = directory.state.state === 'ready' ? directory.state.data.nextCursor : null;
   const [start, setStart] = useState<string | null>(null);
-  const more = useLiveDirectoryContinuation(start);
+  const more = useLiveDirectoryContinuation(start, cursor);
   const ranked = useMemo(() => {
-    const seen = new Set(directory.entries.map(entry => entry.stream.id));
-    const combined: LiveDirectoryEntry[] = [...directory.entries, ...more.entries.filter(entry => !seen.has(entry.stream.id))];
+    const combined = mergeLiveEntries(directory.entries, more.entries);
     return sort === 'mcap' ? rankByMarketCap(combined) : rankByViewers(combined);
   }, [directory.entries, more.entries, sort]);
   const visible = ranked.slice(0, shown);
@@ -51,7 +50,7 @@ function LiveAllView() {
   };
 
   return (
-    <main className="mx-auto flex w-full min-w-0 max-w-content-max-width flex-col gap-6 px-4 py-6 md:px-6">
+    <main className="mx-auto flex w-full min-w-0 max-w-480 flex-col gap-6 px-4 py-6 md:px-6">
       <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div className="flex flex-col gap-1">
           <Link prefetch={false} href="/live" className="inline-flex w-fit items-center gap-1 rounded-sm text-sm text-text-muted hover:text-text">

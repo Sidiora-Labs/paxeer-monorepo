@@ -1,0 +1,380 @@
+[manifest]
+task = "22.44.110"
+surface = "Launchpad live streams, public profit cards and profiles"
+views = 20
+states = 21
+named_states = 1
+
+[render]
+count = 714
+result = "All renders show content with no presentation findings."
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = "844x390"
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[presentation]
+loading = "Live directories and wallet profiles reserve a viewport frame around the route loading indicator."
+layout = "Live directories, public profit cards and profile panels use the earlier spacing, control dimensions and column widths."
+touch = "Interactive controls reserve at least 44px in each dimension through 834px."
+readiness = "Live notices, public cards, profile panels and platform figures stand before each display mode begins."
+focus = "Tabs retain space for their focus outlines around the earlier row height."
+dates = "Public card dates retain semantic time elements and tabular figures."
+
+[findings.load]
+first = 0
+last = 0
+
+[findings.sideways]
+first = 0
+last = 0
+
+[findings.cut]
+first = 0
+last = 0
+
+[findings.contrast]
+first = 0
+last = 0
+
+[findings.touch]
+first = 0
+last = 0
+
+[findings.focus]
+first = 0
+last = 0
+
+[findings.shift]
+first = 74
+last = 0
+
+[findings.motion]
+first = 0
+last = 0
+
+[findings.scale]
+first = 578
+last = 0
+
+[findings.geometry]
+first = 0
+last = 0
+
+[geometry]
+widths = [390, 1280, 1440, 1920, 2560]
+comparison = "A part differs when a box dimension, position, font size or line height differs by more than one CSS pixel."
+scrollbar = "The stable scrollbar gutter reserves 15px of inline space."
+touch = "Controls reserve at least 44px through 834px; nearby content follows that clearance."
+
+[view.live]
+differing_parts = [16, 14, 14, 14, 13]
+
+[part.live.featured-live-streams-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Featured live streams\"]"
+cause = "The hero frame follows its aspect ratio within the stable scrollbar gutter and fits the mobile actions with 44px touch clearance."
+
+[part.live.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The empty-state heading fits inside the scrollbar-adjusted hero frame; its mobile position follows the 44px actions."
+
+[part.live.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer shares the inline space left by the stable scrollbar gutter and reserves 44px legal links on mobile. Its position follows the aspect-ratio stream frames and mobile touch clearance."
+
+[part.live.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The footer shares the inline space left by the stable scrollbar gutter and reserves 44px legal links on mobile. Its position follows the aspect-ratio stream frames and mobile touch clearance."
+
+[part.live.footer-navigation-first-link]
+widths = [390, 1280, 1440, 1920]
+selector = "footer nav a >> nth=0"
+cause = "The footer shares the inline space left by the stable scrollbar gutter and reserves 44px legal links on mobile. Its position follows the aspect-ratio stream frames and mobile touch clearance."
+
+[part.live.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the header width by 15px."
+
+[part.live.highest-market-cap-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Highest market cap\"]"
+cause = "The ranked stream frames follow their aspect ratios within the stable scrollbar gutter; their mobile headings reserve 44px Show all links."
+
+[part.live.highest-market-cap-no-streams-to-show-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ol[aria-label=\"Highest market cap: no streams to show\"] >> :scope > li:visible >> nth=0"
+cause = "The ranked stream frames follow their aspect ratios within the stable scrollbar gutter; their mobile headings reserve 44px Show all links."
+
+[part.live.highest-market-cap-no-streams-to-show-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ol[aria-label=\"Highest market cap: no streams to show\"]"
+cause = "The ranked stream frames follow their aspect ratios within the stable scrollbar gutter; their mobile headings reserve 44px Show all links."
+
+[part.live.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The main region follows stream frames sized within the stable scrollbar gutter and mobile actions with 44px touch clearance."
+
+[part.live.most-viewers-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Most viewers\"]"
+cause = "The ranked stream frames follow their aspect ratios within the stable scrollbar gutter; their mobile headings reserve 44px Show all links."
+
+[part.live.most-viewers-no-streams-to-show-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ol[aria-label=\"Most viewers: no streams to show\"] >> :scope > li:visible >> nth=0"
+cause = "The ranked stream frames follow their aspect ratios within the stable scrollbar gutter; their mobile headings reserve 44px Show all links."
+
+[part.live.most-viewers-no-streams-to-show-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ol[aria-label=\"Most viewers: no streams to show\"]"
+cause = "The ranked stream frames follow their aspect ratios within the stable scrollbar gutter; their mobile headings reserve 44px Show all links."
+
+[part.live.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "Mobile navigation shares the inline space left by the stable scrollbar gutter."
+
+[part.live.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "Mobile navigation shares the inline space left by the stable scrollbar gutter."
+
+[part.live.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The hero action follows the scrollbar-adjusted frame and reserves 44px on mobile."
+
+[view.live-all]
+differing_parts = [9, 4, 4, 5, 7]
+
+[part.live-all.first-heading]
+widths = [390, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The directory heading fits within the stable scrollbar gutter and follows the mobile back link with 44px touch clearance."
+
+[part.live-all.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer shares the inline space left by the stable scrollbar gutter and reserves 44px legal links on mobile. Its position follows the eight static stream frames retained around the empty directory."
+
+[part.live-all.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The footer shares the inline space left by the stable scrollbar gutter and reserves 44px legal links on mobile. Its position follows the eight static stream frames retained around the empty directory."
+
+[part.live-all.footer-navigation-first-link]
+widths = [390, 1920, 2560]
+selector = "footer nav a >> nth=0"
+cause = "The footer shares the inline space left by the stable scrollbar gutter and reserves 44px legal links on mobile. Its position follows the eight static stream frames retained around the empty directory."
+
+[part.live-all.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the header width by 15px."
+
+[part.live-all.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The directory fits within the stable scrollbar gutter and retains eight static stream frames around its empty state; mobile controls reserve 44px."
+
+[part.live-all.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "Mobile navigation shares the inline space left by the stable scrollbar gutter."
+
+[part.live-all.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "Mobile navigation shares the inline space left by the stable scrollbar gutter."
+
+[part.live-all.primary-control]
+widths = [390, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The back link follows the scrollbar-adjusted directory and reserves 44px on mobile."
+
+[view.pnl-cardId]
+differing_parts = [8, 6, 6, 6, 6]
+
+[part.pnl-cardId.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The public card fits within the stable scrollbar gutter and keeps its earlier dimensions within one pixel; mobile inline space is 15px narrower."
+
+[part.pnl-cardId.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer shares the inline space left by the stable scrollbar gutter and reserves 44px legal links on mobile."
+
+[part.pnl-cardId.footer-activity-first-row]
+widths = [1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The footer shares the inline space left by the stable scrollbar gutter and reserves 44px legal links on mobile."
+
+[part.pnl-cardId.footer-navigation-first-link]
+widths = [390]
+selector = "footer nav a >> nth=0"
+cause = "The footer shares the inline space left by the stable scrollbar gutter and reserves 44px legal links on mobile."
+
+[part.pnl-cardId.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the header width by 15px."
+
+[part.pnl-cardId.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The public card fits within the stable scrollbar gutter and keeps its earlier dimensions within one pixel; mobile inline space is 15px narrower."
+
+[part.pnl-cardId.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "Mobile navigation shares the inline space left by the stable scrollbar gutter."
+
+[part.pnl-cardId.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "Mobile navigation shares the inline space left by the stable scrollbar gutter."
+
+[part.pnl-cardId.your-pnl-card-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Your PnL card\"]"
+cause = "The public card fits within the stable scrollbar gutter and keeps its earlier dimensions within one pixel; mobile inline space is 15px narrower."
+
+[view.profile]
+differing_parts = [8, 6, 6, 6, 6]
+
+[part.profile.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The sign-in panel centers within the stable scrollbar gutter; its mobile position includes the 44px sign-in action."
+
+[part.profile.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer shares the inline space left by the stable scrollbar gutter and reserves 44px legal links on mobile."
+
+[part.profile.footer-activity-first-row]
+widths = [1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The footer shares the inline space left by the stable scrollbar gutter and reserves 44px legal links on mobile."
+
+[part.profile.footer-navigation-first-link]
+widths = [390]
+selector = "footer nav a >> nth=0"
+cause = "The footer shares the inline space left by the stable scrollbar gutter and reserves 44px legal links on mobile."
+
+[part.profile.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the header width by 15px."
+
+[part.profile.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The sign-in panel centers within the stable scrollbar gutter; its mobile position includes the 44px sign-in action."
+
+[part.profile.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "Mobile navigation shares the inline space left by the stable scrollbar gutter."
+
+[part.profile.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "Mobile navigation shares the inline space left by the stable scrollbar gutter."
+
+[part.profile.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(button,a,input,select):not(footer *):visible >> nth=0"
+cause = "The sign-in panel centers within the stable scrollbar gutter; its mobile position includes the 44px sign-in action."
+
+[view.profile-walletAddress]
+differing_parts = [16, 13, 13, 13, 13]
+
+[part.profile-walletAddress.first-heading]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content :is(h1,h2,h3):not(.sr-only):visible >> nth=0"
+cause = "The profile column follows the stable scrollbar gutter; mobile actions and address controls reserve 44px and set the vertical placement of later panels."
+
+[part.profile-walletAddress.footer]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer:visible >> nth=0"
+cause = "The footer shares the inline space left by the stable scrollbar gutter and reserves 44px legal links on mobile. Its mobile position follows the profile controls and position links with their touch clearance."
+
+[part.profile-walletAddress.footer-activity-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "footer dl > div >> nth=0"
+cause = "The footer shares the inline space left by the stable scrollbar gutter and reserves 44px legal links on mobile. Its mobile position follows the profile controls and position links with their touch clearance."
+
+[part.profile-walletAddress.footer-navigation-first-link]
+widths = [390]
+selector = "footer nav a >> nth=0"
+cause = "The footer shares the inline space left by the stable scrollbar gutter and reserves 44px legal links on mobile. Its mobile position follows the profile controls and position links with their touch clearance."
+
+[part.profile-walletAddress.header]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "header:visible >> nth=0"
+cause = "The stable scrollbar gutter reduces the header width by 15px."
+
+[part.profile-walletAddress.main]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content"
+cause = "The profile fills the inline space left by the stable scrollbar gutter; its mobile height includes touch clearance for actions, address controls, chart controls and position links."
+
+[part.profile-walletAddress.navigation]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible"
+cause = "Mobile navigation shares the inline space left by the stable scrollbar gutter."
+
+[part.profile-walletAddress.navigation-first-row]
+widths = [390]
+selector = "nav:is([aria-label=\"Primary\"],[aria-label=\"Mobile navigation\"]):visible li:visible >> nth=0"
+cause = "Mobile navigation shares the inline space left by the stable scrollbar gutter."
+
+[part.profile-walletAddress.open-positions-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul[aria-label=\"Open positions\"] >> :scope > li:visible >> nth=0"
+cause = "Positions share the scrollbar-adjusted column and follow mobile profile controls with 44px clearance; the coin link reserves 44px on mobile."
+
+[part.profile-walletAddress.open-positions-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul[aria-label=\"Open positions\"]"
+cause = "Positions share the scrollbar-adjusted column and follow mobile profile controls with 44px clearance; the coin link reserves 44px on mobile."
+
+[part.profile-walletAddress.portfolio-value-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"portfolio-value-title\"]"
+cause = "The portfolio panel fits within the stable scrollbar gutter; mobile address and chart controls reserve 44px and set the panel position and height."
+
+[part.profile-walletAddress.primary-control]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content button[aria-label=\"Share profile\"]"
+cause = "Profile actions align within the stable scrollbar gutter and reserve 44px on mobile."
+
+[part.profile-walletAddress.profit-and-loss-summary-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-label=\"Profit and loss summary\"]"
+cause = "The profile column follows the stable scrollbar gutter; mobile actions and address controls reserve 44px and set the vertical placement of later panels."
+
+[part.profile-walletAddress.top-trades-card]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content section[aria-labelledby=\"top-trades-title\"]"
+cause = "The profile column follows the stable scrollbar gutter; mobile actions and address controls reserve 44px and set the vertical placement of later panels."
+
+[part.profile-walletAddress.ul-1-first-row]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0 >> :scope > li:visible >> nth=0"
+cause = "The profile column follows the stable scrollbar gutter; mobile actions and address controls reserve 44px and set the vertical placement of later panels."
+
+[part.profile-walletAddress.ul-1-region]
+widths = [390, 1280, 1440, 1920, 2560]
+selector = "#main-content ul:visible >> nth=0"
+cause = "The profile column follows the stable scrollbar gutter; mobile actions and address controls reserve 44px and set the vertical placement of later panels."
+

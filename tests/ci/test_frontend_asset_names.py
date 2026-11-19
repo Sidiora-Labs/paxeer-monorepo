@@ -4,7 +4,7 @@ The image also needs webpack to resolve the source-exported launchpad SDK's
 ``.js`` imports to TypeScript. The unused Base Account and Coinbase CDP
 connectors must be excluded from webpack resolution: their optional x402 and
 Solana peers are absent from the canonical lockfile. Otherwise webpack fails
-before Next's chart type validation; the build environment grants a 3 GiB heap.
+before Next's chart type validation; the image definition sets a 4096 MB heap bound.
 The prior build also reported ``ESLint: The requested module 'minimatch' does
 not provide an export named 'default'`` before missing canonical precompile
 ABIs stopped type validation. Those repository ABIs must be staged as well.

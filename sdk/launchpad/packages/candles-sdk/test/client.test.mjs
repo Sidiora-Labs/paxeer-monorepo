@@ -8,7 +8,7 @@ import { finding3GoHandlerJourney } from './go-handler-journey.mjs';
 test(finding3GoHandlerJourney);
 
 const config = {
-  supports_search: true, supports_group_request: false, supports_marks: false,
+  supports_search: false, supports_group_request: false, supports_marks: false,
   supports_timescale_marks: false, supports_time: true,
   exchanges: [{ value: 'sidiora', name: 'Sidiora', desc: 'Sidiora Launchpad' }],
   symbols_types: [{ name: 'token', value: 'token' }],

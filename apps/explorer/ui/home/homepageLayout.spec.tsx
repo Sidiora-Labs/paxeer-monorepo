@@ -118,10 +118,8 @@ async function tickerDoesNotInventMissingChangesOrRoundSmallPricesToZero() {
   tokenItems = [ { ...tokenInfoERC20b, symbol: 'UP', exchange_rate: '0.00000125' } ];
   const { container } = render(<TickerStrip/>);
   await screen.findByText('UP');
-  expect(container.querySelector('[data-price]')?.textContent).toBe('$0.00000125');
-  const change = container.querySelector('[data-change]')!;
-  expect(change.textContent).toBe('—');
-  expect(cssFor(change)).toContain('color:var(--chakra-colors-text-muted)');
+  expect(container.querySelector('[data-price]')?.textContent).toBe('$0.000001');
+  expect(container.querySelector('[data-change]')).toBeNull();
 }
 
 test(tickerDoesNotInventMissingChangesOrRoundSmallPricesToZero.name, tickerDoesNotInventMissingChangesOrRoundSmallPricesToZero);

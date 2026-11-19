@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +19,10 @@ import (
 )
 
 func TestRunPreparesBoundedArtifactsBeforeProviderDial(t *testing.T) {
+	var logs bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
 	digest := strings.Repeat("a", 64)
 	previousDigest, previousArgs, previousFlags := candidateDigest, os.Args, flag.CommandLine
 	candidateDigest = digest
@@ -81,6 +87,9 @@ func TestRunPreparesBoundedArtifactsBeforeProviderDial(t *testing.T) {
 	os.Args = []string{"charts-measure", "-config", path, "-config-sha256", hex.EncodeToString(sum[:]), "-output", output}
 	if err := run(); err == nil || err.Error() != want {
 		t.Fatalf("database track_commit_timestamp=%s: got %v, want %q", commitAuthority, err, want)
+	}
+	if commitAuthority == "on" && (!strings.Contains(logs.String(), "chart measurement RPC connection failed") || !strings.Contains(logs.String(), "err=") || !strings.Contains(logs.String(), "configured")) {
+		t.Fatalf("RPC connection cause absent: %s", logs.String())
 	}
 	for _, name := range []string{"samples.ndjson", "latencies.ndjson", "locks.ndjson"} {
 		info, err := os.Stat(filepath.Join(output, name))

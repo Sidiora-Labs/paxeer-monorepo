@@ -85,6 +85,7 @@ func (h *Hub) onJoinPool(c *conn, msg types.IncomingWS) {
 		return
 	}
 	if err := h.durable.JoinPool(WithPrincipal(context.Background(), c.principal), c.actor, pool); err != nil {
+		h.logErr("durable room join", err)
 		h.sendAck(c, types.WSAck{Type: errorField, Message: "room unavailable"})
 		return
 	}

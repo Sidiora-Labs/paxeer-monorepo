@@ -83,11 +83,11 @@ export function TopTrades({ wallet, isOwner, limit = 5, className }: TopTradesPr
       />
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)]">
         <div aria-hidden="true" className="invisible col-start-1 row-start-1 pointer-events-none">
-          <Skeleton variant="rows" rows={3} />
+          <Skeleton variant="rows" rows={3} className="[&_.h-table-row]:h-5 [&_.size-avatar-sm]:size-4" />
         </div>
         <div className="col-start-1 row-start-1 min-w-0">
           {state.state === 'loading' ? (
-            <Skeleton variant="rows" rows={3} label="Loading top trades" />
+            <Skeleton variant="rows" rows={3} label="Loading top trades" className="[&_.h-table-row]:h-5 [&_.size-avatar-sm]:size-4" />
           ) : issue ? (
             <PortfolioIssueState issue={issue} variant="inline" className="py-2" />
           ) : state.state === 'unsupported' ? (

@@ -80,13 +80,35 @@ export const ItemLabel = ({ hint, children, isLoading, id, hasScroll, ...rest }:
       data-detailed-info-label
       { ...rest }
     >
-      <Flex columnGap={{ base: 1, lg: 2 }} alignItems="flex-start" w="100%" color="text.secondary">
-        <Skeleton loading={ isLoading } fontWeight={{ base: 'bold', lg: 'medium' }} py={{ base: 1.25, lg: 1 }} flexGrow={ 1 }>
-          { children }
-          { hasScroll && <ItemLabelScrollText/> }
-        </Skeleton>
-        { hint && <Hint label={ hint } isLoading={ isLoading } my={{ base: 1.25, lg: 1.5 }}/> }
-      </Flex>
+      <Box w="100%" color="text.secondary">
+        <Flex columnGap={{ base: 1, lg: 2 }} alignItems="flex-start" fontWeight={{ base: 'bold', lg: 'medium' }} py={{ base: 1.25, lg: 1 }}>
+          <Skeleton loading={ isLoading } flexGrow={ 1 } minW={ 0 }>
+            { children }
+            { hasScroll && <ItemLabelScrollText/> }
+          </Skeleton>
+          { hint && (
+            <Box
+              as="span"
+              position="relative"
+              boxSize={ 5 }
+              flexShrink={ 0 }
+              mt="calc((1lh - var(--chakra-spacing-5)) / 2)"
+              mx="calc((var(--chakra-sizes-touch-target) - var(--chakra-spacing-5)) / 2)"
+            >
+              <Hint
+                label={ hint }
+                isLoading={ isLoading }
+                minW="touchTarget"
+                minH="touchTarget"
+                position="absolute"
+                top="50%"
+                left="50%"
+                transform="translate(-50%, -50%)"
+              />
+            </Box>
+          ) }
+        </Flex>
+      </Box>
     </GridItem>
   );
 };

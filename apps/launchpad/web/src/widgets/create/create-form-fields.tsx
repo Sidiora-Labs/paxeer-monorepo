@@ -40,7 +40,7 @@ export interface CreateFormFieldsProps {
 }
 
 /** Shown inside the field once the user has typed, so the empty form keeps the reference's density. */
-function InlineCounter({ id, count, max }: { id: string; count: number; max: number }) {
+export function InlineCounter({ id, count, max }: { id: string; count: number; max: number }) {
   if (count === 0) return null;
   const tone = count >= max ? 'text-danger' : count >= max * 0.9 ? 'text-warning' : 'text-text-faint';
   return (
@@ -59,7 +59,7 @@ export function CreateFormFields({ draft, errors, locked, onEdit, registeredOpti
         <p className="text-xs text-text-faint">Choose carefully, the name and ticker can&apos;t be changed once the coin is created</p>
       </div>
       <div data-create-form-card className="flex flex-col gap-4 rounded-lg bg-surface-1 p-4">
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,var(--sl-form-field-min-width)),1fr))] gap-4">
+        <div className="grid gap-4 sm:grid-cols-2 sm:gap-3">
           <FormField
             id="create-name"
             label="Coin name"

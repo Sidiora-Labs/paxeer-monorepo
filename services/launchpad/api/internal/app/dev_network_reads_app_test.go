@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"testing"
@@ -27,7 +28,8 @@ func TestApp_DevelopmentNetworkReadsWired(t *testing.T) {
 		{http.MethodGet, "/v2/discovery/notifications", "Error", 503},
 		{http.MethodGet, "/v2/funding/rails", "Error", 503},
 		{http.MethodGet, "/v2/narratives", "Error", 503},
-		{http.MethodGet, "/v2/events/stream", "Error", 503},
+		// The stream route requires a trusted origin.
+		{http.MethodGet, "/v2/stream/sse", "Error", 403},
 		// newApp has no NETWORK_RPC_URL: not configured, never a bare 404.
 		{http.MethodGet, "/v2/transactions/0xabababababababababababababababababababababababababababababababab", "Error", 503},
 	} {
@@ -46,6 +48,14 @@ func TestApp_DevelopmentNetworkReadsWired(t *testing.T) {
 		}
 		if err = interfaces.ValidateJSON(c.document, body); err != nil {
 			t.Fatalf("%s %s is not a valid %s: %v\n%s", c.method, c.path, c.document, err, body)
+		}
+		if c.path == "/v2/stream/sse" {
+			var envelope struct {
+				Code string `json:"code"`
+			}
+			if err = json.Unmarshal(body, &envelope); err != nil || envelope.Code != "FORBIDDEN" {
+				t.Fatalf("stream origin rejection: %v: %s", err, body)
+			}
 		}
 	}
 }

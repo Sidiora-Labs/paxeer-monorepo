@@ -98,7 +98,7 @@ export function SearchView({ initialQuery }: { initialQuery: string }) {
   const userCount = users.state === 'ready' ? users.items.length : 0;
 
   return (
-    <div data-search-route className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 md:px-6">
+    <div data-search-route className="mx-auto flex w-full max-w-[calc(var(--sl-modal-width-lg)+var(--sl-space-2))] flex-col gap-4 px-4 py-4 md:px-6">
       <h1 className="text-xl font-extrabold text-text">Search</h1>
       <div className="flex flex-col gap-2 rounded-md bg-surface-1 p-2">
         <PaletteInput value={query} onChange={change} inputRef={inputRef} onKeyDown={onKeyDown} listId={listId} activeId={activeId}

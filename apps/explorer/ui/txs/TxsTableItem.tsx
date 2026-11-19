@@ -63,7 +63,11 @@ const TxsTableItem = ({
   const method = priceUpdate ? priceUpdateMethod(tx) : evmMethod;
 
   return (
-    <TableRow key={ tx.hash } animation={ animation }>
+    <TableRow
+      key={ tx.hash }
+      animation={ animation }
+      css={{ '& button[aria-label=copy]': { ml: -1, mr: -2 } }}
+    >
       <TableCell textAlign="center" px={ 2 }>
         { !priceUpdate && isMobile && <TxAdditionalInfo tx={ tx } isMobile isLoading={ isLoading }/> }
         { !priceUpdate && !isMobile && (
@@ -77,8 +81,8 @@ const TxsTableItem = ({
           <ChainIcon data={ chainData } isLoading={ isLoading } my="var(--chakra-spacing-0\.5)"/>
         </TableCell>
       ) }
-      <TableCell pr={ 4 }>
-        <Flex alignItems="center" columnGap={ 2 } lineHeight="var(--chakra-spacing-6)">
+      <TableCell pr={ 2 }>
+        <Flex alignItems="center" columnGap={ 1 } lineHeight="var(--chakra-spacing-6)">
           { tx.status !== undefined && tx.status !== 'ok' && (
             <StatusTag
               type={ tx.status === 'error' ? 'error' : 'pending' }
@@ -100,7 +104,7 @@ const TxsTableItem = ({
           />
         </Flex>
       </TableCell>
-      <TableCell>
+      <TableCell title={ method }>
         <VStack alignItems="flex-start">
           { (() => {
             if (translationIsLoading || translationData) {
@@ -147,7 +151,7 @@ const TxsTableItem = ({
           color="text.secondary"
         />
       </TableCell>
-      <TableCell>
+      <TableCell css={{ '& [data-entity-kind=address]': { marginInline: 0 } }}>
         { priceUpdate ? (
           <PriceUpdateFromTo tx={ tx } current={ currentAddress } isLoading={ isLoading } mt="var(--chakra-spacing-0\.5)"/>
         ) : (

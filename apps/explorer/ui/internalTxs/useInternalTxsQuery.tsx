@@ -5,6 +5,7 @@ import useDebounce from 'lib/hooks/useDebounce';
 import getQueryParamString from 'lib/router/getQueryParamString';
 import { INTERNAL_TX } from 'stubs/internalTx';
 import { generateListStub } from 'stubs/utils';
+import { usePageQuerySnapshot } from 'ui/shared/PageQuerySnapshot';
 import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
 
 interface Props {
@@ -16,11 +17,12 @@ export default function useInternalTxsQuery({ isMultichain }: Props = {}) {
   const [ searchTerm, setSearchTerm ] = React.useState(getQueryParamString(router.query.transaction_hash) || undefined);
   const debouncedSearchTerm = useDebounce(searchTerm || '', 300);
 
+  const snapshot = usePageQuerySnapshot('general:internal_txs', { queryParams: { transaction_hash: debouncedSearchTerm } });
   const query = useQueryWithPages({
     resourceName: 'general:internal_txs',
     filters: { transaction_hash: debouncedSearchTerm },
     options: {
-      placeholderData: generateListStub<'general:internal_txs'>(
+      placeholderData: snapshot ?? generateListStub<'general:internal_txs'>(
         INTERNAL_TX,
         50,
         {

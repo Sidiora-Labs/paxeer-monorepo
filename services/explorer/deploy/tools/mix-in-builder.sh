@@ -36,6 +36,14 @@ readonly DATABASE_PROBE_HOST='localhost'
 CONTAINER_SCRIPT=$(
   cat <<'CONTAINER_SCRIPT_END'
 set -e
+for compiler in solc vyper; do
+  store="/opt/explorer-compilers/${compiler}_compilers"
+  [ -d "$store" ] || { echo "Missing compiler store: $compiler" >&2; exit 1; }
+  directory="apps/explorer/priv/${compiler}_compilers"
+  mkdir -p "$directory"
+  ln -sfn "$store" "$directory/bundled"
+done
+
 failed_tests_recorded() {
   elixir -e '
     {paths, 0} = System.cmd("find", [System.fetch_env!("MIX_BUILD_PATH"),
@@ -423,6 +431,7 @@ mix_in_container() {
     --volume "$backend_dir/.formatter.exs:$CONTAINER_WORKDIR/.formatter.exs" \
     --volume "$backend_dir/.credo.exs:$CONTAINER_WORKDIR/.credo.exs" \
     --volume "$repo_root/precompiles:/precompiles:ro" \
+    --volume "$repo_root/docker/explorer-elixir-builder/compilers.tsv:/opt/explorer-compilers/compilers.tsv:ro" \
     --volume "$build_volume:$build_path" \
     --env MIX_ENV="$mix_env" \
     --env MIX_BUILD_PATH="$build_path" \

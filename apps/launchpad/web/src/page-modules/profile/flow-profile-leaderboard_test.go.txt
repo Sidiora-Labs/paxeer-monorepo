@@ -1,0 +1,19 @@
+package store
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestProfileFlowAnswers(t *testing.T) {
+	entry := LeaderboardEntry{Wallet: os.Getenv("PROFILE_FLOW_WALLET"), MetricRaw: "1000000", MetricSigned: "-1000000", Quality: "complete"}
+	raw, err := json.Marshal(entry.PublicEntry(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(os.Getenv("PROFILE_FLOW_OUTPUT"), "leaderboard.json"), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+}

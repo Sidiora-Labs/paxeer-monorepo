@@ -28,6 +28,9 @@ func TestUDFRegistrationsServeConfigurationAndTime(t *testing.T) {
 			if err := json.Unmarshal(configResponse.Body.Bytes(), &config); err != nil || configResponse.Code != 200 || config["supports_time"] != true {
 				t.Fatalf("UDF configuration: %d %v %v", configResponse.Code, config, err)
 			}
+			if config["supports_search"] != false {
+				t.Fatalf("unavailable search advertised: %v", config)
+			}
 			timeResponse := httptest.NewRecorder()
 			before := time.Now().Unix()
 			router.ServeHTTP(timeResponse, httptest.NewRequest(http.MethodGet, tc.prefix+"/time", nil))

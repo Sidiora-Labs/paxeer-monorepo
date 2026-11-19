@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useSyncExternalStore } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { BOTTOM_NAV_BREAKPOINT_PX } from '@/shell/mobile-bottom-nav';
 import { RULES_AGREED_EVENT, rulesAgreed } from './platform-rules-modal';
@@ -31,7 +31,27 @@ const serverSnapshot = () => false;
 
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false);
+  const bannerRef = useRef<HTMLDivElement>(null);
   const phone = useSyncExternalStore(subscribePhone, phoneSnapshot, serverSnapshot);
+
+  useLayoutEffect(() => {
+    const banner = bannerRef.current;
+    if (!visible || !banner) return;
+    const update = () =>
+      document.documentElement.style.setProperty(
+        '--sl-cookie-banner-height',
+        `${banner.offsetHeight}px`
+      );
+    update();
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(update) : null;
+    observer?.observe(banner);
+    window.addEventListener('resize', update);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', update);
+      document.documentElement.style.removeProperty('--sl-cookie-banner-height');
+    };
+  }, [visible]);
 
   // The platform rules modal is the first-visit consent; the cookie banner
   // waits until it has been accepted so the two never stack on screen.
@@ -67,6 +87,8 @@ export default function CookieBanner() {
 
   return (
     <div
+      ref={bannerRef}
+      data-cookie-banner=""
       data-placement={phone ? 'above-bottom-nav' : 'viewport-bottom'}
       className={`fixed left-0 right-0 z-[var(--sl-z-toast)] bg-surface-1 px-4 py-3 ${phone ? COOKIE_BANNER_PHONE_BOTTOM_CLASS : COOKIE_BANNER_WIDE_BOTTOM_CLASS}`}
     >
@@ -83,7 +105,8 @@ export default function CookieBanner() {
           </svg>
           <p className="text-xs text-text-muted leading-[var(--sl-leading-base)]">
             We use cookies to improve your experience and see how the site is used. See our{' '}
-            <Link prefetch={false}
+            <Link
+              prefetch={false}
               href="/docs/privacy"
               className="text-accent underline hover:opacity-80 transition"
             >

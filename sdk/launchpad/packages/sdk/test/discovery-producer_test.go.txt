@@ -1,0 +1,77 @@
+package notifications
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"testing"
+	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/discovery"
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/google/uuid"
+)
+
+func TestSDKDiscoveryProducer(t *testing.T) {
+	ctx := context.Background()
+	store, _ := notificationDatabase(t)
+	if _, err := store.DB.ExecContext(ctx, discovery.Schema); err != nil {
+		t.Fatal(err)
+	}
+	ds := discovery.Store{DB: store.DB}
+	account := os.Getenv("SDK_ACCOUNT_ID")
+	t.Cleanup(func() {
+		if err := store.DeleteAccount(ctx, account); err != nil {
+			t.Error(err)
+		}
+		if err := ds.DeleteAccount(ctx, account); err != nil {
+			t.Error(err)
+		}
+	})
+	for i := 0; i < 3; i++ {
+		_, created, err := store.CommitTrigger(ctx, InboxItem{Identity: Identity{account, uuid.NewString(), "v2"}, Category: "watchlist", Summary: "Threshold crossed", ResourceID: uuid.NewString(), CreatedAt: time.Now().UTC().Truncate(time.Millisecond).Add(-time.Duration(i) * time.Second)}, nil)
+		if err != nil || !created {
+			t.Fatal("notification trigger", created, err)
+		}
+	}
+	authority := sharedauth.HTTPIdentityAuthority{Endpoint: os.Getenv("SDK_IDENTITY_ORIGIN"), ServiceToken: os.Getenv("SDK_IDENTITY_SERVICE_TOKEN")}
+	authenticate := func(r *http.Request) (string, error) {
+		p, err := authority.AuthenticateRequest(r.Context(), r)
+		return p.AccountID, err
+	}
+	wallet := func(r *http.Request) (string, error) {
+		p, err := authority.AuthenticateRequest(r.Context(), r)
+		return p.Wallet, err
+	}
+	principal := func(r *http.Request) (Principal, error) {
+		p, err := authority.AuthenticateRequest(r.Context(), r)
+		return Principal{AccountID: p.AccountID, Wallet: p.Wallet}, err
+	}
+	dh := (discovery.HTTP{Store: ds, Authenticate: authenticate, Wallet: wallet}).Handler()
+	nh := (HTTP{Store: store, Authenticate: authenticate, Principal: principal, Discovery: ds}).Handler()
+	router := http.NewServeMux()
+	router.Handle("/v2/squads", dh)
+	router.Handle("/v2/squads/", dh)
+	router.Handle("/v2/me/alerts", dh)
+	router.Handle("/v2/me/alerts/", dh)
+	router.Handle("/v2/me/notifications", nh)
+	router.Handle("/v2/me/notifications/", nh)
+	server := httptest.NewServer(router)
+	defer server.Close()
+	stopped := make(chan struct{})
+	control := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { close(stopped); w.WriteHeader(http.StatusNoContent) }))
+	defer control.Close()
+	data, err := json.Marshal(map[string]any{"kind": "ready", "value": map[string]any{"origin": server.URL, "control": control.URL}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Printf("SDK_SERVICE %s\n", data)
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Minute):
+		t.Fatal("discovery consumer did not finish")
+	}
+}

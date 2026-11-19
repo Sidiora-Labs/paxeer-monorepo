@@ -1,6 +1,8 @@
 package processor
 
 const (
+	valueIndexer         = "indexer"
+	valueBackfill        = "backfill"
 	valueMarketCreated   = "MarketCreated"
 	valueSwap            = "Swap"
 	valueHistorical      = "historical"

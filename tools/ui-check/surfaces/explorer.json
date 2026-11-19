@@ -34,6 +34,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/account/api-key",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/account/api-key.json",
+          "status": 404
         }
       ]
     },
@@ -47,6 +52,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/account/custom-abi",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/account/custom-abi.json",
           "status": 404
         }
       ]
@@ -62,6 +72,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/account/merits",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/account/merits.json",
+          "status": 404
         }
       ]
     },
@@ -75,6 +90,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/account/tag-address",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/account/tag-address.json",
           "status": 404
         }
       ]
@@ -90,6 +110,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/account/verified-addresses",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/account/verified-addresses.json",
+          "status": 404
         }
       ]
     },
@@ -103,6 +128,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/account/watchlist",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/account/watchlist.json",
           "status": 404
         }
       ]
@@ -301,16 +331,65 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/accounts/label/example",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/accounts/label/example.json",
+          "status": 404
         }
       ]
     },
     {
       "name": "/address/[hash]/contract-verification",
-      "path": "/explorer/address/0x0000000000000000000000000000000000000002/contract-verification"
+      "path": "/explorer/address/0x0000000000000000000000000000000000000002/contract-verification",
+      "answers": [
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/smart-contracts/0x0000000000000000000000000000000000000002",
+          "file": "explorer/contract-unverified.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/smart-contracts/0x0000000000000000000000000000000000000002?*",
+          "file": "explorer/contract-unverified.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        }
+      ]
     },
     {
       "name": "/address/[hash]",
-      "path": "/explorer/address/0x0000000000000000000000000000000000000002"
+      "path": "/explorer/address/0x0000000000000000000000000000000000000002",
+      "answers": [
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/smart-contracts/0x0000000000000000000000000000000000000002",
+          "file": "explorer/contract-unverified.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/smart-contracts/0x0000000000000000000000000000000000000002?*",
+          "file": "explorer/contract-unverified.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        }
+      ]
     },
     {
       "name": "/advanced-filter",
@@ -331,6 +410,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/apps/1",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/apps/1.json",
+          "status": 404
         }
       ]
     },
@@ -345,6 +429,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/apps",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/apps.json",
+          "status": 404
         }
       ]
     },
@@ -358,6 +447,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/auth/profile",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/auth/profile.json",
           "status": 404
         }
       ]
@@ -444,7 +538,19 @@
     },
     {
       "name": "/block/countdown/[height]",
-      "path": "/explorer/block/countdown/9000000"
+      "path": "/explorer/block/countdown/9000000",
+      "answers": [
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api?*",
+          "file": "explorer/countdown.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        }
+      ]
     },
     {
       "name": "/block/countdown",
@@ -459,7 +565,7 @@
           "steps": [
             {
               "action": "wait",
-              "text": "Blocks"
+              "text": "There are no blocks."
             }
           ],
           "answers": [
@@ -812,6 +918,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/cross-chain-tx/1",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/cross-chain-tx/1.json",
+          "status": 404
         }
       ]
     },
@@ -825,6 +936,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/csv-export",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/csv-export.json",
           "status": 404
         }
       ]
@@ -872,6 +988,24 @@
       "path": "/explorer/ecosystems",
       "modes": [
         "default"
+      ],
+      "answers": [
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/api/v1/clusters/render/chain-metrics",
+          "file": "explorer/services/chain-metrics.json",
+          "headers": {
+            "content-type": "application/json"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "http://localhost:4173/api/v1/clusters/render/chain-metrics?*",
+          "file": "explorer/services/chain-metrics.json",
+          "headers": {
+            "content-type": "application/json"
+          }
+        }
       ]
     },
     {
@@ -923,6 +1057,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/essential-dapps/1",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/essential-dapps/1.json",
+          "status": 404
         }
       ]
     },
@@ -942,7 +1081,7 @@
             {
               "method": "GET",
               "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets",
-              "file": "explorer/empty.json",
+              "file": "explorer/feed-markets-empty.json",
               "headers": {
                 "content-type": "application/json",
                 "access-control-allow-origin": "http://localhost:4173",
@@ -953,7 +1092,7 @@
             {
               "method": "GET",
               "pattern": "https://explorer.example.test/api/v2/paxeer-x/feed/markets?*",
-              "file": "explorer/empty.json",
+              "file": "explorer/feed-markets-empty.json",
               "headers": {
                 "content-type": "application/json",
                 "access-control-allow-origin": "http://localhost:4173",
@@ -1064,6 +1203,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/hot-contracts",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/hot-contracts.json",
+          "status": 404
         }
       ]
     },
@@ -1099,10 +1243,7 @@
     },
     {
       "name": "/internal-txs",
-      "path": "/explorer/internal-txs",
-      "modes": [
-        "default"
-      ]
+      "path": "/explorer/internal-txs"
     },
     {
       "name": "/interop-messages",
@@ -1138,6 +1279,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/mud-worlds",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/mud-worlds.json",
+          "status": 404
         }
       ]
     },
@@ -1151,6 +1297,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/name-services/clusters/example.eth",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/name-services/clusters/example.eth.json",
           "status": 404
         }
       ]
@@ -1166,6 +1317,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/name-services/domains/example.eth",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/name-services/domains/example.eth.json",
+          "status": 404
         }
       ]
     },
@@ -1179,6 +1335,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/name-services",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/name-services.json",
           "status": 404
         }
       ]
@@ -1213,6 +1374,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/operation/1",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/operation/1.json",
+          "status": 404
         }
       ]
     },
@@ -1226,6 +1392,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/operations",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/operations.json",
           "status": 404
         }
       ]
@@ -1294,6 +1465,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/pools/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/pools/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2.json",
+          "status": 404
         }
       ]
     },
@@ -1308,6 +1484,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/pools",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/pools.json",
+          "status": 404
         }
       ]
     },
@@ -1321,6 +1502,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/public-tags/submit",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/public-tags/submit.json",
           "status": 404
         }
       ]
@@ -1365,6 +1551,10 @@
         {
           "name": "loading",
           "steps": [
+            {
+              "action": "wait",
+              "text": "Search results"
+            },
             {
               "action": "press",
               "selector": "body",
@@ -1458,14 +1648,53 @@
     },
     {
       "name": "/token/[hash]/instance/[id]",
-      "path": "/explorer/token/0x0000000000000000000000000000000000000002/instance/188882"
+      "path": "/explorer/token/0x0000000000000000000000000000000000000002/instance/188882",
+      "answers": [
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/tokens/0x0000000000000000000000000000000000000002",
+          "file": "explorer/token-nft.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/tokens/0x0000000000000000000000000000000000000002?*",
+          "file": "explorer/token-nft.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/tokens/0x0000000000000000000000000000000000000002/instances/188882/transfers",
+          "file": "explorer/token-instance-transfers.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/tokens/0x0000000000000000000000000000000000000002/instances/188882/transfers?*",
+          "file": "explorer/token-instance-transfers.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        }
+      ]
     },
     {
       "name": "/token-transfers",
-      "path": "/explorer/token-transfers",
-      "modes": [
-        "default"
-      ]
+      "path": "/explorer/token-transfers"
     },
     {
       "name": "/tokens",
@@ -1476,7 +1705,7 @@
           "steps": [
             {
               "action": "wait",
-              "text": "Tokens"
+              "text": "There are no tokens."
             }
           ],
           "answers": [
@@ -1507,6 +1736,10 @@
         {
           "name": "loading",
           "steps": [
+            {
+              "action": "wait",
+              "text": "More than 50 token contracts found"
+            },
             {
               "action": "press",
               "selector": "body",
@@ -1584,12 +1817,16 @@
           "name": "filter-open",
           "steps": [
             {
+              "action": "wait",
+              "text": "Showing 1 tokens with an ok or a neutral reputation"
+            },
+            {
               "action": "click",
               "selector": "button[aria-label=\"Filter\"]"
             },
             {
               "action": "wait",
-              "text": "ERC-20"
+              "text": "ERC-721"
             }
           ]
         }
@@ -1627,7 +1864,7 @@
           "steps": [
             {
               "action": "wait",
-              "text": "Transactions"
+              "text": "There are no transactions."
             }
           ],
           "answers": [
@@ -1744,6 +1981,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/txs/kettle/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/txs/kettle/0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2.json",
+          "status": 404
         }
       ]
     },
@@ -1757,6 +1999,11 @@
         {
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/uptime",
+          "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/uptime.json",
           "status": 404
         }
       ]
@@ -1772,6 +2019,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/validators/1",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/validators/1.json",
+          "status": 404
         }
       ]
     },
@@ -1786,6 +2038,11 @@
           "method": "GET",
           "pattern": "http://localhost:4173/explorer/validators",
           "status": 404
+        },
+        {
+          "method": "HEAD",
+          "pattern": "http://localhost:4173/explorer/_next/data/*/validators.json",
+          "status": 404
         }
       ]
     },
@@ -1794,13 +2051,81 @@
       "path": "/explorer/verified-contracts",
       "modes": [
         "default"
+      ],
+      "answers": [
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/smart-contracts/counters",
+          "file": "explorer/contract-counters.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/smart-contracts/counters?*",
+          "file": "explorer/contract-counters.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/config/smart-contracts/languages",
+          "file": "explorer/contract-languages.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/config/smart-contracts/languages?*",
+          "file": "explorer/contract-languages.json",
+          "headers": {
+            "content-type": "application/json",
+            "access-control-allow-origin": "http://localhost:4173",
+            "access-control-allow-credentials": "true"
+          }
+        }
       ]
     },
     {
       "name": "/visualize/sol2uml",
-      "path": "/explorer/visualize/sol2uml",
+      "path": "/explorer/visualize/sol2uml?address=0x0000000000000000000000000000000000000002",
       "modes": [
         "default"
+      ],
+      "answers": [
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/smart-contracts/0x0000000000000000000000000000000000000002",
+          "file": "explorer/services/contract.json",
+          "headers": {
+            "content-type": "application/json"
+          }
+        },
+        {
+          "method": "GET",
+          "pattern": "https://explorer.example.test/api/v2/smart-contracts/0x0000000000000000000000000000000000000002?*",
+          "file": "explorer/services/contract.json",
+          "headers": {
+            "content-type": "application/json"
+          }
+        },
+        {
+          "method": "POST",
+          "pattern": "https://explorer.example.test/api/v1/solidity:visualize-contracts",
+          "file": "explorer/services/diagram.json",
+          "headers": {
+            "content-type": "application/json"
+          }
+        }
       ]
     },
     {

@@ -207,6 +207,15 @@ type Notification struct {
 // acknowledgement. Failure leaves the outbox pending. Crash after send before
 // commit may redeliver; subscribers deduplicate event/version/revision.
 func (r *Repository) PublishPending(ctx context.Context, limit int, send func(context.Context, Notification) error) (int, error) {
+	if send == nil {
+		return 0, ErrInvalid
+	}
+	return r.publishPending(ctx, limit, func(ctx context.Context, _ pgx.Tx, n Notification) error {
+		return send(ctx, n)
+	})
+}
+
+func (r *Repository) publishPending(ctx context.Context, limit int, send func(context.Context, pgx.Tx, Notification) error) (int, error) {
 	if limit < 1 || limit > 100 || send == nil {
 		return 0, ErrInvalid
 	}
@@ -233,7 +242,7 @@ func (r *Repository) PublishPending(ctx context.Context, limit int, send func(co
 		return 0, e
 	}
 	for _, n := range ns {
-		if e = send(ctx, n); e != nil {
+		if e = send(ctx, tx, n); e != nil {
 			return 0, e
 		}
 		_, e = tx.Exec(ctx, fmt.Sprintf(`UPDATE %s.outbox SET published=true,attempts=attempts+1 WHERE event_id=$1 AND projection_version=$2`, r.schema), n.EventID, n.ProjectionVersion)
@@ -251,10 +260,10 @@ func (r *Repository) PublishDurable(ctx context.Context, publisher *natsdriver.P
 	if publisher == nil {
 		return 0, ErrInvalid
 	}
-	return r.PublishPending(ctx, limit, func(ctx context.Context, n Notification) error {
+	return r.publishPending(ctx, limit, func(ctx context.Context, tx pgx.Tx, n Notification) error {
 		var raw []byte
 		var timestamp int64
-		if err := r.pool.QueryRow(ctx, "SELECT payload,block_timestamp FROM "+r.schema+".trade_facts WHERE event_id=$1 AND projection_version=$2", n.EventID, n.ProjectionVersion).Scan(&raw, &timestamp); err != nil {
+		if err := tx.QueryRow(ctx, "SELECT payload,block_timestamp FROM "+r.schema+".trade_facts WHERE event_id=$1 AND projection_version=$2", n.EventID, n.ProjectionVersion).Scan(&raw, &timestamp); err != nil {
 			return err
 		}
 		var trade Trade
