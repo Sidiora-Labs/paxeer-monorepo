@@ -58,16 +58,17 @@ describe('PaxeerXFeedMarketsTable', () => {
     expect(cell.querySelector('a[href="/feed/market/0"]')?.textContent).toBe('BTC-USD');
   });
 
-  it('shows one line while loading', function showsOneLoadingLine() {
+  it('preserves both symbol lines while loading', function preservesBothSymbolLinesWhileLoading() {
     const { container } = render(<PaxeerXFeedMarketsTable items={ feedMock.markets.items } isLoading/>);
 
     const cells = container.querySelectorAll('[data-market] td:first-child');
 
     expect(cells).toHaveLength(2);
     cells.forEach((cell, index) => {
-      expect(cell.textContent).toBe(feedMock.markets.items[index].symbol);
-      expect(cell.querySelectorAll(':scope > div')).toHaveLength(1);
-      expect(cell.querySelectorAll('[data-loading]')).toHaveLength(1);
+      const market = feedMock.markets.items[index];
+      expect(cell.textContent).toBe(market.symbol + market.chainflow_symbol);
+      expect(Array.from(cell.querySelectorAll(':scope > div')).map((line) => line.textContent)).toEqual([ market.symbol, market.chainflow_symbol ]);
+      expect(cell.querySelectorAll('[data-loading]')).toHaveLength(2);
     });
   });
 

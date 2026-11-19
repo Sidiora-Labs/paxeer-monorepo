@@ -1,19 +1,39 @@
-import type { NextPage } from 'next';
-import dynamic from 'next/dynamic';
+import type { DehydratedState } from '@tanstack/react-query';
+import { QueryClient, dehydrate } from '@tanstack/react-query';
+import type { GetServerSideProps, NextPage } from 'next';
 import React from 'react';
 
+import type { Props } from 'nextjs/getServerSideProps/handlers';
+import * as gSSP from 'nextjs/getServerSideProps/main';
 import PageNextJs from 'nextjs/PageNextJs';
 
-const PaxeerXFeed = dynamic(() => import('ui/pages/PaxeerXFeed'), { ssr: false });
+import PaxeerXFeed from 'ui/pages/PaxeerXFeed';
+import { PageQuerySnapshotProvider } from 'ui/shared/PageQuerySnapshot';
+import prefetchPageQuery from 'ui/shared/prefetchPageQuery';
 
-const Page: NextPage = () => {
+type PageProps = Props & { snapshot: DehydratedState };
+
+const Page: NextPage<PageProps> = (props: PageProps) => {
   return (
-    <PageNextJs pathname="/feed">
-      <PaxeerXFeed/>
-    </PageNextJs>
+    <PageQuerySnapshotProvider value={ props.snapshot }>
+      <PageNextJs pathname="/feed">
+        <PaxeerXFeed/>
+      </PageNextJs>
+    </PageQuerySnapshotProvider>
   );
 };
 
 export default Page;
 
-export { paxeerXFeed as getServerSideProps } from 'nextjs/getServerSideProps/main';
+export const getServerSideProps: GetServerSideProps<PageProps> = async(context) => {
+  const result = await gSSP.paxeerXFeed(context);
+  if (!('props' in result)) {
+    return result;
+  }
+  const props = await result.props;
+  const client = new QueryClient();
+  await Promise.all([
+    prefetchPageQuery(client, 'general:paxeer_x_feed_markets', {}),
+  ]);
+  return { props: { ...props, snapshot: dehydrate(client) } };
+};

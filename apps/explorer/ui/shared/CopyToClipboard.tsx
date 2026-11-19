@@ -49,9 +49,12 @@ const CopyToClipboard = (props: Props) => {
       flexShrink={ 0 }
       borderRadius="sm"
       loadingSkeleton={ isLoading }
+      _focusVisible={{
+        outlineOffset: 'calc(-1 * var(--chakra-border-widths-2))',
+        boxShadow: 'inset 0 0 0 var(--chakra-border-widths-2) var(--chakra-colors-focus-ring)',
+      }}
       variant="icon_secondary"
       size="2xs"
-      _focusVisible={{ outlineOffset: 'calc(-1 * var(--chakra-border-widths-2))' }}
       { ...rest }
     >
       <IconSvg name={ iconName }/>

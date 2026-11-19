@@ -137,6 +137,25 @@ describe('ScanStatCard', () => {
     expect(declarationsOf(container.querySelector('[data-secondary]')?.parentElement as Element)).toContain('flex-wrap:wrap');
   });
 
+  it.each([ false, true ])('keeps long figures within the card when loading is %s', function longStatValuesRetainTheirFullFigure(isLoading) {
+    const figure = '9,074,405 PAX';
+    const { container } = render(
+      <Provider>
+        <ScanStatCard label="Total transaction fee" value={ figure } isLoading={ isLoading }/>
+      </Provider>,
+    );
+    const value = container.querySelector('[data-value]') as HTMLElement;
+
+    expect(value.textContent).toBe(figure);
+    expect(value.title).toBe(figure);
+    expect(declarationsOf(value)).toContain('text-overflow:ellipsis');
+    expect(declarationsOf(value)).toContain('white-space:nowrap');
+    expect(declarationsOf(value)).toContain('max-width:100%');
+    expect(declarationsOf(value)).toContain('min-width:0');
+    expect(declarationsOf(value.parentElement as HTMLElement)).toContain('max-width:100%');
+    expect(declarationsOf(value.parentElement as HTMLElement)).toContain('min-width:0');
+  });
+
   it('puts the label above the value', () => {
     const { container } = render(
       <Provider>
