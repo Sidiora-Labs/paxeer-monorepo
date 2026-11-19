@@ -209338,7 +209338,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.963]
 title = "Set release 7.0.2, add its release notes and let the API documents and the node image file follow the version file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.962"]
