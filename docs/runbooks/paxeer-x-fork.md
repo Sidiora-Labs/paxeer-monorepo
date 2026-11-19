@@ -244,6 +244,9 @@ Review the embedded node runtime configuration against
 nodes need positive `wal-retain-blocks`, `nonce-queue-max-per-sender`,
 `nonce-queue-max-total` and `lease-duration` (or the supported derivation from
 replication timeout). The total nonce queue limit must be at least the per-sender limit.
+`nonce-queue-lifetime` must be positive when enabled; omitting it uses `3s`
+independently of the lease duration. At start, enabled nodes log the effective
+lease duration, nonce queue lifetime and both queue bounds.
 Receipt seeds must have mode `0600`; retain the WAL at its configured path.
 Use `mode = "sequential"` unless microbatch configuration was separately qualified.
 Ordinary nodes keep `enable = false`; review `receipt-forward-url` only when

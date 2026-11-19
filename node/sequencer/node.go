@@ -66,6 +66,11 @@ func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
 		return nil, fmt.Errorf("%w: sequencer needs an app", ErrConfigValue)
 	}
 	n := &Node{Config: cfg, App: a, logger: paxlog.NewLogger("app")}
+	n.logger.Info("sequencer settings",
+		"lease-duration", cfg.LeaseDuration,
+		"nonce-queue-lifetime", cfg.NonceQueueLifetime,
+		"nonce-queue-max-per-sender", cfg.NonceQueueMaxPerSender,
+		"nonce-queue-max-total", cfg.NonceQueueMaxTotal)
 	if cfg.Role == RoleStandby {
 		ctx, cancel := context.WithCancel(context.Background())
 		n.Standby, err = StartStandby(ctx, cfg, a)
@@ -171,7 +176,7 @@ func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
 		func(_ common.Address, _ uint64, tx []byte) error {
 			_, err := n.Accepter.Accept(tx)
 			return err
-		}, cfg.LeaseDuration)
+		}, cfg.NonceQueueLifetime)
 	if err != nil {
 		return nil, err
 	}
