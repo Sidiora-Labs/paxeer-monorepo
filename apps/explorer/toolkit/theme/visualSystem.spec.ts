@@ -296,6 +296,7 @@ function touchMinimumsUseOnlySmallViewports() {
   expect(system.sva(system.getSlotRecipe('select'))({ size: 'sm' }).trigger)
     .toMatchObject(expectedRecipeStyles({ minHeight: 'var(--select-trigger-height)' }));
   expect(globalCss!['[data-touch-inline]']).toEqual({
+    '--touch-line-size': '1lh',
     '@media (max-width: 834px)': {
       marginBlock: 'calc((var(--touch-line-size) - var(--chakra-sizes-touch-target)) / 2)',
     },
