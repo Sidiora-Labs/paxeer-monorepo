@@ -222,7 +222,7 @@ const ZetaChainCCTXDetailsLifecycleOut = ({ outboundParam, tx, isLoading, isLast
         <IconSvg name="verification-steps/finalized" boxSize={ 5 } bg="bg.primary" zIndex={ 1 } color={ color }/>
       </Flex>
       <Skeleton loading={ isLoading } w="100%" overflow="hidden">
-        <Flex color={ color } minH="var(--chakra-spacing-5)" alignItems="center" mb={ 2.5 }>
+        <Flex color={ color } minH="var(--chakra-spacing-5)" lineHeight="body" alignItems="center" mb={ 2.5 }>
           { text }
         </Flex>
         <Grid

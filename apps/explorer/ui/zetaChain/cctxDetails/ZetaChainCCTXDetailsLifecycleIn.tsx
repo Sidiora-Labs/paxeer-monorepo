@@ -42,7 +42,7 @@ const ZetaChainCCTXDetailsLifecycleIn = ({ tx, isLoading }: Props) => {
         color={ color }
       />
       <Skeleton loading={ isLoading }>
-        <Flex color={ color } minH="var(--chakra-spacing-5)" mb={ 2.5 } alignItems="center">
+        <Flex color={ color } minH="var(--chakra-spacing-5)" lineHeight="body" mb={ 2.5 } alignItems="center">
           { `Sender tx from ${ chainFrom?.name || 'unknown chain' }` }
         </Flex>
         <Grid
