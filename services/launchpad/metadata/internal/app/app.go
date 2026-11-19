@@ -846,7 +846,7 @@ func metadataTLSMaterial(path, inline string) ([]byte, error) {
 	if inline != "" {
 		return []byte(inline), nil
 	}
-	return os.ReadFile(path)
+	return os.ReadFile(path) //nolint:gosec // TLS material paths come from deployment configuration, not requests.
 }
 
 func metadataPrivateChannel(cfg config.Config, identity metadata.RequestIdentityAuthority) func(http.Handler) http.Handler {
