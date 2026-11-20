@@ -351,7 +351,7 @@ func (a *networkAuthority) envelope(ctx context.Context) (authorityEnvelope, err
 		return authorityEnvelope{}, err
 	}
 	policy := deployment.Policy{Now: time.Now().UTC(), MaxAge: authorityMaxAge, Timeout: authorityAttestationTimeout}
-	attestation, err := deployment.Attest(ctx, a.reader, a.config.Manifest, common.HexToHash(head.Hash), policy)
+	attestation, err := a.engine.Attestation(ctx, common.HexToHash(head.Hash), policy.Now)
 	if err != nil {
 		return authorityEnvelope{}, err
 	}
