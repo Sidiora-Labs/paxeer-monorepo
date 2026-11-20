@@ -209997,7 +209997,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.993]
 title = "Write the search authority row of a launchpad pool with its creation in the stats module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.983"]
