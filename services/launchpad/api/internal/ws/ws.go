@@ -502,7 +502,12 @@ func (h *Hub) snapshotHandle(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Unknown resources take precedence over topics awaiting a first frame.
 		if errors.Is(err, broker.ErrStreamUnavailable) && h.topicRegistry != nil {
-			if unknown, registryErr := h.topicRegistry.UnknownTopics(r.Context(), topics); registryErr == nil && len(unknown) > 0 {
+			unknown, registryErr := h.topicRegistry.UnknownTopics(r.Context(), topics)
+			if registryErr != nil {
+				broker.WriteStreamHTTPError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+				return
+			}
+			if len(unknown) > 0 {
 				broker.WriteStreamHTTPError(w, r, 404, "NOT_FOUND")
 				return
 			}
