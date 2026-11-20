@@ -36,6 +36,8 @@ import { formatTokenAmount, formatUsdl, shortAddress } from '@/utils/format';
 import { plainLaunchError, plainLaunchStatus } from './launch-copy';
 import {
   runtimeCreationAdmission,
+  runtimeApprovalHeadWait,
+  ApprovalHeadWaitError,
   KnownCapabilityAdmissionError,
 } from './cap-admission';
 import {
@@ -326,6 +328,11 @@ export default function CreateWizard() {
           account,
           stage,
         );
+      },
+      async (blockNumber, signal) => {
+        const current = authorityRef.current;
+        if (!current) throw new ApprovalHeadWaitError();
+        await runtimeApprovalHeadWait(current)(blockNumber, signal);
       },
     );
     return new CreationController(

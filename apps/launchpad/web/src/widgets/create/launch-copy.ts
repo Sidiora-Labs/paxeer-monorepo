@@ -6,6 +6,8 @@
  * one short sentence here, and the original is logged for diagnostics.
  */
 
+import { ApprovalHeadWaitError } from './cap-admission';
+
 export const GENERIC_LAUNCH_ERROR = 'Something went wrong, try again';
 
 export const INSUFFICIENT_USDL_COPY = 'Not enough USDL. You need the 1 USDL fee plus your first buy';
@@ -38,6 +40,8 @@ const statusCopy: Record<string, string> = {
   'Launch action failed.': GENERIC_LAUNCH_ERROR,
   'Approve the exact USDL amount. Creation is a separate transaction.': 'Approve the 1 USDL fee in your wallet',
   'Approval confirmed. Review the fresh creation gas and launch details before creating.': 'Fee approved. Now create your coin',
+  'Approval confirmed. Waiting for the committed head.': 'Fee approved. Preparing your coin...',
+  'Approval confirmed. Try creating again in a moment.': 'Fee approved. Press Create coin again in a moment',
   'Confirm one createMarket transaction in your wallet.': 'Confirm in your wallet',
   'Creation review expired.': 'This took too long. Try again',
   'Submission outcome is unknown. Recover this attempt before starting another.': "We couldn't confirm your coin was created. Check the steps above before trying again",
@@ -125,6 +129,15 @@ export function plainLaunchStatus(message: string | undefined): string {
 /** One plain sentence for any failure in the creation flow. The original detail goes to the console. */
 export function plainLaunchError(cause: unknown, fallback: string = GENERIC_LAUNCH_ERROR): string {
   const text = rawText(cause);
+  let current: unknown = cause;
+  for (let depth = 0; depth < 8 && current && typeof current === 'object'; depth++) {
+    if (current instanceof ApprovalHeadWaitError) {
+      const [walletPattern, walletCopy] = errorRules[0];
+      if (walletCode(cause) === 4001 || walletPattern.test(text)) return walletCopy;
+      return statusCopy['Approval confirmed. Try creating again in a moment.'];
+    }
+    current = (current as { cause?: unknown }).cause;
+  }
   if (passThrough.has(text)) return text;
   if (text in statusCopy) return statusCopy[text] || fallback;
   if (cause && typeof cause === 'object') console.error('[create]', cause);

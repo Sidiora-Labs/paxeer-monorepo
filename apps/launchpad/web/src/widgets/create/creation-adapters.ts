@@ -1,7 +1,7 @@
 import { decodeEventLog, decodeFunctionData, encodeFunctionData, parseAbi, type Address, type Hex, type PublicClient, type WalletClient } from 'viem';
 import { address, hash, raw, resolveCreation, verifyCost, type Deployment, type Receipt } from './creation-domain';
 import { validateCreationDraft, type CreationDraftV2 } from './creation-storage';
-import { KnownCapabilityAdmissionError, type CreationAdmissionStage, type CreationCapabilityAdmission } from './cap-admission';
+import { KnownCapabilityAdmissionError, type ApprovalHeadWait, type CreationAdmissionStage, type CreationCapabilityAdmission } from './cap-admission';
 import { ChainTradeProvider, productionTradeDeployment, transactionFingerprint, type TradeDeployment } from '../trading/transaction-controls/providers';
 import { minimumOutput, type TradeContext } from '../trading/transaction-controls/domain';
 
@@ -30,7 +30,7 @@ export function creationFunding(read:FundingRead) {
 }
 export class ChainCreationAdapter {
  readonly trade: ChainTradeProvider;
- constructor(readonly client: PublicClient, private wallet: WalletClient, readonly deployment: LaunchDeployment, private currentScope: () => AccountScope, private admission?:CreationCapabilityAdmission) {
+ constructor(readonly client: PublicClient, private wallet: WalletClient, readonly deployment: LaunchDeployment, private currentScope: () => AccountScope, private admission?:CreationCapabilityAdmission, private approvalHeadWait?:ApprovalHeadWait) {
   this.deployment=Object.freeze({...deployment});
   const authority=deployment.tradeDeployment??productionTradeDeployment;
   const tradeDeployment=Object.freeze({...authority,pins:Object.freeze(authority.pins.map(pin=>Object.freeze({...pin})))});
@@ -106,6 +106,9 @@ export class ChainCreationAdapter {
   if(allowance!==raw(targetRaw))throw new Error('Mined approval allowance is insufficient.');
   if((await this.client.getBlock({blockNumber:receipt.blockNumber})).hash!==receipt.blockHash)throw new Error('Approval is no longer canonical.');this.scope(expected);
   return {receipt,allowanceRaw:String(allowance)};
+ }
+ async waitForApprovalHead(blockNumber:bigint,signal?:AbortSignal):Promise<void> {
+  await this.approvalHeadWait?.(blockNumber,signal);
  }
  async admitCreation(draft:CreationDraftV2,expected:AccountScope,stage:CreationAdmissionStage='creation') {
   try{this.scope(expected);if(!this.admission)throw new Error('Runtime creation authority is unavailable. No wallet request was sent.');await this.admission(draft,expected,stage);this.scope(expected);}
