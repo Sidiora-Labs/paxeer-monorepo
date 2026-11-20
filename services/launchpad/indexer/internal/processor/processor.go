@@ -246,7 +246,7 @@ func (p *Processor) Run(ctx context.Context) (result error) {
 			last = checkpoint
 			size = p.deps.BatchSize
 		}
-		if !snapshotsStarted && p.deps.QualifiedBatchSource != nil && p.deps.LegacyProjection {
+		if !snapshotsStarted && p.pendingCanonical == nil && p.deps.QualifiedBatchSource != nil && p.deps.LegacyProjection {
 			if err := p.backfillCreationSnapshots(ctx); err != nil {
 				return err
 			}
