@@ -164,7 +164,7 @@ func Provision(ctx context.Context, js jetstream.JetStream, d Document, u Update
 			}
 		}
 		if err != nil {
-			return applied, fmt.Errorf("brokerprovision: cannot apply %s", difference.String())
+			return applied, fmt.Errorf("brokerprovision: cannot apply %s: %w", difference.String(), err)
 		}
 		applied = append(applied, difference)
 	}

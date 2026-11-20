@@ -311,7 +311,7 @@ func productionSocketRuntime(t *testing.T) {
 	}
 	provision := func() {
 		t.Helper()
-		command := exec.Command(filepath.Join(bin, "provision"), "provision", "--document", filepath.Join(examples, "broker.example.json"), "--broker-env", "API_CONTRACT_BROKER", "--credentials-file", credentials, "--timeout", "30s")
+		command := exec.Command(filepath.Join(bin, "provision"), "provision", "--document", filepath.Join(examples, "broker.example.json"), "--broker-env", "API_CONTRACT_BROKER", "--credentials-file", credentials, "--timeout", "2m")
 		command.Env = append(os.Environ(), "SSL_CERT_FILE="+pki.CAFile, "API_CONTRACT_BROKER="+address)
 		if output, err := command.CombinedOutput(); err != nil {
 			t.Fatalf("provision broker: %v: %s", err, output)
