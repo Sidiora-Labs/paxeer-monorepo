@@ -209865,7 +209865,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.984]
 title = "Bind each package index read and each install of the system package script of the launchpad checks in time"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209927,7 +209927,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.982]
 title = "Name every package of the control module in the package inventory of the launchpad Go test runner"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
