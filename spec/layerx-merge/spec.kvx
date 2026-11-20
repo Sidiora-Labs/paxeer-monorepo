@@ -210480,7 +210480,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1036]
 title = "Let the pause observation handler of the launchpad indexer bring its snapshot up to the asked block inside its bound"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210510,7 +210510,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1035]
 title = "Let the background loop of the pnl app of the launchpad look at its context ahead of every run"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210602,7 +210602,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1032]
 title = "Start the notices of the launchpad web above the fixed controls at the bottom of the window and let a plain notice end by itself"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210692,7 +210692,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1029]
 title = "Give the runtime role of the stats app the read on the view of the visibility of a pool and run the statements of its policy consumer under that role"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
