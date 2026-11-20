@@ -210450,7 +210450,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1037]
 title = "Name the step of an error of the visibility read and of the evidence read in the universe read of the launchpad ranking"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
