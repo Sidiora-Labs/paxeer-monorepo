@@ -1311,11 +1311,10 @@ func (a *RPCQualification) ValidateReceipt(ctx context.Context, b Bundle) error 
 	for _, l := range b.Receipt.Logs {
 		e, err := a.epoch(l.Address, decode.Order{Block: l.BlockNumber, Transaction: l.TxIndex, Log: l.Index})
 		if err != nil {
-			// A contract outside the qualified code epochs (for example the
-			// protocol Treasury, which the frozen manifest does not name) may
-			// log inside a qualified transaction. Its logs stay opaque: the
-			// registry still rejects any approved signature from an
-			// unauthorized emitter, so it cannot impersonate a qualified event.
+			// A contract with no deployment epoch may log inside a qualified
+			// transaction. Its logs stay opaque whatever their first topic;
+			// only decoded envelopes can supply deployment events. Emitters
+			// with epochs still require an active, authorized binding.
 			env, derr := a.registry.Decode(*l)
 			if derr != nil {
 				return derr

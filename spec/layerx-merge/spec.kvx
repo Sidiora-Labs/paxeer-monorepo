@@ -16108,6 +16108,12 @@ value = "One. In the function Run the creation snapshot pass waits while the pro
 basis = "Gotcha 4759."
 affects = []
 
+[decision.3833]
+title = "A log of an emitter that holds no deployment epoch stays opaque whatever its first topic"
+value = "One. A log of an emitter that holds no deployment epoch at any order is content outside the deployment. In the function Decode it takes the second path of gotcha 4760 part two whatever its first topic: the opaque envelope with the reason untrusted_emitter, no event and no error. It yields no event, no fill, no selection and no provenance, and it does not decide over its receipt. Two. A log of an emitter that holds one or more epochs of which none is active at the order of the log keeps both paths of today, since a log of a contract of the deployment outside its epochs points at the deployment record. Every path for an emitter with an active epoch stays as it is, and the signature set keeps its content. Three. The branch of ValidateReceipt for an emitter outside the qualified code epochs keeps its refusal for an envelope that is not opaque or holds an event, and its comment states the rule of point one. Four. The size and count bounds of the functions boundedBundle, coordinates and rawSizeAllowed stay as they are. Task 22.39.1021."
+basis = "Gotcha 4760."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45768,6 +45774,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1021]
+title = "Let a log of an emitter that holds no deployment epoch stay opaque in the decode registry of the launchpad indexer whatever its first topic"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/indexer && go test -count=1 -timeout 12m ./cmd/... ./internal/app/ ./internal/chainreader/ ./internal/checked/ ./internal/config/ ./internal/decode/ ./internal/httpapi/ ./internal/internaltest/... ./internal/migrate/ ./internal/publisher/ ./internal/receipt/ ./internal/rolecheck/ ./internal/runtimedocs/ ./internal/source/ ./internal/store/... && go test -count=1 -timeout 8m -run ^TestNativeProjectionNativeProjectionIdentityGuards ./internal/processor/ && go test -count=1 -timeout 8m -run ^TestNativeReadModel ./internal/processor/ && go test -count=1 -list ^TestEmitterOutsideEpochs ./internal/decode/ | grep -q ^TestEmitterOutsideEpochs && go test -count=1 -list ^TestEmitterOutsideEpochs ./internal/receipt/ | grep -q ^TestEmitterOutsideEpochs)"
+do_1 = "do_1 Gotcha 4760, decision 3833. Read the function NewRegistry with the field known and the function Decode with its block for a log without an active epoch in services/launchpad/indexer/internal/decode/registry.go, the function ValidateReceipt with its branch for an emitter outside the qualified code epochs in services/launchpad/indexer/internal/receipt/rpc.go, the function Qualify in services/launchpad/indexer/internal/receipt/qualified.go, the cases of services/launchpad/indexer/internal/decode/registry_test.go, the case TestReceiptAdmissionPinsPrepaymentReceiptsAndEveryCodeEpoch with its modes in services/launchpad/indexer/internal/receipt/receipt_admission_test.go and the function nativeProjectionNativeProjectionFixture in services/launchpad/indexer/internal/processor/native_projection_test.go. Read every other caller of Decode in the module and every reader of the raw records and of the envelopes of a qualified batch in the packages source, processor and store far enough to say whether one of them takes a log as an event of the deployment by its first topic without an envelope of the status decoded. Where one does, let that reader take a log only with such an envelope, add a case for it and name file and function in the final message. Where none does, say so in the final message."
+symbols = []
 
 [capability.22.39.1020]
 title = "Let the broker nodes of the runtime case of the launchpad API name the bound of their file storage"
@@ -210247,6 +210262,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1021]
+title = "Let a log of an emitter that holds no deployment epoch stay opaque in the decode registry of the launchpad indexer whatever its first topic"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1021"]
+interfaces = []
+do_1 = "do_1 Gotcha 4760, decision 3833. Read the function NewRegistry with the field known and the function Decode with its block for a log without an active epoch in services/launchpad/indexer/internal/decode/registry.go, the function ValidateReceipt with its branch for an emitter outside the qualified code epochs in services/launchpad/indexer/internal/receipt/rpc.go, the function Qualify in services/launchpad/indexer/internal/receipt/qualified.go, the cases of services/launchpad/indexer/internal/decode/registry_test.go, the case TestReceiptAdmissionPinsPrepaymentReceiptsAndEveryCodeEpoch with its modes in services/launchpad/indexer/internal/receipt/receipt_admission_test.go and the function nativeProjectionNativeProjectionFixture in services/launchpad/indexer/internal/processor/native_projection_test.go. Read every other caller of Decode in the module and every reader of the raw records and of the envelopes of a qualified batch in the packages source, processor and store far enough to say whether one of them takes a log as an event of the deployment by its first topic without an envelope of the status decoded. Where one does, let that reader take a log only with such an envelope, add a case for it and name file and function in the final message. Where none does, say so in the final message."
+do_2 = "do_2 In Decode let a log of an emitter that holds no deployment epoch at any order take the path of today for a first topic outside the signature set, whatever its first topic: the opaque envelope with the reason untrusted_emitter, the raw log as today, no event and no error. Know such an emitter by the epochs that the registry holds for the address of the log. A log of an emitter that holds epochs of which none is active at the order of the log keeps both paths of today. No other path of Decode changes, the signature set keeps its content, and the checks ahead of the epoch block keep their order. Let the comment of the branch of ValidateReceipt state the rule of decision 3833 point one. The code of that branch keeps its refusal for an envelope that is not opaque or holds an event. No bound of boundedBundle, coordinates or rawSizeAllowed changes."
+do_3 = "do_3 Bring the cases of the module in line with the rule. The first requirement of TestProvenanceEpochAndRawPreservation in services/launchpad/indexer/internal/decode/registry_test.go, a log of the event Swap from an address without an epoch, requires no error, no event, the reason untrusted_emitter and the raw log. The requirement on the log of an address without an epoch in nativeProjectionNativeProjectionFixture requires no error, no event and the reason untrusted_emitter. The mode missing epoch of TestReceiptAdmissionPinsPrepaymentReceiptsAndEveryCodeEpoch leaves the list of refusal modes of that case and moves into a case of step four. The mode untrusted signature of that case, in which the registry holds an epoch that the authority does not hold, keeps its refusal, and so do the requirements of services/launchpad/indexer/internal/decode/registry_test.go on a log ahead of the activation of its emitter. Every other case of the module that requires an error for a log of an emitter without an epoch follows in the same way, and the final message names each. No other case is removed or skipped."
+do_4 = "do_4 Add cases whose names begin with TestEmitterOutsideEpochs. In the decode package: a log with the event Transfer of the contract SidioraERC20 from an address without an epoch and a log with the event Swap of the contract EventEmitter from an address without an epoch each give the opaque envelope with the reason untrusted_emitter, no event and no error. A log of an emitter ahead of the start of its only epoch with a first topic of the signature set keeps its error, and a log of an emitter with an active epoch and a first topic of the signature set outside its role keeps its error. In the receipt package, with the fixtures of the package, the recorded receipt of the receipt admission case or the private node of the package: a receipt that holds a log with a first topic of the signature set from an emitter without an epoch in the authority and in the registry, next to logs of qualified emitters, passes ValidateReceipt and Qualify, and Qualify gives no event, no fill, no selection and no provenance of that emitter and keeps those of the other emitters. Choose the fixture that shows this with the least new machinery and name the choice in the final message. The cases TestNativeProjectionAmbiguousCommitLiveRecovery and TestPendingCanonicalCommitResolvesBeforeSelectingAnotherRange of the processor package are the matter of task 22.39.1017: change nothing for them. Run the processor package once outside the counted verification and name in the final message every case of it that this task brought in line. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/indexer && go test -count=1 -timeout 12m ./cmd/... ./internal/app/ ./internal/chainreader/ ./internal/checked/ ./internal/config/ ./internal/decode/ ./internal/httpapi/ ./internal/internaltest/... ./internal/migrate/ ./internal/publisher/ ./internal/receipt/ ./internal/rolecheck/ ./internal/runtimedocs/ ./internal/source/ ./internal/store/... && go test -count=1 -timeout 8m -run ^TestNativeProjectionNativeProjectionIdentityGuards ./internal/processor/ && go test -count=1 -timeout 8m -run ^TestNativeReadModel ./internal/processor/ && go test -count=1 -list ^TestEmitterOutsideEpochs ./internal/decode/ | grep -q ^TestEmitterOutsideEpochs && go test -count=1 -list ^TestEmitterOutsideEpochs ./internal/receipt/ | grep -q ^TestEmitterOutsideEpochs)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1020]
 title = "Let the broker nodes of the runtime case of the launchpad API name the bound of their file storage"
 status = "done"
@@ -210309,7 +210355,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1018]
 title = "Bound every broker request of the provisioning of the launchpad by a wait of its own and send it again inside the deadline of the caller"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210402,7 +210448,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1015]
 title = "Renew the transcript checksum and the reward history catalog of the pnl module of the launchpad from the chain fixture transcript and the registry of the migrations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1006"]
