@@ -209994,7 +209994,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.976]
 title = "Let the create admission of the launchpad web application accept the preflight answer of the declared contract"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
