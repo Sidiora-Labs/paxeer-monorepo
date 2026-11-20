@@ -8,9 +8,12 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"maps"
 	"math/big"
 	"net/http"
+	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
@@ -264,12 +267,118 @@ type Preflight struct {
 }
 
 type PreflightEngine struct {
-	reader      deployment.Reader
-	manifest    deployment.Manifest
-	poolRuntime common.Hash
-	revision    deployment.Revision
-	maxAge      time.Duration
-	timeout     time.Duration
+	reader       deployment.Reader
+	manifest     deployment.Manifest
+	poolRuntime  common.Hash
+	revision     deployment.Revision
+	maxAge       time.Duration
+	timeout      time.Duration
+	attestations *preflightAttestations
+}
+
+const preflightAttestationLimit = 16
+
+type preflightAttestations struct {
+	mu      sync.Mutex
+	kept    map[common.Hash]deployment.ActivationAttestation
+	reading map[common.Hash]*preflightAttestationRead
+}
+
+type preflightAttestationRead struct {
+	done        chan struct{}
+	attestation deployment.ActivationAttestation
+	err         error
+}
+
+func newPreflightAttestations() *preflightAttestations {
+	return &preflightAttestations{
+		kept:    make(map[common.Hash]deployment.ActivationAttestation),
+		reading: make(map[common.Hash]*preflightAttestationRead),
+	}
+}
+
+// Attestation shares the identity read for a block hash and checks its block
+// time at now. The engine supplies the age and timeout bounds; now is the
+// asking time used by the caller's subsequent policy checks.
+func (e *PreflightEngine) Attestation(ctx context.Context, block common.Hash, now time.Time) (deployment.ActivationAttestation, error) {
+	if e == nil || e.attestations == nil {
+		return deployment.ActivationAttestation{}, deployment.Issue{Code: valuePreflightEngineMissing}
+	}
+	if err := ctx.Err(); err != nil {
+		return deployment.ActivationAttestation{}, err
+	}
+	if now.IsZero() {
+		return deployment.ActivationAttestation{}, deployment.Issue{Code: "attestation_policy_invalid"}
+	}
+	cache := e.attestations
+	cache.mu.Lock()
+	if attestation, ok := cache.kept[block]; ok {
+		cache.mu.Unlock()
+		if err := ctx.Err(); err != nil {
+			return deployment.ActivationAttestation{}, err
+		}
+		return e.attestationAt(attestation, now)
+	}
+	flight := cache.reading[block]
+	if flight == nil {
+		flight = &preflightAttestationRead{done: make(chan struct{})}
+		cache.reading[block] = flight
+		go e.readAttestation(context.WithoutCancel(ctx), block, now, flight)
+	}
+	cache.mu.Unlock()
+	select {
+	case <-ctx.Done():
+		return deployment.ActivationAttestation{}, ctx.Err()
+	case <-flight.done:
+		if err := ctx.Err(); err != nil {
+			return deployment.ActivationAttestation{}, err
+		}
+		if flight.err != nil {
+			return clonePreflightAttestation(flight.attestation), flight.err
+		}
+		return e.attestationAt(flight.attestation, now)
+	}
+}
+
+func (e *PreflightEngine) readAttestation(ctx context.Context, block common.Hash, now time.Time, flight *preflightAttestationRead) {
+	policy := deployment.Policy{Now: now, MaxAge: e.maxAge, Timeout: e.timeout}
+	attestation, err := deployment.Attest(ctx, e.reader, e.manifest, block, policy)
+	cache := e.attestations
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	if err == nil && len(attestation.Issues) == 0 {
+		cache.kept[block] = attestation
+		if len(cache.kept) > preflightAttestationLimit {
+			lowest := block
+			for hash, kept := range cache.kept {
+				if kept.BlockNumber < cache.kept[lowest].BlockNumber {
+					lowest = hash
+				}
+			}
+			delete(cache.kept, lowest)
+		}
+	}
+	flight.attestation, flight.err = attestation, err
+	delete(cache.reading, block)
+	close(flight.done)
+}
+
+func (e *PreflightEngine) attestationAt(attestation deployment.ActivationAttestation, now time.Time) (deployment.ActivationAttestation, error) {
+	if now.Unix() < 0 || attestation.BlockTime.After(now) || now.Sub(attestation.BlockTime) > e.maxAge {
+		return deployment.ActivationAttestation{}, deployment.Issue{Code: "attestation_stale"}
+	}
+	return clonePreflightAttestation(attestation), nil
+}
+
+func clonePreflightAttestation(attestation deployment.ActivationAttestation) deployment.ActivationAttestation {
+	attestation.Identities = maps.Clone(attestation.Identities)
+	for role, identity := range attestation.Identities {
+		identity.Issues = slices.Clone(identity.Issues)
+		attestation.Identities[role] = identity
+	}
+	attestation.PolicyValues = maps.Clone(attestation.PolicyValues)
+	attestation.Issues = slices.Clone(attestation.Issues)
+	return attestation
 }
 
 type PublishedFamily struct {
@@ -298,7 +407,7 @@ func NewPreflightEngine(reader deployment.Reader, m deployment.Manifest, reviewe
 	if err != nil {
 		return nil, err
 	}
-	return &PreflightEngine{reader: reader, manifest: manifest, poolRuntime: poolRuntime, revision: revision, maxAge: maxAge, timeout: timeout}, nil
+	return &PreflightEngine{reader: reader, manifest: manifest, poolRuntime: poolRuntime, revision: revision, maxAge: maxAge, timeout: timeout, attestations: newPreflightAttestations()}, nil
 }
 
 // NewPreflightRevision derives the engine revision from reviewed configuration
@@ -344,7 +453,7 @@ func (e *PreflightEngine) Capabilities(ctx context.Context, block common.Hash) (
 		return CapabilityPublication{}, deployment.Issue{Code: valuePreflightEngineMissing}
 	}
 	policy := deployment.Policy{Now: time.Now().UTC(), MaxAge: e.maxAge, Timeout: e.timeout}
-	attestation, err := deployment.Attest(ctx, e.reader, e.manifest, block, policy)
+	attestation, err := e.Attestation(ctx, block, policy.Now)
 	if err != nil {
 		return CapabilityPublication{}, err
 	}
@@ -403,7 +512,7 @@ func (e *PreflightEngine) SerialExport(ctx context.Context, block common.Hash, e
 		return deployment.SerialExport{}, deployment.Issue{Code: valuePreflightEngineMissing}
 	}
 	policy := deployment.Policy{Now: time.Now().UTC(), MaxAge: e.maxAge, Timeout: e.timeout}
-	attestation, err := deployment.Attest(ctx, e.reader, e.manifest, block, policy)
+	attestation, err := e.Attestation(ctx, block, policy.Now)
 	if err != nil {
 		return deployment.SerialExport{}, err
 	}
@@ -431,7 +540,7 @@ func (e *PreflightEngine) Preflight(ctx context.Context, request PreflightReques
 	ctx, cancel := context.WithTimeout(ctx, e.timeout)
 	defer cancel()
 	policy := deployment.Policy{Now: time.Now().UTC(), MaxAge: e.maxAge, Timeout: e.timeout}
-	attestation, err := deployment.Attest(ctx, e.reader, e.manifest, request.BlockHash, policy)
+	attestation, err := e.Attestation(ctx, request.BlockHash, policy.Now)
 	if err != nil {
 		return result, err
 	}
