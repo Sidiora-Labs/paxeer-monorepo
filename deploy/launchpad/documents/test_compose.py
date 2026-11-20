@@ -812,6 +812,59 @@ def test_runtime_contract_names_and_forms_cover_image_config(service: str) -> No
     assert contract["defaults"] == defaults
 
 
+@pytest.mark.parametrize("endpoint", [
+    "http://indexer.example.com:8080/internal/ranking-evidence",
+    "https://indexer.example.com/internal/ranking-evidence",
+    "http://127.0.0.1:8080/internal/ranking-evidence",
+    "http://[::1]:8080/internal/ranking-evidence",
+])
+def test_ranking_evidence_endpoint_is_bound(tmp_path: Path, endpoint: str) -> None:
+    values, out = _values(tmp_path), tmp_path / "out"
+    path = values / "ranking.example.json"
+    ranking = json.loads(path.read_bytes())
+    ranking["evidenceEndpoint"] = endpoint
+    path.write_text(json.dumps(ranking))
+    result = _run(values, out, "ranking")
+    assert result.returncode == 0, result.stderr
+    record = json.loads((out / "ranking.json").read_bytes())
+    raw = base64.b64decode(record["RANKING_RUNTIME_DOCUMENT"])
+    binding = json.loads(raw)
+    assert binding["version"] == 2
+    assert binding["evidenceEndpoint"] == endpoint
+    assert binding["visibilityEndpoint"] == ranking["visibilityEndpoint"]
+    assert record["RANKING_RUNTIME_SHA256"] == hashlib.sha256(raw).hexdigest()
+
+
+@pytest.mark.parametrize("endpoint", [
+    None, "", False, 123,
+    "ftp://indexer.example.com/internal/ranking-evidence",
+    "http:///internal/ranking-evidence",
+    "http://indexer.example.com/internal/ranking-evidence?height=200",
+    "http://indexer.example.com/internal/ranking-evidence?",
+    "http://indexer.example.com/internal/other",
+    "http://indexer.example.com/internal/%72anking-evidence",
+    "http://user@indexer.example.com/internal/ranking-evidence",
+    "http://indexer.example.com/internal/ranking-evidence#pool",
+    "http://indexer.example.com/internal/ranking-evidence#",
+    "http://indexer.example.com:65536/internal/ranking-evidence",
+    "http://indexer.example.com:/internal/ranking-evidence",
+    "http://indexer.example.com /internal/ranking-evidence",
+])
+def test_ranking_evidence_endpoint_is_required(tmp_path: Path, endpoint: object) -> None:
+    values, out = _values(tmp_path), tmp_path / "out"
+    path = values / "ranking.example.json"
+    ranking = json.loads(path.read_bytes())
+    if endpoint is None:
+        del ranking["evidenceEndpoint"]
+    else:
+        ranking["evidenceEndpoint"] = endpoint
+    path.write_text(json.dumps(ranking))
+    result = _run(values, out, "ranking")
+    assert result.returncode != 0
+    assert "missing or malformed value evidenceEndpoint" in result.stderr
+    assert not (out / "ranking.json").exists()
+
+
 @pytest.mark.parametrize("service", ["api", "gateway", "ranking", "social"])
 def test_composed_credential_references_are_deployment_inputs(tmp_path: Path, service: str) -> None:
     values, out = _values(tmp_path), tmp_path / "out"
