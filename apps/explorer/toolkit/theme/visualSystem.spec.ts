@@ -301,6 +301,11 @@ function touchMinimumsUseOnlySmallViewports() {
       marginBlock: 'calc((var(--touch-line-size) - var(--chakra-sizes-touch-target)) / 2)',
     },
   });
+  expect(globalCss!['[data-entity-link]']).toEqual({
+    '@media (max-width: 834px)': {
+      marginBlock: 'calc((1lh - var(--chakra-sizes-touch-target)) / 2)',
+    },
+  });
 }
 
 test(touchMinimumsUseOnlySmallViewports, touchMinimumsUseOnlySmallViewports);

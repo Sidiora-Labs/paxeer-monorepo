@@ -92,7 +92,11 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
         <Text fontWeight="medium">Txn</Text>
         { data.transactions_count > 0 ? (
           <Skeleton loading={ isLoading } textStyle="number" display="inline-block">
-            <Link href={ route({ pathname: '/block/[height_or_hash]', query: { height_or_hash: String(data.height), tab: 'txs' } }, { chain: chainData }) }>
+            <Link
+              href={ route({ pathname: '/block/[height_or_hash]', query: { height_or_hash: String(data.height), tab: 'txs' } }, { chain: chainData }) }
+              data-touch-inline
+              css={{ '--touch-line-size': 'var(--chakra-line-heights-small)' }}
+            >
               { data.transactions_count }
             </Link>
           </Skeleton>

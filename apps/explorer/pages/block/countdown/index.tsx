@@ -10,7 +10,7 @@ const Page: NextPage<Props> = (props: Props) => {
   return (
     <>
       <PageNextJs pathname="/block/countdown" query={ props.query }>{ null }</PageNextJs>
-      <BlockCountdownIndex/>
+      <BlockCountdownIndex searchWidth="calc(var(--chakra-spacing-1) * 90)"/>
     </>
   );
 };

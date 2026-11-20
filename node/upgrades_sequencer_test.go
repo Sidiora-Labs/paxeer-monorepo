@@ -373,6 +373,7 @@ func TestUpgradesSequencerSwitchAtActivation(t *testing.T) {
 		_, err = a.Commit(context.Background())
 		require.NoError(t, err)
 		require.Equal(t, height, a.LastBlockHeight())
+		WaitForTestQueryHeight(t, a, a.LastBlockHeight())
 	}
 	commit(func(ctx sdk.Context) { rewindBeforeMerge(t, a, ctx) })
 
