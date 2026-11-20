@@ -210028,7 +210028,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.992]
 title = "Build the pause evidence reader of the launchpad ranking service from an endpoint member of its binding document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.991"]
@@ -210466,7 +210466,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.978]
 title = "Let the example network document of the launchpad carry the revision the documents command computes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.970"]
