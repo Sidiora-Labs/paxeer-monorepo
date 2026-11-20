@@ -7,7 +7,7 @@ import { route } from 'nextjs-routes';
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Hint } from 'toolkit/components/Hint/Hint';
-import { getStatValueStyles } from 'toolkit/utils/statValue';
+import { getStatValueStyles, getStatValueText } from 'toolkit/utils/statValue';
 import IconSvg, { type IconName } from 'ui/shared/IconSvg';
 
 export type Props = {
@@ -40,13 +40,6 @@ const Container = ({ href, isLoading, children, className }: { href?: Route; isL
   return children;
 };
 
-function valueText(value: React.ReactNode): string {
-  return React.Children.toArray(value).map((child) => {
-    if (typeof child === 'string' || typeof child === 'number') return String(child);
-    return React.isValidElement<{ children?: React.ReactNode }>(child) ? valueText(child.props.children) : '';
-  }).join('');
-}
-
 const StatsWidget = ({
   className,
   icon,
@@ -63,7 +56,7 @@ const StatsWidget = ({
   href,
   isFallback,
 }: Props) => {
-  const characters = Array.from(`${ valuePrefix ?? '' }${ valueText(value ?? '—') }${ valuePostfix ?? '' }`).length;
+  const characters = Array.from(`${ valuePrefix ?? '' }${ getStatValueText(value ?? '—') }${ valuePostfix ?? '' }`).length;
   let diffColor = 'text.muted';
   if (diff != null && Number(diff) !== 0) {
     diffColor = Number(diff) > 0 ? 'positive' : 'negative';
