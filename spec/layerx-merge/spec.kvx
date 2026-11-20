@@ -16078,6 +16078,12 @@ value = "One. The coverage of a pool holds for a range where a committed epoch o
 basis = "Gotcha 4754."
 affects = []
 
+[decision.3828]
+title = "The stats document of a pool without a price-moving event carries the opening price from the state of the pool at its creation"
+value = "One. The opening price of a pool is the effective reserve of its state row at the creation, the virtual reserve plus the real reserve, times 1e18 divided by the token reserve and rounded down, the rule of the contract. It exists only where that row exists at the position of the creation and its token reserve is above zero. Two. Where no price-moving event lies at or before the anchor, the document carries the opening price and the valuations that follow from it. Where a window holds every price-moving event of the pool, the opening price is its baseline, with the quality insufficient_history where the creation lies inside the window and the quality complete where it lies before it. Three. The role stats_runtime reads the views pools_read_v1 and pool_state_snapshots_v1 of the schema indexer by columns through the grants record. The append function of the stream and the form of the frame do not change. Four. The holders table marks the row of the pool address with the text Bonding curve. Five. The search result of the web holds one entity for one coin: the entity of the kind pool where a pool match exists, else the entity of the kind token. Tasks 22.39.1006 to 22.39.1008."
+basis = "Gotcha 4755."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45738,6 +45744,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1008]
+title = "Hold one entity for one coin in the search result of the launchpad web"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4755 part three, decision 3828 point five. Read apps/launchpad/web/src/core/app-foundation/search-client.ts with the function searchEntities, its loop over the kinds pool and token, the resolution of the pool of a token through the metadata and the map it keys by kind and address, the cases in apps/launchpad/web/src/core/app-foundation/search-client.test.ts, the function useSearchResults in apps/launchpad/web/src/shell/use-global-search.ts, the rows of the search view in apps/launchpad/web/src/page-modules/search/index.tsx and the status line PaletteStatus in apps/launchpad/web/src/shell/global-search-parts.tsx with its count of coins."
+symbols = []
+
+[capability.22.39.1007]
+title = "Mark the row of the pool address in the holders table of the launchpad web"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4755 part two, decision 3828 point four. Read apps/launchpad/web/src/widgets/coin/holders-table.tsx with the function HoldersBody, the pool address it receives, the markup of a row and the mark of the creator with the attribute data-dev-badge, and the label Bonding curve in apps/launchpad/web/src/widgets/terminal/token-strip.tsx."
+symbols = []
+
+[capability.22.39.1006]
+title = "Carry the opening price of a pool without a price-moving event in the stats document from the state of the pool at its creation"
+reqs = ["22998.1"]
+touches = ["services/launchpad", "migrations", "sdk/launchpad/shared/db/production"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -list ^TestPublicStatsOpeningPrice ./internal/projectionstats/ | grep -q ^TestPublicStatsOpeningPrice) && (cd sdk/launchpad/shared && go test -count=1 -timeout 30m ./db/production/...)"
+do_1 = "do_1 Gotcha 4755 part one, decision 3828 points one to three. Read in the stats module the file internal/projectionstats/public_stats.go with the functions poolStatsTx, windowChange, appendTx and ValidatePublicStatsFrame and the place that sets the members spotPriceWad, spotPriceUsdlRaw, totalSupplyValuationUsdlRaw and circulatingMarketCapUsdlRaw, the method source of the type ReadService in internal/projectionstats/service.go, the views pools_read_v1 and pool_state_snapshots_v1 in migrations/60003.sql, the method PoolReserves in services/launchpad/api/internal/store/pool_registry.go with its statement over the two views, the place in services/launchpad/indexer/internal/store/creation_snapshots.go that writes the state of a pool at its creation with the position it stores, the function getPrice in contracts/launchpad/contracts/libraries/ReserveLib.sol, the place in contracts/launchpad/contracts/core/SidioraPool.sol that forms the effective reserve, the entry of the role stats_runtime in migrations/grants.json with its reads on views of the schema indexer, and how the last change of migrations/grants.json renewed the digests in migrations/registry.json."
+symbols = []
 
 [capability.22.39.1005]
 title = "Hand the node cases of the sequencer package a local port outside the range of the system for local ports"
@@ -210078,6 +210111,98 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1008]
+title = "Hold one entity for one coin in the search result of the launchpad web"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1008"]
+interfaces = []
+do_1 = "do_1 Gotcha 4755 part three, decision 3828 point five. Read apps/launchpad/web/src/core/app-foundation/search-client.ts with the function searchEntities, its loop over the kinds pool and token, the resolution of the pool of a token through the metadata and the map it keys by kind and address, the cases in apps/launchpad/web/src/core/app-foundation/search-client.test.ts, the function useSearchResults in apps/launchpad/web/src/shell/use-global-search.ts, the rows of the search view in apps/launchpad/web/src/page-modules/search/index.tsx and the status line PaletteStatus in apps/launchpad/web/src/shell/global-search-parts.tsx with its count of coins."
+do_2 = "do_2 Let searchEntities hold one entity for one coin. Two matches name the same coin where their pool addresses are equal after the resolution, or where their token addresses are equal. The entity of the kind pool stays where a pool match exists, and it carries the token address and the metadata the token match resolved where it holds none of its own. Else the entity of the kind token stays. The order follows the first appearance of a coin, and the bound of twenty entities stays. A token whose pool is not resolved and that no pool match names stays an entity of its own. The filter for a query that is a full address and the checks of an answer stay as they are."
+do_3 = "do_3 Add cases in apps/launchpad/web/src/core/app-foundation/search-client.test.ts: a pool match and a token match of one coin give one entity of the kind pool with both addresses, two coins give two entities in the order of their first appearance, a token without a resolved pool stays an entity, and a query that is the token address of a coin gives one entity. The search view and the search of the shell take the result as it is: change them only where a case shows a need. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1007]
+title = "Mark the row of the pool address in the holders table of the launchpad web"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1007"]
+interfaces = []
+do_1 = "do_1 Gotcha 4755 part two, decision 3828 point four. Read apps/launchpad/web/src/widgets/coin/holders-table.tsx with the function HoldersBody, the pool address it receives, the markup of a row and the mark of the creator with the attribute data-dev-badge, and the label Bonding curve in apps/launchpad/web/src/widgets/terminal/token-strip.tsx."
+do_2 = "do_2 Let the row whose wallet is the pool address of the body carry a mark beside its name: the text Bonding curve, the title Coins held by the bonding curve, the attribute data-pool-badge, built like the mark of the creator. The two addresses are compared in lower case. The name of that row is no link to a profile view. The row keeps its place in the order and its figures. The search of the table, its filters and the rows of every other wallet do not change."
+do_3 = "do_3 Add render cases beside the present cases of the coin widgets: the row of the pool address carries the mark and no profile link, the row of the creator keeps its mark and its link, and a row of another wallet carries neither mark. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1006]
+title = "Carry the opening price of a pool without a price-moving event in the stats document from the state of the pool at its creation"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1006"]
+interfaces = []
+do_1 = "do_1 Gotcha 4755 part one, decision 3828 points one to three. Read in the stats module the file internal/projectionstats/public_stats.go with the functions poolStatsTx, windowChange, appendTx and ValidatePublicStatsFrame and the place that sets the members spotPriceWad, spotPriceUsdlRaw, totalSupplyValuationUsdlRaw and circulatingMarketCapUsdlRaw, the method source of the type ReadService in internal/projectionstats/service.go, the views pools_read_v1 and pool_state_snapshots_v1 in migrations/60003.sql, the method PoolReserves in services/launchpad/api/internal/store/pool_registry.go with its statement over the two views, the place in services/launchpad/indexer/internal/store/creation_snapshots.go that writes the state of a pool at its creation with the position it stores, the function getPrice in contracts/launchpad/contracts/libraries/ReserveLib.sol, the place in contracts/launchpad/contracts/core/SidioraPool.sol that forms the effective reserve, the entry of the role stats_runtime in migrations/grants.json with its reads on views of the schema indexer, and how the last change of migrations/grants.json renewed the digests in migrations/registry.json."
+do_2 = "do_2 Let the projector read the state of a pool at its creation in the transaction of the document: the row of the view pool_state_snapshots_v1 whose block number and log index are the height and the log index of the canonical creation of the pool, found through the view pools_read_v1 by the pool address, both views named through the method source. The opening price is the sum of the virtual reserve and the real reserve of that row times 1e18 divided by its token reserve, rounded down. There is no opening price where no such row exists or its token reserve is zero, and the document of such a pool stays as it is today. Where no price-moving event lies at or before the anchor, the opening price takes the place of the current price for the members spotPriceWad and spotPriceUsdlRaw and, where the holdings are known, for the two valuations and their quality, by the code path a current price takes today. Where a price-moving event exists, those members stay as they are today. The append function of the stream, the form of the frame and the checks of ValidatePublicStatsFrame do not change."
+do_3 = "do_3 Let windowChange take the opening price as the baseline where a current price exists and no price-moving event lies before the start of the window. The quality is insufficient_history where the creation lies at or after the start of the window and complete where it lies before it. Where no opening price exists, the answer stays as it is today. The answer for a pool without a price-moving event stays zero with its present quality."
+do_4 = "do_4 Give the role stats_runtime the reads the new statement needs and no more: in its entry in migrations/grants.json one read on the view pool_state_snapshots_v1 of the schema indexer with the columns the statement names and one read on the view pools_read_v1 with the columns pool_address and pool_id, in the form of the present entries for views of that schema. Renew the digests migrations/registry.json holds over that document with the tool the earlier changes of the document used. The task changes no object and no other role and adds a migration file only where that tool asks for one. Where the sources under sdk/launchpad/shared/db/production pin the entries of the role, they take the two reads, and a case there in the manner of sdk/launchpad/shared/db/production/charts_role_test.go asserts that the entry of the role holds every column the statement names."
+do_5 = "do_5 Add cases with the prefix TestPublicStatsOpeningPrice in the package of the projector. A pool with a state row of 10000000000 virtual reserve, 0 real reserve and 1000000000000000 token reserve at its creation and no price-moving event gets the value 10000000000000 in spotPriceWad, and with holdings of the supply 1000000000000000 the value 10000000000 in totalSupplyValuationUsdlRaw. A pool without a state row and a pool with a zero token reserve keep the members empty. A pool whose first price-moving event lies inside the window gets its change against the opening price with the quality of decision 3828 point two. A state row that arrives after a first frame without a price leads to a second frame with the price at the same anchor and the next revision, and the append function takes it. One case runs the new statement under the role stats_runtime with the rights of the record, in the manner of TestRuntimeRoleHolderIndex. The present cases of the package follow the change. Where a record of the module lists its statements, as the statement inventory under internal/analytics does, it carries the new statement with the present value of every source it binds. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad", "migrations", "sdk/launchpad/shared/db/production"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/stats-*ers && go vet ./...) && (cd sdk/launchpad/shared && go vet ./db/production/...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -list ^TestPublicStatsOpeningPrice ./internal/projectionstats/ | grep -q ^TestPublicStatsOpeningPrice) && (cd sdk/launchpad/shared && go test -count=1 -timeout 30m ./db/production/...)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
