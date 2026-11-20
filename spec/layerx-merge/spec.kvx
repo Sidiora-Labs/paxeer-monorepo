@@ -210620,7 +210620,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1011]
 title = "Let the search projection of the stats module take the visibility of a pool at a policy event of the social service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1010"]
