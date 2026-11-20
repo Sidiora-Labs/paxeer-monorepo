@@ -32,6 +32,7 @@ type PoolReserves struct {
 	RealUsdl    UInt256
 	Token       UInt256
 	Height      int64
+	CreatedAt   int64
 }
 
 func (s *Store) PoolRegistry(ctx context.Context, pools []string) (map[string]PoolRegistryRow, error) {
@@ -96,7 +97,7 @@ func (s *Store) PoolReserves(ctx context.Context, pools []string) (map[string]Po
 	}
 	defer cancel()
 	defer rollbackRead(tx)
-	rows, err := tx.Query(ctx, `SELECT DISTINCT ON (lower(p.pool_address)) lower(p.pool_address),st.virtual_reserve,st.real_reserve,st.token_reserve,st.block_number FROM indexer.pools_read_v1 p JOIN indexer.pool_state_snapshots_v1 st ON st.pool_id=p.pool_id WHERE lower(p.pool_address)=ANY($1) ORDER BY lower(p.pool_address),st.block_number DESC,st.log_index DESC`, pools)
+	rows, err := tx.Query(ctx, `SELECT DISTINCT ON (lower(p.pool_address)) lower(p.pool_address),st.virtual_reserve,st.real_reserve,st.token_reserve,st.block_number,p.created_at FROM indexer.pools_read_v1 p JOIN indexer.pool_state_snapshots_v1 st ON st.pool_id=p.pool_id WHERE lower(p.pool_address)=ANY($1) ORDER BY lower(p.pool_address),st.block_number DESC,st.log_index DESC`, pools)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +106,7 @@ func (s *Store) PoolReserves(ctx context.Context, pools []string) (map[string]Po
 	for rows.Next() {
 		var pool, virtual, real, token string
 		var r PoolReserves
-		if err = rows.Scan(&pool, &virtual, &real, &token, &r.Height); err != nil {
+		if err = rows.Scan(&pool, &virtual, &real, &token, &r.Height, &r.CreatedAt); err != nil {
 			return nil, err
 		}
 		if r.VirtualUsdl, err = ParseUInt256(virtual); err != nil {
