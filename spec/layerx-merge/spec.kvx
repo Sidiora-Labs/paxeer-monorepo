@@ -350727,7 +350727,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.969]
 title = "Let two node cases wait for the state store before they read the query state of the newest height after a commit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
