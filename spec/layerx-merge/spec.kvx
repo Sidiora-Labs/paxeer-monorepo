@@ -16168,6 +16168,12 @@ value = "One. The steps identity_consumer and audit_consumer record a pass throu
 basis = "Gotcha 4769."
 affects = []
 
+[decision.3843]
+title = "The reward read of the pnl app checks its source block once, reads a header again for a bounded time where the node does not hold the block yet, and sends the node reads of its runtime check and of a fee preview as batches"
+value = "One. The function sourceCheckpoint reads the watermark of the source stream and the completeness row of its typed complete height through its two present statements and checks that block once, through the copy of the creator pinned to it: the chain id read, the header read and the runtime check. The call of the function checkpoint ahead of the watermark read and the comparison of the typed complete height with the number of its block go away. The header read of the pinned copy stays the check that the node holds the block of the source with its hash. Two. Where the header read of the function checkpoint for a committed block answers without a block, the function reads the header again after a wait of 100 milliseconds, at most five times and no longer than its context lasts. A header with another hash or another number is the unavailable error at once as it is today, and an error of the read is returned at once. Three. Where the RPC value also offers the function BatchCallContext of the go-ethereum client, the runtime check sends the code read and the slot read of its four targets as one batch and the code reads of the implementations as a second batch. Four. In the function Rewards the block of the page is checked once in a request: the block that the source checkpoint returned counts as checked, and where a cursor names another block the function runs the function checkpoint of the pinned copy once for that block. The fee preview of a market on the pinned copy then makes no chain id read, no header read and no runtime check. Five. Where the RPC value offers the batch call, the function Preview of the creator sends its three reads on the NFT contract as one batch and its two reads on the accumulator as a second batch. Six. Every check on a result stays and runs in its present order, and an error of a batch element counts as the error of its call. Where the RPC value offers no batch call, the single calls stay in their present sequence. Seven. The bound of the handlers, the function PrepareClaim, every SQL statement with its order inside its function, the statement record of the module and the form of every answer stay as they are. Task 22.39.1040."
+basis = "Gotcha 4770."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45828,6 +45834,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1040]
+title = "Let the reward read of the pnl app of the launchpad check its source block once and send its node reads as batches"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -list ^TestRewardNodeReads ./internal/production/l18/ | grep -q ^TestRewardNodeReads)"
+do_1 = "do_1 Gotcha 4770, decision 3843. Read services/launchpad/pnl-tracker/internal/production/l18/journeys.go and services/launchpad/pnl-tracker/internal/production/l18/creator.go whole, the handlers Rewards and PrepareClaim in services/launchpad/pnl-tracker/internal/production/l18/http.go, the function NewIndexedCreator in services/launchpad/pnl-tracker/internal/production/l18/authority.go, the reward history fixture in services/launchpad/pnl-tracker/internal/production/l18/rewards_database_test.go with its cases in services/launchpad/pnl-tracker/internal/production/l18/rewards_history_test.go and the case TestCommittedCreatorRejectsUnattestedRuntime in services/launchpad/pnl-tracker/internal/production/l18/runtime_attestation_test.go. The final message lists, for a reward read of a wallet with one market and without a cursor, every node read in its order with the function that makes it, as the code stands and after the change."
+symbols = []
 
 [capability.22.39.1039]
 title = "Let the consumer steps of the connected runtime of the launchpad gateway record a pass after a fetch without an error"
@@ -210474,6 +210489,40 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1040]
+title = "Let the reward read of the pnl app of the launchpad check its source block once and send its node reads as batches"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1040"]
+interfaces = []
+do_1 = "do_1 Gotcha 4770, decision 3843. Read services/launchpad/pnl-tracker/internal/production/l18/journeys.go and services/launchpad/pnl-tracker/internal/production/l18/creator.go whole, the handlers Rewards and PrepareClaim in services/launchpad/pnl-tracker/internal/production/l18/http.go, the function NewIndexedCreator in services/launchpad/pnl-tracker/internal/production/l18/authority.go, the reward history fixture in services/launchpad/pnl-tracker/internal/production/l18/rewards_database_test.go with its cases in services/launchpad/pnl-tracker/internal/production/l18/rewards_history_test.go and the case TestCommittedCreatorRejectsUnattestedRuntime in services/launchpad/pnl-tracker/internal/production/l18/runtime_attestation_test.go. The final message lists, for a reward read of a wallet with one market and without a cursor, every node read in its order with the function that makes it, as the code stands and after the change."
+do_2 = "do_2 Let the function sourceCheckpoint read the watermark and the completeness row through its two present statements, unchanged and in their order, and then check the block of that read once through the copy of the creator pinned to it. Remove its call of the function checkpoint ahead of the watermark read and the comparison of the typed complete height with the number of that block. Its other checks stay: the stream binding, the heights, the completeness flags and the form of the hash."
+do_3 = "do_3 Let the function checkpoint, in its branch for a committed block, read the header again where the read answers without a block: after a wait of 100 milliseconds and at most five times. Where the context ends first the function returns the error of the context. Where the last read still answers without a block it returns the unavailable error. A header with another hash or another number and an error of the read end the function at once as today. The branch without a committed block stays as it is."
+do_4 = "do_4 Add to services/launchpad/pnl-tracker/internal/production/l18/creator.go an unexported interface that holds the function BatchCallContext in the signature of the go-ethereum client. Where the RPC value of the runtime check offers it, let the function verifyRuntime send one batch with the code read and the slot read of each of its four targets and a second batch with the code read of every implementation that a slot names, and run its present checks on the results in their present order, with an error of an element as the error of its call. Where the RPC value does not offer it, the present calls stay in their sequence."
+do_5 = "do_5 Give the type Creator an unexported member for a block that its caller has checked, and let the function checkpoint return that block at once where the member is set. Let the function Rewards set it on its pinned copy: to the block that the source checkpoint of the same request returned, and where a cursor names another block, after one call of the function checkpoint of the pinned copy for that block. No other caller sets it. Where the RPC value offers the batch call, let the function Preview send its three reads on the NFT contract as one batch and then its two reads on the accumulator as a second batch, with its present checks in their present order. Where it does not, the five reads stay single calls."
+do_6 = "do_6 Let the handler rpcResponse of the reward history fixture, and every other stand-in for a node in the module that reads one request from a body and that a present case reaches through a client with the batch call, answer a batch body element by element in the order of the batch."
+do_7 = "do_7 Add cases whose names begin with TestRewardNodeReads in the form of the present cases of the reward history fixture, with a stand-in around the RPC value of the fixture that counts the calls by method and that can leave out the batch call. A reward read during which the watermark of the fixture moves forward after the read took its block returns its page with the block that the read took. A reward read for a wallet with one market makes one chain id read, one header read, two batch calls for the runtime check and two batch calls for the market, and no single code read, slot read or contract read. With the stand-in without the batch call the read makes single calls and returns the same page. A header read that answers without a block twice and then with the block lets the read pass, a header read that never answers with a block ends with the unavailable error after no more than five further reads, and an ended context ends the wait with the error of the context. An error of one batch element is returned as the error of the read, and a code hash that differs inside a batch gives the unavailable error. A read of a second page with the cursor of the first runs the runtime check once for the block of the cursor. The present cases of the module stay and pass, and the statement record of the module stays as it is. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -list ^TestRewardNodeReads ./internal/production/l18/ | grep -q ^TestRewardNodeReads)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
