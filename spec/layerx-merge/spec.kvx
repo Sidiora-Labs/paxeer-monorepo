@@ -210480,7 +210480,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1036]
 title = "Let the pause observation handler of the launchpad indexer bring its snapshot up to the asked block inside its bound"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
