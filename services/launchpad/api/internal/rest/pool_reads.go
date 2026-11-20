@@ -35,8 +35,7 @@ func chainPosition(p accounting.SourcePosition) map[string]any {
 func tokenDocument(row store.PoolRegistryRow) map[string]any {
 	token := map[string]any{literalAddress: row.Token, "name": "", "symbol": "", literalDecimals: nil, "decimalsQuality": literalUnavailable, "totalSupplyRaw": nil, "supplyQuality": literalUnavailable, "sourcePosition": nil, "metadataRevision": "0", "logoAssetId": nil}
 	if m := row.Metadata; m != nil {
-		token["name"] = m.Name
-		token["symbol"] = m.Symbol
+		token["name"], token["symbol"] = coinText(m.Name, m.Symbol)
 		token[literalDecimals] = int(m.Decimals)
 		token["decimalsQuality"] = literalVerified
 		token["totalSupplyRaw"] = m.TotalSupply
