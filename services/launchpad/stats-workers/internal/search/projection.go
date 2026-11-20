@@ -344,7 +344,26 @@ func applyChangeTx(ctx context.Context, tx pgx.Tx, c Change) (bool, error) {
 		}
 		changed = true
 	}
+	if c.Kind == valueCreation {
+		if _, err = tx.Exec(ctx, `INSERT INTO stats_search.authority_v2(pool_address,visibility_revision,public,tombstone) VALUES($1,$2,$3,$4) ON CONFLICT(pool_address) DO NOTHING`, d.PoolAddress, d.VisibilityRevision, true, false); err != nil {
+			return false, err
+		}
+	}
 	return changed, nil
+}
+
+func (s Store) BackfillAuthority(ctx context.Context) (int64, error) {
+	if s.Pool == nil {
+		return 0, ErrUnavailable
+	}
+	bounded, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	result, err := s.Pool.Exec(bounded, `INSERT INTO stats_search.authority_v2(pool_address,visibility_revision,public,tombstone)
+ SELECT d.pool_address,d.visibility_revision,true,false FROM stats_search.documents_v2 d
+ JOIN stats_search.active_v2 a ON a.generation=d.generation AND a.singleton
+ WHERE NOT EXISTS(SELECT 1 FROM stats_search.authority_v2 v WHERE v.pool_address=d.pool_address)
+ ON CONFLICT(pool_address) DO NOTHING`)
+	return result.RowsAffected(), err
 }
 
 type CanonicalCreation struct {
