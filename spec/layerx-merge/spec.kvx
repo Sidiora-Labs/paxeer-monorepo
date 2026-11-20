@@ -210121,7 +210121,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.989]
 title = "Write a pool state snapshot for every qualified creation in the typed projection of the launchpad indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
