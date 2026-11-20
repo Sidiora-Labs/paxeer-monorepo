@@ -343,7 +343,7 @@ func Qualify(ctx context.Context, r *decode.Registry, a Qualification, b Bundle)
 		return nil, err
 	}
 	for i, env := range decoded {
-		if env.Family == nil || !env.Family.EconomicFill {
+		if env.Status != valueDecoded || env.Event == nil || env.Family == nil || !env.Family.EconomicFill {
 			continue
 		}
 		if !qualifiedSwapFamily(env, owned.Receipt.Logs[i]) {
@@ -410,6 +410,9 @@ func Qualify(ctx context.Context, r *decode.Registry, a Qualification, b Bundle)
 }
 func makeFill(ctx context.Context, a Qualification, b Bundle, env *decode.DecodedEnvelope, l *types.Log, sender string, receiptHash, headerHash [32]byte) (accounting.FillV1, error) {
 	var f accounting.FillV1
+	if !qualifiedSwapFamily(env, l) {
+		return f, ErrQualification
+	}
 	if env.Event.Args["timestamp"] != strconv.FormatUint(b.Header.Time, 10) || env.Event.Args["blockNumber"] != b.Header.Number.String() {
 		return f, fmt.Errorf("%w: Swap time/block differs from receipt header", ErrQualification)
 	}
@@ -527,6 +530,9 @@ func attribute(b Bundle, decoded []*decode.DecodedEnvelope, f accounting.FillV1,
 	primaryFills := 0
 	matchingTrader := false
 	for i, e := range decoded {
+		if e.Status != valueDecoded || e.Event == nil {
+			continue
+		}
 		if e.Family != nil && e.Family.EconomicFill {
 			primaryFills++
 			if strconv.FormatUint(uint64(b.Receipt.Logs[i].Index), 10) == f.Position.LogIndex && e.Event != nil && e.Event.Args["sender"] == sender {

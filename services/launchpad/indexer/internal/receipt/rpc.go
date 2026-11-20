@@ -1316,7 +1316,7 @@ func (a *RPCQualification) ValidateReceipt(ctx context.Context, b Bundle) error 
 			if derr != nil {
 				return derr
 			}
-			if env.Status != "opaque" || env.Event != nil {
+			if (env.Status != "opaque" && (env.Status != "quarantined" || env.FailureReason != "bounds")) || env.Event != nil {
 				return ErrQualification
 			}
 			continue
@@ -1522,7 +1522,7 @@ func (a *RPCQualification) ExecutionPolicy(ctx context.Context, b Bundle, index 
 		if err != nil {
 			return unavailable, err
 		}
-		if env.Family != nil && env.Family.EconomicFill {
+		if env.Status == valueDecoded && env.Event != nil && env.Family != nil && env.Family.EconomicFill {
 			fills++
 			lIndexUint32, conversionErr := checked.Convert[uint32](l.Index)
 			if conversionErr != nil {

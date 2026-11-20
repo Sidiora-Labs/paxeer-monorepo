@@ -350,12 +350,12 @@ func TestMalformedBoundsAndOptional(t *testing.T) {
 		t.Fatal(err)
 	}
 	e, err = r.Decode(l)
-	if err == nil || e.FailureReason != "bounds" {
+	if err != nil || e.Status != valueDecoded || e.Event == nil || e.Event.Args["hookName"] != "" || !reflect.DeepEqual(e.Alerts, []string{"withheld:hookName:max_field_bytes"}) {
 		t.Fatal(e, err)
 	}
 	l.Data = make([]byte, MaxEnvelopeBytes+1)
 	e, err = r.Decode(l)
-	if err == nil || e.FailureReason != "bounds" {
+	if err != nil || e.Status != valueQuarantined || e.FailureReason != "bounds" {
 		t.Fatal(e, err)
 	}
 	l, _ = syntheticLog(t, a.Events["PecorSwap"], d.Address)
@@ -491,7 +491,7 @@ func TestOversizeAdmissionHasBoundedEvidence(t *testing.T) {
 	l, _ := syntheticLog(t, a.Events["Swap"], d.Address)
 	l.Data = make([]byte, MaxEnvelopeBytes+1)
 	e, err := r.Decode(l)
-	if err == nil || e.FailureReason != "bounds" || e.Raw.Data != "" || len(e.Raw.Topics) != 0 || e.RawSummary == nil || e.RawSummary.DataBytes != len(l.Data) || len(e.RawSummary.DataSHA256) != 64 || e.Event != nil {
+	if err != nil || e.Status != valueQuarantined || e.FailureReason != "bounds" || e.Raw.Data != "" || len(e.Raw.Topics) != 0 || e.RawSummary == nil || e.RawSummary.DataBytes != len(l.Data) || len(e.RawSummary.DataSHA256) != 64 || e.Event != nil {
 		t.Fatal(e, err)
 	}
 	encoded, err := json.Marshal(e)
@@ -501,7 +501,7 @@ func TestOversizeAdmissionHasBoundedEvidence(t *testing.T) {
 	l.Data = nil
 	l.Topics = make([]common.Hash, 5)
 	e, err = r.Decode(l)
-	if err == nil || e.RawSummary.TopicCount != 5 || len(e.Raw.Topics) != 0 {
+	if err != nil || e.Status != valueQuarantined || e.RawSummary.TopicCount != 5 || len(e.Raw.Topics) != 0 {
 		t.Fatal(e, err)
 	}
 }
@@ -532,7 +532,7 @@ func TestRawBatchAdmissionCaps(t *testing.T) {
 		t.Fatal("duplicate aggregate cap")
 	}
 }
-func TestInvalidUTF8PreservesRawWithoutTypedPayload(t *testing.T) {
+func TestInvalidUTF8PreservesRawAndWithholdsText(t *testing.T) {
 	d, a := deployment(t, "EventEmitter", common.HexToAddress("0x1"))
 	r := registry(t, d)
 	ev := a.Events["OpticalExecuted"]
@@ -543,7 +543,7 @@ func TestInvalidUTF8PreservesRawWithoutTypedPayload(t *testing.T) {
 		t.Fatal(err)
 	}
 	e, err := r.Decode(l)
-	if err == nil || e.Event != nil || e.Family != nil || !reflect.DeepEqual(e.Raw, rawLog(l)) {
+	if err != nil || e.Status != valueDecoded || e.Event == nil || e.Event.Args["hookName"] != "" || e.Family == nil || !reflect.DeepEqual(e.Alerts, []string{"withheld:hookName:invalid_utf8"}) || !reflect.DeepEqual(e.Raw, rawLog(l)) {
 		t.Fatal(e, err)
 	}
 	for _, v := range []any{[]string{"ok", string([]byte{0xff})}, struct{ Nested []string }{[]string{string([]byte{0xff})}}} {
