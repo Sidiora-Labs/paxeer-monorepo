@@ -9187,8 +9187,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_social_policy_Projection.ConsumeSocialPolicy_1",
-      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb",
-      "runtime_role": "stats_search_runtime"
+      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/social_policy.go",
@@ -9203,8 +9202,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_social_policy_Projection.ConsumeSocialPolicy_2",
-      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb",
-      "runtime_role": "stats_search_runtime"
+      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/social_policy.go",
@@ -9224,8 +9222,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_social_policy_Projection.ConsumeSocialPolicy_3",
-      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb",
-      "runtime_role": "stats_search_runtime"
+      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/social_policy.go",
@@ -9250,7 +9247,6 @@
       "sequences": [],
       "id": "search_social_policy_Projection.ConsumeSocialPolicy_4",
       "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb",
-      "runtime_role": "stats_search_runtime",
       "sources": {
         "socialPoolVisibilityView": "chat.pool_search_visibility_v2",
         "socialPoolVisibilitySQL": "SELECT pool,public,revision FROM chat.pool_search_visibility_v2 WHERE ($1='pool' AND lower(pool)=lower($2)) OR ($1='token' AND lower(token)=lower($2)) ORDER BY pool"
@@ -9279,8 +9275,7 @@
         "stats_search.revision_v2"
       ],
       "id": "search_social_policy_Projection.ConsumeSocialPolicy_5",
-      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb",
-      "runtime_role": "stats_search_runtime"
+      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb"
     }
   ],
   "boundaries": [
