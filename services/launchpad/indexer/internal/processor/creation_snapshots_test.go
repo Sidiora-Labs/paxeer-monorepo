@@ -47,7 +47,7 @@ type creationSnapshotHarness struct {
 
 func newCreationSnapshotHarness(t *testing.T, withSwap bool) creationSnapshotHarness {
 	t.Helper()
-	n, options := prepareCreationSnapshotFactory(t)
+	n, options := sharedCreationSnapshotNode(t)
 	authority, created, address := n.create(t, options, withSwap)
 	_, pool := canonicaltest.New(t)
 	applyProductionSchema(t, n.ctx, pool)

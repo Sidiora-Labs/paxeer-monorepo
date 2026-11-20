@@ -1289,7 +1289,19 @@ func (db *nativeProjectionMemoryDB) QueryRow(ctx context.Context, sql string, ar
 	}
 	return nativeProjectionMemoryRow{err: fmt.Errorf("unsupported in-memory QueryRow: %s", sql)}
 }
-func (db *nativeProjectionMemoryDB) Query(context.Context, string, ...any) (pgx.Rows, error) {
+type nativeProjectionMemoryRows struct{ pgx.Rows }
+
+func (*nativeProjectionMemoryRows) Close()     {}
+func (*nativeProjectionMemoryRows) Err() error { return nil }
+func (*nativeProjectionMemoryRows) Next() bool { return false }
+
+func (db *nativeProjectionMemoryDB) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	if strings.HasPrefix(sql, `SELECT lower(p.pool_address),p.pool_id,p.tx_hash,p.created_block,p.created_at,`) {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		return &nativeProjectionMemoryRows{}, nil
+	}
 	return nil, errors.New("unsupported in-memory multi-row query")
 }
 

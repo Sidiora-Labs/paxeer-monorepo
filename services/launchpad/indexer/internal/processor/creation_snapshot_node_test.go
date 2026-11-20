@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -36,7 +37,60 @@ type creationSnapshotNode struct {
 	contracts map[string]*bind.BoundContract
 }
 
-func newCreationSnapshotNode(t *testing.T) *creationSnapshotNode {
+var creationSnapshotFixture struct {
+	sync.Mutex
+	once     sync.Once
+	node     *creationSnapshotNode
+	options  receipt.PrivateFixtureRPCOptions
+	cleanups []func()
+}
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	for i := len(creationSnapshotFixture.cleanups) - 1; i >= 0; i-- {
+		creationSnapshotFixture.cleanups[i]()
+	}
+	os.Exit(code)
+}
+
+func sharedCreationSnapshotNode(t *testing.T) (*creationSnapshotNode, receipt.PrivateFixtureRPCOptions) {
+	t.Helper()
+	creationSnapshotFixture.Lock()
+	t.Cleanup(creationSnapshotFixture.Unlock)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	t.Cleanup(cancel)
+	creationSnapshotFixture.once.Do(func() {
+		creationSnapshotFixture.node, creationSnapshotFixture.options = prepareCreationSnapshotFactory(t, func(cleanup func()) {
+			creationSnapshotFixture.cleanups = append(creationSnapshotFixture.cleanups, cleanup)
+		})
+	})
+	if creationSnapshotFixture.node == nil {
+		t.Fatal("creation snapshot node preparation did not finish")
+	}
+	n := *creationSnapshotFixture.node
+	n.ctx = ctx
+	auth := *n.auth
+	auth.Context = ctx
+	n.auth = &auth
+	var snapshot string
+	if err := n.client.Client().CallContext(ctx, &snapshot, "evm_snapshot"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		var restored bool
+		if err := n.client.Client().CallContext(ctx, &restored, "evm_revert", snapshot); err != nil || !restored {
+			t.Errorf("restore creation snapshot node: restored=%t: %v", restored, err)
+		}
+		if err := n.client.Client().CallContext(ctx, nil, "evm_setAutomine", true); err != nil {
+			t.Errorf("restore creation snapshot automining: %v", err)
+		}
+	})
+	return &n, creationSnapshotFixture.options
+}
+
+func newCreationSnapshotNode(t *testing.T, cleanup func(func())) *creationSnapshotNode {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	t.Cleanup(cancel)
@@ -48,16 +102,16 @@ func newCreationSnapshotNode(t *testing.T) *creationSnapshotNode {
 	if err = listener.Close(); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.CommandContext(ctx, "anvil", "--host", "127.0.0.1", "--port", strconv.Itoa(port), "--threads", "2", "--chain-id", "125", "--accounts", "1", "--silent")
+	cmd := exec.Command("anvil", "--host", "127.0.0.1", "--port", strconv.Itoa(port), "--threads", "2", "--chain-id", "125", "--accounts", "1", "--silent")
 	if err = cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
+	cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
 	client, err := ethclient.DialContext(ctx, "http://127.0.0.1:"+strconv.Itoa(port))
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(client.Close)
+	cleanup(client.Close)
 	ticker := time.NewTicker(20 * time.Millisecond)
 	defer ticker.Stop()
 	for {
@@ -181,9 +235,9 @@ func (n *creationSnapshotNode) transact(t *testing.T, role, method string, args 
 	}
 	return n.mined(t, tx)
 }
-func deployCreationSnapshotNode(t *testing.T) (*creationSnapshotNode, receipt.PrivateFixtureRPCOptions, common.Address) {
+func deployCreationSnapshotNode(t *testing.T, cleanup func(func())) (*creationSnapshotNode, receipt.PrivateFixtureRPCOptions, common.Address) {
 	t.Helper()
-	n := newCreationSnapshotNode(t)
+	n := newCreationSnapshotNode(t, cleanup)
 	supply := big.NewInt(1000000000000000)
 	usdl := n.direct(t, "USDL", "SidioraERC20", "USD Ledger", "USDL", supply, n.owner)
 	token := n.direct(t, "SidioraERC20", "SidioraERC20", "Market Token", "MKT", supply, n.owner)
@@ -247,9 +301,9 @@ func deployCreationSnapshotNode(t *testing.T) (*creationSnapshotNode, receipt.Pr
 	return n, f, pool
 }
 
-func prepareCreationSnapshotFactory(t *testing.T) (*creationSnapshotNode, receipt.PrivateFixtureRPCOptions) {
+func prepareCreationSnapshotFactory(t *testing.T, cleanup func(func())) (*creationSnapshotNode, receipt.PrivateFixtureRPCOptions) {
 	t.Helper()
-	n, options, _ := deployCreationSnapshotNode(t)
+	n, options, _ := deployCreationSnapshotNode(t, cleanup)
 	factory := common.HexToAddress(n.roles["SidioraFactory"].Address)
 	router := common.HexToAddress(n.roles["Router"].Address)
 	config := common.HexToAddress(n.roles["ProtocolConfig"].Address)
