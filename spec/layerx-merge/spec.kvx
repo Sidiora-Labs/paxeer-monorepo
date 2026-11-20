@@ -209990,7 +209990,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.980]
 title = "Let the preflight engine of the launchpad keep the identity it read for a block hash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.975"]
@@ -210088,7 +210088,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.977]
 title = "Let the create view of the launchpad web application name a missing balance plainly"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
