@@ -210609,7 +210609,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1022]
 title = "Bound the content of one block by its bytes alone in the block reads, the bundles and the raw batches of the launchpad indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1021"]
