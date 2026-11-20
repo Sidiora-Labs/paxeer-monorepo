@@ -14,7 +14,16 @@ import (
 )
 
 func TestSearchRolePoolVisibilityDecisions(t *testing.T) {
-	database := coordinatortest.Bootstrap(t, os.Getenv("COORDINATOR_TEST_POSTGRES_DSN"), "stats_search_runtime")
+	assertPoolVisibilityDecisions(t, "stats_search_runtime")
+}
+
+func TestStatsRolePoolVisibilityDecisions(t *testing.T) {
+	assertPoolVisibilityDecisions(t, "stats_runtime")
+}
+
+func assertPoolVisibilityDecisions(t *testing.T, runtimeRole string) {
+	t.Helper()
+	database := coordinatortest.Bootstrap(t, os.Getenv("COORDINATOR_TEST_POSTGRES_DSN"), runtimeRole)
 	if _, ok := database.Applied[380003]; !ok {
 		t.Fatal("pool visibility migration was not applied")
 	}
@@ -25,7 +34,7 @@ func TestSearchRolePoolVisibilityDecisions(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer admin.Close(context.Background())
-	runtime := database.Runtimes["stats_search_runtime"]
+	runtime := database.Runtimes[runtimeRole]
 	reader, err := pgx.Connect(ctx, runtime.DSN)
 	if err != nil {
 		t.Fatal(err)
@@ -92,28 +101,31 @@ func TestSearchRolePoolVisibilityDecisions(t *testing.T) {
 	if err := admin.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE n.nspname='chat' AND c.relname='pool_search_visibility_v2' AND a.grantee=0)`).Scan(&publicGrant); err != nil || publicGrant {
 		t.Fatalf("PUBLIC view privileges = %v: %v", publicGrant, err)
 	}
-	for _, sql := range []string{
-		`SELECT pool,token FROM indexer.indexer_canonical_creations_v1`,
+	denied := []string{
 		`SELECT * FROM chat.social_canonical_pools()`,
 		`SELECT * FROM chat.safety_visibility`,
 		`SELECT * FROM chat.safety_cases`,
 		`SELECT * FROM chat.safety_outbox`,
-	} {
+	}
+	if runtimeRole == "stats_search_runtime" {
+		denied = append(denied, `SELECT pool,token FROM indexer.indexer_canonical_creations_v1`)
+	}
+	for _, sql := range denied {
 		_, err := reader.Exec(ctx, sql)
 		var refused *pgconn.PgError
 		if !errors.As(err, &refused) || refused.Code != "42501" {
-			t.Fatalf("search role must be refused %s: %v", sql, err)
+			t.Fatalf("%s must be refused %s: %v", runtimeRole, sql, err)
 		}
 	}
 	var canWrite bool
 	if err := reader.QueryRow(ctx, `SELECT has_table_privilege(current_user,'chat.pool_search_visibility_v2','INSERT,UPDATE,DELETE')`).Scan(&canWrite); err != nil || canWrite {
-		t.Fatalf("search view write privileges = %v: %v", canWrite, err)
+		t.Fatalf("%s view write privileges = %v: %v", runtimeRole, canWrite, err)
 	}
 	expected, err := production.LoadExpectedSchema(runtime.ExpectedSchema, runtime.ExpectedSchemaSHA256)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := expected.Schemas["chat"]; !ok {
-		t.Fatal("search readiness does not include chat")
+		t.Fatalf("%s readiness does not include chat", runtimeRole)
 	}
 }

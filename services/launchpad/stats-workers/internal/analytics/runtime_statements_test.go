@@ -18,7 +18,6 @@ import (
 )
 
 type runtimeStatement struct {
-	RuntimeRole  string   `json:"runtime_role"`
 	ID           string   `json:"id"`
 	File         string   `json:"file"`
 	Function     string   `json:"function"`
@@ -120,7 +119,7 @@ func validateRuntimeInventory(t *testing.T, statements, boundaries []runtimeStat
 	}
 }
 
-func assertRuntimeStatements(t *testing.T, ctx context.Context, pool *pgxpool.Pool, rolePools map[string]*pgxpool.Pool) {
+func assertRuntimeStatements(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 	t.Helper()
 	raw, err := os.ReadFile("runtime_statements.json")
 	if err != nil {
@@ -139,15 +138,7 @@ func assertRuntimeStatements(t *testing.T, ctx context.Context, pool *pgxpool.Po
 	validateRuntimeInventory(t, inventory.Statements, inventory.Boundaries)
 	for _, s := range inventory.Statements {
 		t.Run(s.ID, func(t *testing.T) {
-			statementPool := pool
-			if s.RuntimeRole != "" {
-				var ok bool
-				statementPool, ok = rolePools[s.RuntimeRole]
-				if !ok || statementPool == nil {
-					t.Fatalf("runtime statement role unavailable: %s", s.RuntimeRole)
-				}
-			}
-			tx, err := statementPool.Begin(ctx)
+			tx, err := pool.Begin(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
