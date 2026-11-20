@@ -159,6 +159,8 @@ def documents(service: str, values: str | Path) -> dict[str, object]:
             _require(sub["eventType"] == event, f"{key}.eventType")
         elif kind in source_kinds:
             _require(kind in sources, f"phase2.searchSources.{kind}")
+        elif kind == "social_policy":
+            _require(sub["eventType"] == "social.policy.changed.v2", f"{key}.eventType")
         elif kind == "account_profile":
             _require(sub["eventType"] in {"profile.updated", "account.deletion.requested", "account.backfill.completed"}, f"{key}.eventType")
         else:

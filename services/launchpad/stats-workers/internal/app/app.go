@@ -335,16 +335,10 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 					if envelope.EventType != sub.EventType || broker.EventID != envelope.EventID || broker.WireSHA256 != delivery.Hash(message.Wire) {
 						return delivery.ErrIntegrity
 					}
-					switch sub.Kind {
-					case "creation":
-						return searchProjection.ConsumeCanonicalCreation(ctx, message.Subject, message.Wire, message)
-					case "invalidation":
+					if sub.Kind == "invalidation" {
 						return searchService.ConsumeInvalidation(ctx, message.Subject, message.Wire, message, d.Policy)
-					case "account_profile":
-						return searchProjection.ConsumeAccountProfile(ctx, message.Subject, message.Wire, message)
-					default:
-						return searchProjection.Consume(ctx, message.Subject, message.Wire, message)
 					}
+					return statsSearchProjectionConsumer(sub.Kind, searchProjection)(ctx, message.Subject, message.Wire, message)
 				})
 			}})
 		}
@@ -893,6 +887,10 @@ func (d statsPhase2Document) validate(policy delivery.Policy) error {
 			if !ok || !schema.MatchString(source.Schema) || !schema.MatchString(source.View) || !strings.HasSuffix(source.View, "_v2") {
 				return errors.New("stats: authorized search source relation required")
 			}
+		case "social_policy":
+			if sub.EventType != "social.policy.changed.v2" {
+				return errors.New("stats: authorized social policy event required")
+			}
 		case "account_profile":
 			if sub.EventType != "profile.updated" && sub.EventType != "account.deletion.requested" && sub.EventType != "account.backfill.completed" {
 				return errors.New("stats: authorized account search event required")
@@ -906,6 +904,19 @@ func (d statsPhase2Document) validate(policy delivery.Policy) error {
 	}
 	return nil
 }
+func statsSearchProjectionConsumer(kind string, projection *canonicalsearch.Projection) func(context.Context, string, []byte, delivery.Delivery) error {
+	switch kind {
+	case "creation":
+		return projection.ConsumeCanonicalCreation
+	case "account_profile":
+		return projection.ConsumeAccountProfile
+	case "social_policy":
+		return projection.ConsumeSocialPolicy
+	default:
+		return projection.Consume
+	}
+}
+
 func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *holdings.Repository, stream string, tokenLimit, transferLimit int, after *string, coverageChanged ...func(context.Context, string) error) error {
 	if ctx == nil || pool == nil || repository == nil || stream == "" || after == nil || tokenLimit < 1 || tokenLimit > 100 || transferLimit < 1 || transferLimit > 1000 {
 		return holdings.ErrIntegrity
