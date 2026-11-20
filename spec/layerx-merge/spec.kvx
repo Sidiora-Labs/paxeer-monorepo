@@ -210152,7 +210152,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.988]
 title = "Name the refused identity in the code validation of the launchpad indexer and count the passes that stay at one height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.985"]
