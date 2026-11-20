@@ -210456,7 +210456,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1034]
 title = "Let the later attempts of the system package script of the launchpad checks read the distribution archive from its main host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
