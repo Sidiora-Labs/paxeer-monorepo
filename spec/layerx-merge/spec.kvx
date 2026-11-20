@@ -178139,7 +178139,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.131]
 title = "Let the value of a statistic card of the explorer show whole"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.130"]
