@@ -94,8 +94,15 @@ from `sdk/launchpad/shared/config/deployment/current.json` and
 runtime and implementation hashes. ABI revisions are the catalog's ABI digests;
 the committed source uses the receipt's epochs and the hash of the complete
 manifest. The source manifest digest identifies the reviewed contract bundle.
-Factory discovery templates, including reviewed pool and masked ERC20 runtime
-hashes, are supplied by the native renderer in the rendered receipt form.
+Both receipt forms carry factory discovery templates in pool, then token order.
+The inline pool template takes its runtime and staged upgrade identities from
+the manifest's surface `SidioraFactory` role. The required indexer value
+`erc20_masked_runtime_hash` is the keccak-256 hash of the SidioraERC20 runtime
+code with the reviewed catalog's immutable spans zeroed, as computed by
+`runtimedocs.MaskedRuntimeHash`. Supply `0x` followed by exactly 64 lowercase
+hexadecimal characters. The token template uses that hash with the reviewed ABI
+revision and immutable spans sorted by start offset. The example hash is derived
+from the repository's SidioraERC20 compiler artifact.
 The receipt authority requires an issued, nonzero chain anchor at or after the
 manifest's activation height. Example anchors and runtime hashes are illustrative;
 deployment uses the chain-issued values with the matching rendered documents.

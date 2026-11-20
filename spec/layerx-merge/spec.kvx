@@ -16054,6 +16054,12 @@ value = "One. The receipt authority of the indexer and the method poolState acce
 basis = "Gotcha 4750."
 affects = []
 
+[decision.3824]
+title = "The verification of task 22.39.970 takes the form of the verification of task 22.39.980"
+value = "The verification command of task 22.39.970 becomes the command of task 22.39.980: the shared module whole with lint, race and coverage, the lint of the API module and the named authority and preflight cases of the app package of the API. The build command, the steps and the paths of the task stay as they are."
+basis = "Gotcha 4751. Task 22.39.980."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -210741,7 +210747,7 @@ touches = ["sdk/launchpad/shared/config/capabilities", "sdk/launchpad/shared/cha
 tests = []
 planned_paths = []
 build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && go vet ./...) && (cd services/launchpad/api && go vet ./...)"
-verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/shared && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/shared && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -run ^TestAuthority ./internal/app/ && go test -count=1 -run ^TestProductionAuthority ./internal/app/ && go test -count=1 -run ^TestNetworkAuthorityRoutes ./internal/app/ && go test -count=1 -run ^TestNetworkAuthorityBinds ./internal/app/ && go test -count=1 -run ^TestPreflightResponse ./internal/app/ && go test -count=1 -run ^TestRecentAuthority ./internal/app/ && go test -count=1 -run ^TestDevelopmentAuthority ./internal/app/ && go test -count=1 -run ^TestDevelopmentPreflight ./internal/app/)"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"
