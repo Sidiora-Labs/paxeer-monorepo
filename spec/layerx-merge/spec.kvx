@@ -178290,7 +178290,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.135]
 title = "Let the heading of a token view of the explorer show the whole name"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.124"]
