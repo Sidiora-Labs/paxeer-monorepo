@@ -210387,7 +210387,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1017]
 title = "Let the creation snapshot cases of the processor package of the launchpad indexer share one prepared node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210604,7 +210604,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1010]
 title = "Add the view of the visibility of a pool for the search to the social schema and give the search role of the stats module its read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1006"]
