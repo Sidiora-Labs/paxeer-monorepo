@@ -128,9 +128,9 @@ func realBroker(t *testing.T) (*nats.Conn, jetstream.JetStream, string) {
 	defer cancel()
 	// An R3 stream admits requests only after the broker cluster elects its leader.
 	for {
-		request, stop := context.WithTimeout(ctx, 500*time.Millisecond)
-		_, err = js.CreateStream(request, jetstream.StreamConfig{Name: "PROVISION_READY", Subjects: []string{"provision.ready"}, Storage: jetstream.FileStorage, Replicas: 3})
-		stop()
+		_, err = brokerFixtureRequest(ctx, func(request context.Context) (jetstream.Stream, error) {
+			return js.CreateStream(request, jetstream.StreamConfig{Name: "PROVISION_READY", Subjects: []string{"provision.ready"}, Storage: jetstream.FileStorage, Replicas: 3})
+		})
 		if err == nil {
 			break
 		}
@@ -140,11 +140,15 @@ func realBroker(t *testing.T) (*nats.Conn, jetstream.JetStream, string) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	for {
-		stream, inspectErr := js.Stream(ctx, "PROVISION_READY")
+		stream, inspectErr := brokerFixtureRequest(ctx, func(request context.Context) (jetstream.Stream, error) {
+			return js.Stream(request, "PROVISION_READY")
+		})
 		if inspectErr != nil {
 			t.Fatal("inspect broker readiness", inspectErr)
 		}
-		info, inspectErr := stream.Info(ctx)
+		info, inspectErr := brokerFixtureRequest(ctx, func(request context.Context) (*jetstream.StreamInfo, error) {
+			return stream.Info(request)
+		})
 		if inspectErr != nil {
 			t.Fatal("inspect broker replicas", inspectErr)
 		}
@@ -163,7 +167,9 @@ func realBroker(t *testing.T) (*nats.Conn, jetstream.JetStream, string) {
 		case <-time.After(20 * time.Millisecond):
 		}
 	}
-	if err = js.DeleteStream(ctx, "PROVISION_READY"); err != nil {
+	if _, err = brokerFixtureRequest(ctx, func(request context.Context) (struct{}, error) {
+		return struct{}{}, js.DeleteStream(request, "PROVISION_READY")
+	}); err != nil {
 		t.Fatal(err)
 	}
 	waitStreamAbsent(t, ctx, js, "PROVISION_READY")
@@ -175,7 +181,9 @@ func waitStreamAbsent(t *testing.T, ctx context.Context, js jetstream.JetStream,
 	bounded, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	for {
-		_, err := js.Stream(bounded, name)
+		_, err := brokerFixtureRequest(bounded, func(request context.Context) (jetstream.Stream, error) {
+			return js.Stream(request, name)
+		})
 		if errors.Is(err, jetstream.ErrStreamNotFound) {
 			return
 		}
