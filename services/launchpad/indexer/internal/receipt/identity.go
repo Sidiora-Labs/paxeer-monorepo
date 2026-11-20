@@ -791,7 +791,7 @@ func (a *RPCQualification) proveHistoricalMarket(ctx context.Context, market Dis
 			continue
 		}
 		env, err := discovered.registry.Decode(*log)
-		if err != nil || env.Event == nil || env.EventName != valueMarketCreated || env.EmitterRole != valueSidioraFactory || log.Address != common.HexToAddress(a.options.Manifest.Roles[valueSidioraFactory].Address) {
+		if err != nil || env.Status != valueDecoded || env.Event == nil || env.EventName != valueMarketCreated || env.EmitterRole != valueSidioraFactory || log.Address != common.HexToAddress(a.options.Manifest.Roles[valueSidioraFactory].Address) {
 			return ErrQualification
 		}
 		if env.Event.Args["token"] != strings.ToLower(market.Token.Hex()) || env.Event.Args["pool"] != strings.ToLower(market.Pool.Hex()) {

@@ -488,14 +488,19 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 		e.FailureReason = reason
 		return e, err
 	}
-	if !rawSizeAllowed(l) {
+	bounds := func() (*DecodedEnvelope, error) {
 		e.Raw = rawMetadata(l)
 		e.RawSummary = summarizeRaw(l)
+		return fail("bounds", nil)
+	}
+	if !rawSizeAllowed(l) {
 		if len(r.epochs[l.Address]) == 0 {
+			e.Raw = rawMetadata(l)
+			e.RawSummary = summarizeRaw(l)
 			e.FailureReason = "untrusted_emitter"
 			return e, nil
 		}
-		return fail("bounds", fmt.Errorf("raw envelope exceeds bounded admission"))
+		return bounds()
 	}
 	e.Raw = rawLog(l)
 	if !validIdentity(l) {
@@ -564,12 +569,12 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 		return e, nil
 	}
 	e.EventSignature = ev.Sig
-	args, reason, err := exactArgs(ev, l.Topics, l.Data, d.PaxeerNonzeroBools[ev.Sig])
+	args, reason, err := exactArgs(ev, l.Topics, l.Data, d.PaxeerNonzeroBools[ev.Sig], &e.Alerts)
 	if err != nil {
 		return fail(reason, err)
 	}
 	if err := validateDecodedPayload(args); err != nil {
-		return fail("bounds", err)
+		return bounds()
 	}
 	e.Status = valueDecoded
 	e.Opaque = strings.HasPrefix(ev.Name, "EventLog")

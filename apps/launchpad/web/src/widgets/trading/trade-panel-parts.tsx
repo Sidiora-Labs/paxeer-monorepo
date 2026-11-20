@@ -3,7 +3,7 @@
 import { useId, type ReactNode } from 'react';
 import { formatUnits } from 'viem';
 import { ArrowDownUp, Check, Share2 } from 'lucide-react';
-import { Button, SegmentedControl, Toggle } from '@/ui/primitives';
+import { Button, NoticeBar, SegmentedControl, Toggle } from '@/ui/primitives';
 import { formatTokenAmount, formatUsdl, safeFixed } from '@/utils/format';
 import { cn } from '@/lib/utils';
 import { plainTradeError } from './trade-copy';
@@ -401,12 +401,40 @@ export type TradeActionState =
   | { kind: 'confirming' }
   | { kind: 'approve'; assetSymbol: string }
   | { kind: 'quote-pending' }
+  | { kind: 'quote-refresh' }
   | { kind: 'ready'; side: TradeSide; tokenSymbol: string };
 
 interface ActionButtonProps {
   state: TradeActionState;
   side: TradeSide;
   onClick: () => void;
+}
+
+export function quoteActionState({ quoteUnavailable, quoteRequesting, balancesFresh, side, tokenSymbol }: {
+  quoteUnavailable: boolean; quoteRequesting: boolean; balancesFresh: boolean; side: TradeSide; tokenSymbol: string;
+}): TradeActionState {
+  if (quoteRequesting || !balancesFresh) return { kind: 'quote-pending' };
+  if (quoteUnavailable) return { kind: 'quote-refresh' };
+  return { kind: 'ready', side, tokenSymbol };
+}
+
+export function TradeQuoteNotices({ priceMoved, error, onRefresh }: {
+  priceMoved: boolean; error: string | null | undefined; onRefresh: () => void;
+}) {
+  return (
+    <>
+      {priceMoved ? (
+        <NoticeBar tone="warning" surface={1} wrap action={<Button size="sm" variant="secondary" onClick={onRefresh}>Refresh</Button>}>
+          The price moved. Refresh to see the new price.
+        </NoticeBar>
+      ) : null}
+      {error ? (
+        <NoticeBar tone="danger" surface={1} wrap action={<Button size="sm" variant="secondary" onClick={onRefresh} aria-label="Refresh">Refresh</Button>}>
+          {plainTradeError(error)}
+        </NoticeBar>
+      ) : null}
+    </>
+  );
 }
 
 export function actionLabel(state: TradeActionState): string {
@@ -421,6 +449,7 @@ export function actionLabel(state: TradeActionState): string {
     case 'confirming': return 'Confirming...';
     case 'approve': return `Approve ${state.assetSymbol}`;
     case 'quote-pending': return 'Getting price...';
+    case 'quote-refresh': return 'Refresh price';
     case 'ready': return 'Place trade';
   }
 }

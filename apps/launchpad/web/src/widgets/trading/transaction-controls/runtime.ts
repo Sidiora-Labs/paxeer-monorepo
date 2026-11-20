@@ -1,5 +1,6 @@
 import { encodeFunctionData, erc20Abi, type Hash } from 'viem';
 import type { AccountScope } from '@/core/wallet-sdk/session';
+import { isWalletRefusal } from '../trade-copy';
 import {
   approvalMayContinue,
   approvalPlan,
@@ -53,6 +54,7 @@ export type JourneyObservation = {
 export interface JourneyState {
   quote?: QuoteEnvelope;
   staleQuote?: QuoteEnvelope;
+  staleQuoteReason?: 'simulation' | 'submission';
   quoteStatus?: 'idle' | 'requesting' | 'executable' | 'stale' | 'unavailable';
   quoteError?: string;
   signing: boolean;
@@ -140,6 +142,7 @@ export class TradeJourney {
     this.patch({
       quote: undefined,
       staleQuote: this._state.quote ?? this._state.staleQuote,
+      staleQuoteReason: this._state.quote ? undefined : this._state.staleQuoteReason,
       quoteStatus: context ? 'requesting' : 'idle',
       quoteError: undefined,
     });
@@ -530,6 +533,7 @@ export class TradeJourney {
         this.patch({
           quote: undefined,
           staleQuote: quote,
+          staleQuoteReason: 'simulation',
           quoteStatus: 'stale',
           quoteError: `${failureReason(error)}. Refresh quote before signing.`,
         });
@@ -543,6 +547,7 @@ export class TradeJourney {
         this.patch({
           quote: undefined,
           staleQuote: quote,
+          staleQuoteReason: 'simulation',
           quoteStatus: 'stale',
           quoteError: 'Simulation expired; refresh quote before signing',
         });
@@ -562,12 +567,27 @@ export class TradeJourney {
           scope
         );
       } catch (error) {
-        this.patch({
-          quote: undefined,
-          staleQuote: quote,
-          quoteStatus: 'stale',
-          quoteError: `${failureReason(error)}. Refresh quote before signing.`,
-        });
+        if (isWalletRefusal(error)) {
+          if (this.context && executableQuote(quote, this.context, Date.now())) {
+            this.patch({
+              quote,
+              staleQuote: undefined,
+              staleQuoteReason: undefined,
+              quoteStatus: 'executable',
+              quoteError: failureReason(error),
+            });
+          } else {
+            this.requote();
+          }
+        } else {
+          this.patch({
+            quote: undefined,
+            staleQuote: quote,
+            staleQuoteReason: 'submission',
+            quoteStatus: 'stale',
+            quoteError: `${failureReason(error)}. Refresh quote before signing.`,
+          });
+        }
         throw error;
       }
       const attempt = await this.register(
@@ -681,6 +701,7 @@ export class TradeJourney {
   }
 }
 export function failureReason(error: unknown): string {
+  if (isWalletRefusal(error)) return 'User rejected the request.';
   if (error instanceof Error) {
     const detail =
       'shortMessage' in error && typeof error.shortMessage === 'string'

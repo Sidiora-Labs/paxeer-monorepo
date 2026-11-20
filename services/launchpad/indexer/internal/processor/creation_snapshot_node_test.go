@@ -336,8 +336,13 @@ func prepareCreationSnapshotFactory(t *testing.T, cleanup func(func())) (*creati
 
 func (n *creationSnapshotNode) create(t *testing.T, options receipt.PrivateFixtureRPCOptions, withSwap bool) (*receipt.RPCQualification, *types.Receipt, common.Address) {
 	t.Helper()
+	return n.createNamed(t, options, withSwap, "Snapshot Market", "SNP")
+}
+
+func (n *creationSnapshotNode) createNamed(t *testing.T, options receipt.PrivateFixtureRPCOptions, withSwap bool, name, symbol string) (*receipt.RPCQualification, *types.Receipt, common.Address) {
+	t.Helper()
 	var simulated []any
-	args := []any{n.owner, "Snapshot Market", "SNP", uint8(0), common.Address{}}
+	args := []any{n.owner, name, symbol, uint8(0), common.Address{}}
 	if err := n.contracts["SidioraFactory"].Call(&bind.CallOpts{Context: n.ctx, From: n.owner}, &simulated, "createMarketFor", args...); err != nil || len(simulated) != 3 {
 		t.Fatalf("simulate market creation: %v", err)
 	}
