@@ -17,6 +17,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -48,7 +49,7 @@ func exerciseComposedProductionStartup(t *testing.T, documents map[string]Render
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	rpcURL := startupRecordedChain(t, ctx)
+	rpcURL, pauseReadFailures := startupRecordedChain(t, ctx)
 	brokerURL, credentials := status1695Broker(t)
 	values := t.TempDir()
 	read := func(path string, value any) {
@@ -195,6 +196,7 @@ func exerciseComposedProductionStartup(t *testing.T, documents map[string]Render
 	}
 	client := &http.Client{Timeout: time.Second}
 	for restart := range 2 {
+		pauseReadsBefore := pauseReadFailures.Load()
 		command := exec.CommandContext(ctx, binary)
 		command.Dir = module
 		command.Env = startupEnvironment(environment)
@@ -242,6 +244,30 @@ func exerciseComposedProductionStartup(t *testing.T, documents map[string]Render
 			}
 		}
 		deadline.Stop()
+		// Failed hash-pinned pause reads omit the pool without holding ingestion.
+		pauseDeadline := time.NewTimer(10 * time.Second)
+		for {
+			cutoff := time.Now().Unix() + 1
+			response, readErr := client.Get(pauseURL("http://127.0.0.1:8080", 33963717, cutoff, "0x14cdf520c38d9d8e4878a9bbc36ef102b845d313829de3e68073fcaf1f6f256c"))
+			if readErr == nil {
+				observation, decodeErr := decodePauseConsumer(response, 33963717, cutoff, "0x14cdf520c38d9d8e4878a9bbc36ef102b845d313829de3e68073fcaf1f6f256c")
+				response.Body.Close()
+				if decodeErr == nil && pauseReadFailures.Load() > pauseReadsBefore {
+					if len(observation.Pools) != 0 {
+						t.Fatal("unread pool received a pause observation")
+					}
+					break
+				}
+			}
+			select {
+			case <-pauseDeadline.C:
+				t.Fatal("pause read failure did not produce an unknown pool")
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			case <-time.After(20 * time.Millisecond):
+			}
+		}
+		pauseDeadline.Stop()
 		if restart == 0 {
 			messages, err := creationConsumer.Fetch(ctx)
 			if err != nil || len(messages) != 1 {
@@ -358,7 +384,7 @@ func startupResponse(client *http.Client, path string) map[string]any {
 	return body
 }
 
-func startupRecordedChain(t *testing.T, ctx context.Context) string {
+func startupRecordedChain(t *testing.T, ctx context.Context) (string, *atomic.Int64) {
 	t.Helper()
 	t.Setenv(chainfixture.RecordEnv, "")
 	endpoint := marketRecoveryServe(t, chainfixture.New(t))
@@ -377,6 +403,7 @@ func startupRecordedChain(t *testing.T, ctx context.Context) string {
 		t.Fatal(err)
 	}
 	forward := httputil.NewSingleHostReverseProxy(target)
+	pauseReadFailures := new(atomic.Int64)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 		if err != nil {
@@ -391,6 +418,23 @@ func startupRecordedChain(t *testing.T, ctx context.Context) string {
 		if err := json.Unmarshal(raw, &call); err != nil {
 			t.Error(err)
 			return
+		}
+		if call.Method == "eth_call" && len(call.Params) == 2 {
+			var input struct {
+				Input string `json:"input"`
+			}
+			if err := json.Unmarshal(call.Params[0], &input); err != nil {
+				t.Error(err)
+				return
+			}
+			if input.Input == "0x5c975abb" {
+				if !bytes.Contains(call.Params[1], []byte(`"blockHash"`)) {
+					t.Error("pause read must bind a block hash")
+				}
+				pauseReadFailures.Add(1)
+				http.Error(w, "pause read unavailable", http.StatusServiceUnavailable)
+				return
+			}
 		}
 		if call.Method == "eth_getBlockByNumber" && len(call.Params) == 2 && string(call.Params[0]) == `"latest"` {
 			call.Params[0], call.Params[1] = json.RawMessage(`"0x2063ec5"`), json.RawMessage("true")
@@ -448,7 +492,7 @@ func startupRecordedChain(t *testing.T, ctx context.Context) string {
 		forward.ServeHTTP(w, r)
 	}))
 	t.Cleanup(server.Close)
-	return server.URL
+	return server.URL, pauseReadFailures
 }
 
 func provisionStartupBroker(t *testing.T, ctx context.Context, root, endpoint, credentials, stream string) brokerprovision.Document {

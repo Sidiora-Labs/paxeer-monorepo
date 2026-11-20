@@ -135,6 +135,8 @@ type Processor struct {
 	deps             Deps
 	monitored        []string
 	nftCache         map[string]*int64
+
+	standingHeightPasses *atomic.Uint64
 }
 
 // New builds a Processor.
@@ -156,6 +158,8 @@ func New(d Deps) *Processor {
 		deps:       d,
 		monitored:  []string{strings.ToLower(d.EventEmitterAddress)},
 		nftCache:   map[string]*int64{},
+
+		standingHeightPasses: new(atomic.Uint64),
 	}
 }
 
@@ -196,10 +200,23 @@ func (p *Processor) Run(ctx context.Context) (result error) {
 	p.deps.Logger.Info("starting block processor", slog.Int64("lastProcessed", last), slog.String("logSource", logSource), slog.String("headSource", p.deps.Head.Name()))
 
 	size := p.deps.BatchSize
+	previous := last
+	passStarted := false
+	p.standingHeightPasses.Store(0)
+	finishPass := func() {
+		if passStarted {
+			p.recordStandingHeight(previous, last)
+			previous = last
+			passStarted = false
+		}
+	}
+	defer finishPass()
 	for {
+		finishPass()
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		passStarted = true
 		if p.deps.QualifiedBatchSource != nil && p.canonicalFence == 0 {
 			fence, err := p.deps.Store.AcquireLease(ctx, p.deps.ChainID, p.deps.CanonicalStreamID, p.deps.CanonicalOwner, canonicalLeaseTTL)
 			if err != nil {
@@ -284,7 +301,7 @@ func (p *Processor) Run(ctx context.Context) (result error) {
 			to = head
 		}
 		if err := p.ProcessBatch(ctx, from, to); err != nil {
-			p.deps.Logger.Error("block processing error, retrying", slog.Int64("from", from), slog.Int64("to", to), slog.String("err", err.Error()))
+			p.deps.Logger.Error("block processing error, retrying", slog.Int64("height", from), slog.Int64("from", from), slog.Int64("to", to), slog.String("err", err.Error()))
 			if errors.Is(err, store.ErrFenced) {
 				p.clearCanonicalLease()
 			}

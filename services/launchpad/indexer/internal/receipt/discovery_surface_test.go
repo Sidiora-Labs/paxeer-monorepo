@@ -1,6 +1,7 @@
 package receipt
 
 import (
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -38,7 +39,7 @@ func TestDiscoveryEpochSurfacePool(t *testing.T) {
 		t.Fatalf("surface deployment: got %+v, want %+v", epoch.Deployment, wantDeployment)
 	}
 	options.Discovery[0].Kind = "unsupported"
-	if _, err := authority.discoveryEpoch(options, address, "SidioraPool", from); err != ErrQualification {
+	if _, err := authority.discoveryEpoch(options, address, "SidioraPool", from); !errors.Is(err, ErrQualification) || !strings.Contains(err.Error(), "role=SidioraPool kind=unsupported address="+strings.ToLower(address.Hex())+" cause=template") {
 		t.Fatalf("unsupported discovery kind: got %v, want ErrQualification", err)
 	}
 }
