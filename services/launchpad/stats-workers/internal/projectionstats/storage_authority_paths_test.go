@@ -53,7 +53,7 @@ func TestPublicProjectionPropagatesUnavailableStorage(t *testing.T) {
 			return e
 		}},
 		{"window baseline", "stats.accounting_market_commits", func(tx pgx.Tx) error {
-			_, _, e := p.windowChange(f.ctx, tx, anchor, f.real.Pool, nil, nil, stamp, stamp-60)
+			_, _, e := p.windowChange(f.ctx, tx, anchor, f.real.Pool, nil, nil, nil, stamp, stamp-60)
 			return e
 		}},
 	} {
@@ -132,7 +132,7 @@ func TestPublicProjectionChecksRawSwapAuthority(t *testing.T) {
 		{"zero baseline", &priceEvent{price: big.NewInt(1)}, []syncEvent{{priceEvent: priceEvent{height: big.NewInt(1), transactionIndex: big.NewInt(0), logIndex: big.NewInt(0), timestamp: 1, price: big.NewInt(0)}}}, 0, 2, "", "unavailable"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			value, quality, err := p.windowChange(f.ctx, tx, anchor, "0x"+strings.Repeat("f", 40), tc.syncs, tc.current, tc.created, tc.start)
+			value, quality, err := p.windowChange(f.ctx, tx, anchor, "0x"+strings.Repeat("f", 40), tc.syncs, tc.current, nil, tc.created, tc.start)
 			if err != nil || quality != tc.quality || (tc.want == "" && value != nil) || (tc.want != "" && (value == nil || *value != tc.want)) {
 				t.Fatalf("price baseline: %v %s %v", value, quality, err)
 			}

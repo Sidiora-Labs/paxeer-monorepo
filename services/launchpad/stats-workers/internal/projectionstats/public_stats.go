@@ -565,6 +565,36 @@ func (p *PublicStatsProjector) syncEventsTx(ctx context.Context, tx pgx.Tx, anch
 	return events, err
 }
 
+func (p *PublicStatsProjector) openingPriceTx(ctx context.Context, tx pgx.Tx, pool string) (*big.Int, error) {
+	var virtualRaw, realRaw, tokenRaw string
+	err := tx.QueryRow(ctx, "SELECT st.virtual_reserve,st.real_reserve,st.token_reserve FROM "+p.reads.source("pool_state_snapshots_v1")+" st JOIN "+p.reads.source("pools_read_v1")+" p ON p.pool_id=st.pool_id JOIN "+p.reads.source("indexer_canonical_creations_v1")+" c ON c.pool=lower(p.pool_address) AND c.height=st.block_number AND c.log_index=st.log_index WHERE c.pool=$1", pool).Scan(&virtualRaw, &realRaw, &tokenRaw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	virtual, err := Uint(virtualRaw)
+	if err != nil {
+		return nil, ErrIntegrity
+	}
+	real, err := Uint(realRaw)
+	if err != nil {
+		return nil, ErrIntegrity
+	}
+	token, err := Uint(tokenRaw)
+	if err != nil {
+		return nil, ErrIntegrity
+	}
+	if token.Sign() == 0 {
+		return nil, nil
+	}
+	price := new(big.Int).Add(virtual, real)
+	price.Mul(price, publicWad)
+	price.Quo(price, token)
+	return price, nil
+}
+
 // committedFill is a committed market fill with its stats commit identity.
 type committedFill struct {
 	fill      accounting.FillV1
@@ -888,7 +918,7 @@ const circulationModel = "supply_minus_pool_reserve_v1"
 // windowChange applies the priceChangeBps24h rule to the window starting at
 // start: compare the latest price event at the anchor with the latest price
 // event strictly before start.
-func (p *PublicStatsProjector) windowChange(ctx context.Context, tx pgx.Tx, anchor publicAnchor, pool string, syncs []syncEvent, current *priceEvent, created, start int64) (*string, string, error) {
+func (p *PublicStatsProjector) windowChange(ctx context.Context, tx pgx.Tx, anchor publicAnchor, pool string, syncs []syncEvent, current *priceEvent, opening *big.Int, created, start int64) (*string, string, error) {
 	var baseline *priceEvent
 	for i := range syncs {
 		if syncs[i].timestamp < start {
@@ -920,9 +950,16 @@ func (p *PublicStatsProjector) windowChange(ctx context.Context, tx pgx.Tx, anch
 			return change, valueUnavailable, nil
 		}
 		return change, valueComplete, nil
+	case opening != nil:
+		change, ok := priceChangeBps(opening, current.price)
+		if !ok {
+			return change, valueUnavailable, nil
+		}
+		if created >= start {
+			return change, "insufficient_history", nil
+		}
+		return change, valueComplete, nil
 	default:
-		// Every price-moving event lies inside the window and the creation
-		// price is not carried by a canonical event.
 		return nil, "insufficient_history", nil
 	}
 }
@@ -962,13 +999,17 @@ func (p *PublicStatsProjector) poolStatsTx(ctx context.Context, tx pgx.Tx, ancho
 		}
 		current = latestOf(current, &e)
 	}
-	if doc.PriceChangeBps24h, doc.ChangeBaselineQuality, err = p.windowChange(ctx, tx, anchor, pool, syncs, current, created, start); err != nil {
+	opening, err := p.openingPriceTx(ctx, tx, pool)
+	if err != nil {
+		return doc, nil, err
+	}
+	if doc.PriceChangeBps24h, doc.ChangeBaselineQuality, err = p.windowChange(ctx, tx, anchor, pool, syncs, current, opening, created, start); err != nil {
 		return doc, nil, err
 	}
 	changes := []**string{&doc.PriceChangeBps5m, &doc.PriceChangeBps1h, &doc.PriceChangeBps6h}
 	qualities := []*string{&doc.ChangeBaselineQuality5m, &doc.ChangeBaselineQuality1h, &doc.ChangeBaselineQuality6h}
 	for i, seconds := range publicChangeWindows {
-		if *changes[i], *qualities[i], err = p.windowChange(ctx, tx, anchor, pool, syncs, current, created, end-seconds); err != nil {
+		if *changes[i], *qualities[i], err = p.windowChange(ctx, tx, anchor, pool, syncs, current, opening, created, end-seconds); err != nil {
 			return doc, nil, err
 		}
 	}
@@ -997,19 +1038,23 @@ func (p *PublicStatsProjector) poolStatsTx(ctx context.Context, tx pgx.Tx, ancho
 	} else if last != nil {
 		decimals = int(last.fill.Token.Decimals)
 	}
+	mark := opening
 	if current != nil {
-		wad := current.price.String()
+		mark = current.price
+	}
+	if mark != nil {
+		wad := mark.String()
 		doc.SpotPriceWad = &wad
 		if decimals >= 0 && decimals <= 18 {
 			// floor(floor(E*10^18/T)*10^d/10^18) == floor(E*10^d/T) for d<=18.
-			v := new(big.Int).Mul(current.price, new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil))
+			v := new(big.Int).Mul(mark, new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil))
 			v.Quo(v, publicWad)
 			raw := v.String()
 			doc.SpotPriceUsdlRaw = &raw
 		}
 		if holdings != nil {
-			doc.TotalSupplyValuationUsdlRaw = wadValue(holdings.supply, current.price)
-			doc.CirculatingMarketCapUsdlRaw = wadValue(new(big.Int).Sub(holdings.supply, holdings.poolBalance), current.price)
+			doc.TotalSupplyValuationUsdlRaw = wadValue(holdings.supply, mark)
+			doc.CirculatingMarketCapUsdlRaw = wadValue(new(big.Int).Sub(holdings.supply, holdings.poolBalance), mark)
 			doc.SupplyValuationQuality = "verified"
 		}
 	}

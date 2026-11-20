@@ -2433,6 +2433,40 @@
         },
         {
           "schema": "indexer",
+          "object": "pool_state_snapshots_v1",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "pool_id",
+            "virtual_reserve",
+            "real_reserve",
+            "token_reserve",
+            "block_number",
+            "log_index"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "indexer",
+          "object": "pools_read_v1",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "pool_address",
+            "pool_id"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "indexer",
           "object": "indexer_accounting_fills_v1",
           "object_kind": "view",
           "privileges": [

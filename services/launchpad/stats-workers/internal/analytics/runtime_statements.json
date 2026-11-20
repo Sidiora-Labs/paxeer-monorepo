@@ -4155,7 +4155,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.refreshPage_1",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4172,7 +4172,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.refreshPage_2",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4197,7 +4197,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.refreshPage_3",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4239,7 +4239,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.anchorTx_1",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4263,7 +4263,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.anchorTx_2",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4283,7 +4283,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.emittersTx_1",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4310,7 +4310,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.swapPriceTx_1",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4332,7 +4332,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.syncEventsTx_1",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4360,7 +4360,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.syncEventsTx_2",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4380,7 +4380,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.syncEventsTx_3",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4411,7 +4411,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.latestFillTx_1",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4435,7 +4435,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.realUsdlTx_1",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4458,7 +4458,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_1",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4481,7 +4481,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_2",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4507,7 +4507,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_3",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4529,7 +4529,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_4",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4550,7 +4550,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_5",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4571,7 +4571,7 @@
       "functions": [],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.holdingsAtAnchorTx_6",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
@@ -4606,7 +4606,7 @@
       ],
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.poolStatsTx_1",
-      "source_sha256": "07dfa62d886791be7f6ef9dc996478baa9b0b6e9d87e613b39dfd8ecce58e775"
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     },
     {
       "file": "services/launchpad/stats-workers/internal/projectionstats/query.go",
@@ -9140,6 +9140,39 @@
       "sequences": [],
       "id": "search_projection_Store.BackfillAuthority_1",
       "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/projectionstats/public_stats.go",
+      "function": "PublicStatsProjector.openingPriceTx",
+      "call": 1,
+      "expression": "\"SELECT st.virtual_reserve,st.real_reserve,st.token_reserve FROM \"+p.reads.source(\"pool_state_snapshots_v1\")+\" st JOIN \"+p.reads.source(\"pools_read_v1\")+\" p ON p.pool_id=st.pool_id JOIN \"+p.reads.source(\"indexer_canonical_creations_v1\")+\" c ON c.pool=lower(p.pool_address) AND c.height=st.block_number AND c.log_index=st.log_index WHERE c.pool=$1\"",
+      "line": 570,
+      "sql": "SELECT st.virtual_reserve,st.real_reserve,st.token_reserve FROM \"indexer\".\"pool_state_snapshots_v1\" st JOIN \"indexer\".\"pools_read_v1\" p ON p.pool_id=st.pool_id JOIN \"indexer\".\"indexer_canonical_creations_v1\" c ON c.pool=lower(p.pool_address) AND c.height=st.block_number AND c.log_index=st.log_index WHERE c.pool=$1",
+      "kind": "SELECT",
+      "tables": [
+        "indexer.indexer_canonical_creations_v1",
+        "indexer.pool_state_snapshots_v1",
+        "indexer.pools_read_v1"
+      ],
+      "columns": [
+        "c.height",
+        "c.log_index",
+        "c.pool",
+        "p.pool_address",
+        "p.pool_id",
+        "st.block_number",
+        "st.log_index",
+        "st.pool_id",
+        "st.real_reserve",
+        "st.token_reserve",
+        "st.virtual_reserve"
+      ],
+      "functions": [
+        "lower"
+      ],
+      "sequences": [],
+      "id": "projectionstats_public_stats_PublicStatsProjector.openingPriceTx_1",
+      "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
     }
   ],
   "boundaries": [
