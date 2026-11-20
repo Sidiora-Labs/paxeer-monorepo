@@ -210326,7 +210326,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.996]
 title = "Answer the trades read and the candles read of the launchpad API with a page without items for a pool before its first market position"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
