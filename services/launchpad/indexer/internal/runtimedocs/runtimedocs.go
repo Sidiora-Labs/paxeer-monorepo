@@ -269,6 +269,6 @@ func CommittedOptions(o receipt.RPCOptions) (source.CommittedOptions, error) {
 		Epochs:           epochs,
 		LiveDeadline:     2 * time.Second,
 		BulkDeadline:     15 * time.Second,
-		MaxResponseBytes: 32 << 20,
+		MaxResponseBytes: source.MaxBlockResponseBytes,
 	}, nil
 }

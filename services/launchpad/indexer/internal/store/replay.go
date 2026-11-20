@@ -144,6 +144,8 @@ func (s *Store) AcquireReplay(ctx context.Context, id, owner string, ttl time.Du
 	j.Status = "running"
 	return j, tx.Commit(ctx)
 }
+const maxReplayRawDataBytes = 1 << 20
+
 func ValidateReplaySegment(segment ReplaySegment) error {
 	fromHeight1Int, conversionErr := checked.Convert[int](segment.ToHeight - segment.FromHeight + 1)
 	if conversionErr != nil {
@@ -158,6 +160,9 @@ func ValidateReplaySegment(segment ReplaySegment) error {
 	bytes := 0
 	for i := range segment.Records {
 		r := segment.Records[i]
+		if len(r.Data) > maxReplayRawDataBytes {
+			return errors.New("replay raw record exceeds document bound")
+		}
 		digest, err := RawDigest(r)
 		if err != nil {
 			return err
@@ -195,6 +200,9 @@ func ValidateReplaySegment(segment ReplaySegment) error {
 	}
 	events := map[string]bool{}
 	for _, event := range segment.Events {
+		if len(event.Raw.Data) > maxReplayRawDataBytes {
+			return errors.New("replay raw record exceeds document bound")
+		}
 		digest, err := RawDigest(event.Raw)
 		if err != nil {
 			return err

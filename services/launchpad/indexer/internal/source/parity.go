@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"math"
 	"os"
 	"path/filepath"
@@ -82,7 +83,7 @@ func validateParityInput(input ParityInput, from, to uint64) error {
 	if conversionErr != nil {
 		return conversionErr
 	}
-	if !validSourceID(input.SourceID) || !input.Result.Complete || input.Result.ManifestDigest == "" || (input.TimestampUnit != valueSeconds && input.TimestampUnit != "milliseconds") || len(input.Result.Logs) > 131072 || len(input.Result.Blocks) != from1Int8 {
+	if !validSourceID(input.SourceID) || !input.Result.Complete || input.Result.ManifestDigest == "" || (input.TimestampUnit != valueSeconds && input.TimestampUnit != "milliseconds") || from < to && len(input.Result.Logs) > 131072 || len(input.Result.Blocks) != from1Int8 {
 		return sourceError(IncompleteError, "parity", nil)
 	}
 	next := from
@@ -110,12 +111,17 @@ func validateParityInput(input ParityInput, from, to uint64) error {
 			return sourceError(IntegrityError, "parity", nil)
 		}
 	}
+	blockBytes := map[uint64]int{}
 	for _, log := range input.Result.Logs {
+		blockBytes[log.BlockNumber] += 256 + len(log.Data) + 32*len(log.Topics)
+		if blockBytes[log.BlockNumber] > decode.MaxBlockLogBytes {
+			return sourceError(OversizeError, "parity", nil)
+		}
 		blockNumberTransactionCountUint, conversionErr := checked.Convert[uint](input.Result.Blocks[log.BlockNumber].TransactionCount)
 		if conversionErr != nil {
 			return conversionErr
 		}
-		if log.BlockNumber < from || log.BlockNumber > to || log.BlockHash == (common.Hash{}) || log.TxHash == (common.Hash{}) || log.Address == (common.Address{}) || log.Removed || len(log.Topics) > 4 || len(log.Data) > 64<<10 || log.TxIndex >= blockNumberTransactionCountUint || log.BlockHash != input.Result.Blocks[log.BlockNumber].Hash {
+		if log.BlockNumber < from || log.BlockNumber > to || log.BlockHash == (common.Hash{}) || log.TxHash == (common.Hash{}) || log.Address == (common.Address{}) || log.Removed || len(log.Topics) > 4 || log.TxIndex >= blockNumberTransactionCountUint || log.BlockHash != input.Result.Blocks[log.BlockNumber].Hash {
 			return sourceError(InvalidError, "parity", nil)
 		}
 	}

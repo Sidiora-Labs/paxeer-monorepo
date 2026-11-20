@@ -140,7 +140,7 @@ func NewEVM(ctx context.Context, opts EVMOptions) (*EVMSource, error) {
 		slots:              slots,
 		stop:               make(chan struct{}),
 		lifecycle:          newSourceLifecycle(),
-		transportSource:    &CommittedSource{client: hc, opts: CommittedOptions{LiveDeadline: timeout, BulkDeadline: 15 * time.Second, MaxResponseBytes: 32 << 20}},
+		transportSource:    &CommittedSource{client: hc, opts: CommittedOptions{LiveDeadline: timeout, BulkDeadline: 15 * time.Second, MaxResponseBytes: MaxBlockResponseBytes}},
 	}
 
 	// Initial health check + periodic re-rank. Until the first check
