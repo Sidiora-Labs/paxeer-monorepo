@@ -16066,6 +16066,12 @@ value = "One. The entry of the role candles_runtime for the view indexer_canonic
 basis = "Gotcha 4752."
 affects = []
 
+[decision.3826]
+title = "A secrets rotation starts no refresh after its run ended, and the broker provisioning names the cause of an apply error"
+value = "One. Run of the type Rotation returns the error of its context where the context has ended when a tick is taken, and starts no refresh. Refresh leaves the members refreshed and unavailable as they were where the context of its caller has ended and the load or the apply function returned for that reason. A refresh that does not pass under a running context marks the rotation as unavailable as before. Two. Provision wraps the cause of a create or an update that did not pass behind its present text with the difference. The check mode, the output lines and the exit codes of the command stay as they are. Three. The cases that run the provisioning command or the function Provision against a broker give it a deadline of two minutes or more, and the helper realBroker gives the connection and the readiness of its broker two minutes. Four. The record of statements of the API is written anew from its sources with the report mode of its case. No right changes. Tasks 22.39.1001 to 22.39.1003."
+basis = "Gotcha 4753."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45726,6 +45732,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1003]
+title = "Bring the record of statements of the launchpad API in step with the pool reserves statement of its store"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api/internal/rolecheck"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -timeout 30m ./internal/rolecheck/)"
+do_1 = "do_1 Gotcha 4753 part three, decision 3826 point four. Read services/launchpad/api/internal/store/pool_registry.go with the method PoolReserves of the type Store and its statement, the entry with the id store/pool_registry.Store.PoolReserves.1 in services/launchpad/api/internal/rolecheck/statements.json with its members line, expression, sql and columns, services/launchpad/api/internal/rolecheck/runtime_role_statements_test.go with the case TestRuntimeRoleStatements and its report mode behind the setting RUNTIME_ROLE_STATEMENTS_REPORT, and the entry of the role api_rest_runtime for the view pools_read_v1 in migrations/grants.json."
+symbols = []
+
+[capability.22.39.1002]
+title = "Carry the cause in the apply error of the launchpad broker provisioning and give its cases a deadline of two minutes"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/brokerprovision", "services/launchpad/api/internal/app"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd sdk/launchpad/shared && go test -count=1 -race -timeout 20m ./brokerprovision/... && go test -count=1 -list ^TestProvisionApplyCause ./brokerprovision/ | grep -q ^TestProvisionApplyCause) && (cd services/launchpad/api && go test -count=1 -timeout 20m -run ^TestRuntimeServesReadyAndDrainsOnCancellation ./internal/app/)"
+do_1 = "do_1 Gotcha 4753 part two, decision 3826 points two and three. Read sdk/launchpad/shared/brokerprovision/provision.go with the function Provision and its error for a create or an update that did not pass, sdk/launchpad/shared/brokerprovision/command.go with the option timeout and its bounds, the cases in sdk/launchpad/shared/brokerprovision/provision_test.go that provision the example document against a broker with their contexts, and the provisioning step in services/launchpad/api/internal/app/runtime_contract_test.go of the API app package with the value of its option timeout."
+symbols = []
+
+[capability.22.39.1001]
+title = "Start no refresh of a launchpad secrets rotation after the context of its run ended"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/secrets"]
+tests = []
+verification_contract = "GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && cd sdk/launchpad/shared && go test -count=1 -race -timeout 15m ./secrets/... && go test -count=1 -list ^TestRotationRun ./secrets/ | grep -q ^TestRotationRun"
+do_1 = "do_1 Gotcha 4753 part one, decision 3826 point one. Read sdk/launchpad/shared/secrets/rotation.go with the type Rotation, the methods Refresh, Ready and Run and the members refreshed and unavailable, and the case TestEnvironmentVersionRotationAppliesCurrentValue in sdk/launchpad/shared/secrets/rotation_coverage_test.go with its scheduled refresh that ends the run from the apply function."
+symbols = []
 
 [capability.22.39.1000]
 title = "Answer the media read of the launchpad metadata service for a canonical token without a document with the default document"
@@ -210025,6 +210058,96 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1003]
+title = "Bring the record of statements of the launchpad API in step with the pool reserves statement of its store"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1003"]
+interfaces = []
+do_1 = "do_1 Gotcha 4753 part three, decision 3826 point four. Read services/launchpad/api/internal/store/pool_registry.go with the method PoolReserves of the type Store and its statement, the entry with the id store/pool_registry.Store.PoolReserves.1 in services/launchpad/api/internal/rolecheck/statements.json with its members line, expression, sql and columns, services/launchpad/api/internal/rolecheck/runtime_role_statements_test.go with the case TestRuntimeRoleStatements and its report mode behind the setting RUNTIME_ROLE_STATEMENTS_REPORT, and the entry of the role api_rest_runtime for the view pools_read_v1 in migrations/grants.json."
+do_2 = "do_2 Write the record anew from the sources with the report mode of the case, so every entry holds the line, the expression, the statement and the columns of its source, and the entry of PoolReserves names the column created_at of the pools view. The task changes no source with a statement and no right: the role holds the column. Where the files coverage.json or waiting.json of the same directory follow the record, they follow in the same change."
+do_3 = "do_3 The case TestRuntimeRoleStatements and the other cases of the package pass against the new record. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api/internal/rolecheck"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/api && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -timeout 30m ./internal/rolecheck/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1002]
+title = "Carry the cause in the apply error of the launchpad broker provisioning and give its cases a deadline of two minutes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1002"]
+interfaces = []
+do_1 = "do_1 Gotcha 4753 part two, decision 3826 points two and three. Read sdk/launchpad/shared/brokerprovision/provision.go with the function Provision and its error for a create or an update that did not pass, sdk/launchpad/shared/brokerprovision/command.go with the option timeout and its bounds, the cases in sdk/launchpad/shared/brokerprovision/provision_test.go that provision the example document against a broker with their contexts, and the provisioning step in services/launchpad/api/internal/app/runtime_contract_test.go of the API app package with the value of its option timeout."
+do_2 = "do_2 Let the error of a create or an update that did not pass keep its present text with the difference and wrap the cause, so the function Is of the package errors finds a deadline or an ended context in it and the command prints the cause behind the difference. The check mode, the output lines for applied differences and the exit codes of the command stay as they are."
+do_3 = "do_3 Give every case that runs the provisioning command or the function Provision against a broker a deadline of two minutes or more: the option timeout of the provisioning step in services/launchpad/api/internal/app/runtime_contract_test.go and the contexts of the cases in sdk/launchpad/shared/brokerprovision/provision_test.go that provision the example document. Where a further case of the two packages runs the command with a smaller value, it takes the same value. The helper realBroker in sdk/launchpad/shared/brokerprovision/provision_test.go gives the connection and the readiness of its broker two minutes in place of twenty seconds. Add cases with the prefix TestProvisionApplyCause in the package of the provisioning: a create under an ended context returns an error that holds the difference in its text and the cause for the function Is, and the applied differences before it are returned as before. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/brokerprovision", "services/launchpad/api/internal/app"]
+tests = []
+planned_paths = []
+build_cmd = "(cd sdk/launchpad/shared && go vet ./brokerprovision/...) && (cd services/launchpad/api && go vet ./internal/app/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd sdk/launchpad/shared && go test -count=1 -race -timeout 20m ./brokerprovision/... && go test -count=1 -list ^TestProvisionApplyCause ./brokerprovision/ | grep -q ^TestProvisionApplyCause) && (cd services/launchpad/api && go test -count=1 -timeout 20m -run ^TestRuntimeServesReadyAndDrainsOnCancellation ./internal/app/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1001]
+title = "Start no refresh of a launchpad secrets rotation after the context of its run ended"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1001"]
+interfaces = []
+do_1 = "do_1 Gotcha 4753 part one, decision 3826 point one. Read sdk/launchpad/shared/secrets/rotation.go with the type Rotation, the methods Refresh, Ready and Run and the members refreshed and unavailable, and the case TestEnvironmentVersionRotationAppliesCurrentValue in sdk/launchpad/shared/secrets/rotation_coverage_test.go with its scheduled refresh that ends the run from the apply function."
+do_2 = "do_2 Let Run return the error of its context where the context has ended when a tick is taken, without a call of Refresh. Let Refresh leave the members refreshed and unavailable unchanged where the context of its caller has ended and the load or the apply function returned an error for that reason. An error under a running context marks the rotation as unavailable as before, the bound of five seconds of one refresh stays, and the lock order of the two mutexes does not change."
+do_3 = "do_3 Add cases with the prefix TestRotationRun in the package: a run that is ended from the apply function reads Ready without an error, repeated two hundred times with an interval of one millisecond; a run whose context has ended before its first tick does not call the source again; a refresh whose caller context ends while the source is read leaves Ready as it was before; a refresh under a running context whose source returns an error reads Ready with an error as before. No case takes a pause of a fixed length as its proof. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/secrets"]
+tests = []
+planned_paths = []
+build_cmd = "cd sdk/launchpad/shared && go vet ./secrets/..."
+verify_cmd = "GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && cd sdk/launchpad/shared && go test -count=1 -race -timeout 15m ./secrets/... && go test -count=1 -list ^TestRotationRun ./secrets/ | grep -q ^TestRotationRun"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1000]
 title = "Answer the media read of the launchpad metadata service for a canonical token without a document with the default document"
 status = "pending"
@@ -210455,7 +210578,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.986]
 title = "Accept the code of a launchpad pool in the preflight engine of the shared module by the runtime hashes of the manifest role"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
