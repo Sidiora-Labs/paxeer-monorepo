@@ -563,7 +563,7 @@ func (a *RPCQualification) PoolReserves(ctx context.Context, pool common.Address
 	authority := a.current()
 	header, err := authority.headerByHash(ctx, block)
 	if err != nil || header == nil {
-		return out, ErrQualification
+		return out, errors.Join(ErrQualification, err)
 	}
 	e, err := authority.epoch(pool, decode.Order{Block: header.Number.Uint64(), Transaction: ^uint(0), Log: ^uint(0)})
 	if err != nil || e.Deployment.Role != valueSidioraPool {
