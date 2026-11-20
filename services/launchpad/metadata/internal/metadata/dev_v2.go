@@ -136,7 +136,7 @@ func developmentPoolRowFrom(ctx context.Context, q developmentQuerier, token str
 // token with no legacy row reads as revision 0 with an empty display, the
 // same shape production serves before the creator's first edit.
 func (d *DevelopmentV2Reads) legacyData(ctx context.Context, row developmentPoolRow) (V2Data, bool, error) {
-	data := V2Data{ChainID: 125, PoolAddress: row.Pool, TokenAddress: row.Token, Revision: "0", Display: V2Display{Tags: []string{}, Socials: []V2Social{}}, Source: "creator", ModerationStatus: metadataVisibilityAllowed}
+	data := V2Data{ChainID: 125, PoolAddress: row.Pool, TokenAddress: row.Token, Revision: "0", Display: V2Display{Tags: []string{}, Socials: []V2Social{}}, Source: metadataSourceCreator, ModerationStatus: metadataVisibilityAllowed}
 	meta, err := sqlcdb.New(d.Pool).GetTokenMetadata(ctx, row.Token)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return data, false, nil
@@ -332,8 +332,8 @@ func (d *DevelopmentV2Reads) metadata(w http.ResponseWriter, r *http.Request) {
 // served by the production ConnectedMedia handler (image with its approved
 // 256/512/1024 variants). Otherwise the legacy store holds no
 // content-addressed approved variants, so image is null; the legacy
-// /logo/{file} route keeps serving the bytes. Like production, a token
-// without a metadata record is a JSON 404.
+// /logo/{file} route keeps serving the bytes. A canonical token without a
+// metadata record serves the revision-zero default document.
 func (d *DevelopmentV2Reads) media(w http.ResponseWriter, r *http.Request) {
 	token, ok := developmentToken(r)
 	if !ok {
@@ -362,8 +362,10 @@ func (d *DevelopmentV2Reads) media(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !found {
-		v2Failure(w, ErrMissing)
-		return
+		if _, err = d.chainToken(r.Context(), row); err != nil {
+			v2Failure(w, ErrMissing)
+			return
+		}
 	}
 	d.respond(w, ConnectedMetadata{Metadata: data}, "public, max-age=60")
 }
