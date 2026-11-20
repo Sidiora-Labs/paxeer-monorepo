@@ -6784,7 +6784,7 @@
       "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
       "values": {
         "left": 24,
-        "top": 459,
+        "top": 535,
         "width": 1217,
         "height": 44,
         "fontSize": 14,
@@ -6798,7 +6798,7 @@
       "selector": "footer:visible >> nth=0",
       "values": {
         "left": 0,
-        "top": 1415.5,
+        "top": 1491.5,
         "width": 1265,
         "height": 339,
         "fontSize": 14,
@@ -6812,7 +6812,7 @@
       "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
       "values": {
         "left": 24,
-        "top": 1573.5,
+        "top": 1649.5,
         "width": 40,
         "height": 28,
         "fontSize": 13,
@@ -6826,7 +6826,7 @@
       "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
       "values": {
         "left": 437.65625,
-        "top": 1573.5,
+        "top": 1649.5,
         "width": 73,
         "height": 28,
         "fontSize": 13,
@@ -6840,7 +6840,7 @@
       "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
       "values": {
         "left": 851.328125,
-        "top": 1573.5,
+        "top": 1649.5,
         "width": 54,
         "height": 28,
         "fontSize": 13,
@@ -6868,7 +6868,7 @@
       "selector": "main [data-list-page]",
       "values": {
         "left": 24,
-        "top": 370,
+        "top": 446,
         "width": 1217,
         "height": 1013.5,
         "fontSize": 14,
@@ -6884,7 +6884,7 @@
         "left": 24,
         "top": 81,
         "width": 1217,
-        "height": 1302.5,
+        "height": 1378.5,
         "fontSize": 14,
         "lineHeight": 20
       }
@@ -6939,8 +6939,8 @@
       "values": {
         "left": 24,
         "top": 137,
-        "width": 163.5625,
-        "height": 124,
+        "width": 295.25,
+        "height": 86,
         "fontSize": 14,
         "lineHeight": 20
       }
@@ -6966,7 +6966,7 @@
       "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
       "values": {
         "left": 96.5,
-        "top": 459,
+        "top": 535,
         "width": 1232,
         "height": 44,
         "fontSize": 14,
@@ -6980,7 +6980,7 @@
       "selector": "footer:visible >> nth=0",
       "values": {
         "left": 0,
-        "top": 1415.5,
+        "top": 1491.5,
         "width": 1425,
         "height": 339,
         "fontSize": 14,
@@ -6994,7 +6994,7 @@
       "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
       "values": {
         "left": 96.5,
-        "top": 1573.5,
+        "top": 1649.5,
         "width": 40,
         "height": 28,
         "fontSize": 13,
@@ -7008,7 +7008,7 @@
       "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
       "values": {
         "left": 515.15625,
-        "top": 1573.5,
+        "top": 1649.5,
         "width": 73,
         "height": 28,
         "fontSize": 13,
@@ -7022,7 +7022,7 @@
       "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
       "values": {
         "left": 933.828125,
-        "top": 1573.5,
+        "top": 1649.5,
         "width": 54,
         "height": 28,
         "fontSize": 13,
@@ -7050,7 +7050,7 @@
       "selector": "main [data-list-page]",
       "values": {
         "left": 96.5,
-        "top": 370,
+        "top": 446,
         "width": 1232,
         "height": 1013.5,
         "fontSize": 14,
@@ -7066,7 +7066,7 @@
         "left": 96.5,
         "top": 81,
         "width": 1232,
-        "height": 1302.5,
+        "height": 1378.5,
         "fontSize": 14,
         "lineHeight": 20
       }
@@ -7121,8 +7121,8 @@
       "values": {
         "left": 96.5,
         "top": 137,
-        "width": 165.703125,
-        "height": 124,
+        "width": 299,
+        "height": 86,
         "fontSize": 14,
         "lineHeight": 20
       }
@@ -7148,7 +7148,7 @@
       "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
       "values": {
         "left": 336.5,
-        "top": 459,
+        "top": 535,
         "width": 1232,
         "height": 44,
         "fontSize": 14,
@@ -7162,7 +7162,7 @@
       "selector": "footer:visible >> nth=0",
       "values": {
         "left": 0,
-        "top": 1415.5,
+        "top": 1491.5,
         "width": 1905,
         "height": 339,
         "fontSize": 14,
@@ -7176,7 +7176,7 @@
       "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
       "values": {
         "left": 336.5,
-        "top": 1573.5,
+        "top": 1649.5,
         "width": 40,
         "height": 28,
         "fontSize": 13,
@@ -7190,7 +7190,7 @@
       "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
       "values": {
         "left": 755.15625,
-        "top": 1573.5,
+        "top": 1649.5,
         "width": 73,
         "height": 28,
         "fontSize": 13,
@@ -7204,7 +7204,7 @@
       "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
       "values": {
         "left": 1173.828125,
-        "top": 1573.5,
+        "top": 1649.5,
         "width": 54,
         "height": 28,
         "fontSize": 13,
@@ -7232,7 +7232,7 @@
       "selector": "main [data-list-page]",
       "values": {
         "left": 336.5,
-        "top": 370,
+        "top": 446,
         "width": 1232,
         "height": 1013.5,
         "fontSize": 14,
@@ -7248,7 +7248,7 @@
         "left": 336.5,
         "top": 81,
         "width": 1232,
-        "height": 1302.5,
+        "height": 1378.5,
         "fontSize": 14,
         "lineHeight": 20
       }
@@ -7303,8 +7303,8 @@
       "values": {
         "left": 336.5,
         "top": 137,
-        "width": 165.703125,
-        "height": 124,
+        "width": 299,
+        "height": 86,
         "fontSize": 14,
         "lineHeight": 20
       }
@@ -7330,7 +7330,7 @@
       "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
       "values": {
         "left": 656.5,
-        "top": 459,
+        "top": 535,
         "width": 1232,
         "height": 44,
         "fontSize": 14,
@@ -7344,7 +7344,7 @@
       "selector": "footer:visible >> nth=0",
       "values": {
         "left": 0,
-        "top": 1415.5,
+        "top": 1491.5,
         "width": 2545,
         "height": 339,
         "fontSize": 14,
@@ -7358,7 +7358,7 @@
       "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
       "values": {
         "left": 656.5,
-        "top": 1573.5,
+        "top": 1649.5,
         "width": 40,
         "height": 28,
         "fontSize": 13,
@@ -7372,7 +7372,7 @@
       "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
       "values": {
         "left": 1075.15625,
-        "top": 1573.5,
+        "top": 1649.5,
         "width": 73,
         "height": 28,
         "fontSize": 13,
@@ -7386,7 +7386,7 @@
       "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
       "values": {
         "left": 1493.828125,
-        "top": 1573.5,
+        "top": 1649.5,
         "width": 54,
         "height": 28,
         "fontSize": 13,
@@ -7414,7 +7414,7 @@
       "selector": "main [data-list-page]",
       "values": {
         "left": 656.5,
-        "top": 370,
+        "top": 446,
         "width": 1232,
         "height": 1013.5,
         "fontSize": 14,
@@ -7430,7 +7430,7 @@
         "left": 656.5,
         "top": 81,
         "width": 1232,
-        "height": 1302.5,
+        "height": 1378.5,
         "fontSize": 14,
         "lineHeight": 20
       }
@@ -7485,8 +7485,8 @@
       "values": {
         "left": 656.5,
         "top": 137,
-        "width": 165.703125,
-        "height": 124,
+        "width": 299,
+        "height": 86,
         "fontSize": 14,
         "lineHeight": 20
       }

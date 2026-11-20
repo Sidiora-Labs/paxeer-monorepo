@@ -22,6 +22,12 @@ interface Props extends BoxProps {}
 
 const DELTA_ACCURACY = 2;
 
+export function getTransactionStatsColumns(cardCount: number): number {
+  const rowCount = Math.ceil(cardCount / 4);
+
+  return Math.ceil(cardCount / rowCount);
+}
+
 function formatTransactionCount(value: string | undefined): string {
   return value === undefined ? '-' : BigNumber(value).toFormat();
 }
@@ -218,7 +224,7 @@ const TxsStats = (props: Props) => {
       gridTemplateColumns={{
         base: 'minmax(0, 1fr)',
         md: 'repeat(2, minmax(0, 1fr))',
-        lg: `repeat(${ items.length }, minmax(0, 1fr))`,
+        lg: `repeat(${ getTransactionStatsColumns(items.length) }, minmax(0, 1fr))`,
       }}
       rowGap={ 3 }
       columnGap={ 3 }
