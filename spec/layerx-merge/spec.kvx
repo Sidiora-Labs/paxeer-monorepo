@@ -210312,7 +210312,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1021]
 title = "Let a log of an emitter that holds no deployment epoch stay opaque in the decode registry of the launchpad indexer whatever its first topic"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210467,7 +210467,7 @@ do_5 = "do_5 Gotcha 4759 part one, decision 3832 point one. The work done so far
 
 [task.22.39.1016]
 title = "Renew the reward history catalog of the pnl module of the launchpad after the migration of the view of the visibility of a pool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1010", "22.39.1015"]
