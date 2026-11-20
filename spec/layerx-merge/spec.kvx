@@ -210026,7 +210026,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.975]
 title = "Name the repeated string values of the production database package of the launchpad as constants"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
