@@ -68,6 +68,7 @@ import (
 type App struct {
 	runStop         context.CancelFunc
 	workers         *runtimeWorkers
+	pauseWorkers    *runtimeWorkers
 	canonicalSource *canonicalSourceReadiness
 	history         *source.HistoricalSource
 	webhook         *delivery.WebhookBridge
@@ -236,6 +237,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	workers := newRuntimeWorkers(logger)
 	var canonicalSource *canonicalSourceReadiness
 	var selectionAuthority *source.SelectionAuthority
+	var pauses *pauseObservations
+	var pauseWorkers *runtimeWorkers
 	status := httpapi.StatusDeps{Mode: httpapi.StatusLegacy}
 
 	defer func() {
@@ -244,6 +247,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				canonicalSource.Close()
 			}
 			workers.Close()
+			if pauseWorkers != nil {
+				pauseWorkers.Close()
+			}
 			if history != nil {
 				_ = history.Close()
 			}
@@ -618,6 +624,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			deps.HistoricalRequest = request
 			deps.HistoricalRequests = lifecycle.BackfillRequests
 		}
+		pauses = &pauseObservations{pool: pool, rpc: runtimeRPC, stream: d.CanonicalStreamID, epochs: lifecycle.Committed.Epochs}
+		pauseWorkers = newRuntimeWorkers(logger)
+		pauseWorkers.AddPeriodic("pause_observations", time.Second, false, pauses.refresh)
 		secretChecks["workers"] = workers.Ready
 		canonicalSource = newCanonicalSourceReadiness(st, pool, history.RPC, d.CanonicalStreamID, lifecycle, time.Now, logger)
 		secretChecks["canonical_source"] = canonicalSource.Ready
@@ -653,6 +662,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	status.Logger = logger
 	httpapi.RegisterStatus(router, status)
 
+	router.Handle("/internal/ranking-evidence", pauses)
 	if selectionAuthority != nil {
 		router.Handle("/internal/source-selection", selectionAuthority.HandlerWithLogger(history.RPC, logger))
 	}
@@ -663,7 +673,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		return nil, err
 	}
 	secretOwned = true
-	return &App{workers: workers, canonicalSource: canonicalSource, history: history, webhook: webhook, archive: typedArchive, rawArchive: rawArchive, replay: replay, lifecycle: lifecycle, transport: webhookTransport, secretStop: secretStop, tracker: tracker,
+	return &App{workers: workers, pauseWorkers: pauseWorkers, canonicalSource: canonicalSource, history: history, webhook: webhook, archive: typedArchive, rawArchive: rawArchive, replay: replay, lifecycle: lifecycle, transport: webhookTransport, secretStop: secretStop, tracker: tracker,
 		runtimeRPC: runtimeRPC, runtimeRPCClose: runtimeRPCClose, nats: nc, relay: relay,
 		Router:    runtimeHandlerWithIngestionState(tracker, router, metrics, proc.LeaseState),
 		Processor: proc,
@@ -691,6 +701,9 @@ func (a *App) Close() {
 	if a.workers != nil {
 		a.workers.Stop()
 	}
+	if a.pauseWorkers != nil {
+		a.pauseWorkers.Stop()
+	}
 	if a.tracker != nil {
 		if err := a.tracker.Drain(drain); err != nil && a.logger != nil {
 			a.logger.Error("indexer in-flight drain failed", slog.Any("error", err))
@@ -698,6 +711,9 @@ func (a *App) Close() {
 	}
 	if a.workers != nil {
 		a.workers.CloseContext(drain)
+	}
+	if a.pauseWorkers != nil {
+		a.pauseWorkers.CloseContext(drain)
 	}
 	if a.history != nil {
 		_ = a.history.Close()
@@ -769,6 +785,11 @@ func Run(parent context.Context) error {
 
 	if err = app.workers.Start(ctx); err != nil {
 		return err
+	}
+	if app.pauseWorkers != nil {
+		if err = app.pauseWorkers.Start(ctx); err != nil {
+			return err
+		}
 	}
 	if app.relay != nil {
 		go func() {
