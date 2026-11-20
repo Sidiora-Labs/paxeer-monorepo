@@ -983,7 +983,7 @@
       "function": "newWithRuntimePool",
       "call": 1,
       "expression": "`SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`",
-      "line": 415,
+      "line": 420,
       "sql": "SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1006,7 +1006,7 @@
       ],
       "sequences": [],
       "id": "app_app_newWithRuntimePool_1",
-      "source_sha256": "702f14f312294e1cade5a753391094cc8e6f06cf78f5f33aa38949ce944dc49e"
+      "source_sha256": "7d912eb0af6e63a6dffd5c5d57b0fd543098292d4006a51ac4e1ee62ba001675"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/readiness.go",
@@ -1036,7 +1036,7 @@
       "function": "catchUpStatsHolders",
       "call": 1,
       "expression": "`SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`",
-      "line": 914,
+      "line": 916,
       "sql": "SELECT w.raw_complete_height,w.typed_complete_height,l.fence_token,l.owner_instance,l.expires_at>clock_timestamp() FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_ingest_leases_v1 l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -1059,14 +1059,14 @@
       ],
       "sequences": [],
       "id": "app_app_catchUpStatsHolders_1",
-      "source_sha256": "702f14f312294e1cade5a753391094cc8e6f06cf78f5f33aa38949ce944dc49e"
+      "source_sha256": "7d912eb0af6e63a6dffd5c5d57b0fd543098292d4006a51ac4e1ee62ba001675"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/app.go",
       "function": "catchUpStatsHolders",
       "call": 2,
       "expression": "`SELECT k.token FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$1 AND c.height=k.height AND c.block_hash=k.block_hash WHERE k.token>$2 AND k.height<=$3 AND c.fetch_complete AND c.required_decode_complete AND k.payload->'metadata' IS NOT NULL AND k.payload->'metadata'<>'null'::jsonb ORDER BY k.token LIMIT $4`",
-      "line": 920,
+      "line": 922,
       "sql": "SELECT k.token FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$1 AND c.height=k.height AND c.block_hash=k.block_hash WHERE k.token>$2 AND k.height<=$3 AND c.fetch_complete AND c.required_decode_complete AND k.payload->'metadata' IS NOT NULL AND k.payload->'metadata'<>'null'::jsonb ORDER BY k.token LIMIT $4",
       "kind": "SELECT",
       "tables": [
@@ -1088,7 +1088,7 @@
       "functions": [],
       "sequences": [],
       "id": "app_app_catchUpStatsHolders_2",
-      "source_sha256": "702f14f312294e1cade5a753391094cc8e6f06cf78f5f33aa38949ce944dc49e"
+      "source_sha256": "7d912eb0af6e63a6dffd5c5d57b0fd543098292d4006a51ac4e1ee62ba001675"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/canonical_multihop.go",
@@ -5874,7 +5874,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.Consume_1",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -5889,7 +5889,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.Consume_2",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -5909,7 +5909,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.Consume_3",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -5934,7 +5934,7 @@
         "stats_search.revision_v2"
       ],
       "id": "search_projection_Projection.Consume_4",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -5958,7 +5958,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.authorizeTx_1",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -5978,7 +5978,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.authorizeTx_2",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6000,7 +6000,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_1",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6020,7 +6020,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_2",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6041,7 +6041,7 @@
       ],
       "sequences": [],
       "id": "search_projection_applyChangeTx_3",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6062,7 +6062,7 @@
       ],
       "sequences": [],
       "id": "search_projection_applyChangeTx_4",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6081,7 +6081,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_5",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6102,7 +6102,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_6",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6122,7 +6122,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_7",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6141,7 +6141,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_8",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6160,7 +6160,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_9",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6180,7 +6180,7 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_applyChangeTx_10",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
@@ -6215,14 +6215,14 @@
         "stats_search.revision_v2"
       ],
       "id": "search_projection_applyChangeTx_11",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
       "function": "Projection.ConsumeCanonicalCreation",
       "call": 1,
       "expression": "\"SELECT payload=$2::jsonb FROM indexer.indexer_canonical_creations_v1 WHERE pool=$1\"",
-      "line": 381,
+      "line": 400,
       "sql": "SELECT payload=$2::jsonb FROM indexer.indexer_canonical_creations_v1 WHERE pool=$1",
       "kind": "SELECT",
       "tables": [
@@ -6235,14 +6235,14 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeCanonicalCreation_1",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
       "function": "Projection.ConsumeCanonicalCreation",
       "call": 2,
       "expression": "\"SET LOCAL statement_timeout='2s'\"",
-      "line": 399,
+      "line": 418,
       "sql": "SET LOCAL statement_timeout='2s'",
       "kind": "SET",
       "tables": [],
@@ -6250,14 +6250,14 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeCanonicalCreation_2",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
       "function": "Projection.ConsumeCanonicalCreation",
       "call": 3,
       "expression": "\"SET LOCAL lock_timeout='100ms'\"",
-      "line": 402,
+      "line": 421,
       "sql": "SET LOCAL lock_timeout='100ms'",
       "kind": "SET",
       "tables": [],
@@ -6265,14 +6265,14 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeCanonicalCreation_3",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
       "function": "Projection.ConsumeCanonicalCreation",
       "call": 4,
       "expression": "\"SELECT revision FROM stats_search.active_v2 WHERE singleton FOR UPDATE\"",
-      "line": 405,
+      "line": 424,
       "sql": "SELECT revision FROM stats_search.active_v2 WHERE singleton FOR UPDATE",
       "kind": "SELECT",
       "tables": [
@@ -6285,14 +6285,14 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeCanonicalCreation_4",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
       "function": "Projection.ConsumeCanonicalCreation",
       "call": 5,
       "expression": "\"UPDATE stats_search.active_v2 SET revision=nextval('stats_search.revision_v2'),privacy_revision=privacy_revision+1 WHERE singleton RETURNING revision\"",
-      "line": 413,
+      "line": 432,
       "sql": "UPDATE stats_search.active_v2 SET revision=nextval('stats_search.revision_v2'),privacy_revision=privacy_revision+1 WHERE singleton RETURNING revision",
       "kind": "UPDATE",
       "tables": [
@@ -6310,14 +6310,14 @@
         "stats_search.revision_v2"
       ],
       "id": "search_projection_Projection.ConsumeCanonicalCreation_5",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
       "function": "Projection.ConsumeAccountProfile",
       "call": 1,
       "expression": "`SELECT wallet,display_name,revision,deleted,updated_at,source_revision,public FROM users.account_search_events_v2 WHERE event_id=$1::uuid AND kind=$2 AND payload=$3::jsonb`",
-      "line": 436,
+      "line": 455,
       "sql": "SELECT wallet,display_name,revision,deleted,updated_at,source_revision,public FROM users.account_search_events_v2 WHERE event_id=$1::uuid AND kind=$2 AND payload=$3::jsonb",
       "kind": "SELECT",
       "tables": [
@@ -6338,14 +6338,14 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeAccountProfile_1",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
       "function": "Projection.ConsumeAccountProfile",
       "call": 2,
       "expression": "\"SET LOCAL lock_timeout='100ms'\"",
-      "line": 443,
+      "line": 462,
       "sql": "SET LOCAL lock_timeout='100ms'",
       "kind": "SET",
       "tables": [],
@@ -6353,14 +6353,14 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeAccountProfile_2",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
       "function": "Projection.ConsumeAccountProfile",
       "call": 3,
       "expression": "\"SELECT revision FROM stats_search.active_v2 WHERE singleton FOR UPDATE\"",
-      "line": 446,
+      "line": 465,
       "sql": "SELECT revision FROM stats_search.active_v2 WHERE singleton FOR UPDATE",
       "kind": "SELECT",
       "tables": [
@@ -6373,14 +6373,14 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeAccountProfile_3",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
       "function": "Projection.ConsumeAccountProfile",
       "call": 4,
       "expression": "\"DELETE FROM stats_search.profile_documents_v2 WHERE wallet=$1\"",
-      "line": 456,
+      "line": 475,
       "sql": "DELETE FROM stats_search.profile_documents_v2 WHERE wallet=$1",
       "kind": "DELETE",
       "tables": [
@@ -6392,14 +6392,14 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeAccountProfile_4",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
       "function": "Projection.ConsumeAccountProfile",
       "call": 5,
       "expression": "\"DELETE FROM stats_search.profile_documents_v2 WHERE wallet=$1\"",
-      "line": 460,
+      "line": 475,
       "sql": "DELETE FROM stats_search.profile_documents_v2 WHERE wallet=$1",
       "kind": "DELETE",
       "tables": [
@@ -6411,14 +6411,14 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeAccountProfile_5",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
       "function": "Projection.ConsumeAccountProfile",
       "call": 6,
       "expression": "\"SELECT EXISTS(SELECT 1 FROM stats_search.profile_tombstones_v2 WHERE wallet=$1)\"",
-      "line": 468,
+      "line": 487,
       "sql": "SELECT EXISTS(SELECT 1 FROM stats_search.profile_tombstones_v2 WHERE wallet=$1)",
       "kind": "SELECT",
       "tables": [
@@ -6430,14 +6430,14 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeAccountProfile_6",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
       "function": "Projection.ConsumeAccountProfile",
       "call": 7,
       "expression": "`INSERT INTO stats_search.profile_documents_v2(wallet,display_name,name_key,revision,updated_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT(wallet) DO UPDATE SET display_name=excluded.display_name,name_key=excluded.name_key,revision=excluded.revision,updated_at=excluded.updated_at WHERE stats_search.profile_documents_v2.revision<excluded.revision`",
-      "line": 474,
+      "line": 493,
       "sql": "INSERT INTO stats_search.profile_documents_v2(wallet,display_name,name_key,revision,updated_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT(wallet) DO UPDATE SET display_name=excluded.display_name,name_key=excluded.name_key,revision=excluded.revision,updated_at=excluded.updated_at WHERE stats_search.profile_documents_v2.revision<excluded.revision",
       "kind": "INSERT",
       "tables": [
@@ -6453,14 +6453,14 @@
       "functions": [],
       "sequences": [],
       "id": "search_projection_Projection.ConsumeAccountProfile_7",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/projection.go",
       "function": "Projection.ConsumeAccountProfile",
       "call": 8,
       "expression": "\"UPDATE stats_search.active_v2 SET revision=nextval('stats_search.revision_v2'),privacy_revision=privacy_revision+1 WHERE singleton RETURNING revision\"",
-      "line": 479,
+      "line": 498,
       "sql": "UPDATE stats_search.active_v2 SET revision=nextval('stats_search.revision_v2'),privacy_revision=privacy_revision+1 WHERE singleton RETURNING revision",
       "kind": "UPDATE",
       "tables": [
@@ -6478,7 +6478,7 @@
         "stats_search.revision_v2"
       ],
       "id": "search_projection_Projection.ConsumeAccountProfile_8",
-      "source_sha256": "7e8e1038f80511c5736babd6167f75a3b5ec30852721e67527c82dfbe77c0c9a"
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     },
     {
       "file": "services/launchpad/stats-workers/internal/store/buckets.go",
@@ -9097,6 +9097,49 @@
       "sequences": [],
       "id": "sdk_launchpad_shared_db_production_migrations_checkUnexpectedPrivileges_4",
       "source_sha256": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/search/projection.go",
+      "function": "applyChangeTx",
+      "call": 12,
+      "expression": "`INSERT INTO stats_search.authority_v2(pool_address,visibility_revision,public,tombstone) VALUES($1,$2,$3,$4) ON CONFLICT(pool_address) DO NOTHING`",
+      "line": 348,
+      "sql": "INSERT INTO stats_search.authority_v2(pool_address,visibility_revision,public,tombstone) VALUES($1,$2,$3,$4) ON CONFLICT(pool_address) DO NOTHING",
+      "kind": "INSERT",
+      "tables": [
+        "stats_search.authority_v2"
+      ],
+      "columns": [],
+      "functions": [],
+      "sequences": [],
+      "id": "search_projection_applyChangeTx_12",
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/search/projection.go",
+      "function": "Store.BackfillAuthority",
+      "call": 1,
+      "expression": "`INSERT INTO stats_search.authority_v2(pool_address,visibility_revision,public,tombstone)\n SELECT d.pool_address,d.visibility_revision,true,false FROM stats_search.documents_v2 d\n JOIN stats_search.active_v2 a ON a.generation=d.generation AND a.singleton\n WHERE NOT EXISTS(SELECT 1 FROM stats_search.authority_v2 v WHERE v.pool_address=d.pool_address)\n ON CONFLICT(pool_address) DO NOTHING`",
+      "line": 361,
+      "sql": "INSERT INTO stats_search.authority_v2(pool_address,visibility_revision,public,tombstone)\n SELECT d.pool_address,d.visibility_revision,true,false FROM stats_search.documents_v2 d\n JOIN stats_search.active_v2 a ON a.generation=d.generation AND a.singleton\n WHERE NOT EXISTS(SELECT 1 FROM stats_search.authority_v2 v WHERE v.pool_address=d.pool_address)\n ON CONFLICT(pool_address) DO NOTHING",
+      "kind": "INSERT",
+      "tables": [
+        "stats_search.active_v2",
+        "stats_search.authority_v2",
+        "stats_search.documents_v2"
+      ],
+      "columns": [
+        "a.generation",
+        "a.singleton",
+        "d.generation",
+        "d.pool_address",
+        "d.visibility_revision",
+        "v.pool_address"
+      ],
+      "functions": [],
+      "sequences": [],
+      "id": "search_projection_Store.BackfillAuthority_1",
+      "source_sha256": "1ba7a8d5f8b3baaced2d358db33eeaddc797534ffb32f57e6d40e5e74bdd8a21"
     }
   ],
   "boundaries": [
