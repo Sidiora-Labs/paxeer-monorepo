@@ -366,6 +366,65 @@ func checkMediaContract(t *testing.T, f devFixture) {
 	}
 }
 
+func TestMediaReadDefaultDevelopment(t *testing.T) {
+	f := newDevFixture(t)
+	if _, err := f.pool.Exec(context.Background(), "DELETE FROM metadata.token_metadata WHERE token_address=$1", devToken); err != nil {
+		t.Fatal(err)
+	}
+	assertDocument := func(t *testing.T, revision, description string) {
+		t.Helper()
+		response, body := f.get(t, "/v2/tokens/"+devToken+"/metadata")
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("metadata = %d %s", response.StatusCode, body)
+		}
+		if err := iface.ValidateJSON("MetadataGetResponse", body); err != nil {
+			t.Fatal(err)
+		}
+		var document iface.MetadataGetResponse
+		if err := json.Unmarshal(body, &document); err != nil {
+			t.Fatal(err)
+		}
+		response, body = f.get(t, "/v2/tokens/"+common.HexToAddress(devToken).Hex()+"/media")
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("media = %d %s", response.StatusCode, body)
+		}
+		if err := iface.ValidateJSON("ConnectedTokenMediaResponse", body); err != nil {
+			t.Fatalf("media contract: %v, %s", err, body)
+		}
+		var result iface.ConnectedTokenMediaResponse
+		if err := json.Unmarshal(body, &result); err != nil {
+			t.Fatal(err)
+		}
+		m := result.Data.Metadata
+		if m.ChainId != 125 || m.PoolAddress != devPool || m.TokenAddress != document.Data.Token.Address || m.Revision != revision || string(document.Data.Revision) != revision || m.Display.Description != description || m.Display.Description != document.Data.Description || m.Display.Tags == nil || m.Display.Socials == nil || m.Source != "creator" || m.ModerationStatus != "allowed" || m.LogoAssetId != nil || result.Data.Image != nil {
+			t.Fatalf("media = %+v, metadata = %+v", result.Data, document.Data)
+		}
+		if revision == "0" {
+			if m.UpdatedAt != nil || m.Display.Name != nil || m.Display.Symbol != nil || document.Data.DisplayName != nil || document.Data.DisplaySymbol != nil || len(*m.Display.Tags) != 0 || len(document.Data.Tags) != 0 || len(*m.Display.Socials) != 0 || len(document.Data.SocialLinks) != 0 {
+				t.Fatalf("default media = %+v, metadata = %+v", m, document.Data)
+			}
+		} else if m.UpdatedAt == nil || m.Display.Name == nil || document.Data.DisplayName == nil || *m.Display.Name != *document.Data.DisplayName || *m.Display.Name != "First document" || len(*m.Display.Tags) != 1 || (*m.Display.Tags)[0] != "art" || len(document.Data.Tags) != 1 || document.Data.Tags[0] != "art" || len(*m.Display.Socials) != 0 || len(document.Data.SocialLinks) != 0 {
+			t.Fatalf("first document media = %+v, metadata = %+v", m, document.Data)
+		}
+	}
+	t.Run("canonical token without a document", func(t *testing.T) { assertDocument(t, "0", "") })
+	t.Run("first document", func(t *testing.T) {
+		if err := sqlcdb.New(f.pool).UpsertTokenMetadata(context.Background(), sqlcdb.UpsertTokenMetadataParams{
+			TokenAddress: devToken, PoolAddress: devPool,
+			Name:        pgtype.Text{String: "First document", Valid: true},
+			Description: pgtype.Text{String: "Creator document", Valid: true},
+			CustomTags:  pgtype.Text{String: `["art"]`, Valid: true},
+			Decimals:    6, CreatedBy: devCreator, CreatedAt: 1760000000000, UpdatedAt: 1760000123456,
+		}); err != nil {
+			t.Fatal(err)
+		}
+		assertDocument(t, "1760000123456", "Creator document")
+	})
+	t.Run("token without a canonical creation", func(t *testing.T) {
+		response, body := f.get(t, "/v2/tokens/0x"+strings.Repeat("9", 40)+"/media")
+		assertJSONError(t, response, body, http.StatusNotFound, "not_found")
+	})
+}
 // trackedDevFactory replays the deployed factory's receipt together with the
 // real indexer's retained creation output.
 func trackedDevFactory(t *testing.T) (string, *types.Receipt) {
