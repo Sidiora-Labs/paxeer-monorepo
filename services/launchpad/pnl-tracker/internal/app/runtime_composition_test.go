@@ -95,11 +95,24 @@ func compositionIdentity(t *testing.T) (config.Config, pnlJourneyDocument) {
 	return cfg, d
 }
 
-func TestJourneyCompositionBindsActualRuntimeComponents(t *testing.T) {
-	var requestLog bytes.Buffer
-	previousLogger := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(&requestLog, nil)))
-	defer slog.SetDefault(previousLogger)
+type journeyCompositionFixture struct {
+	ctx          context.Context
+	root         string
+	chainFixture internaltest.ChainFixture
+	primary      *ethclient.Client
+	db           coordinatortest.Database
+	pool         *pgxpool.Pool
+	nc           *nats.Conn
+	cfg          config.Config
+	document     pnlJourneyDocument
+	runtime      inventoryRuntimeDocument
+	baseline     *inventory.BaselineAuthority
+	consumer     *inventory.AccountingConsumer
+}
+
+
+func newJourneyCompositionFixture(t *testing.T) journeyCompositionFixture {
+	t.Helper()
 	ctx := context.Background()
 	root := coordinatortest.RepositoryRoot(t)
 	chain, chainFixture := internaltest.NewAnvilFixture(t, ctx, root)
@@ -187,6 +200,19 @@ func TestJourneyCompositionBindsActualRuntimeComponents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return journeyCompositionFixture{ctx: ctx, root: root, chainFixture: chainFixture, primary: primary, db: db, pool: pool, nc: nc, cfg: cfg, document: d, runtime: runtime, baseline: baseline, consumer: consumer}
+}
+
+func TestJourneyCompositionBindsActualRuntimeComponents(t *testing.T) {
+	var requestLog bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&requestLog, nil)))
+	defer slog.SetDefault(previousLogger)
+	fixture := newJourneyCompositionFixture(t)
+	ctx, root, chainFixture := fixture.ctx, fixture.root, fixture.chainFixture
+	primary, db, pool, nc := fixture.primary, fixture.db, fixture.pool, fixture.nc
+	cfg, d, runtime := fixture.cfg, fixture.document, fixture.runtime
+	baseline, consumer := fixture.baseline, fixture.consumer
 	journey, err := newPnLJourneys(ctx, cfg, pool, nil, primary, nc, baseline, consumer)
 	if err != nil {
 		t.Fatal(err)

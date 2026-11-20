@@ -37,14 +37,15 @@ const maxReconcileIntervalMS = int64(1<<63-1) / int64(time.Millisecond)
 
 // Config is the parsed pnl environment.
 type Config struct {
-	JourneyConfigFile     string `env:"PNL_JOURNEY_CONFIG_FILE"`
-	JourneyConfigDocument string `env:"PNL_JOURNEY_CONFIG_DOCUMENT"`
-	JourneyConfigSHA256   string `env:"PNL_JOURNEY_CONFIG_SHA256"`
-	IdentityURL           string `env:"IDENTITY_SERVICE_URL"`
-	IdentitySigningKey    string `env:"IDENTITY_SIGNING_KEY"`
-	IdentityServiceToken  string `env:"IDENTITY_SERVICE_TOKEN"`
-	PortfolioCursorKey    string `env:"PNL_CURSOR_KEY"`
-	PortfolioCDNToken     string `env:"PNL_CDN_TOKEN"`
+	JourneyConfigFile        string `env:"PNL_JOURNEY_CONFIG_FILE"`
+	JourneyConfigDocument    string `env:"PNL_JOURNEY_CONFIG_DOCUMENT"`
+	JourneyConfigSHA256      string `env:"PNL_JOURNEY_CONFIG_SHA256"`
+	IdentityURL              string `env:"IDENTITY_SERVICE_URL"`
+	IdentitySigningKey       string `env:"IDENTITY_SIGNING_KEY"`
+	IdentityMTLSClientKeyPEM string `env:"IDENTITY_MTLS_CLIENT_KEY_PEM"`
+	IdentityServiceToken     string `env:"IDENTITY_SERVICE_TOKEN"`
+	PortfolioCursorKey       string `env:"PNL_CURSOR_KEY"`
+	PortfolioCDNToken        string `env:"PNL_CDN_TOKEN"`
 
 	RuntimeZone               string `env:"ZONE"`
 	RuntimeMetricsEnvironment string `env:"METRICS_ENVIRONMENT" envDefault:"production"`
@@ -192,6 +193,9 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 	if c.JourneyConfigFile != "" || c.JourneyConfigDocument != "" {
 		bindings["IDENTITY_SIGNING_KEY"] = &c.IdentitySigningKey
 		bindings["PNL_CURSOR_KEY"] = &c.PortfolioCursorKey
+		if c.IdentityMTLSClientKeyPEM != "" {
+			bindings["IDENTITY_MTLS_CLIENT_KEY_PEM"] = &c.IdentityMTLSClientKeyPEM
+		}
 		// PNL_CDN_TOKEN is bound only with a Cloudflare zone in front of the
 		// public origin; an origin served directly has no CDN credential.
 		if c.PortfolioCDNToken != "" {

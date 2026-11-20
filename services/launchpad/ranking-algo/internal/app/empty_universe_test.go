@@ -128,7 +128,7 @@ func emptyUniverseRuntime(t *testing.T, pool *pgxpool.Pool, visibility *rankingV
 		t.Fatal(err)
 	}
 	ctx, stop := context.WithCancel(context.Background())
-	return &nativeRankingRuntime{binding: config.RankingRuntimeBinding{MaxAttempts: 10}, pool: pool, visibility: visibility, reader: reader, coordinator: coordinator, publication: publication, cache: cache, stream: delivery.StreamWriter{Schema: "api_stream"}, guard: guard, ctx: ctx, stop: stop, logger: logger}
+	return &nativeRankingRuntime{binding: config.RankingRuntimeBinding{MaxAttempts: 10, EvidenceEndpoint: "http://indexer.example.com/internal/ranking-evidence"}, pool: pool, visibility: visibility, reader: reader, coordinator: coordinator, publication: publication, cache: cache, stream: delivery.StreamWriter{Schema: "api_stream"}, guard: guard, ctx: ctx, stop: stop, logger: logger}
 }
 
 func TestEmptyUniversePublicationReadinessAndFirstMarket(t *testing.T) {

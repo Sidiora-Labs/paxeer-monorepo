@@ -59,6 +59,9 @@ func TestNetworkAuthorityBindsReviewedManifestAndAddresses(t *testing.T) {
 		{"schema version", func(d *networkAuthorityConfig) { d.SchemaVersion = 1 }, server.URL},
 		{"source schema", func(d *networkAuthorityConfig) { d.SourceSchema = "invalid-name" }, server.URL},
 		{"reviewed runtime", func(d *networkAuthorityConfig) { d.ReviewedPoolRuntime = "invalid" }, server.URL},
+		{"missing reviewed runtime", func(d *networkAuthorityConfig) { d.ReviewedPoolRuntime = "" }, server.URL},
+		{"zero reviewed runtime", func(d *networkAuthorityConfig) { d.ReviewedPoolRuntime = "0x" + strings.Repeat("0", 64) }, server.URL},
+		{"nonhex reviewed runtime", func(d *networkAuthorityConfig) { d.ReviewedPoolRuntime = "0x" + strings.Repeat("z", 64) }, server.URL},
 		{"revision binding", func(d *networkAuthorityConfig) { d.ExpectedRevisionSHA256 = strings.Repeat("0", 64) }, server.URL},
 		{"go address binding", func(d *networkAuthorityConfig) { d.GoAddresses = map[string]string{} }, server.URL},
 		{"frontend address binding", func(d *networkAuthorityConfig) { d.FrontendAddresses = map[string]string{} }, server.URL},
@@ -81,4 +84,29 @@ func TestNetworkAuthorityBindsReviewedManifestAndAddresses(t *testing.T) {
 		t.Fatalf("bound authority: %+v, %v", authority, err)
 	}
 	authority.Close()
+	for _, runtime := range []string{manifest.Roles["SidioraFactory"].RuntimeHash, manifest.Roles["SidioraFactory"].StagedRuntimeHash} {
+		t.Run(runtime, func(t *testing.T) {
+			if !manifest.Roles["SidioraFactory"].AcceptsRuntimeHash(runtime) {
+				t.Fatal("reviewed surface runtime must be accepted by the manifest")
+			}
+			document := baseline
+			document.ReviewedPoolRuntime = runtime
+			revision, err := capabilities.NewPreflightRevision(manifest, runtime, developmentSerialInterface)
+			if err != nil {
+				t.Fatal(err)
+			}
+			document.ExpectedRevisionSHA256 = revision.RevisionSHA256
+			if err := ValidateNetworkAuthorityConfig(document); err != nil {
+				t.Fatal(err)
+			}
+			authority, err := newNetworkAuthority(t.Context(), nil, bound(t, document, server.URL))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer authority.Close()
+			if authority.engine == nil || authority.engine.Revision() != revision || authority.config.ReviewedPoolRuntime != runtime {
+				t.Fatalf("reviewed surface runtime was not preserved: %+v", authority.config)
+			}
+		})
+	}
 }

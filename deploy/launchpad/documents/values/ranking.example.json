@@ -11,6 +11,7 @@
   "recoveryEpoch": 1,
   "recoveryRegion": "mainnet-beta",
   "visibilityEndpoint": "https://social.example.com:8443/internal/v2/social/ranking-visibility",
+  "evidenceEndpoint": "http://indexer.example.com:8080/internal/ranking-evidence",
   "visibilityDNS": "social.example.com",
   "visibilityCertSHA256": "0000000000000000000000000000000000000000000000000000000000000000",
   "gatewayDNS": "gateway.example.com",

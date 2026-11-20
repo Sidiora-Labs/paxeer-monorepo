@@ -1,7 +1,10 @@
 import { fetchMetadataV2, type MetadataV2Patch } from '@/core/clients/metadata';
 import { metadataApiUrl } from '@/core/sdk-config';
 import { signOperation } from '@/core/operation-envelope';
-import { KnownCapabilityAdmissionError } from './cap-admission';
+import {
+  ApprovalHeadWaitError,
+  KnownCapabilityAdmissionError,
+} from './cap-admission';
 import { requireAccount, assertAccount } from '../profile/account-transport';
 import { address, hash, raw, review, selectOptical } from './creation-domain';
 import {
@@ -278,11 +281,22 @@ export class CreationController {
           reviewed.reviewedAt + 30000,
         );
         this.set({ message: `Approval submitted: ${tx}` });
-        await this.chain.approvalProof(
+        const proof = await this.chain.approvalProof(
           tx,
           plan.approvalTargetRaw!,
           reviewed.scope,
         );
+        this.set({
+          message: 'Approval confirmed. Waiting for the committed head.',
+        });
+        try {
+          await this.chain.waitForApprovalHead(proof.receipt.blockNumber);
+        } catch (error) {
+          this.invalidate(
+            'Approval confirmed. Try creating again in a moment.',
+          );
+          throw error;
+        }
         this.invalidate(
           'Approval confirmed. Review the fresh creation gas and launch details before creating.',
         );
@@ -1101,7 +1115,16 @@ export class CreationController {
           throw new Error('Reconnect the original creator.');
         const tx = await this.chain.approve(attempt.draft.firstBuyRaw, scope);
         this.set({ message: `Purchase approval submitted: ${tx}` });
-        await this.chain.approvalProof(tx, attempt.draft.firstBuyRaw, scope);
+        const proof = await this.chain.approvalProof(
+          tx,
+          attempt.draft.firstBuyRaw,
+          scope,
+        );
+        try {
+          await this.chain.waitForApprovalHead(proof.receipt.blockNumber);
+        } catch (error) {
+          if (!(error instanceof ApprovalHeadWaitError)) throw error;
+        }
         this.set({
           quote: undefined,
           message:

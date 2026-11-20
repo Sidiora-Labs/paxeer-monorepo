@@ -67,16 +67,32 @@ def test_launchpad_system_package_retries_refresh_and_propagate_failure():
     source = INSTALL_SCRIPT.read_text()
     form = re.fullmatch(
         r'#!/usr/bin/env bash\nset -euo pipefail\n\n'
-        r'for attempt in \{1\.\.(\d+)\}; do\n'
-        r'  if sudo apt-get update && sudo apt-get install "\$@"; then\n'
+        r'readonly APT_UPDATE_TIMEOUT_SECONDS=(?P<update_timeout>\d+)\n'
+        r'readonly APT_INSTALL_TIMEOUT_SECONDS=(?P<install_timeout>\d+)\n\n'
+        r'for attempt in \{1\.\.(?P<attempts>\d+)\}; do\n'
+        r'  if \[ "\$attempt" -gt 1 \]; then\n'
+        r'    sudo dpkg --configure -a \|\| true\n'
+        r'  fi\n'
+        r'  if timeout --kill-after=10s "\$\{APT_UPDATE_TIMEOUT_SECONDS\}s" '
+        r'sudo apt-get update &&\n'
+        r'    timeout --kill-after=10s "\$\{APT_INSTALL_TIMEOUT_SECONDS\}s" '
+        r'sudo apt-get install "\$@"; then\n'
         r'    exit 0\n'
         r'  fi\n'
-        r'  if \[ "\$attempt" -lt \1 \]; then\n'
-        r'    sleep (\d+)\n'
+        r'  if \[ "\$attempt" -lt (?P=attempts) \]; then\n'
+        r'    sleep (?P<pause>\d+)\n'
         r'  fi\n'
         r'done\nexit 1\n',
         source,
     )
     assert form, "Each attempt must refresh the index, install, and pause on retry"
-    assert int(form[1]) >= 3, "System package installs need at least three attempts"
-    assert int(form[2]) > 0, "System package retries need a positive pause"
+    assert int(form["attempts"]) >= 3, (
+        "System package installs need at least three attempts"
+    )
+    assert int(form["pause"]) > 0, "System package retries need a positive pause"
+    update_timeout = int(form["update_timeout"])
+    install_timeout = int(form["install_timeout"])
+    assert 30 <= update_timeout <= 300, "Package index reads need a bounded timeout"
+    assert update_timeout <= install_timeout <= 900, (
+        "Package installs need a bounded timeout"
+    )

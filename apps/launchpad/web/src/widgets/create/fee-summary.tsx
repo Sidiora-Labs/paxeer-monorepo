@@ -7,14 +7,15 @@ import { KeyValueRow } from '@/ui/primitives';
 import { formatTokenAmount, formatUsdl } from '@/utils/format';
 import { CREATION_FEE_RAW } from './creation-domain';
 import type { creationFunding, FundingRead } from './creation-adapters';
+import { INSUFFICIENT_GAS_COPY, INSUFFICIENT_USDL_COPY } from './launch-copy';
 
 export type FundingPlan = ReturnType<typeof creationFunding>;
 
 export const fundingCopy: Record<FundingPlan['state'], string> = {
   balance_loading: 'Checking your balance...',
   funding_unavailable: 'Something changed. Refresh and try again',
-  insufficient_usdl: 'Not enough USDL. You need the 1 USDL fee plus your first buy',
-  insufficient_gas: 'Not enough PAX to pay the network fee',
+  insufficient_usdl: INSUFFICIENT_USDL_COPY,
+  insufficient_gas: INSUFFICIENT_GAS_COPY,
   approval_required: "You'll approve the 1 USDL fee first, then create your coin",
   signable: 'Ready to create',
 };

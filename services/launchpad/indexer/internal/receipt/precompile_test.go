@@ -44,8 +44,9 @@ func TestValidateCodePrecompile(t *testing.T) {
 	} {
 		e := epoch
 		mutate(&e)
-		if _, err := a.validateCodeUncached(context.Background(), e, common.Hash{}); err != ErrQualification {
-			t.Fatalf("%s: want ErrQualification, got %v", name, err)
-		}
+		t.Run(name, func(t *testing.T) {
+			_, err := a.validateCodeUncached(context.Background(), e, common.Hash{})
+			assertQualificationRefusal(t, err, e.Deployment.Role, e.Identity.Kind, e.Deployment.Address, "identity")
+		})
 	}
 }

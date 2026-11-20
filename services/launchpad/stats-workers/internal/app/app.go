@@ -309,6 +309,11 @@ func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Log
 			return projector.RunExpiry(ctx, time.Duration(d.Phase2.AnalyticsExpirySeconds)*time.Second, d.Phase2.AnalyticsBatch)
 		}})
 		searchProjection := &canonicalsearch.Projection{Delivery: durable, ConsumerID: d.Phase2.SearchConsumerID, InboxGeneration: d.Phase2.SearchGeneration, Sources: d.Phase2.SearchSources, InvalidationSubject: d.Phase2.SearchInvalidationSubject, InvalidationEventType: d.Phase2.SearchInvalidationEventType}
+		backfilled, e := (canonicalsearch.Store{Pool: pool}).BackfillAuthority(ctx)
+		if e != nil {
+			return nil, fmt.Errorf("search authority initialization: %w", e)
+		}
+		logger.Info("initialized search authority", slog.Int64("rows", backfilled))
 		for _, subscription := range d.Phase2.SearchConsumers {
 			sub := subscription
 			transport, e := natsdriver.NewConsumer(ctx, nc, sub.Consumer)

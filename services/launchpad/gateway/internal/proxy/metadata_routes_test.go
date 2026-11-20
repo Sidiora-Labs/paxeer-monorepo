@@ -18,10 +18,14 @@ func TestMetadataPublicationRoutesBelongToMetadataUpstream(t *testing.T) {
 		"GET /logo/{file}":             false,
 		"GET /banner/{file}":           false,
 	}
+	for _, route := range metadataFrozenRouteExpectations() {
+		want[route.Method+" "+route.Template] = route.Authenticate
+	}
 	for _, route := range MetadataConnectedRoutes() {
 		key := route.Method + " " + route.Template
 		authenticate, ok := want[key]
-		if !ok || route.Authenticate != authenticate || route.Optional || route.Upload {
+		frozen := metadataFrozenRouteExpectations()[key]
+		if !ok || route.Authenticate != authenticate || route.Optional || route.Upload != frozen.Upload {
 			t.Fatal("unexpected metadata route policy", route)
 		}
 		delete(want, key)
@@ -35,18 +39,19 @@ func TestMetadataPublicationRoutesBelongToMetadataUpstream(t *testing.T) {
 		}
 		flipped := route
 		flipped.Authenticate = !route.Authenticate
-		if allowedConnectedRoute("metadata", flipped) {
-			t.Fatal("metadata route admitted with the wrong identity policy", flipped)
+		publicFrozen := frozen.Template != "" && !frozen.Authenticate
+		if allowedConnectedRoute("metadata", flipped) != publicFrozen {
+			t.Fatal("metadata route identity policy differs", flipped)
 		}
 		optional := route
 		optional.Optional, optional.Authenticate = true, false
-		if allowedConnectedRoute("metadata", optional) {
-			t.Fatal("metadata route admitted as optional", optional)
+		if allowedConnectedRoute("metadata", optional) != publicFrozen {
+			t.Fatal("metadata route optional policy differs", optional)
 		}
 		upload := route
-		upload.Upload = true
+		upload.Upload = !route.Upload
 		if allowedConnectedRoute("metadata", upload) {
-			t.Fatal("metadata route admitted as an upload", upload)
+			t.Fatal("metadata route admitted with a different upload policy", upload)
 		}
 	}
 	if len(want) != 0 {

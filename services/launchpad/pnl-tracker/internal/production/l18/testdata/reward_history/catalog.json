@@ -1,6 +1,6 @@
 {
   "description": "Reward runtime catalog from the registered migration dependency plan and legacy sources.",
-  "registry_sha256": "ec4d15e855de41b7a24af1e7ababe18b7d50c74a2fc6aea17fcab6ad4bb1ef34",
+  "registry_sha256": "23c8e710ee437d4311f7d885667fc29091ca42425c247c0689b6d588a1d7eff2",
   "applied": {
     "60000": "5cccc2f2e1468342481d5c03513a25f291dd2591cb0158755fa786b2edbc8545",
     "80001": "c6269641c857da5ffb00f7aad2cfeeb39f3ed7c2f879ce2b1d32b1b06941bf77",
@@ -68,7 +68,7 @@
     "60006": "a054038d166fa9415af094d69b1bca1b21e5985d6ab8140874a003fe29d894e1"
   },
   "sources": {
-    "sdk/launchpad/shared/db/production/migrations.go": "f56d2b35592e8177a646b5581b27a331a240c435bfcb6a2181e1f96ed5605562",
+    "sdk/launchpad/shared/db/production/migrations.go": "d4b9ed0ca2293878c8007ce7580ef878b4df8b8c20d36c2503b66b717b3f84f5",
     "services/launchpad/indexer/migrations/00001_init.sql": "ffaf548735e78a048f0e1de31b5e75dd2e684a5f6d968098bc5871706e39cbf5",
     "services/launchpad/indexer/migrations/00002_airdrop_claims.sql": "c1564eedaf42b200012365d15fd3013608d9cde146fb03e53ca8e514dec7f683",
     "services/launchpad/trading-charts/migrations/00001_init.sql": "263cc538d908e8cc1b96ace9e4bf67d375bafc7d3bbbaa8824a5f6b0bdc5a1ed",

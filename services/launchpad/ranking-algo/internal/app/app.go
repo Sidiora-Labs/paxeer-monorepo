@@ -19,8 +19,11 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
@@ -344,6 +347,7 @@ type nativeRankingRuntime struct {
 	ctx                         context.Context
 	stop                        context.CancelFunc
 	client                      *http.Client
+	evidenceClient              *http.Client
 	logger                      *slog.Logger
 	workers                     sync.WaitGroup
 	refreshMu                   sync.Mutex
@@ -436,6 +440,23 @@ func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	if b.Version != 2 || b.GatewayDNS == "" || len(b.GatewayCertSHA256) != 64 || b.VisibilityDNS == "" || len(b.VisibilityCertSHA256) != 64 || b.MaxAttempts < 1 || b.MaxAttempts > 100 || b.MaximumReads < 1 || b.MaximumReads > 64 || cfg.TickInterval() != 30*time.Second || cfg.NewTickInterval() != 10*time.Second {
 		return nil, errors.New("ranking runtime binding unavailable")
 	}
+	evidenceEndpoint, err := url.Parse(b.EvidenceEndpoint)
+	if err != nil || (evidenceEndpoint.Scheme != "http" && evidenceEndpoint.Scheme != "https") || evidenceEndpoint.Hostname() == "" || evidenceEndpoint.User != nil || strings.ContainsAny(b.EvidenceEndpoint, "?#") || strings.IndexFunc(b.EvidenceEndpoint, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) >= 0 || evidenceEndpoint.EscapedPath() != "/internal/ranking-evidence" {
+		return nil, errors.New("ranking runtime binding evidenceEndpoint unavailable")
+	}
+	if port := evidenceEndpoint.Port(); port != "" {
+		number, parseErr := strconv.Atoi(port)
+		if parseErr != nil || number < 1 || number > 65535 {
+			return nil, errors.New("ranking runtime binding evidenceEndpoint unavailable")
+		}
+	} else if strings.HasSuffix(evidenceEndpoint.Host, ":") {
+		return nil, errors.New("ranking runtime binding evidenceEndpoint unavailable")
+	}
+	native.evidenceClient = &http.Client{Transport: &http.Transport{Proxy: nil, MaxIdleConns: 4, MaxIdleConnsPerHost: 4, ResponseHeaderTimeout: 2 * time.Second}, Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	evidence, err := store.NewHTTPCanonicalEvidence(b.EvidenceEndpoint, native.evidenceClient)
+	if err != nil {
+		return nil, fmt.Errorf("ranking runtime binding evidenceEndpoint: %w", err)
+	}
 	provider, err := sharedsecrets.NewChecked(sharedsecrets.Options{Provider: sharedsecrets.ProviderType(cfg.SecretsProvider), CacheTTL: 0})
 	if err != nil {
 		return nil, err
@@ -509,6 +530,7 @@ func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 	if err != nil {
 		return nil, err
 	}
+	native.reader.Evidence = evidence
 	source, err := store.NewFrozenInputs(pool, native.reader)
 	if err != nil {
 		return nil, err
@@ -754,5 +776,8 @@ func (r *nativeRankingRuntime) close() {
 	r.workers.Wait()
 	if r.client != nil {
 		r.client.CloseIdleConnections()
+	}
+	if r.evidenceClient != nil {
+		r.evidenceClient.CloseIdleConnections()
 	}
 }

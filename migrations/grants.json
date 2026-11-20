@@ -1596,7 +1596,8 @@
             "block_hash",
             "transaction_hash",
             "transaction_index",
-            "log_index"
+            "log_index",
+            "payload"
           ],
           "argument_types": [],
           "grant_option": false,
@@ -13609,6 +13610,328 @@
       "create_role": false,
       "bypass_rls": false,
       "runtime_owns_objects": false
+    },
+    {
+      "service": "security/operator",
+      "schema": "security",
+      "owner_role": "security_owner",
+      "runtime_role": "operator_runtime",
+      "owner_login": false,
+      "runtime_login": false,
+      "superuser": false,
+      "create_db": false,
+      "create_role": false,
+      "bypass_rls": false,
+      "runtime_owns_objects": false,
+      "grants": [
+        {
+          "schema": "migration_control",
+          "object": "readiness",
+          "object_kind": "function",
+          "privileges": [
+            "EXECUTE"
+          ],
+          "columns": [],
+          "argument_types": [
+            "text"
+          ],
+          "grant_option": false
+        },
+        {
+          "schema": "recovery",
+          "object": "current_epoch",
+          "object_kind": "function",
+          "privileges": [
+            "EXECUTE"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "security",
+          "object": "operator_enrolments",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "actor",
+            "wallet",
+            "role",
+            "scopes",
+            "factor",
+            "last_step",
+            "revoked_at"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "security",
+          "object": "operator_enrolments",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "last_step"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "security",
+          "object": "operator_sessions",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
+          ],
+          "columns": [
+            "session_id",
+            "wallet",
+            "actor",
+            "audience",
+            "issued_at",
+            "expires_at",
+            "mfa_expires_at",
+            "scopes",
+            "revoked"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "security",
+          "object": "operator_sessions",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "session_id",
+            "revoked"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "security",
+          "object": "operator_sessions",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "revoked"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "pnl",
+          "object": "authority_credentials",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
+          ],
+          "columns": [
+            "credential_id",
+            "actor_id",
+            "role",
+            "scopes",
+            "token_hash",
+            "session_id",
+            "expires_at"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "pnl",
+          "object": "authority_credentials",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "session_id",
+            "revoked_at"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "pnl",
+          "object": "authority_credentials",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "revoked_at"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        }
+      ],
+      "schema_capabilities": [
+        {
+          "service": "security/control",
+          "schema": "pnl",
+          "owner_role": "pnl_owner"
+        }
+      ]
+    },
+    {
+      "service": "security/operator",
+      "schema": "security",
+      "owner_role": "security_owner",
+      "runtime_role": "operator_registrar",
+      "owner_login": false,
+      "runtime_login": false,
+      "superuser": false,
+      "create_db": false,
+      "create_role": false,
+      "bypass_rls": false,
+      "runtime_owns_objects": false,
+      "grants": [
+        {
+          "schema": "migration_control",
+          "object": "readiness",
+          "object_kind": "function",
+          "privileges": [
+            "EXECUTE"
+          ],
+          "columns": [],
+          "argument_types": [
+            "text"
+          ],
+          "grant_option": false
+        },
+        {
+          "schema": "recovery",
+          "object": "current_epoch",
+          "object_kind": "function",
+          "privileges": [
+            "EXECUTE"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "security",
+          "object": "operator_enrolments",
+          "object_kind": "table",
+          "privileges": [
+            "INSERT"
+          ],
+          "columns": [
+            "actor",
+            "wallet",
+            "role",
+            "scopes",
+            "factor"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "security",
+          "object": "operator_enrolments",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "actor",
+            "revoked_at"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "security",
+          "object": "operator_enrolments",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "wallet",
+            "role",
+            "scopes",
+            "factor",
+            "last_step",
+            "enrolled_at",
+            "revoked_at"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "security",
+          "object": "operator_sessions",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "actor",
+            "revoked"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "security",
+          "object": "operator_sessions",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "revoked"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "pnl",
+          "object": "authority_credentials",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "actor_id",
+            "revoked_at"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "pnl",
+          "object": "authority_credentials",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "revoked_at"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        }
+      ],
+      "schema_capabilities": [
+        {
+          "service": "security/control",
+          "schema": "pnl",
+          "owner_role": "pnl_owner"
+        }
+      ]
     }
   ],
   "public_revocations": [

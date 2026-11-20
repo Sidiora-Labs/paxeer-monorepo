@@ -190,11 +190,13 @@ func TestNewServesAndRanks(t *testing.T) {
 	if _, err := rand.Read(cursor); err != nil {
 		t.Fatal(err)
 	}
+	evidence := rankingEvidencePeer(t, map[string]bool{"0x" + strings.Repeat("a", 40): false})
 	binding := config.RankingRuntimeBinding{
 		Version: 2, RankingSchema: "ranking", StatsSchema: "stats", SourceSchema: "indexer",
 		SourceStream: sourceStream, ProjectionVersion: projection,
 		CacheNamespace: "snapshots", CursorKeyReference: "TEST_RANKING_CURSOR_KEY",
 		RecoverySchema: "recovery", RecoveryEpoch: db.Epoch, RecoveryRegion: db.Region,
+		EvidenceEndpoint:   evidence.URL + "/internal/ranking-evidence",
 		VisibilityEndpoint: endpoint, VisibilityDNS: peerDNS, VisibilityCertSHA256: peerPin,
 		GatewayDNS: gatewayDNS, GatewayCertSHA256: gateway.pin(),
 		CAFile: filepath.Join(dir, "ca.pem"), CASHA256: pins["ca.pem"],

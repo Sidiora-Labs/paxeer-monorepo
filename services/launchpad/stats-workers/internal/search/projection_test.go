@@ -139,6 +139,7 @@ func TestRealBrokerInboxProjectionAndOutboxAtomicity(t *testing.T) {
 		t.Fatal(err)
 	}
 	projection := Projection{Delivery: inbox, ConsumerID: "search", InboxGeneration: "generation1", InvalidationSubject: invalidate, InvalidationEventType: "search_invalidation"}
+	var initialState string
 	for i := 0; i < 100; i++ {
 		if _, err = publisher.Publish(ctx, subject, fmt.Sprintf("transport_copy_%d", i), wire); err != nil {
 			t.Fatal(err)
@@ -149,6 +150,17 @@ func TestRealBrokerInboxProjectionAndOutboxAtomicity(t *testing.T) {
 		}
 		if err = projection.ConsumeCanonicalCreation(ctx, subject, messages[0].Wire, messages[0]); err != nil {
 			t.Fatal(err)
+		}
+		var state string
+		if err = pool.QueryRow(ctx, `SELECT jsonb_build_object('documents',(SELECT jsonb_agg(to_jsonb(d)) FROM stats_search.documents_v2 d),'authority',(SELECT jsonb_agg(to_jsonb(a)) FROM stats_search.authority_v2 a),'active',(SELECT to_jsonb(a) FROM stats_search.active_v2 a),'source',(SELECT jsonb_agg(to_jsonb(s)) FROM stats_search.source_documents_v2 s))::text`).Scan(&state); err != nil {
+			t.Fatal(err)
+		}
+		if i == 0 {
+			initialState = state
+			assertCreationAuthority(t, pool, fixtureAddress(1), 1, true, false)
+			assertCreationSearch(t, pool, IndexedDocument{Document: Document{PoolAddress: fixtureAddress(1), TokenAddress: fixtureAddress(99), Name: "Canonical name"}}, true)
+		} else if state != initialState {
+			t.Fatal("duplicate creation changed stored projection")
 		}
 	}
 	var effects, inboxRows, outboxRows int

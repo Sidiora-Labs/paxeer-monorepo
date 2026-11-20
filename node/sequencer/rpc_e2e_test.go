@@ -4,11 +4,15 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -52,13 +56,61 @@ type rpcE2EHarness struct {
 	genesis   time.Time
 }
 
+const (
+	rpcE2EMinPort   = 1024
+	rpcE2EMaxPort   = 65535
+	rpcE2EPortCount = rpcE2EMaxPort - rpcE2EMinPort + 1
+)
+
+var rpcE2EPorts = struct {
+	sync.Mutex
+	next int
+	used map[int]bool
+}{
+	next: rpcE2EMinPort + os.Getpid()%rpcE2EPortCount,
+	used: make(map[int]bool),
+}
+
+func rpcE2ELocalPortRange(t *testing.T) (int, int) {
+	t.Helper()
+	data, err := os.ReadFile("/proc/sys/net/ipv4/ip_local_port_range")
+	if errors.Is(err, os.ErrNotExist) {
+		return 32768, 60999
+	}
+	require.NoError(t, err, "read system local port range")
+	fields := strings.Fields(string(data))
+	require.Len(t, fields, 2, "system local port range must contain two bounds")
+	low, err := strconv.Atoi(fields[0])
+	require.NoError(t, err, "parse system local port range lower bound")
+	high, err := strconv.Atoi(fields[1])
+	require.NoError(t, err, "parse system local port range upper bound")
+	require.True(t, low > 0 && low <= high && high <= rpcE2EMaxPort,
+		"invalid system local port range: %d-%d", low, high)
+	return low, high
+}
+
 func rpcE2EPort(t *testing.T) int {
 	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	port := l.Addr().(*net.TCPAddr).Port
-	require.NoError(t, l.Close())
-	return port
+	low, high := rpcE2ELocalPortRange(t)
+	rpcE2EPorts.Lock()
+	defer rpcE2EPorts.Unlock()
+	for tried := 0; tried < rpcE2EPortCount; tried++ {
+		port := rpcE2EPorts.next
+		rpcE2EPorts.next = rpcE2EMinPort + (port-rpcE2EMinPort+1)%rpcE2EPortCount
+		if (port >= low && port <= high) || rpcE2EPorts.used[port] {
+			continue
+		}
+		listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err != nil {
+			continue
+		}
+		require.NoError(t, listener.Close(), "close loopback port probe")
+		rpcE2EPorts.used[port] = true
+		return port
+	}
+	t.Fatalf("no available loopback TCP port after %d candidates above 1023 outside system local port range %d-%d",
+		rpcE2EPortCount, low, high)
+	return 0
 }
 
 func newRPCE2EApp(t *testing.T, sender utils.TestAcct, genesisTime time.Time, port int) *app.App {
