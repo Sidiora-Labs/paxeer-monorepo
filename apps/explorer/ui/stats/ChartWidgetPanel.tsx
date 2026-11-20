@@ -84,8 +84,7 @@ const ChartWidgetPanel = ({
       p={ 4 }
       minH="var(--chakra-spacing-75)"
 
-      css={{ '& button, & a': { minWidth: 'touchTarget',
-        minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } }, '& .tick text': { color: 'text.muted' } }}
+      css={{ '& button, & a': { _motionReduce: { transitionProperty: 'none' } }, '& .tick text': { color: 'text.muted' } }}
     >
       <Flex data-chart-card-header alignItems="flex-start" justifyContent="space-between" columnGap={ 3 } flexWrap="wrap">
         <Flex alignItems="center" columnGap={ 1.5 } minW={ 0 } flex="1 1 18ch">
@@ -94,7 +93,16 @@ const ChartWidgetPanel = ({
               { title } ({ STATS_INTERVALS[interval].shortTitle })
             </chakra.span>
           </Skeleton>
-          { description && <Hint label={ description } isLoading={ isLoading } boxSize={ 4 } flexShrink={ 0 }/> }
+          { description && (
+            <Hint
+              label={ description }
+              isLoading={ isLoading }
+              boxSize={ 4 }
+              flexShrink={ 0 }
+              data-touch-inline
+              css={{ '--touch-line-size': 'var(--chakra-line-heights-label)' }}
+            />
+          ) }
         </Flex>
         <Flex alignItems="center" columnGap={ 2 } flexShrink={ 0 } marginInlineStart="auto">
           { zoomRange && (
@@ -110,7 +118,9 @@ const ChartWidgetPanel = ({
             </Tooltip>
           ) }
           { href && (
-            <Link href={ route(href) } data-chart-view textStyle="text.xs" fontWeight="medium" display="inline-flex" alignItems="center" columnGap={ 1 }>
+            <Link href={ route(href) } data-chart-view data-touch-inline
+              css={{ '--touch-line-size': 'var(--chakra-line-heights-label)' }}
+              textStyle="text.xs" fontWeight="medium" display="inline-flex" alignItems="center" columnGap={ 1 }>
               View
               <IconSvg name="arrows/east-mini" boxSize={ 3 }/>
             </Link>
@@ -130,7 +140,7 @@ const ChartWidgetPanel = ({
         flexDirection="column"
         flexGrow={ 1 }
         mt={ 3 }
-        minH="var(--chakra-spacing-62\.5)"
+        minH="calc(var(--chakra-spacing-62\.5) - var(--chakra-spacing-5))"
         css={{
           '& svg text': { color: 'text.secondary' },
           '--chart-bar-color': barColor,

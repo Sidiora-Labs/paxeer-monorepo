@@ -53,7 +53,6 @@ const CodeEditorFileTree = ({ tree, level = 0, onItemClick, isCollapsed, selecte
                   pl={ `calc(var(--chakra-spacing-2) * ${ level + 1 })` }
                   _hover={{ bgColor: themeColors['custom.list.hoverBackground'] }}
                   textStyle="sm"
-                  minH="touchTarget"
                   transitionDuration="0"
                   noIndicator
                 >
@@ -92,7 +91,6 @@ const CodeEditorFileTree = ({ tree, level = 0, onItemClick, isCollapsed, selecte
               type="button"
               key={ index }
               textStyle="sm"
-              minH="touchTarget"
               w="100%"
               minW={ 0 }
               textAlign="left"

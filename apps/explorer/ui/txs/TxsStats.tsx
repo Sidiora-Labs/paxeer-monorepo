@@ -215,7 +215,11 @@ const TxsStats = (props: Props) => {
   return (
     <Box
       display="grid"
-      gridTemplateColumns="repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-62\.5)), 1fr))"
+      gridTemplateColumns={{
+        base: 'minmax(0, 1fr)',
+        md: 'repeat(2, minmax(0, 1fr))',
+        lg: `repeat(${ items.length }, minmax(0, 1fr))`,
+      }}
       rowGap={ 3 }
       columnGap={ 3 }
       mb={ 6 }

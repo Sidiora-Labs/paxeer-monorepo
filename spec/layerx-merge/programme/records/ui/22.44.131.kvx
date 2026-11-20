@@ -1,0 +1,71 @@
+[meta]
+task = "22.44.131"
+title = "Whole statistic card values"
+
+[value]
+form = "Statistic card values use the largest fitting step, count their unit, retain their whole text, and wrap after separators or spaces at the least step without ellipsis or hidden overflow."
+steps_pixels = [24, 20, 18, 16, 14]
+least_step_pixels = 14
+line_height_pixels = 28
+root_size = "The steps and line height follow the root text size."
+rule = "toolkit/utils/statValue.ts supplies the container query steps for ScanStatCard and StatsWidget."
+secondary = "The secondary figure and the difference follow the value and may occupy the next line."
+label = "The label, hint and icon retain their form."
+
+[statistics_part]
+renders = 202
+result = "pass"
+
+[findings]
+cut_first = 0
+cut_last = 0
+scale_first = 0
+scale_last = 0
+sideways_first = 0
+sideways_last = 0
+shift_first = 0
+shift_last = 0
+load_first = 0
+load_last = 0
+contrast_first = 0
+contrast_last = 0
+touch_first = 0
+touch_last = 0
+focus_first = 0
+focus_last = 0
+motion_first = 0
+motion_last = 0
+geometry_first = 0
+geometry_last = 0
+
+[home_view]
+renders = 102
+result = "pass"
+
+[transactions_view]
+renders = 136
+result = "pass"
+
+[statistics_value_sizes_ten]
+characters = 10
+value = "19.55 Gwei"
+widths_pixels = [1024, 1100, 1280]
+available_widths_pixels = [141, 160, 205]
+box_widths_pixels = [120, 120, 120]
+scroll_widths_pixels = [120, 120, 120]
+sizes_pixels = [24, 24, 24]
+
+[statistics_value_sizes_twelve]
+characters = 12
+value = "123.456 Gwei"
+widths_pixels = [1024, 1100, 1280]
+available_widths_pixels = [141, 160, 205]
+box_widths_pixels = [120, 144, 144]
+scroll_widths_pixels = [120, 144, 144]
+sizes_pixels = [20, 24, 24]
+
+[statistics_values]
+widths_pixels = [1024, 1100, 1280]
+values = 11
+whole = true
+width = "Every value has a scroll width no greater than the width of its box."

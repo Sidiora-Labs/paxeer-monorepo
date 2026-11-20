@@ -4,6 +4,7 @@ import React from 'react';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Stat } from 'toolkit/chakra/stat';
 import { Hint } from 'toolkit/components/Hint/Hint';
+import { getStatValueStyles, useStatValue } from 'toolkit/utils/statValue';
 
 export type ScanStatDeltaDirection = 'up' | 'down';
 
@@ -25,6 +26,7 @@ export interface ScanStatCardProps {
 
 const ScanStatCard = ({ label, value, secondary, delta, hint, icon, isLoading, className }: ScanStatCardProps) => {
   const valueText = typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
+  const { ref, characters } = useStatValue(value);
 
   return (
     <Stat.Root variant="scan" className={ className } data-scan-stat={ label } minW={ 0 } h="100%">
@@ -39,17 +41,28 @@ const ScanStatCard = ({ label, value, secondary, delta, hint, icon, isLoading, c
           </chakra.span>
         ) }
       </Stat.Label>
-      <Stat.ValueText mt="auto" minW={ 0 } maxW="100%">
+      <Stat.ValueText mt="auto" minW={ 0 } w="100%" maxW="100%" fontSize="textMd" css={{ containerType: 'inline-size' }}>
         <Skeleton
+          ref={ ref }
           loading={ isLoading }
           data-value
-          whiteSpace="nowrap"
+          whiteSpace="pre-wrap"
           minW={ 0 }
           maxW="100%"
-          truncate={ valueText !== undefined }
+          overflow="visible"
+          textOverflow="clip"
+          wordBreak="normal"
+          overflowWrap="anywhere"
+          css={{
+            ...getStatValueStyles(characters),
+            '& wbr': { display: 'inline' },
+            '& [data-delta]': { fontSize: 'inherit', lineHeight: 'inherit' },
+          }}
           title={ valueText }
         >
-          { value }
+          { valueText !== undefined ? valueText.split(/(?<=,)/).map((group, index) => (
+            <React.Fragment key={ index }>{ index > 0 && <wbr/> }{ group }</React.Fragment>
+          )) : value }
         </Skeleton>
         { secondary !== undefined && secondary !== null && (
           <chakra.span data-secondary>({ secondary })</chakra.span>

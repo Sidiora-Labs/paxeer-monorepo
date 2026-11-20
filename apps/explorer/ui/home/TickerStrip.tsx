@@ -29,16 +29,15 @@ const TickerStrip = () => {
       aria-busy={ isLoading }
       data-label="ticker-strip"
       overflowX="auto"
-      minH="touchTarget"
-      css={{ '& a': { display: 'inline-flex', alignItems: 'center', minWidth: 'touchTarget',
-        minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } } }}
+      css={{ '& a': { display: 'inline-flex', alignItems: 'center',
+        '@media (max-width: 834px)': { marginBlock: 'calc((1lh - var(--chakra-sizes-touch-target)) / 2)' }, _motionReduce: { transitionProperty: 'none' } } }}
       overscrollBehaviorX="contain"
       borderBottomWidth="1"
       borderColor="border.divider"
       gap={ 6 }
       py={ 3 }
     >
-      { isLoading && <Skeleton loading h="touchTarget" w="full"/> }
+      { isLoading && <Skeleton loading h="var(--chakra-line-heights-small)" w="full"/> }
       { !isLoading && tokens.map((token) => {
         const price = new BigNumber(token.exchange_rate!);
         const change = getTokenChange(token);

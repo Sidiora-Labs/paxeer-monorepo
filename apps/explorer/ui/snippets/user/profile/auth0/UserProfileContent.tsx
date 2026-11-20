@@ -74,7 +74,7 @@ const UserProfileContent = ({ data, onClose, onLogin, onAddEmail, onAddAddress }
       <Box>
         { isAutoConnectDisabled && <UserWalletAutoConnectAlert/> }
         { config.features.blockchainInteraction.isEnabled && <UserProfileContentWallet onClose={ onClose }/> }
-        <Button minH="touchTarget" minW="touchTarget" mt={ 3 } onClick={ onLogin } size="sm" w="100%">Log in</Button>
+        <Button mt={ 3 } onClick={ onLogin } size="sm" w="100%">Log in</Button>
       </Box>
     );
   }

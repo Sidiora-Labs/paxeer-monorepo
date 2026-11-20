@@ -163,6 +163,10 @@ const TokenPageTitle = ({ tokenQuery, addressQuery, verifiedInfoQuery, hash }: P
   return (
     <>
       <PageTitle
+        css={{
+          '& h1': { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+          '& [data-entity-identifier]': { flexWrap: 'nowrap' },
+        }}
         kind="TOKEN"
         title={ `${ tokenQuery.data?.name || 'Unnamed token' }${ tokenSymbolText }` }
         identifier={ tokenQuery.data?.filecoin_robust_address || hash }

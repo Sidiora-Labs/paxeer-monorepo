@@ -21,7 +21,7 @@ const NetworkMenu = () => {
       onOpenChange={ handlePopoverOpenChange }
     >
       <PopoverTrigger>
-        <Button minH="touchTarget" minW="touchTarget"
+        <Button
           variant="link"
           aria-label="Network menu"
           onClick={ menu.onToggle }

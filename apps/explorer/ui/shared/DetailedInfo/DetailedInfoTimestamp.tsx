@@ -52,7 +52,7 @@ const DetailedInfoTimestamp = ({ timestamp, isLoading, noRelativeTime, ...rest }
   })();
 
   return (
-    <HStack maxW="100%" minW="0" flexWrap="wrap" { ...rest }>
+    <HStack maxW="100%" minW="0" { ...rest }>
       { !noRelativeTime && (
         <>
           <Skeleton loading={ isLoading } flexShrink={ 0 }>
@@ -61,7 +61,7 @@ const DetailedInfoTimestamp = ({ timestamp, isLoading, noRelativeTime, ...rest }
           <TextSeparator mx={ 0 }/>
         </>
       ) }
-      <HStack gap={ 1 } minW="0" maxW="100%" flexWrap="wrap">
+      <HStack gap={ 1 } minW="0" maxW="100%">
         <SelectRoot
           name="time_format"
           collection={ collection }
@@ -80,6 +80,7 @@ const DetailedInfoTimestamp = ({ timestamp, isLoading, noRelativeTime, ...rest }
               aria-label="Toggle time format"
               variant="icon_secondary"
               boxSize={ 5 }
+              inlineLineSize="var(--chakra-sizes-5)"
               borderRadius="sm"
               selected={ !isLoading }
               loadingSkeleton={ isLoading }
@@ -98,8 +99,8 @@ const DetailedInfoTimestamp = ({ timestamp, isLoading, noRelativeTime, ...rest }
         <Skeleton
           loading={ isLoading }
           minW="0"
-          whiteSpace="normal"
-          overflowWrap="anywhere"
+          truncate
+          title={ timeText }
         >
           { timeText }
         </Skeleton>

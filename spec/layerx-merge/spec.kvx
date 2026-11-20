@@ -15958,6 +15958,66 @@ value = "One. The helper states the deadline of its stream work once: the presen
 basis = "Gotcha 4734."
 affects = []
 
+[decision.3808]
+title = "A case that sets the age of a held send takes the lifetime the queue of its node holds"
+value = "One. The case TestRuntimeAdmissionNonceSendAndOpenExpiry sets the arrival of its held send back by twice the lifetime the queue of the node of the case holds, read from the configuration of that node, in place of two lease durations. Two. The case keeps every assertion: the next open block drops the held send, the queue is empty and the record of the send is gone. Three. No file of the product changes and no other case changes. Task 22.39.965."
+basis = "Gotcha 4735."
+affects = []
+
+[decision.3809]
+title = "A case of the token price fetcher waits for the step it reads and ends the same way on every run"
+value = "One. Each case of services/explorer/backend/apps/explorer/test/explorer/market/fetcher/token_test.exs waits for the step it reads and reads the fetcher in a form that does not depend on the order of the first and the second request. Two. The task runs the file thirty times in a row and reads each run. Where a run of a case does not end as the others, the task names the call and the cause in its final message. Three. The cases keep what they assert about the tokens and about the requests. Four. The fetcher under lib stays unchanged. Where the cause lies there, the task changes nothing there and names file and line in its final message. Task 22.39.966."
+basis = "Gotcha 4736."
+affects = []
+
+[decision.3810]
+title = "The market chart routes keep the stored closing price without a current rate, the renewed ban case sends inside one rate window, and a capture that ran into its time limit is rendered once again"
+value = "One. Where the current rate holds no fiat value, both market chart routes keep the stored closing price of the newest day. The encoder leaves the market value of a day open where the day holds no market value and the supply or the closing price of that day is not known. Every other day keeps the product. Task 22.39.967. Two. The renewed ban case holds all of its sends inside one rate window: its request helper takes the room a case needs behind its send, the first send of the case asks for the room that covers its wait for the end of the ban and the margin of its last send, and the case states that its sends fell into the same window. The limiter under lib stays unchanged. Task 22.39.968. Three. A capture of the render check that ran into its time limit carries a retry cause of its own, for the capture of the viewport and for the capture of the full page. The surface loop renders that view once again in a fresh browser and marks the render as retried. The finding of a second run-out stays. Task 22.44.129."
+basis = "Gotcha 4737."
+affects = []
+
+[decision.3811]
+title = "The value of a statistic tile shows whole at every width from 320 pixels and takes a smaller step of the type scale where its tile is narrow"
+value = "One. The text of a value takes the fixed size of its token where the tile holds the value in one line at that size. Two. Where the tile is narrower, the text takes the largest step of the type scale of the surface below the fixed size at which the value fits in one line. The steps are 20, 18, 16 and 14 pixels at the usual root size, and 14 is the least step. No value takes a size above the fixed size. Three. Where a value does not fit in one line at the least step, it breaks after a separator or at a space and the tile grows in height. Four. No value of a statistic tile carries an ellipsis and none has hidden overflow. The whole value stays in the document, with its prefix and its unit. Five. The line height of the value stays, so the tiles of a row keep one height while each value takes one line. The steps follow the root size of text, so the rule holds for a reader who has doubled the size of text. Six. The rule lies in the shared widget and holds for every view that uses it. Decisions 3708 and 3803 hold: no size grows above the earlier state. The type scale the render check reads stays as it is, and the record of task 22.44.120 takes the new form under the key statistic_values. Task 22.44.130."
+basis = "Gotcha 4738."
+affects = []
+
+[decision.3812]
+title = "The value of a statistic card and the tags of a row of the latest transactions of the home view show whole"
+value = "One. The value of a statistic card follows decision 3811. It takes the fixed size where the card holds the value in one line, else the largest of the steps 20, 18, 16 and 14 pixels at which the value fits in one line, and where it does not fit at the least step it breaks after a separator or at a space and the card grows in height. Two. No value of a card carries an ellipsis and none has hidden overflow. The whole value stays in the document, and its unit counts into its width. The secondary figure and the difference of a value keep their place after the value and may take the next line. Three. The card takes the rule from the place where the shared widget holds it after task 22.44.130, so one rule serves the tile and the card. The label of a card keeps its form. Four. In the table of the latest transactions of the home view the tag of a price update names its kind with the two words Price update, and the count of its markets stands in the value cell of the row, where another row shows its value, as the count and the word market or markets. The fee line keeps its dash. Five. The tag of the kind of a row and the tag of its status show whole at every width at which the table shows: where the line does not hold them beside the time, the tags take the next line and the row grows in height. A tag that carries a name of any length keeps its cut form. Six. The stacked form of a row at the narrow widths keeps the label with the count on its tag, and the list of transactions and every other place that shows the label stay as they are. Decisions 3708 and 3803 hold: no size grows above the earlier state, no token changes, and the type scale the render check reads stays as it is. Tasks 22.44.131 and 22.44.132."
+basis = "Gotcha 4739."
+affects = []
+
+[decision.3813]
+title = "A surface file of the render check can state the time its start may take"
+value = "One. A surface file can hold the key readyMs, a whole number of milliseconds from 1000 to 120000. The check waits that time for the readiness path of the surface, and the time LIMITS.readyMs where the key is absent. Two. Another value of the key is refused with a message that names the surface and the bounds, in the form the key buildMs has. Three. The report of a run records the applied time beside buildMs. Four. The surface file of the explorer, its nine part files and its three measure files state 60000, and tools/ui-check/surfaces/explorer/parts.mjs compares the key between a part file and the whole file as it does for buildMs. Five. LIMITS.readyMs keeps its value and every other surface keeps it. No rule for a finding changes and no other limit changes. Task 22.44.133."
+basis = "Gotcha 4740."
+affects = []
+
+[decision.3814]
+title = "The statistics of the list of transactions stand in rows of at most four cards and the heading of a token view shows the whole name"
+value = "One. From the width 1000 the statistics of the list of transactions stand in rows of at most four cards. The count of rows is the least that holds the cards with at most four in a row, and the count of tracks is the least that holds the cards in that count of rows: up to four cards stand in one row, five as three and two, six as three and three, seven as four and three and eight as four and four. Every track has the same width, and a row that is not full leaves its last tracks empty. Two. Below the width 1000 the row keeps its form: one track below 768 and two from 768. Three. The card keeps its form: its label holds two lines and its value follows decision 3812. With seven cards no label of the view is cut and none breaks inside a word at the widths 1024, 1280, 1440 and 1920. Four. For this row the rule goes before the bound of decisions 3708 and 3803 on the width of a track: a track may be wider than in the earlier state, since the text of seven cards does not fit a track of that width. The height of a card, its distances and its sizes of text stay within those decisions. Five. The heading of a token view and of a token instance view takes the form of the shared title: it wraps within the available width, carries no ellipsis and no hidden overflow, and shows the whole name with its symbol at every width. Its size of text and its line height stay, and it may take more lines than in the earlier state where the name does not fit one line. Six. The row of the identifier of both views keeps its one line form, and the heading of a transaction keeps its one line form. Seven. Where a stored part of the geometry of the render check moves with the change, the stored geometry of that view is written again, and no entry of another view changes. No size token of the theme changes, and the type scale the render check reads stays as it is. Tasks 22.44.134 and 22.44.135."
+basis = "Gotcha 4741."
+affects = []
+
+[decision.3815]
+title = "A node case waits for the state store before it reads the query state of the newest height after a commit"
+value = "One. A case of the package node that commits a block and then reads through a query context of the newest height calls the helper WaitForTestQueryHeight of node/test_helpers.go between the commit and the read. Two. The local block helper of the case on a governed leader change in node/leader_schedule_gov_test.go and the local block helper of the case on the switch at the activation in node/upgrades_sequencer_test.go call it at their end, in the form the block helper of node/leader_source_test.go has. Three. The asserts of the cases stay, their order stays, and no assert is wrapped in a retry. Four. No file outside the two case files changes: the helper, the buffer of the state store and the versioned read keep their form. Task 22.39.969."
+basis = "Gotcha 4742."
+affects = []
+
+[decision.3816]
+title = "The release list of the launchpad names a release for one deployment beside the mirrored entries"
+value = "One. sdk/launchpad/shared/config/capabilities/frozen.json gains a member released: a list of records, each with the id of a capability and the deployment version the release holds for. It holds one record: the capability core_market for the deployment version paxeer125-v6.12.0, the version sdk/launchpad/shared/config/deployment/current.json names. Two. Require returns no refusal for a capability the list releases for the deployment version of the committed manifest. AssessFamily sets ReleaseEnabled true for a capability the list releases for the deployment version of the manifest it was given. A manifest of another deployment version and every capability the list does not name keep the present rule. Three. The capability entries of the release list keep mirroring the baseline document with its digest. The baseline document, its checker and the digest in tools/launchpad/production/bootstrap/check-registry.json keep their bytes, and the other thirteen capabilities keep their state. Four. A later release of a further capability or for a further deployment version is one more record of that list, by a decision of the spec. Five. The preflight engine keeps its line: ExecutionPermitted follows ReleaseEnabled, and no second switch is added. Task 22.39.970."
+basis = "Gotcha 4743."
+affects = []
+
+[decision.3817]
+title = "An operator of the launchpad opens a session with a one-time code and acts through the control routes"
+value = "One. A registered migration of the service security/policy makes the table operator_enrolments in the schema security: one row per operator with the actor, the wallet, the role, the scopes, the sealed secret of the one-time code, the last step a code was taken for, and the times of enrolment and revocation. Two. The package under services/launchpad/security/control/enrolment opens a session: it checks a time-based one-time code of six digits and thirty seconds by RFC 6238 with SHA-1 against the secret of the enrolment, refuses a step that was taken before, and writes in one transaction the row of the operator session and the row of the credential, both five minutes long, for the actor, the role and the scopes of the enrolment. Closing revokes both rows. Three. The grants document names two roles of a service security/operator: operator_runtime for opening and closing, operator_registrar for enrolment and revocation, each with the narrowest rights its statements need. Four. The command under services/launchpad/security/control/cmd/launchpad-operator enrols and revokes an operator, shows the capabilities, reduces a capability with one operator and raises one with two: the requester proposes the action, the approver approves it, the requester posts the capability, all through the control routes of the gateway with the bearer of each session. Five. The bounds of the control store stay: 24 hours at most for a capability, two distinct operators for a raise, fifteen minutes for a session and five for the second factor. The credential and the secret stand in no argument, no log line and no error text. Tasks 22.39.971 and 22.39.972."
+basis = "Gotcha 4744."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45618,6 +45678,141 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.972]
+title = "Add the operator command of the launchpad that raises and reduces a capability through the control routes"
+reqs = ["22998.1"]
+touches = ["services/launchpad/security/control"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=security/control"
+do_1 = "do_1 Gotcha 4744, decision 3817. Read the packages under services/launchpad/security/control/enrolment that task 22.39.971 added, in services/launchpad/security/control the files http.go and http_models.go with the requests of the operations actions, transition and caps, the function SetCap of operator.go with the digest of its payload, the function approvalActive of store.go, the capability scenario of services/launchpad/security/control/qualification_phase4.py, and in services/launchpad/gateway/internal/app/app.go the place that builds the control store and mounts its handler."
+symbols = []
+
+[capability.22.39.971]
+title = "Add the enrolment of operators and the opening of an operator session with a one-time code to the control module of the launchpad"
+reqs = ["22998.1"]
+touches = ["services/launchpad/security/control", "migrations", "sdk/launchpad/shared/db/production"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=security/control && (cd sdk/launchpad/shared && go test -count=1 -timeout 30m ./db/production/...)"
+do_1 = "do_1 Gotcha 4744, decision 3817. Read in services/launchpad/security/control the files http.go, operator.go, providers.go, local.go with the revocation of an identity, the function run of store.go, fixtures_test.go and the README, the files migrations/450000.sql, migrations/450001.sql and migrations/470001.sql with their registrations in migrations/registry.json, in migrations/grants.json the entries of the roles control_runtime, identity_runtime and recovery_operator, the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest with the cases beside it, sdk/launchpad/shared/db/production/roles.go, and the history of the registration that was added last with every file that changed with it."
+symbols = []
+
+[capability.22.39.970]
+title = "Let the release list of the launchpad name a release of the market capability for the committed deployment"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/config/capabilities", "sdk/launchpad/shared/chain", "services/launchpad/api/internal/app", "tools/launchpad/production/bootstrap/tests/source-catalog.json"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/shared && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4743, decision 3816. Read sdk/launchpad/shared/config/capabilities/catalog.go whole, sdk/launchpad/shared/config/capabilities/frozen.json, sdk/launchpad/shared/config/capabilities/catalog_test.go, in sdk/launchpad/shared/config/capabilities/preflight.go the end of the function that sets ExecutionPermitted and the function that builds the revision, in sdk/launchpad/shared/chain/client.go the function ReleaseReady, the first lines of sdk/launchpad/shared/config/deployment/current.json and in tools/launchpad/production/interfaces/capability_check.py the lines on states."
+symbols = []
+
+[capability.22.39.969]
+title = "Let two node cases wait for the state store before they read the query state of the newest height after a commit"
+reqs = ["22998.1"]
+touches = ["node/leader_schedule_gov_test.go", "node/upgrades_sequencer_test.go"]
+tests = []
+verification_contract = "go test -count=1 -timeout 30m ./node/ -run ^TestLeaderScheduleFollowsGovernedChangeNextHeight && go test -count=1 -timeout 30m ./node/ -run ^TestUpgradesSequencerSwitchAtActivation && go test -count=1 -timeout 30m ./node/ -run ^TestAppLeaderSchedule && go test -count=20 -timeout 30m ./node/ -run ^TestLeaderScheduleFollowsGovernedChangeNextHeight"
+do_1 = "do_1 Gotcha 4742, decision 3815. Read node/leader_schedule_gov_test.go whole, in node/leader_source_test.go the block helper commitLeaderSourceBlock and one case that uses it, in node/test_helpers.go the helper WaitForTestQueryHeight, in node/upgrades_sequencer_test.go the case TestUpgradesSequencerSwitchAtActivation with its local block helper, and in sdk/storev2/rootmulti/store.go the function CacheMultiStoreWithVersion."
+symbols = []
+
+[capability.22.44.135]
+title = "Let the heading of a token view of the explorer show the whole name"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/token", "apps/explorer/ui/tokenInstance", "tools/ui-check/surfaces/explorer/tokens-geometry.json"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.135.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/tokens.json --out /tmp/ui-check/explorer-tokens && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/token/TokenPageTitle.spec.tsx ui/tokenInstance/TokenInstancePageTitle.spec.tsx ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+do_1 = "do_1 Gotcha 4741, decisions 3814, 3708 and 3803. Read apps/explorer/ui/token/TokenPageTitle.tsx and apps/explorer/ui/tokenInstance/TokenInstancePageTitle.tsx whole with their case files apps/explorer/ui/token/TokenPageTitle.spec.tsx and apps/explorer/ui/tokenInstance/TokenInstancePageTitle.spec.tsx, the shared title apps/explorer/ui/shared/Page/PageTitle.tsx, the record of task 22.44.124 under spec/layerx-merge/programme/records/ui, the part file tools/ui-check/surfaces/explorer/parts/tokens.json, the entries of the token view and of the token instance view in tools/ui-check/surfaces/explorer/tokens-geometry.json and in tools/ui-check/README.md the part under the heading Stored geometry and the rules with the names cut, sideways, shift and geometry."
+symbols = []
+
+[capability.22.44.134]
+title = "Let the statistics of the list of transactions of the explorer stand in rows of at most four cards"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/txs", "tools/ui-check/surfaces/explorer/transactions-geometry.json"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.134.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/transactions.json --out /tmp/ui-check/explorer-transactions && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/txs/TxsStats.spec.tsx ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+do_1 = "do_1 Gotcha 4741, decisions 3814, 3812, 3708 and 3803. Read apps/explorer/ui/txs/TxsStats.tsx whole with its case file apps/explorer/ui/txs/TxsStats.spec.tsx, the label and the value of the card in apps/explorer/ui/shared/scan/ScanStatCard.tsx, the record of task 22.44.122 under spec/layerx-merge/programme/records/ui, the part file tools/ui-check/surfaces/explorer/parts/transactions.json, the entries of the list of transactions in tools/ui-check/surfaces/explorer/transactions-geometry.json and in tools/ui-check/README.md the part under the heading Stored geometry and the rules with the names cut, sideways, shift and geometry. Read with git grep under apps/explorer/ui which components show the row."
+symbols = []
+
+[capability.22.44.133]
+title = "Let a surface file of the render check state the time its start may take"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/server.mjs", "tools/ui-check/config.mjs", "tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md", "tools/ui-check/surfaces/explorer.json", "tools/ui-check/surfaces/explorer"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test) && node tools/ui-check/surfaces/explorer/parts.mjs"
+do_1 = "do_1 Gotcha 4740, decision 3813. Read tools/ui-check/server.mjs whole, in tools/ui-check/config.mjs and tools/ui-check/check.mjs the places that read the keys of a surface file, check the key buildMs and write the report, the cases on buildMs in tools/ui-check/test/check.test.mjs with their fixtures, the part of tools/ui-check/README.md on the keys of a surface file, tools/ui-check/surfaces/explorer/parts.mjs and the first twelve lines of tools/ui-check/surfaces/explorer.json and of one part file."
+symbols = []
+
+[capability.22.44.132]
+title = "Let the tags of a row of the latest transactions of the home view show whole"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.132.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/home.json --out /tmp/ui-check/explorer-home && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/ ui/home/ ui/pages/ toolkit/"
+do_1 = "do_1 Gotcha 4739, decisions 3812, 3708 and 3803. Read apps/explorer/ui/home/LatestTxsItem.tsx whole with its case file apps/explorer/ui/home/LatestTxsItem.spec.tsx, the stacked form apps/explorer/ui/home/LatestTxsItemMobile.tsx, the label of a price update in apps/explorer/ui/txs/TxPriceUpdate.tsx, the tag in apps/explorer/ui/shared/scan/ScanMethodChip.tsx, the tags of the kinds in apps/explorer/ui/txs/TxType.tsx, the part file tools/ui-check/surfaces/explorer/parts/home.json and tools/ui-check/README.md for the rules with the names cut and scale."
+symbols = []
+
+[capability.22.44.131]
+title = "Let the value of a statistic card of the explorer show whole"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui", "apps/explorer/toolkit"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.131.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/statistics.json --out /tmp/ui-check/explorer-statistics && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/ ui/home/ ui/pages/ toolkit/"
+do_1 = "do_1 Gotcha 4739, decisions 3812, 3811, 3708 and 3803. Read apps/explorer/ui/shared/scan/ScanStatCard.tsx whole, its case file apps/explorer/ui/shared/scan/ScanStatCard.spec.tsx, the slot valueText of the variant scan in apps/explorer/toolkit/theme/recipes/stat.recipe.ts, the shared widget apps/explorer/ui/shared/stats/StatsWidget.tsx in the form task 22.44.130 gave it with its case file, the record of task 22.44.130 under spec/layerx-merge/programme/records/ui, the part file tools/ui-check/surfaces/explorer/parts/statistics.json and tools/ui-check/README.md for the rules with the names cut and scale. Read with git grep under apps/explorer/ui which components use the card."
+symbols = []
+
+[capability.22.44.130]
+title = "Let the value of a statistic tile of the explorer show whole at every width"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "spec/layerx-merge/programme/records/ui/22.44.120.kvx"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.130.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/home.json --out /tmp/ui-check/explorer-home && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/ ui/home/ ui/pages/ toolkit/"
+do_1 = "do_1 Gotcha 4738, decisions 3811, 3708 and 3803. Read apps/explorer/ui/shared/stats/StatsWidget.tsx whole, the case files apps/explorer/ui/shared/stats/StatsWidget.spec.tsx and apps/explorer/ui/home/Stats.spec.tsx, the file apps/explorer/ui/home/Stats.tsx, the size tokens and the text style of the value in apps/explorer/toolkit/theme/foundations/typography.ts, the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the part file tools/ui-check/surfaces/explorer/parts/home.json and tools/ui-check/README.md for the rules with the names cut and scale. Read with git grep under apps/explorer/ui which components use the widget."
+symbols = []
+
+[capability.22.44.129]
+title = "Let the render check render a view once again after a capture that ran into its time limit"
+reqs = ["22998.1"]
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+verification_contract = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+do_1 = "do_1 Gotcha 4737 point three, decision 3810 point three. Read tools/ui-check/check.mjs whole and the case files under tools/ui-check/test with their fixtures. Read how a load finding takes a retry cause, how the surface loop renders a view once again and how a render is marked as retried."
+symbols = []
+
+[capability.22.39.968]
+title = "Hold the sends of the renewed ban case of the rate limit cases inside one rate window"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs"
+do_1 = "do_1 Gotcha 4737 point two, decision 3810 point two. Read services/explorer/backend/apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs whole and services/explorer/backend/apps/explorer/lib/explorer/utility/rate_limiter.ex whole with the wrapper of the rate store beside it. Read how the limiter counts sends per rate window and how it computes the length of a ban."
+symbols = []
+
+[capability.22.39.967]
+title = "Let the market chart routes of the explorer keep the stored closing price where no current rate is known"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain/market_history_chart_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/chain/market_history_chart_controller_test.exs", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/controllers/chain/market_history_chart_controller_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs"
+do_1 = "do_1 Gotcha 4737 point one, decision 3810 point one. Read services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain/market_history_chart_controller.ex whole, the function market_chart in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex, the case files services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/chain/market_history_chart_controller_test.exs and services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs, and under services/explorer/backend/apps/explorer/lib/explorer/market the files market.ex, token.ex, market_history.ex and market_history_cache.ex for the rate record, the recent history and its cache."
+symbols = []
+
+[capability.22.39.966]
+title = "Give the cases of the token price fetcher a form that does not depend on the order of its requests"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/test/explorer/market/fetcher"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/fetcher/token_test.exs"
+do_1 = "do_1 Gotcha 4736, decision 3809. Read services/explorer/backend/apps/explorer/test/explorer/market/fetcher/token_test.exs whole and services/explorer/backend/apps/explorer/lib/explorer/market/fetcher/token.ex whole, and the source module the cases configure with its answer for an empty list. Read how the case template of the package starts and ends a case and how the supervisor of a case stops the fetcher."
+symbols = []
+
+[capability.22.39.965]
+title = "Let the open expiry case of the runtime admission set the age of its held send by the lifetime setting"
+reqs = ["22998.1"]
+touches = ["node/sequencer/runtime_admission_failover_test.go"]
+tests = []
+verification_contract = "go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestRuntimeAdmission"
+do_1 = "do_1 Gotcha 4735, decision 3808. Read node/sequencer/runtime_admission_failover_test.go whole, the place in node/sequencer/node.go that builds the nonce queue, the lifetime setting in node/sequencer/config.go, the drop of held sends in node/sequencer/nonce_queue.go and the cases of node/sequencer/nonce_lifetime_test.go. Read how the node of the case gets its configuration and which lifetime its queue holds."
+symbols = []
 
 [capability.22.39.964]
 title = "Give the stream cleanup of the ranking case helper the deadline form of its reset"
@@ -177955,9 +178150,236 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.44.135]
+title = "Let the heading of a token view of the explorer show the whole name"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.124"]
+reqs = ["22998.1"]
+capabilities = ["22.44.135"]
+interfaces = []
+do_1 = "do_1 Gotcha 4741, decisions 3814, 3708 and 3803. Read apps/explorer/ui/token/TokenPageTitle.tsx and apps/explorer/ui/tokenInstance/TokenInstancePageTitle.tsx whole with their case files apps/explorer/ui/token/TokenPageTitle.spec.tsx and apps/explorer/ui/tokenInstance/TokenInstancePageTitle.spec.tsx, the shared title apps/explorer/ui/shared/Page/PageTitle.tsx, the record of task 22.44.124 under spec/layerx-merge/programme/records/ui, the part file tools/ui-check/surfaces/explorer/parts/tokens.json, the entries of the token view and of the token instance view in tools/ui-check/surfaces/explorer/tokens-geometry.json and in tools/ui-check/README.md the part under the heading Stored geometry and the rules with the names cut, sideways, shift and geometry."
+do_2 = "do_2 Give the heading of both views the form of decision 3814: remove the no wrap form, the hidden overflow and the ellipsis from the heading, so that it takes the form of the shared title, wraps within the available width and shows the whole name with its symbol at every width. Its size of text and its line height stay. Keep the rule for the row of the identifier in both files. A long word of a name breaks where it is wider than the line, so that no heading is wider than its box. Change no other view and not the shared title, and no size token, no text style and no recipe."
+do_3 = "do_3 Add to each of the two case files a case that states the form for a name of forty characters with a symbol: the whole name with its symbol is the text of the heading, and the heading carries no declaration of no wrap, of hidden overflow or of an ellipsis. Keep the cases the files hold, and weaken no assertion on behaviour. Run both case files by hand once before the change and name in the final message each case that did not pass before the change."
+do_4 = "do_4 Render the token view and the token instance view by hand with the tokens part and the option --view of the check, one view after the other, in the foreground and never detached, and read every finding of the kinds cut, sideways, shift and geometry for these views. Correct each finding the change causes. Where a stored part of one of the two views moves, write the stored geometry of that view again with the options --write-geometry and --view, then read the difference of tools/ui-check/surfaces/explorer/tokens-geometry.json and keep it only where every changed entry belongs to that view. Never start a run of the whole part by hand: the counted verification renders the whole part, so keep the time for it. Change no other file under tools/ui-check: other tasks of the group change the start and the build of the surface at the same time. No limit of the check is raised and no element is hidden from it."
+do_5 = "do_5 Start the tokens part by hand with the start command the part file holds, open the token view and the token instance view at the widths 360, 390, 430 and 1280 with the browser the check installs and read for the heading its scroll width against its client width, its count of lines and the scroll width of the document against the width of the window: no heading is wider than its box, none carries an ellipsis and the document does not scroll sideways. Where that read cannot be set up within twenty minutes, leave it out and say so in the final message."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.135.kvx in present tense: the form of the heading of both views, the rule that stays for the row of the identifier, the count of renders of the last render of each of the two views with its result and the count of findings of each kind, and for the widths 360, 390 and 1280 the count of lines the heading of each view takes with the data of the part. Start the build and the counted verification early and keep time for them. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/token", "apps/explorer/ui/tokenInstance", "tools/ui-check/surfaces/explorer/tokens-geometry.json"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.135.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.135.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/tokens.json --out /tmp/ui-check/explorer-tokens && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/token/TokenPageTitle.spec.tsx ui/tokenInstance/TokenInstancePageTitle.spec.tsx ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.134]
+title = "Let the statistics of the list of transactions of the explorer stand in rows of at most four cards"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.122", "22.44.131"]
+reqs = ["22998.1"]
+capabilities = ["22.44.134"]
+interfaces = []
+do_1 = "do_1 Gotcha 4741, decisions 3814, 3812, 3708 and 3803. Read apps/explorer/ui/txs/TxsStats.tsx whole with its case file apps/explorer/ui/txs/TxsStats.spec.tsx, the label and the value of the card in apps/explorer/ui/shared/scan/ScanStatCard.tsx, the record of task 22.44.122 under spec/layerx-merge/programme/records/ui, the part file tools/ui-check/surfaces/explorer/parts/transactions.json, the entries of the list of transactions in tools/ui-check/surfaces/explorer/transactions-geometry.json and in tools/ui-check/README.md the part under the heading Stored geometry and the rules with the names cut, sideways, shift and geometry. Read with git grep under apps/explorer/ui which components show the row."
+do_2 = "do_2 Give the row the form of decision 3814. Below the width 1000 it keeps its tracks. From the width 1000 the count of tracks follows the count of cards the row shows: the count of rows is the least that holds the cards with at most four in a row, and the count of tracks is the least that holds the cards in that count of rows. Hold that rule in one function of apps/explorer/ui/txs/TxsStats.tsx that takes the count of cards and gives the count of tracks, so that a case can state it. Every track keeps the form that lets a card shrink inside it, every track has the same width, and a row that is not full leaves its last tracks empty. Change no file of the card and no other user of the card: the rule lies in the row and holds for every component that shows it. No size token, no text style and no recipe changes."
+do_3 = "do_3 Change the case on the tracks in apps/explorer/ui/txs/TxsStats.spec.tsx with the change it pins: it states four tracks from the width 1000 for the seven cards, and the count of tracks the function gives for one to nine cards, which is one, two, three, four, three, three, four, four and three. Keep the case on the seven cards in the scan order and every other case of the file. No assertion on behaviour is weakened. Run the case files under apps/explorer/ui/txs by hand once before the change and name in the final message each case that did not pass before the change."
+do_4 = "do_4 Render the list of transactions by hand with the transactions part and the option --view of the check, in the foreground and never detached, and read every finding of the kinds cut, sideways, shift and geometry for that view. Correct each finding the change causes. The row moves the stored parts of that view at the widths from 1280: write the stored geometry of that view again with the options --write-geometry and --view, then read the difference of tools/ui-check/surfaces/explorer/transactions-geometry.json and keep it only where every changed entry belongs to the view of the list of transactions. Never start a run of the whole part by hand: the counted verification renders the whole part, so keep the time for it. Change no other file under tools/ui-check: other tasks of the group change the start and the build of the surface at the same time. No limit of the check is raised and no element is hidden from it."
+do_5 = "do_5 Start the transactions part by hand with the start command the part file holds, open the list of transactions at the widths 1000, 1024, 1280, 1440 and 1920 with the browser the check installs and read the count of cards in each row, for each label its scroll height against its height and for each value its scroll width against the width of its box: no row holds more than four cards, no label is cut and none breaks inside a word, and no value is wider than its box. Where the data of the part shows fewer than seven cards, say so in the final message and read the cards it shows. Where that read cannot be set up within twenty minutes, leave it out and say so in the final message."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.134.kvx in present tense: the form of the row with its tracks below and from the width 1000, the place of the function, the count of renders of the last render of the view of the list of transactions with its result and the count of findings of each kind, and for the widths 1024, 1280 and 1440 the width of a card and the count of lines of the longest label. Start the build and the counted verification early and keep time for them. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/txs", "tools/ui-check/surfaces/explorer/transactions-geometry.json"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.134.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.134.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/transactions.json --out /tmp/ui-check/explorer-transactions && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/txs/TxsStats.spec.tsx ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 280
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.133]
+title = "Let a surface file of the render check state the time its start may take"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.133"]
+interfaces = []
+do_1 = "do_1 Gotcha 4740, decision 3813. Read tools/ui-check/server.mjs whole, in tools/ui-check/config.mjs and tools/ui-check/check.mjs the places that read the keys of a surface file, check the key buildMs and write the report, the cases on buildMs in tools/ui-check/test/check.test.mjs with their fixtures, the part of tools/ui-check/README.md on the keys of a surface file, tools/ui-check/surfaces/explorer/parts.mjs and the first twelve lines of tools/ui-check/surfaces/explorer.json and of one part file."
+do_2 = "do_2 Let a surface file hold the optional key readyMs in the form of decision 3813: a whole number from 1000 to 120000, and another value is refused with a message that names the surface and the bounds. The wait for the readiness path takes the value of the surface, and LIMITS.readyMs where the key is absent. The report of a run records the applied value beside buildMs. LIMITS.readyMs keeps its value, and no rule for a finding and no other limit changes."
+do_3 = "do_3 State the key readyMs with the value 60000 in tools/ui-check/surfaces/explorer.json, in the nine part files under tools/ui-check/surfaces/explorer/parts and in the files measure.json, addresses-measure.json and rollup-measure.json under tools/ui-check/surfaces/explorer: one new line directly after the line of the key readyPath, and no other line of these files changes. Add the key to the keys tools/ui-check/surfaces/explorer/parts.mjs compares between a part file and the whole file. Other tasks change the end of a part file at the same time: change only that one line in each file."
+do_4 = "do_4 Add cases under tools/ui-check/test in the form of the cases on buildMs: a value outside the form is refused with the message; the bounds 1000 and 120000 are taken; a surface whose start answers its readiness path after about two seconds is not ready with the value 1000 and is rendered with the value 5000; a surface without the key waits the fixed time. Use a start in a fixture that waits before it answers, so that the cases end within seconds. Keep the cases the files hold."
+do_5 = "do_5 Name the key in tools/ui-check/README.md where the README names buildMs and where it names the time readiness is asked for, with its bounds and the fixed time that holds without it. Change no file outside the paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/server.mjs", "tools/ui-check/config.mjs", "tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md", "tools/ui-check/surfaces/explorer.json", "tools/ui-check/surfaces/explorer"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test) && node tools/ui-check/surfaces/explorer/parts.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.132]
+title = "Let the tags of a row of the latest transactions of the home view show whole"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.120"]
+reqs = ["22998.1"]
+capabilities = ["22.44.132"]
+interfaces = []
+do_1 = "do_1 Gotcha 4739, decisions 3812, 3708 and 3803. Read apps/explorer/ui/home/LatestTxsItem.tsx whole with its case file apps/explorer/ui/home/LatestTxsItem.spec.tsx, the stacked form apps/explorer/ui/home/LatestTxsItemMobile.tsx, the label of a price update in apps/explorer/ui/txs/TxPriceUpdate.tsx, the tag in apps/explorer/ui/shared/scan/ScanMethodChip.tsx, the tags of the kinds in apps/explorer/ui/txs/TxType.tsx, the part file tools/ui-check/surfaces/explorer/parts/home.json and tools/ui-check/README.md for the rules with the names cut and scale."
+do_2 = "do_2 Give a price update in the table form of a row the form of decision 3812. Its tag names the kind with the two words Price update. The count of its markets stands in the value cell, where another row shows its value, as the count and the word market for one and markets for any other count, in the text style of a value of the row. The fee line keeps its dash. The label with the count stays as it is for the stacked form of a row, for the list of transactions and for every other place that shows it: add what the table form needs beside it in apps/explorer/ui/txs/TxPriceUpdate.tsx and change no other user."
+do_3 = "do_3 Let the tag of the kind of a row and the tag of its status show whole at every width at which the table shows. Where the line does not hold them beside the time, the tags take the next line and the row grows in height. The time keeps its place and its form. A tag that carries a name of any length keeps its cut form. No column of the table changes its share of the width, and no size token, no text style and no type scale of the render check changes."
+do_4 = "do_4 Change the cases that pin the earlier form with the change they pin. The case file apps/explorer/ui/home/LatestTxsItem.spec.tsx states the new form: the two words on the tag of a price update, the count of markets in the value cell for one market and for two, the dash on the fee line, and the wrap of the line of the time and the tags. The cases on a failed price update, on the tags of a watch list and on a row of another kind stay, with the text of the tag they read. No assertion on behaviour is weakened, and the cases of the stacked form stay as they are."
+do_5 = "do_5 Start the render check of the home part by hand, in the foreground and never detached, with the options the verification command of this task holds, and read its summary and every finding of the kinds cut, scale, sideways and shift for the home view. Correct each finding the change causes. No limit of the check is raised and no element is hidden from it. Work with at most one full run by hand. Then start the home part by hand with the start command the part file holds, open the home view at the widths 1024, 1100, 1280, 1440 and 1920 with the browser the check installs and read for the tag of the kind of each row of the table its scroll width and the width of its box: no tag is wider than its box, and the count of markets of a price update is readable in the value cell. Where the data of the part holds no price update, say so in the final message and read the rows it holds. Where that read cannot be set up within twenty minutes, leave it out and say so in the final message."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.132.kvx in present tense: the form of a price update in the table of the latest transactions, the rule for the tags of a row, the count of renders of the last run of the home part with its result, and for the widths 1024, 1100, 1280 and 1440 the width of the box of the tag of the kind and the width of its text. Another task of this group can change the same shared file at the same time: change only what this task needs. Start the build and the counted verification early and keep time for them: the counted verification renders the whole home part. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.132.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.132.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/home.json --out /tmp/ui-check/explorer-home && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/ ui/home/ ui/pages/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.131]
+title = "Let the value of a statistic card of the explorer show whole"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.130"]
+reqs = ["22998.1"]
+capabilities = ["22.44.131"]
+interfaces = []
+do_1 = "do_1 Gotcha 4739, decisions 3812, 3811, 3708 and 3803. Read apps/explorer/ui/shared/scan/ScanStatCard.tsx whole, its case file apps/explorer/ui/shared/scan/ScanStatCard.spec.tsx, the slot valueText of the variant scan in apps/explorer/toolkit/theme/recipes/stat.recipe.ts, the shared widget apps/explorer/ui/shared/stats/StatsWidget.tsx in the form task 22.44.130 gave it with its case file, the record of task 22.44.130 under spec/layerx-merge/programme/records/ui, the part file tools/ui-check/surfaces/explorer/parts/statistics.json and tools/ui-check/README.md for the rules with the names cut and scale. Read with git grep under apps/explorer/ui which components use the card."
+do_2 = "do_2 Give the value of a card the form of decision 3812. It takes the fixed size where the card holds the value in one line, else the largest of the steps 20, 18, 16 and 14 pixels at which it fits in one line, and below the least step it breaks after a separator or at a space. Take the rule from the place where the shared widget holds it: where the widget keeps the rule inside itself, move it to one shared place both use, without a change of what the widget shows. Remove the truncate form and the hidden overflow from the value. The whole value stays in the document, its unit counts into its width, and the secondary figure and the difference keep their place after the value. The label of a card, its hint and its icon keep their form. No size token, no text style and no recipe changes beyond what the rule needs, and the type scale in the part files of the render check stays as it is."
+do_3 = "do_3 The rule lies in the card and holds for every component that uses it: change a user of the card only where it sets a style that pins the form of gotcha 4739. Change the cases that pin the ellipsis with the change they pin. The case on long figures in apps/explorer/ui/shared/scan/ScanStatCard.spec.tsx states the new form: no ellipsis and no hidden overflow on a value, the fixed size as the upper bound, and the step a value of ten and of twelve characters takes at box widths of 120, 141 and 180 pixels. No assertion on behaviour is weakened, and the cases on the label, the hint, the secondary figure, the difference and the loading state stay. Run the case files of the components that use the card by hand once and name in the final message each case that did not pass before the change."
+do_4 = "do_4 Start the render check of the statistics part by hand, in the foreground and never detached, with the options the verification command of this task holds, and read its summary and every finding of the kinds cut, scale, sideways and shift. Correct each finding the change causes. No limit of the check is raised and no element is hidden from it. Work with at most one full run by hand: a run of the whole part takes close to an hour. Then render by hand the home view of the home part and the list of transactions of the transactions part, each with the option --view of the check, since both show the card. Then start the statistics part by hand with the start command the part file holds, open the statistics view at the widths 1024 and 1100 with the browser the check installs and read for each value of a card its scroll width, the width of its box and its size of text: no value is wider than its box. Where that read cannot be set up within twenty minutes, leave it out and say so in the final message."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.131.kvx in present tense: the form of a card value with its steps and the least step, the place where the rule lies, the count of renders of the last run of the statistics part with its result, for each kind of finding the count of the first run and of the last, and for the widths 1024, 1100 and 1280 the size of text a value of ten and of twelve characters takes on the statistics view. Another task of this group can change the same shared file at the same time: change only what this task needs. Start the build and the counted verification early and keep time for them: the counted verification renders the whole statistics part. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui", "apps/explorer/toolkit"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.131.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.131.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/statistics.json --out /tmp/ui-check/explorer-statistics && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/ ui/home/ ui/pages/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 280
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.130]
+title = "Let the value of a statistic tile of the explorer show whole at every width"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.120"]
+reqs = ["22998.1"]
+capabilities = ["22.44.130"]
+interfaces = []
+do_1 = "do_1 Gotcha 4738, decisions 3811, 3708 and 3803. Read apps/explorer/ui/shared/stats/StatsWidget.tsx whole, the case files apps/explorer/ui/shared/stats/StatsWidget.spec.tsx and apps/explorer/ui/home/Stats.spec.tsx, the file apps/explorer/ui/home/Stats.tsx, the size tokens and the text style of the value in apps/explorer/toolkit/theme/foundations/typography.ts, the record spec/layerx-merge/programme/records/ui/22.44.120.kvx, the part file tools/ui-check/surfaces/explorer/parts/home.json and tools/ui-check/README.md for the rules with the names cut and scale. Read with git grep under apps/explorer/ui which components use the widget."
+do_2 = "do_2 Give the text of a value the form of decision 3811. It takes the fixed size where the tile holds the value in one line. Where the tile is narrower it takes the largest of the steps 20, 18, 16 and 14 pixels at which the value fits in one line, by size tokens the surface holds. Where the value does not fit at 14 pixels it breaks after a separator or at a space. Remove the ellipsis and the hidden overflow from the value. The whole value and its separator nodes stay in the document, and the prefix and the unit of a value count into its width. The line height of the value stays. The steps follow the root size of text. The wrapper of the value is a container of the kind inline-size already and the value is set in a mono face with tabular numbers: the widths at which a value changes its step follow from the count of its characters. No size token, no recipe and no text style changes, and the type scale in the part files of the render check stays as it is."
+do_3 = "do_3 The rule lies in the widget and holds for every component that uses it: change a user of the widget only where it sets a style that pins the form of gotcha 4738. Change the cases that pin the ellipsis with the change they pin. The case files apps/explorer/ui/shared/stats/StatsWidget.spec.tsx and apps/explorer/ui/home/Stats.spec.tsx state the new form: no ellipsis and no hidden overflow on a value, the fixed size as the upper bound, the step a value takes for counts of ten and of thirteen characters at box widths of 102, 122, 137 and 180 pixels, and the whole value with its separator nodes in the document. No assertion on behaviour is weakened, and the cases on the label, the difference, the period and the loading state stay."
+do_4 = "do_4 Start the render check of the home part by hand, in the foreground and never detached, with the options the verification command of this task holds, and read its summary and every finding of the kinds cut, scale, sideways and shift for the home view. The check renders the widths from 360 pixels in four modes. Correct each finding the change causes. No limit of the check is raised and no element is hidden from it. Work with at most two full runs by hand. Then start the home part by hand with the start command the part file holds, open the home view at the width 320 with the browser the check installs and read for each value of a statistic tile its scroll width, the width of its box and its size of text: no value is wider than its box. Where that read cannot be set up within twenty minutes, leave it out and say so in the final message."
+do_5 = "do_5 Write the record spec/layerx-merge/programme/records/ui/22.44.130.kvx in present tense: the form of a statistic value with its steps and the least step, the count of renders of the last run of the home part with its result, for each kind of finding the count of the first run and of the last, and for the widths 320, 360, 390 and 430 the size of text a count of ten characters takes in a tile of the home view. In the record spec/layerx-merge/programme/records/ui/22.44.120.kvx set the key statistic_values to the new form in one sentence in present tense and change no other key. Another task of this group can change the same shared file at the same time: change only what this task needs. Start the build and the counted verification early and keep time for them: the counted verification renders the whole home part. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui", "apps/explorer/toolkit", "spec/layerx-merge/programme/records/ui/22.44.120.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.130.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.130.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/home.json --out /tmp/ui-check/explorer-home && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/shared/ ui/home/ ui/pages/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.129]
+title = "Let the render check render a view once again after a capture that ran into its time limit"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.129"]
+interfaces = []
+do_1 = "do_1 Gotcha 4737 point three, decision 3810 point three. Read tools/ui-check/check.mjs whole and the case files under tools/ui-check/test with their fixtures. Read how a load finding takes a retry cause, how the surface loop renders a view once again and how a render is marked as retried."
+do_2 = "do_2 Give the load finding of a capture that ran into its time limit a retry cause with a name of its own, for the capture of the viewport and for the capture of the full page. A capture that ends with another error keeps its finding without a retry cause."
+do_3 = "do_3 The surface loop then renders that view once again in a fresh browser and marks the render as retried, as it does for the other retry causes. The finding of a second run-out stays in the result, and the counts and the exit status of the run follow it. A render that holds a finding of another kind beside the capture finding is not rendered again."
+do_4 = "do_4 Add cases under tools/ui-check/test: a capture that runs into its time limit once and ends in time on the second render gives a render that is marked as retried and holds no finding; a capture that runs into its limit on both renders keeps one finding and a failing result; a capture that ends with another error is not rendered again. Use the bounds a case can pass to the check so that the cases end within seconds. Keep the cases the files hold."
+do_5 = "do_5 Name the retry cause in tools/ui-check/README.md where the README names the causes of a second render. Change no file outside the paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/ui-check/check.mjs", "tools/ui-check/test", "tools/ui-check/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "node --version && npm --version"
+verify_cmd = "(cd tools/ui-check && npm ci && npx playwright install --with-deps chromium && npm test)"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.44.128]
 title = "Close the account, application and service views of the explorer again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.120"]
@@ -177989,7 +178411,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.127]
 title = "Close the batch, deposit and withdrawal views of the explorer again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.120"]
@@ -178021,7 +178443,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.126]
 title = "Close the chain and cross-chain views of the explorer again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.120"]
@@ -178053,7 +178475,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.125]
 title = "Close the statistics, gas and validator views of the explorer again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.120"]
@@ -178085,7 +178507,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.124]
 title = "Close the token and search views of the explorer again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.120"]
@@ -178117,7 +178539,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.123]
 title = "Close the address and contract views of the explorer again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.120"]
@@ -178149,7 +178571,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.122]
 title = "Close the transaction and price feed views of the explorer again at the sizes of its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.120"]
@@ -178213,7 +178635,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.120]
 title = "Bring the touch size, the text styles, the shell and the home view of the explorer back to its earlier state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.105"]
@@ -209303,9 +209725,109 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.972]
+title = "Add the operator command of the launchpad that raises and reduces a capability through the control routes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.971"]
+reqs = ["22998.1"]
+capabilities = ["22.39.972"]
+interfaces = []
+do_1 = "do_1 Gotcha 4744, decision 3817. Read the packages under services/launchpad/security/control/enrolment that task 22.39.971 added, in services/launchpad/security/control the files http.go and http_models.go with the requests of the operations actions, transition and caps, the function SetCap of operator.go with the digest of its payload, the function approvalActive of store.go, the capability scenario of services/launchpad/security/control/qualification_phase4.py, and in services/launchpad/gateway/internal/app/app.go the place that builds the control store and mounts its handler."
+do_2 = "do_2 Add the command under services/launchpad/security/control/cmd/launchpad-operator with the files main.go and command.go. main.go only hands the arguments, the environment, the standard input and the standard output to the function of command.go and exits with its result. The command reads its settings from the environment: OPERATOR_DATABASE_URL for the connection of the role operator_runtime, OPERATOR_REGISTRAR_DATABASE_URL for the connection of the role operator_registrar, OPERATOR_FACTOR_KEY with 64 hexadecimal characters, and OPERATOR_GATEWAY_URL, which must be an address with https, or with http only for a loopback address. A setting a subcommand does not use may be absent. One-time codes are read from the standard input, one line each."
+do_3 = "do_3 The subcommands. enrol takes actor, wallet, role and scopes and prints once the provisioning address of the scheme otpauth with the type totp, the secret in base32, the algorithm SHA1, six digits and the period 30. revoke takes an actor. show reads the four capabilities pool_creation, quote, socket and paid_features from the route GET /v2/control/caps of the gateway and prints for each the admission, the limit, the expiry and the revision. reduce takes one actor, a capability, a limit, hours and a reason; it opens the session of the actor, posts the capability to the operation caps with the present revision and no approval key, and closes the session. raise takes a requester, an approver, a capability, a limit of at least 1, hours from 1 to 24 and a reason, and reads the code of the requester and then the code of the approver. It refuses equal actors before any request. It opens the session of the requester, reads the present revision, posts to the operation actions a proposal of the kind cap_change with a fresh key and the digest the store computes for the capability with the revision 0, opens the session of the approver and posts the transition of that action to approved, posts the capability with the approval key as the requester, and prints the admission the route shows afterward. The session of the approver stays open until the capability is posted. Both sessions are closed on every path, also after a refusal. The effective time of the capability is the time of the proposal and its expiry lies the given hours later."
+do_4 = "do_4 Where the command needs the digest of a capability, export one function of the control module that returns it and let SetCap and the command use the same one. No argument, no output line and no error text holds a credential, a key or a code; the provisioning address of enrol is the one output that carries a secret. A refusal of a route is printed with its status and its code field."
+do_5 = "do_5 Cases beside the command, each name starting with TestOperatorCommand, with a database made by the helper Bootstrap on the address of Start of services/launchpad/security/control/enrolment/enrolmenttest and a test server over the HTTP handler of a control store built on that database by the exported constructors, with the identity over the views: after raise the admission of pool_creation is allowed with the limit, and the audit holds the rows of both actors; raise with equal actors is refused without a request; a wrong code of the approver leaves the capability as it was; reduce to the limit 0 is admitted with one operator; show prints the four capabilities; after each path no session of the two actors is open; and no output of a run holds the credential of a session. Without a database: the checks of the settings and of the address of the gateway. These cases do not skip."
+do_6 = "do_6 Add to the README of services/launchpad/security/control a section on the command: the subcommands, the settings by name, the roles and the scope an operator needs for a capability, and the order of a raise. It states no value of a setting. Change no file outside the paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/security/control"]
+tests = []
+planned_paths = ["services/launchpad/security/control/cmd/launchpad-operator/main.go", "services/launchpad/security/control/cmd/launchpad-operator/command.go"]
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/security/control && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=security/control"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.971]
+title = "Add the enrolment of operators and the opening of an operator session with a one-time code to the control module of the launchpad"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.971"]
+interfaces = []
+do_1 = "do_1 Gotcha 4744, decision 3817. Read in services/launchpad/security/control the files http.go, operator.go, providers.go, local.go with the revocation of an identity, the function run of store.go, fixtures_test.go and the README, the files migrations/450000.sql, migrations/450001.sql and migrations/470001.sql with their registrations in migrations/registry.json, in migrations/grants.json the entries of the roles control_runtime, identity_runtime and recovery_operator, the helper Bootstrap of sdk/launchpad/shared/db/production/coordinatortest with the cases beside it, sdk/launchpad/shared/db/production/roles.go, and the history of the registration that was added last with every file that changed with it."
+do_2 = "do_2 Add a registered migration of the service security/policy with the next identifier of that service. It makes the table operator_enrolments in the schema security: actor of the type uuid as the key, wallet as text, role as text with a check of the roles infrastructure, finance, moderator and support, scopes as a list of text with one to thirty-two members, factor of the type bytea, last_step of the type bigint with the default 0, enrolled_at with the clock time as default, and revoked_at that may be empty. No column but revoked_at may be empty, and PUBLIC holds no right on the table. The registry follows: the registration with its predecessor, the application order, the digests, the approval, and every file the code of sdk/launchpad/shared/db/production and the command of the schema hold equal to the registry. A file that records an approval of an earlier release stays as it is where the code reads it as history."
+do_3 = "do_3 Add to migrations/grants.json two entries of a service security/operator in the form the entries of the service platform/recovery have. The role operator_runtime takes the rights the opening and the closing of do_4 use on the tables operator_enrolments and operator_sessions of the schema security and on the table authority_credentials of the schema pnl. The role operator_registrar takes the rights the enrolment and the revocation of do_4 use on the same tables. Choose the narrowest form by table, kind and column, and state every right in the final message. Take no right away and change no other role. Where the code of sdk/launchpad/shared/db/production lists the roles or the services, the two roles follow in the form the roles beside have."
+do_4 = "do_4 Add the package under services/launchpad/security/control/enrolment with the file enrolment.go. It imports no package of the control module. It holds the one-time code of RFC 6238 with SHA-1, six digits and a step of thirty seconds, and the sealing of a secret by AES-256-GCM with a key of 32 bytes, a random nonce of 12 bytes before the sealed text and the actor as additional data. Where the lint configuration refuses SHA-1, mark that one use in the form the configuration allows, with the reason that RFC 6238 names the function. Enrol takes actor, wallet, role and scopes, refuses an actor that holds an enrolment without revoked_at, makes a secret of 20 random bytes, stores it sealed and returns it once. Revoke sets revoked_at of the enrolment and closes every open session and credential of the actor. Open takes actor and code. It reads the enrolment under a row lock, refuses a revoked one, checks the code for the step of the database clock and for the step before it, and refuses a step that is not above last_step. In the same transaction last_step takes the step, the table operator_sessions takes one row with a fresh uuid in its lower-case text form as session_id, the wallet and the scopes of the enrolment, the actor in its text form, the audience control, issued_at from the database clock, expires_at and mfa_expires_at five minutes later and revoked false, and the table authority_credentials takes one row with a fresh credential_id, the actor, the role and the scopes of the enrolment, the SHA-256 of the credential as token_hash, the same uuid as session_id and expires_at five minutes later. The credential is 32 random bytes written as 64 hexadecimal characters. Open returns the credential and the session id. Close takes the session id, sets revoked on the session and revoked_at on the credential. No error text and no log line of the package holds a code, a secret, a key or a credential."
+do_5 = "do_5 Add the package under services/launchpad/security/control/enrolment/enrolmenttest with the file enrolmenttest.go, a helper for cases in the form the package sdk/launchpad/shared/db/production/coordinatortest is one. Its function Start takes the testing value, starts a private server of PostgreSQL in the way startControlPostgres of services/launchpad/security/control/fixtures_test.go does, stops it and removes its directory when the case ends, and returns the administrator address. Where the variable COORDINATOR_TEST_POSTGRES_DSN holds an address, Start returns that address and starts nothing. The present fixture of the control package keeps its code. One case of the package starts the server and reads its version."
+do_6 = "do_6 Cases in the package under services/launchpad/security/control/enrolment, each name starting with TestOperator. Without a database: the code function against the published test values of RFC 6238 for SHA-1 cut to six digits, the sealing with its opening, refused with another actor and with another key. With a database made by the helper Bootstrap on the address of Start, with the roles operator_runtime, operator_registrar, control_runtime and identity_runtime, and with the connections of the two operator roles: an enrolment and an opening leave the rows named in do_4, the view authority_credentials_v2 shows the credential while the session is open and no longer after Close, the same view no longer shows it after Revoke, a second opening with the same code is refused, a wrong code is refused and leaves last_step, a revoked enrolment is refused, a second enrolment of an actor is refused while the first is not revoked, and the role operator_runtime can neither insert nor revoke an enrolment. These cases do not skip. One case in the control package asserts that Resolve of the identity over the views, read through the connection of the role control_runtime or of the role the present cases use for it, returns the principal with the role and the scopes for a credential that Open made. The present cases stay and none is weakened. The record of statements under services/launchpad/gateway/internal/rolecheck keeps its content."
+do_7 = "do_7 Change no file outside the paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/security/control", "migrations", "sdk/launchpad/shared/db/production"]
+tests = []
+planned_paths = ["services/launchpad/security/control/enrolment/enrolment.go", "services/launchpad/security/control/enrolment/enrolmenttest/enrolmenttest.go"]
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/security/control && go vet ./...) && (cd sdk/launchpad/shared && go vet ./db/production/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=security/control && (cd sdk/launchpad/shared && go test -count=1 -timeout 30m ./db/production/...)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.970]
+title = "Let the release list of the launchpad name a release of the market capability for the committed deployment"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.970"]
+interfaces = []
+do_1 = "do_1 Gotcha 4743, decision 3816. Read sdk/launchpad/shared/config/capabilities/catalog.go whole, sdk/launchpad/shared/config/capabilities/frozen.json, sdk/launchpad/shared/config/capabilities/catalog_test.go, in sdk/launchpad/shared/config/capabilities/preflight.go the end of the function that sets ExecutionPermitted and the function that builds the revision, in sdk/launchpad/shared/chain/client.go the function ReleaseReady, the first lines of sdk/launchpad/shared/config/deployment/current.json and in tools/launchpad/production/interfaces/capability_check.py the lines on states."
+do_2 = "do_2 In sdk/launchpad/shared/config/capabilities/frozen.json add after the member capabilities a member released: a list with exactly one record whose member id holds core_market and whose member deploymentVersion holds paxeer125-v6.12.0. The members schemaVersion, sourceSha256 and capabilities keep their bytes. In sdk/launchpad/shared/config/capabilities/catalog.go add the type Release with the fields ID and DeploymentVersion under the names id and deploymentVersion, give the type Catalog the field Released under the name released, and add the function Released with the arguments id and deploymentVersion: it answers true only where the list holds a record with both values and the id stands among the capabilities of the list."
+do_3 = "do_3 Let Require keep its refusal of an unknown id, return no refusal where Released answers true for the id and the deployment version of deployment.Current, and keep the present rule on states for every other case. Let AssessFamily set ReleaseEnabled true where Released answers true for the capability and the deployment version of the manifest it was given or the present rule on states releases the entry. Change no other line of AssessFamily and no line of sdk/launchpad/shared/config/capabilities/preflight.go."
+do_4 = "do_4 Cases in sdk/launchpad/shared/config/capabilities/catalog_test.go. The case TestFrozenIDsAndPrerequisitesMatchBaseline keeps its compare of the digest and of the mirrored entries. It asserts that Require returns no refusal for core_market, that Require refuses each of the other thirteen capabilities with the reason prerequisite_unavailable, that Released answers false for core_market with another deployment version and for an id outside the list, and that every record of the member released names a listed capability and a deployment version that is not empty, and none stands twice. The case TestCoreIndependentOfOptionalOracle asserts ReleaseEnabled true for its four families with the manifest of the committed deployment, and one more case builds the manifest and its attestation for another deployment version and asserts Supported true and ReleaseEnabled false for the family creation."
+do_5 = "do_5 One case of the preflight engine in sdk/launchpad/shared/config/capabilities asserts for a creation request of the stage approval on the committed deployment Supported true, ExecutionPermitted true and no reason code. Where a case with such a request exists, add the asserts there. In sdk/launchpad/shared/chain/snapshot_runtime_coverage_test.go let the case that reads ReleaseReady assert that it returns no refusal. Run the cases of the module under sdk/launchpad/shared and of the module services/launchpad/api. Where a case of sdk/launchpad/shared/config/capabilities, sdk/launchpad/shared/chain or services/launchpad/api/internal/app asserted the earlier refusal of the market capability on the committed deployment or a digest that follows the catalog, let it assert the new result; change only cases under services/launchpad/api/internal/app and no source of that module. Name every case you changed in the final message."
+do_6 = "do_6 Where tools/launchpad/production/bootstrap/tests/source-catalog.json holds an entry of a case file you changed, refresh the digest and the declaration lines of that entry by the inventory command of the catalog tool beside it and change no other entry. Change no file under sdk/launchpad/protocol, no file of the checker and not tools/launchpad/production/bootstrap/check-registry.json. Change no file outside the paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/config/capabilities", "sdk/launchpad/shared/chain", "services/launchpad/api/internal/app", "tools/launchpad/production/bootstrap/tests/source-catalog.json"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && go vet ./...) && (cd services/launchpad/api && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/shared && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.964]
 title = "Give the stream cleanup of the ranking case helper the deadline form of its reset"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -209338,7 +209860,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.963]
 title = "Set release 7.0.2, add its release notes and let the API documents and the node image file follow the version file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.962"]
@@ -259863,9 +260385,40 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.965]
+title = "Let the open expiry case of the runtime admission set the age of its held send by the lifetime setting"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.962"]
+reqs = ["22998.1"]
+capabilities = ["22.39.965"]
+interfaces = []
+do_1 = "do_1 Gotcha 4735, decision 3808. Read node/sequencer/runtime_admission_failover_test.go whole, the place in node/sequencer/node.go that builds the nonce queue, the lifetime setting in node/sequencer/config.go, the drop of held sends in node/sequencer/nonce_queue.go and the cases of node/sequencer/nonce_lifetime_test.go. Read how the node of the case gets its configuration and which lifetime its queue holds."
+do_2 = "do_2 Point one. In the case TestRuntimeAdmissionNonceSendAndOpenExpiry set the arrival of the held send back by twice the lifetime the queue of the node of the case holds, read from the configuration of that node, in place of two lease durations. Where the configuration of the node of the case does not carry the lifetime its queue holds, take the value from the place the queue takes it from and name that in the final message."
+do_3 = "do_3 Points two and three. Keep every assertion of the case and its message. Change no other case and no file outside node/sequencer/runtime_admission_failover_test.go. Where the case still does not pass after the change for a cause in the product, change nothing in the product and give the cause with file and line in the final message."
+do_4 = "do_4 Run the cases of the whole package node/sequencer once by hand with go test -count=1 -timeout 30m ./node/sequencer/ and read every line of the output. Name each case that does not pass in the final message with its first message. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/sequencer/runtime_admission_failover_test.go"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/..."
+verify_cmd = "go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestRuntimeAdmission"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.962]
 title = "Give held transactions a lifetime setting of their own and write the sequencer settings in effect at start"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.961"]
@@ -350310,6 +350863,37 @@ do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUE
 do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
+
+[task.22.39.969]
+title = "Let two node cases wait for the state store before they read the query state of the newest height after a commit"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.969"]
+interfaces = []
+do_1 = "do_1 Gotcha 4742, decision 3815. Read node/leader_schedule_gov_test.go whole, in node/leader_source_test.go the block helper commitLeaderSourceBlock and one case that uses it, in node/test_helpers.go the helper WaitForTestQueryHeight, in node/upgrades_sequencer_test.go the case TestUpgradesSequencerSwitchAtActivation with its local block helper, and in sdk/storev2/rootmulti/store.go the function CacheMultiStoreWithVersion."
+do_2 = "do_2 In node/leader_schedule_gov_test.go let the local block helper of the case call app.WaitForTestQueryHeight with the committed height after its commit and after its check of the last block height. Change no assert of the case and no order of its reads."
+do_3 = "do_3 In node/upgrades_sequencer_test.go let the local block helper of the case TestUpgradesSequencerSwitchAtActivation call the helper after its commit in the same form. The file stands inside the package, so the call takes no package name. Where the wait cannot hold after one block of that case, call it after the commit the read through the query context follows, and name that block and the reason in the final message. Change no assert of the case."
+do_4 = "do_4 Run the case of node/leader_schedule_gov_test.go fifty times in a row and the case of node/upgrades_sequencer_test.go ten times in a row by hand, and state both counts in the final message. Change no file outside the paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/leader_schedule_gov_test.go", "node/upgrades_sequencer_test.go"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/..."
+verify_cmd = "go test -count=1 -timeout 30m ./node/ -run ^TestLeaderScheduleFollowsGovernedChangeNextHeight && go test -count=1 -timeout 30m ./node/ -run ^TestUpgradesSequencerSwitchAtActivation && go test -count=1 -timeout 30m ./node/ -run ^TestAppLeaderSchedule && go test -count=20 -timeout 30m ./node/ -run ^TestLeaderScheduleFollowsGovernedChangeNextHeight"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.655]
 title = "Build the call environment of the upgrade lifecycle test with the chain configuration of the node"
@@ -477785,6 +478369,102 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.968]
+title = "Hold the sends of the renewed ban case of the rate limit cases inside one rate window"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.968"]
+interfaces = []
+do_1 = "do_1 Gotcha 4737 point two, decision 3810 point two. Read services/explorer/backend/apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs whole and services/explorer/backend/apps/explorer/lib/explorer/utility/rate_limiter.ex whole with the wrapper of the rate store beside it. Read how the limiter counts sends per rate window and how it computes the length of a ban."
+do_2 = "do_2 Let the request helper take the room a case needs behind its send, in milliseconds, with the present margin as the value where a case names none. The deadline of the wait of the helper follows the room."
+do_3 = "do_3 In the case with the name renewed ban survives an older expiry and its own timer clears all history let the first send ask for the room that covers the wait of the case for the end of the first ban and the margin of its last send. State in the case that its sends fell into the same rate window, by the number of the window at the sends."
+do_4 = "do_4 Run the file ten times in a row with services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs and read each run. Where a run of a case does not end as the others, name the call and the cause in the final message. Keep what the cases assert, skip no case and remove no case. Change no file outside services/explorer/backend/apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs. Where a cause lies in the limiter, change nothing there and give file and line in the final message."
+do_5 = "do_5 Give the count of runs and the result in the final message. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/missing_block_range_and_rate_limit_state_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.967]
+title = "Let the market chart routes of the explorer keep the stored closing price where no current rate is known"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.967"]
+interfaces = []
+do_1 = "do_1 Gotcha 4737 point one, decision 3810 point one. Read services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain/market_history_chart_controller.ex whole, the function market_chart in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex, the case files services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/chain/market_history_chart_controller_test.exs and services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs, and under services/explorer/backend/apps/explorer/lib/explorer/market the files market.ex, token.ex, market_history.ex and market_history_cache.ex for the rate record, the recent history and its cache."
+do_2 = "do_2 In both routes keep the stored closing price of the newest day where the current rate holds no fiat value, and set it to the fiat value in every other case as before. State the rule once and let both routes take it."
+do_3 = "do_3 In the encoder leave the market value of a day open where the day holds no market value and the supply or the closing price of that day is not known. Keep the product for every other day. The answers of both routes keep their keys."
+do_4 = "do_4 Add cases to services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/chain/market_history_chart_controller_test.exs and to the part of services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs for /api/v2/stats/charts/market: rows of the recent history without a market value are stored while no current rate is known, the route answers with status 200, and the entry of the newest day holds its stored closing price and an open market value. Add one case in which a current rate is known and the newest day takes its fiat value, in the form the cases of the package use to set a rate. Let each case store what it reads and put back what it changed, so that it ends the same way in any order of the cases. Keep the cases the files hold."
+do_5 = "do_5 Change no file outside the four paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain/market_history_chart_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/chain/market_history_chart_controller_test.exs", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/controllers/chain/market_history_chart_controller_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.966]
+title = "Give the cases of the token price fetcher a form that does not depend on the order of its requests"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.966"]
+interfaces = []
+do_1 = "do_1 Gotcha 4736, decision 3809. Read services/explorer/backend/apps/explorer/test/explorer/market/fetcher/token_test.exs whole and services/explorer/backend/apps/explorer/lib/explorer/market/fetcher/token.ex whole, and the source module the cases configure with its answer for an empty list. Read how the case template of the package starts and ends a case and how the supervisor of a case stops the fetcher."
+do_2 = "do_2 Point two. Run services/explorer/backend/apps/explorer/test/explorer/market/fetcher/token_test.exs thirty times in a row with services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/fetcher/token_test.exs and read each run. Where a run of a case does not end as the others, find the call that ends it and its cause. Look first at the case with the name empty body in /coins/list response and at the read of the state after the first request."
+do_3 = "do_3 Point one. Give the four cases a form that does not depend on the order of the first and the second request: each case waits for the step it reads, and it reads the fetcher in a form that holds while the next fetch runs or has ended. Where the cases share the form, state it once in the file and let the four cases take it."
+do_4 = "do_4 Points three and four. Keep what the cases assert about the tokens and about the requests, skip no case and remove no case. Change no file outside services/explorer/backend/apps/explorer/test/explorer/market/fetcher. Where the cause lies in the fetcher, change nothing there and give file and line in the final message."
+do_5 = "do_5 Run the file thirty times in a row once more at the final revision and give the count of runs and the result in the final message. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/test/explorer/market/fetcher"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/fetcher/token_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

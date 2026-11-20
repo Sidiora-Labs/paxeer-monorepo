@@ -71,7 +71,7 @@ export const ChartWidgetContent = React.memo(({
   }
 
   return (
-    <Box flexGrow={ 1 } maxW="100%" position="relative" h="100%">
+    <Box flexGrow={ 1 } minW={ 0 } minH={ 0 } maxW="100%" position="relative" h="100%">
       <Chart
         charts={ charts }
         zoomRange={ zoomRange }

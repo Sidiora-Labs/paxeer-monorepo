@@ -19,9 +19,9 @@ export const fonts: ExcludeUndefined<ThemingConfig['tokens']>['fonts'] = {
 };
 
 export const fontSizes = {
-  fluidDisplay: { value: 'clamp(2rem, 1.833333rem + 0.740741vw, 2.5rem)' },
-  fluidH1: { value: 'clamp(1.5rem, 1.416667rem + 0.37037vw, 1.75rem)' },
-  fluidH2: { value: 'clamp(1.125rem, 1.083333rem + 0.185185vw, 1.25rem)' },
+  fluidDisplay: { value: '2.5rem' },
+  fluidH1: { value: '1.75rem' },
+  fluidH2: { value: '1.25rem' },
   body: { value: '0.875rem' },
   small: { value: '0.8125rem' },
   label: { value: '0.6875rem' },

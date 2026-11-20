@@ -2,7 +2,7 @@ import type { GridProps } from '@chakra-ui/react';
 import { Box } from '@chakra-ui/react';
 import React from 'react';
 
-import breakpoints from 'toolkit/theme/foundations/breakpoints';
+import { INLINE_CONTROL_STYLES } from 'toolkit/utils/inlineControl';
 import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 
 export * from 'ui/shared/DetailedInfo/DetailedInfo';
@@ -11,20 +11,23 @@ export const Container = (props: GridProps) => (
   <Box containerType="inline-size" containerName="activity-details" minW={ 0 } w="full" data-activity-details>
     <DetailedInfo.Container
       { ...props }
-      templateColumns="minmax(0, 1fr)"
-      textStyle="body"
+      templateColumns={{ base: 'minmax(0, 1fr)', lg: 'calc(var(--chakra-spacing-40) + var(--chakra-spacing-15)) minmax(0, 1fr)' }}
+      textStyle={{ base: 'sm', lg: 'md' }}
       css={{
-        '& button': { minW: 'touchTarget', minH: 'touchTarget' },
-        '& > [data-detailed-info-label]': { borderTopWidth: 'var(--chakra-border-widths-1)', pt: 2, minW: 0, minH: 8 },
+        '& a': INLINE_CONTROL_STYLES,
+        '& > [data-detailed-info-label]': {
+          borderTopWidth: 'var(--chakra-border-widths-1)', pt: 2, minW: 0, minH: DetailedInfo.ITEM_VALUE_LINE_HEIGHT,
+        },
         '& > [data-detailed-info-value]': {
-          borderTopWidth: 0, py: 2, minH: 8, lineHeight: 'body', whiteSpace: 'normal', overflowWrap: 'anywhere', flexWrap: 'wrap',
+          borderTopWidth: { base: 0, lg: 'var(--chakra-border-widths-1)' },
+          py: 2,
+          minH: DetailedInfo.ITEM_VALUE_LINE_HEIGHT,
+          whiteSpace: 'normal',
+          overflowWrap: 'anywhere',
+          flexWrap: 'wrap',
         },
-        '& > [data-detailed-info-label] > div > div': { py: 0, fontWeight: 'medium' },
+        '& > [data-detailed-info-label] > div > div': { py: { base: 1.25, lg: 1 }, fontWeight: { base: 'bold', lg: 'medium' } },
         '& > :not([data-detailed-info-label]):not([data-detailed-info-value])': { gridColumn: '1 / -1' },
-        [`@container activity-details (min-width: ${ breakpoints.lg })`]: {
-          gridTemplateColumns: 'var(--chakra-spacing-56) minmax(0, 1fr)',
-          '& > [data-detailed-info-value]': { borderTopWidth: 'var(--chakra-border-widths-1)' },
-        },
       }}
     />
   </Box>

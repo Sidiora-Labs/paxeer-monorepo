@@ -15,7 +15,7 @@ const StatTile = ({ label, children, isLoading, hint }: Props) => (
   <Box bg="bg.surface" borderWidth="1px" borderColor="hairline" borderRadius="card" p={ 4 } minW={ 0 } data-stat-tile={ label }>
     <Text textStyle="label" color="text.muted" textTransform="uppercase" mb={ 2 } display="flex" alignItems="center" gap={ 2 }>
       { label }
-      { hint && <Hint label={ hint } isLoading={ isLoading }/> }
+      { hint && <Hint inline label={ hint } isLoading={ isLoading }/> }
     </Text>
     <Skeleton loading={ isLoading } textStyle="statValue" data-stat-value>
       { children }

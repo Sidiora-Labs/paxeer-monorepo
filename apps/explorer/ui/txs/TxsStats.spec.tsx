@@ -194,7 +194,11 @@ describe('TxsStats', () => {
     const tracks = declarationsOf(row, 'grid-template-columns');
 
     expect(tracks.length).toBeGreaterThan(0);
-    expect(tracks.every((rule) => rule.value.includes('repeat(auto-fit,'))).toBe(true);
-    expect(tracks.every((rule) => /minmax\(min\(100%,\s*var\(--chakra-spacing-62\\\.5\)\),\s*1fr\)/.test(rule.value))).toBe(true);
+    expect(tracks.every((rule) => /minmax\(\s*0/.test(rule.value))).toBe(true);
+    expect(tracks.map((rule) => rule.value)).toEqual(expect.arrayContaining([
+      'minmax(0, 1fr)',
+      'repeat(2, minmax(0, 1fr))',
+      'repeat(7, minmax(0, 1fr))',
+    ]));
   });
 });

@@ -34,17 +34,17 @@ const Item = ({ name, file_size: fileSize }: IconInfo) => {
         whiteSpace="normal"
         overflowWrap="anywhere"
         minW={ 0 }
-        w="var(--chakra-spacing-30)"
+        w="calc(var(--chakra-spacing-100) / 4)"
         maxW="100%"
         textAlign="center"
         onClick={ copy }
         cursor="pointer"
         borderRadius="control"
-        p={ 2 }
+        p={ 0 }
         _hover={{ bg: 'raised' }}
         _active={{ bg: 'accent.soft' }}
       >
-        <IconSvg name={ name.replace('.svg', '') as IconName } boxSize="var(--chakra-spacing-24)" bgColor="surface" borderRadius="base"/>
+        <IconSvg name={ name.replace('.svg', '') as IconName } boxSize="calc(var(--chakra-spacing-100) / 4)" bgColor="surface" borderRadius="base"/>
         <Box as="span" maxW="100%" fontWeight="medium" mt={ 2 }>{ name }</Box>
         <Box as="span" maxW="100%" color="text.secondary" role="status">{ hasCopied ? 'Copied' : formatFileSize(fileSize) }</Box>
       </chakra.button>

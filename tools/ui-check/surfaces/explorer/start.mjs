@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { createRequire, enableCompileCache, flushCompileCache } from 'node:module';
 import { readFile, readdir } from 'node:fs/promises';
@@ -5,7 +6,10 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
+import { watchSurfaceOwner } from './lifecycle.mjs';
 import { tokenServerAnswer } from './tokens.mjs';
+import { readBlockResponses } from './block-responses.mjs';
+import { prepareAddressResponses, readAddressResponses } from './address-responses.mjs';
 
 const directory = fileURLToPath(new URL('../../../../apps/explorer/', import.meta.url));
 const compileCache = enableCompileCache();
@@ -19,33 +23,42 @@ const transactionAnswers = JSON.parse(await readFile(join(directory, '.next/cach
 if (transactionAnswers.buildId !== (await readFile(join(directory, '.next/BUILD_ID'), 'utf8')).trim()) throw new Error('Transaction answers must match the explorer build');
 const transactionSurface = { answers: transactionAnswers.answers.map((answer) => ({ ...answer, pattern: new RegExp(answer.pattern.source, answer.pattern.flags), body: Buffer.from(answer.body, 'base64') })) };
 const productionConfig = JSON.parse(await readFile(join(directory, '.next/required-server-files.json'), 'utf8')).config;
+productionConfig.experimental.preloadEntriesOnStart = false;
 Object.assign(process.env, environment, { NODE_ENV: 'production', DISABLE_TRACKING: 'true', NEXT_TELEMETRY_DISABLED: '1' });
 process.env.__NEXT_PRIVATE_STANDALONE_CONFIG = JSON.stringify(productionConfig);
 const next = require('next');
 const { WebSocketServer } = require('ws');
 const staticAssets = new Map();
 let blockResponses = new Map();
+let addressResponses = new Map();
 async function loadStaticAssets(relative = '') {
   const root = join(directory, '.next/static', relative);
-  for (const entry of await readdir(root, { withFileTypes: true })) {
+  const entries = await readdir(root, { withFileTypes: true });
+  await Promise.all(entries.map(async (entry) => {
     const filename = join(relative, entry.name);
     if (entry.isDirectory()) {
       await loadStaticAssets(filename);
     } else if (entry.name.endsWith('.js') || entry.name.endsWith('.css')) {
-      const body = await readFile(join(root, entry.name));
       staticAssets.set('/explorer/_next/static/' + filename, {
-        body,
+        filename: join(root, entry.name),
+        body: null,
         compressed: null,
         type: entry.name.endsWith('.js') ? 'application/javascript' : 'text/css',
       });
     }
-  }
+  }));
 }
-await loadStaticAssets();
-const iconSprite = await readFile('/tmp/explorer-icons/sprite.svg');
-const compressedIconSprite = gzipSync(iconSprite);
+async function readAssetBody(asset) {
+  if (!asset.body) asset.body = await readFile(asset.filename);
+  return asset.body;
+}
 const application = next({ dir: directory, dev: false, hostname: 'localhost', port: 4173 });
-await application.prepare();
+const [, , iconSprite] = await Promise.all([
+  application.prepare(),
+  loadStaticAssets(),
+  readFile('/tmp/explorer-icons/sprite.svg'),
+]);
+const compressedIconSprite = gzipSync(iconSprite);
 const handle = application.getRequestHandler();
 let ready = false;
 const server = createServer(async (request, response) => {
@@ -59,6 +72,7 @@ const server = createServer(async (request, response) => {
     const asset = staticAssets.get(decodeURI(url.pathname));
     if (asset && (request.method === 'GET' || request.method === 'HEAD')) {
       const compressed = /\bgzip\b/.test(request.headers['accept-encoding'] ?? '');
+      await readAssetBody(asset);
       if (compressed && !asset.compressed) asset.compressed = gzipSync(asset.body);
       const body = compressed ? asset.compressed : asset.body;
       response.writeHead(200, {
@@ -147,7 +161,7 @@ const server = createServer(async (request, response) => {
       response.end(JSON.stringify(payload ?? { message: 'Chart not found' }));
       return;
     }
-    const blockResponse = !url.search && blockResponses.get(url.pathname);
+    const blockResponse = !url.search && (blockResponses.get(url.pathname) ?? addressResponses.get(url.pathname));
     if (blockResponse && (request.method === 'GET' || request.method === 'HEAD')) {
       const compressed = /\bgzip\b/.test(request.headers['accept-encoding'] ?? '');
       const body = compressed ? blockResponse.compressed : blockResponse.body;
@@ -205,19 +219,21 @@ async function prepare() {
         await document.arrayBuffer();
         if (document.status !== 200) throw new Error(`${path}: statistics document must answer with status 200`);
       }
+      await prepareAddressResponses();
       await (await import('./blocks.mjs')).prepareBlockResponses();
-      blockResponses = await (await import('./blocks.mjs')).readBlockResponses();
+      blockResponses = await readBlockResponses();
       await (await import('./blocks.mjs')).assertBlockPages();
       await (await import('./transactions.mjs')).assertTransactionPages();
       flushCompileCache();
     } else {
-      blockResponses = await (await import('./blocks.mjs')).readBlockResponses();
+      blockResponses = await readBlockResponses();
     }
-    for (const response of blockResponses.values()) {
+    addressResponses = await readAddressResponses();
+    for (const response of [...blockResponses.values(), ...addressResponses.values()]) {
       for (const [, path] of response.body.toString().matchAll(/(?:src|href)="(\/explorer\/_next\/static\/[^"?]+\.(?:js|css))(?:\?[^\"]*)?"/g)) {
         const asset = staticAssets.get(decodeURI(path));
         if (!asset) throw new Error(`Prepared block asset must exist: ${path}`);
-        if (!asset.compressed) asset.compressed = gzipSync(asset.body);
+        if (!asset.compressed) asset.compressed = gzipSync(await readAssetBody(asset));
       }
     }
     ready = true;
@@ -231,6 +247,10 @@ async function close() {
   server.closeAllConnections();
   server.close();
   await application.close();
+}
+if (!process.argv.includes('--prepare')) {
+  const ownerPid = Number(execFileSync('ps', ['-o', 'ppid=', '-p', String(process.ppid)], { encoding: 'utf8' }).trim());
+  watchSurfaceOwner(ownerPid, () => void close());
 }
 process.on('SIGTERM', () => void close());
 process.on('SIGINT', () => void close());

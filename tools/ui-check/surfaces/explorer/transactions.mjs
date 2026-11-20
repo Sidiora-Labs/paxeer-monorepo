@@ -10,53 +10,52 @@ export async function assertTransactionPages() {
   const surface = await readSurface(fileURLToPath(new URL('./parts/transactions.json', import.meta.url)));
   const browser = await chromium.launch({ headless: true });
   try {
-    const context = await browser.newContext({
-      viewport: { width: 1440, height: 900 },
-      colorScheme: 'light',
-      serviceWorkers: 'block',
-    });
-    let active = true;
-    let answers = surface.answers;
-    const unanswered = [];
-    context.on('close', () => { active = false; });
-    try {
-      await context.grantPermissions(['clipboard-write', 'local-network-access'], { origin: surface.address });
-      await context.route('**/*', async (route) => {
-        try {
-          const request = route.request();
-          const url = new URL(request.url());
-          if (!['http:', 'https:'].includes(url.protocol)) {
-            await route.continue();
-            return;
-          }
-          let address = url.href;
-          let method = request.method();
-          if (url.origin === surface.address) {
-            const response = await route.fetch({ maxRedirects: 0, timeout: LIMITS.navigationMs });
-            const location = response.headers()['location'];
-            const redirected = location && response.status() >= 300 && response.status() < 400 ? new URL(location, url) : null;
-            if (!redirected || redirected.origin === surface.address) {
-              await route.fulfill({ response });
+    for (const view of surface.views) {
+      const context = await browser.newContext({
+        viewport: { width: 1440, height: 900 },
+        colorScheme: 'light',
+        serviceWorkers: 'block',
+      });
+      let active = true;
+      const answers = [...view.answers, ...surface.answers];
+      const unanswered = [];
+      context.on('close', () => { active = false; });
+      try {
+        await context.grantPermissions(['clipboard-write', 'local-network-access'], { origin: surface.address });
+        await context.route('**/*', async (route) => {
+          try {
+            const request = route.request();
+            const url = new URL(request.url());
+            if (!['http:', 'https:'].includes(url.protocol)) {
+              await route.continue();
               return;
             }
-            address = redirected.href;
-            method = [307, 308].includes(response.status()) ? method : 'GET';
+            let address = url.href;
+            let method = request.method();
+            if (url.origin === surface.address) {
+              const response = await route.fetch({ maxRedirects: 0, timeout: LIMITS.navigationMs });
+              const location = response.headers()['location'];
+              const redirected = location && response.status() >= 300 && response.status() < 400 ? new URL(location, url) : null;
+              if (!redirected || redirected.origin === surface.address) {
+                await route.fulfill({ response });
+                return;
+              }
+              address = redirected.href;
+              method = [307, 308].includes(response.status()) ? method : 'GET';
+            }
+            const answer = answers.find((entry) => entry.method === method && entry.pattern.test(address));
+            if (!answer) {
+              unanswered.push(`${method} ${address}`);
+              await route.abort('blockedbyclient');
+              return;
+            }
+            await route.fulfill({ status: answer.status ?? 200, headers: answer.headers, body: answer.body });
+          } catch (error) {
+            if (active) unanswered.push(error.message);
           }
-          const answer = answers.find((entry) => entry.method === method && entry.pattern.test(address));
-          if (!answer) {
-            unanswered.push(`${method} ${address}`);
-            await route.abort('blockedbyclient');
-            return;
-          }
-          await route.fulfill({ status: answer.status ?? 200, headers: answer.headers, body: answer.body });
-        } catch (error) {
-          if (active) unanswered.push(error.message);
-        }
-      });
-      const page = await context.newPage();
-      page.setDefaultTimeout(LIMITS.navigationMs);
-      for (const view of surface.views) {
-        answers = [...view.answers, ...surface.answers];
+        });
+        const page = await context.newPage();
+        page.setDefaultTimeout(LIMITS.navigationMs);
         const response = await page.goto(new URL(view.path, surface.address).href, {
           timeout: LIMITS.navigationMs,
           waitUntil: 'networkidle',
@@ -71,9 +70,9 @@ export async function assertTransactionPages() {
           await page.getByRole('link', { name: 'Back to home', exact: true }).waitFor({ state: 'visible' });
         }
         assert.deepEqual(unanswered, [], `${view.name}: fixed answers`);
+      } finally {
+        await context.close();
       }
-    } finally {
-      await context.close();
     }
   } finally {
     await browser.close();

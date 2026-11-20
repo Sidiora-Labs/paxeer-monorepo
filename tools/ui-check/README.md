@@ -57,7 +57,8 @@ runs a second time, and `firstDeadlineStep` names the step where its first
 render reaches the deadline, or is `null` without a deadline retry.
 `firstLoadFailure` holds the first eligible load finding's values and a `cause`
 of `navigation-timeout` (document unanswered), `navigation-load-timeout`
-(document answered, load event pending) or `connection-closed` for a load retry,
+(document answered, load event pending), `connection-closed`, or
+`screenshot-timeout` (viewport or full-page capture) for a load retry,
 and is `null` otherwise. The report's
 `retriedCount` counts renders that run a second time. Each view summary and the
 Total line append that count as `N retried` after their existing counts.
@@ -86,7 +87,8 @@ The check also repeats a render once in a fresh browser when all its findings
 are load findings caused by navigation timing out before the document answers
 (`navigation-timeout`) or after it answers while the load event is pending
 (`navigation-load-timeout`), or by an application request's connection closing or
-resetting before its answer (`connection-closed`).
+resetting before its answer (`connection-closed`), or by a viewport or full-page
+capture reaching its time limit (`screenshot-timeout`).
 This retry also replaces the first outcome and retains its cause in
 `firstLoadFailure`. If the second render has findings, those findings stand.
 State-step failures after navigation ends, HTTP error statuses, refused
@@ -109,6 +111,7 @@ The directory may also be absolute. A typical surface file has this form:
   "start": "npm run start -- --port 4173",
   "address": "http://localhost:4173",
   "readyPath": "/",
+  "readyMs": 60000,
   "views": [
     {
       "name": "home",
@@ -160,7 +163,10 @@ are rejected with the view's name.
 Commands run in `directory`. The optional `buildMs` is a whole number from 1000
 to 1800000 milliseconds, inclusive. It bounds the build; without it the bound is
 120000 milliseconds (120 seconds). Invalid values are rejected with the surface
-name, and a build timeout message names the applied bound.
+name, and a build timeout message names the applied bound. The optional `readyMs`
+is a whole number from 1000 to 120000 milliseconds, inclusive. It bounds the wait
+for the readiness path; without it the bound is 15000 milliseconds (15 seconds).
+Invalid values are rejected with the surface name and the bounds.
 
 The optional `outputs` is a list of one to sixteen nonempty paths relative to
 `directory`, and requires a `build` command. Absolute paths, paths outside the
@@ -170,11 +176,12 @@ symlinks, including links in parent directories of outputs that do not yet exist
 Before building, the check recursively removes only the named outputs; absent
 outputs are allowed. A named symlink is removed without removing its target.
 The order is remove outputs, build, start. Without `outputs`, nothing is removed.
-The report records the applied `buildMs` and an `outputs` list of the named paths
-that were present and removed, including when the build fails.
+The report records the applied `buildMs` and `readyMs`, and an `outputs` list of
+the named paths that were present and removed, including when the build fails.
 
-The start command stays running while readiness is polled for up to
-15 seconds. Navigation, state steps and viewport captures have a 10-second bound.
+The start command stays running while readiness is polled for up to `readyMs`
+milliseconds, or 15000 milliseconds (15 seconds) when `readyMs` is absent.
+Navigation, state steps and viewport captures have a 10-second bound.
 Full-page capture reads the document height and allows 10 seconds per viewport
 of height, rounded up, with a minimum of 10 seconds and a maximum of 60 seconds.
 The overall render deadline still applies. A failed full-page capture leaves the
@@ -378,7 +385,7 @@ the regular device matrix, report and exit behavior.
 
 | Kind | Finding |
 | --- | --- |
-| `load` | Undeclared failed HTTP response, expected refusal without a matching response, failed request other than a page-cancelled request, console error, uncaught error or rejection, unmatched external request, startup or render error. A document without visible text of an element's own, media with an area (image, SVG drawing, canvas, video or embedded frame) or controls, or a viewport screenshot containing a single colour, also produces a finding. Text clipped to nothing does not count as content. The finding names the document or screenshot measurement. Full-page capture allows 10000 milliseconds per viewport of document height, rounded up, between 10000 and 60000 milliseconds. A failed full-page capture produces a finding with `source: "screenshot"`, document `height` and the applied limit in `milliseconds`; it clears the screenshot and marks the render as not rendered, retaining all findings and measurements already collected. Viewport captures keep their 10000-millisecond limit. A render has a 300000-millisecond deadline across navigation, settling, measurement, contrast, keyboard traversal and screenshots. On the first deadline, its browser is force-closed and the same render runs once more in a new browser with the same bound; only the second outcome counts. A second deadline produces a finding with `source: "deadline"` and the last started `step`; the render is marked not rendered and its browser is force-closed. A render also runs once more in a fresh browser when every finding is a load finding caused by navigation timing out before the application answers or by an application request's connection closing or resetting before its answer. The second outcome replaces the first, is marked `retried` and retains the first cause and values in `firstLoadFailure`. Findings in that second outcome stay findings. HTTP error statuses, refused connections, other load causes and findings of another kind prevent a load retry. The per-render bound, `--jobs` concurrency and finding kinds stay the same. A matching declared refusal and its browser failed-resource console line are allowed. Page-cancelled requests add to the render's `cancelled` count without a finding; a cancelled document navigation remains a finding. Requests ended by the check produce only their original finding. |
+| `load` | Undeclared failed HTTP response, expected refusal without a matching response, failed request other than a page-cancelled request, console error, uncaught error or rejection, unmatched external request, startup or render error. A document without visible text of an element's own, media with an area (image, SVG drawing, canvas, video or embedded frame) or controls, or a viewport screenshot containing a single colour, also produces a finding. Text clipped to nothing does not count as content. The finding names the document or screenshot measurement. Full-page capture allows 10000 milliseconds per viewport of document height, rounded up, between 10000 and 60000 milliseconds. A failed full-page capture produces a finding with `source: "screenshot"`, document `height` and the applied limit in `milliseconds`; it clears the screenshot and marks the render as not rendered, retaining all findings and measurements already collected. Viewport captures keep their 10000-millisecond limit. A render has a 300000-millisecond deadline across navigation, settling, measurement, contrast, keyboard traversal and screenshots. On the first deadline, its browser is force-closed and the same render runs once more in a new browser with the same bound; only the second outcome counts. A second deadline produces a finding with `source: "deadline"` and the last started `step`; the render is marked not rendered and its browser is force-closed. A render also runs once more in a fresh browser when every finding is a load finding caused by navigation timing out before the application answers or while its load event remains pending, by an application request's connection closing or resetting before its answer, or by a viewport or full-page capture reaching its time limit (`screenshot-timeout`). The second outcome replaces the first, is marked `retried` and retains the first cause and values in `firstLoadFailure`. Findings in that second outcome stay findings. HTTP error statuses, refused connections, other load causes and findings of another kind prevent a load retry. The per-render bound, `--jobs` concurrency and finding kinds stay the same. A matching declared refusal and its browser failed-resource console line are allowed. Page-cancelled requests add to the render's `cancelled` count without a finding; a cancelled document navigation remains a finding. Requests ended by the check produce only their original finding. |
 | `sideways` | Document wider than the viewport, or visible element extending past either side or wider than the viewport. Text clipped to no area is excluded. Descendants of horizontal scroll containers are measured within those containers, whose boxes are measured against the viewport. Element geometry has a 0.5-pixel rounding tolerance. |
 | `cut` | Text with hidden or clipped overflow exceeds its box by more than 1 pixel, without declared ellipsis. Scrollable text is allowed. |
 | `contrast` | Axe measures text below 4.5:1, or large text below 3:1 (24 pixels, or bold at approximately 18.67 pixels). A custom axe check measures visible control borders, identifying fills and SVG fills/strokes below 3:1. Disabled controls are excluded. |

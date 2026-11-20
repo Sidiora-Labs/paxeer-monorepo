@@ -135,7 +135,7 @@ func TestProofSequencerConfig(t *testing.T) {
 	require.Equal(t, sequencer.Config{
 		Enable: true, Role: sequencer.RolePrimary, Mode: sequencer.ModeMicroBatch,
 		WALDir: filepath.Join(home, "data", "sequencer-wal"), WALRetainBlocks: 2,
-		NonceQueueMaxPerSender: 4, NonceQueueMaxTotal: 16,
+		NonceQueueMaxPerSender: 4, NonceQueueMaxTotal: 16, NonceQueueLifetime: sequencer.DefaultNonceQueueLifetime,
 		ReceiptKeyFile: keyPath, StandbyAddress: "127.0.0.1:26700",
 		ReplicationTimeout: 250 * time.Millisecond, LeaseDuration: 750 * time.Millisecond,
 		MicroBatchWindow: 5 * time.Millisecond, MicroBatchMaxCount: 17,
