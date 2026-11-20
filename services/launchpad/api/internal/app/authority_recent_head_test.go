@@ -128,6 +128,11 @@ func TestProductionAuthorityKeptEnvelope(t *testing.T) {
 		a, reader, head := newAuthorityReadinessState(t)
 		counter := &authorityAttestationCounter{Reader: reader}
 		a.reader = counter
+		engine, err := capabilities.NewPreflightEngine(counter, a.config.Manifest, developmentPoolRuntime, developmentSerialInterface, authorityMaxAge, authorityAttestationTimeout)
+		if err != nil {
+			t.Fatal(err)
+		}
+		a.engine = engine
 		var hold chan struct{}
 		headReads := 0
 		a.readHead = func(ctx context.Context) (committedHead, error) {
@@ -173,6 +178,9 @@ func TestProductionAuthorityKeptEnvelope(t *testing.T) {
 			t.Fatal("kept envelope read an authority dependency")
 		}
 		time.Sleep(time.Nanosecond)
+		reader.header.Time = uint64(time.Now().Unix())
+		reader.header.Number.Add(reader.header.Number, big.NewInt(1))
+		head = committedHead{Number: reader.header.Number.String(), Hash: reader.header.Hash().Hex()}
 		hold = make(chan struct{})
 		answers := make([]*httptest.ResponseRecorder, 8)
 		var finished atomic.Int64
