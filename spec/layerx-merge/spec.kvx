@@ -16132,6 +16132,12 @@ value = "One. Every request that the readiness wait of the function realBroker s
 basis = "Gotcha 4763."
 affects = []
 
+[decision.3837]
+title = "The package job of the launchpad test workflow holds the limit of the job of the single Go modules"
+value = "One. The job launchpad-test holds a limit of 60 minutes, the limit of the job of the single Go modules. Two. The case of the workflow test file reads the limit of the package job as a number of at least 60, in the form of its line for the job of the single Go modules. Three. The matrix, the steps and the commands of the job stay as they are, and so do the limits of the other jobs. Task 22.39.1031."
+basis = "Gotcha 4764."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45792,6 +45798,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1031]
+title = "Give the package job of the launchpad test workflow a limit of 60 minutes"
+reqs = ["22998.1"]
+touches = [".github/workflows/launchpad-test.yml", "tests/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/test_workflow_runs_on_routed.py"
+do_1 = "do_1 Gotcha 4764, decision 3837. Read the job launchpad-test in .github/workflows/launchpad-test.yml and the case test_launchpad_module_job_has_at_least_sixty_minutes in tests/ci/test_launchpad_test_workflow.py. Set the limit of the job launchpad-test to 60 minutes. Nothing else of the workflow changes."
+symbols = []
 
 [capability.22.39.1030]
 title = "Bound every request of the waits of the broker fixture of the provisioning cases of the launchpad by a wait of its own"
@@ -210357,6 +210372,35 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1031]
+title = "Give the package job of the launchpad test workflow a limit of 60 minutes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1031"]
+interfaces = []
+do_1 = "do_1 Gotcha 4764, decision 3837. Read the job launchpad-test in .github/workflows/launchpad-test.yml and the case test_launchpad_module_job_has_at_least_sixty_minutes in tests/ci/test_launchpad_test_workflow.py. Set the limit of the job launchpad-test to 60 minutes. Nothing else of the workflow changes."
+do_2 = "do_2 Let the case read the limit of the package job as a number of at least 60 in the form of its line for the job of the single Go modules. The other lines of the case stay as they are. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".github/workflows/launchpad-test.yml", "tests/ci"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/data/launchpad_go_tests.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_runner_routing_container_runtime.py tests/ci/test_workflow_runs_on_routed.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
