@@ -210845,7 +210845,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1024]
 title = "Let the search projection and the holdings replay of the stats module take a creation with any name, any symbol and without metadata"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1029"]
