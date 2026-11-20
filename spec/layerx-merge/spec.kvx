@@ -210571,7 +210571,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1033]
 title = "Keep the trade panel of the launchpad web ready after a submit that ends by a refusal in the wallet and give a state without a quote a control that asks a new price"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210876,7 +210876,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1023]
 title = "Carry a text value beyond the text rule as the empty value in the decoder of the launchpad indexer and take a log of the deployment beyond the raw bounds without an error"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1022"]
