@@ -210495,7 +210495,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1040]
 title = "Let the reward read of the pnl app of the launchpad check its source block once and send its node reads as batches"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
