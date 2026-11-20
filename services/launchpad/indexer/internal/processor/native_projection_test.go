@@ -127,9 +127,9 @@ func nativeProjectionNativeProjectionFixture(t *testing.T) (store.CanonicalBatch
 	encode("FeeFlow", uint8(4), poolAddress, caller, n(7), n(42), n(1), n(0), n(timestamp), n(height))
 	// A familiar signature at an unattested address never becomes a family.
 	foreign := ethtypes.Log{Address: caller, Topics: []common.Hash{nativeABI.Events["Swap"].ID}, BlockHash: blockHash, TxHash: txHash, BlockNumber: uint64(height)}
-	rejected, rejectErr := registry.Decode(foreign)
-	if rejectErr == nil || rejected.Event != nil || rejected.FailureReason != "untrusted_emitter" {
-		t.Fatalf("unattested native-shaped log accepted: %+v %v", rejected, rejectErr)
+	opaque, err := registry.Decode(foreign)
+	if err != nil || opaque.Status != "opaque" || !opaque.Opaque || opaque.Event != nil || opaque.FailureReason != "untrusted_emitter" {
+		t.Fatalf("unattested native-shaped log stays opaque: %+v %v", opaque, err)
 	}
 	batch.Blocks = []store.BlockCompleteness{{Height: height, Hash: strings.ToLower(blockHash.Hex()), RawCount: len(batch.Records), FetchComplete: true, RequiredDecodeComplete: true}}
 	return batch, envelopes, timestamp, poolAddress, token, txHash
