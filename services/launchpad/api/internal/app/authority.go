@@ -103,6 +103,7 @@ type networkAuthorityConfig = NetworkAuthorityConfig
 const (
 	authorityRefreshInterval    = 10 * time.Second
 	authorityMaxAge             = time.Minute
+	authorityAttestationReads   = 8
 	authorityAttestationTimeout = 10 * time.Second
 	authorityEnvelopeMaxAge     = authorityRefreshInterval + authorityAttestationTimeout
 	authorityRecentHeadMaxAge   = authorityMaxAge
@@ -249,6 +250,10 @@ func newNetworkAuthority(ctx context.Context, pool *pgxpool.Pool, c *config.Conf
 	}
 	a.engine, err = capabilities.NewPreflightEngine(a.reader, d.Manifest, d.ReviewedPoolRuntime, d.SerialInterfaceSHA256, time.Minute, 10*time.Second)
 	if err != nil {
+		a.Close()
+		return nil, err
+	}
+	if err := a.engine.SetAttestationReads(authorityAttestationReads); err != nil {
 		a.Close()
 		return nil, err
 	}
