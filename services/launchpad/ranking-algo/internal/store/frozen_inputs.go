@@ -37,7 +37,10 @@ func NewFrozenInputs(pool *pgxpool.Pool, reader FrozenProjectionReader) (*Frozen
 // cutoff obtains the cutoff from the database transaction clock.
 func (s *FrozenInputs) Freeze(ctx context.Context, runID string, cutoffs ...time.Time) (ranker.InputSnapshot, error) {
 	in, err := s.freeze(ctx, runID, cutoffs)
-	if _, _, refusal := ranker.RefreshRefusalDetails(err); refusal {
+	if step, class, refusal := ranker.RefreshRefusalDetails(err); refusal {
+		if class == "unavailable" && (step == "visibility" || step == "evidence") {
+			return in, errors.Unwrap(err)
+		}
 		return in, ranker.ErrUnavailable
 	}
 	return in, err
@@ -125,7 +128,10 @@ func (r *CanonicalInputReader) stats(name string) string {
 }
 func (r *CanonicalInputReader) ReadRankingUniverseTx(ctx context.Context, tx pgx.Tx, runID string, cutoffs ...time.Time) (ranker.InputSnapshot, error) {
 	in, err := r.ReadRankingUniverseTxDetailed(ctx, tx, runID, cutoffs...)
-	if _, _, refusal := ranker.RefreshRefusalDetails(err); refusal {
+	if step, class, refusal := ranker.RefreshRefusalDetails(err); refusal {
+		if class == "unavailable" && (step == "visibility" || step == "evidence") {
+			return in, errors.Unwrap(err)
+		}
 		return in, ranker.ErrUnavailable
 	}
 	return in, err
@@ -150,7 +156,7 @@ func (r *CanonicalInputReader) ReadRankingUniverseTxDetailed(ctx context.Context
 	}
 	visibility, err := r.Visibility.ReadRankingVisibility(ctx)
 	if err != nil {
-		return in, err
+		return in, ranker.NewRefreshRefusal("visibility", "unavailable", err)
 	}
 	if !visibility.Complete || visibility.Revision == "" || visibility.ObservedAt.IsZero() {
 		return in, ranker.NewRefreshRefusal("visibility", "validation", ranker.ErrUnavailable)
@@ -195,7 +201,7 @@ func (r *CanonicalInputReader) ReadRankingUniverseTxDetailed(ctx context.Context
 	if r.Evidence != nil {
 		evidence, err = r.Evidence.Read(ctx, uint64(typed), cutoff.Unix(), blockHash)
 		if err != nil {
-			return in, err
+			return in, ranker.NewRefreshRefusal("evidence", "unavailable", err)
 		}
 	}
 	query := r.universeQuery()
