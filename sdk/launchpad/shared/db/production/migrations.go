@@ -756,7 +756,7 @@ func validateExpectedSchema(want ExpectedSchema) error {
 				return fmt.Errorf("invalid expected column")
 			}
 		}
-		if len(g.Columns) > 0 && (kind == valueFunction || kind == valueSequence || len(g.Privileges) != 1 || (g.Privileges[0] != valueSELECT && g.Privileges[0] != valueUPDATE)) {
+		if len(g.Columns) > 0 && (kind == valueFunction || kind == valueSequence || len(g.Privileges) != 1 || (g.Privileges[0] != valueSELECT && g.Privileges[0] != valueUPDATE && !operatorInsertGrant(want.Service, g))) {
 			return fmt.Errorf("invalid expected column privilege")
 		}
 		if kind != valueFunction && len(g.ArgumentTypes) > 0 {

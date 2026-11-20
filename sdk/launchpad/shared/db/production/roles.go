@@ -51,9 +51,12 @@ func (m RoleManifest) capabilitySchemas() (map[string]string, error) {
 		"api_runtime":      {valueCoreApiCache: {valueApiLimits, "api_limits_owner"}, valueCoreDiscovery: {valueNarrativeDiscovery, "narrative_discovery_owner"}, valueCoreNotifications: {valueDiscoveryNotifications, "discovery_notifications_owner"}},
 		"identity_runtime": {"media/gateway/audit-source": {"gateway_audit_source", "gateway_audit_source_owner"}, "media/gateway/audit-sink": {"gateway_audit_sink", "gateway_audit_sink_owner"}, "media/gateway/storage": {"gateway", "gateway_owner"}, "security/policy": {"security", "security_owner"}},
 	}
+	for _, role := range []string{"operator_runtime", "operator_registrar"} {
+		allowed[role] = map[string][2]string{"security/control": {"pnl", "pnl_owner"}}
+	}
 	for _, c := range m.SchemaCapabilities {
 		expected, ok := allowed[m.RuntimeRole][c.Service]
-		if !ok || expected[0] != c.Schema || expected[1] != c.OwnerRole || schemas[c.Schema] != "" || ((m.RuntimeRole == "api_runtime" || m.RuntimeRole == "api_rest_runtime") && m.Service != "core/api") || (m.RuntimeRole == "identity_runtime" && m.Service != "media/gateway") || (m.RuntimeRole == "stats_runtime" && m.Service != valueCoreStatsWorkers) {
+		if !ok || expected[0] != c.Schema || expected[1] != c.OwnerRole || schemas[c.Schema] != "" || ((m.RuntimeRole == "api_runtime" || m.RuntimeRole == "api_rest_runtime") && m.Service != "core/api") || (m.RuntimeRole == "identity_runtime" && m.Service != "media/gateway") || (m.RuntimeRole == "stats_runtime" && m.Service != valueCoreStatsWorkers) || ((m.RuntimeRole == "operator_runtime" || m.RuntimeRole == "operator_registrar") && m.Service != "security/operator") {
 			return nil, fmt.Errorf("unreviewed runtime schema capability")
 		}
 		if _, err := HistoryTable(c.Service, c.Schema); err != nil {
@@ -157,8 +160,8 @@ func (m RoleManifest) Validate() error {
 			}
 			cs[c] = true
 		}
-		if len(g.Columns) > 0 && (len(g.Privileges) != 1 || (g.Privileges[0] != valueSELECT && g.Privileges[0] != valueUPDATE)) {
-			return fmt.Errorf("column grants require SELECT or UPDATE")
+		if len(g.Columns) > 0 && (len(g.Privileges) != 1 || (g.Privileges[0] != valueSELECT && g.Privileges[0] != valueUPDATE && !operatorInsertGrant(m.Service, g))) {
+			return fmt.Errorf("invalid column privilege")
 		}
 		if foreign && len(g.Columns) > 0 && g.Privileges[0] != valueSELECT {
 			return fmt.Errorf("foreign writes forbidden")
@@ -166,6 +169,13 @@ func (m RoleManifest) Validate() error {
 	}
 	return nil
 }
+func operatorInsertGrant(service string, g Grant) bool {
+	if service != "security/operator" || g.ObjectKind != valueTable || len(g.Privileges) != 1 || g.Privileges[0] != "INSERT" {
+		return false
+	}
+	return (g.Schema == "security" && (g.Object == "operator_enrolments" || g.Object == "operator_sessions")) || (g.Schema == "pnl" && g.Object == "authority_credentials")
+}
+
 func (m RoleManifest) GrantSQL() ([]string, error) {
 	if err := m.Validate(); err != nil {
 		return nil, err
