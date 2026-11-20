@@ -16096,6 +16096,12 @@ value = "One. In the stream snapshot handler of the launchpad API a failure of t
 basis = "Gotcha 4757."
 affects = []
 
+[decision.3831]
+title = "The chart toolbar reads Waiting for trades for a coin without a trade, and the verification of task 22.39.1017 bounds a package at twelve minutes"
+value = "One. While the chart holds its empty state for a coin without a trade and the connection status of its feed is connecting, snapshotting or replaying, the status of the chart toolbar reads Waiting for trades, the action Try again is not rendered, and the block cell is not rendered while the feed names no source height. Every other status keeps its label, its block cell and its action, and so does every status of a coin with a trade. Two. The verification command of task 22.39.1017 bounds every package of the indexer module at twelve minutes in place of seven, inside the 15 minutes of the Go test runs. The sentence of step four of that task on seven minutes yields to the command. The build command, the steps and the paths of that task stay as they are. Task 22.39.1019."
+basis = "Gotcha 4758."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45756,6 +45762,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1019]
+title = "Let the chart toolbar of the launchpad coin view read Waiting for trades while its chart holds the empty state of a coin without a trade"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4758 part one, decision 3831 point one. Read apps/launchpad/web/src/widgets/coin/chart-toolbar.tsx with the function freshnessLabel, the properties of ChartToolbar and its status block, the cases in apps/launchpad/web/src/widgets/coin/chart-toolbar.test.tsx, apps/launchpad/web/src/widgets/trading/tv-chart.tsx with the values emptyCandles and noTrades, its empty state and its ChartToolbar element, the cases in apps/launchpad/web/src/widgets/trading/tv-chart.render.test.tsx, the type ChartFreshness in apps/launchpad/web/src/widgets/trading/udf-datafeed.ts, the function beforeFirstFrameTransport in apps/launchpad/web/src/core/realtime/topic-snapshot.ts and the notice in apps/launchpad/web/src/widgets/coin/freshness-notice.tsx with its status Waiting for trades."
+symbols = []
 
 [capability.22.39.1018]
 title = "Bound every broker request of the provisioning of the launchpad by a wait of its own and send it again inside the deadline of the caller"
@@ -210217,6 +210232,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1019]
+title = "Let the chart toolbar of the launchpad coin view read Waiting for trades while its chart holds the empty state of a coin without a trade"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1019"]
+interfaces = []
+do_1 = "do_1 Gotcha 4758 part one, decision 3831 point one. Read apps/launchpad/web/src/widgets/coin/chart-toolbar.tsx with the function freshnessLabel, the properties of ChartToolbar and its status block, the cases in apps/launchpad/web/src/widgets/coin/chart-toolbar.test.tsx, apps/launchpad/web/src/widgets/trading/tv-chart.tsx with the values emptyCandles and noTrades, its empty state and its ChartToolbar element, the cases in apps/launchpad/web/src/widgets/trading/tv-chart.render.test.tsx, the type ChartFreshness in apps/launchpad/web/src/widgets/trading/udf-datafeed.ts, the function beforeFirstFrameTransport in apps/launchpad/web/src/core/realtime/topic-snapshot.ts and the notice in apps/launchpad/web/src/widgets/coin/freshness-notice.tsx with its status Waiting for trades."
+do_2 = "do_2 Give ChartToolbar an optional property that says the chart holds its empty state for a coin without a trade, and let the widget in apps/launchpad/web/src/widgets/trading/tv-chart.tsx pass its value noTrades. While that property is true and the connection status of the feed is connecting, snapshotting or replaying, the status of the toolbar reads Waiting for trades with the neutral mark, the action Try again is not rendered, and the block cell is not rendered while the feed names no source height. With the property true and any other connection status, and with the property false or absent, the label, the mark, the block cell and the action stay as they are. The function freshnessLabel keeps its answer for every status. The interval, mode and marker controls of the toolbar do not change."
+do_3 = "do_3 Add cases in apps/launchpad/web/src/widgets/coin/chart-toolbar.test.tsx: the property true with each of the three statuses gives the status Waiting for trades and no action Try again, the property true with the status offline keeps the label and the action of today, the property true with the status live keeps the label Live, and the property false with the status connecting keeps the label and the action of today. Add a render case in apps/launchpad/web/src/widgets/trading/tv-chart.render.test.tsx: a coin whose trade page is empty and whose feed waits for its first frame shows the empty state of the chart and the toolbar status Waiting for trades without the action, and a coin with a trade shows the status of its feed as today. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1018]
 title = "Bound every broker request of the provisioning of the launchpad by a wait of its own and send it again inside the deadline of the caller"
 status = "pending"
@@ -210267,7 +210312,7 @@ touches = ["services/launchpad/indexer"]
 tests = []
 planned_paths = []
 build_cmd = "cd services/launchpad/indexer && go vet ./..."
-verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/indexer && GOFLAGS=-timeout=7m python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -timeout 5m -shuffle on -run ^TestCreationSnapshot ./internal/processor/)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/indexer && GOFLAGS=-timeout=12m python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -timeout 5m -shuffle on -run ^TestCreationSnapshot ./internal/processor/)"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"
