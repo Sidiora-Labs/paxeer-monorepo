@@ -164,7 +164,7 @@ const TokenPageTitle = ({ tokenQuery, addressQuery, verifiedInfoQuery, hash }: P
     <>
       <PageTitle
         css={{
-          '& h1': { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+          '& h1': { whiteSpace: 'normal', overflow: 'visible' },
           '& [data-entity-identifier]': { flexWrap: 'nowrap' },
         }}
         kind="TOKEN"

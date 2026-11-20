@@ -11,8 +11,7 @@ type CreationAuthority=Pick<RuntimeAuthority,'revision'|'expiresAt'|'network'>;
 export type CreationAdmissionStage = 'approval' | 'creation';
 export type CreationCapabilityAdmission=(draft:CreationDraftV2,scope:AccountScope,stage:CreationAdmissionStage)=>Promise<void>;
 
-// Keep the approval stage in the hashed wire request: the shared runtime's
-// older creation request codec does not transport this field.
+// The answer type declares no stage member; the request digest and simulation mode bind the stage.
 async function creationPreflight(authority:CreationAuthority,draft:CreationDraftV2,scope:AccountScope,stage:CreationAdmissionStage,head:{hash:`0x${string}`;number:bigint},signal:AbortSignal) {
  const zero='0x0000000000000000000000000000000000000000';
  const request={family:'creation',expectedRevision:authority.revision.revisionSha256,blockHash:head.hash.toLowerCase(),trader:address(scope.creator),recipient:address(scope.creator),pool:zero,amountIn:'',isBuy:false,creationPath:'Router',creationStage:stage,name:draft.name,symbol:draft.symbol,feeStrategy:draft.feeStrategy,optical:zero,nftId:''};
@@ -25,7 +24,7 @@ async function creationPreflight(authority:CreationAuthority,draft:CreationDraft
  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
  const proof=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)) as Record<string,unknown>;
  const revision=proof.revision as RuntimeAuthority['revision']|undefined;
- if(!revision||Object.entries(authority.revision).some(([key,value])=>revision[key as keyof typeof revision]!==value)||proof.schemaVersion!==2||proof.family!=='creation'||proof.creationStage!==stage||proof.requestSha256!==requestHash||proof.blockHash!==request.blockHash||!Number.isSafeInteger(proof.blockNumber)||BigInt(String(proof.blockNumber))!==head.number||address(String(proof.trader))!==request.trader||address(String(proof.recipient))!==request.recipient)throw new Error('Creation preflight differs from the reviewed context.');
+ if(!revision||Object.entries(authority.revision).some(([key,value])=>revision[key as keyof typeof revision]!==value)||proof.schemaVersion!==2||proof.family!=='creation'||proof.requestSha256!==requestHash||proof.blockHash!==request.blockHash||!Number.isSafeInteger(proof.blockNumber)||BigInt(String(proof.blockNumber))!==head.number||address(String(proof.trader))!==request.trader||address(String(proof.recipient))!==request.recipient)throw new Error('Creation preflight differs from the reviewed context.');
  return proof;
 }
 export function runtimeCreationAdmission(authority:CreationAuthority,deployment:LaunchDeployment):CreationCapabilityAdmission {
