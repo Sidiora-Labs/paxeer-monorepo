@@ -16120,6 +16120,12 @@ value = "One. A bound over the content of a range of more than one block stays a
 basis = "Gotcha 4761."
 affects = []
 
+[decision.3835]
+title = "Every reader of the launchpad takes every coin that the factory contract can create, and the runtime role of the stats app holds the read of its policy consumer"
+value = "One. The factory contract sets no rule on the name and the symbol of a coin: each is a byte string of any content and any length, the empty string among them. The creation form of the web is one way to create a coin, and its rules bind no other way. A rule on names in the factory contract is no part of this decision. Two. The text rule for a string of the chain is: valid UTF-8, no character of the code zero and at most 64 KiB. The indexer carries a string of a decoded event of the deployment that is beyond the text rule, and a byte value above 64 KiB, as the empty value, names the argument in the alerts of the envelope in one fixed form, and the event stays decoded with every other value. An event for which a value of that kind decides over a state of the indexer beyond display takes the quarantined form of the next sentence instead. A log of the deployment that the decoder cannot carry even so, beyond the function rawSizeAllowed or beyond the bound of the envelope, gives the quarantined envelope with the reason bounds, the raw summary, no event and no error, and its retained record is of the optional kind. A creation whose token event is such a log holds no metadata. The payload of a creation gets no new member. The indexer keeps a name and a symbol within the text rule whole. Three. The display bounds of a coin are the bounds of the shared interface: 100 code points for the name and 16 for the symbol. A reader other than the indexer that stores or serves a name or a symbol carries its beginning up to these bounds, cut at a code point. The empty string is a lawful name and a lawful symbol. Four. Every consumer, read model, replay, route and view of the launchpad takes a creation with any name and any symbol that passed point two, and a creation without metadata, as lawful input: it acknowledges the delivery, stores or serves the coin in the carried form of point three and goes on. A projection that needs a value the creation does not hold leaves that projection of that one coin unserved in the form the module has for a value of unavailable quality and goes on with every other coin. A rule made for a query, such as the minimum of two code points and the address forms of the search, does not bind a stored name. Five. The web shows the short form of the token address where the name or the ticker is empty, bounds a long name by its layout and shows no control character and no character that turns the direction of the text. The creation form and its check take no name and no ticker with such a character. Six. The read on the view chat.pool_search_visibility_v2 belongs to the role the app of the stats module runs under, stats_runtime, in the form of its read on the view users.account_search_events_v2. Where decision 3829 names the role stats_search_runtime for that read, the role stats_runtime holds it as well, and the role stats_search_runtime keeps its read. Tasks 22.39.1023 to 22.39.1029."
+basis = "Gotcha 4762."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45780,6 +45786,69 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1029]
+title = "Give the runtime role of the stats app the read on the view of the visibility of a pool and run the statements of its policy consumer under that role"
+reqs = ["22998.1"]
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .) && (cd services/launchpad/pnl-tracker && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .) && (cd sdk/launchpad/shared && go test -count=1 -timeout 30m ./db/production/... && go test -count=1 -list ^TestStatsRolePoolVisibility ./db/production/ | grep -q ^TestStatsRolePoolVisibility)"
+do_1 = "do_1 Gotcha 4762 part seven, decision 3835 point six. Read the entries of the roles stats_runtime and stats_search_runtime in migrations/grants.json with the read of stats_runtime on the view users.account_search_events_v2 and the read of stats_search_runtime on the view chat.pool_search_visibility_v2, the digests migrations/registry.json holds over that record, the file migrations/380003.sql, the cases with the prefix TestSearchRolePoolVisibility in sdk/launchpad/shared/db/production/search_role_pool_visibility_test.go, and in the stats module the function ConsumeSocialPolicy in internal/search/social_policy.go, the record internal/analytics/runtime_statements.json with the member runtime_role of its statements, the file internal/analytics/runtime_statements_test.go and the case TestRuntimeRoleAnalyticsTables in internal/analytics/runtime_analytics_tables_test.go."
+symbols = []
+
+[capability.22.39.1028]
+title = "Show a coin with any name and any ticker in the web of the launchpad and take no control or direction character in the creation form"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4762 part one, decision 3835 point five. Read the functions shortAddress and formatAddress in apps/launchpad/web/src/utils/format.ts, the bounds and the messages of the name and the ticker in apps/launchpad/web/src/widgets/create/create-form-fields.tsx, the check of the name and the symbol in apps/launchpad/web/src/widgets/create/creation-authority.mjs, and every view under apps/launchpad/web/src that shows the name or the ticker of a coin, the lists of the home and of the explore view, the search, the terminal with its rails and its token strip, the swap panel, the profile, the holder rewards and the view of the creator among them. The final message lists each view with its file and what this task did with it."
+symbols = []
+
+[capability.22.39.1027]
+title = "Let the metadata service of the launchpad serve a coin with any name and any symbol within the bounds of the shared interface"
+reqs = ["22998.1"]
+touches = ["services/launchpad/metadata"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=metadata && (cd services/launchpad/metadata && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -list ^TestCoinText ./internal/metadata/ | grep -q ^TestCoinText)"
+do_1 = "do_1 Gotcha 4762 part six, decision 3835 points two, three and four. Read the function ResolveTokenInTx in services/launchpad/metadata/internal/metadata/canonical.go with its read of the raw events and its comparison of the name and the symbol with the creation, every place of the package that returns ErrUnrepresentable, the type MetadataResponse in services/launchpad/metadata/internal/metadata/wire.go with its bounds, the view metadata.token_search_v1 with the tables it reads and the writers of those tables, and every other route, publication and stored value of the service that carries the name or the symbol of a coin. The final message lists each of them with what this task did with it."
+symbols = []
+
+[capability.22.39.1026]
+title = "Let the symbol route of the charts module of the launchpad answer for a coin with any name and any symbol"
+reqs = ["22998.1"]
+touches = ["services/launchpad/trading-charts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=trading-charts && (cd services/launchpad/trading-charts && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -list ^TestCoinText ./internal/httpapi/ | grep -q ^TestCoinText)"
+do_1 = "do_1 Gotcha 4762 part five, decision 3835 points three and four. Read the function ServeHTTP of the symbol route and the function boundedMetadataText in services/launchpad/trading-charts/internal/httpapi/symbols.go, the sources of the token of that route, the canonical source and the metadata client among them, and every other route, stream and stored value of the module that carries the name or the symbol of a coin. The final message lists each of them with what this task did with it."
+symbols = []
+
+[capability.22.39.1025]
+title = "Carry the name and the symbol of a coin within the bounds of the shared interface in the responses of the launchpad API"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -list ^TestCoinText ./internal/rest/ | grep -q ^TestCoinText)"
+do_1 = "do_1 Gotcha 4762 part four, decision 3835 points three and four. Read the function tokenDocument in services/launchpad/api/internal/rest/pool_reads.go with the function resolvePools and their callers, the type Token of the shared interface with its bounds, and every other response, stream message and socket message of the module that carries the name or the symbol of a coin, the search route and the routes of the lists, of a pool, of a profile and of the holdings among them. The final message lists each of them with file, function, the source of the text and what this task did with it."
+symbols = []
+
+[capability.22.39.1024]
+title = "Let the search projection and the holdings replay of the stats module take a creation with any name, any symbol and without metadata"
+reqs = ["22998.1"]
+touches = ["services/launchpad"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -list ^TestCoinText ./internal/search/ | grep -q ^TestCoinText && go test -count=1 -list ^TestCoinText ./internal/holdings/ | grep -q ^TestCoinText)"
+do_1 = "do_1 Gotcha 4762 part three, decision 3835 points three and four. Read in the stats module the functions ConsumeCanonicalCreation and authorizeTx in internal/search/projection.go, the functions Normalize, Validate and boundedDisplay in internal/search/model.go and the function canonicalTicker in internal/search/filters.go with every caller of Normalize,the reads of the search that use the name key and the canonical ticker of a document, the function RebuildFromCanonical in internal/holdings/replay.go with its callers in internal/app/app.go, and every other consumer and replay of the module that reads the name, the symbol or the metadata of a creation or of a token. The final message lists each of them with file, function and what this task did with it. The task changes files of the stats module only."
+symbols = []
+
+[capability.22.39.1023]
+title = "Carry a text value beyond the text rule as the empty value in the decoder of the launchpad indexer and take a log of the deployment beyond the raw bounds without an error"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/indexer && go test -count=1 -timeout 14m ./cmd/... ./internal/app/ ./internal/chainreader/ ./internal/checked/ ./internal/config/ ./internal/decode/ ./internal/httpapi/ ./internal/internaltest/... ./internal/migrate/ ./internal/publisher/ ./internal/receipt/ ./internal/rolecheck/ ./internal/runtimedocs/ ./internal/source/ ./internal/store/... && go test -count=1 -timeout 18m ./internal/processor/ && go test -count=1 -list ^TestDeploymentLogBounds ./internal/decode/ | grep -q ^TestDeploymentLogBounds && go test -count=1 -list ^TestDeploymentLogBounds ./internal/receipt/ | grep -q ^TestDeploymentLogBounds && go test -count=1 -list ^TestDeploymentLogBounds ./internal/processor/ | grep -q ^TestDeploymentLogBounds)"
+do_1 = "do_1 Gotcha 4762 parts one and two, decision 3835 points one and two. Read the functions exactArgs, exactFixedScalars, exactGeneralArgs, boundedValue and validateDecodedPayload in services/launchpad/indexer/internal/decode/scalars.go, the function Decode in services/launchpad/indexer/internal/decode/registry.go with every place that returns the quarantined envelope with an error, the type DecodedEnvelope with its member Alerts, every caller of Decode, the function ValidateReceipt in services/launchpad/indexer/internal/receipt/rpc.go, the function Qualify in services/launchpad/indexer/internal/receipt/qualified.go and the reads in services/launchpad/indexer/internal/decode/measurement.go among them, the function RetainSourcePoison in services/launchpad/indexer/internal/processor/quarantine.go with the required and the optional kind of a retained record, the functions tokenMirror and creationFacts in services/launchpad/indexer/internal/processor/creation.go and the function InsertCreation in services/launchpad/indexer/internal/store/creation.go. Then list every event of the catalog of the deployment that holds a string, a byte value or an array, with its arguments of that kind and every reader of such an argument in the module. The final message holds that list with one line for each argument and what this task did with it."
+symbols = []
 
 [capability.22.39.1022]
 title = "Bound the content of one block by its bytes alone in the block reads, the bundles and the raw batches of the launchpad indexer"
@@ -210273,6 +210342,222 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1029]
+title = "Give the runtime role of the stats app the read on the view of the visibility of a pool and run the statements of its policy consumer under that role"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1029"]
+interfaces = []
+do_1 = "do_1 Gotcha 4762 part seven, decision 3835 point six. Read the entries of the roles stats_runtime and stats_search_runtime in migrations/grants.json with the read of stats_runtime on the view users.account_search_events_v2 and the read of stats_search_runtime on the view chat.pool_search_visibility_v2, the digests migrations/registry.json holds over that record, the file migrations/380003.sql, the cases with the prefix TestSearchRolePoolVisibility in sdk/launchpad/shared/db/production/search_role_pool_visibility_test.go, and in the stats module the function ConsumeSocialPolicy in internal/search/social_policy.go, the record internal/analytics/runtime_statements.json with the member runtime_role of its statements, the file internal/analytics/runtime_statements_test.go and the case TestRuntimeRoleAnalyticsTables in internal/analytics/runtime_analytics_tables_test.go."
+do_2 = "do_2 Give the role stats_runtime one read on the view chat.pool_search_visibility_v2 with its four columns pool, token, public and revision in its entry in migrations/grants.json, in the form of its read on the view users.account_search_events_v2, with whatever right on the schema chat that read needs in the form the record uses for it. The role stats_search_runtime keeps its read. Renew the digests migrations/registry.json holds over the record with the tool the earlier changes used. The grant comes from the record as the read of the role stats_search_runtime did: the task adds no migration file unless the tool that applies the record requires one, and then by the numbering and the form of the files of the schema chat. The task changes no other role and no other object. Where the sources under sdk/launchpad/shared/db/production pin the entries of the role, they take the read."
+do_3 = "do_3 In the stats module let the statements of internal/search/social_policy.go run under the role stats_runtime in the record internal/analytics/runtime_statements.json and in the role cases, as the statements of internal/search/projection.go do. Remove the mark of the runtime role stats_search_runtime from them, renew the record by the method the package uses for it, and let the case of the package of the projection that runs the statement of the view under a role run it under stats_runtime with the rights of the record. Where the member runtime_role of a statement and the role pools of the cases have no other user after that, remove them."
+do_4 = "do_4 Renew every recorded value that follows from the record of the grants or from the registry by the method its package uses, the reward history catalog of the pnl module with its recorder in the manner of task 22.39.1016 among them, and name each in the final message. No value of a catalog is written by hand. Add cases with the prefix TestStatsRolePoolVisibility under sdk/launchpad/shared/db/production in the manner of sdk/launchpad/shared/db/production/search_role_pool_visibility_test.go: one asserts that the entry of the role stats_runtime holds the four columns of the view, and one applies the migrations and the record to a database of the test fixture of that package, where the package has one, and reads the view under the role stats_runtime. The present cases follow the change. The stats module and the pnl module each pass whole through the Go test runner. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/stats-*ers && go vet ./...) && (cd sdk/launchpad/shared && go vet ./db/production/...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .) && (cd services/launchpad/pnl-tracker && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .) && (cd sdk/launchpad/shared && go test -count=1 -timeout 30m ./db/production/... && go test -count=1 -list ^TestStatsRolePoolVisibility ./db/production/ | grep -q ^TestStatsRolePoolVisibility)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1028]
+title = "Show a coin with any name and any ticker in the web of the launchpad and take no control or direction character in the creation form"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1028"]
+interfaces = []
+do_1 = "do_1 Gotcha 4762 part one, decision 3835 point five. Read the functions shortAddress and formatAddress in apps/launchpad/web/src/utils/format.ts, the bounds and the messages of the name and the ticker in apps/launchpad/web/src/widgets/create/create-form-fields.tsx, the check of the name and the symbol in apps/launchpad/web/src/widgets/create/creation-authority.mjs, and every view under apps/launchpad/web/src that shows the name or the ticker of a coin, the lists of the home and of the explore view, the search, the terminal with its rails and its token strip, the swap panel, the profile, the holder rewards and the view of the creator among them. The final message lists each view with its file and what this task did with it."
+do_2 = "do_2 Add one helper under apps/launchpad/web/src/utils that gives the display form of the name and of the ticker of a coin: it removes every control character and every character that turns the direction of the text, takes the short form of the token address by shortAddress where the rest is empty or white space alone, and leaves the text otherwise as it is. Let every view of the list of step one show the name and the ticker through it. A long name is bounded by the layout of its view, with one line and an ellipsis in a row or a strip and with a break inside a long word in a heading, and the element holds the full display form as its title where the view cuts it."
+do_3 = "do_3 Let the creation form in apps/launchpad/web/src/widgets/create/create-form-fields.tsx and the check in apps/launchpad/web/src/widgets/create/creation-authority.mjs take no name and no ticker that holds a control character or a character that turns the direction of the text, with a message in the manner of the present messages of the form. The bounds of the form stay as they are."
+do_4 = "do_4 Add cases for the helper and for the form: a coin with an empty name, with a name of white space, with a name of one control character, with a name that holds a character that turns the direction of the text, with a name of 100 code points without a space and with an ordinary name; the form and the check with a name and with a ticker that hold such a character. The present cases follow the change. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1027]
+title = "Let the metadata service of the launchpad serve a coin with any name and any symbol within the bounds of the shared interface"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1027"]
+interfaces = []
+do_1 = "do_1 Gotcha 4762 part six, decision 3835 points two, three and four. Read the function ResolveTokenInTx in services/launchpad/metadata/internal/metadata/canonical.go with its read of the raw events and its comparison of the name and the symbol with the creation, every place of the package that returns ErrUnrepresentable, the type MetadataResponse in services/launchpad/metadata/internal/metadata/wire.go with its bounds, the view metadata.token_search_v1 with the tables it reads and the writers of those tables, and every other route, publication and stored value of the service that carries the name or the symbol of a coin. The final message lists each of them with what this task did with it."
+do_2 = "do_2 Let ResolveTokenInTx compare the name and the symbol of the raw event with the creation under the text rule of decision 3835 point two: a raw value that is not valid UTF-8, holds the character of the code zero or is above 64 KiB stands for the empty string in that comparison, as the indexer carries it. Let it give the token of every creation that holds metadata with the beginning of the name up to 100 code points and the beginning of the symbol up to 16, cut at a code point, the empty string as it is, where it returns ErrUnrepresentable for the length of a name or of a symbol. A creation without metadata keeps the answer the service has for a token it does not represent, and a list, a publication run or a replay that meets it goes on with the next token. Every other cause of ErrUnrepresentable stays as it is."
+do_3 = "do_3 Let every writer of the tables behind the view metadata.token_search_v1 and every other place of the list of step one store and serve the name and the symbol in the same carried form: the view gives a name within 100 code points and a symbol within 16 for every coin. The type MetadataResponse keeps its bounds."
+do_4 = "do_4 Add cases whose names begin with TestCoinText in the package of ResolveTokenInTx. A creation with a symbol of 17 code points, one with a name of 101 code points, one with an empty name and an empty symbol, and one whose raw event holds a name that is not valid UTF-8 while the creation holds the empty name each resolve to a token in the carried form that decodes against the shared interface. A creation without metadata keeps its answer, and a run over it and an ordinary creation gives the ordinary one. The present cases follow the change. The whole module passes through the Go test runner. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/metadata"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/metadata && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=metadata && (cd services/launchpad/metadata && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -list ^TestCoinText ./internal/metadata/ | grep -q ^TestCoinText)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1026]
+title = "Let the symbol route of the charts module of the launchpad answer for a coin with any name and any symbol"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1026"]
+interfaces = []
+do_1 = "do_1 Gotcha 4762 part five, decision 3835 points three and four. Read the function ServeHTTP of the symbol route and the function boundedMetadataText in services/launchpad/trading-charts/internal/httpapi/symbols.go, the sources of the token of that route, the canonical source and the metadata client among them, and every other route, stream and stored value of the module that carries the name or the symbol of a coin. The final message lists each of them with what this task did with it."
+do_2 = "do_2 Let the symbol route answer for every coin whose decimals are of verified quality. The text of the name and of the symbol goes through one function that removes every control character, every character that turns the direction of the text and the two angle characters and cuts the rest to 100 code points for the name and to 16 for the symbol at a code point. Where the symbol is empty after that, the short form of the token address stands in its place, the prefix 0x with the first four and the last four hex characters and three points between them, as the function shortAddress in apps/launchpad/web/src/utils/format.ts gives it, and the same holds for the name. The text of a coin is no cause for a refusal of the route. Its answers for a pool that is not known and for a source that is not available stay as they are. Apply the same form to every other place of the list of step one."
+do_3 = "do_3 Add cases whose names begin with TestCoinText in the package of the route. A coin with an empty symbol, one with a symbol that holds an angle character and a control character, one with a name of 161 code points and one with a symbol of 33 code points each get the answer of the route with the text of step two. A coin whose decimals are not of verified quality keeps its answer. The present cases follow the change. The whole module passes through the Go test runner. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/trading-charts"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/trading-charts && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=trading-charts && (cd services/launchpad/trading-charts && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -list ^TestCoinText ./internal/httpapi/ | grep -q ^TestCoinText)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1025]
+title = "Carry the name and the symbol of a coin within the bounds of the shared interface in the responses of the launchpad API"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1025"]
+interfaces = []
+do_1 = "do_1 Gotcha 4762 part four, decision 3835 points three and four. Read the function tokenDocument in services/launchpad/api/internal/rest/pool_reads.go with the function resolvePools and their callers, the type Token of the shared interface with its bounds, and every other response, stream message and socket message of the module that carries the name or the symbol of a coin, the search route and the routes of the lists, of a pool, of a profile and of the holdings among them. The final message lists each of them with file, function, the source of the text and what this task did with it."
+do_2 = "do_2 Add one function of the module that gives the carried form of a name and of a symbol: the beginning of the text up to 100 code points for a name and up to 16 for a symbol, cut at a code point, the empty string as it is. Let tokenDocument and every place of the list of step one carry the name and the symbol through it. A creation without metadata keeps the form it has, the empty name and the empty symbol with the quality unavailable. The bounds of the interface stay as they are."
+do_3 = "do_3 Add cases whose names begin with TestCoinText in the package of the routes. A page of pools that holds a coin with a symbol of 17 code points, a coin with a name of 101 code points, a coin with an empty name and an empty symbol and a coin without metadata next to an ordinary coin gives the response with all of them, each in the carried form, and the body passes the validation of the shared interface. The pool route of each of these coins gives its pool. A text of several bytes for each code point is cut at a code point. The present cases follow the change. The whole module passes through the Go test runner. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/api && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -list ^TestCoinText ./internal/rest/ | grep -q ^TestCoinText)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1024]
+title = "Let the search projection and the holdings replay of the stats module take a creation with any name, any symbol and without metadata"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1029"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1024"]
+interfaces = []
+do_1 = "do_1 Gotcha 4762 part three, decision 3835 points three and four. Read in the stats module the functions ConsumeCanonicalCreation and authorizeTx in internal/search/projection.go, the functions Normalize, Validate and boundedDisplay in internal/search/model.go and the function canonicalTicker in internal/search/filters.go with every caller of Normalize,the reads of the search that use the name key and the canonical ticker of a document, the function RebuildFromCanonical in internal/holdings/replay.go with its callers in internal/app/app.go, and every other consumer and replay of the module that reads the name, the symbol or the metadata of a creation or of a token. The final message lists each of them with file, function and what this task did with it. The task changes files of the stats module only."
+do_2 = "do_2 Let ConsumeCanonicalCreation write the search document for every creation whose payload agrees with the row of the indexer, and let it acknowledge the delivery. The document carries the beginning of the name up to 100 code points and 400 bytes and the beginning of the symbol up to 16 code points, each cut at a code point. The name key comes from a function for a stored name that folds the text as Normalize folds a text query and sets no minimum, no address form and no refusal: a name of one code point, a name that begins with 0x, a name that is empty after the fold and an empty name each give a key. The canonical ticker may be empty. A name and a symbol of white space alone are carried as they are. A creation without metadata gives a document with an empty name and an empty ticker that the search finds by the address of its pool and of its token. The function Validate of the document and the function authorizeTx follow the same form, and a document of this step passes both. The function Normalize stays the rule of a search query as it is."
+do_3 = "do_3 Let the reads of the search take a document with an empty name key or an empty canonical ticker: such a document is no match of a text query by that member, it stays a match by its other members and by its addresses, and the order of a result stays total. Let RebuildFromCanonical and its callers go on with every other token where a creation holds no metadata: that one token stays without a holdings projection in the form the module has for a token it does not serve, with no error for the run. Apply decision 3835 point four to every other consumer and replay of the list of step one. Where a statement of the module changes, renew the record of the statements by the method the package uses."
+do_4 = "do_4 Add cases whose names begin with TestCoinText. In the package of the projection: a creation with a name of one code point, one with a name that begins with 0x and is no address form, one with a name of 101 code points, one with a symbol of 17 code points, one with a symbol of white space alone, one with an empty name and an empty symbol and one without metadata are each consumed with an acknowledgement, give the document of step two and are found by the address of the pool; the coin with the name of one code point is found by its symbol; a second delivery of one creation writes nothing. In the package of the holdings: the replay over two tokens of which one creation holds no metadata gives the projection of the other token and no error. The present cases follow the change, and a case that requires a refusal this task removed requires the new form instead. No case is removed or skipped. The whole module passes through the Go test runner. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/stats-*ers && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -list ^TestCoinText ./internal/search/ | grep -q ^TestCoinText && go test -count=1 -list ^TestCoinText ./internal/holdings/ | grep -q ^TestCoinText)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1023]
+title = "Carry a text value beyond the text rule as the empty value in the decoder of the launchpad indexer and take a log of the deployment beyond the raw bounds without an error"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1022"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1023"]
+interfaces = []
+do_1 = "do_1 Gotcha 4762 parts one and two, decision 3835 points one and two. Read the functions exactArgs, exactFixedScalars, exactGeneralArgs, boundedValue and validateDecodedPayload in services/launchpad/indexer/internal/decode/scalars.go, the function Decode in services/launchpad/indexer/internal/decode/registry.go with every place that returns the quarantined envelope with an error, the type DecodedEnvelope with its member Alerts, every caller of Decode, the function ValidateReceipt in services/launchpad/indexer/internal/receipt/rpc.go, the function Qualify in services/launchpad/indexer/internal/receipt/qualified.go and the reads in services/launchpad/indexer/internal/decode/measurement.go among them, the function RetainSourcePoison in services/launchpad/indexer/internal/processor/quarantine.go with the required and the optional kind of a retained record, the functions tokenMirror and creationFacts in services/launchpad/indexer/internal/processor/creation.go and the function InsertCreation in services/launchpad/indexer/internal/store/creation.go. Then list every event of the catalog of the deployment that holds a string, a byte value or an array, with its arguments of that kind and every reader of such an argument in the module. The final message holds that list with one line for each argument and what this task did with it."
+do_2 = "do_2 Apply decision 3835 point two in the decoder. A string of a decoded event that is not valid UTF-8, holds the character of the code zero or is above MaxFieldBytes, and a byte value above MaxFieldBytes, is carried as the empty value of its kind. The envelope names the argument in its member Alerts in one fixed form that holds the name of the argument and the cause, and the event stays decoded with every other value. The rule holds for such a value at any depth of an argument, inside an array or a tuple as well. The check of the canonical form of the event data stays as it is and runs over the data as the chain gave them. The bound of validateDecodedPayload runs over the values after this step. Where the list of step one shows a reader inside the module for which such a value decides over a state beyond display, let the log take the quarantined form of step three instead and name the event in the final message."
+do_3 = "do_3 Let Decode give the quarantined envelope with the reason bounds, the raw metadata, the raw summary, no event and no error for a log beyond rawSizeAllowed from an emitter that holds a deployment epoch and for a log whose decoded payload is beyond the bound of validateDecodedPayload after step two. Let the functions ValidateReceipt and Qualify go on with the next log after such an envelope as they do after an opaque envelope, and let RetainSourcePoison retain such a log as a record of the optional kind, with a requirement name of its own in the form the optional records use. Every other cause of a quarantined envelope keeps its error and its record as it is."
+do_4 = "do_4 Let every reader of an event inside the module take the form of steps two and three. A reader checks the status of the envelope before it reads the event. The function creationFacts builds the creation with the metadata of a token event whose name or symbol was withheld, the empty string in its place, and builds the creation without metadata where the token event of the creation took the quarantined form. The functions of the store, of the publisher and of the routes of the module that carry a creation take a creation with an empty name, with an empty symbol and without metadata. The payload of a creation gets no new member."
+do_5 = "do_5 Add cases whose names begin with TestDeploymentLogBounds. In the decode package: a log of the event TokenDeployed from the emitter of the deployment whose name is not valid UTF-8, one whose name holds the character of the code zero, one whose symbol is above MaxFieldBytes and one with an empty name and an empty symbol each give the decoded envelope with the values of step two, the alert for each withheld argument and every other argument as the log holds it; a log beyond rawSizeAllowed from an emitter with a deployment epoch gives the envelope of step three without an error; and one case for each other event of the list of step one covers a byte value or a string beyond the rule. In the receipt package: a receipt that holds such logs next to a lawful log of the deployment passes ValidateReceipt and Qualify, and the lawful log is decoded. In the processor package: creationFacts gives the creation with the decimals, the total supply and the empty name for a token event with a withheld name and the creation without metadata for a quarantined token event, and RetainSourcePoison returns no error for the logs of step three and keeps its error for another cause. Where the node fixtures of the module allow it without new machinery, one case creates a coin through the factory of the fixture deployment with a name that is not valid UTF-8 and one with a name above MaxFieldBytes, and the qualified source and the batch processing of the module store both creations; where the fixtures do not allow it, say so in the final message. The present cases follow the change: a case that requires the error of the bounds path for a value of step two or for a log of step three requires the new form instead, and no case is removed or skipped. The package of the processor stays within its time bound of 18 minutes: a new case with a node start shares the node of a present case where it can. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/indexer && go test -count=1 -timeout 14m ./cmd/... ./internal/app/ ./internal/chainreader/ ./internal/checked/ ./internal/config/ ./internal/decode/ ./internal/httpapi/ ./internal/internaltest/... ./internal/migrate/ ./internal/publisher/ ./internal/receipt/ ./internal/rolecheck/ ./internal/runtimedocs/ ./internal/source/ ./internal/store/... && go test -count=1 -timeout 18m ./internal/processor/ && go test -count=1 -list ^TestDeploymentLogBounds ./internal/decode/ | grep -q ^TestDeploymentLogBounds && go test -count=1 -list ^TestDeploymentLogBounds ./internal/receipt/ | grep -q ^TestDeploymentLogBounds && go test -count=1 -list ^TestDeploymentLogBounds ./internal/processor/ | grep -q ^TestDeploymentLogBounds)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
