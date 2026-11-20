@@ -210378,7 +210378,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1031]
 title = "Give the package job of the launchpad test workflow a limit of 60 minutes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210560,7 +210560,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1025]
 title = "Carry the name and the symbol of a coin within the bounds of the shared interface in the responses of the launchpad API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
