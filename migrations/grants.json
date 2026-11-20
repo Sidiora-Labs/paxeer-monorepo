@@ -9954,6 +9954,23 @@
           "argument_types": [],
           "grant_option": false,
           "view": true
+        },
+        {
+          "schema": "chat",
+          "object": "pool_search_visibility_v2",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "pool",
+            "token",
+            "public",
+            "revision"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
         }
       ]
     },
