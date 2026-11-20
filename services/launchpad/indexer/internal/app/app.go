@@ -657,7 +657,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		router.Handle("/internal/source-selection", selectionAuthority.HandlerWithLogger(history.RPC, logger))
 	}
 	if metrics != nil {
-		router.Handle("/metrics", metrics)
+		router.Handle("/metrics", proc.MetricsHandler(metrics))
 	}
 	if err := tracker.SetReady(); err != nil {
 		return nil, err
