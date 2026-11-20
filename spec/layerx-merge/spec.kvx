@@ -210309,7 +210309,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1018]
 title = "Bound every broker request of the provisioning of the launchpad by a wait of its own and send it again inside the deadline of the caller"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
