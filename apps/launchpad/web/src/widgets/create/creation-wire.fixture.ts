@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import type { ConnectedCapabilitiesPreflight } from '@kindle/sdk-v2';
 import {
   createServer,
   type IncomingMessage,
@@ -181,6 +182,11 @@ interface WireTransaction {
 }
 type WireRecord = Record<string, unknown>;
 class CreationWirePeer {
+  alterPreflight?: (
+    proof: ConnectedCapabilitiesPreflight,
+    requestBody: string,
+  ) => ConnectedCapabilitiesPreflight;
+  readonly preflightResponses: ConnectedCapabilitiesPreflight[] = [];
   interruptBuyReply = false;
   readonly ledger = new QuoteLedger();
   readonly transactions = new Map<Hex, WireRecord>();
@@ -599,32 +605,57 @@ class CreationWirePeer {
       } catch {
         supported = false;
       }
-      res.end(
-        JSON.stringify({
-          schemaVersion: 2,
-          revision,
+      const proof: ConnectedCapabilitiesPreflight = {
+        schemaVersion: 2,
+        revision,
+        family: 'creation',
+        blockHash: String(request.blockHash),
+        blockNumber: Number(this.height),
+        trader: owner,
+        recipient: owner,
+        supported,
+        executionPermitted: supported && this.allowed,
+        oracleRequired: false,
+        capability: {
+          capabilityId: 'core_market',
           family: 'creation',
-          creationStage: stage,
-          blockHash: request.blockHash,
-          blockNumber: Number(this.height),
-          trader: owner,
-          recipient: owner,
+          deploymentVersion: revision.deploymentVersion,
           supported,
-          executionPermitted: supported && this.allowed,
-          simulationMode:
-            stage === 'approval' ? 'usdl_approval' : 'create_market',
-          requestSha256: createHash('sha256').update(text).digest('hex'),
-          creationCost: {
-            protocolFeeAsset: 'USDL',
-            protocolFeeRaw: this.fee.toString(),
-            gasAsset: 'PAX',
-            gasEstimateAvailable: supported,
-            blockHash: request.blockHash,
-            spender: native,
-          },
-          ...(!supported ? { reasonCode: 'gas_estimate_unavailable' } : {}),
-        }),
-      );
+          releaseEnabled: this.allowed,
+          dependencyIds: [
+            'Router',
+            'SidioraFactory',
+            'USDL',
+            'ProtocolConfig',
+            'PoolRegistry',
+          ],
+          eventCoverage: ['market_creation'],
+          attestationReference: String(request.blockHash),
+          oracleRequired: false,
+        },
+        simulationMode:
+          stage === 'approval' ? 'usdl_approval' : 'create_market',
+        requestSha256: createHash('sha256').update(text).digest('hex'),
+        creationCost: {
+          protocolFeeAsset: 'USDL',
+          protocolFeeRaw: this.fee.toString(),
+          protocolFeeDisplay: '1.00 USDL',
+          estimatedGasRaw: supported ? '100000' : '',
+          estimatedGasUnits: supported ? 100000 : 0,
+          gasPriceRaw: supported ? '1' : '',
+          configRevision: revision.revisionSha256,
+          gasAsset: 'PAX',
+          gasEstimateAvailable: supported,
+          blockHash: String(request.blockHash),
+          spender: native,
+        },
+        ...(!supported ? { reasonCode: 'gas_estimate_unavailable' } : {}),
+      };
+      const answer = this.alterPreflight
+        ? this.alterPreflight(proof, text)
+        : proof;
+      this.preflightResponses.push(answer);
+      res.end(JSON.stringify(answer));
       return;
     }
     res.statusCode = 404;
