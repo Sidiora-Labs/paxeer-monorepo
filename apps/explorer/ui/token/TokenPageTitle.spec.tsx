@@ -10,7 +10,7 @@ import type { ResourceError } from 'lib/api/resources';
 import * as addressMock from 'mocks/address/address';
 import { tokenInfo } from 'mocks/tokens/tokenInfo';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, test, vi } from 'vitest';
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
@@ -80,6 +80,29 @@ describe('TokenPageTitle', () => {
     expect(container.querySelector('[data-entity-kind-label]')?.textContent).toBe('TOKEN');
     expect(container.querySelector('h1')?.textContent).toBe('ARIANEE (ARIA)');
   });
+
+  function tokenHeadingShowsWholeLongNameAndSymbol() {
+    const name = 'A'.repeat(40);
+    const symbol = 'LONG';
+
+    for (const isPlaceholderData of [ false, true ]) {
+      const { container } = renderTitle(tokenQuery({ data: { ...tokenInfo, name, symbol }, isPlaceholderData }));
+      const heading = container.querySelector('h1') as HTMLElement;
+
+      expect(heading.textContent).toBe(`${ name } (${ symbol })`);
+      if (!isPlaceholderData) {
+        const style = getComputedStyle(heading);
+
+        expect(style.whiteSpace).toBe('normal');
+        expect(style.overflow).not.toBe('hidden');
+        expect(style.textOverflow).not.toBe('ellipsis');
+        expect(style.overflowWrap).toBe('anywhere');
+      }
+      expect(getComputedStyle(container.querySelector('[data-entity-identifier]') as HTMLElement).flexWrap).toBe('nowrap');
+    }
+  }
+
+  test(tokenHeadingShowsWholeLongNameAndSymbol.name, tokenHeadingShowsWholeLongNameAndSymbol);
 
   it('marks the token as verified when the contract info service answered for it', () => {
     const { container } = renderTitle();
