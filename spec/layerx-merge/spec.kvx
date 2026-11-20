@@ -16042,6 +16042,12 @@ value = "One. After the approval proof of the creation fee the controller of the
 basis = "Gotcha 4748."
 affects = []
 
+[decision.3822]
+title = "The package inventory follows the module sources, the bound records hold the present values and the system package script bounds its operations"
+value = "One. The set of the control module in the package inventory of the launchpad Go test runner names its four packages. The sources of a module are the producer. No entry of the baseline of the runner and no case changes. Two. The catalog of the pnl-tracker module holds the checksum of the present bytes of the registry and of the shared migrations source, and the statement inventory of the stats module holds the value of the present bytes of that source in every entry that names it. No statement, table, object, entry of the plan or order changes. Where the recorder needs a database the environment does not give, the values the helper computes are set and named. Three. The system package script runs each package index read under a bound of one hundred and twenty seconds and each install under a bound of six hundred seconds, through the timeout command with a kill signal ten seconds after the end signal. An operation that reaches its bound counts as not passed: the attempt ends and the next attempt starts after the pause. Every attempt after the first runs sudo dpkg --configure -a ahead of its index read, so an install that was ended does not hold up the next one, and goes on where that command does not pass. The three attempts, the pause, the exit status and the arguments of the install stay as they are. Tasks 22.39.982 to 22.39.984."
+basis = "Gotcha 4749."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45702,6 +45708,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.984]
+title = "Bind each package index read and each install of the system package script of the launchpad checks in time"
+reqs = ["22998.1"]
+touches = ["scripts/ci/install-system-packages.sh", "tests/ci/test_launchpad_install_steps.py"]
+tests = []
+verification_contract = "bash -n scripts/ci/install-system-packages.sh && python3 -m pytest -q tests/ci/test_launchpad_install_steps.py"
+do_1 = "do_1 Gotcha 4749 part three, decision 3822 point three. Read scripts/ci/install-system-packages.sh whole and tests/ci/test_launchpad_install_steps.py whole, and the lines that name the script in .github/workflows/launchpad-test.yml, scripts/ci/runner-routing-check.sh, tests/ci/test_runner_routing_container_runtime.py and tests/ci/test_launchpad_go_tests_wired.py."
+symbols = []
+
+[capability.22.39.983]
+title = "Refresh the records of the pnl-tracker and stats modules of the launchpad that bind the migration registry and the shared migrations source"
+reqs = ["22998.1"]
+touches = ["services/launchpad"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .) && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4749 part two, decision 3822 point two. Read the helper rewardHistoryBootstrap in services/launchpad/pnl-tracker/internal/production/l18/rewards_database_test.go, the catalog services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/catalog.json with its members registry_sha256, applied and sources and the recorder record_catalog.py beside it, the case TestRuntimeRoleAnalyticsTables of the stats module with the function that reads its statement inventory and how it derives the value it compares, and the files migrations/registry.json and sdk/launchpad/shared/db/production/migrations.go as the main line holds them."
+symbols = []
+
+[capability.22.39.982]
+title = "Name every package of the control module in the package inventory of the launchpad Go test runner"
+reqs = ["22998.1"]
+touches = ["tests/ci/data/launchpad_go_tests.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py"
+do_1 = "do_1 Gotcha 4749 part one, decision 3822 point one. Read tests/ci/data/launchpad_go_tests.py with the sets under SERVICE_PACKAGES and PNL_PACKAGES and the place that checks the baseline against them, the case test_launchpad_remaining_package_inventory_matches_module_sources in tests/ci/test_launchpad_go_tests_wired.py and the directories services/launchpad/security/control/cmd/launchpad-operator, services/launchpad/security/control/enrolment and services/launchpad/security/control/enrolment/enrolmenttest. Run the file tests/ci/test_launchpad_go_tests_wired.py once and read which sets differ from the sources of their modules."
+symbols = []
 
 [capability.22.39.981]
 title = "Let the identity reads of one launchpad attestation run side by side where the policy allows it"
@@ -209826,6 +209859,98 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.984]
+title = "Bind each package index read and each install of the system package script of the launchpad checks in time"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.984"]
+interfaces = []
+do_1 = "do_1 Gotcha 4749 part three, decision 3822 point three. Read scripts/ci/install-system-packages.sh whole and tests/ci/test_launchpad_install_steps.py whole, and the lines that name the script in .github/workflows/launchpad-test.yml, scripts/ci/runner-routing-check.sh, tests/ci/test_runner_routing_container_runtime.py and tests/ci/test_launchpad_go_tests_wired.py."
+do_2 = "do_2 Let each attempt of the script run its package index read through the timeout command with a bound of one hundred and twenty seconds and its install through the timeout command with a bound of six hundred seconds, each with a kill signal ten seconds after the end signal. Name each of the two bounds once at the top of the script as a variable that cannot be changed. An operation that reaches its bound counts as not passed: the attempt ends and the next one starts after the pause. Every attempt after the first runs sudo dpkg --configure -a ahead of its index read and goes on where that command does not pass. The script keeps its three attempts, the pause, the exit status zero after the first attempt that passes and one after the last that does not, and the shell options of its head, and it hands its arguments to the install unchanged. The command line the callers use does not change."
+do_3 = "do_3 Let the case test_launchpad_system_package_retries_refresh_and_propagate_failure hold the new form of the script whole by one full match that reads the number of attempts, the pause and the two bounds. It keeps its two asserts on the attempts and the pause. It asserts in addition that the bound of the index read is at least thirty seconds and at most three hundred, and that the bound of the install is at least the bound of the index read and at most nine hundred seconds. Change no other case of the file."
+do_4 = "do_4 Run bash -n on the script and the cases of tests/ci/test_launchpad_install_steps.py. Change no workflow file and no other reader of the script. Where one of them holds more than the command line of the script, name it in the final message. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["scripts/ci/install-system-packages.sh", "tests/ci/test_launchpad_install_steps.py"]
+tests = []
+planned_paths = []
+build_cmd = "bash -n scripts/ci/install-system-packages.sh && python3 -m py_compile tests/ci/test_launchpad_install_steps.py"
+verify_cmd = "bash -n scripts/ci/install-system-packages.sh && python3 -m pytest -q tests/ci/test_launchpad_install_steps.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.983]
+title = "Refresh the records of the pnl-tracker and stats modules of the launchpad that bind the migration registry and the shared migrations source"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.975"]
+reqs = ["22998.1"]
+capabilities = ["22.39.983"]
+interfaces = []
+do_1 = "do_1 Gotcha 4749 part two, decision 3822 point two. Read the helper rewardHistoryBootstrap in services/launchpad/pnl-tracker/internal/production/l18/rewards_database_test.go, the catalog services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/catalog.json with its members registry_sha256, applied and sources and the recorder record_catalog.py beside it, the case TestRuntimeRoleAnalyticsTables of the stats module with the function that reads its statement inventory and how it derives the value it compares, and the files migrations/registry.json and sdk/launchpad/shared/db/production/migrations.go as the main line holds them."
+do_2 = "do_2 The catalog of the pnl-tracker module holds the checksum of the present bytes of migrations/registry.json under registry_sha256 and the checksum of the present bytes of sdk/launchpad/shared/db/production/migrations.go under sources. Refresh it by the recorder in the way the recorder states. Where the recorder needs a database that the environment does not give, set those two values to the checksums the helper computes and name this in the final message. Read every other path of the sources against its file and every entry of the member applied against its registration in the registry. A further difference is named in the final message with path or number and cause before it is refreshed. No object and no entry of the plan is added or removed where the helper does not ask for it."
+do_3 = "do_3 The statement inventory of the stats module holds the value of the present bytes of sdk/launchpad/shared/db/production/migrations.go in every entry that names it. No statement, table or order of the inventory changes. Where the case then reports a difference that is not the bound source, read it and repair it inside the paths."
+do_4 = "do_4 Other records under services/launchpad name the registry or a file of the package sdk/launchpad/shared/db/production. Change one of them only where its own case does not pass for the present bytes, and name it in the final message. No product file changes, and no case is removed, skipped or weakened. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && go vet ./...) && (cd services/launchpad/stats-*ers && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .) && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.982]
+title = "Name every package of the control module in the package inventory of the launchpad Go test runner"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.982"]
+interfaces = []
+do_1 = "do_1 Gotcha 4749 part one, decision 3822 point one. Read tests/ci/data/launchpad_go_tests.py with the sets under SERVICE_PACKAGES and PNL_PACKAGES and the place that checks the baseline against them, the case test_launchpad_remaining_package_inventory_matches_module_sources in tests/ci/test_launchpad_go_tests_wired.py and the directories services/launchpad/security/control/cmd/launchpad-operator, services/launchpad/security/control/enrolment and services/launchpad/security/control/enrolment/enrolmenttest. Run the file tests/ci/test_launchpad_go_tests_wired.py once and read which sets differ from the sources of their modules."
+do_2 = "do_2 Add the import paths of the three packages to the set of the control module, in the order the set keeps. Bring every further set that the case reports in line the same way: the sources of the module are the producer and the set follows them. Give each added or removed entry in the final message."
+do_3 = "do_3 Search tests/ci/test_launchpad_go_tests_wired.py and the other files under tests/ci for a second list of the packages of a launchpad module. Where one exists and differs from the sources, give it in the final message and change nothing outside the paths. No source of a module changes, no entry is added to the baseline of the runner, and the comparing case does not change. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tests/ci/data/launchpad_go_tests.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/data/launchpad_go_tests.py tests/ci/test_launchpad_go_tests_wired.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
