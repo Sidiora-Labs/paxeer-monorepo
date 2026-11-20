@@ -16156,6 +16156,12 @@ value = "One. Where the asked block is complete and canonical by the read of the
 basis = "Gotcha 4767."
 affects = []
 
+[decision.3841]
+title = "In the production realm the pause observations count every pool of the canonical creations as covered by the batch source"
+value = "One. The batch source of the production realm reads every receipt of every block of a batch and admits every persisted market whose address occurs in them, and a pool created inside a batch is admitted from its creation on. A complete block therefore holds the raw logs of every pool of the canonical creations at or below it. Two. In the production realm the app states this to the pause observations, and with that statement the function rawCoverage counts every pool of its list as covered. The requirement of the beacon epoch over the range stays in every realm. Three. Without the statement the check stays as it is: a pool needs a configured epoch or a discovered epoch. The method DiscoveredEpochs of the reader and its other readers stay as they are. Four. With the statement a base stays for its cycle of 60 seconds, the periodic run extends the snapshot from that base and an extension on request runs. Five. The checks of the refresh on the list of complete blocks from the base to the head, on the events and on the upgrade topic stay as they are. Task 22.39.1038."
+basis = "Gotcha 4768."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45816,6 +45822,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1038]
+title = "Count the pools of the canonical creations as covered in the coverage check of the pause observations of the launchpad indexer in the production realm"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer/internal/app"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/indexer && go test -count=1 -timeout 14m ./cmd/... ./internal/app/ ./internal/chainreader/ ./internal/checked/ ./internal/config/ ./internal/decode/ ./internal/httpapi/ ./internal/internaltest/... ./internal/migrate/ ./internal/publisher/ ./internal/receipt/ ./internal/rolecheck/ ./internal/runtimedocs/ ./internal/source/ ./internal/store/... && go test -count=1 -timeout 18m ./internal/processor/ && go test -count=1 -list ^TestPauseObservationInventoryCoverage ./internal/app/ | grep -q ^TestPauseObservationInventoryCoverage)"
+do_1 = "do_1 Gotcha 4768, decision 3841. Read services/launchpad/indexer/internal/app/pause_observations.go whole with the cases in services/launchpad/indexer/internal/app/pause_discovery_test.go and in the files pause_observations_test.go and pause_observations_request_test.go of that directory, the lines of services/launchpad/indexer/internal/app/app.go that choose the reader of the discovered epochs by realm and build the pause observations, in services/launchpad/indexer/internal/app/markets.go the types recoveringQualifiedSource and recoveringReserveReader with the functions FetchQualifiedBatch, validateMarketReads and recoverBatchMarkets, and the function Rehydrate in services/launchpad/indexer/internal/receipt/identity.go. The final message states with file and line the path by which a log of a pool of the canonical creations reaches the raw logs in the production realm for a pool with a log in the batch, for a pool created inside the batch and for the first batch after a start of the process, and names every path it found by which such a log is left out of a complete block. Where the reading finds such a path, the statement of step two does not cover it: the check keeps its present form for that path and the final message says so."
+symbols = []
 
 [capability.22.39.1037]
 title = "Name the step of an error of the visibility read and of the evidence read in the universe read of the launchpad ranking"
@@ -210448,9 +210463,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1038]
+title = "Count the pools of the canonical creations as covered in the coverage check of the pause observations of the launchpad indexer in the production realm"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1038"]
+interfaces = []
+do_1 = "do_1 Gotcha 4768, decision 3841. Read services/launchpad/indexer/internal/app/pause_observations.go whole with the cases in services/launchpad/indexer/internal/app/pause_discovery_test.go and in the files pause_observations_test.go and pause_observations_request_test.go of that directory, the lines of services/launchpad/indexer/internal/app/app.go that choose the reader of the discovered epochs by realm and build the pause observations, in services/launchpad/indexer/internal/app/markets.go the types recoveringQualifiedSource and recoveringReserveReader with the functions FetchQualifiedBatch, validateMarketReads and recoverBatchMarkets, and the function Rehydrate in services/launchpad/indexer/internal/receipt/identity.go. The final message states with file and line the path by which a log of a pool of the canonical creations reaches the raw logs in the production realm for a pool with a log in the batch, for a pool created inside the batch and for the first batch after a start of the process, and names every path it found by which such a log is left out of a complete block. Where the reading finds such a path, the statement of step two does not cover it: the check keeps its present form for that path and the final message says so."
+do_2 = "do_2 Give the type pauseObservations one member by which the app states that the batch source admits every persisted market, and let the app set it where the realm is production and the batch source is the recovering source of that realm. With the member set the function rawCoverage counts every pool of its list as covered and still requires the beacon epoch over the range. Without it the function stays as it is. The method DiscoveredEpochs of the type recoveringReserveReader, the member discoveredEpochs, the other steps of the function refreshLocked, the function extend, the handler, the periodic run with its interval, the cycle of the base and the form of the evidence stay as they are. The task changes files of services/launchpad/indexer/internal/app only."
+do_3 = "do_3 Add cases whose names begin with TestPauseObservationInventoryCoverage in the form of the present cases of the directory. With the member set and an empty list of discovered epochs, a pool without a log above the base keeps the base over several periodic runs inside the cycle, the stored snapshot holds every complete block from the base to the head, a request for a block between the base and the head is answered with status 200 and the state of the pool, and a request for a complete block above the head of the stored snapshot is answered with status 200 without a periodic run in between. A pause of the pool above the base shows in the evidence of the block of the pause and not in the evidence of the block ahead of it. A pool created above the base is in the evidence of a block at or above its creation without a new base. With the member set and no beacon epoch over the range the check does not hold. One case requires that the app sets the member in the production realm and leaves it unset in every other realm; where the present code makes that choice inside a larger function, the task may move the choice into one small function for the case. The cases TestPauseObservationWithoutPoolCoverage and TestPauseObservationQualifiedDiscoveryReader stay as they are, and the present cases of the directory stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer/internal/app"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/indexer && go test -count=1 -timeout 14m ./cmd/... ./internal/app/ ./internal/chainreader/ ./internal/checked/ ./internal/config/ ./internal/decode/ ./internal/httpapi/ ./internal/internaltest/... ./internal/migrate/ ./internal/publisher/ ./internal/receipt/ ./internal/rolecheck/ ./internal/runtimedocs/ ./internal/source/ ./internal/store/... && go test -count=1 -timeout 18m ./internal/processor/ && go test -count=1 -list ^TestPauseObservationInventoryCoverage ./internal/app/ | grep -q ^TestPauseObservationInventoryCoverage)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1037]
 title = "Name the step of an error of the visibility read and of the evidence read in the universe read of the launchpad ranking"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210571,7 +210616,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1033]
 title = "Keep the trade panel of the launchpad web ready after a submit that ends by a refusal in the wallet and give a state without a quote a control that asks a new price"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210845,7 +210890,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1024]
 title = "Let the search projection and the holdings replay of the stats module take a creation with any name, any symbol and without metadata"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1029"]
@@ -210876,7 +210921,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1023]
 title = "Carry a text value beyond the text rule as the empty value in the decoder of the launchpad indexer and take a log of the deployment beyond the raw bounds without an error"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1022"]
