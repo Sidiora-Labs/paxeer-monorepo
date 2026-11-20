@@ -81,6 +81,7 @@ type pauseObservations struct {
 	stream           string
 	epochs           []source.AddressEpoch
 	discoveredEpochs func() []receipt.RPCCodeEpoch
+	inventoryCovered bool
 	mu               sync.Mutex
 	snapshot         atomic.Pointer[pauseSnapshot]
 }
@@ -190,8 +191,8 @@ func pauseAddressPointer(value string) *common.Address {
 	return &a
 }
 
-// rawCoverage requires the complete pool and beacon emitter ranges. A stored
-// event alone cannot establish coverage of an address with no events.
+// rawCoverage requires the complete pool and beacon emitter ranges. Pool
+// coverage comes from inventory admission or explicit emitter epochs.
 func (p *pauseObservations) rawCoverage(pools []pausePool, discovered []receipt.RPCCodeEpoch, from, to int64) bool {
 	covered := make(map[string]bool)
 	beacon := false
@@ -210,7 +211,7 @@ func (p *pauseObservations) rawCoverage(pools []pausePool, discovered []receipt.
 		return false
 	}
 	for _, pool := range pools {
-		if covered[pool.address] {
+		if p.inventoryCovered || covered[pool.address] {
 			continue
 		}
 		for _, epoch := range discovered {
