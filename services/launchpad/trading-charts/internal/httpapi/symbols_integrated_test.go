@@ -22,16 +22,16 @@ func TestProductionMetadataABIText(t *testing.T) {
 	binary.BigEndian.PutUint64(raw[24:32], 32)
 	binary.BigEndian.PutUint64(raw[56:64], 4)
 	copy(raw[64:], "USDL")
-	value, err := decodeMetadataString(raw, 32)
+	value, err := decodeMetadataString(raw)
 	if err != nil || value != "USDL" {
 		t.Fatalf("actual ABI string: %q %v", value, err)
 	}
 	raw[64] = '<'
-	if _, err = decodeMetadataString(raw, 32); err == nil {
-		t.Fatal("unsafe metadata accepted")
+	if value, err = decodeMetadataString(raw); err != nil || value != "<SDL" || boundedMetadataText(value, 16, udfPool) != "SDL" {
+		t.Fatalf("metadata display text: %q %v", value, err)
 	}
 	binary.BigEndian.PutUint64(raw[56:64], 1024)
-	if _, err = decodeMetadataString(raw, 32); err == nil {
+	if _, err = decodeMetadataString(raw); err == nil {
 		t.Fatal("ABI overflow accepted")
 	}
 }
