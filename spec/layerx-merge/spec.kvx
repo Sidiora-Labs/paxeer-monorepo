@@ -209967,7 +209967,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.994]
 title = "Tell a pool that is not served from a pool that does not exist in the pool resolver of the launchpad web"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
