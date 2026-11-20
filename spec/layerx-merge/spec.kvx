@@ -210180,7 +210180,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.999]
 title = "Serve the frozen routes of the metadata upstream from the route list of the launchpad gateway code"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
