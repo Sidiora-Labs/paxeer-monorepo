@@ -279,6 +279,17 @@
       "MaxWaiting": 4,
       "Stream": "STATS_V2",
       "Subject": "search.invalidation.v2"
+    },
+    {
+      "AckWait": 30000000000,
+      "Batch": 16,
+      "Durable": "stats_search_social_policy",
+      "FetchWait": 250000000,
+      "MaxAckPending": 64,
+      "MaxDeliver": 100,
+      "MaxWaiting": 4,
+      "Stream": "SOCIAL_EVENTS",
+      "Subject": "social.policy"
     }
   ]
 }

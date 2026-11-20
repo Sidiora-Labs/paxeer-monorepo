@@ -1006,7 +1006,7 @@
       ],
       "sequences": [],
       "id": "app_app_newWithRuntimePool_1",
-      "source_sha256": "7d912eb0af6e63a6dffd5c5d57b0fd543098292d4006a51ac4e1ee62ba001675"
+      "source_sha256": "4c0616a11d28d9e4654bd1570d1a32b4847f594792c2eabf9ac8fce441595176"
     },
     {
       "file": "services/launchpad/stats-workers/internal/search/readiness.go",
@@ -1059,7 +1059,7 @@
       ],
       "sequences": [],
       "id": "app_app_catchUpStatsHolders_1",
-      "source_sha256": "7d912eb0af6e63a6dffd5c5d57b0fd543098292d4006a51ac4e1ee62ba001675"
+      "source_sha256": "4c0616a11d28d9e4654bd1570d1a32b4847f594792c2eabf9ac8fce441595176"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/app.go",
@@ -1088,7 +1088,7 @@
       "functions": [],
       "sequences": [],
       "id": "app_app_catchUpStatsHolders_2",
-      "source_sha256": "7d912eb0af6e63a6dffd5c5d57b0fd543098292d4006a51ac4e1ee62ba001675"
+      "source_sha256": "4c0616a11d28d9e4654bd1570d1a32b4847f594792c2eabf9ac8fce441595176"
     },
     {
       "file": "services/launchpad/stats-workers/internal/app/canonical_multihop.go",
@@ -9173,6 +9173,114 @@
       "sequences": [],
       "id": "projectionstats_public_stats_PublicStatsProjector.openingPriceTx_1",
       "source_sha256": "bb7012c112d2ea2d3e3bf1c87dad906dfc0e0c591ac4f48a12f70f866cef7839"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/search/social_policy.go",
+      "function": "Projection.ConsumeSocialPolicy",
+      "call": 1,
+      "expression": "\"SET LOCAL statement_timeout='2s'\"",
+      "line": 42,
+      "sql": "SET LOCAL statement_timeout='2s'",
+      "kind": "SET",
+      "tables": [],
+      "columns": [],
+      "functions": [],
+      "sequences": [],
+      "id": "search_social_policy_Projection.ConsumeSocialPolicy_1",
+      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb",
+      "runtime_role": "stats_search_runtime"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/search/social_policy.go",
+      "function": "Projection.ConsumeSocialPolicy",
+      "call": 2,
+      "expression": "\"SET LOCAL lock_timeout='100ms'\"",
+      "line": 45,
+      "sql": "SET LOCAL lock_timeout='100ms'",
+      "kind": "SET",
+      "tables": [],
+      "columns": [],
+      "functions": [],
+      "sequences": [],
+      "id": "search_social_policy_Projection.ConsumeSocialPolicy_2",
+      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb",
+      "runtime_role": "stats_search_runtime"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/search/social_policy.go",
+      "function": "Projection.ConsumeSocialPolicy",
+      "call": 3,
+      "expression": "\"SELECT revision FROM stats_search.active_v2 WHERE singleton FOR UPDATE\"",
+      "line": 48,
+      "sql": "SELECT revision FROM stats_search.active_v2 WHERE singleton FOR UPDATE",
+      "kind": "SELECT",
+      "tables": [
+        "stats_search.active_v2"
+      ],
+      "columns": [
+        "revision",
+        "singleton"
+      ],
+      "functions": [],
+      "sequences": [],
+      "id": "search_social_policy_Projection.ConsumeSocialPolicy_3",
+      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb",
+      "runtime_role": "stats_search_runtime"
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/search/social_policy.go",
+      "function": "Projection.ConsumeSocialPolicy",
+      "call": 4,
+      "expression": "socialPoolVisibilitySQL",
+      "line": 51,
+      "sql": "SELECT pool,public,revision FROM chat.pool_search_visibility_v2 WHERE ($1='pool' AND lower(pool)=lower($2)) OR ($1='token' AND lower(token)=lower($2)) ORDER BY pool",
+      "kind": "SELECT",
+      "tables": [
+        "chat.pool_search_visibility_v2"
+      ],
+      "columns": [
+        "pool",
+        "public",
+        "revision",
+        "token"
+      ],
+      "functions": [
+        "lower"
+      ],
+      "sequences": [],
+      "id": "search_social_policy_Projection.ConsumeSocialPolicy_4",
+      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb",
+      "runtime_role": "stats_search_runtime",
+      "sources": {
+        "socialPoolVisibilityView": "chat.pool_search_visibility_v2",
+        "socialPoolVisibilitySQL": "SELECT pool,public,revision FROM chat.pool_search_visibility_v2 WHERE ($1='pool' AND lower(pool)=lower($2)) OR ($1='token' AND lower(token)=lower($2)) ORDER BY pool"
+      }
+    },
+    {
+      "file": "services/launchpad/stats-workers/internal/search/social_policy.go",
+      "function": "Projection.ConsumeSocialPolicy",
+      "call": 5,
+      "expression": "\"UPDATE stats_search.active_v2 SET revision=nextval('stats_search.revision_v2'),privacy_revision=privacy_revision+1 WHERE singleton RETURNING revision\"",
+      "line": 88,
+      "sql": "UPDATE stats_search.active_v2 SET revision=nextval('stats_search.revision_v2'),privacy_revision=privacy_revision+1 WHERE singleton RETURNING revision",
+      "kind": "UPDATE",
+      "tables": [
+        "stats_search.active_v2"
+      ],
+      "columns": [
+        "privacy_revision",
+        "revision",
+        "singleton"
+      ],
+      "functions": [
+        "nextval"
+      ],
+      "sequences": [
+        "stats_search.revision_v2"
+      ],
+      "id": "search_social_policy_Projection.ConsumeSocialPolicy_5",
+      "source_sha256": "b1b1545dcbd96c42b51133af3240b0384ea32a0e76670d65e8a64e5f52312eeb",
+      "runtime_role": "stats_search_runtime"
     }
   ],
   "boundaries": [

@@ -193,12 +193,22 @@ values_annotations
 
 stats_inline_pem_plan() {
 	python3 - "$root/deploy/launchpad/railway/variables.json" "$tmp" "$replay" <<'PY'
-import json, sys
+import base64, hashlib, json, sys
+from pathlib import Path
+root = Path(sys.argv[1]).resolve().parents[3]
+sys.path.insert(0, str(root / "deploy/launchpad/documents"))
+import stats as stats_documents
 stats = json.load(open(sys.argv[1]))["stats"]
 json.dump({"stats": stats}, open(f"{sys.argv[2]}/stats.json", "w"))
 needed = [n for k, v in stats.items() if isinstance(v, list) and k not in ("secret", "secrets")
           for n in v if n not in stats["fixed"]]
 values = {n: f"sentinel-stats-{i:02d}" for i, n in enumerate(needed)}
+runtime = stats_documents.documents("stats", root / "deploy/launchpad/documents/values")["DELIVERY_CONFIG_DOCUMENT"]
+policy = next(sub for sub in runtime["phase2"]["searchConsumers"] if sub["kind"] == "social_policy")
+assert policy["eventType"] == "social.policy.changed.v2"
+wire = json.dumps(runtime, sort_keys=True, separators=(",", ":")).encode()
+values["DELIVERY_CONFIG_DOCUMENT"] = base64.b64encode(wire).decode()
+values["DELIVERY_CONFIG_SHA256"] = hashlib.sha256(wire).hexdigest()
 values["IDENTITY_MTLS_CLIENT_KEY_PEM"] = "-----BEGIN PRIVATE KEY-----\nsentinel-stats-pem-3b7e\n-----END PRIVATE KEY-----"
 json.dump({"stats": values}, open(f"{sys.argv[2]}/stats-values.json", "w"))
 project = next(e for e in json.load(open(sys.argv[3])) if e["op"] == "Project")

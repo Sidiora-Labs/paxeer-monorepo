@@ -1548,3 +1548,31 @@ def test_compose_optional_document_requires_contract_pair(tmp_path: Path, member
     del entry["optional"][member]
     with pytest.raises(compose.ComposeError, match="PNL_JOURNEY_CONFIG_DOCUMENT is not required by the contract"):
         compose._compose_service("pnl", values, entry)
+
+
+def test_stats_social_policy_subscription(tmp_path: Path) -> None:
+    values, out = _values(tmp_path), tmp_path / "out"
+    result = _run(values, out, "stats")
+    assert result.returncode == 0, result.stderr
+    environment = json.loads((out / "stats.json").read_bytes())
+    document = json.loads(base64.b64decode(environment["DELIVERY_CONFIG_DOCUMENT"]))
+    social = json.loads((values / "social.example.json").read_bytes())
+    subscriptions = document["phase2"]["searchConsumers"]
+    policy = next(sub for sub in subscriptions if sub["kind"] == "social_policy")
+    assert policy["eventType"] == "social.policy.changed.v2"
+    assert policy["consumer"]["Stream"] == social["policyStream"]
+    assert policy["consumer"]["Subject"] == social["policySubject"]
+    assert document["policy"]["Subjects"][social["policySubject"]] is True
+    assert document["policy"]["EventTypes"][policy["eventType"]] is True
+    assert len({sub["consumer"]["Durable"] for sub in subscriptions}) == len(subscriptions)
+    path = values / "stats.example.json"
+    document["policy"]["EventTypes"]["profile.updated"] = True
+    policy["eventType"] = "profile.updated"
+    path.write_text(json.dumps(document))
+    refused = _run(values, tmp_path / "wrong-event", "stats")
+    assert refused.returncode == 2
+    assert "eventType" in refused.stderr
+    document["phase2"]["searchConsumers"].remove(policy)
+    path.write_text(json.dumps(document))
+    optional = _run(values, tmp_path / "optional", "stats")
+    assert optional.returncode == 0, optional.stderr
