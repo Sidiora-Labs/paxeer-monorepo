@@ -16060,6 +16060,12 @@ value = "The verification command of task 22.39.970 becomes the command of task 
 basis = "Gotcha 4751. Task 22.39.980."
 affects = []
 
+[decision.3825]
+title = "A launchpad pool answers its reads from its creation on, with a page without items and a named state before the first frame"
+value = "One. The entry of the role candles_runtime for the view indexer_canonical_creations_v1 in migrations/grants.json names the column payload, the digests in migrations/registry.json follow, and the list of the statement case of the charts module names services/launchpad/trading-charts/internal/httpapi/symbols.go. No object changes. Two. Trades and Candles tell the state of a pool with a canonical creation, without a first market position and without a committed offset, and both serving paths answer it with status 200 and a page without items, with revision and watermark null. The cache keeps no entry for that answer. Every other state keeps its answer. Three. The broker package of the API gets an error for a requested topic without a first frame that wraps ErrStreamUnavailable. Both snapshot reads answer it with status 404, the code TOPIC_NOT_STARTED, retryable, with a hint of five seconds and without a stored copy, and write no line at the error level. The contract, the SDK, the functions that append frames and a resume stay as they are. Four. The stream clients of the web hold the state for no entries on that code and repeat the snapshot no sooner than the hint. Five. MetadataConnectedRoutes holds every route of the frozen surface of the metadata upstream, and allowedConnectedRoute keeps accepting what it accepts today. Six. The media read answers a canonical token without a document with the default document of the metadata read and no image. Tasks 22.39.995 to 22.39.1000."
+basis = "Gotcha 4752."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45720,6 +45726,60 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1000]
+title = "Answer the media read of the launchpad metadata service for a canonical token without a document with the default document"
+reqs = ["22998.1"]
+touches = ["services/launchpad/metadata"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=metadata && (cd services/launchpad/metadata && go test -count=1 -timeout 30m -run ^TestDevelopmentV2Reads ./internal/metadata/ && go test -count=1 -timeout 30m -run ^TestConnectedCanonicalPatchAndSearch ./internal/metadata/ && go test -count=1 -timeout 30m -run ^TestMediaReadDefault ./internal/metadata/ && go test -count=1 -list ^TestMediaReadDefault ./internal/metadata/ | grep -q ^TestMediaReadDefault)"
+do_1 = "do_1 Gotcha 4752 part six, decision 3825 point six. Read services/launchpad/metadata/internal/metadata/v2.go with the method get of the type V2ContractHandlers and its default document at revision 0, services/launchpad/metadata/internal/metadata/connected.go with the method media of the type ConnectedMedia, and the cases TestDevelopmentV2Reads and TestConnectedCanonicalPatchAndSearch with their reads of the media route."
+symbols = []
+
+[capability.22.39.999]
+title = "Serve the frozen routes of the metadata upstream from the route list of the launchpad gateway code"
+reqs = ["22998.1"]
+touches = ["services/launchpad/gateway"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=gateway && (cd services/launchpad/gateway && go test -count=1 -timeout 20m -run ^TestConnectedTables ./internal/proxy/ && go test -count=1 -timeout 20m -run ^TestAllowedConnectedRoute ./internal/proxy/ && go test -count=1 -timeout 20m -run ^TestConnectedConstructors ./internal/proxy/ && go test -count=1 -timeout 20m -run ^TestPlatformDocuments ./internal/app/ ./internal/config/ && go test -count=1 -timeout 20m -run ^TestMetadataConnectedRoutes ./internal/proxy/ ./internal/app/ && go test -count=1 -list ^TestMetadataConnectedRoutes ./internal/proxy/ | grep -q ^TestMetadataConnectedRoutes)"
+do_1 = "do_1 Gotcha 4752 part five, decision 3825 point five. Read services/launchpad/gateway/internal/proxy/connected.go with the functions NewConnected, FrozenConnectedSurface, allowedConnectedRoute, MetadataConnectedRoutes and SocialConnectedRoutes with its loop over the frozen surface, services/launchpad/gateway/internal/app/app.go with the place that appends the lists of the code to the upstreams of the runtime document, deploy/launchpad/documents/values/gateway.example.json, and the cases TestConnectedTablesCoverFrozenMediaCatalog and TestAllowedConnectedRouteRefusesRetiredTemplates."
+symbols = []
+
+[capability.22.39.998]
+title = "Hold the stream clients of the launchpad web in the state before the first frame on the answer TOPIC_NOT_STARTED"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4752 part four, decision 3825 point four. Read apps/launchpad/web/src/page-modules/token/market-session.ts with its transport, its method start and its retry timer, apps/launchpad/web/src/widgets/trading/tv-chart.tsx with its stream transport, apps/launchpad/web/src/core/realtime/data-stream.ts with the class CanonicalDataStream and its method retry, apps/launchpad/web/src/page-modules/token/snapshot-failure.ts with the type HttpError of the SDK and its members status, envelope and code, and the cases of task 22.39.997 for the names of the code and of the hint."
+symbols = []
+
+[capability.22.39.997]
+title = "Name a topic without a first frame in the snapshot reads of the launchpad API with the code TOPIC_NOT_STARTED"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api/internal/broker", "services/launchpad/api/internal/rest", "services/launchpad/api/internal/ws", "services/launchpad/api/internal/rolecheck"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -timeout 20m -run ^TestProductionSnapshot ./internal/rest/ && go test -count=1 -timeout 20m -run ^TestStreamHTTPError ./internal/broker/ && go test -count=1 -timeout 20m -run ^TestAuthenticatedWebSocketClassifies ./internal/ws/ && go test -count=1 -timeout 20m -run ^TestTopicNotStarted ./internal/broker/ ./internal/rest/ ./internal/ws/ && go test -count=1 -timeout 30m ./internal/rolecheck/ && go test -count=1 -list ^TestTopicNotStarted ./internal/broker/ | grep -q ^TestTopicNotStarted)"
+do_1 = "do_1 Gotcha 4752 part three, decision 3825 point three. Read services/launchpad/api/internal/broker/postgres_stream.go with the method projections, the error ErrStreamUnavailable and the methods Snapshot and Resume, services/launchpad/api/internal/broker/handoff.go with the methods PublicSnapshot and PublicResume, services/launchpad/api/internal/rest/compatibility.go with the functions streamSnapshot and writeSnapshotError, services/launchpad/api/internal/rest/primitives.go with the map v2ErrorRules and the retry members its writer sets, services/launchpad/api/internal/ws/ws.go with the method snapshotHandle of the hub and its use of the registry of topics, services/launchpad/api/internal/broker/http.go with the function WriteStreamHTTPError, the table stream_projection in migrations/150002.sql, and the cases TestProductionSnapshotErrorClassifiesPublicFailures, TestStreamHTTPErrorConsumerEnvelope and TestAuthenticatedWebSocketClassifiesUnregisteredPools."
+symbols = []
+
+[capability.22.39.996]
+title = "Answer the trades read and the candles read of the launchpad API with a page without items for a pool before its first market position"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api/internal/rest", "services/launchpad/api/internal/store", "services/launchpad/api/internal/cache", "services/launchpad/api/internal/rolecheck"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -timeout 20m -run ^TestAccounting ./internal/rest/ ./internal/cache/ && go test -count=1 -timeout 20m -run ^TestUntradedPool ./internal/rest/ ./internal/store/ ./internal/app/ ./internal/cache/ && go test -count=1 -timeout 30m ./internal/rolecheck/ && go test -count=1 -list ^TestUntradedPoolPage ./internal/rest/ | grep -q ^TestUntradedPoolPage)"
+do_1 = "do_1 Gotcha 4752 part two, decision 3825 point two. Read services/launchpad/api/internal/store/accounting_readmodel.go with the methods vector, snapshot, Trades and Candles and the error ErrAccountingNotReady, services/launchpad/api/internal/rest/accounting_v2.go with the method serve and the function EncodeCachePage, services/launchpad/api/internal/cache/adapter.go with the method serve of AccountingBindings and the method Fetch of AccountingProjectionSource, the error function of the bindings in services/launchpad/api/internal/cache/accounting_runtime.go, sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go with the functions CanonicalCreation and FirstMarketPosition, and the cases TestAccountingRoutesClassifyUnservedAndInvalidPages and TestUntradedPoolDetailAndList."
+symbols = []
+
+[capability.22.39.995]
+title = "Give the runtime role of the launchpad charts service the column payload of the canonical creations view and plan its symbol statement under that role"
+reqs = ["22998.1"]
+touches = ["services/launchpad/trading-charts", "migrations", "sdk/launchpad/shared/db/production"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=trading-charts && (cd services/launchpad/trading-charts && go test -count=1 -timeout 30m -run ^TestRuntimeRole ./internal/store/ && go test -count=1 -timeout 30m ./internal/httpapi/ && go test -count=1 -list ^TestRuntimeRoleSymbolSource ./internal/store/ | grep -q ^TestRuntimeRoleSymbolSource) && (cd sdk/launchpad/shared && go test -count=1 -timeout 30m ./db/production/...)"
+do_1 = "do_1 Gotcha 4752 part one, decision 3825 point one. Read services/launchpad/trading-charts/internal/httpapi/symbols.go with the type CanonicalPoolMetadataSource and its method Resolve, the entries of the role candles_runtime in migrations/grants.json, the view in migrations/190001.sql, the case in services/launchpad/trading-charts/internal/store/runtime_statement_authority_test.go with its list of source files and the schema it takes for each file, the case TestRuntimeRoleOutboxRelay that runs it under the role, and how the last change of migrations/grants.json for this role renewed the digests in migrations/registry.json."
+symbols = []
 
 [capability.22.39.994]
 title = "Tell a pool that is not served from a pool that does not exist in the pool resolver of the launchpad web"
@@ -209961,6 +210021,188 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1000]
+title = "Answer the media read of the launchpad metadata service for a canonical token without a document with the default document"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1000"]
+interfaces = []
+do_1 = "do_1 Gotcha 4752 part six, decision 3825 point six. Read services/launchpad/metadata/internal/metadata/v2.go with the method get of the type V2ContractHandlers and its default document at revision 0, services/launchpad/metadata/internal/metadata/connected.go with the method media of the type ConnectedMedia, and the cases TestDevelopmentV2Reads and TestConnectedCanonicalPatchAndSearch with their reads of the media route."
+do_2 = "do_2 Let the media read answer a canonical token without a document with status 200, the default document of the metadata read for the same token and no image. A token without a canonical creation, a pool that differs from the identity, the moderation step and every other result keep their answers, and the answer validates against the definition ConnectedTokenMediaResponse. Where the development form of the same read exists, it answers the same state alike."
+do_3 = "do_3 Add cases with the prefix TestMediaReadDefault: a canonical token without a document answers the default with the same members as the metadata read of the same token; after a first document the read answers that document; a token without a canonical creation keeps its answer. An existing case that pins the earlier answer for exactly this state takes the new one. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/metadata"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/metadata && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=metadata && (cd services/launchpad/metadata && go test -count=1 -timeout 30m -run ^TestDevelopmentV2Reads ./internal/metadata/ && go test -count=1 -timeout 30m -run ^TestConnectedCanonicalPatchAndSearch ./internal/metadata/ && go test -count=1 -timeout 30m -run ^TestMediaReadDefault ./internal/metadata/ && go test -count=1 -list ^TestMediaReadDefault ./internal/metadata/ | grep -q ^TestMediaReadDefault)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.999]
+title = "Serve the frozen routes of the metadata upstream from the route list of the launchpad gateway code"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.999"]
+interfaces = []
+do_1 = "do_1 Gotcha 4752 part five, decision 3825 point five. Read services/launchpad/gateway/internal/proxy/connected.go with the functions NewConnected, FrozenConnectedSurface, allowedConnectedRoute, MetadataConnectedRoutes and SocialConnectedRoutes with its loop over the frozen surface, services/launchpad/gateway/internal/app/app.go with the place that appends the lists of the code to the upstreams of the runtime document, deploy/launchpad/documents/values/gateway.example.json, and the cases TestConnectedTablesCoverFrozenMediaCatalog and TestAllowedConnectedRouteRefusesRetiredTemplates."
+do_2 = "do_2 Let MetadataConnectedRoutes hold every method and template of the frozen surface of the metadata upstream beside its present routes, with the members the rules of allowedConnectedRoute for that surface ask for: the reads of the document and of the media of a token without a session, every other method and every route of an asset with a session, and the write of an asset as an upload. Let allowedConnectedRoute accept a route of a runtime document that equals a route of the list of the code in all members, the upload member included, and keep accepting every route it accepts today. Where the runtime document lists a route, its entry stays the one that is served. The bound of 256 routes and the refusal of unknown and of retired templates stay."
+do_3 = "do_3 Add cases with the prefix TestMetadataConnectedRoutes in the packages proxy and app: with a runtime document that lists no route of the metadata upstream each method and template of the frozen surface is served with the members above; with the routes of deploy/launchpad/documents/values/gateway.example.json the document is accepted and serves the same routes once; a route with a member that differs from the rules is refused as before. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/gateway"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/gateway && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=gateway && (cd services/launchpad/gateway && go test -count=1 -timeout 20m -run ^TestConnectedTables ./internal/proxy/ && go test -count=1 -timeout 20m -run ^TestAllowedConnectedRoute ./internal/proxy/ && go test -count=1 -timeout 20m -run ^TestConnectedConstructors ./internal/proxy/ && go test -count=1 -timeout 20m -run ^TestPlatformDocuments ./internal/app/ ./internal/config/ && go test -count=1 -timeout 20m -run ^TestMetadataConnectedRoutes ./internal/proxy/ ./internal/app/ && go test -count=1 -list ^TestMetadataConnectedRoutes ./internal/proxy/ | grep -q ^TestMetadataConnectedRoutes)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.998]
+title = "Hold the stream clients of the launchpad web in the state before the first frame on the answer TOPIC_NOT_STARTED"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.997"]
+reqs = ["22998.1"]
+capabilities = ["22.39.998"]
+interfaces = []
+do_1 = "do_1 Gotcha 4752 part four, decision 3825 point four. Read apps/launchpad/web/src/page-modules/token/market-session.ts with its transport, its method start and its retry timer, apps/launchpad/web/src/widgets/trading/tv-chart.tsx with its stream transport, apps/launchpad/web/src/core/realtime/data-stream.ts with the class CanonicalDataStream and its method retry, apps/launchpad/web/src/page-modules/token/snapshot-failure.ts with the type HttpError of the SDK and its members status, envelope and code, and the cases of task 22.39.997 for the names of the code and of the hint."
+do_2 = "do_2 In the three stream clients the answer of the snapshot with the code TOPIC_NOT_STARTED is the state before the first frame and no error: no error state and no error text is shown, the trade list shows its text for no trades, the chart shows its state for no candles where the candles read answers a page without items, and the mark for live updates shows its waiting form. The client repeats the snapshot no sooner than the hint of the answer and no sooner than five seconds, with one timer for each client, and stops repeating where the view is hidden or closed. Where the snapshot then answers, the stream goes on as it does today. The SDK stays as it is."
+do_3 = "do_3 Add cases with a transport and timers of the test kit for each client: the code leads to the state for no entries and to one repeat after the hint; a hidden or closed view ends the repeats; a later snapshot starts the stream; every other snapshot that does not answer keeps its present state. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.997]
+title = "Name a topic without a first frame in the snapshot reads of the launchpad API with the code TOPIC_NOT_STARTED"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.997"]
+interfaces = []
+do_1 = "do_1 Gotcha 4752 part three, decision 3825 point three. Read services/launchpad/api/internal/broker/postgres_stream.go with the method projections, the error ErrStreamUnavailable and the methods Snapshot and Resume, services/launchpad/api/internal/broker/handoff.go with the methods PublicSnapshot and PublicResume, services/launchpad/api/internal/rest/compatibility.go with the functions streamSnapshot and writeSnapshotError, services/launchpad/api/internal/rest/primitives.go with the map v2ErrorRules and the retry members its writer sets, services/launchpad/api/internal/ws/ws.go with the method snapshotHandle of the hub and its use of the registry of topics, services/launchpad/api/internal/broker/http.go with the function WriteStreamHTTPError, the table stream_projection in migrations/150002.sql, and the cases TestProductionSnapshotErrorClassifiesPublicFailures, TestStreamHTTPErrorConsumerEnvelope and TestAuthenticatedWebSocketClassifiesUnregisteredPools."
+do_2 = "do_2 Add an error to the broker package for a requested topic without a first frame, wrapping ErrStreamUnavailable so the readers that test for that error keep their behaviour. The method projections returns it where a requested topic has no row or a row at sequence 0 without a frame, in the snapshot of a public and of a signed in request. A missing generation and a store that is not configured keep ErrStreamUnavailable alone, a row whose frame does not parse keeps the frame error, and a resume keeps its answers."
+do_3 = "do_3 Let both snapshot reads answer the new error with status 404, the code TOPIC_NOT_STARTED, the member retryable true, the member retryAfterMs 5000, the header Retry-After with five seconds and the header Cache-Control with no-store, and write no line at the error level for it. The read in the rest package takes an entry for the code in v2ErrorRules, and the two writers set the retry members for this code beside the statuses they serve today. In the hub a topic that the registry of topics names as unknown keeps the answer NOT_FOUND, tested before the new answer. Every other answer of the two reads stays."
+do_4 = "do_4 Add cases with the prefix TestTopicNotStarted in the packages broker, rest and ws: a request whose only topic has no row; a request with one topic with a frame and one without; a request whose topics all hold a frame answers 200 as before; a missing generation keeps its answer; the body validates against the definition Error of the contract with retryable true and the hint 5000; no line at the error level is written. Where the record of statements under internal/rolecheck names a line that moved, it follows. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api/internal/broker", "services/launchpad/api/internal/rest", "services/launchpad/api/internal/ws", "services/launchpad/api/internal/rolecheck"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/api && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -timeout 20m -run ^TestProductionSnapshot ./internal/rest/ && go test -count=1 -timeout 20m -run ^TestStreamHTTPError ./internal/broker/ && go test -count=1 -timeout 20m -run ^TestAuthenticatedWebSocketClassifies ./internal/ws/ && go test -count=1 -timeout 20m -run ^TestTopicNotStarted ./internal/broker/ ./internal/rest/ ./internal/ws/ && go test -count=1 -timeout 30m ./internal/rolecheck/ && go test -count=1 -list ^TestTopicNotStarted ./internal/broker/ | grep -q ^TestTopicNotStarted)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.996]
+title = "Answer the trades read and the candles read of the launchpad API with a page without items for a pool before its first market position"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.996"]
+interfaces = []
+do_1 = "do_1 Gotcha 4752 part two, decision 3825 point two. Read services/launchpad/api/internal/store/accounting_readmodel.go with the methods vector, snapshot, Trades and Candles and the error ErrAccountingNotReady, services/launchpad/api/internal/rest/accounting_v2.go with the method serve and the function EncodeCachePage, services/launchpad/api/internal/cache/adapter.go with the method serve of AccountingBindings and the method Fetch of AccountingProjectionSource, the error function of the bindings in services/launchpad/api/internal/cache/accounting_runtime.go, sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go with the functions CanonicalCreation and FirstMarketPosition, and the cases TestAccountingRoutesClassifyUnservedAndInvalidPages and TestUntradedPoolDetailAndList."
+do_2 = "do_2 Let Trades and Candles tell one state inside the transaction of the read for a request without a continuation token: the pool has a canonical creation in the source stream, no first market position, and no committed offset of either consumer for its market partition. Use the two functions of sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go for it and add no statement where they serve. For this state the two methods return an error of its own of the store package. A pool with a first market position and without a committed offset, a pool without a canonical creation, a request with a continuation token and an integrity error keep their present results, and the bound of the read stays."
+do_3 = "do_3 Let both serving paths answer that error with status 200 and a page without items: the member items empty, for the candles read the series model version of the configuration and a snapshot identity in the form the contract takes, derived from the generation and the pool, revision null, watermark null, no continuation, and the header Cache-Control with no-store. The cache stores no entry for that answer, so the first committed market position shows with the next read. The page validates against the definitions TradesResponse and CandlesResponse."
+do_4 = "do_4 Add cases with the prefix TestUntradedPoolPage in the packages rest, store and cache: the state answers 200 with the page above on both serving paths and for both reads; a pool with a first market position and without a committed offset, a pool without a canonical creation and a request with a continuation token keep their answers; the cache holds no entry after the answer. An existing case that pins the earlier answer for exactly this state takes the new one. Where the record of statements under internal/rolecheck names a line that moved, it follows. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api/internal/rest", "services/launchpad/api/internal/store", "services/launchpad/api/internal/cache", "services/launchpad/api/internal/rolecheck"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/api && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -timeout 20m -run ^TestAccounting ./internal/rest/ ./internal/cache/ && go test -count=1 -timeout 20m -run ^TestUntradedPool ./internal/rest/ ./internal/store/ ./internal/app/ ./internal/cache/ && go test -count=1 -timeout 30m ./internal/rolecheck/ && go test -count=1 -list ^TestUntradedPoolPage ./internal/rest/ | grep -q ^TestUntradedPoolPage)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.995]
+title = "Give the runtime role of the launchpad charts service the column payload of the canonical creations view and plan its symbol statement under that role"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.995"]
+interfaces = []
+do_1 = "do_1 Gotcha 4752 part one, decision 3825 point one. Read services/launchpad/trading-charts/internal/httpapi/symbols.go with the type CanonicalPoolMetadataSource and its method Resolve, the entries of the role candles_runtime in migrations/grants.json, the view in migrations/190001.sql, the case in services/launchpad/trading-charts/internal/store/runtime_statement_authority_test.go with its list of source files and the schema it takes for each file, the case TestRuntimeRoleOutboxRelay that runs it under the role, and how the last change of migrations/grants.json for this role renewed the digests in migrations/registry.json."
+do_2 = "do_2 Enter the column payload in the entry of the role candles_runtime for the view indexer_canonical_creations_v1 in migrations/grants.json and renew the digests migrations/registry.json holds over that document with the tool the earlier changes of the document used. The task changes no object and no other role, and adds a migration file only where that tool asks for one. Where the sources under sdk/launchpad/shared/db/production pin the entries of the role, they take the new column."
+do_3 = "do_3 Add services/launchpad/trading-charts/internal/httpapi/symbols.go to the list of source files of the case in services/launchpad/trading-charts/internal/store/runtime_statement_authority_test.go with the schema indexer for it, so the statement of Resolve is planned under the role with the others. Add a case with the prefix TestRuntimeRoleSymbolSource in the same package that needs no database: it reads the columns the statement of Resolve names from the source and the entry of the role for the view from migrations/grants.json and asserts that the entry holds each of them. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/trading-charts", "migrations", "sdk/launchpad/shared/db/production"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/trading-charts && go vet ./...) && (cd sdk/launchpad/shared && go vet ./db/production/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=trading-charts && (cd services/launchpad/trading-charts && go test -count=1 -timeout 30m -run ^TestRuntimeRole ./internal/store/ && go test -count=1 -timeout 30m ./internal/httpapi/ && go test -count=1 -list ^TestRuntimeRoleSymbolSource ./internal/store/ | grep -q ^TestRuntimeRoleSymbolSource) && (cd sdk/launchpad/shared && go test -count=1 -timeout 30m ./db/production/...)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
