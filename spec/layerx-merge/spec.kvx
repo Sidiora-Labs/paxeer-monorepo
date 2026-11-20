@@ -210510,7 +210510,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1038]
 title = "Count the pools of the canonical creations as covered in the coverage check of the pause observations of the launchpad indexer in the production realm"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
