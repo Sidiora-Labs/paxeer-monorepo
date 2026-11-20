@@ -731,17 +731,16 @@ func TestDevelopmentStreamUnknownPoolAndLegacy(t *testing.T) {
 	_ = conn.Close()
 }
 
-// A registered pool with no swap or stats row has no projected topic and the
-// contract has no empty TopicSnapshotEntry (payload is required and non-null,
-// topics has minItems 1), so the snapshot stays 503 DEPENDENCY_UNAVAILABLE
-// retryable=true until the projector appends the first frames.
+// A registered pool with no swap or stats row awaits its first topic frames:
+// snapshots answer 404 TOPIC_NOT_STARTED with retryable=true, retryAfterMs=5000
+// and Retry-After: 5 until the projector appends the first frames.
 func TestDevelopmentStreamSnapshotKnownPoolWithoutData(t *testing.T) {
 	f := newDstFixture(t)
 	f.createPool(t)
 	for i := 0; i < 2; i++ {
-		status, _, body := f.snapshotError(t)
-		if status != 503 || body.Code != "DEPENDENCY_UNAVAILABLE" || !body.Retryable {
-			t.Fatalf("known-pool-without-data snapshot call %d = %d %+v", i, status, body)
+		status, retryAfter, body := f.snapshotError(t)
+		if status != 404 || body.Code != "TOPIC_NOT_STARTED" || !body.Retryable || string(body.RetryAfterMs) != "5000" || retryAfter != "5" {
+			t.Fatalf("known-pool-without-data snapshot call %d = %d %+v Retry-After=%q", i, status, body, retryAfter)
 		}
 	}
 }

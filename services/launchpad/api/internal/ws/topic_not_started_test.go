@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -137,4 +138,33 @@ func TestTopicNotStartedUnknownTopicPrecedence(t *testing.T) {
 	missing := "market.price.0x3333333333333333333333333333333333333333"
 	topicNotStartedRead(t, server, []string{missing}, 404, "NOT_FOUND")
 	topicNotStartedRead(t, server, []string{"market.rankings.trending"}, 404, "TOPIC_NOT_STARTED")
+}
+
+func TestTopicNotStartedRegistryFailure(t *testing.T) {
+	stream, pool, _ := wsStreamFixture(t)
+	ctx := context.Background()
+	registry, err := rest.NewDevelopmentStream(ctx, rest.DevelopmentStreamOptions{
+		Pool: pool, Store: store.New(pool, nil), SigningKey: []byte(strings.Repeat("k", 32)), Authority: sharedauth.HTTPStreamAuthority{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	address := "0x" + strings.Repeat("3", 40)
+	topics := []string{"market.price." + address}
+	if _, err := pool.Exec(ctx, `INSERT INTO indexer.pools(pool_address,token_address,creator,optical,pool_id,created_at,created_block,tx_hash) VALUES($1,$1,$1,$1,$2,1,1,$2)`, address, "0x"+strings.Repeat("3", 64)); err != nil {
+		t.Fatal(err)
+	}
+	binding := sharedauth.StreamTicketBinding{SchemaMajor: 2, Topics: topics, FilterDigest: sharedauth.StreamFilterDigest(topics), Origin: "https://web.example", Endpoint: "/v2/stream"}
+	if _, err := stream.Snapshot(ctx, sharedauth.StreamPrincipal{}, binding); !errors.Is(err, broker.ErrTopicNotStarted) {
+		t.Fatalf("snapshot without first frame: %v", err)
+	}
+	server, _ := newServer(t, ws.Options{PrivateStream: stream, TopicRegistry: registry, AllowedOrigins: []string{"https://web.example"}})
+	if _, err := pool.Exec(ctx, `ALTER TABLE indexer.pools RENAME TO pools_unavailable`); err != nil {
+		t.Fatal(err)
+	}
+	topicNotStartedRead(t, server, topics, 503, "DEPENDENCY_UNAVAILABLE")
+	if _, err := pool.Exec(ctx, `ALTER TABLE indexer.pools_unavailable RENAME TO pools`); err != nil {
+		t.Fatal(err)
+	}
+	topicNotStartedRead(t, server, topics, 404, "TOPIC_NOT_STARTED")
 }
