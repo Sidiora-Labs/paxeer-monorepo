@@ -210480,7 +210480,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1039]
 title = "Let the consumer steps of the connected runtime of the launchpad gateway record a pass after a fetch without an error"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
