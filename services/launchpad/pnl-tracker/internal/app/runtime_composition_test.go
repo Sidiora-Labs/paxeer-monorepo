@@ -722,6 +722,34 @@ func TestBackgroundLoopContinuesAfterErrorAndStopsOnCancellation(t *testing.T) {
 	}
 }
 
+func TestBackgroundLoopStopsAfterCancellationInFirstRun(t *testing.T) {
+	a := &App{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	for iteration := 0; iteration < 100; iteration++ {
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		var calls atomic.Int64
+		go func() {
+			defer close(done)
+			a.loop(ctx, time.Millisecond, "reconcile", func(context.Context) error {
+				calls.Add(1)
+				cancel()
+				time.Sleep(2 * time.Millisecond)
+				return nil
+			})
+		}()
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			cancel()
+			t.Fatalf("iteration %d: loop did not stop", iteration)
+		}
+		cancel()
+		if got := calls.Load(); got != 1 {
+			t.Fatalf("iteration %d: calls = %d, want 1", iteration, got)
+		}
+	}
+}
+
 func TestDevelopmentRuntimeStartsAndShutsDown(t *testing.T) {
 	dsn, developmentPool := internaltest.NewPostgresWithDSN(t)
 	internaltest.EnsureIndexerSchema(t, developmentPool)

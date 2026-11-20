@@ -471,6 +471,9 @@ func (a *App) loop(ctx context.Context, interval time.Duration, name string, fn 
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if ctx.Err() != nil {
+				return
+			}
 			if err := fn(ctx); err != nil {
 				a.logger.Error("background job failed", slog.String("job", name), slog.Any("err", err))
 			}
