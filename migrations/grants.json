@@ -1596,7 +1596,8 @@
             "block_hash",
             "transaction_hash",
             "transaction_index",
-            "log_index"
+            "log_index",
+            "payload"
           ],
           "argument_types": [],
           "grant_option": false,
