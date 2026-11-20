@@ -13,6 +13,7 @@ const (
 	schemeHTTP                = "http"
 	cacheMiss                 = "miss"
 	fieldName                 = "name"
+	fieldSymbol               = "symbol"
 	statusNoData              = "no_data"
 	modePrice                 = "price"
 	fieldReason               = "reason"
