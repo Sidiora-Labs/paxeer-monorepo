@@ -210499,7 +210499,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1027]
 title = "Let the metadata service of the launchpad serve a coin with any name and any symbol within the bounds of the shared interface"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210530,7 +210530,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1026]
 title = "Let the symbol route of the charts module of the launchpad answer for a coin with any name and any symbol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
