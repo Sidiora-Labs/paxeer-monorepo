@@ -150,7 +150,7 @@ func nativeLegacyRole(envelope *decode.DecodedEnvelope) bool {
 }
 
 // reserveSnapshot is a pool's pinned post-block reserve state, attributed to
-// the block's last qualified swap on that pool.
+// a qualified creation or the block's last qualified swap on that pool.
 type reserveSnapshot struct {
 	PoolID, TransactionHash string
 	Height                  int64
@@ -221,4 +221,42 @@ func (p *Processor) readSwapReserves(ctx context.Context, fills []accounting.Fil
 // address left-padded to 32 bytes, lowercase hex.
 func poolIDFor(pool common.Address) string {
 	return "0x" + hex.EncodeToString(common.LeftPadBytes(pool.Bytes(), 32))
+}
+
+func (p *Processor) readCreationReserves(ctx context.Context, receipts []*receipt.QualifiedReceipt) ([]reserveSnapshot, error) {
+	facts, err := qualifiedCreationFacts(ctx, receipts)
+	if err != nil {
+		return nil, err
+	}
+	if len(facts) != 0 && p.deps.Reserves == nil {
+		return nil, errors.New("legacy projection reserve reader required")
+	}
+	out := make([]reserveSnapshot, 0, len(facts))
+	for _, f := range facts {
+		if accounting.ValidateSourcePosition(f.Position) != nil || !common.IsHexAddress(f.Pool) {
+			return nil, store.ErrIntegrity
+		}
+		height, err := strconv.ParseInt(f.Position.Height, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		index, err := strconv.ParseUint(f.Position.LogIndex, 10, 32)
+		if err != nil {
+			return nil, err
+		}
+		logIndex, err := checked.Convert[uint32](index)
+		if err != nil {
+			return nil, err
+		}
+		if _, err = checked.Convert[int32](logIndex); err != nil {
+			return nil, err
+		}
+		pool := common.HexToAddress(f.Pool)
+		reserves, err := p.deps.Reserves.PoolReserves(ctx, pool, common.HexToHash(f.Position.BlockHash))
+		if err != nil {
+			return nil, fmt.Errorf("pinned creation reserves %s: %w", f.Pool, err)
+		}
+		out = append(out, reserveSnapshot{PoolID: poolIDFor(pool), TransactionHash: f.Position.TransactionHash, Height: height, LogIndex: logIndex, Reserves: reserves})
+	}
+	return out, nil
 }
