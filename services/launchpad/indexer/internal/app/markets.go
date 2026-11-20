@@ -270,12 +270,38 @@ func (s *recoveringQualifiedSource) readMarketHeights(ctx context.Context, from,
 		return nil, err
 	}
 	count++
+	var totalsMu sync.Mutex
+	totalTransactions, totalLogs, totalBytes := 0, 0, 0
 	return source.ParallelBatchRead(ctx, count, concurrency, func(readCtx context.Context, index int) (marketHeightRead, error) {
 		offset, err := checked.Convert[uint64](index)
 		if err != nil {
 			return marketHeightRead{}, err
 		}
-		return s.readMarketHeight(readCtx, from+offset)
+		value, err := s.readMarketHeight(readCtx, from+offset)
+		if err != nil {
+			return marketHeightRead{}, err
+		}
+		if from < to {
+			totalsMu.Lock()
+			defer totalsMu.Unlock()
+			totalTransactions += len(value.transactions)
+			for _, r := range value.receipts {
+				if r == nil {
+					return marketHeightRead{}, receipt.ErrBinding
+				}
+				totalLogs += len(r.Logs)
+				for _, log := range r.Logs {
+					if log == nil {
+						return marketHeightRead{}, receipt.ErrBinding
+					}
+					totalBytes += 256 + len(log.Data) + 32*len(log.Topics)
+				}
+			}
+			if totalTransactions > 4096 || totalLogs > 65536 || totalBytes > 32<<20 {
+				return marketHeightRead{}, receipt.ErrQualification
+			}
+		}
+		return value, nil
 	})
 }
 
@@ -289,7 +315,7 @@ func (s *recoveringQualifiedSource) readMarketHeight(ctx context.Context, height
 		Hash         common.Hash
 		Transactions []json.RawMessage
 	}
-	if json.Unmarshal(raw, &header) != nil || json.Unmarshal(raw, &body) != nil || header.Number == nil || !header.Number.IsUint64() || header.Number.Uint64() != height || body.Hash == (common.Hash{}) || header.Time == 0 || header.Time > math.MaxInt64/1000 || len(body.Transactions) > 4096 {
+	if json.Unmarshal(raw, &header) != nil || json.Unmarshal(raw, &body) != nil || header.Number == nil || !header.Number.IsUint64() || header.Number.Uint64() != height || body.Hash == (common.Hash{}) || header.Time == 0 || header.Time > math.MaxInt64/1000 {
 		return marketHeightRead{}, receipt.ErrBinding
 	}
 	transactions := make(types.Transactions, len(body.Transactions))
@@ -354,7 +380,7 @@ func (s *recoveringQualifiedSource) validateMarketReads(ctx context.Context, fro
 		header := read.header
 		block := source.BlockRecord{ChainID: 125, Height: height, Hash: read.hash, ParentHash: header.ParentHash, TimestampSeconds: 0, TransactionCount: len(read.transactions)}
 		headerTimeInt64, conversionErr := checked.Convert[int64](header.Time)
-		if conversionErr != nil || header.Number == nil || !header.Number.IsUint64() || header.Number.Uint64() != height || read.hash == (common.Hash{}) || header.Time == 0 || header.Time > math.MaxInt64/1000 || len(read.transactions) > 4096 {
+		if conversionErr != nil || header.Number == nil || !header.Number.IsUint64() || header.Number.Uint64() != height || read.hash == (common.Hash{}) || header.Time == 0 || header.Time > math.MaxInt64/1000 {
 			return nil, nil, receipt.ErrBinding
 		}
 		block.TimestampSeconds = headerTimeInt64
@@ -366,7 +392,7 @@ func (s *recoveringQualifiedSource) validateMarketReads(ctx context.Context, fro
 			return nil, nil, receipt.ErrBinding
 		}
 		totalTransactions += len(read.transactions)
-		if totalTransactions > 4096 {
+		if from < to && totalTransactions > 4096 {
 			return nil, nil, receipt.ErrQualification
 		}
 		if len(read.rawTxs) > 0 {
@@ -408,7 +434,7 @@ func (s *recoveringQualifiedSource) validateMarketReads(ctx context.Context, fro
 				totalBytes += 256 + len(log.Data) + 32*len(log.Topics)
 			}
 		}
-		if totalLogs > 65536 || totalBytes > 32<<20 {
+		if from < to && (totalLogs > 65536 || totalBytes > 32<<20) {
 			return nil, nil, receipt.ErrQualification
 		}
 		for _, r := range regularReceipts {

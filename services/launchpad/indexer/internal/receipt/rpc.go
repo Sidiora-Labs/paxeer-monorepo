@@ -314,10 +314,7 @@ func (t *boundedRPCTransport) RoundTrip(request *http.Request) (*http.Response, 
 		if err = json.Unmarshal(call.Params[1], &full); err != nil {
 			return nil, ErrQualification
 		}
-		limit = rpcHeaderResponseBytes
-		if full {
-			limit, timeout = rpcBundleResponseBytes, 15*time.Second
-		}
+		limit, timeout = rpcBundleResponseBytes, 15*time.Second
 	case valueEthGetBlockReceipts, "eth_getTransactionReceipt":
 		limit, timeout = rpcBundleResponseBytes, 15*time.Second
 	case "anvil_nodeInfo":
@@ -1196,7 +1193,7 @@ func (a *RPCQualification) pinnedBlockAt(ctx context.Context, hash common.Hash, 
 		return pinnedBlock{}, nil, ErrQualification
 	}
 	header := block.Header
-	if header.Number == nil || !header.Number.IsInt64() || header.Number.Sign() < 0 || header.Number.Uint64() < activation || len(block.Transactions) > 4096 || header.Time == 0 || header.Time > math.MaxInt64/1000 {
+	if header.Number == nil || !header.Number.IsInt64() || header.Number.Sign() < 0 || header.Number.Uint64() < activation || header.Time == 0 || header.Time > math.MaxInt64/1000 {
 		return pinnedBlock{}, nil, ErrQualification
 	}
 	_, canonical, err := a.headerByNumber(ctx, header.Number)
@@ -1747,12 +1744,42 @@ func (a *RPCQualification) pinRange(ctx context.Context, from, to uint64, gate b
 	defer cancelAll()
 	var firstErr error
 	var firstErrOnce sync.Once
+	var totalsMu sync.Mutex
+	totalTransactions, totalLogs, totalBytes := 0, 0, 0
 	slots := make(chan struct{}, a.reads.rangeConcurrency())
 	var wg sync.WaitGroup
 	for i := range out {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
+			defer func() {
+				if from == to || gate != nil || out[i].block.Header == nil {
+					return
+				}
+				totalsMu.Lock()
+				defer totalsMu.Unlock()
+				totalTransactions += len(out[i].block.Transactions)
+				for _, r := range out[i].receipts {
+					if r == nil {
+						errs[i] = ErrQualification
+						firstErrOnce.Do(func() { firstErr = ErrQualification; cancelAll() })
+						return
+					}
+					totalLogs += len(r.Logs)
+					for _, log := range r.Logs {
+						if log == nil {
+							errs[i] = ErrQualification
+							firstErrOnce.Do(func() { firstErr = ErrQualification; cancelAll() })
+							return
+						}
+						totalBytes += 256 + len(log.Data) + 32*len(log.Topics)
+					}
+				}
+				if totalTransactions > 4096 || totalLogs > 65536 || totalBytes > 32<<20 {
+					errs[i] = ErrQualification
+					firstErrOnce.Do(func() { firstErr = ErrQualification; cancelAll() })
+				}
+			}()
 			offset, err := checked.Convert[uint64](i)
 			if err != nil {
 				errs[i] = err
@@ -1882,7 +1909,7 @@ func (a *RPCQualification) sourceBlocks(ctx context.Context, from, to uint64) (s
 				}
 				b.Records = append(b.Records, rawRecord(l))
 				count++
-				if len(b.Records) > 65536 {
+				if from < to && len(b.Records) > 65536 {
 					cancel()
 					return b, nil, ErrQualification
 				}
@@ -1924,7 +1951,7 @@ func (a *RPCQualification) issueBatch(ctx context.Context, b store.CanonicalBatc
 		keys = append(keys, h)
 	}
 	sort.Slice(keys, func(i, j int) bool { return bytes.Compare(keys[i][:], keys[j][:]) < 0 })
-	if len(keys) > 4096 {
+	if len(b.Blocks) > 1 && len(keys) > 4096 {
 		return nil, ErrQualification
 	}
 	qualified := make([]*QualifiedReceipt, 0, len(keys))
@@ -1953,7 +1980,7 @@ func (a *RPCQualification) FetchQualifiedBatch(ctx context.Context, from, to uin
 	return b, receipts, err
 }
 func (a *RPCQualification) QualifiedBatch(ctx context.Context, b store.CanonicalBatch) ([]*QualifiedReceipt, error) {
-	if b.ChainID != 125 || len(b.Records) > 65536 || len(b.Blocks) == 0 || len(b.Blocks) > 64 || b.Blocks[0].Height < 0 || b.Blocks[len(b.Blocks)-1].Height < 0 {
+	if b.ChainID != 125 || len(b.Blocks) > 1 && len(b.Records) > 65536 || len(b.Blocks) == 0 || len(b.Blocks) > 64 || b.Blocks[0].Height < 0 || b.Blocks[len(b.Blocks)-1].Height < 0 {
 		return nil, ErrBinding
 	}
 	firstHeightUint, conversionErr := checked.Convert[uint64](b.Blocks[0].Height)

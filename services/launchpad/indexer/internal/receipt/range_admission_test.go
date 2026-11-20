@@ -62,6 +62,7 @@ func TestRecordedRangeReadAheadRechecksCurrentBloomAdmission(t *testing.T) {
 			case "invalid raw identity":
 				changed.Records[0].TransactionHash = "invalid"
 			case "too many transactions":
+				changed.Blocks = append(changed.Blocks, store.BlockCompleteness{Height: changed.Blocks[0].Height + 1, Hash: common.HexToHash("0xabc").Hex(), FetchComplete: true, RequiredDecodeComplete: true})
 				changed.Records = make([]store.RawRecord, 4097)
 				for i := range changed.Records {
 					changed.Records[i].TransactionHash = fmt.Sprintf("0x%064x", i+1)

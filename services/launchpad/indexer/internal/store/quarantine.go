@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
@@ -29,7 +30,7 @@ type OperationScope struct {
 }
 
 func RawDigest(raw RawRecord) (string, error) {
-	if raw.Height < 0 || !hashPattern.MatchString(raw.TransactionHash) || !hashPattern.MatchString(raw.BlockHash) || !addressPattern.MatchString(raw.Emitter) || len(raw.Topics) > 4 || len(raw.Data) > 1<<20 {
+	if raw.Height < 0 || !hashPattern.MatchString(raw.TransactionHash) || !hashPattern.MatchString(raw.BlockHash) || !addressPattern.MatchString(raw.Emitter) || len(raw.Topics) > 4 || 256+len(raw.Data)+32*len(raw.Topics) > decode.MaxBlockLogBytes {
 		return "", errors.New("invalid bounded raw identity")
 	}
 	for _, topic := range raw.Topics {

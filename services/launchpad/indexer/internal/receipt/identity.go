@@ -206,7 +206,7 @@ func (a *RPCQualification) parseBlock(raw json.RawMessage) (pinnedBlock, error) 
 	var body struct {
 		Transactions []json.RawMessage `json:"transactions"`
 	}
-	if err = json.Unmarshal(raw, &body); err != nil || len(body.Transactions) > 4096 {
+	if err = json.Unmarshal(raw, &body); err != nil {
 		return pinnedBlock{}, ErrQualification
 	}
 	txs := make(types.Transactions, len(body.Transactions))

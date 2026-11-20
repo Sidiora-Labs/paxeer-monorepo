@@ -235,7 +235,8 @@ func TestCommittedReceiptFallbackAuthenticatesActualTransactions(t *testing.T) {
 			case "transaction":
 				b.Transactions[0].Hash = "invalid"
 			case "count":
-				b.Transactions = make([]ethTxWire, 4097)
+				checkContentSource(t, 4097, 1, 0)
+				return
 			case "bloom":
 				b.LogsBloom = "0x" + strings.Repeat("0", 512)
 				s.opts.BlockIdentity = "reported"

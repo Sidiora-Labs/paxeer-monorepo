@@ -10,7 +10,8 @@ import (
 	"testing"
 )
 
-func TestCreationFromAuthenticFrozenReceipt(t *testing.T) {
+func creationReceiptFixture(t *testing.T) (*decode.Registry, *ethtypes.Receipt, map[string]string) {
+	t.Helper()
 	root := "../../../../../sdk/launchpad/protocol/contracts/v1/chain/"
 	catalog, err := os.ReadFile(root + "abi-catalog.json")
 	if err != nil {
@@ -73,58 +74,66 @@ func TestCreationFromAuthenticFrozenReceipt(t *testing.T) {
 			}
 			receipt.Logs = append(receipt.Logs, l)
 		}
-		result, err := CreationFromReceipt(r, receipt, receipt.TxHash)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if result.Token != common.HexToAddress(f.Addresses["token"]) || result.Pool != common.HexToAddress(f.Addresses["pool"]) || result.NFTID.Sign() <= 0 {
-			t.Fatalf("wrong creation %#v", result)
-		}
-		receipt.Logs = append(receipt.Logs, receipt.Logs...)
-		if _, err = CreationFromReceipt(r, receipt, receipt.TxHash); err != nil {
-			t.Fatal("duplicate raw delivery", err)
-		}
-		if _, err = CreationFromReceipt(r, receipt, common.HexToHash("0x123")); err == nil {
-			t.Fatal("wrong exact receipt")
-		}
-		receipt.Status = 0
-		if _, err = CreationFromReceipt(r, receipt, receipt.TxHash); err == nil {
-			t.Fatal("reverted receipt")
-		}
-		receipt.Status = 1
-		receipt.BlockNumber = nil
-		if _, err = CreationFromReceipt(r, receipt, receipt.TxHash); err == nil {
-			t.Fatal("missing height")
-		}
-		return
+		return r, receipt, f.Addresses
 	}
 	t.Fatal("authentic creation receipt absent")
+	return nil, nil, nil
+}
+
+func TestCreationFromAuthenticFrozenReceipt(t *testing.T) {
+	r, receipt, addresses := creationReceiptFixture(t)
+	result, err := CreationFromReceipt(r, receipt, receipt.TxHash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Token != common.HexToAddress(addresses["token"]) || result.Pool != common.HexToAddress(addresses["pool"]) || result.NFTID.Sign() <= 0 {
+		t.Fatalf("wrong creation %#v", result)
+	}
+	receipt.Logs = append(receipt.Logs, receipt.Logs...)
+	if _, err = CreationFromReceipt(r, receipt, receipt.TxHash); err != nil {
+		t.Fatal("duplicate raw delivery", err)
+	}
+	if _, err = CreationFromReceipt(r, receipt, common.HexToHash("0x123")); err == nil {
+		t.Fatal("wrong exact receipt")
+	}
+	receipt.Status = 0
+	if _, err = CreationFromReceipt(r, receipt, receipt.TxHash); err == nil {
+		t.Fatal("reverted receipt")
+	}
+	receipt.Status = 1
+	receipt.BlockNumber = nil
+	if _, err = CreationFromReceipt(r, receipt, receipt.TxHash); err == nil {
+		t.Fatal("missing height")
+	}
 }
 
 func TestCreationReceiptAdmissionCaps(t *testing.T) {
-	b, err := os.ReadFile("../../../../../sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	r, err := decode.NewRegistry(b, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	receipt := &ethtypes.Receipt{TxHash: common.HexToHash("0x1"), BlockHash: common.HexToHash("0x2"), BlockNumber: big.NewInt(0), Status: 1}
-	receipt.Logs = make([]*ethtypes.Log, decode.MaxRawBatchLogs+1)
-	if _, err = CreationFromReceipt(r, receipt, receipt.TxHash); err == nil {
-		t.Fatal("receipt count cap")
-	}
-	l := &ethtypes.Log{Data: make([]byte, decode.MaxEnvelopeBytes)}
-	receipt.Logs = make([]*ethtypes.Log, decode.MaxRawBatchBytes/decode.MaxEnvelopeBytes+1)
-	for i := range receipt.Logs {
-		receipt.Logs[i] = l
-	}
-	if _, err = CreationFromReceipt(r, receipt, receipt.TxHash); err == nil {
-		t.Fatal("receipt aggregate cap")
-	}
-	receipt.Logs = []*ethtypes.Log{{Data: make([]byte, decode.MaxEnvelopeBytes+1)}}
-	if _, err = CreationFromReceipt(r, receipt, receipt.TxHash); err == nil {
-		t.Fatal("receipt envelope cap")
+	r, receipt, _ := creationReceiptFixture(t)
+	original := append([]*ethtypes.Log(nil), receipt.Logs...)
+	foreign := &ethtypes.Log{Address: common.HexToAddress("0x111"), TxHash: receipt.TxHash, BlockHash: receipt.BlockHash, BlockNumber: receipt.BlockNumber.Uint64(), TxIndex: receipt.TransactionIndex}
+	for _, mode := range []string{"receipt logs", "log data", "bytes"} {
+		t.Run(mode, func(t *testing.T) {
+			receipt.Logs = append([]*ethtypes.Log(nil), original...)
+			count, size := decode.MaxRawBatchLogs+1, 0
+			if mode == "log data" {
+				count, size = 1, decode.MaxEnvelopeBytes+1
+			} else if mode == "bytes" {
+				count, size = decode.MaxBlockLogBytes/(256+(1<<20))+1, 1<<20
+			}
+			data := make([]byte, size)
+			for i := 0; i < count; i++ {
+				log := *foreign
+				log.Index, log.Data = uint(len(original)+i), data
+				receipt.Logs = append(receipt.Logs, &log)
+			}
+			got, err := CreationFromReceipt(r, receipt, receipt.TxHash)
+			if mode == "bytes" {
+				if err == nil || got != nil {
+					t.Fatal("receipt byte bound")
+				}
+			} else if err != nil || got == nil {
+				t.Fatalf("creation receipt content: %v", err)
+			}
+		})
 	}
 }

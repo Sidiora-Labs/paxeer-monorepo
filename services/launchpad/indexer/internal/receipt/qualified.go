@@ -27,7 +27,8 @@ import (
 var ErrQualification = errors.New("receipt qualification rejected")
 var ErrBinding = errors.New("qualified receipt binding mismatch")
 
-const maxBundleBytes = 32 << 20
+const maxBundleBytes = decode.MaxBlockLogBytes
+const maxDocumentBytes = 32 << 20
 
 type Bundle struct {
 	Receipt        *types.Receipt
@@ -74,7 +75,7 @@ type QualifiedReceipt struct {
 
 func digest(v any) ([32]byte, error) {
 	raw, err := json.Marshal(v)
-	if err != nil || len(raw) > maxBundleBytes {
+	if err != nil || len(raw) > maxDocumentBytes {
 		return [32]byte{}, ErrQualification
 	}
 	return sha256.Sum256(raw), nil
@@ -129,7 +130,7 @@ func provenanceHeaderDigestForCodec(header *types.Header, codec provenanceHeader
 		(*hexutil.Big)(header.BaseFee), header.WithdrawalsHash, (*hexutil.Uint64)(header.BlobGasUsed),
 		(*hexutil.Uint64)(header.ExcessBlobGas), header.ParentBeaconRoot, header.RequestsHash,
 		header.BlockAccessListHash, (*hexutil.Uint64)(header.SlotNumber), header.Hash()})
-	if err != nil || len(raw) > maxBundleBytes {
+	if err != nil || len(raw) > maxDocumentBytes {
 		return [32]byte{}, ErrQualification
 	}
 	if codec == provenanceHeaderGeth1174 {
@@ -166,7 +167,7 @@ func verifyHistoricalProvenance(header *types.Header, actual, recorded accountin
 func clone[T any](v T) (T, error) {
 	var out T
 	raw, err := json.Marshal(v)
-	if err != nil || len(raw) > maxBundleBytes {
+	if err != nil || len(raw) > maxDocumentBytes {
 		return out, ErrQualification
 	}
 	if err = json.Unmarshal(raw, &out); err != nil {
@@ -200,23 +201,21 @@ func (q *QualifiedReceipt) validate(ctx context.Context) error {
 	return nil
 }
 func boundedBundle(b Bundle) error {
-	if b.Receipt == nil || b.Transaction == nil || b.Header == nil || len(b.PrepayReceipts) > 4096 || len(b.Header.Extra) > decode.MaxFieldBytes || len(b.Transaction.Data()) > maxBundleBytes {
+	if b.Receipt == nil || b.Transaction == nil || b.Header == nil || len(b.Header.Extra) > decode.MaxFieldBytes || len(b.Transaction.Data()) > maxDocumentBytes {
 		return ErrQualification
 	}
-	used := len(b.Header.Extra) + len(b.Transaction.Data())
-	count := 0
+	used := 0
 	receipts := append([]*types.Receipt{b.Receipt}, b.PrepayReceipts...)
 	for _, r := range receipts {
-		if r == nil || len(r.Logs) > 4096 {
+		if r == nil {
 			return ErrQualification
 		}
 		for _, l := range r.Logs {
-			if l == nil || len(l.Topics) > 4 || len(l.Data) > decode.MaxFieldBytes {
+			if l == nil || len(l.Topics) > 4 {
 				return ErrQualification
 			}
-			count++
 			used += 256 + len(l.Data) + 32*len(l.Topics)
-			if count > 65536 || used > maxBundleBytes {
+			if used > maxBundleBytes {
 				return ErrQualification
 			}
 		}
@@ -224,8 +223,11 @@ func boundedBundle(b Bundle) error {
 	return nil
 }
 func coordinates(b Bundle) (string, error) {
+	if err := boundedBundle(b); err != nil {
+		return "", err
+	}
 	r, t, h := b.Receipt, b.Transaction, b.Header
-	if r == nil || t == nil || h == nil || h.Number == nil || !h.Number.IsInt64() || h.Number.Sign() < 0 || h.Time == 0 || h.Time > math.MaxInt64/1000 || r.BlockNumber == nil || !r.BlockNumber.IsInt64() || r.Status != types.ReceiptStatusSuccessful || r.Type != t.Type() || r.TransactionIndex > math.MaxUint32 || len(r.Logs) > 4096 || len(b.PrepayReceipts) > 4096 {
+	if r == nil || t == nil || h == nil || h.Number == nil || !h.Number.IsInt64() || h.Number.Sign() < 0 || h.Time == 0 || h.Time > math.MaxInt64/1000 || r.BlockNumber == nil || !r.BlockNumber.IsInt64() || r.Status != types.ReceiptStatusSuccessful || r.Type != t.Type() || r.TransactionIndex > math.MaxUint32 {
 		return "", ErrQualification
 	}
 	if !validSignedChainID(t.ChainId()) || r.TxHash != t.Hash() || r.BlockHash != bundleBlockHash(b) || r.BlockNumber.Cmp(h.Number) != 0 {
@@ -237,14 +239,14 @@ func coordinates(b Bundle) (string, error) {
 	}
 	var prior uint
 	for i, l := range r.Logs {
-		if l == nil || l.Address == (common.Address{}) || l.Removed || l.BlockHash != r.BlockHash || l.TxHash != r.TxHash || l.BlockNumber != h.Number.Uint64() || l.TxIndex != r.TransactionIndex || l.Index > math.MaxUint32 || len(l.Topics) > 4 || len(l.Data) > decode.MaxFieldBytes || (i > 0 && l.Index <= prior) {
+		if l == nil || l.Address == (common.Address{}) || l.Removed || l.BlockHash != r.BlockHash || l.TxHash != r.TxHash || l.BlockNumber != h.Number.Uint64() || l.TxIndex != r.TransactionIndex || l.Index > math.MaxUint32 || len(l.Topics) > 4 || (i > 0 && l.Index <= prior) {
 			return "", ErrQualification
 		}
 		prior = l.Index
 	}
 	seen := map[common.Hash]bool{r.TxHash: true}
 	for _, pre := range b.PrepayReceipts {
-		if pre == nil || pre.Status != types.ReceiptStatusSuccessful || pre.TxHash == (common.Hash{}) || seen[pre.TxHash] || pre.BlockNumber == nil || !pre.BlockNumber.IsInt64() || pre.BlockNumber.Sign() < 0 || pre.BlockNumber.Cmp(h.Number) > 0 || pre.TransactionIndex > math.MaxUint32 || len(pre.Logs) > 4096 {
+		if pre == nil || pre.Status != types.ReceiptStatusSuccessful || pre.TxHash == (common.Hash{}) || seen[pre.TxHash] || pre.BlockNumber == nil || !pre.BlockNumber.IsInt64() || pre.BlockNumber.Sign() < 0 || pre.BlockNumber.Cmp(h.Number) > 0 || pre.TransactionIndex > math.MaxUint32 {
 			return "", ErrQualification
 		}
 		seen[pre.TxHash] = true
@@ -252,7 +254,7 @@ func coordinates(b Bundle) (string, error) {
 			return "", ErrQualification
 		}
 		for _, l := range pre.Logs {
-			if l == nil || l.Removed || l.BlockHash != pre.BlockHash || l.BlockNumber != pre.BlockNumber.Uint64() || l.TxHash != pre.TxHash || l.TxIndex != pre.TransactionIndex || l.Index > math.MaxUint32 || len(l.Topics) > 4 || len(l.Data) > decode.MaxFieldBytes {
+			if l == nil || l.Removed || l.BlockHash != pre.BlockHash || l.BlockNumber != pre.BlockNumber.Uint64() || l.TxHash != pre.TxHash || l.TxIndex != pre.TransactionIndex || l.Index > math.MaxUint32 || len(l.Topics) > 4 {
 				return "", ErrQualification
 			}
 		}
@@ -677,7 +679,7 @@ func ValidateBindings(ctx context.Context, b store.CanonicalBatch, receipts []*Q
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if b.ChainID != 125 || len(receipts) > 4096 || len(b.Records) > 65536 {
+	if b.ChainID != 125 || len(b.Blocks) > 1 && (len(receipts) > 4096 || len(b.Records) > 65536) {
 		return ErrBinding
 	}
 	byTx := map[string]*QualifiedReceipt{}
