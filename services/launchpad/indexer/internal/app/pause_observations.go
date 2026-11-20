@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/big"
 	"net/http"
 	"net/url"
 	"sort"
@@ -19,12 +18,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -72,13 +71,18 @@ type pauseSnapshot struct {
 	blocks map[int64]string
 	events []types.Log
 }
+type pauseBaseClient interface {
+	CallContractAtHash(context.Context, ethereum.CallMsg, common.Hash) ([]byte, error)
+}
+
 type pauseObservations struct {
-	pool     *pgxpool.Pool
-	rpc      *ethclient.Client
-	stream   string
-	epochs   []source.AddressEpoch
-	mu       sync.Mutex
-	snapshot atomic.Pointer[pauseSnapshot]
+	pool             *pgxpool.Pool
+	rpc              pauseBaseClient
+	stream           string
+	epochs           []source.AddressEpoch
+	discoveredEpochs func() []receipt.RPCCodeEpoch
+	mu               sync.Mutex
+	snapshot         atomic.Pointer[pauseSnapshot]
 }
 
 type pausePoolEvidence struct {
@@ -188,7 +192,7 @@ func pauseAddressPointer(value string) *common.Address {
 
 // rawCoverage requires the complete pool and beacon emitter ranges. A stored
 // event alone cannot establish coverage of an address with no events.
-func (p *pauseObservations) rawCoverage(pools []pausePool, from, to int64) bool {
+func (p *pauseObservations) rawCoverage(pools []pausePool, discovered []receipt.RPCCodeEpoch, from, to int64) bool {
 	covered := make(map[string]bool)
 	beacon := false
 	for _, epoch := range p.epochs {
@@ -206,6 +210,19 @@ func (p *pauseObservations) rawCoverage(pools []pausePool, from, to int64) bool 
 		return false
 	}
 	for _, pool := range pools {
+		if covered[pool.address] {
+			continue
+		}
+		for _, epoch := range discovered {
+			d := epoch.Deployment
+			if d.Role != "SidioraPool" || strings.ToLower(d.Address.Hex()) != pool.address || d.Until != nil && d.Until.Block <= uint64(to) {
+				continue
+			}
+			if d.From.Block < uint64(pool.height) || d.From.Block == uint64(pool.height) && (uint64(d.From.Transaction) < uint64(pool.transaction) || uint64(d.From.Transaction) == uint64(pool.transaction) && uint64(d.From.Log) <= uint64(pool.log)) {
+				covered[pool.address] = true
+				break
+			}
+		}
 		if !covered[pool.address] {
 			return false
 		}
@@ -213,13 +230,9 @@ func (p *pauseObservations) rawCoverage(pools []pausePool, from, to int64) bool 
 	return true
 }
 
-func (p *pauseObservations) readEvents(ctx context.Context, tx pgx.Tx, pools []pausePool, from, to int64) ([]types.Log, error) {
+func (p *pauseObservations) readEvents(ctx context.Context, tx pgx.Tx, from, to int64) ([]types.Log, error) {
 	if from > to {
 		return nil, nil
-	}
-	if !p.rawCoverage(pools, from, to) {
-		// A topic query covers all pools in one call, including new creations.
-		return p.rpc.FilterLogs(ctx, ethereum.FilterQuery{FromBlock: big.NewInt(from), ToBlock: big.NewInt(to), Topics: [][]common.Hash{{pauseTopic, pauseUpgradeTopic}}})
 	}
 	rows, err := tx.Query(ctx, pauseLogsSQL, from, to, strings.ToLower(pauseTopic.Hex()), strings.ToLower(pauseUpgradeTopic.Hex()))
 	if err != nil {
@@ -277,7 +290,11 @@ func (p *pauseObservations) refresh(parent context.Context) error {
 	if previous != nil {
 		base = previous.base
 	}
-	if base == nil || time.Since(base.built) >= pauseBaseCycle {
+	var discovered []receipt.RPCCodeEpoch
+	if p.discoveredEpochs != nil {
+		discovered = p.discoveredEpochs()
+	}
+	if base == nil || time.Since(base.built) >= pauseBaseCycle || !p.rawCoverage(pools, discovered, base.block.height+1, head.height) {
 		bounded, stop := context.WithTimeout(ctx, pauseBaseTimeout)
 		base = p.buildBase(bounded, head, pools)
 		stop()
@@ -317,7 +334,7 @@ func (p *pauseObservations) refresh(parent context.Context) error {
 	if next != head.height+1 || blocks[base.block.height] != base.block.hash {
 		return errPauseUnavailable
 	}
-	events, err := p.readEvents(bounded, tx, pools, base.block.height+1, head.height)
+	events, err := p.readEvents(bounded, tx, base.block.height+1, head.height)
 	if err != nil {
 		return err
 	}
