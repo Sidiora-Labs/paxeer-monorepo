@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/readpolicy"
 	"github.com/ethereum/go-ethereum"
 	"math/big"
@@ -208,9 +207,8 @@ func TestAttestedSnapshotReadsBindPoolRuntimeAndAmounts(t *testing.T) {
 				if err != nil || snapshot.VirtualUSDLReserve != "1" || snapshot.RealUSDLBalance != "1" || snapshot.TokenReserve != "1" || snapshot.FeeBps != 1 || snapshot.BlockHash != pin.Hash || snapshot.ManifestHash != adapter.binding.ManifestHash {
 					t.Fatalf("committed snapshot: %+v %v", snapshot, err)
 				}
-				var unavailable capabilities.Unavailable
-				if err := adapter.ReleaseReady(); !errors.As(err, &unavailable) || unavailable.CapabilityID != "core_market" || unavailable.ReasonCode != "prerequisite_unavailable" {
-					t.Fatalf("unavailable controller readiness: %v", err)
+				if err := adapter.ReleaseReady(); err != nil {
+					t.Fatalf("committed market release refused: %v", err)
 				}
 				if _, err := adapter.HistoricalLogs(context.Background(), ethereum.FilterQuery{Addresses: []common.Address{backend.pool}, FromBlock: big.NewInt(100), ToBlock: big.NewInt(100)}, 1); err != nil {
 					t.Fatal(err)
