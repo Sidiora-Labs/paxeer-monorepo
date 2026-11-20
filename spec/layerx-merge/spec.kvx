@@ -210213,7 +210213,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1008]
 title = "Hold one entity for one coin in the search result of the launchpad web"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
