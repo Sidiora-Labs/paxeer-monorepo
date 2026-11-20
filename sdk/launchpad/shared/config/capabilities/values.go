@@ -30,4 +30,5 @@ const (
 	valueQuotes                  = "quotes"
 	valueUnknownImplementation   = "unknown-implementation"
 	valueZeroRealSell            = "zero-real-sell"
+	valueSurface                 = "surface"
 )
