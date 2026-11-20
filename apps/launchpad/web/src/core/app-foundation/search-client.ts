@@ -104,6 +104,20 @@ export async function searchAll(query: string, signal: AbortSignal): Promise<Sea
   const [coins, users] = await Promise.all([searchEntities(query, signal, client), searchUsers(query, signal, client)]);
   return { coins, users };
 }
+export function checkedSearchMatches(q: string, type: 'pool' | 'token', result: V2ContractTypes['SearchResponse']): V2ContractTypes['SearchResult'][] {
+  if (result.data.items.length > 10) throw new RangeError('Search result limit exceeded');
+  const matches: V2ContractTypes['SearchResult'][] = [];
+  for (const item of result.data.items) {
+    if (typeof item.label !== 'string' || item.label.length > 256) throw new TypeError('Invalid search label');
+    if (item.kind !== type) throw new TypeError('Search returned a different entity type.');
+    const raw = item.kind === 'pool' ? item.poolAddress : item.tokenAddress;
+    if (!raw) throw new TypeError('Search result has no entity address.');
+    const address = normalizeAddress(raw);
+    if (/^0x[0-9a-f]{40}$/.test(q) && address !== q) continue;
+    matches.push(item);
+  }
+  return matches;
+}
 export async function searchEntities(query: string, signal: AbortSignal, client: SdkClient = searchClient()): Promise<SearchEntity[]> {
   const q = normalizedSearch(query);
   if (q.length < 2) return [];
@@ -113,31 +127,45 @@ export async function searchEntities(query: string, signal: AbortSignal, client:
     signal.throwIfAborted();
     const result = await client.requestV2(`/v2/search?${searchParams(q, type)}`, 'SearchResponse', { signal });
     signal.throwIfAborted();
-    if (result.data.items.length > 10) throw new RangeError('Search result limit exceeded');
-    for (const item of result.data.items) {
-      if (typeof item.label !== 'string' || item.label.length > 256) throw new TypeError('Invalid search label');
-      if (item.kind !== type) throw new TypeError('Search returned a different entity type.');
-      const raw = item.kind === 'pool' ? item.poolAddress : item.tokenAddress;
-      if (!raw) throw new TypeError('Search result has no entity address.');
-      const address = normalizeAddress(raw);
-      if (/^0x[0-9a-f]{40}$/.test(q) && address !== q) continue;
-      matches.push(item);
-    }
+    matches.push(...checkedSearchMatches(q, type, result));
   }
   const tokens = [...new Set(matches.flatMap(row => row.tokenAddress ? [normalizeAddress(row.tokenAddress)] : []))];
   const metadata = await searchMetadataBatch(tokens, signal);
   signal.throwIfAborted();
-  const unique = new Map<string, SearchEntity>();
+  return resolveSearchEntities(matches, metadata);
+}
+export function resolveSearchEntities(matches: V2ContractTypes['SearchResult'][], metadata: Record<string, TokenMetadata | null>): SearchEntity[] {
+  type ResolvedMatch = { row: V2ContractTypes['SearchResult']; token: string | undefined; pool: string | undefined; meta: TokenMetadata | null | undefined };
+  const coins: ResolvedMatch[][] = [];
   for (const row of matches) {
     if (row.kind === 'profile') continue;
     const token = row.tokenAddress ? normalizeAddress(row.tokenAddress) : undefined;
     const pool = row.poolAddress ? normalizeAddress(row.poolAddress) : token && metadata[token]?.pool_address ? normalizeAddress(metadata[token]!.pool_address!) : undefined;
     const address = row.kind === 'pool' ? pool : token;
     if (!address) throw new TypeError('Search identity is unavailable.');
-    const identity = `125:${row.kind}:${address}`;
     const meta = token ? metadata[token] : null;
-    unique.set(identity, { identity, chainId: 125, kind: row.kind, token_address: token,
-      pool_address: pool, name: meta?.name || row.label, symbol: meta?.symbol || '', images: { logo: meta?.images?.logo || null } });
+    const matching = coins.filter(coin => coin.some(match =>
+      (pool !== undefined && match.pool === pool) || (token !== undefined && match.token === token)));
+    const resolved = { row, token, pool, meta };
+    if (!matching.length) { coins.push([resolved]); continue; }
+    const first = matching[0];
+    for (const coin of matching.slice(1)) {
+      first.push(...coin);
+      coins.splice(coins.indexOf(coin), 1);
+    }
+    first.push(resolved);
   }
-  return [...unique.values()].slice(0, 20);
+  return coins.slice(0, 20).map(coin => {
+    const preferred = coin.find(match => match.row.kind === 'pool') ?? coin[0];
+    const kind = preferred.row.kind === 'pool' ? 'pool' : 'token';
+    const token = preferred.token ?? coin.find(match => match.token)?.token;
+    const pool = preferred.pool ?? coin.find(match => match.pool)?.pool;
+    return {
+      identity: `125:${kind}:${kind === 'pool' ? pool : token}`, chainId: 125, kind,
+      token_address: token, pool_address: pool,
+      name: preferred.meta?.name || coin.find(match => match.meta?.name)?.meta?.name || preferred.row.label,
+      symbol: preferred.meta?.symbol || coin.find(match => match.meta?.symbol)?.meta?.symbol || '',
+      images: { logo: preferred.meta?.images?.logo || coin.find(match => match.meta?.images?.logo)?.meta?.images?.logo || null },
+    };
+  });
 }
