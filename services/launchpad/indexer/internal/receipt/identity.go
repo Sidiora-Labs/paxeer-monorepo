@@ -398,6 +398,8 @@ func (a *RPCQualification) discoveryEpoch(owned RPCOptions, address common.Addre
 			identity.ImplementationHash = beacon.ImplementationHash
 		case valueSurface:
 			identity.Kind = valueSurface
+			identity.StagedRuntimeHash = template.StagedRuntimeHash
+			identity.StagedUpgrade = template.StagedUpgrade
 		default:
 			return RPCCodeEpoch{}, ErrQualification
 		}
