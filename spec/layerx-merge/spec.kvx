@@ -210455,7 +210455,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.986]
 title = "Accept the code of a launchpad pool in the preflight engine of the shared module by the runtime hashes of the manifest role"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
