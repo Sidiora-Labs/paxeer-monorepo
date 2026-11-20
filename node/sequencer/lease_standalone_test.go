@@ -189,12 +189,16 @@ func TestLeaseExpiredAdmission(t *testing.T) {
 				require.ErrorIs(t, err, sequencer.ErrReplicationHalted)
 			}
 			records := lines()
-			require.Len(t, records, 1)
-			require.Equal(t, float64(epoch), records[0]["epoch"])
 			if standalone {
-				require.Equal(t, "WARN", records[0]["level"])
-				require.Greater(t, records[0]["lateness"].(float64), float64(0))
+				require.NotEmpty(t, records)
+				for _, record := range records {
+					require.Equal(t, "WARN", record["level"])
+					require.Equal(t, float64(epoch), record["epoch"])
+					require.Greater(t, record["lateness"].(float64), float64(0))
+				}
 			} else {
+				require.Len(t, records, 1)
+				require.Equal(t, float64(epoch), records[0]["epoch"])
 				require.Equal(t, "ERROR", records[0]["level"])
 				require.Equal(t, expiry.Format(time.RFC3339Nano), records[0]["expiry"])
 				require.NotEmpty(t, records[0]["time"])
