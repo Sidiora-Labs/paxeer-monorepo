@@ -210639,7 +210639,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1028]
 title = "Show a coin with any name and any ticker in the web of the launchpad and take no control or direction character in the creation form"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
