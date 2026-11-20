@@ -57,6 +57,14 @@ partition delivery tables live in `candles` and `stats`, respectively. Its
 evidence. Each input consumer's broker stream equals the indexer's `stream`,
 separate from the canonical source stream ID.
 
+For `--service ranking`, the version-two runtime binding requires
+`visibilityEndpoint`, the social service's HTTPS
+`/internal/v2/social/ranking-visibility` endpoint, and `evidenceEndpoint`, the
+indexer's HTTP or HTTPS `/internal/ranking-evidence` endpoint. Both require a
+host and accept no user information, query or fragment. Evidence reads bind
+pause observations to the frozen height, time and block hash; an unavailable
+read refuses the ranking input.
+
 For the indexer, receipt and lifecycle documents each have two forms. The default
 form composes the document from the indexer values and writes its standard base64
 to `INDEXER_RECEIPT_CONFIG_DOCUMENT` or `INDEXER_LIFECYCLE_CONFIG_DOCUMENT`, with
