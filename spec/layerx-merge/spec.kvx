@@ -210059,7 +210059,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.991]
 title = "Serve cutoff bound pause observations of the launchpad pools on the internal listener of the indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210729,7 +210729,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.970]
 title = "Let the release list of the launchpad name a release of the market capability for the committed deployment"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
