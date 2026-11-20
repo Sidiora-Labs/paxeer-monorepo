@@ -82,7 +82,16 @@ def inventory(root: Path) -> dict:
     for route in routes:
         ordered_streams[route["stream"]] = list(route["subjects"]) + sorted(
             streams[route["stream"]] - set(route["subjects"]))
-    return {"streams": ordered_streams, "durables": consumers}
+    return {
+        "streams": ordered_streams,
+        "durables": consumers,
+        "identities": {
+            stats["searchConsumerId"]: {
+                "consumers": [sub["consumer"] for sub in stats["searchConsumers"]],
+                "publishSubjects": [stats["searchInvalidationSubject"]],
+            },
+        },
+    }
 
 
 if __name__ == "__main__":

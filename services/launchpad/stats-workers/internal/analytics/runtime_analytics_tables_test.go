@@ -19,7 +19,7 @@ import (
 
 func TestRuntimeRoleAnalyticsTables(t *testing.T) {
 	ctx := context.Background()
-	database := coordinatortest.Bootstrap(t, os.Getenv("COORDINATOR_TEST_POSTGRES_DSN"), "stats_runtime")
+	database := coordinatortest.Bootstrap(t, os.Getenv("COORDINATOR_TEST_POSTGRES_DSN"), "stats_runtime", "stats_search_runtime")
 	runtime := database.Runtimes["stats_runtime"]
 	pool, err := pgxpool.New(ctx, runtime.DSN)
 	if err != nil {
@@ -36,7 +36,12 @@ func TestRuntimeRoleAnalyticsTables(t *testing.T) {
 	}
 	assertAnalyticsCatalog(t, ctx, pool)
 	assertProjectionCatalog(t, ctx, database.AdminDSN)
-	assertRuntimeStatements(t, ctx, pool)
+	searchPool, err := pgxpool.New(ctx, database.Runtimes["stats_search_runtime"].DSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(searchPool.Close)
+	assertRuntimeStatements(t, ctx, pool, map[string]*pgxpool.Pool{"stats_search_runtime": searchPool})
 
 	authority := analytics.ReactionAuthority{Pool: pool, Schema: "stats"}
 	projector, err := analytics.NewProjector(authority, risk.ProjectionModelV1{}, analytics.PostgresRiskInputs{Authority: authority})
