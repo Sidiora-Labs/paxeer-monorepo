@@ -11,6 +11,7 @@ import { applyBrowserSurface } from '@/core/app-foundation/browser-surface.test-
 import { createServer, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
@@ -38,6 +39,9 @@ const outage = { code: 'DEPENDENCY_UNAVAILABLE', message: 'no backing service', 
 let holdCandles = true;
 const held: ServerResponse[] = [];
 const candleReads: string[] = [];
+const recorded = JSON.parse(readFileSync(new URL('../../core/test-fixtures/market-production/core-api-wire.json', import.meta.url), 'utf8'));
+let emptyMarket = false;
+let snapshotReads = 0;
 
 function answerOutage(response: ServerResponse) {
   response.statusCode = 503;
@@ -53,8 +57,24 @@ const server = createServer((request, response) => {
     response.statusCode = 204; response.end(); return;
   }
   const url = request.url ?? '';
+  if (emptyMarket && url.startsWith('/v2/snapshots?')) {
+    snapshotReads++;
+    response.writeHead(404, { 'Content-Type': 'application/json', 'X-Schema-Version': '2', 'Retry-After': '8', 'Cache-Control': 'no-store' });
+    response.end(JSON.stringify({ ...outage, code: 'TOPIC_NOT_STARTED', message: 'Topic has no first frame', retryable: true, retryAfterMs: 8000 }));
+    return;
+  }
+  if (emptyMarket && url.startsWith(`/v2/pools/${pool}/trades`)) {
+    response.writeHead(200, { 'Content-Type': 'application/json', 'X-Schema-Version': '2' });
+    response.end(JSON.stringify(recorded.tradesFirstPage.body));
+    return;
+  }
   if (url.startsWith(`/v2/pools/${pool}/candles`)) {
     candleReads.push(url);
+    if (emptyMarket) {
+      response.writeHead(200, { 'Content-Type': 'application/json', 'X-Schema-Version': '2' });
+      response.end(JSON.stringify({ ...recorded.candles.body, revision: null, watermark: null, data: { ...recorded.candles.body.data, items: [] } }));
+      return;
+    }
     if (holdCandles) { held.push(response); return; }
   }
   answerOutage(response);
@@ -99,12 +119,30 @@ afterEach(() => {
   root = undefined;
   container?.remove();
   container = undefined;
+  emptyMarket = false;
   delete (window as { TradingView?: unknown }).TradingView;
   vi.useRealTimers();
 });
 afterAll(() => { for (const response of held.splice(0)) answerOutage(response); server.close(); });
 
 describe('TvChart degraded canvas', () => {
+  async function topicNotStartedShowsEmptyCandlesAndWaitingUpdates() {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true });
+    emptyMarket = true;
+    snapshotReads = 0;
+    const view = mount();
+    await waitFor(() => view.textContent?.includes('The chart starts with the first trade.') === true && snapshotReads === 1);
+    expect(view.textContent).toContain('No trades yet');
+    expect(view.textContent).toContain('Syncing...');
+    expect(view.textContent).not.toMatch(/TOPIC_NOT_STARTED|Loading chart|Updates paused|May be out of date/);
+    expect(view.querySelector('[role="alert"], [data-state="unavailable"]')).toBeNull();
+    act(() => root!.unmount());
+    root = undefined;
+    await tick(20_000);
+    expect(snapshotReads).toBe(1);
+  }
+  it(topicNotStartedShowsEmptyCandlesAndWaitingUpdates, topicNotStartedShowsEmptyCandlesAndWaitingUpdates);
+
   it('bounds the wait on the candle datafeed by the transient-retry wall-time budget', () => {
     expect(CHART_ANSWER_BUDGET_MS).toBe(transientRetryBudgetMs);
     expect(CHART_ANSWER_BUDGET_MS).toBe(15_000);

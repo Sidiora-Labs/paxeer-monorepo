@@ -86,6 +86,7 @@ import { SnapshotStreamV2, type V2StreamEvent, type V2TopicSnapshot } from '@kin
 import { ReconnectingStream, type ReconnectStatus } from '@kindle/sdk';
 import { browserStreamTransportV2, type BrowserStreamV2Scope } from '@kindle/sdk';
 import { SdkClient, decodeV2Contract } from '@kindle/sdk';
+import { beforeFirstFrameTransport } from './topic-snapshot';
 export class TopicConnectionPolicyError extends Error { readonly code = 'TOPIC_CONNECTION_POLICY_REQUIRED'; }
 export interface CanonicalSubscription {
   topics: string[];
@@ -115,7 +116,7 @@ export class CanonicalDataStream {
     this.authorization = authorizationScope;
     const report = (member: CanonicalSubscription, error: unknown) => { try { member.onError?.(error); } catch {} };
     this.stream = new SnapshotStreamV2({
-      transport: browserStreamTransportV2(client, scope, authenticated),
+      transport: beforeFirstFrameTransport(browserStreamTransportV2(client, scope, authenticated)),
       installSnapshot: snapshot => {
         const generation = this.generation;
         this.scheduler.cancel(); this.replaceable.clear();

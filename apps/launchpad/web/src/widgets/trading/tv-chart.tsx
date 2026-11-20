@@ -155,6 +155,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
   const [valuation, setValuation] = useState<ValuationState | null>(null);
   const [tableOpen, setTableOpen] = useState(false);
   const [answer, setAnswer] = useState<FeedAnswer>('waiting');
+  const [emptyCandles, setEmptyCandles] = useState(false);
 
   // Live candles ride the public v2 stream core/api serves: GET /v2/snapshots on
   // the api origin, WS /v2/stream on the stream origin (market topics need no
@@ -245,6 +246,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
     setView(initialView);
     setValuation(null);
     setAnswer('waiting');
+    setEmptyCandles(false);
     // Bounded wait for the first history answer (success or a reported failure); see CHART_ANSWER_BUDGET_MS.
     const stallTimer = setTimeout(() => { if (active) setAnswer(value => value === 'waiting' ? 'stalled' : value); }, CHART_ANSWER_BUDGET_MS);
     const datafeed = createReplayUdfDatafeed(
@@ -273,8 +275,9 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
       datafeed.subscribeBars({}, resolution, () => {}, 'accessible-chart');
       accessibleIntervalRef.current = resolution;
     };
-    datafeed.getBars({}, startInterval, { from: Math.floor(range.from), to: Math.ceil(range.to) }, () => {
+    datafeed.getBars({}, startInterval, { from: Math.floor(range.from), to: Math.ceil(range.to) }, bars => {
       if (!active) return;
+      setEmptyCandles(bars.length === 0);
       setAnswer('answered');
       startAccessibleStream();
     }, reason => {
@@ -459,7 +462,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
   // A pool with no recorded fill has no candles: its newest trade page is empty with no older cursor
   // and no candle has arrived. That is an empty chart, not a failure.
   const firstTrades = useMarketTrades(poolAddress);
-  const noTrades = firstTrades.data !== undefined && firstTrades.data.data.items.length === 0 && firstTrades.data.nextCursor === null && view.rows.length === 0;
+  const noTrades = (emptyCandles || (firstTrades.data !== undefined && firstTrades.data.data.items.length === 0 && firstTrades.data.nextCursor === null)) && view.rows.length === 0;
   const valuationBlocked = mode === 'mcap' && valuation !== null && valuation.state !== 'ready';
   const stalled = answer === 'stalled' && !error && !noTrades && !valuationBlocked;
   const retryChart = useCallback(() => { setError(null); setLoaded(false); setRetryGeneration(value => value + 1); }, []);
@@ -483,7 +486,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
           onKeyDown={event => { if (event.key === 'Enter' && event.target === event.currentTarget) { event.preventDefault(); event.currentTarget.querySelector('iframe')?.focus(); } }}
           inert={!loaded || !!error || stalled || noTrades || valuationBlocked} aria-hidden={!loaded || !!error || stalled || noTrades || valuationBlocked}
           className="absolute inset-0 h-full w-full outline-none after:pointer-events-none after:absolute after:inset-0 after:z-20 after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-focus data-[chart-focus]:after:outline-2 data-[chart-focus]:after:-outline-offset-2 data-[chart-focus]:after:outline-focus" />
-        {!loaded && !error && !stalled ? (
+        {!loaded && !error && !stalled && !noTrades && !valuationBlocked ? (
           <div role="status" className="absolute inset-0 flex items-center justify-center bg-canvas text-sm text-text-faint">Loading chart...</div>
         ) : null}
         {noTrades ? (
