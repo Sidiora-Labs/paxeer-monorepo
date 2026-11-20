@@ -8,6 +8,9 @@
 
 export const GENERIC_LAUNCH_ERROR = 'Something went wrong, try again';
 
+export const INSUFFICIENT_USDL_COPY = 'Not enough USDL. You need the 1 USDL fee plus your first buy';
+export const INSUFFICIENT_GAS_COPY = 'Not enough PAX to pay the network fee';
+
 /** Shown for every capability/admission refusal (CapabilityAdmissionError, KnownCapabilityAdmissionError). */
 export const CREATION_PAUSED = 'Creating coins is paused right now. Try again in a few minutes';
 
@@ -126,6 +129,11 @@ export function plainLaunchError(cause: unknown, fallback: string = GENERIC_LAUN
   if (text in statusCopy) return statusCopy[text] || fallback;
   if (cause && typeof cause === 'object') console.error('[create]', cause);
   if (walletCode(cause) === 4001) return 'You cancelled in your wallet';
+  const fundingError = text.startsWith('insufficient_usdl') ? INSUFFICIENT_USDL_COPY : text.startsWith('insufficient_gas') ? INSUFFICIENT_GAS_COPY : null;
+  if (fundingError) {
+    const [walletPattern, walletCopy] = errorRules[0];
+    return walletPattern.test(text) ? walletCopy : fundingError;
+  }
   if (isCapabilityError(cause)) return CREATION_PAUSED;
   for (const [pattern, copy] of errorRules) if (pattern.test(text)) return copy;
   return fallback;
