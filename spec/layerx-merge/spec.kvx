@@ -209997,7 +209997,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.993]
 title = "Write the search authority row of a launchpad pool with its creation in the stats module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.983"]
@@ -210090,7 +210090,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.990]
 title = "Give the pool document of the launchpad API the fee of the protocol configuration for a pool without a qualified fill"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210243,7 +210243,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.985]
 title = "Accept the code of a launchpad pool in the receipt authority of the indexer by the runtime hashes of the manifest role"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210591,7 +210591,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.974]
 title = "Let the pnl service of the launchpad take the client key of its identity connection from a variable"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.973"]
