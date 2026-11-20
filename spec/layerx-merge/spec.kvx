@@ -210619,7 +210619,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1007]
 title = "Mark the row of the pool address in the holders table of the launchpad web"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
