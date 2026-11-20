@@ -210249,7 +210249,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1020]
 title = "Let the broker nodes of the runtime case of the launchpad API name the bound of their file storage"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
