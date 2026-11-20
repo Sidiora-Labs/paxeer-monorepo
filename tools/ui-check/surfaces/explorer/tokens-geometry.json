@@ -2390,7 +2390,7 @@
         "left": 16,
         "top": 134,
         "width": 343,
-        "height": 32,
+        "height": 64,
         "fontSize": 28,
         "lineHeight": 32
       }
@@ -2402,7 +2402,7 @@
       "selector": "main :is(tbody tr,[data-list-item-mobile]):visible >> nth=0",
       "values": {
         "left": 17,
-        "top": 1858,
+        "top": 1890,
         "width": 341,
         "height": 168,
         "fontSize": 13,
@@ -2416,7 +2416,7 @@
       "selector": "footer:visible >> nth=0",
       "values": {
         "left": 0,
-        "top": 2128,
+        "top": 2160,
         "width": 375,
         "height": 849,
         "fontSize": 14,
@@ -2430,7 +2430,7 @@
       "selector": "footer [data-label=\"footer-column\"]:nth-child(1) a >> nth=0",
       "values": {
         "left": 16,
-        "top": 2366,
+        "top": 2398,
         "width": 44,
         "height": 44,
         "fontSize": 13,
@@ -2444,7 +2444,7 @@
       "selector": "footer [data-label=\"footer-column\"]:nth-child(2) a >> nth=0",
       "values": {
         "left": 16,
-        "top": 2595,
+        "top": 2627,
         "width": 73,
         "height": 44,
         "fontSize": 13,
@@ -2458,7 +2458,7 @@
       "selector": "footer [data-label=\"footer-column\"]:nth-child(3) a >> nth=0",
       "values": {
         "left": 16,
-        "top": 2780,
+        "top": 2812,
         "width": 54,
         "height": 44,
         "fontSize": 13,
@@ -2488,7 +2488,7 @@
         "left": 16,
         "top": 68,
         "width": 343,
-        "height": 2028,
+        "height": 2060,
         "fontSize": 14,
         "lineHeight": 20
       }
@@ -2500,7 +2500,7 @@
       "selector": "[data-token-card=\"Media\"]",
       "values": {
         "left": 16,
-        "top": 336,
+        "top": 368,
         "width": 343,
         "height": 316,
         "fontSize": 14,
@@ -2514,7 +2514,7 @@
       "selector": "[data-token-card=\"Metadata\"]",
       "values": {
         "left": 16,
-        "top": 1117,
+        "top": 1149,
         "width": 343,
         "height": 572,
         "fontSize": 14,
@@ -2556,7 +2556,7 @@
       "selector": "[data-token-card=\"Other info\"]",
       "values": {
         "left": 16,
-        "top": 1035,
+        "top": 1067,
         "width": 343,
         "height": 66,
         "fontSize": 14,
@@ -2570,7 +2570,7 @@
       "selector": "[data-token-card=\"Overview\"]",
       "values": {
         "left": 16,
-        "top": 668,
+        "top": 700,
         "width": 343,
         "height": 351,
         "fontSize": 14,
@@ -2584,7 +2584,7 @@
       "selector": "main :is(button,a,input,select):visible >> nth=0",
       "values": {
         "left": 263,
-        "top": 176,
+        "top": 208,
         "width": 44,
         "height": 44,
         "fontSize": 16,
@@ -2598,7 +2598,7 @@
       "selector": "main [data-scan-table-card]",
       "values": {
         "left": 16,
-        "top": 1781,
+        "top": 1813,
         "width": 343,
         "height": 315,
         "fontSize": 14,

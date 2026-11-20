@@ -47,6 +47,8 @@ func TestPoolStatsInterface22FieldsRoundTrip(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	internaltest.ApplyIndexerTables(t, pg, "swaps")
+	internaltest.ApplyReadMigrations(t, pg, "60000", "60003", "150006")
 	realToken := "0x0f92fdd087c96dd3413ef98646b94d0d986192fa"
 	insertRegistryPool(t, pg, realPoolV22, realToken, 14, true)
 	insertPoolState(t, pg, realPoolV22, realToken)

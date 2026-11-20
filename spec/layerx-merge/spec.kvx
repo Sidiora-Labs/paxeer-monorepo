@@ -16048,6 +16048,12 @@ value = "One. The set of the control module in the package inventory of the laun
 basis = "Gotcha 4749."
 affects = []
 
+[decision.3823]
+title = "A launchpad pool is read from its creation: code identity by the manifest role, state snapshot, fee, pause observations and search authority"
+value = "One. The receipt authority of the indexer and the method poolState accept the code of a pool of kind surface where the manifest role SidioraFactory accepts its hash through AcceptsRuntimeHash. The builder of the receipt document takes the pool template from the manifest, and the composer writes the templates the builder writes. Two. A refusal of the code validation or of the discovery names role, kind, address and a cause word, and the processor counts the passes that did not get beyond the same height. Three. The typed projection writes one state snapshot for every qualified creation, pinned to the creation block. Four. The pool document of a pool with a snapshot and without a qualified fill carries the fee the formula of the fee library gives a pool without price snapshots, from the policy values of the deployment attestation the process holds and the age of the pool at the committed head. Five. The indexer serves pause observations bound to a cutoff block on its internal listener in the form the evidence reader of the ranking service accepts. They are exact for that block. The ranking service builds its evidence reader from an endpoint member of its binding document. The route is plain HTTP on the private network of the deployment, like the route for the source selection. Six. The creation consumer of the search projection writes the authority row of the pool as public with the visibility revision of the document. A later visibility change with a higher revision prevails. This follows the rule the social service holds for the ranking: a pool is visible unless a removal or an erased creator exists. Seven. The web resolver gives the not found state only where the pool detail answered that the pool does not exist and both searches answered without a hit. Tasks 22.39.985 to 22.39.994."
+basis = "Gotcha 4750."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45708,6 +45714,96 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.994]
+title = "Tell a pool that is not served from a pool that does not exist in the pool resolver of the launchpad web"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4750 part three, decision 3823 point seven. Read apps/launchpad/web/src/core/market/pool-resolver.ts with the function resolvePoolIdentity, the function that reads the pool detail and the marker it returns for a status that is not served, the function that reads the search and the class PoolNotFoundError, the set of statuses in core/market/unsupported.ts, the page of the coin view under app/coin with the kinds of failure it maps, and the layout of the token market under widgets/trading with the not found state and the state that keeps the frames."
+symbols = []
+
+[capability.22.39.993]
+title = "Write the search authority row of a launchpad pool with its creation in the stats module"
+reqs = ["22998.1"]
+touches = ["services/launchpad"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4750 part two, decision 3823 point six. Read in the stats module the file internal/search/projection.go with the function ConsumeCanonicalCreation, the function applyChangeTx with the change kind visibility and its statement on the table stats_search.authority_v2, the function authorizeTx with the member Sources, the read in internal/search/postgres.go with its join on that table and the status it gives an exact address without an item, and the function rankingVisibility of the social service as the rule for the ranking: a pool is visible unless a removal or an erased creator exists."
+symbols = []
+
+[capability.22.39.992]
+title = "Build the pause evidence reader of the launchpad ranking service from an endpoint member of its binding document"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo", "deploy/launchpad", "tools/deploy"]
+tests = []
+verification_contract = "anvil --version > /dev/null && python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash tools/deploy/tests/*-apply-variables.test.sh && bash deploy/launchpad/tests/*-values.test.sh && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 20m ./internal/config/... && go test -count=1 -timeout 20m -run ^TestNative ./internal/app/ && go test -count=1 -timeout 20m -run ^TestEvidenceEndpoint ./internal/app/ ./internal/store/ && go test -count=1 -list ^TestEvidenceEndpoint ./internal/app/ | grep -q ^TestEvidenceEndpoint)"
+do_1 = "do_1 Gotcha 4750 part two, decision 3823 point five. Read the binding document of the ranking service in services/launchpad/ranking-algo/internal/app/app.go with its members, its checks and the place that builds the input reader through NewCanonicalInputReader, the function NewHTTPCanonicalEvidence in services/launchpad/ranking-algo/internal/store/canonical_evidence.go, the member Evidence of the input reader with the place in services/launchpad/ranking-algo/internal/store/frozen_inputs.go that reads it and the place in services/launchpad/ranking-algo/internal/store/universe_features.go that takes the pause state of a pool from it, the composer deploy/launchpad/documents/ranking.py with the member visibilityEndpoint, the example values deploy/launchpad/documents/values/ranking.example.json and the route /internal/ranking-evidence of the indexer after task 22.39.991."
+symbols = []
+
+[capability.22.39.991]
+title = "Serve cutoff bound pause observations of the launchpad pools on the internal listener of the indexer"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... && go test -count=1 -timeout 30m -run ^TestPauseObservation ./... && go test -count=1 -list ^TestPauseObservation ./... | grep -q ^TestPauseObservation"
+do_1 = "do_1 Gotcha 4750 part two, decision 3823 point five. Read the route /internal/source-selection in services/launchpad/indexer/internal/app/app.go with its handler and its listener, services/launchpad/ranking-algo/internal/store/canonical_evidence.go whole as the reader of the answer with the members and the bounds it accepts, the place in services/launchpad/ranking-algo/internal/store/frozen_inputs.go that calls it with height, cutoff time and block hash, the event PauseToggled with the functions _pause and _unpause in contracts/launchpad/contracts/base/Pausable.sol and the function paused of the pool contract, the interface ReserveReader in services/launchpad/indexer/internal/processor/processor.go as the precedent of a read pinned to a block hash, and the raw log store of the indexer with the logs of a pool it holds."
+symbols = []
+
+[capability.22.39.990]
+title = "Give the pool document of the launchpad API the fee of the protocol configuration for a pool without a qualified fill"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api/internal/rest", "services/launchpad/api/internal/store", "services/launchpad/api/internal/app"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -timeout 20m -run ^TestPool ./internal/rest/ && go test -count=1 -timeout 20m -run ^TestUntradedPool ./internal/rest/ ./internal/store/ ./internal/app/ && go test -count=1 -list ^TestUntradedPool ./internal/rest/ | grep -q ^TestUntradedPool)"
+do_1 = "do_1 Gotcha 4750 part two, decision 3823 point four. Read the function resolvePools in services/launchpad/api/internal/rest/pool_reads.go with the two places that answer the pool state as not available, the functions PoolReserves and ObservedFeeBps in services/launchpad/api/internal/store/pool_registry.go, the functions calculateDynamicFee and calculateAgeFactor in contracts/launchpad/contracts/libraries/FeeLib.sol and the function _calculateFee in contracts/launchpad/contracts/core/SidioraPool.sol, the member PolicyValues in sdk/launchpad/shared/config/deployment/attest.go with the getters it reads, and the place of the app package that holds the deployment attestation the process publishes on its authority route."
+symbols = []
+
+[capability.22.39.989]
+title = "Write a pool state snapshot for every qualified creation in the typed projection of the launchpad indexer"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... && go test -count=1 -timeout 30m -run ^TestCreation ./internal/processor/ ./internal/store/ && go test -count=1 -list ^TestCreationSnapshot ./internal/processor/ | grep -q ^TestCreationSnapshot && go test -count=1 -timeout 30m -run ^TestReserveSnapshots ./internal/processor/"
+do_1 = "do_1 Gotcha 4750 part two, decision 3823 point three. Read the interface ReserveReader and the function handlePoolStateUpdated in services/launchpad/indexer/internal/processor/processor.go, the function readSwapReserves in services/launchpad/indexer/internal/processor/legacy.go, the place of the typed projection that writes the pools row for a qualified creation, the function of the store that writes a pool state snapshot with the key its rows hold, the view indexer.pool_state_snapshots_v1 in migrations/60003.sql and the function PoolReserves in services/launchpad/api/internal/store/pool_registry.go as one reader of that view."
+symbols = []
+
+[capability.22.39.988]
+title = "Name the refused identity in the code validation of the launchpad indexer and count the passes that stay at one height"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... ./internal/receipt/... && go test -count=1 -timeout 30m -run ^TestShellReceipt ./internal/source/ ./internal/processor/ && go test -count=1 -timeout 30m -run ^TestStandingHeight ./internal/processor/ && go test -count=1 -list ^TestStandingHeight ./internal/processor/ | grep -q ^TestStandingHeight"
+do_1 = "do_1 Gotcha 4750 part one, decision 3823 point two. Read services/launchpad/indexer/internal/receipt/rpc.go with the function validateCodeUncached, the validation of the code epochs and of the templates and every place that answers the bare value ErrQualification, the places of the processor that take that error for a block and write it to the log, and the metrics of the processor with the place they are registered."
+symbols = []
+
+[capability.22.39.987]
+title = "Write the two templates into the receipt document the launchpad composer gives the indexer"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad", "services/launchpad/indexer/internal/config", "tools/deploy"]
+tests = []
+verification_contract = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/indexer && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/)"
+do_1 = "do_1 Gotcha 4750 part one, decision 3823 point one. Read the function _receipt in deploy/launchpad/documents/indexer.py with the member Discovery it writes, the function ReceiptOptions in services/launchpad/indexer/internal/runtimedocs/runtimedocs.go with the two templates it writes for the roles SidioraPool and SidioraERC20 after task 22.39.985, the functions MaskedRuntimeHash and TrimCatalog there, the reader of the receipt document in services/launchpad/indexer/internal/receipt/rpc.go and the example values of the indexer under deploy/launchpad/documents/values."
+symbols = []
+
+[capability.22.39.986]
+title = "Accept the code of a launchpad pool in the preflight engine of the shared module by the runtime hashes of the manifest role"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/config/capabilities", "services/launchpad/api/internal/app"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/shared && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -run ^TestAuthority ./internal/app/ && go test -count=1 -run ^TestProductionAuthority ./internal/app/ && go test -count=1 -run ^TestNetworkAuthorityRoutes ./internal/app/ && go test -count=1 -run ^TestNetworkAuthorityBinds ./internal/app/ && go test -count=1 -run ^TestPreflightResponse ./internal/app/ && go test -count=1 -run ^TestRecentAuthority ./internal/app/ && go test -count=1 -run ^TestDevelopmentAuthority ./internal/app/ && go test -count=1 -run ^TestDevelopmentPreflight ./internal/app/)"
+do_1 = "do_1 Gotcha 4750 part one, decision 3823 point one. Read sdk/launchpad/shared/config/capabilities/preflight.go with the function NewPreflightEngine, the function preflightIdentity, the member poolRuntime and the method poolState, the method AcceptsRuntimeHash in sdk/launchpad/shared/config/deployment/manifest.go and the place in the app package of the API that hands the reviewed pool runtime to the engine."
+symbols = []
+
+[capability.22.39.985]
+title = "Accept the code of a launchpad pool in the receipt authority of the indexer by the runtime hashes of the manifest role"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... ./internal/receipt/... ./internal/runtimedocs/... ./cmd/indexer-runtime-docs/... && go test -count=1 -timeout 30m -run ^TestShellReceipt ./internal/source/ ./internal/processor/"
+do_1 = "do_1 Gotcha 4750 part one, decision 3823 point one. Read services/launchpad/indexer/internal/receipt/rpc.go with the function validateCodeUncached, the place that matches a found pool of kind surface against the templates of the member Discovery, the place that gives a found pool its identity and the function that builds the digest of a code epoch, services/launchpad/indexer/internal/runtimedocs/runtimedocs.go with the member PoolRuntimeHash and the function ReceiptOptions, the option pool-runtime in services/launchpad/indexer/cmd/indexer-runtime-docs/main.go and the method AcceptsRuntimeHash in sdk/launchpad/shared/config/deployment/manifest.go with the members runtimeHash, stagedRuntimeHash and stagedUpgrade of a role of kind surface."
+symbols = []
 
 [capability.22.39.984]
 title = "Bind each package index read and each install of the system package script of the launchpad checks in time"
@@ -178290,7 +178386,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.135]
 title = "Let the heading of a token view of the explorer show the whole name"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.44.124"]
@@ -209863,6 +209959,313 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.994]
+title = "Tell a pool that is not served from a pool that does not exist in the pool resolver of the launchpad web"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.994"]
+interfaces = []
+do_1 = "do_1 Gotcha 4750 part three, decision 3823 point seven. Read apps/launchpad/web/src/core/market/pool-resolver.ts with the function resolvePoolIdentity, the function that reads the pool detail and the marker it returns for a status that is not served, the function that reads the search and the class PoolNotFoundError, the set of statuses in core/market/unsupported.ts, the page of the coin view under app/coin with the kinds of failure it maps, and the layout of the token market under widgets/trading with the not found state and the state that keeps the frames."
+do_2 = "do_2 Let resolvePoolIdentity throw the not found error only where the pool detail answered the status 404 and both searches answered without a hit. Where the detail or a search answered another status of the not served set and nothing resolves the address, it throws an error of a class of its own that carries the operation and the status and is no not found error. The coin view maps that error to the kind that keeps the market frames with their placeholders and a control to try again, and never to the not found state. A malformed address keeps its present answer."
+do_3 = "do_3 The order of the three reads and the answers for a pool that is served do not change. Add cases in the test file of the resolver: detail 404 without a hit, detail 503 without a hit, detail 503 with a hit by token and with a hit by pool, detail 412 and 501 without a hit, detail 404 with a search that is not served, and one case of the coin view for the new kind. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.993]
+title = "Write the search authority row of a launchpad pool with its creation in the stats module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.983"]
+reqs = ["22998.1"]
+capabilities = ["22.39.993"]
+interfaces = []
+do_1 = "do_1 Gotcha 4750 part two, decision 3823 point six. Read in the stats module the file internal/search/projection.go with the function ConsumeCanonicalCreation, the function applyChangeTx with the change kind visibility and its statement on the table stats_search.authority_v2, the function authorizeTx with the member Sources, the read in internal/search/postgres.go with its join on that table and the status it gives an exact address without an item, and the function rankingVisibility of the social service as the rule for the ranking: a pool is visible unless a removal or an erased creator exists."
+do_2 = "do_2 Let the creation consumer write the authority row of the pool in the same transaction as the document: the pool address, the visibility revision the document holds, public true and tombstone false, and only where the table holds no row for that pool. An existing row is never changed by a creation. A visibility change with a higher revision prevails over that row as the statement of the change kind visibility orders, and a tombstone stays a tombstone. The invalidation the consumer queues after a creation stays one per creation."
+do_3 = "do_3 Let the service give every stored document of the active generation without an authority row that row when the search projection starts, by one statement that is bound in time and holds the same values, before the consumers take messages. The number of rows it wrote goes to one log line. A document with a row is not touched."
+do_4 = "do_4 Add cases beside the present cases of the projection: a creation writes document and row and the read by pool address and by token address gives the item, a second delivery of the same creation changes nothing, a visibility change that hides the pool after the creation is held and the read gives no item, a creation after such a change does not make the pool public, a deletion stays deleted, and the step at the start for a document without a row. Where a record of the module lists its statements, as the statement inventory under internal/analytics does, it carries the new statements with the present value of every source it binds. No migration is added and no right of a database role changes: where the role of the service holds no right for a new statement, stop and name it in the final message. Change files of the stats module only. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/stats-*ers && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.992]
+title = "Build the pause evidence reader of the launchpad ranking service from an endpoint member of its binding document"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.991"]
+reqs = ["22998.1"]
+capabilities = ["22.39.992"]
+interfaces = []
+do_1 = "do_1 Gotcha 4750 part two, decision 3823 point five. Read the binding document of the ranking service in services/launchpad/ranking-algo/internal/app/app.go with its members, its checks and the place that builds the input reader through NewCanonicalInputReader, the function NewHTTPCanonicalEvidence in services/launchpad/ranking-algo/internal/store/canonical_evidence.go, the member Evidence of the input reader with the place in services/launchpad/ranking-algo/internal/store/frozen_inputs.go that reads it and the place in services/launchpad/ranking-algo/internal/store/universe_features.go that takes the pause state of a pool from it, the composer deploy/launchpad/documents/ranking.py with the member visibilityEndpoint, the example values deploy/launchpad/documents/values/ranking.example.json and the route /internal/ranking-evidence of the indexer after task 22.39.991."
+do_2 = "do_2 Let the binding document carry the member evidenceEndpoint beside the endpoint of the visibility: an address with the scheme http or https, a host, the path /internal/ranking-evidence, and no user, query or fragment. A binding without the member or with another form is refused at the start with an error that names the member, in the way the other members of the binding are refused. The service builds the evidence reader through NewHTTPCanonicalEvidence with a client of its own that holds a bound in time and follows no redirect, and assigns it to the member Evidence of the input reader it builds. The version of the binding document does not change."
+do_3 = "do_3 Let the composer deploy/launchpad/documents/ranking.py require the member evidenceEndpoint in the values of the ranking service with the same form and write it to the binding document, with a DocumentError that names the member where it is absent or has another form. The example values carry it, and the README of the composer and the example environment file of the service name it where they name the endpoint of the visibility."
+do_4 = "do_4 Add cases with the prefix TestEvidenceEndpoint in the app package of the service: a binding with the member builds an input reader whose member Evidence is set and reads a pool as not paused from a local test server, a binding without the member, with another scheme, with a query and with another path. Every binding the present cases of the module build carries the member. Add cases beside the present ranking cases of deploy/launchpad/documents/test_compose.py for the composer. A run whose evidence read does not pass keeps the outcome a run with an input error has today. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo", "deploy/launchpad", "tools/deploy"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/documents/compose.py deploy/launchpad/documents/ranking.py && (cd services/launchpad/ranking-algo && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash tools/deploy/tests/*-apply-variables.test.sh && bash deploy/launchpad/tests/*-values.test.sh && (cd services/launchpad/ranking-algo && go test -count=1 -timeout 20m ./internal/config/... && go test -count=1 -timeout 20m -run ^TestNative ./internal/app/ && go test -count=1 -timeout 20m -run ^TestEvidenceEndpoint ./internal/app/ ./internal/store/ && go test -count=1 -list ^TestEvidenceEndpoint ./internal/app/ | grep -q ^TestEvidenceEndpoint)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.991]
+title = "Serve cutoff bound pause observations of the launchpad pools on the internal listener of the indexer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.991"]
+interfaces = []
+do_1 = "do_1 Gotcha 4750 part two, decision 3823 point five. Read the route /internal/source-selection in services/launchpad/indexer/internal/app/app.go with its handler and its listener, services/launchpad/ranking-algo/internal/store/canonical_evidence.go whole as the reader of the answer with the members and the bounds it accepts, the place in services/launchpad/ranking-algo/internal/store/frozen_inputs.go that calls it with height, cutoff time and block hash, the event PauseToggled with the functions _pause and _unpause in contracts/launchpad/contracts/base/Pausable.sol and the function paused of the pool contract, the interface ReserveReader in services/launchpad/indexer/internal/processor/processor.go as the precedent of a read pinned to a block hash, and the raw log store of the indexer with the logs of a pool it holds."
+do_2 = "do_2 Let the indexer serve the path /internal/ranking-evidence on that listener for the method GET with the query members cutoffHeight, cutoffTime and blockHash the reader sends. The answer has the form the reader accepts: revision, cutoffHeight, cutoffTime, blockHash and pools, where every canonical pool created at or below the cutoff height whose pause state is known for that block holds the member paused and the member pauseEvidence, a digest of 32 bytes in lower hex over chain, pool, block hash and state. No member for the self volume is written. The revision is a digest over the cutoff and the sorted pools with their states. The block hash of the request is compared with the complete block the indexer holds at that height: another hash, a height above the complete head or a malformed member is refused with a status of the 4xx class and no pools."
+do_3 = "do_3 The observations are exact for the block of the request and never the state of another block. The indexer holds a base observation: the answer of the function paused of every pool, read pinned to the hash of one complete block, built in the background when the process starts and bound in time and in parallel reads. The state at a later cutoff is the base with the events PauseToggled of the pools between the base block and the cutoff, taken from the raw log store where it holds every log of a pool and else from one log query over that range. A pool created after the base block starts with the state its creation gives. A cutoff below the base block, a pool whose state could not be read and a process without a base are answered without that pool or with the status 503, never with a guessed state. Read the pool contract and name in the final message every way the answer of paused changes without that event: where one exists, the base is rebuilt on a bound cycle and the cycle is named."
+do_4 = "do_4 The route answers ten thousand pools inside the bound of two seconds the reader holds, from the state the process holds and without a read of the chain per pool in the request. It is served on the internal listener only, like the route for the source selection, and it is named beside that route wherever a document of the indexer names it. Add cases with the prefix TestPauseObservation: the form the reader accepts, proven by a decoder in the case that holds the rules of services/launchpad/ranking-algo/internal/store/canonical_evidence.go, a pause and its end between two cutoffs, a pool created after the base, a wrong block hash, a cutoff below the base, a pool that could not be read and the process without a base. No migration is added, and where a record of the module lists its statements it carries the new ones. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... && go test -count=1 -timeout 30m -run ^TestPauseObservation ./... && go test -count=1 -list ^TestPauseObservation ./... | grep -q ^TestPauseObservation"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.990]
+title = "Give the pool document of the launchpad API the fee of the protocol configuration for a pool without a qualified fill"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.990"]
+interfaces = []
+do_1 = "do_1 Gotcha 4750 part two, decision 3823 point four. Read the function resolvePools in services/launchpad/api/internal/rest/pool_reads.go with the two places that answer the pool state as not available, the functions PoolReserves and ObservedFeeBps in services/launchpad/api/internal/store/pool_registry.go, the functions calculateDynamicFee and calculateAgeFactor in contracts/launchpad/contracts/libraries/FeeLib.sol and the function _calculateFee in contracts/launchpad/contracts/core/SidioraPool.sol, the member PolicyValues in sdk/launchpad/shared/config/deployment/attest.go with the getters it reads, and the place of the app package that holds the deployment attestation the process publishes on its authority route."
+do_2 = "do_2 Let the pool document of a pool that holds a state snapshot and no qualified fill carry the fee the formula of the fee library gives a pool without price snapshots: the base fee and the age component, which is the decay rate over one and the whole hours since the creation of the pool, bound by the maximum fee and raised to the minimum fee, in the order and with the integer arithmetic of calculateDynamicFee. The four values are the policy values of the getters baseFeeBps, minFeeBps, maxFeeBps and feeDecayRate of the attestation the process holds, and the age runs from the creation time of the pools row to the time of the committed head the process publishes. Where the function of the pool contract gives a pool without a swap a further component, name it in the final message and include it where the process holds its inputs."
+do_3 = "do_3 A pool with a qualified fill keeps the observed fee as it is. Where the attestation lacks one of the four values, or holds one that is no whole number inside the bounds of the library, the present answer for a pool without a fee stays. No request adds a read of the chain, the member feeBps stays a required whole number of the public contract, and a pool without a state snapshot keeps the present answer."
+do_4 = "do_4 Add cases with the prefix TestUntradedPool in the rest package: the detail and a list with a pool without a fill at an age of zero hours, at an age beyond one hour and at an age where the fee is bound by the maximum, a pool with a fill beside it, the attestation without the values, and vectors that are equal to the results of the library for the same inputs. The present case for a registry without reserves keeps its answer. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api/internal/rest", "services/launchpad/api/internal/store", "services/launchpad/api/internal/app"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/api && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -timeout 20m -run ^TestPool ./internal/rest/ && go test -count=1 -timeout 20m -run ^TestUntradedPool ./internal/rest/ ./internal/store/ ./internal/app/ && go test -count=1 -list ^TestUntradedPool ./internal/rest/ | grep -q ^TestUntradedPool)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.989]
+title = "Write a pool state snapshot for every qualified creation in the typed projection of the launchpad indexer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.989"]
+interfaces = []
+do_1 = "do_1 Gotcha 4750 part two, decision 3823 point three. Read the interface ReserveReader and the function handlePoolStateUpdated in services/launchpad/indexer/internal/processor/processor.go, the function readSwapReserves in services/launchpad/indexer/internal/processor/legacy.go, the place of the typed projection that writes the pools row for a qualified creation, the function of the store that writes a pool state snapshot with the key its rows hold, the view indexer.pool_state_snapshots_v1 in migrations/60003.sql and the function PoolReserves in services/launchpad/api/internal/store/pool_registry.go as one reader of that view."
+do_2 = "do_2 Let the typed projection write one pool state snapshot for every qualified creation: the reserves of the pool read through the reserve reader pinned to the hash of the creation block, attributed to the height and the log position of the creation, in the same canonical transaction as the pools row. A read that does not pass ends the block like a read for a swap that does not pass, and a later run of the block writes the same row. A swap or an event PoolStateUpdated in the same block keeps its own snapshot at its own position."
+do_3 = "do_3 Let the processor give every stored pool without any snapshot one snapshot when it starts, before it takes new blocks: the reserves pinned to the creation block through the reader the processor uses for earlier blocks, with the position of the creation. Where the state of that block is not served any more and the raw log store holds no log of that pool after its creation transaction, the read is pinned to the last complete block of the indexer and the row keeps the position of the creation. Where neither holds, the pool is left as it is and named with its address in one log line. The step is bound in time and in pools per pass and goes on at the next start."
+do_4 = "do_4 Add cases with the prefix TestCreationSnapshot in the processor package: a creation without a swap, a creation with a swap in the same block, a second run of the same block, a read that does not pass, a stored pool without a snapshot at the start and one whose earlier state is not served. Where a record of the module lists its statements, as internal/rolecheck/statements.go does, it carries the new statements. Name every reader of the view and of the table in the final message and change none outside the paths. No migration is added. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... && go test -count=1 -timeout 30m -run ^TestCreation ./internal/processor/ ./internal/store/ && go test -count=1 -list ^TestCreationSnapshot ./internal/processor/ | grep -q ^TestCreationSnapshot && go test -count=1 -timeout 30m -run ^TestReserveSnapshots ./internal/processor/"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.988]
+title = "Name the refused identity in the code validation of the launchpad indexer and count the passes that stay at one height"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.985"]
+reqs = ["22998.1"]
+capabilities = ["22.39.988"]
+interfaces = []
+do_1 = "do_1 Gotcha 4750 part one, decision 3823 point two. Read services/launchpad/indexer/internal/receipt/rpc.go with the function validateCodeUncached, the validation of the code epochs and of the templates and every place that answers the bare value ErrQualification, the places of the processor that take that error for a block and write it to the log, and the metrics of the processor with the place they are registered."
+do_2 = "do_2 Let every refusal of the code validation and of the discovery of a pool or a token answer an error that wraps ErrQualification, so errors.Is holds as before, and that names the role, the kind, the address and one cause word of a fixed set: code_absent, code_size, runtime_hash, implementation, beacon, template, identity and coverage, with further words where the code needs them. The text holds no credential, no address of an endpoint and no body of a response. The log line of the processor for a refused block carries that text with the height."
+do_3 = "do_3 Add one gauge to the present metrics of the processor: the number of consecutive passes that ended without a height beyond the height of the pass before, and zero after a pass that got beyond it. It is registered where the other gauges of the processor are."
+do_4 = "do_4 Add cases with the prefix TestStandingHeight in the processor package for the gauge and cases in the receipt package for the error of each cause word. No refusal becomes an acceptance and no acceptance a refusal. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... ./internal/receipt/... && go test -count=1 -timeout 30m -run ^TestShellReceipt ./internal/source/ ./internal/processor/ && go test -count=1 -timeout 30m -run ^TestStandingHeight ./internal/processor/ && go test -count=1 -list ^TestStandingHeight ./internal/processor/ | grep -q ^TestStandingHeight"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.987]
+title = "Write the two templates into the receipt document the launchpad composer gives the indexer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.985"]
+reqs = ["22998.1"]
+capabilities = ["22.39.987"]
+interfaces = []
+do_1 = "do_1 Gotcha 4750 part one, decision 3823 point one. Read the function _receipt in deploy/launchpad/documents/indexer.py with the member Discovery it writes, the function ReceiptOptions in services/launchpad/indexer/internal/runtimedocs/runtimedocs.go with the two templates it writes for the roles SidioraPool and SidioraERC20 after task 22.39.985, the functions MaskedRuntimeHash and TrimCatalog there, the reader of the receipt document in services/launchpad/indexer/internal/receipt/rpc.go and the example values of the indexer under deploy/launchpad/documents/values."
+do_2 = "do_2 Let the composed receipt document carry the two templates with the members and in the order the builder writes them: the pool template from the manifest role as the builder takes it, and the token template with the revision of the reviewed catalog, the immutable spans of the reviewed catalog and the masked runtime hash of the token code. The masked runtime hash of the token code is a required member of the values of the indexer, a hash of 32 bytes in lower hex with the prefix 0x. Without it or with another form the composer ends with a DocumentError that names the member. The example values carry the member with the value the builder computes for the token code of the repository, and the README of the composer names it."
+do_3 = "do_3 Let the composer refuse an anchor whose height is below the activation height of the manifest with a DocumentError that names both heights, as the builder does. Add cases beside the present indexer cases of deploy/launchpad/documents/test_compose.py: the two templates hold the members and values of a document of the builder for the same inputs, kept as a fixture beside the cases, the missing member, the wrong form and the anchor below the activation height. Where the case PlatformDocuments of the config package of the indexer reads the composed document, it accepts the new form. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad", "services/launchpad/indexer/internal/config", "tools/deploy"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/documents/compose.py deploy/launchpad/documents/indexer.py && (cd services/launchpad/indexer && go vet ./internal/config/)"
+verify_cmd = "python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash tools/deploy/tests/*-apply-variables.test.sh && (cd services/launchpad/indexer && go test -count=1 -timeout 20m -run PlatformDocuments ./internal/config/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.986]
+title = "Accept the code of a launchpad pool in the preflight engine of the shared module by the runtime hashes of the manifest role"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.986"]
+interfaces = []
+do_1 = "do_1 Gotcha 4750 part one, decision 3823 point one. Read sdk/launchpad/shared/config/capabilities/preflight.go with the function NewPreflightEngine, the function preflightIdentity, the member poolRuntime and the method poolState, the method AcceptsRuntimeHash in sdk/launchpad/shared/config/deployment/manifest.go and the place in the app package of the API that hands the reviewed pool runtime to the engine."
+do_2 = "do_2 Let poolState accept the code of a pool where the manifest of the engine holds the role SidioraFactory with kind surface and that role accepts the hash of the code through AcceptsRuntimeHash. For a manifest without a role of kind surface the comparison with the reviewed pool runtime stays as it is. A hash the role does not accept stays the refusal identity_unverified, and a read that does not pass stays the issue pool_read_failed. The revision of the engine does not change with the pool that is read."
+do_3 = "do_3 The reviewed pool runtime the API hands to the engine stays a required value of the present form. Where the engine or the app package refuses a start because that value is the staged runtime hash of the role, the start is accepted where the manifest role accepts the value. Add cases beside the present cases of the engine: a pool with the runtime hash, one with the staged runtime hash, one with neither, a manifest without a role of kind surface, a role with a staged hash and no staged upgrade, and the unchanged revision. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/config/capabilities", "services/launchpad/api/internal/app"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && go vet ./...) && (cd services/launchpad/api && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/shared && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -run ^TestAuthority ./internal/app/ && go test -count=1 -run ^TestProductionAuthority ./internal/app/ && go test -count=1 -run ^TestNetworkAuthorityRoutes ./internal/app/ && go test -count=1 -run ^TestNetworkAuthorityBinds ./internal/app/ && go test -count=1 -run ^TestPreflightResponse ./internal/app/ && go test -count=1 -run ^TestRecentAuthority ./internal/app/ && go test -count=1 -run ^TestDevelopmentAuthority ./internal/app/ && go test -count=1 -run ^TestDevelopmentPreflight ./internal/app/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.985]
+title = "Accept the code of a launchpad pool in the receipt authority of the indexer by the runtime hashes of the manifest role"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.985"]
+interfaces = []
+do_1 = "do_1 Gotcha 4750 part one, decision 3823 point one. Read services/launchpad/indexer/internal/receipt/rpc.go with the function validateCodeUncached, the place that matches a found pool of kind surface against the templates of the member Discovery, the place that gives a found pool its identity and the function that builds the digest of a code epoch, services/launchpad/indexer/internal/runtimedocs/runtimedocs.go with the member PoolRuntimeHash and the function ReceiptOptions, the option pool-runtime in services/launchpad/indexer/cmd/indexer-runtime-docs/main.go and the method AcceptsRuntimeHash in sdk/launchpad/shared/config/deployment/manifest.go with the members runtimeHash, stagedRuntimeHash and stagedUpgrade of a role of kind surface."
+do_2 = "do_2 Let the receipt authority accept the code of a pool of kind surface where its hash is one the manifest role SidioraFactory accepts through AcceptsRuntimeHash: the runtime hash, or with a staged upgrade the staged runtime hash. The identity of a found pool of kind surface carries the runtime hash, the staged runtime hash and the staged upgrade of that role, the comparison in validateCodeUncached asks the identity through that method, and the digest of the code epoch names the hash the code holds, so two pools with different accepted code hold different digests. A hash the role does not accept is refused as before. A pool behind the pool beacon, a token and every other role keep their present checks."
+do_3 = "do_3 Let ReceiptOptions take the pool template of a deployment whose manifest holds the role SidioraFactory with kind surface from that role and not from the member PoolRuntimeHash. The member stays for a deployment without a role of kind surface. The option pool-runtime of the command loses its fixed default value: where it is given for a manifest with roles of kind surface and names a hash the role does not accept, the command ends with an error that names both values. Where the template of the receipt document gains members for the staged hash and the staged upgrade, the reader of the document accepts a document without them as before."
+do_4 = "do_4 Add cases in the packages of the two files: a found pool with the runtime hash, one with the staged runtime hash, one with a hash that is neither, a role with a staged hash and no staged upgrade, the two digests, the builder for a manifest with and without a staged upgrade, and a document without the new members. Search services/launchpad/indexer for a further comparison of the code hash of a pool with one fixed value and bring it in line or name it in the final message. Change no file outside the paths: where a caller outside them fixes the pool runtime, name it in the final message. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... ./internal/receipt/... ./internal/runtimedocs/... ./cmd/indexer-runtime-docs/... && go test -count=1 -timeout 30m -run ^TestShellReceipt ./internal/source/ ./internal/processor/"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.984]
 title = "Bind each package index read and each install of the system package script of the launchpad checks in time"
 status = "done"
@@ -209896,7 +210299,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.983]
 title = "Refresh the records of the pnl-tracker and stats modules of the launchpad that bind the migration registry and the shared migrations source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.975"]
@@ -209957,7 +210360,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.981]
 title = "Let the identity reads of one launchpad attestation run side by side where the policy allows it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.980"]
@@ -210023,7 +210426,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.979]
 title = "Let the create view of the launchpad web application wait for the committed head after an approval"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.976", "22.39.977"]
