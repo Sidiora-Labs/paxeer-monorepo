@@ -107,7 +107,7 @@ function MyApp({ Component, pageProps, router }: AppPropsWithLayout) {
         apiData={ pageProps.apiData }
       />
       <ChakraProvider>
-        <Box minW="0" maxW="100%" overflowX="clip">
+        <Box data-layout-viewport minW="0" maxW="100%" overflowX="clip">
           <RollbarProvider config={ rollbarConfig }>
             <AppErrorBoundary
               { ...ERROR_SCREEN_STYLES }
