@@ -209896,7 +209896,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.983]
 title = "Refresh the records of the pnl-tracker and stats modules of the launchpad that bind the migration registry and the shared migrations source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.975"]
@@ -209957,7 +209957,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.981]
 title = "Let the identity reads of one launchpad attestation run side by side where the policy allows it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.980"]
@@ -210023,7 +210023,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.979]
 title = "Let the create view of the launchpad web application wait for the committed head after an approval"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.976", "22.39.977"]
