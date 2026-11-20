@@ -396,7 +396,19 @@ for f in echo.out echo.err miss.out miss.err short.out short.err; do
 done
 indexer_document_sources() {
 	python3 - "$root/deploy/launchpad/railway/variables.json" "$tmp" "$replay" <<'PY'
-import json, sys
+import base64, hashlib, json, sys
+from pathlib import Path
+
+documents = Path(sys.argv[1]).parents[1] / "documents"
+sys.path.insert(0, str(documents))
+import indexer as indexer_documents
+
+receipt = indexer_documents.documents("indexer", documents / "values")["INDEXER_RECEIPT_CONFIG_DOCUMENT"]
+fixture = json.loads((documents / "fixtures/indexer-discovery.json").read_bytes())
+assert receipt["Production"]["Discovery"] == fixture["Discovery"]
+receipt_bytes = json.dumps(receipt, sort_keys=True, separators=(",", ":")).encode()
+receipt_document = base64.b64encode(receipt_bytes).decode()
+receipt_digest = hashlib.sha256(receipt_bytes).hexdigest()
 indexer = json.load(open(sys.argv[1]))["indexer"]
 sources = indexer["documentSources"]
 assert sources == {
@@ -416,6 +428,9 @@ for form in ("document", "file"):
         selected.pop(path if form == "document" else document, None)
         selected[document if form == "document" else path] = (
             f"sentinel-{document}" if form == "document" else f"/run/launchpad/indexer/{path}.json")
+    if form == "document":
+        selected["INDEXER_RECEIPT_CONFIG_DOCUMENT"] = receipt_document
+    selected["INDEXER_RECEIPT_CONFIG_SHA256"] = receipt_digest
     json.dump({"indexer": selected}, open(f"{sys.argv[2]}/indexer-{form}-values.json", "w"))
     want = {**indexer["defaults"], **indexer["fixed"], **selected}
     json.dump([project,

@@ -677,7 +677,7 @@ def test_history_below_anchor_absent_preserves_documents(tmp_path: Path) -> None
     life = json.loads(base64.b64decode(env["INDEXER_LIFECYCLE_CONFIG_DOCUMENT"]))
     assert life["ReplayRequests"] == [] and "BackfillRequests" not in life
     receipt = json.loads(base64.b64decode(env["INDEXER_RECEIPT_CONFIG_DOCUMENT"]))
-    assert receipt["Production"]["Manifest"]["activationHeight"] == data["anchor_height"] + 1
+    assert receipt["Production"]["Manifest"]["activationHeight"] == data["anchor_height"]
 
 
 @pytest.mark.parametrize("bound", ["activation", "anchor"])
@@ -971,6 +971,93 @@ def test_livestream_environment_preserves_fixed_values(tmp_path: Path, member: s
     result = _run(values, tmp_path / "out", "livestream")
     assert result.returncode == 2
     assert f"{name} differs from the fixed contract value" in result.stderr
+
+
+def test_indexer_receipt_discovery_matches_runtime_builder(tmp_path: Path) -> None:
+    values, out = _values(tmp_path), tmp_path / "out"
+    result = _run(values, out, "indexer")
+    assert result.returncode == 0, result.stderr
+    record = json.loads((out / "indexer.json").read_bytes())
+    raw = base64.b64decode(record["INDEXER_RECEIPT_CONFIG_DOCUMENT"])
+    assert hashlib.sha256(raw).hexdigest() == record["INDEXER_RECEIPT_CONFIG_SHA256"]
+    receipt = json.loads(raw)["Production"]
+    fixture = json.loads((ROOT / "fixtures/indexer-discovery.json").read_bytes())
+    assert receipt["Discovery"] == fixture["Discovery"]
+    assert [template["Role"] for template in receipt["Discovery"]] == ["SidioraPool", "SidioraERC20"]
+    data = json.loads((values / "indexer.example.json").read_bytes())
+    assert receipt["Discovery"][1]["RuntimeHash"] == data["erc20_masked_runtime_hash"]
+
+
+def test_indexer_receipt_requires_masked_token_runtime_hash(tmp_path: Path) -> None:
+    import indexer
+
+    values = _values(tmp_path)
+    path = values / "indexer.example.json"
+    data = json.loads(path.read_bytes())
+    del data["erc20_masked_runtime_hash"]
+    path.write_text(json.dumps(data))
+    with pytest.raises(indexer.DocumentError, match="erc20_masked_runtime_hash"):
+        indexer.documents("indexer", values)
+    result = _run(values, tmp_path / "out", "indexer")
+    assert result.returncode == 2
+    assert "erc20_masked_runtime_hash" in result.stderr
+    assert not (tmp_path / "out/indexer.json").exists()
+
+
+@pytest.mark.parametrize("offset", [0, 1])
+def test_indexer_receipt_accepts_anchor_from_activation(tmp_path: Path, offset: int) -> None:
+    import indexer
+
+    values = _values(tmp_path)
+    path = values / "indexer.example.json"
+    data = json.loads(path.read_bytes())
+    manifest = json.loads((ROOT.parents[2] / "sdk/launchpad/shared/config/deployment/current.json").read_bytes())
+    data["anchor_height"] = manifest["activationHeight"] + offset
+    data["erc20_masked_runtime_hash"] = "0x" + "ab" * 32
+    path.write_text(json.dumps(data))
+    receipt = indexer.documents("indexer", values)["INDEXER_RECEIPT_CONFIG_DOCUMENT"]["Production"]
+    assert receipt["Anchor"]["Height"] == data["anchor_height"]
+    assert receipt["Discovery"][1]["RuntimeHash"] == data["erc20_masked_runtime_hash"]
+
+
+@pytest.mark.parametrize("value", [
+    None, True, 1, [], {}, "", " ", "9f" * 32, "0X" + "9f" * 32,
+    "0x" + "9F" * 32, "0x" + "9f" * 31, "0x" + "9f" * 33,
+    "0x" + "g" * 64, " 0x" + "9f" * 32, "0x" + "9f" * 32 + "\n",
+])
+def test_indexer_receipt_refuses_invalid_masked_token_runtime_hash(tmp_path: Path, value: object) -> None:
+    import indexer
+
+    values = _values(tmp_path)
+    path = values / "indexer.example.json"
+    data = json.loads(path.read_bytes())
+    data["erc20_masked_runtime_hash"] = value
+    path.write_text(json.dumps(data))
+    with pytest.raises(indexer.DocumentError, match="erc20_masked_runtime_hash"):
+        indexer.documents("indexer", values)
+    result = _run(values, tmp_path / "out", "indexer")
+    assert result.returncode == 2
+    assert "erc20_masked_runtime_hash" in result.stderr
+    assert not (tmp_path / "out/indexer.json").exists()
+
+
+def test_indexer_receipt_refuses_anchor_below_activation(tmp_path: Path) -> None:
+    import indexer
+
+    values = _values(tmp_path)
+    path = values / "indexer.example.json"
+    data = json.loads(path.read_bytes())
+    manifest = json.loads((ROOT.parents[2] / "sdk/launchpad/shared/config/deployment/current.json").read_bytes())
+    data["anchor_height"] = manifest["activationHeight"] - 1
+    path.write_text(json.dumps(data))
+    with pytest.raises(indexer.DocumentError, match="anchor_height") as error:
+        indexer.documents("indexer", values)
+    for height in (data["anchor_height"], manifest["activationHeight"]):
+        assert str(height) in str(error.value)
+    result = _run(values, tmp_path / "out", "indexer")
+    assert result.returncode == 2
+    assert "anchor_height" in result.stderr and "activationHeight" in result.stderr
+    assert not (tmp_path / "out/indexer.json").exists()
 
 
 def test_indexer_receipt_and_committed_epochs_use_reviewed_provenance(tmp_path: Path) -> None:
