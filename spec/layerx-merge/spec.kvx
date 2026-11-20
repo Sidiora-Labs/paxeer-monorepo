@@ -210342,7 +210342,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1014]
 title = "Let the record of statements and the development upload case of the metadata service of the launchpad take the media read of the code"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210404,7 +210404,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1012]
 title = "Answer a failed read of the topic registry in the stream snapshot handler of the launchpad API as an unavailable dependency and let the development cases take the answer of a topic without a first frame"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210771,7 +210771,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.998]
 title = "Hold the stream clients of the launchpad web in the state before the first frame on the answer TOPIC_NOT_STARTED"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.997"]
