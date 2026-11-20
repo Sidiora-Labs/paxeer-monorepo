@@ -491,6 +491,10 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 	if !rawSizeAllowed(l) {
 		e.Raw = rawMetadata(l)
 		e.RawSummary = summarizeRaw(l)
+		if len(r.epochs[l.Address]) == 0 {
+			e.FailureReason = "untrusted_emitter"
+			return e, nil
+		}
 		return fail("bounds", fmt.Errorf("raw envelope exceeds bounded admission"))
 	}
 	e.Raw = rawLog(l)

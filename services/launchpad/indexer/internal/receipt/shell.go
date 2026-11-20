@@ -24,7 +24,7 @@ func IsShellReceipt(r *types.Receipt) bool {
 // log indexes remain one contiguous sequence across every receipt in the
 // response, including the set-aside receipts.
 func SeparateShellReceipts(transactions types.Transactions, receipts types.Receipts, blockHash common.Hash, blockNumber *big.Int, expectedBloom types.Bloom, expectedReceiptRoot common.Hash, reportedIdentity bool) (types.Receipts, types.Receipts, error) {
-	if blockHash == (common.Hash{}) || blockNumber == nil || !blockNumber.IsUint64() || len(transactions) > 4096 || len(receipts) > 4096 {
+	if blockHash == (common.Hash{}) || blockNumber == nil || !blockNumber.IsUint64() {
 		return nil, nil, ErrQualification
 	}
 	byHash := make(map[common.Hash]*types.Transaction, len(transactions))
@@ -42,7 +42,7 @@ func SeparateShellReceipts(transactions types.Transactions, receipts types.Recei
 	logIndex := uint(0)
 	totalBytes := 0
 	for _, r := range receipts {
-		if r == nil || r.BlockNumber == nil || r.BlockNumber.Cmp(blockNumber) != 0 || r.BlockHash != blockHash || r.Status > 1 || len(r.Logs) > 4096 {
+		if r == nil || r.BlockNumber == nil || r.BlockNumber.Cmp(blockNumber) != 0 || r.BlockHash != blockHash || r.Status > 1 {
 			return nil, nil, ErrQualification
 		}
 		if IsShellReceipt(r) {
@@ -63,7 +63,7 @@ func SeparateShellReceipts(transactions types.Transactions, receipts types.Recei
 			regularByHash[r.TxHash] = r
 		}
 		for _, l := range r.Logs {
-			if l == nil || l.Removed || l.BlockHash != blockHash || l.BlockNumber != blockNumber.Uint64() || l.TxHash != r.TxHash || l.TxIndex != r.TransactionIndex || l.Index != logIndex || logIndex > uint(^uint32(0)) || len(l.Topics) > 4 || len(l.Data) > 64<<10 {
+			if l == nil || l.Removed || l.BlockHash != blockHash || l.BlockNumber != blockNumber.Uint64() || l.TxHash != r.TxHash || l.TxIndex != r.TransactionIndex || l.Index != logIndex || logIndex > uint(^uint32(0)) || len(l.Topics) > 4 {
 				return nil, nil, ErrQualification
 			}
 			totalBytes += 256 + len(l.Data) + 32*len(l.Topics)

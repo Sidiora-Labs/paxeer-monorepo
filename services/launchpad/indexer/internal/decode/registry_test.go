@@ -508,13 +508,18 @@ func TestOversizeAdmissionHasBoundedEvidence(t *testing.T) {
 func TestRawBatchAdmissionCaps(t *testing.T) {
 	d, a := deployment(t, "EventEmitter", common.HexToAddress("0x1"))
 	l, _ := syntheticLog(t, a.Events["Swap"], d.Address)
-	if _, err := DeduplicateRaw(make([]ethtypes.Log, MaxRawBatchLogs+1)); err == nil {
-		t.Fatal("count cap")
+	logs := make([]ethtypes.Log, MaxRawBatchLogs+1)
+	for i := range logs {
+		logs[i] = l
+		logs[i].Index = uint(i)
+	}
+	if unique, err := DeduplicateRaw(logs); err != nil || len(unique) != len(logs) {
+		t.Fatalf("raw log count: %d: %v", len(unique), err)
 	}
 	huge := l
 	huge.Data = make([]byte, MaxEnvelopeBytes+1)
-	if _, err := DeduplicateRaw([]ethtypes.Log{huge}); err == nil {
-		t.Fatal("per-log cap")
+	if unique, err := DeduplicateRaw([]ethtypes.Log{huge}); err != nil || len(unique) != 1 {
+		t.Fatalf("raw log data: %d: %v", len(unique), err)
 	}
 	sized := l
 	sized.Topics = nil

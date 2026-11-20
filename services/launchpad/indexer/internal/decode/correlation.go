@@ -35,7 +35,7 @@ type CorrelatedReceipt struct {
 }
 
 func (r *Registry) CorrelateOptionalReceipt(receipt *ethtypes.Receipt, bindings []CorrelationBinding) (*CorrelatedReceipt, error) {
-	if r == nil || receipt == nil || receipt.Status != ethtypes.ReceiptStatusSuccessful || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.TxHash == (common.Hash{}) || receipt.BlockHash == (common.Hash{}) || len(receipt.Logs) > MaxRawBatchLogs {
+	if r == nil || receipt == nil || receipt.Status != ethtypes.ReceiptStatusSuccessful || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.TxHash == (common.Hash{}) || receipt.BlockHash == (common.Hash{}) {
 		return nil, fmt.Errorf("successful bounded receipt required")
 	}
 	if len(bindings) > 64 {
@@ -267,7 +267,7 @@ type ActorMarketBinding struct {
 }
 
 func (r *Registry) DecodeTransactionReceipt(tx *ethtypes.Transaction, receipt *ethtypes.Receipt, markets []ActorMarketBinding) ([]*DecodedEnvelope, error) {
-	if r == nil || tx == nil || receipt == nil || !tx.Protected() || tx.ChainId().Cmp(big.NewInt(125)) != 0 || receipt.Status != ethtypes.ReceiptStatusSuccessful || receipt.TxHash != tx.Hash() || receipt.BlockHash == (common.Hash{}) || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || len(receipt.Logs) > MaxRawBatchLogs {
+	if r == nil || tx == nil || receipt == nil || !tx.Protected() || tx.ChainId().Cmp(big.NewInt(125)) != 0 || receipt.Status != ethtypes.ReceiptStatusSuccessful || receipt.TxHash != tx.Hash() || receipt.BlockHash == (common.Hash{}) || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() {
 		return nil, fmt.Errorf("signed chain125 transaction and matching successful receipt required")
 	}
 	sender, err := ethtypes.Sender(ethtypes.LatestSignerForChainID(big.NewInt(125)), tx)

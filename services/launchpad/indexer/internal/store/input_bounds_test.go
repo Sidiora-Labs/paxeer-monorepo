@@ -5,6 +5,8 @@ import (
 	"math"
 	"strings"
 	"testing"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 )
 
 func TestCanonicalAdmissionRejectsInvalidRawAndOutboxBounds(t *testing.T) {
@@ -28,13 +30,13 @@ func TestCanonicalAdmissionRejectsInvalidRawAndOutboxBounds(t *testing.T) {
 		{"raw aggregate", func(b *CanonicalBatch) {
 			b.Records = nil
 			data := make([]byte, 1<<20)
-			for i := 0; i < 32; i++ {
+			for i := 0; i < decode.MaxBlockLogBytes/(256+len(data)+32*len(raw.Topics))+1; i++ {
 				r := raw
 				r.LogIndex = uint32(i)
 				r.Data = data
 				b.Records = append(b.Records, r)
 			}
-			b.Blocks[0].RawCount = 32
+			b.Blocks[0].RawCount = len(b.Records)
 		}},
 		{"outbox aggregate", func(b *CanonicalBatch) {
 			b.Outbox = nil
@@ -77,6 +79,7 @@ func TestReplayAdmissionBindsEveryRawRecordAndTypedEvent(t *testing.T) {
 	}{
 		{"bounds", func(s *ReplaySegment) { s.ToHeight = 1101 }},
 		{"invalid raw", func(s *ReplaySegment) { s.Records[0].Emitter = "invalid" }},
+		{"raw document data", func(s *ReplaySegment) { s.Records[0].Data = make([]byte, maxReplayRawDataBytes+1) }},
 		{"outside range", func(s *ReplaySegment) { s.Records[0].Height++ }},
 		{"duplicate raw", func(s *ReplaySegment) { s.Records = append(s.Records, s.Records[0]) }},
 		{"source order", func(s *ReplaySegment) {

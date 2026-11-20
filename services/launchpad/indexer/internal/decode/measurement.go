@@ -30,6 +30,7 @@ import (
 const DecoderBurstRate = 10000
 const DecoderBurstSeconds = 300
 const maxMeasurementInputBytes = 64 << 20
+const maxMeasurementRawBatchBytes = 16 << 20
 
 var ErrMeasurementInputs = errors.New("decoder measurement inputs rejected")
 var ErrMeasurementAcceptance = errors.New("decoder measurement acceptance failed")
@@ -612,7 +613,7 @@ func prepareDecoderMeasurement(ctx context.Context, input DecoderMeasurementInpu
 			return report, nil, ErrMeasurementInputs
 		}
 		aggregate += len(record.Log.Data) + 32*len(record.Log.Topics)
-		if aggregate > MaxRawBatchBytes {
+		if aggregate > maxMeasurementRawBatchBytes {
 			return report, nil, ErrMeasurementInputs
 		}
 		envelope, decodeErr := r.Decode(record.Log)

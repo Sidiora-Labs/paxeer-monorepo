@@ -108,7 +108,7 @@ func TestCommittedConfigurationPreservesTransportAndEpochBounds(t *testing.T) {
 	}{
 		{"live deadline", func(o *CommittedOptions) { o.LiveDeadline = 3 * time.Second }},
 		{"bulk deadline", func(o *CommittedOptions) { o.BulkDeadline = 16 * time.Second }},
-		{"response bound", func(o *CommittedOptions) { o.MaxResponseBytes = 33 << 20 }},
+		{"response bound", func(o *CommittedOptions) { o.MaxResponseBytes = MaxBlockResponseBytes + 1 }},
 		{"epoch manifest", func(o *CommittedOptions) { o.Epochs[0].ManifestDigest = "other" }},
 		{"source identifier", func(o *CommittedOptions) { o.Endpoints = map[string]string{"bad id": node.server.URL} }},
 		{"duplicate archive", func(o *CommittedOptions) { o.HistoricalEndpoints = map[string]string{"fixture": node.server.URL} }},

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"io"
 	"math/rand/v2"
 	"net/http"
@@ -24,6 +25,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
+
+const MaxBlockResponseBytes = 2*decode.MaxBlockLogBytes + (4 << 20)
 
 type ErrorKind string
 
@@ -104,7 +107,7 @@ type CommittedOptions struct {
 	ManifestDigest             string
 	Epochs                     []AddressEpoch
 	LiveDeadline, BulkDeadline time.Duration
-	MaxResponseBytes           int64                    // may reduce, never increase, the 32 MiB limit
+	MaxResponseBytes           int64                    // may reduce, never increase, the block response limit
 	SelectionAuthority         SourceSelectionAuthority `json:"-"`
 	// HistoricalConcurrency bounds the requests in flight to each historical
 	// endpoint, readahead included (0: default 48; at most 96).
@@ -189,9 +192,9 @@ func NewCommittedSource(ctx context.Context, o CommittedOptions) (*CommittedSour
 	}
 	o.Epochs = cloneEpochs(o.Epochs)
 	if o.MaxResponseBytes <= 0 {
-		o.MaxResponseBytes = 32 << 20
+		o.MaxResponseBytes = MaxBlockResponseBytes
 	}
-	if o.MaxResponseBytes > 32<<20 {
+	if o.MaxResponseBytes > MaxBlockResponseBytes {
 		return nil, sourceError(OversizeError, "config", nil)
 	}
 	if err := validateEpochs(o.Epochs, o.ManifestDigest); err != nil {
@@ -1050,7 +1053,7 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 		}
 		for _, log := range logs {
 			payloadBytes += 256 + len(log.Data) + 32*len(log.Topics)
-			if payloadBytes > 32<<20 {
+			if payloadBytes > decode.MaxBlockLogBytes || o.FromBlock < o.ToBlock && payloadBytes > 32<<20 {
 				return FetchResult{}, sourceError(OversizeError, e.id, nil)
 			}
 		}
@@ -1069,7 +1072,7 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 		}
 		for _, log := range logs {
 			payloadBytes += 256 + len(log.Data) + 32*len(log.Topics)
-			if payloadBytes > 32<<20 {
+			if payloadBytes > decode.MaxBlockLogBytes || o.FromBlock < o.ToBlock && payloadBytes > 32<<20 {
 				return FetchResult{}, sourceError(OversizeError, e.id, nil)
 			}
 		}
@@ -1310,9 +1313,6 @@ func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, 
 			if berr != nil {
 				return nil, berr
 			}
-			if len(b.Transactions) > 4096 {
-				return nil, sourceError(IncompleteError, e.id, nil)
-			}
 			wanted := map[common.Address]bool{}
 			for _, a := range addresses {
 				wanted[common.HexToAddress(a)] = true
@@ -1354,6 +1354,7 @@ func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, 
 		return nil, err
 	}
 	logs := make([]ethtypes.Log, 0, len(wire))
+	size := 0
 	for _, w := range wire {
 		if !strings.HasPrefix(w.Data, "0x") {
 			return nil, sourceError(IncompleteError, e.id, nil)
@@ -1365,8 +1366,12 @@ func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, 
 		blockNumber, berr := parseCommittedUint64(w.BlockNumber)
 		logIndex, ierr := parseCommittedUint64(w.LogIndex)
 		tx, terr := parseCommittedUint64(w.TxIndex)
-		if err != nil || berr != nil || ierr != nil || terr != nil || logIndex > 1<<32-1 || tx > 1<<32-1 || len(l.Topics) > 4 || len(l.Data) > 64<<10 || !validHash(w.BlockHash) || !validHash(w.TxHash) {
+		if err != nil || berr != nil || ierr != nil || terr != nil || logIndex > 1<<32-1 || tx > 1<<32-1 || len(l.Topics) > 4 || !validHash(w.BlockHash) || !validHash(w.TxHash) {
 			return nil, sourceError(IncompleteError, e.id, nil)
+		}
+		size += 256 + len(l.Data) + 32*len(l.Topics)
+		if size > decode.MaxBlockLogBytes || from < to && size > 32<<20 {
+			return nil, sourceError(OversizeError, e.id, nil)
 		}
 		l.BlockNumber = blockNumber
 		logIndexUint, conversionErr := checked.Convert[uint](logIndex)

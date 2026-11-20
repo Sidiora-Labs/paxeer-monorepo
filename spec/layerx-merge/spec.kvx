@@ -16114,6 +16114,12 @@ value = "One. A log of an emitter that holds no deployment epoch at any order is
 basis = "Gotcha 4760."
 affects = []
 
+[decision.3834]
+title = "The content of one block is bounded by its bytes alone in the launchpad indexer"
+value = "One. A bound over the content of a range of more than one block stays as it is, since the run loop asks for a smaller range after it. No bound over a range, a canonical batch or a raw batch decides over a range of one block otherwise than by point two. Two. The logs of one block are bounded by their bytes in the counting of today, 256 plus the data length plus 32 for every topic for each log, with a bound of 256 MiB. The bound is one named constant of the decode package, and every byte bound on the logs of a block, a receipt, a bundle or a raw batch reads that constant. The response bound of a read of a block or of its receipts follows from the constant in the form of today, two times the bound plus 4 MiB. Three. No count of the transactions or of the receipts of a block, no count of the logs of a receipt, a bundle, a raw batch or a block and no data length of a single log decides over a block, a receipt, a bundle or a raw batch. Four. A log beyond the function rawSizeAllowed from an emitter that holds no deployment epoch at any order gives the opaque envelope with the reason untrusted_emitter, the raw metadata and the summary of the bounds path of today, no event and no error. For an emitter that holds a deployment epoch the bounds path of Decode stays as it is. Five. The bound of a decoded value at MaxFieldBytes, the bound of the header extra data, the bounds on what the deployment record defines, such as epochs, decimals and code length, the bounds of the replay, archive and measurement documents and the bound of 64 blocks for a canonical batch stay as they are. Task 22.39.1022."
+basis = "Gotcha 4761."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45774,6 +45780,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1022]
+title = "Bound the content of one block by its bytes alone in the block reads, the bundles and the raw batches of the launchpad indexer"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/indexer && go test -count=1 -timeout 14m ./cmd/... ./internal/app/ ./internal/chainreader/ ./internal/checked/ ./internal/config/ ./internal/decode/ ./internal/httpapi/ ./internal/internaltest/... ./internal/migrate/ ./internal/publisher/ ./internal/receipt/ ./internal/rolecheck/ ./internal/runtimedocs/ ./internal/source/ ./internal/store/... && go test -count=1 -timeout 18m ./internal/processor/ && go test -count=1 -list ^TestBlockContentBounds ./internal/receipt/ | grep -q ^TestBlockContentBounds && go test -count=1 -list ^TestBlockContentBounds ./internal/app/ | grep -q ^TestBlockContentBounds && go test -count=1 -list ^TestBlockContentBounds ./internal/decode/ | grep -q ^TestBlockContentBounds && go test -count=1 -list ^TestBlockContentBounds ./internal/source/ | grep -q ^TestBlockContentBounds)"
+do_1 = "do_1 Gotcha 4761, decision 3834. Read the function SeparateShellReceipts in services/launchpad/indexer/internal/receipt/shell.go with its callers, the function validateMarketReads with the read of a range in services/launchpad/indexer/internal/app/markets.go, the functions boundedBundle, coordinates and ValidateBindings in services/launchpad/indexer/internal/receipt/qualified.go, the block body reads and the response bounds in services/launchpad/indexer/internal/receipt/rpc.go and services/launchpad/indexer/internal/receipt/identity.go, the bounds path of Decode and the function rawSizeAllowed in services/launchpad/indexer/internal/decode/registry.go, the function DeduplicateRaw in services/launchpad/indexer/internal/decode/dedup.go, the function CreationFromReceipt in services/launchpad/indexer/internal/chainreader/creation.go, the bounds of services/launchpad/indexer/internal/source/shell.go, services/launchpad/indexer/internal/source/committed.go, services/launchpad/indexer/internal/source/archive.go and services/launchpad/indexer/internal/processor/creation.go, and the function Run in services/launchpad/indexer/internal/processor/processor.go. Then list every other bound of the module on the content of a block, a receipt, a bundle, a canonical batch or a raw batch that comes from the chain: file, function, what it counts and its value. The final message holds that list with one line for each bound and what this task did with it."
+symbols = []
 
 [capability.22.39.1021]
 title = "Let a log of an emitter that holds no deployment epoch stay opaque in the decode registry of the launchpad indexer whatever its first topic"
@@ -210262,6 +210277,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1022]
+title = "Bound the content of one block by its bytes alone in the block reads, the bundles and the raw batches of the launchpad indexer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1021"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1022"]
+interfaces = []
+do_1 = "do_1 Gotcha 4761, decision 3834. Read the function SeparateShellReceipts in services/launchpad/indexer/internal/receipt/shell.go with its callers, the function validateMarketReads with the read of a range in services/launchpad/indexer/internal/app/markets.go, the functions boundedBundle, coordinates and ValidateBindings in services/launchpad/indexer/internal/receipt/qualified.go, the block body reads and the response bounds in services/launchpad/indexer/internal/receipt/rpc.go and services/launchpad/indexer/internal/receipt/identity.go, the bounds path of Decode and the function rawSizeAllowed in services/launchpad/indexer/internal/decode/registry.go, the function DeduplicateRaw in services/launchpad/indexer/internal/decode/dedup.go, the function CreationFromReceipt in services/launchpad/indexer/internal/chainreader/creation.go, the bounds of services/launchpad/indexer/internal/source/shell.go, services/launchpad/indexer/internal/source/committed.go, services/launchpad/indexer/internal/source/archive.go and services/launchpad/indexer/internal/processor/creation.go, and the function Run in services/launchpad/indexer/internal/processor/processor.go. Then list every other bound of the module on the content of a block, a receipt, a bundle, a canonical batch or a raw batch that comes from the chain: file, function, what it counts and its value. The final message holds that list with one line for each bound and what this task did with it."
+do_2 = "do_2 Add the named constant of decision 3834 point two to the decode package with the value of 256 MiB and let every byte bound on the logs of a block, a receipt, a bundle or a raw batch read it, the constant maxBundleBytes and the constant MaxRawBatchBytes among them where they bound such logs. Let the response bound of every read of a block or of its receipts follow from it in the form of today. A byte bound that does not count logs of the chain, such as the bound on a serialized document, keeps its value: give such a bound a name of its own where it shares a constant today."
+do_3 = "do_3 Apply decision 3834 points one and three to every bound of gotcha 4761 and of the list of step one. A count of the transactions or of the receipts of a block, a count of the logs of a receipt, a bundle, a raw batch or a block and the data length of a single log no longer decide: the checks of identity, order, bloom and root of these functions stay as they are, and the byte bound of step two stays the one bound on such content. A bound over a range of more than one block or over a canonical batch of more than one block keeps its value and its refusal, and it does not decide over a range or a batch of one block. Where the read of a range can give up a range of more than one block as soon as the totals of the blocks read so far are beyond the range bounds without new machinery, let it do so. The bounds of decision 3834 point five stay as they are."
+do_4 = "do_4 In Decode let a log beyond rawSizeAllowed from an emitter that holds no deployment epoch at any order give the opaque envelope with the reason untrusted_emitter, the raw metadata and the summary of the bounds path of today, no event and no error, in the form that task 22.39.1021 gave such an emitter. For an emitter that holds a deployment epoch the bounds path stays as it is. Let the functions ValidateReceipt and Qualify go on with the next log after such an envelope as they do after an opaque envelope today."
+do_5 = "do_5 Bring the cases of the module in line with the rule. A case that requires a refusal for a count or for the data length of a single log that no longer decides requires the pass instead, and a case for a bound that stays keeps its refusal with inputs that reach the bound of the rule. The modes transaction count and receipt logs of the market input case of the app package, the mode transaction count of the cancellation identity case, the cases of the shell receipts, of the bundle bounds, of the batch and range admission, of the creation reader, of DeduplicateRaw and of the source package that build 4097 entries or a log one byte above a bound are among them. The final message names every case that changed with its file. No case is removed or skipped."
+do_6 = "do_6 Add cases whose names begin with TestBlockContentBounds. In the receipt package: SeparateShellReceipts takes a block of 4097 transactions, a receipt of 4097 logs and a log with data of 64 KiB plus one byte, and refuses a block whose logs are beyond the byte bound; boundedBundle and coordinates take a receipt of 4097 logs and a log with data above MaxFieldBytes and refuse a bundle beyond the byte bound. In the app package: validateMarketReads takes a range of one block with 4097 transactions and with more than 65536 logs, and keeps its refusal for a range of two blocks beyond a range bound. In the decode package: DeduplicateRaw takes a raw batch of one more log than MaxRawBatchLogs and refuses a batch beyond the byte bound, and Decode gives the envelope of step four for a log beyond rawSizeAllowed from an emitter without an epoch and keeps its error for such a log from an emitter with an epoch. In the source package: the reads of the three files of gotcha 4761 part one take a block of 4097 transactions and a log with data of 64 KiB plus one byte. Where the node fixtures of the module allow the deployment of a contract, add one case in which a contract outside the deployment logs once with data above 64 KiB and logs more than 4096 times in one transaction, and the qualified source and the batch processing of the module take the blocks of both; where the fixtures do not allow it without new machinery, say so in the final message. A case for the byte bound holds no more than a few MiB of fresh memory: let its logs share one data slice. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/indexer && go test -count=1 -timeout 14m ./cmd/... ./internal/app/ ./internal/chainreader/ ./internal/checked/ ./internal/config/ ./internal/decode/ ./internal/httpapi/ ./internal/internaltest/... ./internal/migrate/ ./internal/publisher/ ./internal/receipt/ ./internal/rolecheck/ ./internal/runtimedocs/ ./internal/source/ ./internal/store/... && go test -count=1 -timeout 18m ./internal/processor/ && go test -count=1 -list ^TestBlockContentBounds ./internal/receipt/ | grep -q ^TestBlockContentBounds && go test -count=1 -list ^TestBlockContentBounds ./internal/app/ | grep -q ^TestBlockContentBounds && go test -count=1 -list ^TestBlockContentBounds ./internal/decode/ | grep -q ^TestBlockContentBounds && go test -count=1 -list ^TestBlockContentBounds ./internal/source/ | grep -q ^TestBlockContentBounds)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1021]
 title = "Let a log of an emitter that holds no deployment epoch stay opaque in the decode registry of the launchpad indexer whatever its first topic"
 status = "pending"
@@ -210387,7 +210435,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1017]
 title = "Let the creation snapshot cases of the processor package of the launchpad indexer share one prepared node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210604,7 +210652,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1010]
 title = "Add the view of the visibility of a pool for the search to the social schema and give the search role of the stats module its read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1006"]
