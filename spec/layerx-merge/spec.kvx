@@ -210090,7 +210090,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1002]
 title = "Carry the cause in the apply error of the launchpad broker provisioning and give its cases a deadline of two minutes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
