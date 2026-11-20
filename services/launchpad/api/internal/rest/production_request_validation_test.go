@@ -88,6 +88,7 @@ func TestProductionSnapshotErrorClassifiesPublicFailures(t *testing.T) {
 		status int
 		code   string
 	}{
+		{broker.ErrTopicNotStarted, 404, "TOPIC_NOT_STARTED"},
 		{broker.ErrExpired, 409, "RESNAPSHOT_REQUIRED"},
 		{broker.ErrCursor, 400, "CURSOR_INVALID"},
 		{broker.ErrSequence, 400, "CURSOR_INVALID"},
