@@ -210373,7 +210373,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1013]
 title = "Let the proxy case and the binding case of the gateway app of the launchpad take the route list the gateway serves for the metadata service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
