@@ -210084,7 +210084,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1004]
 title = "Take the coverage of a created pool in the pause observer of the launchpad indexer from its discovered epoch and send no logs query"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
