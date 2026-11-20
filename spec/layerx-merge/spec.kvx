@@ -210060,7 +210060,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1003]
 title = "Bring the record of statements of the launchpad API in step with the pool reserves statement of its store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210120,7 +210120,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1001]
 title = "Start no refresh of a launchpad secrets rotation after the context of its run ended"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210150,7 +210150,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1000]
 title = "Answer the media read of the launchpad metadata service for a canonical token without a document with the default document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210180,7 +210180,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.999]
 title = "Serve the frozen routes of the metadata upstream from the route list of the launchpad gateway code"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210302,7 +210302,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.995]
 title = "Give the runtime role of the launchpad charts service the column payload of the canonical creations view and plan its symbol statement under that role"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
