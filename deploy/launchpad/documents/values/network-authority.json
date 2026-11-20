@@ -123,7 +123,7 @@
   },
   "reviewedPoolRuntime": "0x1111111111111111111111111111111111111111111111111111111111111111",
   "serialInterfaceSha256": "47b6950f51763148683e42207a8b9adfadb828e31674b2dc4030a1722f5d1bad",
-  "expectedRevisionSha256": "b7eb62c19d7ca7167ebb76be5418fde16b14a296769e76bb90b17c61e9d2c4cc",
+  "expectedRevisionSha256": "66d9f2469befe1df5379aba04572c10be7550826ba664c4623b1117068ac2170",
   "sourceSchema": "indexer",
   "endpoints": {
     "RPC": "https://api5.mainnet-beta.paxeer.network",
