@@ -173,8 +173,8 @@ func TestProvenanceEpochAndRawPreservation(t *testing.T) {
 	bad := l
 	bad.Address = common.HexToAddress("0x2")
 	e, err := r.Decode(bad)
-	if err == nil || e.Event != nil || e.FailureReason != "untrusted_emitter" || !reflect.DeepEqual(e.Raw, rawLog(bad)) {
-		t.Fatal("unauthorized swap", e, err)
+	if err != nil || e.Status != "opaque" || !e.Opaque || e.Event != nil || e.FailureReason != "untrusted_emitter" || !reflect.DeepEqual(e.Raw, rawLog(bad)) {
+		t.Fatal("untrusted swap stays opaque", e, err)
 	}
 	l.Topics = []common.Hash{common.HexToHash("0xdead")}
 	e, err = r.Decode(l)

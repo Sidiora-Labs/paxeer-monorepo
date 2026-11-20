@@ -510,7 +510,7 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 		}
 	}
 	if len(active) == 0 {
-		if len(l.Topics) > 0 && r.known[l.Topics[0]] {
+		if len(r.epochs[l.Address]) > 0 && len(l.Topics) > 0 && r.known[l.Topics[0]] {
 			return fail("untrusted_emitter", fmt.Errorf("known signature from unauthorized emitter %s", l.Address))
 		}
 		e.FailureReason = "untrusted_emitter"
