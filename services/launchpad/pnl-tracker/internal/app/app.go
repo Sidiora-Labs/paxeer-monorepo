@@ -1089,9 +1089,22 @@ func pnlIdentityAuthority(cfg config.Config, d pnlJourneyDocument) (auth.MTLSIde
 	if err != nil {
 		return auth.MTLSIdentityAuthority{}, err
 	}
-	keyPEM, err := pnlBoundAuthorityFile(d.IdentityClientKeyFile, d.IdentityClientKeySHA256)
-	if err != nil {
-		return auth.MTLSIdentityAuthority{}, err
+	fileKey := d.IdentityClientKeyFile != "" || d.IdentityClientKeySHA256 != ""
+	variableKey := cfg.IdentityMTLSClientKeyPEM != ""
+	if fileKey == variableKey {
+		return auth.MTLSIdentityAuthority{}, errors.New("pnl: exactly one identity client key form required")
+	}
+	var keyPEM []byte
+	if variableKey {
+		if len(cfg.IdentityMTLSClientKeyPEM) > 1048576 {
+			return auth.MTLSIdentityAuthority{}, errors.New("pnl: identity client key exceeds size bound")
+		}
+		keyPEM = []byte(cfg.IdentityMTLSClientKeyPEM)
+	} else {
+		keyPEM, err = pnlBoundAuthorityFile(d.IdentityClientKeyFile, d.IdentityClientKeySHA256)
+		if err != nil {
+			return auth.MTLSIdentityAuthority{}, err
+		}
 	}
 	certificate, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {

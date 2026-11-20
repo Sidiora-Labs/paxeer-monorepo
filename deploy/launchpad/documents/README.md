@@ -188,7 +188,8 @@ to the same identity endpoint and font directory. The service reads version 3,
 issuer `pnld`, audience `identity`, the embedded font digests and the reward
 manifest digest supplied by the composer.
 
-Each member of `journeys` is required, including empty lists and `cdnZone`:
+Each member of `journeys` is required, including empty lists and `cdnZone`,
+except the client key file pair when using the variable form:
 
 | Input | Operator source and form |
 | --- | --- |
@@ -210,6 +211,14 @@ Each member of `journeys` is required, including empty lists and `cdnZone`:
 | `rewardRuntimeHashes` | Map of lowercase contract addresses to `0x`-prefixed lowercase keccak digests of runtime code, read as described below. |
 | `programs` | Reviewed reward programmes as `l18.Program` objects, using the exact member names below; empty when no programme is admitted. |
 | `approvedCommunityWallets` | At most 64 distinct nonzero Ethereum addresses from the approved community wallet policy; comparison ignores case. |
+
+Select exactly one client key form. For the file form, provide both
+`identityClientKeyFile` and `identityClientKeySha256` and leave
+`IDENTITY_MTLS_CLIENT_KEY_PEM` empty. For the variable form, omit both members
+and set `IDENTITY_MTLS_CLIENT_KEY_PEM` to PEM text, at most 1048576 bytes,
+through the service's deployment variables. The composer emits both members
+as empty strings for this form. In both forms, the key must belong to the
+client certificate named by `identityClientCertFile`.
 
 A programme uses `ID`, `Version` and `DeploymentID` from the reviewed policy,
 each an identifier of 1–128 letters, digits, underscores, dots, colons or
