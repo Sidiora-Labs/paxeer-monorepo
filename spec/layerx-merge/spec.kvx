@@ -16006,6 +16006,12 @@ value = "One. A case of the package node that commits a block and then reads thr
 basis = "Gotcha 4742."
 affects = []
 
+[decision.3816]
+title = "The release list of the launchpad names a release for one deployment beside the mirrored entries"
+value = "One. sdk/launchpad/shared/config/capabilities/frozen.json gains a member released: a list of records, each with the id of a capability and the deployment version the release holds for. It holds one record: the capability core_market for the deployment version paxeer125-v6.12.0, the version sdk/launchpad/shared/config/deployment/current.json names. Two. Require returns no refusal for a capability the list releases for the deployment version of the committed manifest. AssessFamily sets ReleaseEnabled true for a capability the list releases for the deployment version of the manifest it was given. A manifest of another deployment version and every capability the list does not name keep the present rule. Three. The capability entries of the release list keep mirroring the baseline document with its digest. The baseline document, its checker and the digest in tools/launchpad/production/bootstrap/check-registry.json keep their bytes, and the other thirteen capabilities keep their state. Four. A later release of a further capability or for a further deployment version is one more record of that list, by a decision of the spec. Five. The preflight engine keeps its line: ExecutionPermitted follows ReleaseEnabled, and no second switch is added. Task 22.39.970."
+basis = "Gotcha 4743."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45666,6 +45672,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.970]
+title = "Let the release list of the launchpad name a release of the market capability for the committed deployment"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/config/capabilities", "sdk/launchpad/shared/chain", "services/launchpad/api/internal/app", "tools/launchpad/production/bootstrap/tests/source-catalog.json"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/shared && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4743, decision 3816. Read sdk/launchpad/shared/config/capabilities/catalog.go whole, sdk/launchpad/shared/config/capabilities/frozen.json, sdk/launchpad/shared/config/capabilities/catalog_test.go, in sdk/launchpad/shared/config/capabilities/preflight.go the end of the function that sets ExecutionPermitted and the function that builds the revision, in sdk/launchpad/shared/chain/client.go the function ReleaseReady, the first lines of sdk/launchpad/shared/config/deployment/current.json and in tools/launchpad/production/interfaces/capability_check.py the lines on states."
+symbols = []
 
 [capability.22.39.969]
 title = "Let two node cases wait for the state store before they read the query state of the newest height after a commit"
@@ -209682,6 +209697,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.970]
+title = "Let the release list of the launchpad name a release of the market capability for the committed deployment"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.970"]
+interfaces = []
+do_1 = "do_1 Gotcha 4743, decision 3816. Read sdk/launchpad/shared/config/capabilities/catalog.go whole, sdk/launchpad/shared/config/capabilities/frozen.json, sdk/launchpad/shared/config/capabilities/catalog_test.go, in sdk/launchpad/shared/config/capabilities/preflight.go the end of the function that sets ExecutionPermitted and the function that builds the revision, in sdk/launchpad/shared/chain/client.go the function ReleaseReady, the first lines of sdk/launchpad/shared/config/deployment/current.json and in tools/launchpad/production/interfaces/capability_check.py the lines on states."
+do_2 = "do_2 In sdk/launchpad/shared/config/capabilities/frozen.json add after the member capabilities a member released: a list with exactly one record whose member id holds core_market and whose member deploymentVersion holds paxeer125-v6.12.0. The members schemaVersion, sourceSha256 and capabilities keep their bytes. In sdk/launchpad/shared/config/capabilities/catalog.go add the type Release with the fields ID and DeploymentVersion under the names id and deploymentVersion, give the type Catalog the field Released under the name released, and add the function Released with the arguments id and deploymentVersion: it answers true only where the list holds a record with both values and the id stands among the capabilities of the list."
+do_3 = "do_3 Let Require keep its refusal of an unknown id, return no refusal where Released answers true for the id and the deployment version of deployment.Current, and keep the present rule on states for every other case. Let AssessFamily set ReleaseEnabled true where Released answers true for the capability and the deployment version of the manifest it was given or the present rule on states releases the entry. Change no other line of AssessFamily and no line of sdk/launchpad/shared/config/capabilities/preflight.go."
+do_4 = "do_4 Cases in sdk/launchpad/shared/config/capabilities/catalog_test.go. The case TestFrozenIDsAndPrerequisitesMatchBaseline keeps its compare of the digest and of the mirrored entries. It asserts that Require returns no refusal for core_market, that Require refuses each of the other thirteen capabilities with the reason prerequisite_unavailable, that Released answers false for core_market with another deployment version and for an id outside the list, and that every record of the member released names a listed capability and a deployment version that is not empty, and none stands twice. The case TestCoreIndependentOfOptionalOracle asserts ReleaseEnabled true for its four families with the manifest of the committed deployment, and one more case builds the manifest and its attestation for another deployment version and asserts Supported true and ReleaseEnabled false for the family creation."
+do_5 = "do_5 One case of the preflight engine in sdk/launchpad/shared/config/capabilities asserts for a creation request of the stage approval on the committed deployment Supported true, ExecutionPermitted true and no reason code. Where a case with such a request exists, add the asserts there. In sdk/launchpad/shared/chain/snapshot_runtime_coverage_test.go let the case that reads ReleaseReady assert that it returns no refusal. Run the cases of the module under sdk/launchpad/shared and of the module services/launchpad/api. Where a case of sdk/launchpad/shared/config/capabilities, sdk/launchpad/shared/chain or services/launchpad/api/internal/app asserted the earlier refusal of the market capability on the committed deployment or a digest that follows the catalog, let it assert the new result; change only cases under services/launchpad/api/internal/app and no source of that module. Name every case you changed in the final message."
+do_6 = "do_6 Where tools/launchpad/production/bootstrap/tests/source-catalog.json holds an entry of a case file you changed, refresh the digest and the declaration lines of that entry by the inventory command of the catalog tool beside it and change no other entry. Change no file under sdk/launchpad/protocol, no file of the checker and not tools/launchpad/production/bootstrap/check-registry.json. Change no file outside the paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/config/capabilities", "sdk/launchpad/shared/chain", "services/launchpad/api/internal/app", "tools/launchpad/production/bootstrap/tests/source-catalog.json"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && go vet ./...) && (cd services/launchpad/api && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/shared && (cd services/launchpad/api && python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
