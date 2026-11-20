@@ -25,7 +25,7 @@ vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper'))
 // each of them reaches well past the default per-test budget.
 vi.setConfig({ testTimeout: 60_000 });
 
-import TxsStats from './TxsStats';
+import TxsStats, { getTransactionStatsColumns } from './TxsStats';
 
 const json = (payload: unknown) => JSON.stringify(payload);
 
@@ -183,6 +183,13 @@ describe('TxsStats', () => {
     });
   });
 
+  function balancesTransactionStatsColumns() {
+    expect([ 1, 2, 3, 4, 5, 6, 7, 8, 9 ].map(getTransactionStatsColumns))
+      .toEqual([ 1, 2, 3, 4, 3, 3, 4, 4, 3 ]);
+  }
+
+  it(balancesTransactionStatsColumns, balancesTransactionStatsColumns);
+
   it('lets every stat card shrink inside its own track', async() => {
     const { container } = render(<TxsStats/>);
 
@@ -198,7 +205,9 @@ describe('TxsStats', () => {
     expect(tracks.map((rule) => rule.value)).toEqual(expect.arrayContaining([
       'minmax(0, 1fr)',
       'repeat(2, minmax(0, 1fr))',
-      'repeat(7, minmax(0, 1fr))',
+      'repeat(4, minmax(0, 1fr))',
     ]));
+    expect(tracks.filter((rule) => /min-width:\s*62\.5rem/.test(rule.text)).map((rule) => rule.value))
+      .toEqual(expect.arrayContaining([ 'repeat(4, minmax(0, 1fr))' ]));
   });
 });
