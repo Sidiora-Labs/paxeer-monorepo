@@ -175,6 +175,92 @@ and its SHA-256 binding. A connected budget policy contains the vendor
 identity, prices, monthly allowance, broadcast reserve, currency, peak duration
 and approval reference read by `streams.BudgetPolicy.ValidateVendor`.
 
+## PnL journey configuration
+
+To enable the portfolio, shares, rewards and referrals, copy
+`values/pnl.journeys.example.json` to `pnl.json` in the values directory beside
+`common.json` and the generated `expected-schema/pnl.json`. The optional
+`journeys` object supplements the eight inventory inputs. Without it, PnL
+composition emits only the existing budget, schema and delivery documents.
+With it, the composer adds `PNL_JOURNEY_CONFIG_DOCUMENT` and
+`PNL_JOURNEY_CONFIG_SHA256`, plus `IDENTITY_SERVICE_URL` and `PNL_FONT_DIR` bound
+to the same identity endpoint and font directory. The service reads version 3,
+issuer `pnld`, audience `identity`, the embedded font digests and the reward
+manifest digest supplied by the composer.
+
+Each member of `journeys` is required, including empty lists and `cdnZone`:
+
+| Input | Operator source and form |
+| --- | --- |
+| `realm` | Deployment realm, `production` or `private_fixture`; match `DEPLOYMENT_REALM`. |
+| `identityEndpoint` | Identity service's HTTPS origin, with no user information, path, query or fragment. |
+| `identityPeerCertSha256` | Lowercase SHA-256 of the identity server's DER certificate, obtained from its provisioned certificate. |
+| `identityCaFile`, `identityCaSha256` | Absolute clean mounted path and lowercase SHA-256 of the exact PEM trust-root file bytes from the identity PKI. |
+| `identityClientCertFile`, `identityClientCertSha256` | Absolute clean mounted path and lowercase SHA-256 of the exact PEM client certificate file bytes issued to PnL. |
+| `identityClientKeyFile`, `identityClientKeySha256` | Absolute clean mounted path and lowercase SHA-256 of the matching PEM private key file bytes, provisioned separately. |
+| `fontDirectory` | Absolute clean private directory selected for materialized embedded fonts; owned by the runtime with mode `0700`. |
+| `liveBatch` | Operator's live-transfer worker batch bound, an integer from 1 to 32. |
+| `releaseDigest` | Lowercase SHA-256 from the approved release tuple. |
+| `interfaceDigest` | Lowercase SHA-256 from the interface contract accompanying that release. |
+| `nodeIds` | Two distinct nonempty identifiers for the primary and archive RPC nodes, each at most 256 UTF-8 bytes. |
+| `exportsDirectory` | Absolute clean private directory for portfolio exports, owned by the runtime with mode `0700`. |
+| `brokerStream` | Broker stream identifier provisioned for this journey delivery policy. |
+| `cdnOrigin` | Public HTTPS origin serving cards, without user information, path, query or fragment. |
+| `cdnZone` | Cloudflare zone ID from the CDN configuration, 32 lowercase hexadecimal characters; empty for direct origin serving. |
+| `rewardRuntimeHashes` | Map of lowercase contract addresses to `0x`-prefixed lowercase keccak digests of runtime code, read as described below. |
+| `programs` | Reviewed reward programmes as `l18.Program` objects, using the exact member names below; empty when no programme is admitted. |
+| `approvedCommunityWallets` | At most 64 distinct nonzero Ethereum addresses from the approved community wallet policy; comparison ignores case. |
+
+A programme uses `ID`, `Version` and `DeploymentID` from the reviewed policy,
+each an identifier of 1–128 letters, digits, underscores, dots, colons or
+hyphens. `Asset` is the `l18.USDL` address. `ReferralRaw`, `AwardCapRaw`,
+`DailyCapRaw` and `BeneficiaryCapRaw` are canonical unsigned decimal uint256
+strings in the asset's raw units. `CashbackBPS` is an integer from 0 to 10000.
+`CashbackStartHeight` and `CashbackEndHeight` are decimal uint64 strings from
+the policy's chain interval: start is positive, end is at least start; both
+may be empty, and an end requires a start. `Treasury` and `Custody` are
+lowercase nonzero addresses from the funding authority, `Adapter` is its
+adapter identifier and `AdapterCodeHash` its `0x`-prefixed lowercase keccak
+runtime digest. These four strings may be empty for programmes without
+settlement authority. Every programme member is present, and `(ID, Version)`
+pairs are distinct.
+
+For `rewardRuntimeHashes`, read the code of each of the constants `NFT`,
+`Accumulator`, `FeesRouter` and `USDL` in
+`services/launchpad/pnl-tracker/internal/production/l18` at one committed block.
+At that same block read the EIP-1967 implementation storage position
+`0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc`.
+For every nonzero implementation address it names, also read that address's
+code. Map every target and implementation address to the keccak-256 digest of
+its code, using `0x` plus 64 lowercase hexadecimal characters. Use the
+committed block hash with `requireCanonical: true` for both `eth_getCode` and
+`eth_getStorageAt`; the service checks these bindings against its committed
+indexer checkpoint. Example pins and digests are illustrative; provision real
+files and chain bindings for deployment.
+
+Supply these variables separately through the configured secret provider:
+
+| Variable | Form |
+| --- | --- |
+| `IDENTITY_SIGNING_KEY` | Unpadded standard base64 of a 64-byte Ed25519 private key whose public half matches its seed. |
+| `PNL_CURSOR_KEY` | Unpadded base64url key of at least 32 bytes. |
+| `PNL_CDN_TOKEN` | Nonempty Cloudflare API token authorized to purge the configured zone; required with a nonempty `cdnZone`, absent or empty for direct origin serving. |
+
+`RPC_URL_FALLBACK` differs from `RPC_URL` and selects the archive node paired
+with the second node ID. The deployment's broker values must provision the
+stream named by `brokerStream` with every subject in the constructor's delivery
+policy: `inventory.rebuild.v2`, `portfolio.snapshot.v2`, `fee.claimed`,
+`airdrop.epoch`, `airdrop.claimed`, `reward.funding`, `reward.liability`,
+`reward.review`, `reward.claim_prepared`, `reward.community_authority`,
+`reward.payout_intent`, `reward.paid`, `reward.payout_state`,
+`reward.correction_review`, `referral.analytics`, `referral.bound`,
+`referral.code`, `referral.consent`, `referral.click` and `referral.bind`.
+Add this stream to the deployment's broker values before starting the service.
+The deployment's gateway values must include an `identityPeers` entry with
+issuer `pnld`, the SHA-256 pin of PnL's client certificate and the public key of
+`IDENTITY_SIGNING_KEY` in unpadded base64url form. Keep that entry synchronized
+with the separately provisioned signing key and client certificate.
+
 The contract's `optional` names are parsed by the image alongside its fixed and
 required names. `forms` describes their environment representation and `defaults`
 records the configuration reader's defaults. `documentCredentials` names the
@@ -200,7 +286,7 @@ Startup document readers and validation are in these service modules:
 | indexer | `internal/runtimedocs`, `internal/receipt.NewRPCQualificationWithAttestation`, `internal/decode.NewRegistry`, `internal/app`: receipt, delivery and lifecycle documents |
 | charts | `internal/config.RuntimeFeatures`, `internal/app.chartOutboxConfig`, `internal/consumer`: chart features, delivery policy and consumer configuration |
 | stats | `internal/app.statsRuntimeDocument.validate`, `statsPhase2Document.validate`: delivery and phase-two workers |
-| pnl | `internal/app`: delivery consumer; optional journey configuration |
+| pnl | `internal/app`: `DELIVERY_CONFIG_DOCUMENT` delivery consumer; optional `PNL_JOURNEY_CONFIG_DOCUMENT` (`pnlJourneyDocument`, `newPnLJourneys`) |
 | ranking | `internal/config.RankingRuntimeBinding`, `internal/app`: version-two runtime binding |
 | gateway | `internal/app/app.go`, `internal/config`: runtime, object and identity bindings |
 | user | `internal/app/account_runtime.go`: account event subject map |
