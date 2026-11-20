@@ -150,6 +150,11 @@ func TestJourneyDocumentsDeliverySubjectsDocumented(t *testing.T) {
 }
 
 func TestJourneyDocumentsConstructActualRuntime(t *testing.T) {
+	journeyDocumentsConstructActualRuntime(t, false)
+}
+
+func journeyDocumentsConstructActualRuntime(t *testing.T, variableKey bool) {
+	t.Helper()
 	fixture := newJourneyCompositionFixture(t)
 	values, source := journeyDocumentsValues(t, fixture.root)
 	raw, err := json.Marshal(fixture.document)
@@ -165,6 +170,11 @@ func TestJourneyDocumentsConstructActualRuntime(t *testing.T) {
 	}
 	// Empty policies are explicit lists in the values document.
 	inputs["approvedCommunityWallets"] = []string{}
+	if variableKey {
+		fixture.cfg.IdentityMTLSClientKeyPEM = journeyIdentityKey(t, fixture.document.IdentityClientKeyFile)
+		delete(inputs, "identityClientKeyFile")
+		delete(inputs, "identityClientKeySha256")
+	}
 	source["journeys"] = inputs
 	for name, value := range map[string]any{
 		"sourceStream": fixture.runtime.SourceStream, "consumerId": fixture.runtime.ConsumerID,
@@ -176,6 +186,9 @@ func TestJourneyDocumentsConstructActualRuntime(t *testing.T) {
 	}
 	journeyDocumentsWriteJSON(t, filepath.Join(values, "pnl.json"), source)
 	composed, raw, document := journeyDocumentsCompose(t, fixture.root, values)
+	if variableKey && (document.IdentityClientKeyFile != "" || document.IdentityClientKeySHA256 != "") {
+		t.Fatal("variable key form requires empty client key file members")
+	}
 	if !reflect.DeepEqual(document.Programs, fixture.document.Programs) || !reflect.DeepEqual(document.RewardRuntimeHashes, fixture.document.RewardRuntimeHashes) {
 		t.Fatal("composed reward policy differs from runtime inputs")
 	}

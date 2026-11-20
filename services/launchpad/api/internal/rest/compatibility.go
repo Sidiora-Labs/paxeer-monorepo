@@ -58,6 +58,7 @@ type ProductionReadOptions struct {
 	Model             *store.AccountingReadModel
 	Stream            *broker.PostgresStream
 	Store             *store.Store
+	PoolFeePolicy     func() store.PoolFeePolicy
 	StatsOrigin       string
 	RegisterSnapshots bool
 	Admission         *Admission

@@ -161,15 +161,25 @@ def _program(value: Any, key: str) -> dict[str, Any]:
 
 
 def _journeys(value: Any) -> dict[str, Any]:
-    document = dict(_object(value, JOURNEY_KEYS, "journeys"))
+    key_members = {"identityClientKeyFile", "identityClientKeySha256"}
+    keys = JOURNEY_KEYS
+    if isinstance(value, dict) and not key_members.intersection(value):
+        keys = JOURNEY_KEYS - key_members
+    document = dict(_object(value, keys, "journeys"))
+    file_key = bool(key_members.intersection(document))
+    if file_key:
+        _path(document["identityClientKeyFile"], "journeys.identityClientKeyFile")
+        _name(document["identityClientKeySha256"], "journeys.identityClientKeySha256", DIGEST)
+    else:
+        document.update(identityClientKeyFile="", identityClientKeySha256="")
     if document["realm"] not in ("production", "private_fixture"):
         raise DocumentError("pnl: invalid value journeys.realm")
     for name in ("identityEndpoint", "cdnOrigin"):
         _origin(document[name], f"journeys.{name}")
     for name in ("identityPeerCertSha256", "identityCaSha256", "identityClientCertSha256",
-                 "identityClientKeySha256", "releaseDigest", "interfaceDigest"):
+                 "releaseDigest", "interfaceDigest"):
         _name(document[name], f"journeys.{name}", DIGEST)
-    for name in ("identityCaFile", "identityClientCertFile", "identityClientKeyFile",
+    for name in ("identityCaFile", "identityClientCertFile",
                  "fontDirectory", "exportsDirectory"):
         _path(document[name], f"journeys.{name}")
     _integer(document["liveBatch"], "journeys.liveBatch", 1, 32)

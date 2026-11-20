@@ -48,6 +48,9 @@ type RPCDiscovery struct {
 	// Immutables lists the immutable-variable spans zeroed before hashing a
 	// discovered SidioraERC20 runtime (per-instance immutables).
 	Immutables []CodeRange `json:",omitempty"`
+
+	StagedRuntimeHash string `json:",omitempty"`
+	StagedUpgrade     string `json:",omitempty"`
 }
 type RPCOptions struct {
 	Manifest    deployment.Manifest
@@ -770,7 +773,7 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 				if e.Identity.Kind == valueSurface {
 					matchedTemplate := false
 					for _, template := range owned.Discovery {
-						if template.Role == valueSidioraPool && template.Kind == valueSurface && common.HexToHash(e.Identity.RuntimeHash) == common.HexToHash(template.RuntimeHash) {
+						if template.Role == valueSidioraPool && template.Kind == valueSurface && common.HexToHash(e.Identity.RuntimeHash) == common.HexToHash(template.RuntimeHash) && strings.EqualFold(e.Identity.StagedRuntimeHash, template.StagedRuntimeHash) && e.Identity.StagedUpgrade == template.StagedUpgrade {
 							matchedTemplate = true
 						}
 					}
@@ -1053,7 +1056,16 @@ func (a *RPCQualification) validateCodeUncached(ctx context.Context, e RPCCodeEp
 		return a.codeEpochDigest(e)
 	}
 	code, err := a.codeAt(ctx, e.Deployment.Address, block)
-	if err != nil || len(code) == 0 || len(code) > 128<<10 || a.runtimeHash(e, code) != common.HexToHash(e.Identity.RuntimeHash) {
+	if err != nil || len(code) == 0 || len(code) > 128<<10 {
+		return "", ErrQualification
+	}
+	runtimeHash := a.runtimeHash(e, code)
+	surfacePool := e.Deployment.Role == valueSidioraPool && e.Identity.Kind == valueSurface
+	if surfacePool {
+		if !e.Identity.AcceptsRuntimeHash(runtimeHash.Hex()) {
+			return "", ErrQualification
+		}
+	} else if runtimeHash != common.HexToHash(e.Identity.RuntimeHash) {
 		return "", ErrQualification
 	}
 	var impl common.Address
@@ -1107,7 +1119,11 @@ func (a *RPCQualification) validateCodeUncached(ctx context.Context, e RPCCodeEp
 			return "", ErrQualification
 		}
 	}
-	return a.codeEpochDigest(e)
+	epoch, err := a.codeEpochDigest(e)
+	if err != nil || !surfacePool {
+		return epoch, err
+	}
+	return accounting.HashTuple("rpc-surface-code-epoch-v1", epoch, strings.ToLower(runtimeHash.Hex())), nil
 }
 func (a *RPCQualification) codeEpochDigest(e RPCCodeEpoch) (string, error) {
 	manifestHash := a.manifestHash

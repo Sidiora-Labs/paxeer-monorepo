@@ -68,12 +68,20 @@ func resolvePools(ctx context.Context, o ProductionReadOptions, pools []string) 
 	if err != nil {
 		return nil, err
 	}
+	var feePolicy store.PoolFeePolicy
+	if o.PoolFeePolicy != nil {
+		feePolicy = o.PoolFeePolicy()
+	}
 	for _, pool := range known {
 		if _, hasState := reserves[pool]; !hasState {
 			return nil, errPoolStateUnavailable
 		}
 		if _, hasFee := fees[pool]; !hasFee {
-			return nil, errPoolStateUnavailable
+			fee, available := feePolicy.FeeBps(reserves[pool].CreatedAt)
+			if !available {
+				return nil, errPoolStateUnavailable
+			}
+			fees[pool] = fee
 		}
 	}
 	homeChains, err := o.Store.PoolHomeChains(ctx, known)

@@ -24,6 +24,7 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/capabilities"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
@@ -144,6 +145,7 @@ type authorityEnvelope struct {
 	SerialExport  deployment.SerialExport `json:"serialExport"`
 	Attestation   contractAttestation     `json:"attestation"`
 	CommittedHead committedHead           `json:"committedHead"`
+	poolFeePolicy store.PoolFeePolicy
 }
 
 // contractAttestation is deployment.ActivationAttestation projected onto the
@@ -367,8 +369,21 @@ func (a *networkAuthority) envelope(ctx context.Context) (authorityEnvelope, err
 	if err != nil {
 		return authorityEnvelope{}, err
 	}
-	return authorityEnvelope{2, export, projectAttestation(attestation), head}, nil
+	return authorityEnvelope{SchemaVersion: 2, SerialExport: export, Attestation: projectAttestation(attestation), CommittedHead: head, poolFeePolicy: store.NewPoolFeePolicy(attestation.PolicyValues, attestation.BlockTime)}, nil
 }
+
+func (a *networkAuthority) poolFeePolicy() store.PoolFeePolicy {
+	if a == nil {
+		return store.PoolFeePolicy{}
+	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	if a.builtAt.IsZero() || time.Since(a.builtAt) > authorityEnvelopeMaxAge {
+		return store.PoolFeePolicy{}
+	}
+	return a.lastEnvelope.poolFeePolicy
+}
+
 func (a *networkAuthority) refresh(ctx context.Context) error {
 	_, err := a.refreshEnvelope(ctx, false)
 	return err
