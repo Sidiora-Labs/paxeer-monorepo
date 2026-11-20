@@ -10,6 +10,15 @@ import (
 )
 
 func TestSearchRolePoolVisibilityColumns(t *testing.T) {
+	assertPoolVisibilityColumns(t, "stats_search_runtime")
+}
+
+func TestStatsRolePoolVisibilityColumns(t *testing.T) {
+	assertPoolVisibilityColumns(t, "stats_runtime")
+}
+
+func assertPoolVisibilityColumns(t *testing.T, runtimeRole string) {
+	t.Helper()
 	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "migrations", "grants.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -21,7 +30,7 @@ func TestSearchRolePoolVisibilityColumns(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, role := range document.Roles {
-		if role.RuntimeRole != "stats_search_runtime" {
+		if role.RuntimeRole != runtimeRole {
 			continue
 		}
 		statements, err := role.GrantSQL()
@@ -43,8 +52,8 @@ func TestSearchRolePoolVisibilityColumns(t *testing.T) {
 		}
 		sql := strings.Join(statements, ";")
 		for _, want := range []string{
-			`GRANT USAGE ON SCHEMA "chat" TO "stats_search_runtime"`,
-			`GRANT SELECT ("pool", "token", "public", "revision") ON TABLE "chat"."pool_search_visibility_v2" TO "stats_search_runtime"`,
+			`GRANT USAGE ON SCHEMA "chat" TO "` + runtimeRole + `"`,
+			`GRANT SELECT ("pool", "token", "public", "revision") ON TABLE "chat"."pool_search_visibility_v2" TO "` + runtimeRole + `"`,
 		} {
 			if !strings.Contains(sql, want) {
 				t.Fatalf("missing rendered grant: %s", want)
@@ -52,5 +61,5 @@ func TestSearchRolePoolVisibilityColumns(t *testing.T) {
 		}
 		return
 	}
-	t.Fatal("stats_search_runtime role is missing")
+	t.Fatalf("%s role is missing", runtimeRole)
 }

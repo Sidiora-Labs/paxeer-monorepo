@@ -262,13 +262,13 @@ func TestConsumeSocialPolicyTokenAndNoops(t *testing.T) {
 
 func TestConsumeSocialPolicyRuntimeRole(t *testing.T) {
 	ctx := context.Background()
-	database := coordinatortest.Bootstrap(t, os.Getenv("COORDINATOR_TEST_POSTGRES_DSN"), "stats_search_runtime", "stats_runtime")
+	database := coordinatortest.Bootstrap(t, os.Getenv("COORDINATOR_TEST_POSTGRES_DSN"), "stats_runtime")
 	admin, err := pgxpool.New(ctx, database.AdminDSN)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer admin.Close()
-	pool, err := pgxpool.New(ctx, database.Runtimes["stats_search_runtime"].DSN)
+	pool, err := pgxpool.New(ctx, database.Runtimes["stats_runtime"].DSN)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -296,12 +296,7 @@ func TestConsumeSocialPolicyRuntimeRole(t *testing.T) {
 		}
 		rows.Close()
 	}
-	writer, err := pgxpool.New(ctx, database.Runtimes["stats_runtime"].DSN)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer writer.Close()
-	tx, err := writer.Begin(ctx)
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -321,7 +316,7 @@ func TestConsumeSocialPolicyStatementInventory(t *testing.T) {
 		Statements []struct {
 			Function    string            `json:"function"`
 			SQL         string            `json:"sql"`
-			RuntimeRole string            `json:"runtime_role"`
+			RuntimeRole json.RawMessage   `json:"runtime_role"`
 			Sources     map[string]string `json:"sources"`
 		} `json:"statements"`
 	}
@@ -330,8 +325,14 @@ func TestConsumeSocialPolicyStatementInventory(t *testing.T) {
 	}
 	found := false
 	for _, statement := range inventory.Statements {
-		if statement.Function == "Projection.ConsumeSocialPolicy" && statement.SQL == socialPoolVisibilitySQL {
-			if statement.RuntimeRole != "stats_search_runtime" || statement.Sources["socialPoolVisibilityView"] != socialPoolVisibilityView || statement.Sources["socialPoolVisibilitySQL"] != socialPoolVisibilitySQL {
+		if statement.Function != "Projection.ConsumeSocialPolicy" {
+			continue
+		}
+		if statement.RuntimeRole != nil {
+			t.Fatal("social policy statements must use the app runtime role")
+		}
+		if statement.SQL == socialPoolVisibilitySQL {
+			if statement.Sources["socialPoolVisibilityView"] != socialPoolVisibilityView || statement.Sources["socialPoolVisibilitySQL"] != socialPoolVisibilitySQL {
 				t.Fatal("social visibility statement sources differ from the projection")
 			}
 			found = true

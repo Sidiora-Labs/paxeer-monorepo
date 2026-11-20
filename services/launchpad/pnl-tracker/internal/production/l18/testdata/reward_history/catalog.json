@@ -1,6 +1,6 @@
 {
   "description": "Reward runtime catalog from the registered migration dependency plan and legacy sources.",
-  "registry_sha256": "737048cb79bd69954434e1c702a7b546e266d2c50c15cf92345f3140f4f9d741",
+  "registry_sha256": "9b61c3746d8da7b9d740e08cee2c789ae75b1819ea725a1eb47b4209e642ff08",
   "applied": {
     "60000": "5cccc2f2e1468342481d5c03513a25f291dd2591cb0158755fa786b2edbc8545",
     "80001": "c6269641c857da5ffb00f7aad2cfeeb39f3ed7c2f879ce2b1d32b1b06941bf77",
