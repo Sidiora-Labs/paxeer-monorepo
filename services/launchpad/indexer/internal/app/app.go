@@ -449,6 +449,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return durableBlockHash(c, pool, d.CanonicalStreamID, height, lifecycle)
 		}}
 		deps.Reserves = qualified
+		discoveredEpochs := qualified.DiscoveredEpochs
 		if doc.Realm == valueProduction {
 			inventory := postgresMarketInventory{pool: pool}
 			newAuthority := func(c context.Context) (*receipt.RPCQualification, error) {
@@ -474,6 +475,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			historicalRecovery.reserves = nil
 			historicalQualified = &historicalRecovery
 			deps.Reserves = reserves
+			discoveredEpochs = reserves.DiscoveredEpochs
 		}
 		deps.Quarantine = &processor.QuarantinePolicy{Registry: qualified.Registry(), SourceStream: d.CanonicalStreamID, OptionalEmitterTopics: lifecycle.OptionalEmitterTopics}
 		authorize := func(c context.Context, action string) error {
@@ -624,7 +626,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			deps.HistoricalRequest = request
 			deps.HistoricalRequests = lifecycle.BackfillRequests
 		}
-		pauses = &pauseObservations{pool: pool, rpc: runtimeRPC, stream: d.CanonicalStreamID, epochs: lifecycle.Committed.Epochs}
+		pauses = &pauseObservations{pool: pool, rpc: runtimeRPC, stream: d.CanonicalStreamID, epochs: lifecycle.Committed.Epochs, discoveredEpochs: discoveredEpochs}
 		pauseWorkers = newRuntimeWorkers(logger)
 		pauseWorkers.AddPeriodic("pause_observations", time.Second, false, pauses.refresh)
 		secretChecks["workers"] = workers.Ready

@@ -759,6 +759,10 @@ type AccountingProjectionSource struct {
 	Encode     func(store.AccountingPage) ([]byte, error)
 }
 
+type untradedAccountingPage struct{ projection Projection }
+
+func (e *untradedAccountingPage) Error() string { return store.ErrAccountingUntraded.Error() }
+func (e *untradedAccountingPage) Unwrap() error { return store.ErrAccountingUntraded }
 func (s AccountingProjectionSource) Fetch(ctx context.Context, request ProjectionRequest) (Projection, error) {
 	var result Projection
 	if s.Store == nil || s.Request == nil || s.Encode == nil || s.Generation == "" || s.Generation != request.Generation {
@@ -774,7 +778,8 @@ func (s AccountingProjectionSource) Fetch(ctx context.Context, request Projectio
 	} else {
 		page, e = s.Store.Trades(ctx, r)
 	}
-	if e != nil {
+	untraded := errors.Is(e, store.ErrAccountingUntraded)
+	if e != nil && !untraded {
 		return result, e
 	}
 	body, e := s.Encode(page)
@@ -809,6 +814,9 @@ func (s AccountingProjectionSource) Fetch(ctx context.Context, request Projectio
 		}
 	}
 	result = Projection{Generation: s.Generation, Revision: page.Revision, Visibility: literalPublic, SourceWatermark: append(json.RawMessage(nil), page.Watermark...), Body: append(json.RawMessage(nil), body...)}
+	if untraded {
+		return Projection{}, &untradedAccountingPage{projection: result}
+	}
 	return result, nil
 }
 
@@ -1026,6 +1034,33 @@ func (b *AccountingBindings) serve(w http.ResponseWriter, r *http.Request, candl
 		return c.Codec.EncodeCachePage(request, candles, page, id)
 	}}
 	snapshot, stale, e := c.Adapter.Read(r.Context(), route, parameters, scope, source.Fetch)
+	var untraded *untradedAccountingPage
+	if errors.As(e, &untraded) {
+		b.mu.RLock()
+		currentGeneration := b.config.Generation
+		b.mu.RUnlock()
+		if currentGeneration != c.Generation || untraded.projection.Generation != c.Generation {
+			c.Error(w, r, ErrProjectionChanged)
+			return
+		}
+		var envelope map[string]json.RawMessage
+		if json.Unmarshal(untraded.projection.Body, &envelope) != nil {
+			c.Error(w, r, ErrProjectionChanged)
+			return
+		}
+		trace, _ := json.Marshal(id)
+		envelope["requestId"] = trace
+		body, err := json.Marshal(envelope)
+		if err != nil {
+			c.Error(w, r, err)
+			return
+		}
+		w.Header().Set("X-Request-ID", id)
+		w.Header().Set("X-Schema-Version", "2")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(body)
+		return
+	}
 	if e != nil {
 		c.Error(w, r, e)
 		return

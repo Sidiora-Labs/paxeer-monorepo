@@ -444,6 +444,13 @@ type recoveringReserveReader struct {
 	newAuthority func(context.Context) (*receipt.RPCQualification, error)
 }
 
+func (s *recoveringReserveReader) DiscoveredEpochs() []receipt.RPCCodeEpoch {
+	s.mu.RLock()
+	active := s.active
+	s.mu.RUnlock()
+	return active.DiscoveredEpochs()
+}
+
 func (s *recoveringReserveReader) PoolReserves(ctx context.Context, pool common.Address, block common.Hash) (receipt.PoolReserves, error) {
 	s.mu.RLock()
 	active := s.active

@@ -92,13 +92,13 @@ func TestPostgresStreamImmutableRollbackAndBarrier(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer streamRollback(tx)
-	initial, err := s.projections(ctx, tx, []string{first.Topic})
+	initial, err := s.projections(ctx, tx, []string{first.Topic}, true)
 	if err != nil || len(initial) != 1 || initial[0].sequence != "1" {
 		t.Fatal(initial, err)
 	}
 	second := notificationStreamFrame(t, "2")
 	commitStreamFrame(t, ctx, s, second)
-	captured, err := s.projections(ctx, tx, []string{first.Topic})
+	captured, err := s.projections(ctx, tx, []string{first.Topic}, true)
 	if err != nil || captured[0].sequence != "1" {
 		t.Fatal("snapshot barrier moved", captured, err)
 	}
