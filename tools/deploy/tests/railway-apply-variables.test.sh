@@ -632,6 +632,72 @@ PY
 }
 private_listen_address_contract
 
+ranking_evidence_document() {
+	python3 - "$root" "$tmp" "$replay" "$tool" <<'PYCODE'
+import base64, hashlib, json, os, shutil, subprocess, sys
+from pathlib import Path
+
+root, directory = Path(sys.argv[1]), Path(sys.argv[2])
+documents = root / "deploy/launchpad/documents"
+values = directory / "ranking-values"
+values.mkdir()
+shutil.copyfile(documents / "values/common.example.json", values / "common.json")
+shutil.copyfile(documents / "values/ranking.example.json", values / "ranking.json")
+expected_schema = values / "expected-schema"
+expected_schema.mkdir()
+digest = "0" * 64
+(expected_schema / "ranking.json").write_text(json.dumps({
+    "service": "core/ranking-algo", "runtime_role": "rankingd",
+    "registry_digest": digest, "interface_digest": digest, "reader_version": 1,
+    "migrations": {"1": digest}, "schemas": {"ranking": digest},
+    "epoch": 1, "region": "mainnet-beta",
+    "privileges": [{"schema": "ranking", "object": "snapshots", "privileges": ["SELECT"]}],
+}))
+output = directory / "ranking-composed"
+composed = subprocess.run([
+    sys.executable, str(documents / "compose.py"), "--values", str(values),
+    "--out", str(output), "--service", "ranking",
+], capture_output=True, text=True, env=os.environ)
+assert composed.returncode == 0, composed.stdout + composed.stderr
+record = json.loads((output / "ranking.json").read_bytes())
+raw = base64.b64decode(record["RANKING_RUNTIME_DOCUMENT"], validate=True)
+binding = json.loads(raw)
+endpoint = json.loads((values / "ranking.json").read_bytes())["evidenceEndpoint"]
+assert binding["version"] == 2
+assert binding["evidenceEndpoint"] == endpoint
+assert hashlib.sha256(raw).hexdigest() == record["RANKING_RUNTIME_SHA256"]
+entry = json.loads((root / "deploy/launchpad/railway/variables.json").read_bytes())["ranking"]
+selected = {name: f"ranking-value-{index:02d}" for index, name in enumerate(entry["required"])}
+selected.update(record)
+for document, path in entry["documentSources"].items():
+    selected.pop(path, None)
+    assert document in selected
+want = {**entry["defaults"], **selected, **entry["fixed"]}
+project = next(event for event in json.load(open(sys.argv[3])) if event["op"] == "Project")
+project["data"]["project"]["services"]["edges"] = [{"node": {"id": "svc-ranking", "name": "ranking"}}]
+replay = [project,
+    {"op": "Variables", "variables": {"p": "proj-test", "e": "env-prod", "s": "svc-ranking"},
+     "data": {"variables": {}}},
+    {"op": "VariablesUpsert", "variables": {"i": {
+        "projectId": "proj-test", "environmentId": "env-prod", "serviceId": "svc-ranking",
+        "variables": want, "skipDeploys": True}}, "data": {"variableCollectionUpsert": True}},
+]
+for name, data in (("manifest", {"ranking": entry}), ("values", {"ranking": selected}), ("replay", replay)):
+    (directory / f"ranking-{name}.json").write_text(json.dumps(data))
+result = subprocess.run([
+    sys.executable, sys.argv[4], "proj-test", "production", "--apply",
+    "--manifest", str(directory / "ranking-manifest.json"),
+    "--values", str(directory / "ranking-values.json"),
+    "--replay", str(directory / "ranking-replay.json"),
+], capture_output=True, text=True, env=os.environ)
+assert result.returncode == 0, result.stdout + result.stderr
+assert f"  applied {len(want)} variables" in result.stdout
+assert record["RANKING_RUNTIME_DOCUMENT"] not in result.stdout + result.stderr
+PYCODE
+	echo PASS ranking-evidence-document
+}
+ranking_evidence_document
+
 optional_settings_and_defaults() {
 	python3 - "$tmp" "$replay" "$tool" <<'PY'
 import copy, json, os, subprocess, sys
