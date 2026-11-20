@@ -210407,7 +210407,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1030]
 title = "Bound every request of the waits of the broker fixture of the provisioning cases of the launchpad by a wait of its own"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
