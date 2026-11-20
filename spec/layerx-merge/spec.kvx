@@ -16150,6 +16150,12 @@ value = "One. The first attempt of the script uses the package sources as the ru
 basis = "Gotcha 4766."
 affects = []
 
+[decision.3840]
+title = "The pause observation handler brings its snapshot up to an asked complete block inside its bound, and an error of the visibility read or of the evidence read of the ranking names its step"
+value = "One. Where the asked block is complete and canonical by the read of the handler and lies above the head of the stored snapshot, the handler brings the snapshot forward to at least that block inside its bound of 1500 milliseconds and answers from it. Two. The answer stays exact at the asked block: the handler never answers from a snapshot that does not hold the asked height with the asked hash. Three. One extension runs at a time under the lock of the type. A request waits for the lock no longer than its bound and reads the stored snapshot again once it holds the lock. An extension on request starts from the present base and rebuilds no base: where no base exists or the coverage check of the refresh asks for a new base, the request does not extend. The age of the base does not stop an extension on request. Four. Where the snapshot does not reach the asked block inside the bound, the answer is status 503 as it is today. The periodic run, its interval of one second, the cycle of the base and the form of the answer stay. Five. In the universe read of the ranking an error of the visibility read becomes a refusal with the step visibility and an error of the evidence read a refusal with the step evidence, both with the class unavailable, and the cause stays reachable for errors.Is. The log line of a refused refresh then names the step. Tasks 22.39.1036 and 22.39.1037."
+basis = "Gotcha 4767."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45810,6 +45816,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1037]
+title = "Name the step of an error of the visibility read and of the evidence read in the universe read of the launchpad ranking"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo/internal"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/ranking-algo && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -list ^TestRefreshRefusalStep ./internal/... | grep -q ^TestRefreshRefusalStep)"
+do_1 = "do_1 Gotcha 4767 part two, decision 3840 point five. Read the functions ReadRankingUniverseTxDetailed and ReadRankingUniverseTx in services/launchpad/ranking-algo/internal/store/frozen_inputs.go, the refusal type with the functions NewRefreshRefusal and RefreshRefusalDetails in services/launchpad/ranking-algo/internal/ranker/coordinator.go and the function reportRefresh in services/launchpad/ranking-algo/internal/app/app.go, with their cases. The final message lists every reader of the step or of the class of a refusal under services/launchpad/ranking-algo/internal with file and line and states for each one that its path for the two new steps equals its path for the same error today."
+symbols = []
+
+[capability.22.39.1036]
+title = "Let the pause observation handler of the launchpad indexer bring its snapshot up to the asked block inside its bound"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer/internal/app"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/indexer && go test -count=1 -timeout 14m ./cmd/... ./internal/app/ ./internal/chainreader/ ./internal/checked/ ./internal/config/ ./internal/decode/ ./internal/httpapi/ ./internal/internaltest/... ./internal/migrate/ ./internal/publisher/ ./internal/receipt/ ./internal/rolecheck/ ./internal/runtimedocs/ ./internal/source/ ./internal/store/... && go test -count=1 -timeout 18m ./internal/processor/ && go test -count=1 -list ^TestPauseObservationRequest ./internal/app/ | grep -q ^TestPauseObservationRequest)"
+do_1 = "do_1 Gotcha 4767 part one, decision 3840 points one to four. Read services/launchpad/indexer/internal/app/pause_observations.go whole with its cases in the test files of that directory, and the line of services/launchpad/indexer/internal/app/app.go that runs the function refresh once a second. The final message names the steps of the function refresh that an extension from a present base runs and the steps it leaves out."
+symbols = []
 
 [capability.22.39.1035]
 title = "Let the background loop of the pnl app of the launchpad look at its context ahead of every run"
@@ -210424,6 +210448,66 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1037]
+title = "Name the step of an error of the visibility read and of the evidence read in the universe read of the launchpad ranking"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1037"]
+interfaces = []
+do_1 = "do_1 Gotcha 4767 part two, decision 3840 point five. Read the functions ReadRankingUniverseTxDetailed and ReadRankingUniverseTx in services/launchpad/ranking-algo/internal/store/frozen_inputs.go, the refusal type with the functions NewRefreshRefusal and RefreshRefusalDetails in services/launchpad/ranking-algo/internal/ranker/coordinator.go and the function reportRefresh in services/launchpad/ranking-algo/internal/app/app.go, with their cases. The final message lists every reader of the step or of the class of a refusal under services/launchpad/ranking-algo/internal with file and line and states for each one that its path for the two new steps equals its path for the same error today."
+do_2 = "do_2 Let the function ReadRankingUniverseTxDetailed return an error of the visibility read as a refusal with the step visibility and the class unavailable, and an error of the evidence read as a refusal with the step evidence and the class unavailable. The error of the read is the cause of the refusal, so errors.Is with the unavailable error of the ranker and with every other error gives the answer it gives today. Where a reader of the list of step one would change its path for one of the two steps, it keeps its present path for that error. The other steps and classes, the function ReadRankingUniverseTx, the readers themselves and the log line of the function reportRefresh stay as they are."
+do_3 = "do_3 Add cases whose names begin with TestRefreshRefusalStep. An evidence reader that returns the unavailable error makes the universe read return a refusal with the step evidence and the class unavailable for which errors.Is with the unavailable error holds. A visibility reader that returns an error gives the step visibility and the class unavailable with that error as the cause. The log line of a refused refresh holds the step evidence for the first and the step visibility for the second. The present cases of the module stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo/internal"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/ranking-algo && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/ranking-algo && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -list ^TestRefreshRefusalStep ./internal/... | grep -q ^TestRefreshRefusalStep)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1036]
+title = "Let the pause observation handler of the launchpad indexer bring its snapshot up to the asked block inside its bound"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1036"]
+interfaces = []
+do_1 = "do_1 Gotcha 4767 part one, decision 3840 points one to four. Read services/launchpad/indexer/internal/app/pause_observations.go whole with its cases in the test files of that directory, and the line of services/launchpad/indexer/internal/app/app.go that runs the function refresh once a second. The final message names the steps of the function refresh that an extension from a present base runs and the steps it leaves out."
+do_2 = "do_2 Let the handler ServeHTTP, after its read found the asked block complete and canonical with the asked hash and the stream coherent, look at the stored snapshot. Where the head of the snapshot lies below the asked height, the handler extends the snapshot inside its bound and then answers from the stored snapshot. The extension takes the lock of the type with a wait no longer than the bound of the request, reads the stored snapshot again once it holds the lock, and runs the steps of the function refresh from the present base up to the present head of the stream, with every check of those steps as it is. It rebuilds no base: where no base exists or the coverage check asks for a new base, the request does not extend. The age of the base does not stop an extension on request. Where the stored snapshot does not hold the asked height with the asked hash at the end, the answer is status 503 with the present text. The periodic run with its interval, the cycle and the bounds of the base, the checks of the query, the other answers of the handler and the form of the evidence stay as they are."
+do_3 = "do_3 Add cases whose names begin with TestPauseObservationRequest in the form of the present cases of the handler. A request for a complete block above the head of the stored snapshot is answered with status 200 and the evidence of that block without a periodic run in between, and the evidence equals the one a periodic run gives for that block. A request at or below the head of the snapshot makes no extension. Two requests at once for the same block make one extension. A request where no base exists is answered with status 503. A request while another holder keeps the lock beyond the bound is answered with status 503 inside two seconds. A request with another hash at the asked height stays refused as it is today. The present cases of the directory stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer/internal/app"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/indexer && go test -count=1 -timeout 14m ./cmd/... ./internal/app/ ./internal/chainreader/ ./internal/checked/ ./internal/config/ ./internal/decode/ ./internal/httpapi/ ./internal/internaltest/... ./internal/migrate/ ./internal/publisher/ ./internal/receipt/ ./internal/rolecheck/ ./internal/runtimedocs/ ./internal/source/ ./internal/store/... && go test -count=1 -timeout 18m ./internal/processor/ && go test -count=1 -list ^TestPauseObservationRequest ./internal/app/ | grep -q ^TestPauseObservationRequest)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1035]
 title = "Let the background loop of the pnl app of the launchpad look at its context ahead of every run"
 status = "pending"
@@ -210456,7 +210540,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1034]
 title = "Let the later attempts of the system package script of the launchpad checks read the distribution archive from its main host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210639,7 +210723,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1028]
 title = "Show a coin with any name and any ticker in the web of the launchpad and take no control or direction character in the creation form"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

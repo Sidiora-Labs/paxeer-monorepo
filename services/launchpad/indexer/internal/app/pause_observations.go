@@ -267,6 +267,37 @@ func (p *pauseObservations) readEvents(ctx context.Context, tx pgx.Tx, from, to 
 func (p *pauseObservations) refresh(parent context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	return p.refreshLocked(parent, true)
+}
+
+func (p *pauseObservations) extend(ctx context.Context, height int64) error {
+	wait := time.NewTicker(5 * time.Millisecond)
+	defer wait.Stop()
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if p.mu.TryLock() {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-wait.C:
+		}
+	}
+	defer p.mu.Unlock()
+	previous := p.snapshot.Load()
+	if previous == nil || previous.base == nil {
+		return errPauseUnavailable
+	}
+	if previous.head.height >= height {
+		return nil
+	}
+	return p.refreshLocked(ctx, false)
+}
+
+func (p *pauseObservations) refreshLocked(parent context.Context, rebuildBase bool) error {
 	if p.rpc == nil || p.pool == nil || p.stream == "" {
 		return errPauseUnavailable
 	}
@@ -294,7 +325,10 @@ func (p *pauseObservations) refresh(parent context.Context) error {
 	if p.discoveredEpochs != nil {
 		discovered = p.discoveredEpochs()
 	}
-	if base == nil || time.Since(base.built) >= pauseBaseCycle || !p.rawCoverage(pools, discovered, base.block.height+1, head.height) {
+	if base == nil || rebuildBase && time.Since(base.built) >= pauseBaseCycle || !p.rawCoverage(pools, discovered, base.block.height+1, head.height) {
+		if !rebuildBase {
+			return errPauseUnavailable
+		}
 		bounded, stop := context.WithTimeout(ctx, pauseBaseTimeout)
 		base = p.buildBase(bounded, head, pools)
 		stop()
@@ -487,6 +521,12 @@ func (p *pauseObservations) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !coherent {
 		http.Error(w, "pause observation unavailable", http.StatusServiceUnavailable)
 		return
+	}
+	if snapshot := p.snapshot.Load(); snapshot != nil && snapshot.head.height < height {
+		if err = p.extend(ctx, height); err != nil {
+			http.Error(w, "pause observation unavailable", http.StatusServiceUnavailable)
+			return
+		}
 	}
 	evidence, err := p.snapshot.Load().evidence(height, cutoff, hash)
 	if err != nil {
