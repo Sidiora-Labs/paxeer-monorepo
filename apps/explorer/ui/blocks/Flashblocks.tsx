@@ -40,14 +40,13 @@ const Flashblocks = () => {
 
   return (
     <Box css={{
-      '& button': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } },
+      '& button': { _motionReduce: { transitionProperty: 'none' } },
       '& [data-scope="switch"]': { _motionReduce: { transitionProperty: 'none' } },
     }}>
       <FlashblocksStats itemsNum={ itemsNum } txsNum={ txsNum } initialTs={ initialTs }/>
       <HStack gap={ 2 } mb={ 4 } flexWrap="wrap" minW={ 0 }>
         <Switch
           size="md"
-          minH="touchTarget"
           flexDirection="row-reverse"
           onCheckedChange={ handleFormatChange }
           checked={ isRealTime }

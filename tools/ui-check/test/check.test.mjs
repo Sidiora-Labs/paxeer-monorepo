@@ -10,7 +10,7 @@ import test, { after, before } from "node:test";
 import { PNG } from "pngjs";
 import { chromium } from "playwright";
 import { checkSurface, FRAME_TAB_PRESSES, FRAME_TRAVERSAL_MS, keyboardFindings, readSurface } from "../check.mjs";
-import { DEVICES, LIMITS, MODES, REPOSITORY, renderMatrix } from "../config.mjs";
+import { DEVICES, LIMITS, MODES, REPOSITORY, readSurface as readConfiguredSurface, renderMatrix } from "../config.mjs";
 import { observePage } from "../browser.mjs";
 import { serveFiles, startSurface } from "../server.mjs";
 
@@ -939,6 +939,96 @@ async function buildBoundsRequireWholeMilliseconds(context) {
   }
 }
 test(buildBoundsRequireWholeMilliseconds);
+
+async function readinessBoundsRequireWholeMilliseconds(context) {
+  for (const readyMs of [null, false, true, "1000", {}, [], -1, 0, 999, 1000.5, 120000.5, 120001]) {
+    const { filename } = await temporaryBuildSurface({ readyMs });
+    for (const read of [readSurface, readConfiguredSurface]) {
+      await assert.rejects(read(filename), (error) => {
+        assert.equal(error.message, "Surface Test surface readyMs must be a whole number from 1000 to 120000");
+        context.diagnostic(error.message);
+        return true;
+      });
+    }
+  }
+  for (const readyMs of [1000, 120000]) {
+    const { filename } = await temporaryBuildSurface({ readyMs });
+    for (const read of [readSurface, readConfiguredSurface]) {
+      assert.equal((await read(filename)).readyMs, readyMs);
+    }
+  }
+}
+test(readinessBoundsRequireWholeMilliseconds);
+
+async function delayedReadySurface(options = {}) {
+  const reservation = createServer();
+  await new Promise((resolve) => reservation.listen(0, "localhost", resolve));
+  const port = reservation.address().port;
+  await new Promise((resolve) => reservation.close(resolve));
+  return surfaceFor("clean", {
+    start: `${JSON.stringify(process.execPath)} ${JSON.stringify(join(fixtures, "delayed-ready.mjs"))} ${port}`,
+    address: `http://localhost:${port}`, readyPath: "/ready",
+    views: [{ name: "clean", path: "/clean.html", modes: ["default"] }],
+    ...options,
+  });
+}
+
+async function smallerReadinessBoundReportsLoadWithoutRendering() {
+  const filename = await delayedReadySurface({ readyMs: 1000 });
+  const out = join(root, `readiness-timeout-${sequence}`);
+  const started = Date.now();
+  const command = await runCli(["--surface", filename, "--out", out]);
+  assert.equal(command.code, 1, command.stderr + command.stdout);
+  assert.ok(Date.now() - started >= 1000);
+  const result = JSON.parse(await readFile(join(out, "result.json"), "utf8"));
+  assert.equal(result.passed, false);
+  assert.equal(result.readyMs, 1000);
+  assert.equal(result.buildMs, LIMITS.buildMs);
+  assert.deepEqual(result.renders, []);
+  assert.equal(result.findings.length, 1);
+  assert.equal(result.findings[0].kind, "load");
+  assert.equal(result.findings[0].values.source, "surface");
+  assert.equal(result.findings[0].values.message, "Surface did not become ready at /ready");
+}
+test(smallerReadinessBoundReportsLoadWithoutRendering);
+
+async function largerReadinessBoundRendersAfterDelayedStart() {
+  const filename = await delayedReadySurface({ readyMs: 5000 });
+  const out = join(root, `delayed-readiness-${sequence}`);
+  const started = Date.now();
+  const command = await runCli(["--surface", filename, "--out", out]);
+  assert.equal(command.code, 0, command.stderr + command.stdout);
+  assert.ok(Date.now() - started >= 2000);
+  const result = JSON.parse(await readFile(join(out, "result.json"), "utf8"));
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.readyMs, 5000);
+  assert.equal(result.buildMs, LIMITS.buildMs);
+  assert.equal(result.limits.readyMs, 15000);
+  assert.equal(result.renders.length, 22);
+  assert.ok(result.renders.every((render) => render.rendered && render.hasContent));
+  assert.deepEqual(result.findings, []);
+}
+test(largerReadinessBoundRendersAfterDelayedStart);
+
+async function surfacesWithoutReadinessBoundUseTheCommonWait() {
+  const filename = await delayedReadySurface();
+  for (const read of [readSurface, readConfiguredSurface]) {
+    assert.equal((await read(filename)).readyMs, undefined);
+  }
+  assert.equal(LIMITS.readyMs, 15000);
+  const out = join(root, `default-readiness-${sequence}`);
+  const started = Date.now();
+  const command = await runCli(["--surface", filename, "--out", out]);
+  assert.equal(command.code, 0, command.stderr + command.stdout);
+  assert.ok(Date.now() - started >= 2000);
+  const result = JSON.parse(await readFile(join(out, "result.json"), "utf8"));
+  assert.equal(result.readyMs, LIMITS.readyMs);
+  assert.equal(result.passed, true, JSON.stringify(result.findings));
+  assert.equal(result.renders.length, 22);
+  assert.ok(result.renders.every((render) => render.rendered && render.hasContent));
+  assert.deepEqual(result.findings, []);
+}
+test(surfacesWithoutReadinessBoundUseTheCommonWait);
 
 async function outputsRequireBuildAndOneToSixteenPaths(context) {
   for (const outputs of [null, false, "dist", {}, [], Array.from({ length: 17 }, (_, index) => `dist-${index}`), [null], [1], [""], [" "]]) {

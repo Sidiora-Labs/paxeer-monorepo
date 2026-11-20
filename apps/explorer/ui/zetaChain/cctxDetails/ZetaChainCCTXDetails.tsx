@@ -144,7 +144,7 @@ const ZetaChainCCTXDetails = ({ data, isLoading }: Props) => {
         CCTX hash
       </DetailedInfo.ItemLabel>
       <DetailedInfo.ItemValue>
-        <Skeleton loading={ isLoading } display="flex" flexWrap="nowrap" alignItems="center" overflow="hidden">
+        <Skeleton loading={ isLoading } display="flex" flexWrap="nowrap" alignItems="center" minW={ 0 } maxW="full">
           <TxEntityZetaChainCC hash={ data.index } isLoading={ isLoading } noIcon noLink/>
         </Skeleton>
       </DetailedInfo.ItemValue>

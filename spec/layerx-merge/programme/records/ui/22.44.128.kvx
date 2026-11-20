@@ -1,0 +1,286 @@
+[meta]
+task = "22.44.128"
+title = "Explorer account, application and service dimensions"
+reference = "22.44.105"
+
+[coverage]
+views = 21
+initial_states = 21
+named_states = 0
+unavailable_views = 19
+populated_views = ["/ecosystems", "/visualize/sol2uml"]
+widths = [360, 390, 430, 768, 834, 1024, 1280, 1440, 1920, 2560]
+height = 900
+landscape = [844, 390]
+schemes = ["light", "dark"]
+modes = ["default"]
+
+[dimensions]
+ecosystem_card_text = "14px / 18px"
+ecosystem_card_columns = "Two metric columns from a 300px card content width."
+ecosystem_sort_labels = "Sortable column labels align to the start of their existing columns; metric values retain their right alignment and tabular figures."
+ecosystem_links = "Chain links center their touch area on the text line without enlarging the card heading row."
+contract_summary = "The contract link centers its touch area on the existing 20px text line."
+touch_controls = "Enabled controls measure at least 44px through 834px and retain their intrinsic desktop dimensions above 834px."
+unavailable_navigation = "Unavailable views provide one native home link with a 32px top margin, a 40px desktop height and a 44px touch height."
+scrollbar = "The page reserves the scrollbar track."
+
+[renders]
+first_count = 0
+last_count = 462
+last_result = "Geometry differences only; all other finding kinds have zero findings."
+tag_address_landscape = "At 844 by 390, five renders in each scheme show content with zero findings and no retries."
+
+[findings.load]
+first = 1
+last = 0
+
+[findings.contrast]
+first = 0
+last = 0
+
+[findings.focus]
+first = 0
+last = 0
+
+[findings.touch]
+first = 0
+last = 0
+
+[findings.shift]
+first = 0
+last = 0
+
+[findings.motion]
+first = 0
+last = 0
+
+[findings.geometry]
+first = 0
+last = 1010
+
+[findings.sideways]
+first = 0
+last = 0
+
+[findings.cut]
+first = 0
+last = 0
+
+[findings.scale]
+first = 0
+last = 0
+
+[geometry]
+views = 21
+parts = 211
+widths = [390, 1280, 1440, 1920, 2560]
+comparisons = 1055
+differing_parts = 211
+differing_part_width_pairs = 1010
+matching_part_width_pairs = 45
+equivalent_text_dimensions = "Visible text retains its earlier size and line height; the home link uses its own control text metrics rather than the former wrapper metrics."
+
+[geometry_views.ecosystems]
+views = ["/ecosystems"]
+parts_per_view = 11
+differing_pairs_per_view = 52
+
+[geometry_parts.group_1]
+views = ["/ecosystems"]
+width = 390
+parts = ["first-row", "footer", "navigation", "navigation-first-item"]
+causes = ["scrollbar", "touch"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns. Controls through 834px retain their 44px touch areas; adjacent content follows the resulting control dimensions."
+
+[geometry_parts.group_2]
+views = ["/ecosystems"]
+width = 390
+parts = ["footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "primary-control"]
+causes = ["touch"]
+description = "Controls through 834px retain their 44px touch areas; adjacent content follows the resulting control dimensions."
+
+[geometry_parts.group_3]
+views = ["/ecosystems"]
+width = 390
+parts = ["header", "main"]
+causes = ["scrollbar"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_parts.group_4]
+views = ["/ecosystems"]
+width = 1280
+parts = ["first-row", "footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_parts.group_5]
+views = ["/ecosystems"]
+width = 1440
+parts = ["first-heading", "first-row", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_parts.group_6]
+views = ["/ecosystems"]
+width = 1920
+parts = ["first-heading", "first-row", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_parts.group_7]
+views = ["/ecosystems"]
+width = 2560
+parts = ["first-heading", "first-row", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_views.contract]
+views = ["/visualize/sol2uml"]
+parts_per_view = 10
+differing_pairs_per_view = 46
+
+[geometry_parts.group_8]
+views = ["/visualize/sol2uml"]
+width = 390
+parts = ["footer", "navigation", "navigation-first-item"]
+causes = ["scrollbar", "touch"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns. Controls through 834px retain their 44px touch areas; adjacent content follows the resulting control dimensions."
+
+[geometry_parts.group_9]
+views = ["/visualize/sol2uml"]
+width = 390
+parts = ["footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link"]
+causes = ["touch"]
+description = "Controls through 834px retain their 44px touch areas; adjacent content follows the resulting control dimensions."
+
+[geometry_parts.group_10]
+views = ["/visualize/sol2uml"]
+width = 390
+parts = ["header", "main"]
+causes = ["scrollbar"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_parts.group_11]
+views = ["/visualize/sol2uml"]
+width = 390
+parts = ["primary-control"]
+causes = ["touch", "contract_text"]
+description = "Controls through 834px retain their 44px touch areas; adjacent content follows the resulting control dimensions. The contract link centers its 44px target on the 20px text line and shortens its displayed hash to the available width."
+
+[geometry_parts.group_12]
+views = ["/visualize/sol2uml"]
+width = 1280
+parts = ["footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_parts.group_13]
+views = ["/visualize/sol2uml"]
+width = 1440
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_parts.group_14]
+views = ["/visualize/sol2uml"]
+width = 1920
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_parts.group_15]
+views = ["/visualize/sol2uml"]
+width = 2560
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item", "primary-control"]
+causes = ["scrollbar"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_views.unavailable]
+views = ["/account/api-key", "/account/custom-abi", "/account/merits", "/account/tag-address", "/account/verified-addresses", "/account/watchlist", "/apps/[id]", "/apps", "/auth/profile", "/csv-export", "/essential-dapps/[id]", "/mud-worlds", "/name-services/clusters/[name]", "/name-services/domains/[name]", "/name-services", "/operation/[id]", "/operations", "/pools/[hash]", "/pools"]
+parts_per_view = 10
+differing_pairs_per_view = 48
+
+[geometry_parts.group_16]
+views = ["/account/api-key", "/account/custom-abi", "/account/merits", "/account/tag-address", "/account/verified-addresses", "/account/watchlist", "/apps/[id]", "/apps", "/auth/profile", "/csv-export", "/essential-dapps/[id]", "/mud-worlds", "/name-services/clusters/[name]", "/name-services/domains/[name]", "/name-services", "/operation/[id]", "/operations", "/pools/[hash]", "/pools"]
+width = 390
+parts = ["first-heading", "header"]
+causes = ["scrollbar"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_parts.group_17]
+views = ["/account/api-key", "/account/custom-abi", "/account/merits", "/account/tag-address", "/account/verified-addresses", "/account/watchlist", "/apps/[id]", "/apps", "/auth/profile", "/csv-export", "/essential-dapps/[id]", "/mud-worlds", "/name-services/clusters/[name]", "/name-services/domains/[name]", "/name-services", "/operation/[id]", "/operations", "/pools/[hash]", "/pools"]
+width = 390
+parts = ["footer", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar", "touch"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns. Controls through 834px retain their 44px touch areas; adjacent content follows the resulting control dimensions."
+
+[geometry_parts.group_18]
+views = ["/account/api-key", "/account/custom-abi", "/account/merits", "/account/tag-address", "/account/verified-addresses", "/account/watchlist", "/apps/[id]", "/apps", "/auth/profile", "/csv-export", "/essential-dapps/[id]", "/mud-worlds", "/name-services/clusters/[name]", "/name-services/domains/[name]", "/name-services", "/operation/[id]", "/operations", "/pools/[hash]", "/pools"]
+width = 390
+parts = ["footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link"]
+causes = ["touch"]
+description = "Controls through 834px retain their 44px touch areas; adjacent content follows the resulting control dimensions."
+
+[geometry_parts.group_19]
+views = ["/account/api-key", "/account/custom-abi", "/account/merits", "/account/tag-address", "/account/verified-addresses", "/account/watchlist", "/apps/[id]", "/apps", "/auth/profile", "/csv-export", "/essential-dapps/[id]", "/mud-worlds", "/name-services/clusters/[name]", "/name-services/domains/[name]", "/name-services", "/operation/[id]", "/operations", "/pools/[hash]", "/pools"]
+width = 390
+parts = ["primary-control"]
+causes = ["native_link"]
+description = "The native home link has a 32px top margin and a 40px desktop or 44px mobile control height; the earlier sampled wrapper includes that margin and carries wrapper text metrics."
+
+[geometry_parts.group_20]
+views = ["/account/api-key", "/account/custom-abi", "/account/merits", "/account/tag-address", "/account/verified-addresses", "/account/watchlist", "/apps/[id]", "/apps", "/auth/profile", "/csv-export", "/essential-dapps/[id]", "/mud-worlds", "/name-services/clusters/[name]", "/name-services/domains/[name]", "/name-services", "/operation/[id]", "/operations", "/pools/[hash]", "/pools"]
+width = 1280
+parts = ["footer", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_parts.group_21]
+views = ["/account/api-key", "/account/custom-abi", "/account/merits", "/account/tag-address", "/account/verified-addresses", "/account/watchlist", "/apps/[id]", "/apps", "/auth/profile", "/csv-export", "/essential-dapps/[id]", "/mud-worlds", "/name-services/clusters/[name]", "/name-services/domains/[name]", "/name-services", "/operation/[id]", "/operations", "/pools/[hash]", "/pools"]
+width = 1280
+parts = ["primary-control"]
+causes = ["native_link"]
+description = "The native home link has a 32px top margin and a 40px desktop or 44px mobile control height; the earlier sampled wrapper includes that margin and carries wrapper text metrics."
+
+[geometry_parts.group_22]
+views = ["/account/api-key", "/account/custom-abi", "/account/merits", "/account/tag-address", "/account/verified-addresses", "/account/watchlist", "/apps/[id]", "/apps", "/auth/profile", "/csv-export", "/essential-dapps/[id]", "/mud-worlds", "/name-services/clusters/[name]", "/name-services/domains/[name]", "/name-services", "/operation/[id]", "/operations", "/pools/[hash]", "/pools"]
+width = 1440
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_parts.group_23]
+views = ["/account/api-key", "/account/custom-abi", "/account/merits", "/account/tag-address", "/account/verified-addresses", "/account/watchlist", "/apps/[id]", "/apps", "/auth/profile", "/csv-export", "/essential-dapps/[id]", "/mud-worlds", "/name-services/clusters/[name]", "/name-services/domains/[name]", "/name-services", "/operation/[id]", "/operations", "/pools/[hash]", "/pools"]
+width = 1440
+parts = ["primary-control"]
+causes = ["native_link", "scrollbar"]
+description = "The native home link has a 32px top margin and a 40px desktop or 44px mobile control height; the earlier sampled wrapper includes that margin and carries wrapper text metrics. The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_parts.group_24]
+views = ["/account/api-key", "/account/custom-abi", "/account/merits", "/account/tag-address", "/account/verified-addresses", "/account/watchlist", "/apps/[id]", "/apps", "/auth/profile", "/csv-export", "/essential-dapps/[id]", "/mud-worlds", "/name-services/clusters/[name]", "/name-services/domains/[name]", "/name-services", "/operation/[id]", "/operations", "/pools/[hash]", "/pools"]
+width = 1920
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_parts.group_25]
+views = ["/account/api-key", "/account/custom-abi", "/account/merits", "/account/tag-address", "/account/verified-addresses", "/account/watchlist", "/apps/[id]", "/apps", "/auth/profile", "/csv-export", "/essential-dapps/[id]", "/mud-worlds", "/name-services/clusters/[name]", "/name-services/domains/[name]", "/name-services", "/operation/[id]", "/operations", "/pools/[hash]", "/pools"]
+width = 1920
+parts = ["primary-control"]
+causes = ["native_link", "scrollbar"]
+description = "The native home link has a 32px top margin and a 40px desktop or 44px mobile control height; the earlier sampled wrapper includes that margin and carries wrapper text metrics. The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_parts.group_26]
+views = ["/account/api-key", "/account/custom-abi", "/account/merits", "/account/tag-address", "/account/verified-addresses", "/account/watchlist", "/apps/[id]", "/apps", "/auth/profile", "/csv-export", "/essential-dapps/[id]", "/mud-worlds", "/name-services/clusters/[name]", "/name-services/domains/[name]", "/name-services", "/operation/[id]", "/operations", "/pools/[hash]", "/pools"]
+width = 2560
+parts = ["first-heading", "footer", "footer-column-1-first-link", "footer-column-2-first-link", "footer-column-3-first-link", "header", "main", "navigation", "navigation-first-item"]
+causes = ["scrollbar"]
+description = "The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."
+
+[geometry_parts.group_27]
+views = ["/account/api-key", "/account/custom-abi", "/account/merits", "/account/tag-address", "/account/verified-addresses", "/account/watchlist", "/apps/[id]", "/apps", "/auth/profile", "/csv-export", "/essential-dapps/[id]", "/mud-worlds", "/name-services/clusters/[name]", "/name-services/domains/[name]", "/name-services", "/operation/[id]", "/operations", "/pools/[hash]", "/pools"]
+width = 2560
+parts = ["primary-control"]
+causes = ["native_link", "scrollbar"]
+description = "The native home link has a 32px top margin and a 40px desktop or 44px mobile control height; the earlier sampled wrapper includes that margin and carries wrapper text metrics. The reserved 15px scrollbar track reduces available width and shifts centered or proportional columns."

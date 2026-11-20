@@ -47,7 +47,7 @@ const EssentialDappCard = ({ id, title, description, buttonText, imageUrl, darkI
       />
       <Text textStyle={{ base: 'sm', md: 'xl' }} fontWeight="semibold" mb={ 2 }>{ title }</Text>
       <Text textStyle={{ base: 'xs', md: 'sm' }} mb={ 3 }>{ description }</Text>
-      <Button asChild size="sm" variant="outline" mt="auto" w="full" whiteSpace="normal" h="auto" minH="touchTarget">
+      <Button asChild size="sm" variant="outline" mt="auto" w="full" whiteSpace="normal" h="auto">
         <LinkOverlay
           href={ route({ pathname: '/essential-dapps/[id]', query: { id } }) }
           w={{ base: 'full', md: 'auto' }}

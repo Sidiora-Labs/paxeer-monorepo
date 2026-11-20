@@ -65,9 +65,9 @@ const StatsFilters = ({
   return (
     <Flex
       data-stats-filters
-      css={{ '& button, & input': { minWidth: 'touchTarget', minHeight: 'touchTarget', _motionReduce: { transitionProperty: 'none' } } }}
+      css={{ '& button, & input': { _motionReduce: { transitionProperty: 'none' } } }}
       gap={{ base: 2, lg: 3 }}
-      flexDirection={{ base: 'column', lg: 'row' }}
+      flexDirection="row"
       flexWrap="wrap"
       alignItems="end"
       bg="bg.surface"
@@ -83,6 +83,7 @@ const StatsFilters = ({
         minW={{ base: 0, lg: 'min(100%, 20ch)' }}
         w={{ base: '100%', lg: 'auto' }}
         flex={{ lg: '1 1 20ch' }}
+        order={{ base: 3, lg: 0 }}
         data-stats-filter-input
       >
         <chakra.label htmlFor={ inputId } display="block" textStyle="label" mb={ 2 }>Find chart, metric</chakra.label>
@@ -100,8 +101,9 @@ const StatsFilters = ({
       </Box>
 
       <Box
-        minW={ 0 }
-        w={{ base: '100%', lg: 'auto' }}
+        minW="min(100%, 14ch)"
+        w={{ base: 'calc((100% - var(--chakra-spacing-2)) / 2)', lg: 'auto' }}
+        flexGrow={{ base: 1, lg: 0 }}
         data-stats-filter-section
       >
         <chakra.label htmlFor={ sectionId } display="block" textStyle="label" mb={ 2 }>Section</chakra.label>
@@ -127,15 +129,17 @@ const StatsFilters = ({
       </Box>
 
       <Box
-        minW={ 0 }
+        minW="min(100%, 14ch)"
         maxW="100%"
-        w={{ base: '100%', lg: 'auto' }}
+        w={{ base: 'calc((100% - var(--chakra-spacing-2)) / 2)', lg: 'auto' }}
+        flexGrow={{ base: 1, lg: 0 }}
         as="fieldset"
         data-stats-filter-interval
       >
         <chakra.legend textStyle="label" mb={ 2 }>Interval</chakra.legend>
         <Box data-chart-interval-select={ interval }>
-          <Flex hideBelow="lg" gap={ 1 } flexWrap="wrap" role="group" aria-label="Interval">
+          <Flex hideBelow="lg" gap={ 1 } p={ 1 } borderWidth="1" borderColor="transparent"
+            flexWrap="wrap" role="group" aria-label="Interval">
             { intervalIds.map((id) => (
               <Button
                 key={ id }
@@ -145,13 +149,14 @@ const StatsFilters = ({
                 aria-label={ STATS_INTERVALS[id].title }
                 aria-pressed={ interval === id }
                 variant="outline"
+                size="xs"
+                h="calc(var(--chakra-spacing-6) + var(--chakra-spacing-0\.5))"
+                px={ 1.5 }
                 color="text.primary"
                 bg={ interval === id ? 'selectedOption' : 'canvas' }
                 borderColor={ interval === id ? 'accent' : 'border.strong' }
                 onClick={ handleIntervalClick }
                 disabled={ isLoading }
-                minH="touchTarget"
-                minW="touchTarget"
               >
                 { STATS_INTERVALS[id].shortTitle }
               </Button>

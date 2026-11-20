@@ -3,6 +3,7 @@ import React from 'react';
 
 import type { TableHeaderProps } from 'toolkit/chakra/table';
 import { TableHeader, TableRoot } from 'toolkit/chakra/table';
+import { INLINE_CONTROL_STYLES } from 'toolkit/utils/inlineControl';
 
 interface Props extends React.ComponentProps<typeof TableRoot> {
   label: string;
@@ -17,7 +18,6 @@ const ActivityTable = React.forwardRef<HTMLTableElement, Props>(function Activit
       minW={ 0 }
       maxW="full"
       overflow="auto"
-      maxH="calc(100dvh - var(--chakra-spacing-24))"
       overscrollBehaviorX="contain"
       _focusVisible={{
         outlineWidth: 'var(--chakra-border-widths-2)',
@@ -34,7 +34,7 @@ const ActivityTable = React.forwardRef<HTMLTableElement, Props>(function Activit
           '& [data-is-numeric]': { fontVariantNumeric: 'tabular-nums', textAlign: 'end' },
           '& [data-is-numeric] :is(a, span, div)': { fontVariantNumeric: 'tabular-nums' },
           '& tr': { _motionReduce: { animation: 'none' } },
-          '& button': { minW: 'touchTarget', minH: 'touchTarget' },
+          '& a': INLINE_CONTROL_STYLES,
         }}
       >
         <chakra.caption srOnly>{ label }</chakra.caption>

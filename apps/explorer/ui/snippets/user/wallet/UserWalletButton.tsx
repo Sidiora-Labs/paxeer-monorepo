@@ -45,7 +45,7 @@ const UserWalletButton = ({ size, variant, isPending, isAutoConnectDisabled, add
       disableOnMobile
     >
       <span>
-        <Button minH="touchTarget" minW="touchTarget"
+        <Button
           ref={ ref }
           size={ size }
           variant={ variant }

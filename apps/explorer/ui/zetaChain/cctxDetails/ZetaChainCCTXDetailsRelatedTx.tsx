@@ -38,7 +38,8 @@ const ZetaChainCCTXDetailsRelatedTx = ({ tx, isLoading }: Props) => {
       alignItems="center"
       loading={ isLoading }
       color={ color }
-      minH="var(--chakra-spacing-5)"
+      minH={ 5 }
+      lineHeight="var(--chakra-spacing-5)"
     >
       <ChainIcon data={ chainFrom }/>
       <IconSvg name="arrows/east" boxSize={ 5 } color="text.secondary"/>

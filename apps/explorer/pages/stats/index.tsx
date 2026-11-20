@@ -1,3 +1,4 @@
+import { Box } from '@chakra-ui/react';
 import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query';
 import type { DehydratedState } from '@tanstack/react-query';
 import type { GetServerSideProps, NextPage } from 'next';
@@ -13,7 +14,11 @@ import MultichainStats from 'ui/multichain/stats/MultichainStats';
 import Stats from 'ui/pages/Stats';
 
 export function StatsPageContent() {
-  return config.features.multichain.isEnabled ? <MultichainStats/> : <Stats/>;
+  return (
+    <Box minW={ 0 } w="full">
+      { config.features.multichain.isEnabled ? <MultichainStats/> : <Stats/> }
+    </Box>
+  );
 }
 
 type Props = BaseProps & { dehydratedState?: DehydratedState };

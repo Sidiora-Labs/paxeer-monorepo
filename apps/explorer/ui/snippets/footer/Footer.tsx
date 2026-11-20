@@ -125,7 +125,7 @@ const Footer = () => {
   };
 
   const columnsProps: GridProps = {
-    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, var(--chakra-spacing-40)), 1fr))',
+    gridTemplateColumns: { base: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
     columnGap: 6,
     rowGap: 4,
   };
@@ -170,7 +170,7 @@ const Footer = () => {
               <FooterLinkItem key={ link.text } text={ link.text } url={ link.url } icon={ getSocialIcon(link.url) }/>
             )) }
           </Flex>
-          <Button data-label="back-to-top" variant="link" size="sm" minH="touchTarget" minW="touchTarget" onClick={ handleBackToTop } textStyle="xs">
+          <Button data-label="back-to-top" variant="link" size="sm" onClick={ handleBackToTop } textStyle="xs">
             Back to Top
             <IconSvg aria-hidden={ true } name="arrows/east-mini" boxSize={ 5 } transform="rotate(90deg)"/>
           </Button>
@@ -215,8 +215,7 @@ const Footer = () => {
                         href={ link.url }
                         display="flex"
                         alignItems="center"
-                        minH="touchTarget"
-                        minW="touchTarget"
+                        minH={ 7 }
                         variant="subtle"
                         textStyle="small"
                       >

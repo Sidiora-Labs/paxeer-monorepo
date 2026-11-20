@@ -10,14 +10,7 @@ defmodule BlockScoutWeb.Chain.MarketHistoryChartController do
       recent_market_history = Market.fetch_recent_history()
       current_total_supply = available_supply(Chain.supply_for_days(), exchange_rate)
 
-      price_history_data =
-        case recent_market_history do
-          [today | the_rest] ->
-            [%{today | closing_price: exchange_rate.fiat_value} | the_rest]
-
-          data ->
-            data
-        end
+      price_history_data = update_closing_price(recent_market_history, exchange_rate)
 
       market_history_data = encode_market_history_data(price_history_data, current_total_supply)
 
@@ -29,7 +22,13 @@ defmodule BlockScoutWeb.Chain.MarketHistoryChartController do
     end
   end
 
-  def available_supply(:ok, exchange_rate), do: exchange_rate.available_supply || 0
+  def update_closing_price([today | the_rest], %{fiat_value: fiat_value}) when not is_nil(fiat_value) do
+    [%{today | closing_price: fiat_value} | the_rest]
+  end
+
+  def update_closing_price(market_history_data, _exchange_rate), do: market_history_data
+
+  def available_supply(:ok, exchange_rate), do: exchange_rate.available_supply
 
   def available_supply({:ok, supply_for_days}, _exchange_rate) do
     supply_for_days
@@ -55,7 +54,12 @@ defmodule BlockScoutWeb.Chain.MarketHistoryChartController do
   def encode_market_history_data(market_history_data, current_total_supply) do
     market_history_data
     |> Enum.map(fn day ->
-      market_cap = if day.market_cap, do: day.market_cap, else: Decimal.mult(current_total_supply, day.closing_price)
+      market_cap =
+        cond do
+          not is_nil(day.market_cap) -> day.market_cap
+          is_nil(current_total_supply) or is_nil(day.closing_price) -> nil
+          true -> Decimal.mult(current_total_supply, day.closing_price)
+        end
 
       day
       |> Map.put(:market_cap, market_cap)

@@ -179,7 +179,7 @@ const TokensTableItem = ({
             <Skeleton loading boxSize="20px" flexShrink={ 0 }/>
             <Skeleton loading h="1lh" flex={ 1 } minW={ 0 }/>
             <Tag loading variant="outlined">{ getTokenTypeName(type, chainInfo?.app_config) }</Tag>
-            <Skeleton loading boxSize="touchTarget" flexShrink={ 0 }/>
+            <Skeleton loading data-touch-placeholder boxSize={ 5 } flexShrink={ 0 }/>
           </Flex>
         </TableCell>
         { [ 'price', 'change', 'market-cap', 'volume', 'holders' ].map((field) => (

@@ -208,8 +208,6 @@ const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
           <Box pt={ 2 } borderTopWidth="var(--chakra-border-widths-1)" borderColor="hairline">
             <Button
               variant="link"
-              minH="touchTarget"
-              minW="touchTarget"
               textStyle="sm"
               onClick={ handleViewAllResultsClick }
             >

@@ -59,7 +59,11 @@ const GasTrackerChart = () => {
         <chakra.h3 textStyle="label" color="text.muted">Gas price history</chakra.h3>
         <Link
           href={ route({ pathname: '/stats', hash: 'gas' }) }
-          css={{ '@media (max-width: 834px)': { minWidth: 'touchTarget', minHeight: 'touchTarget' } }}
+          data-touch-inline
+          css={{
+            '--touch-line-size': 'var(--chakra-line-heights-body)',
+            '@media (max-width: 834px)': { minWidth: 'touchTarget', minHeight: 'touchTarget' },
+          }}
         >Charts & stats</Link>
       </Flex>
       { content }
