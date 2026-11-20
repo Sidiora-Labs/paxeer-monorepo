@@ -1539,5 +1539,15 @@
   "outputs": [
     ".next/server",
     ".next/static"
-  ]
+  ],
+  "geometry": {
+    "file": "../blocks-geometry.json",
+    "widths": [
+      390,
+      1280,
+      1440,
+      1920,
+      2560
+    ]
+  }
 }
