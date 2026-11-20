@@ -1,3 +1,4 @@
+import { validCreationCoinText } from '../../utils/coin-text-policy.mjs';
 import { createServer } from 'node:https';
 import { request } from 'node:http';
 import { createHash } from 'node:crypto';
@@ -185,12 +186,7 @@ async function creationPreflight(raw) {
     input.amountIn !== '' ||
     input.isBuy !== false ||
     input.nftId !== '' ||
-    typeof input.name !== 'string' ||
-    input.name.length < 1 ||
-    input.name.length > 64 ||
-    typeof input.symbol !== 'string' ||
-    input.symbol.length < 1 ||
-    input.symbol.length > 16 ||
+    !validCreationCoinText(input.name, input.symbol) ||
     !Number.isInteger(input.feeStrategy) ||
     input.feeStrategy < 0 ||
     input.feeStrategy > 3

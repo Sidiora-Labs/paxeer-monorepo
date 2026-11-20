@@ -96,7 +96,7 @@ describe('CreateWizard pristine validation', () => {
 
     type(name, 'Bad\u0007name');
     expect(name.getAttribute('aria-invalid')).toBe('true');
-    expect(container.textContent).toContain(NAME_ERROR);
+    expect(container.textContent).toContain('Name must not contain control or text direction characters');
     // The ticker is still untouched and stays quiet.
     expect(symbol.getAttribute('aria-invalid')).toBeNull();
     expect(container.textContent).not.toContain(SYMBOL_ERROR);
@@ -104,6 +104,7 @@ describe('CreateWizard pristine validation', () => {
     type(name, 'Paxe');
     expect(name.getAttribute('aria-invalid')).toBeNull();
     expect(container.textContent).not.toContain(NAME_ERROR);
+    expect(container.textContent).not.toContain('Name must not contain control or text direction characters');
 
     type(name, '');
     expect(name.getAttribute('aria-invalid')).toBe('true');
@@ -111,7 +112,7 @@ describe('CreateWizard pristine validation', () => {
 
     type(symbol, 'PA​XE');
     expect(symbol.getAttribute('aria-invalid')).toBe('true');
-    expect(container.textContent).toContain(SYMBOL_ERROR);
+    expect(container.textContent).toContain('Ticker must not contain control or text direction characters');
   });
 });
 

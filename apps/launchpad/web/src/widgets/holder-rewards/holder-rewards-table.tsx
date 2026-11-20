@@ -1,5 +1,7 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
+import { shortAddress } from '@/utils/format';
 import Link from 'next/link';
 import { ArrowDown, ArrowUp, ArrowUpDown, HandCoins, ListFilter } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -148,7 +150,8 @@ export default function HolderRewardsTable({
               body="Clear a filter or load more coins"
             />
           ) : null}
-          {rows.map((row, index) => {
+          {rows.map((rawRow, index) => {
+            const row = { ...rawRow, name: displayCoinText(rawRow.name, rawRow.tokenAddress), symbol: displayCoinText(rawRow.symbol, rawRow.tokenAddress) };
             const hovered = hoveredPool === row.poolAddress;
             const href = coinHref(row.poolAddress);
             const mcap = row.mcapRaw === null ? null : mcapText(row.mcapRaw);
@@ -176,7 +179,7 @@ export default function HolderRewardsTable({
                         <CopyAddress address={row.tokenAddress} variant="icon" className="relative z-10 shrink-0" />
                       </div>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-faint">
-                        {row.symbol ? <span className="truncate font-bold uppercase" title={row.symbol}>${row.symbol}</span> : null}
+                        {row.symbol ? <span className="truncate font-bold" title={row.symbol}>{row.symbol === shortAddress(row.tokenAddress) ? row.symbol : `$${row.symbol}`}</span> : null}
                         <AgeChip iso={row.pool.createdAt} className="font-bold text-warning" />
                         <UsdlBadge />
                         <TokenLinkIcons links={row.links} tokenAddress={row.tokenAddress} />

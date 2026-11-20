@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useMarketClient } from '@/core/market/client';
@@ -49,8 +50,8 @@ export function similarRow(hit: { poolAddress: string; tokenAddress: string | nu
   return {
     poolAddress: base.poolAddress,
     tokenAddress: hit.tokenAddress ?? base.tokenAddress,
-    symbol: metadata?.symbol?.trim() || base.symbol,
-    name: metadata?.name?.trim() || label || base.name,
+    symbol: displayCoinText(metadata?.symbol ?? base.symbol, hit.tokenAddress ?? base.tokenAddress ?? hit.poolAddress),
+    name: displayCoinText(metadata?.name ?? label ?? base.name, hit.tokenAddress ?? base.tokenAddress ?? hit.poolAddress),
     image: base.image,
     href: terminalPoolPath(base.poolAddress),
     createdAtMs: base.createdAtMs,

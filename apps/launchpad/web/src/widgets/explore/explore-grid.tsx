@@ -23,6 +23,7 @@ function GridCard({ row, starred, onToggleStar }: GridCardProps) {
         variant="grid"
         surface="canvas"
         image={row.image}
+        tokenAddress={row.tokenAddress}
         name={row.name}
         symbol={row.symbol}
         mcapRaw={row.mcapRaw}

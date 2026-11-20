@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatUnits } from 'viem';
 import TradeToast from './trade-toast';
@@ -59,7 +60,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
   const pnlSnapshotId = t.pnlSnapshotId;
   const side: TradeSide = t.isBuy ? 'buy' : 'sell';
 
-  const tokenSymbol = snapshot.data?.token?.symbol?.trim() || t.tokenName;
+  const tokenSymbol = displayCoinText(snapshot.data?.token?.symbol, snapshot.data?.pool.tokenAddress ?? t.tokenAddress);
   const spendSymbol = t.isBuy ? 'USDL' : tokenSymbol;
   const nativeUnit = t.isBuy ? 'USDL' : tokenSymbol;
   const altUnit = t.isBuy ? tokenSymbol : 'USDL';

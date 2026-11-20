@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { exactUnits, holderRows, type HoldersResponse, type PoolStats, type Token } from './market-presentation';
 
 const noteClass = 'text-xs text-text-faint';
@@ -34,7 +35,7 @@ export function MarketHolders({ response, token }: { response: HoldersResponse |
     <p className={noteClass}>Excluded addresses policy: {response.data.exclusionPolicyVersion}</p>
     <p className={noteClass}>Source: token transfer projection · height {response.watermark?.height ?? '—'} · revision {response.revision ?? '—'} · generated {response.generatedAt}</p>
     {!complete && <p role="status" className="text-xs text-warning">Incomplete coverage: these balances do not establish total ownership.</p>}
-    {rows.length ? <div role="region" aria-label="Token holders table" tabIndex={0} className="max-h-[var(--sl-list-max-height)] overflow-auto focus-visible:outline-2 focus-visible:outline-focus"><table className="w-full text-sm [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:text-left [&_th]:text-2xs [&_th]:font-bold [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-text-faint"><thead><tr><th scope="col">Holder address</th><th scope="col">Balance · {token.symbol || 'tokens'}</th><th scope="col">Share</th></tr></thead><tbody>{rows.map(row => <tr key={row.wallet} className="bg-surface-2 hover:bg-surface-hover"><td className="break-all font-mono text-xs">{row.wallet}</td><td className="tabular-nums">{exactUnits(row.balanceRaw, token.decimalsQuality === 'verified' ? token.decimals : null)}</td><td className="text-text-faint">—</td></tr>)}</tbody></table></div> : <p className="text-sm text-text-faint">{complete ? 'No holders in this snapshot' : 'No holder rows available in this partial snapshot'}</p>}
+    {rows.length ? <div role="region" aria-label="Token holders table" tabIndex={0} className="max-h-[var(--sl-list-max-height)] overflow-auto focus-visible:outline-2 focus-visible:outline-focus"><table className="w-full text-sm [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2 [&_th]:text-left [&_th]:text-2xs [&_th]:font-bold [&_th]:uppercase [&_th]:tracking-wider [&_th]:text-text-faint"><thead><tr><th scope="col">Holder address</th><th scope="col">Balance · {displayCoinText(token.symbol, token.address)}</th><th scope="col">Share</th></tr></thead><tbody>{rows.map(row => <tr key={row.wallet} className="bg-surface-2 hover:bg-surface-hover"><td className="break-all font-mono text-xs">{row.wallet}</td><td className="tabular-nums">{exactUnits(row.balanceRaw, token.decimalsQuality === 'verified' ? token.decimals : null)}</td><td className="text-text-faint">—</td></tr>)}</tbody></table></div> : <p className="text-sm text-text-faint">{complete ? 'No holders in this snapshot' : 'No holder rows available in this partial snapshot'}</p>}
     {response.nextCursor && <p className={noteClass}>More holders are available through the snapshot cursor; this page is bounded at 100 rows.</p>}
   </section>;
 }
