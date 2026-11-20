@@ -15994,6 +15994,12 @@ value = "One. A surface file can hold the key readyMs, a whole number of millise
 basis = "Gotcha 4740."
 affects = []
 
+[decision.3814]
+title = "The statistics of the list of transactions stand in rows of at most four cards and the heading of a token view shows the whole name"
+value = "One. From the width 1000 the statistics of the list of transactions stand in rows of at most four cards. The count of rows is the least that holds the cards with at most four in a row, and the count of tracks is the least that holds the cards in that count of rows: up to four cards stand in one row, five as three and two, six as three and three, seven as four and three and eight as four and four. Every track has the same width, and a row that is not full leaves its last tracks empty. Two. Below the width 1000 the row keeps its form: one track below 768 and two from 768. Three. The card keeps its form: its label holds two lines and its value follows decision 3812. With seven cards no label of the view is cut and none breaks inside a word at the widths 1024, 1280, 1440 and 1920. Four. For this row the rule goes before the bound of decisions 3708 and 3803 on the width of a track: a track may be wider than in the earlier state, since the text of seven cards does not fit a track of that width. The height of a card, its distances and its sizes of text stay within those decisions. Five. The heading of a token view and of a token instance view takes the form of the shared title: it wraps within the available width, carries no ellipsis and no hidden overflow, and shows the whole name with its symbol at every width. Its size of text and its line height stay, and it may take more lines than in the earlier state where the name does not fit one line. Six. The row of the identifier of both views keeps its one line form, and the heading of a transaction keeps its one line form. Seven. Where a stored part of the geometry of the render check moves with the change, the stored geometry of that view is written again, and no entry of another view changes. No size token of the theme changes, and the type scale the render check reads stays as it is. Tasks 22.44.134 and 22.44.135."
+basis = "Gotcha 4741."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45654,6 +45660,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.135]
+title = "Let the heading of a token view of the explorer show the whole name"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/token", "apps/explorer/ui/tokenInstance", "tools/ui-check/surfaces/explorer/tokens-geometry.json"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.135.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/tokens.json --out /tmp/ui-check/explorer-tokens && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/token/TokenPageTitle.spec.tsx ui/tokenInstance/TokenInstancePageTitle.spec.tsx ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+do_1 = "do_1 Gotcha 4741, decisions 3814, 3708 and 3803. Read apps/explorer/ui/token/TokenPageTitle.tsx and apps/explorer/ui/tokenInstance/TokenInstancePageTitle.tsx whole with their case files apps/explorer/ui/token/TokenPageTitle.spec.tsx and apps/explorer/ui/tokenInstance/TokenInstancePageTitle.spec.tsx, the shared title apps/explorer/ui/shared/Page/PageTitle.tsx, the record of task 22.44.124 under spec/layerx-merge/programme/records/ui, the part file tools/ui-check/surfaces/explorer/parts/tokens.json, the entries of the token view and of the token instance view in tools/ui-check/surfaces/explorer/tokens-geometry.json and in tools/ui-check/README.md the part under the heading Stored geometry and the rules with the names cut, sideways, shift and geometry."
+symbols = []
+
+[capability.22.44.134]
+title = "Let the statistics of the list of transactions of the explorer stand in rows of at most four cards"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/txs", "tools/ui-check/surfaces/explorer/transactions-geometry.json"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/records/ui/22.44.134.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/transactions.json --out /tmp/ui-check/explorer-transactions && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/txs/TxsStats.spec.tsx ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+do_1 = "do_1 Gotcha 4741, decisions 3814, 3812, 3708 and 3803. Read apps/explorer/ui/txs/TxsStats.tsx whole with its case file apps/explorer/ui/txs/TxsStats.spec.tsx, the label and the value of the card in apps/explorer/ui/shared/scan/ScanStatCard.tsx, the record of task 22.44.122 under spec/layerx-merge/programme/records/ui, the part file tools/ui-check/surfaces/explorer/parts/transactions.json, the entries of the list of transactions in tools/ui-check/surfaces/explorer/transactions-geometry.json and in tools/ui-check/README.md the part under the heading Stored geometry and the rules with the names cut, sideways, shift and geometry. Read with git grep under apps/explorer/ui which components show the row."
+symbols = []
 
 [capability.22.44.133]
 title = "Let a surface file of the render check state the time its start may take"
@@ -178068,6 +178092,72 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.135]
+title = "Let the heading of a token view of the explorer show the whole name"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.124"]
+reqs = ["22998.1"]
+capabilities = ["22.44.135"]
+interfaces = []
+do_1 = "do_1 Gotcha 4741, decisions 3814, 3708 and 3803. Read apps/explorer/ui/token/TokenPageTitle.tsx and apps/explorer/ui/tokenInstance/TokenInstancePageTitle.tsx whole with their case files apps/explorer/ui/token/TokenPageTitle.spec.tsx and apps/explorer/ui/tokenInstance/TokenInstancePageTitle.spec.tsx, the shared title apps/explorer/ui/shared/Page/PageTitle.tsx, the record of task 22.44.124 under spec/layerx-merge/programme/records/ui, the part file tools/ui-check/surfaces/explorer/parts/tokens.json, the entries of the token view and of the token instance view in tools/ui-check/surfaces/explorer/tokens-geometry.json and in tools/ui-check/README.md the part under the heading Stored geometry and the rules with the names cut, sideways, shift and geometry."
+do_2 = "do_2 Give the heading of both views the form of decision 3814: remove the no wrap form, the hidden overflow and the ellipsis from the heading, so that it takes the form of the shared title, wraps within the available width and shows the whole name with its symbol at every width. Its size of text and its line height stay. Keep the rule for the row of the identifier in both files. A long word of a name breaks where it is wider than the line, so that no heading is wider than its box. Change no other view and not the shared title, and no size token, no text style and no recipe."
+do_3 = "do_3 Add to each of the two case files a case that states the form for a name of forty characters with a symbol: the whole name with its symbol is the text of the heading, and the heading carries no declaration of no wrap, of hidden overflow or of an ellipsis. Keep the cases the files hold, and weaken no assertion on behaviour. Run both case files by hand once before the change and name in the final message each case that did not pass before the change."
+do_4 = "do_4 Render the token view and the token instance view by hand with the tokens part and the option --view of the check, one view after the other, in the foreground and never detached, and read every finding of the kinds cut, sideways, shift and geometry for these views. Correct each finding the change causes. Where a stored part of one of the two views moves, write the stored geometry of that view again with the options --write-geometry and --view, then read the difference of tools/ui-check/surfaces/explorer/tokens-geometry.json and keep it only where every changed entry belongs to that view. Never start a run of the whole part by hand: the counted verification renders the whole part, so keep the time for it. Change no other file under tools/ui-check: other tasks of the group change the start and the build of the surface at the same time. No limit of the check is raised and no element is hidden from it."
+do_5 = "do_5 Start the tokens part by hand with the start command the part file holds, open the token view and the token instance view at the widths 360, 390, 430 and 1280 with the browser the check installs and read for the heading its scroll width against its client width, its count of lines and the scroll width of the document against the width of the window: no heading is wider than its box, none carries an ellipsis and the document does not scroll sideways. Where that read cannot be set up within twenty minutes, leave it out and say so in the final message."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.135.kvx in present tense: the form of the heading of both views, the rule that stays for the row of the identifier, the count of renders of the last render of each of the two views with its result and the count of findings of each kind, and for the widths 360, 390 and 1280 the count of lines the heading of each view takes with the data of the part. Start the build and the counted verification early and keep time for them. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/token", "apps/explorer/ui/tokenInstance", "tools/ui-check/surfaces/explorer/tokens-geometry.json"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.135.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.135.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/explorer/parts/tokens.json --out /tmp/ui-check/explorer-tokens && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/token/TokenPageTitle.spec.tsx ui/tokenInstance/TokenInstancePageTitle.spec.tsx ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.134]
+title = "Let the statistics of the list of transactions of the explorer stand in rows of at most four cards"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.44.122", "22.44.131"]
+reqs = ["22998.1"]
+capabilities = ["22.44.134"]
+interfaces = []
+do_1 = "do_1 Gotcha 4741, decisions 3814, 3812, 3708 and 3803. Read apps/explorer/ui/txs/TxsStats.tsx whole with its case file apps/explorer/ui/txs/TxsStats.spec.tsx, the label and the value of the card in apps/explorer/ui/shared/scan/ScanStatCard.tsx, the record of task 22.44.122 under spec/layerx-merge/programme/records/ui, the part file tools/ui-check/surfaces/explorer/parts/transactions.json, the entries of the list of transactions in tools/ui-check/surfaces/explorer/transactions-geometry.json and in tools/ui-check/README.md the part under the heading Stored geometry and the rules with the names cut, sideways, shift and geometry. Read with git grep under apps/explorer/ui which components show the row."
+do_2 = "do_2 Give the row the form of decision 3814. Below the width 1000 it keeps its tracks. From the width 1000 the count of tracks follows the count of cards the row shows: the count of rows is the least that holds the cards with at most four in a row, and the count of tracks is the least that holds the cards in that count of rows. Hold that rule in one function of apps/explorer/ui/txs/TxsStats.tsx that takes the count of cards and gives the count of tracks, so that a case can state it. Every track keeps the form that lets a card shrink inside it, every track has the same width, and a row that is not full leaves its last tracks empty. Change no file of the card and no other user of the card: the rule lies in the row and holds for every component that shows it. No size token, no text style and no recipe changes."
+do_3 = "do_3 Change the case on the tracks in apps/explorer/ui/txs/TxsStats.spec.tsx with the change it pins: it states four tracks from the width 1000 for the seven cards, and the count of tracks the function gives for one to nine cards, which is one, two, three, four, three, three, four, four and three. Keep the case on the seven cards in the scan order and every other case of the file. No assertion on behaviour is weakened. Run the case files under apps/explorer/ui/txs by hand once before the change and name in the final message each case that did not pass before the change."
+do_4 = "do_4 Render the list of transactions by hand with the transactions part and the option --view of the check, in the foreground and never detached, and read every finding of the kinds cut, sideways, shift and geometry for that view. Correct each finding the change causes. The row moves the stored parts of that view at the widths from 1280: write the stored geometry of that view again with the options --write-geometry and --view, then read the difference of tools/ui-check/surfaces/explorer/transactions-geometry.json and keep it only where every changed entry belongs to the view of the list of transactions. Never start a run of the whole part by hand: the counted verification renders the whole part, so keep the time for it. Change no other file under tools/ui-check: other tasks of the group change the start and the build of the surface at the same time. No limit of the check is raised and no element is hidden from it."
+do_5 = "do_5 Start the transactions part by hand with the start command the part file holds, open the list of transactions at the widths 1000, 1024, 1280, 1440 and 1920 with the browser the check installs and read the count of cards in each row, for each label its scroll height against its height and for each value its scroll width against the width of its box: no row holds more than four cards, no label is cut and none breaks inside a word, and no value is wider than its box. Where the data of the part shows fewer than seven cards, say so in the final message and read the cards it shows. Where that read cannot be set up within twenty minutes, leave it out and say so in the final message."
+do_6 = "do_6 Write the record spec/layerx-merge/programme/records/ui/22.44.134.kvx in present tense: the form of the row with its tracks below and from the width 1000, the place of the function, the count of renders of the last render of the view of the list of transactions with its result and the count of findings of each kind, and for the widths 1024, 1280 and 1440 the width of a card and the count of lines of the longest label. Start the build and the counted verification early and keep time for them. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/txs", "tools/ui-check/surfaces/explorer/transactions-geometry.json"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.134.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s spec/layerx-merge/programme/records/ui/22.44.134.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && node tools/ui-check/surfaces/explorer/parts.mjs && node tools/ui-check/check.mjs --jobs 2 --surface tools/ui-check/surfaces/explorer/parts/transactions.json --out /tmp/ui-check/explorer-transactions && cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run --passWithNoTests ui/txs/TxsStats.spec.tsx ui/snippets/ ui/shared/ ui/pages/ ui/home/ toolkit/"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 280
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
