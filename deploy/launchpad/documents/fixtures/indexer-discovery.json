@@ -1,0 +1,43 @@
+{
+  "Discovery": [
+    {
+      "Role": "SidioraPool",
+      "Kind": "surface",
+      "ABIRevision": "11fdd0dc7d726a937ad17c48b94717e3871aa67ae1dcf06c0b25ddf0afd23315",
+      "RuntimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f",
+      "StagedRuntimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993",
+      "StagedUpgrade": "v7.0"
+    },
+    {
+      "Role": "SidioraERC20",
+      "ABIRevision": "1ba8b1d75a45606195333383d248e2c694f07ddf1779faf951400a0c8bfab7af",
+      "RuntimeHash": "0x9f30c9bbf614bf686056ce6dcee6318e7098e9a53e16544f44d216feb7b6d225",
+      "Immutables": [
+        {
+          "Start": 1083,
+          "Length": 32
+        },
+        {
+          "Start": 1496,
+          "Length": 32
+        },
+        {
+          "Start": 1749,
+          "Length": 32
+        },
+        {
+          "Start": 2455,
+          "Length": 32
+        },
+        {
+          "Start": 2493,
+          "Length": 32
+        },
+        {
+          "Start": 2572,
+          "Length": 32
+        }
+      ]
+    }
+  ]
+}
