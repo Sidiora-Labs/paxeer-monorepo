@@ -7,7 +7,7 @@ import { describe, expect, it, test } from 'vitest';
 
 import { answer, transaction as base, render, requests, TxInfo } from './signatureTestFixture';
 
-const SUMMARY_ROWS = '[data-tx-info] > [data-section-group="SUMMARY"] > [data-activity-details] > [data-detailed-info]';
+const SUMMARY_ROWS = '[data-tx-info] > [data-section-group="SUMMARY"] > [data-activity-details] > div > [data-detailed-info]';
 
 const labels = (container: HTMLElement, scope: string) =>
   Array.from(container.querySelectorAll(`${ scope } [data-detailed-info-label]`)).map((item) => item.textContent);

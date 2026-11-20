@@ -80,6 +80,11 @@ const globalCss: SystemConfig['globalCss'] = {
       marginBlock: 'calc((var(--touch-line-size) - var(--chakra-sizes-touch-target)) / 2)',
     },
   },
+  '[data-entity-link]': {
+    '@media (max-width: 834px)': {
+      marginBlock: 'calc((1lh - var(--chakra-sizes-touch-target)) / 2)',
+    },
+  },
   ':focus-visible': {
     outline: 'var(--chakra-border-widths-2) solid !important',
     outlineColor: 'var(--chakra-colors-focus-ring) !important',

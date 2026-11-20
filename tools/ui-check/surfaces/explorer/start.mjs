@@ -11,6 +11,7 @@ import { tokenServerAnswer } from './tokens.mjs';
 import { readBlockResponses } from './block-responses.mjs';
 import { prepareAddressResponses, readAddressResponses } from './address-responses.mjs';
 
+const preparing = process.argv.includes('--prepare');
 const directory = fileURLToPath(new URL('../../../../apps/explorer/', import.meta.url));
 const compileCache = enableCompileCache();
 if (!compileCache.directory) throw new Error(compileCache.message);
@@ -59,6 +60,7 @@ const [, , iconSprite] = await Promise.all([
   readFile('/tmp/explorer-icons/sprite.svg'),
 ]);
 const compressedIconSprite = gzipSync(iconSprite);
+const notFoundPage = preparing ? null : await readFile(join(directory, '.next/server/pages/404.html'));
 const handle = application.getRequestHandler();
 let ready = false;
 const server = createServer(async (request, response) => {
@@ -67,6 +69,11 @@ const server = createServer(async (request, response) => {
     if (url.pathname === '/__surface_ready') {
       response.writeHead(ready ? 200 : 503, { 'content-type': 'text/plain' });
       response.end('Explorer');
+      return;
+    }
+    if (notFoundPage && url.pathname === '/explorer/404' && (request.method === 'GET' || request.method === 'HEAD')) {
+      response.writeHead(404, { 'content-type': 'text/html; charset=utf-8', 'content-length': notFoundPage.length });
+      response.end(request.method === 'HEAD' ? undefined : notFoundPage);
       return;
     }
     const asset = staticAssets.get(decodeURI(url.pathname));
@@ -204,7 +211,6 @@ server.listen(4173, 'localhost', () => {
   });
 });
 async function prepare() {
-  const preparing = process.argv.includes('--prepare');
   try {
     const response = await fetch('http://localhost:4173/explorer/404', { signal: AbortSignal.timeout(10000) });
     await response.arrayBuffer();
