@@ -16144,6 +16144,12 @@ value = "One. Below the lg width the notice layer starts above every fixed contr
 basis = "Gotcha 4765."
 affects = []
 
+[decision.3839]
+title = "The later attempts of the system package script read the distribution archive from its main host, and the background loop of the pnl app looks at its context ahead of every run"
+value = "One. The first attempt of the script uses the package sources as the runner holds them. Two. Ahead of the second and of the third attempt the script points the sources of the distribution archive at the host archive.ubuntu.com: in the source files of apt and in the mirror list file apt-mirrors.txt where the runner holds one, an address whose host name ends in .archive.ubuntu.com takes the host archive.ubuntu.com and keeps its scheme and its path. Sources of every other origin stay as they are. Three. Every call of apt-get of the script passes a retry count of 3 for a download. Four. The three attempts, the pause, the bounds of 120 and 600 seconds and the command line of the callers stay, and the script removes no downloaded package between attempts, so a later attempt goes on from the cache of apt. Five. Each attempt writes one line that names its number and the sources in use. Six. The function loop of the pnl app looks at the end of its context on every tick ahead of a run and returns where the context ended, so no run starts after the end of the context. Its callers stay as they are. Tasks 22.39.1034 and 22.39.1035."
+basis = "Gotcha 4766."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45804,6 +45810,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1035]
+title = "Let the background loop of the pnl app of the launchpad look at its context ahead of every run"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/app"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=50 -race -run ^TestBackgroundLoop ./internal/app/)"
+do_1 = "do_1 Gotcha 4766 part two, decision 3839 point six. Read the function loop of the type App in services/launchpad/pnl-tracker/internal/app/app.go with its three callers in that file, and the case TestBackgroundLoopContinuesAfterErrorAndStopsOnCancellation in services/launchpad/pnl-tracker/internal/app/runtime_composition_test.go. The final message names for each caller the job it runs and its wait."
+symbols = []
+
+[capability.22.39.1034]
+title = "Let the later attempts of the system package script of the launchpad checks read the distribution archive from its main host"
+reqs = ["22998.1"]
+touches = ["scripts/ci/install-system-packages.sh", "tests/ci/test_launchpad_install_steps.py"]
+tests = []
+verification_contract = "bash -n scripts/ci/install-system-packages.sh && python3 -m pytest -q tests/ci/test_launchpad_install_steps.py"
+do_1 = "do_1 Gotcha 4766 part one, decision 3839 points one to five. Read scripts/ci/install-system-packages.sh whole and tests/ci/test_launchpad_install_steps.py whole, and the lines that name the script in .github/workflows/launchpad-test.yml, scripts/ci/runner-routing-check.sh, tests/ci/test_runner_routing_container_runtime.py and tests/ci/test_launchpad_go_tests_wired.py."
+symbols = []
 
 [capability.22.39.1033]
 title = "Keep the trade panel of the launchpad web ready after a submit that ends by a refusal in the wallet and give a state without a quote a control that asks a new price"
@@ -210396,6 +210420,67 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1035]
+title = "Let the background loop of the pnl app of the launchpad look at its context ahead of every run"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1035"]
+interfaces = []
+do_1 = "do_1 Gotcha 4766 part two, decision 3839 point six. Read the function loop of the type App in services/launchpad/pnl-tracker/internal/app/app.go with its three callers in that file, and the case TestBackgroundLoopContinuesAfterErrorAndStopsOnCancellation in services/launchpad/pnl-tracker/internal/app/runtime_composition_test.go. The final message names for each caller the job it runs and its wait."
+do_2 = "do_2 Let the branch of the ticker in the function loop look at the end of the context ahead of the run and return where the context ended. The branch of the end of the context, the log of an error of a run, the signature of the function and its callers stay as they are."
+do_3 = "do_3 Add one case whose name begins with TestBackgroundLoop to the file of the present case. It runs the loop one hundred times in a row with a wait of one millisecond, ends the context inside the first run each time, waits for the return of the loop inside one second and requires exactly one run each time. The present case stays as it is. Both pass fifty times in a row with the race detector. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/app"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=50 -race -run ^TestBackgroundLoop ./internal/app/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1034]
+title = "Let the later attempts of the system package script of the launchpad checks read the distribution archive from its main host"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1034"]
+interfaces = []
+do_1 = "do_1 Gotcha 4766 part one, decision 3839 points one to five. Read scripts/ci/install-system-packages.sh whole and tests/ci/test_launchpad_install_steps.py whole, and the lines that name the script in .github/workflows/launchpad-test.yml, scripts/ci/runner-routing-check.sh, tests/ci/test_runner_routing_container_runtime.py and tests/ci/test_launchpad_go_tests_wired.py."
+do_2 = "do_2 Add to the script one function that points the sources of the distribution archive at the host archive.ubuntu.com. It reads the directory of the apt configuration from the variable APT_CONFIG_ROOT with the default /etc/apt. In the file sources.list of that directory, in every file with the ending list or sources in its directory sources.list.d and in its file apt-mirrors.txt, each where present, an address with the scheme http or https whose host name ends in .archive.ubuntu.com takes the host archive.ubuntu.com and keeps its scheme and its path. Every other line and every other address stay as they are, a file without such an address is not written, and a second run of the function changes nothing. The script calls the function ahead of the index read of the second and of the third attempt, after the dpkg command of that attempt, and goes on where the function does not pass."
+do_3 = "do_3 Let every call of apt-get of the script pass the option -o Acquire::Retries=3 ahead of its command word. Let each attempt write one line to the standard output ahead of its index read that names the number of the attempt and whether the sources stand as the runner holds them or point at the main host. The script keeps its three attempts, the pause, the two bounds with their kill signal, the exit status zero after the first attempt that passes and one after the last that does not, the shell options of its head, and it hands its arguments to the install unchanged. It removes no downloaded package and does not clean the cache of apt. The command line the callers use does not change."
+do_4 = "do_4 Let the case test_launchpad_system_package_retries_refresh_and_propagate_failure read the number of attempts, the pause and the two bounds from the script by searches of their lines in place of the full match, with its present asserts on them. Add cases that run the script with stand-ins for sudo, apt-get, dpkg and sleep ahead on the path and a directory of their own in APT_CONFIG_ROOT: a first attempt that passes leaves every source file as it was and ends with status zero; an install that does not pass in the first attempt makes the second attempt run with the main host in a source file in the deb822 form, in a source file in the one line form and in the mirror list file, with an address of security.ubuntu.com and an address of another origin unchanged; three attempts that do not pass end with status one; every call of apt-get holds the retry option; the arguments reach the install unchanged. Run bash -n on the script and the cases of the file. Change no workflow file and no other reader of the script. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["scripts/ci/install-system-packages.sh", "tests/ci/test_launchpad_install_steps.py"]
+tests = []
+planned_paths = []
+build_cmd = "bash -n scripts/ci/install-system-packages.sh && python3 -m py_compile tests/ci/test_launchpad_install_steps.py"
+verify_cmd = "bash -n scripts/ci/install-system-packages.sh && python3 -m pytest -q tests/ci/test_launchpad_install_steps.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
