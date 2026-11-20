@@ -1217,16 +1217,12 @@ func (r *gatewayConnectedRuntime) start(identity *auth.Identity) {
 	}()
 	go func() { defer r.wg.Done(); r.runRestrictionIntake() }()
 	go func() { defer r.wg.Done(); r.runObjectWorkers() }()
-	r.startStep(runtimeIdentityConsumer, true, func(ctx context.Context) error {
-		return r.consumer.Run(ctx, func(ctx context.Context, message *natsdriver.Message) error {
-			return identity.ConsumeIdentityRevision(ctx, r.binding.Durable, r.binding.ConsumerGeneration, message.Subject, message.Wire, message)
-		})
-	})
-	r.startStep(runtimeAuditConsumer, true, func(ctx context.Context) error {
-		return r.auditConsumer.Run(ctx, func(ctx context.Context, message *natsdriver.Message) error {
-			return r.auditSink.Consume(ctx, message.Wire, message)
-		})
-	})
+	r.startStep(runtimeIdentityConsumer, true, r.consumerStep(runtimeIdentityConsumer, r.consumer.Fetch, func(ctx context.Context, message *natsdriver.Message) error {
+		return identity.ConsumeIdentityRevision(ctx, r.binding.Durable, r.binding.ConsumerGeneration, message.Subject, message.Wire, message)
+	}))
+	r.startStep(runtimeAuditConsumer, true, r.consumerStep(runtimeAuditConsumer, r.auditConsumer.Fetch, func(ctx context.Context, message *natsdriver.Message) error {
+		return r.auditSink.Consume(ctx, message.Wire, message)
+	}))
 	auditRelay := delivery.Relay{Store: r.auditBridge.Delivery, Publisher: r.auditPublisher, Owner: r.binding.Audit.Durable, Batch: 32, LeaseDuration: 15 * time.Second, PublishTimeout: 5 * time.Second, RetryDelay: time.Second, MaxAttempts: 10}
 	r.startStep(runtimeAuditStage, false, func(ctx context.Context) error {
 		_, err := r.auditBridge.Stage(ctx, 32)
