@@ -934,22 +934,46 @@ func rewardHistoryPack(a abi.ABI, method string, value any) (string, error) {
 func (d *rewardHistoryDatabase) rpcResponse(w http.ResponseWriter, r *http.Request) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	var req struct {
+	type request struct {
 		ID     json.RawMessage   `json:"id"`
 		Method string            `json:"method"`
 		Params []json.RawMessage `json:"params"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var raw json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	result, err := d.rpcResult(req.Method, req.Params)
+	respond := func(req request) map[string]any {
+		result, err := d.rpcResult(req.Method, req.Params)
+		response := map[string]any{"jsonrpc": "2.0", "id": req.ID}
+		if err != nil {
+			response["error"] = map[string]any{"code": -32000, "message": err.Error()}
+		} else {
+			response["result"] = result
+		}
+		return response
+	}
 	w.Header().Set("Content-Type", "application/json")
-	if err != nil {
-		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "error": map[string]any{"code": -32000, "message": err.Error()}})
+	if len(raw) > 0 && raw[0] == '[' {
+		var requests []request
+		if err := json.Unmarshal(raw, &requests); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		responses := make([]map[string]any, len(requests))
+		for i, req := range requests {
+			responses[i] = respond(req)
+		}
+		_ = json.NewEncoder(w).Encode(responses)
 		return
 	}
-	_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
+	var req request
+	if err := json.Unmarshal(raw, &req); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(respond(req))
 }
 func (d *rewardHistoryDatabase) rpcResult(method string, args []json.RawMessage) (any, error) {
 	switch method {

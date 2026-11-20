@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -85,20 +86,52 @@ func NewCommittedCreator(ctx context.Context, r RPC, now func() time.Time, commi
 }
 func verifyRuntime(ctx context.Context, r RPC, b Checkpoint, runtimeHashes map[string]string) error {
 	var e error
-	for _, target := range []string{NFT, Accumulator, FeesRouter, USDL} {
+	targets := []string{NFT, Accumulator, FeesRouter, USDL}
+	batcher, batching := r.(batchRPC)
+	codes := make([]hexutil.Bytes, len(targets))
+	slots := make([]hexutil.Bytes, len(targets))
+	primary := make([]rpc.BatchElem, 0, len(targets)*2)
+	bound := map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true}
+	if batching {
+		for i, target := range targets {
+			primary = append(primary,
+				rpc.BatchElem{Method: "eth_getCode", Args: []any{target, bound}, Result: &codes[i]},
+				rpc.BatchElem{Method: "eth_getStorageAt", Args: []any{target, "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc", bound}, Result: &slots[i]})
+		}
+	}
+	implementationCodes := make([]hexutil.Bytes, len(targets))
+	implementationResults := make(map[int]int)
+	var implementations []rpc.BatchElem
+	implementationsRead := false
+	for i, target := range targets {
 		expected := runtimeHashes[target]
 		if !hash.MatchString(expected) {
 			return ErrUnavailable
 		}
 		var code hexutil.Bytes
-		if e = r.CallContext(ctx, &code, "eth_getCode", target, map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true}); e != nil {
+		if batching {
+			if i == 0 {
+				if e = batcher.BatchCallContext(ctx, primary); e != nil {
+					return e
+				}
+			}
+			code, e = codes[i], primary[2*i].Error
+		} else {
+			e = r.CallContext(ctx, &code, "eth_getCode", target, bound)
+		}
+		if e != nil {
 			return e
 		}
 		if len(code) == 0 || strings.ToLower(crypto.Keccak256Hash(code).Hex()) != expected {
 			return ErrUnavailable
 		}
 		var slot hexutil.Bytes
-		if e = r.CallContext(ctx, &slot, "eth_getStorageAt", target, "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc", map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true}); e != nil {
+		if batching {
+			slot, e = slots[i], primary[2*i+1].Error
+		} else {
+			e = r.CallContext(ctx, &slot, "eth_getStorageAt", target, "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc", bound)
+		}
+		if e != nil {
 			return e
 		}
 		if len(slot) != 32 {
@@ -111,7 +144,28 @@ func verifyRuntime(ctx context.Context, r RPC, b Checkpoint, runtimeHashes map[s
 				return ErrUnavailable
 			}
 			var implementationCode hexutil.Bytes
-			if e = r.CallContext(ctx, &implementationCode, "eth_getCode", implementation.Hex(), map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true}); e != nil {
+			if batching {
+				if !implementationsRead {
+					for j, candidate := range slots {
+						if len(candidate) != 32 || primary[2*j+1].Error != nil {
+							continue
+						}
+						address := common.BytesToAddress(candidate[12:])
+						if address != (common.Address{}) {
+							implementationResults[j] = len(implementations)
+							implementations = append(implementations, rpc.BatchElem{Method: "eth_getCode", Args: []any{address.Hex(), bound}, Result: &implementationCodes[j]})
+						}
+					}
+					if e = batcher.BatchCallContext(ctx, implementations); e != nil {
+						return e
+					}
+					implementationsRead = true
+				}
+				implementationCode, e = implementationCodes[i], implementations[implementationResults[i]].Error
+			} else {
+				e = r.CallContext(ctx, &implementationCode, "eth_getCode", implementation.Hex(), bound)
+			}
+			if e != nil {
 				return e
 			}
 			if len(implementationCode) == 0 || strings.ToLower(crypto.Keccak256Hash(implementationCode).Hex()) != expectedImplementation {
@@ -320,6 +374,7 @@ func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, curs
 	if e != nil {
 		return out, e
 	}
+	sourceBlock := b
 	after := "0"
 	if cursor != "" {
 		c, e := s.decodeCursor(cursor, who, program)
@@ -328,13 +383,15 @@ func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, curs
 		}
 		after = c.After
 		b = c.Block
-		var header struct {
-			Hash string `json:"hash"`
-		}
-		if e = s.creator.rpc.CallContext(ctx, &header, "eth_getBlockByNumber", hexutil.EncodeUint64(b.Number), false); e != nil || header.Hash != b.Hash {
-			return out, ErrUnavailable
+	}
+	pinned := *s.creator
+	pinned.committed = func(context.Context) (Checkpoint, error) { return b, nil }
+	if b != sourceBlock {
+		if _, e = pinned.checkpoint(ctx); e != nil {
+			return out, e
 		}
 	}
+	pinned.checked = &b
 	// Scan creation inventory in bounded pages, but page the wallet's rewards.
 	// Unrelated markets need no live contract read and cannot consume a page slot.
 	type relevantMarket struct {
@@ -401,8 +458,6 @@ func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, curs
 	}
 	for _, relevant := range sources {
 		m := relevant.source
-		pinned := *s.creator
-		pinned.committed = func(context.Context) (Checkpoint, error) { return b, nil }
 		p, e := pinned.Preview(ctx, m.NFTID, m.Creator)
 		if e != nil {
 			return out, e
@@ -638,10 +693,6 @@ func (s *JourneyService) sourceCheckpoint(ctx context.Context) (Checkpoint, erro
 	if s.sourceStream == "" {
 		return Checkpoint{}, fmt.Errorf("%w: canonical creation stream binding required", ErrUnavailable)
 	}
-	chain, e := s.creator.checkpoint(ctx)
-	if e != nil {
-		return Checkpoint{}, e
-	}
 	tx, e := s.ledger.begin(ctx)
 	if e != nil {
 		return Checkpoint{}, e
@@ -652,7 +703,7 @@ func (s *JourneyService) sourceCheckpoint(ctx context.Context) (Checkpoint, erro
 	if e != nil {
 		return Checkpoint{}, e
 	}
-	if typed < 1 || raw < typed || uint64(typed) > chain.Number {
+	if typed < 1 || raw < typed {
 		return Checkpoint{}, ErrUnavailable
 	}
 	var blockHash string
