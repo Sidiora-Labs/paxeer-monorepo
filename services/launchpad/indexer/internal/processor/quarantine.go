@@ -95,6 +95,10 @@ func (p *Processor) RetainSourcePoison(ctx context.Context, result source.FetchR
 			code = "source_repair_required"
 			required = true
 		}
+		if decodeErr == nil && decoded != nil && decoded.Status == "quarantined" && code == "bounds" {
+			required = false
+			requirement = "optional.deployment_log_bounds"
+		}
 		if code == "" {
 			continue
 		}

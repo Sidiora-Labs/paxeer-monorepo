@@ -494,7 +494,7 @@ func matchesArchived(e *DecodedEnvelope, record ArchivedDecoderLog) error {
 	if e == nil || e.Raw.Identity != rawMetadata(record.Log).Identity || e.ABIRevision != expected.ABIRevision || e.EmitterRole != expected.Role || e.EventName != expected.EventName || e.EventSignature != expected.Signature || e.Status != expected.Status || e.FailureReason != expected.FailureReason || e.Opaque != expected.Opaque || !reflect.DeepEqual(e.Alerts, expected.Alerts) {
 		return fmt.Errorf("independent archived expectation mismatch: %s/%d", record.Log.TxHash, record.Log.Index)
 	}
-	if rawSizeAllowed(record.Log) {
+	if rawSizeAllowed(record.Log) && !(e.Status == valueQuarantined && e.FailureReason == "bounds") {
 		if !reflect.DeepEqual(e.Raw, rawLog(record.Log)) {
 			return fmt.Errorf("archived raw history lost")
 		}
@@ -504,7 +504,7 @@ func matchesArchived(e *DecodedEnvelope, record ArchivedDecoderLog) error {
 			return fmt.Errorf("bounded quarantine raw summary mismatch")
 		}
 	}
-	if e.Event != nil {
+	if e.Status == valueDecoded && e.Event != nil {
 		actual, err := json.Marshal(e.Event.Args)
 		if err != nil {
 			return err
@@ -639,8 +639,6 @@ func prepareDecoderMeasurement(ctx context.Context, input DecoderMeasurementInpu
 			if envelope.FailureReason == "bounds" {
 				if len(record.Log.Data)+32*len(record.Log.Topics) > MaxEnvelopeBytes {
 					overEnvelope = true
-				} else if oversizedArchivedField(r, record.Log) {
-					overField = true
 				}
 			}
 			if envelope.FailureReason == valueArity {
@@ -648,6 +646,9 @@ func prepareDecoderMeasurement(ctx context.Context, input DecoderMeasurementInpu
 			}
 		}
 		for _, alert := range envelope.Alerts {
+			if envelope.Status == valueDecoded && strings.HasPrefix(alert, "withheld:") && strings.HasSuffix(alert, ":max_field_bytes") && oversizedArchivedField(r, record.Log) {
+				overField = true
+			}
 			if strings.HasPrefix(alert, "unknown_action:") {
 				unknownAction = true
 			}
@@ -655,7 +656,7 @@ func prepareDecoderMeasurement(ctx context.Context, input DecoderMeasurementInpu
 		if len(record.Log.Data) > report.LargestDataBytes {
 			report.LargestDataBytes = len(record.Log.Data)
 		}
-		if envelope.Event != nil {
+		if envelope.Status == valueDecoded && envelope.Event != nil {
 			for _, epoch := range r.epochs[record.Log.Address] {
 				d := epoch.deployment
 				if !envelope.Raw.Order.less(d.From) && (d.Until == nil || envelope.Raw.Order.less(*d.Until)) {
@@ -699,7 +700,7 @@ func prepareDecoderMeasurement(ctx context.Context, input DecoderMeasurementInpu
 			report.Gaps = append(report.Gaps, coverageKey(row.Emitter, row.ABIRevision, row.Signature, row.From)+":"+report.Coverage[i].Gap)
 		}
 	}
-	for name, present := range map[string]bool{"uint256_max": uintMax, "int256_min": intMin, "non_default_uint256": nonDefault, "maximum_field_payload": fieldMax, "same_block_abi_upgrade": sameBlock, "approved_boolean_words_0_1_2": boolWords[0] && boolWords[1] && boolWords[2], "over_envelope_quarantined": overEnvelope, "over_field_quarantined": overField, "malformed_arity_quarantined": malformedArity, "unknown_action_raw_preserved": unknownAction} {
+	for name, present := range map[string]bool{"uint256_max": uintMax, "int256_min": intMin, "non_default_uint256": nonDefault, "maximum_field_payload": fieldMax, "same_block_abi_upgrade": sameBlock, "approved_boolean_words_0_1_2": boolWords[0] && boolWords[1] && boolWords[2], "over_envelope_quarantined": overEnvelope, "over_field_withheld": overField, "malformed_arity_quarantined": malformedArity, "unknown_action_raw_preserved": unknownAction} {
 		if !present {
 			report.Gaps = append(report.Gaps, "archive_case_missing:"+name)
 		}
@@ -735,7 +736,7 @@ func prepareDecoderMeasurement(ctx context.Context, input DecoderMeasurementInpu
 	}
 	for i, record := range corpus.Logs {
 		original := envelopes[i]
-		if original.Event == nil || optionalFamily(original.EmitterRole, original.EventName) != "" {
+		if original.Status != valueDecoded || original.Event == nil || optionalFamily(original.EmitterRole, original.EventName) != "" {
 			continue
 		}
 		isolated, _ := without.Decode(record.Log)

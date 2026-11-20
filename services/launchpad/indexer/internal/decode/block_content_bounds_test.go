@@ -53,7 +53,7 @@ func TestBlockContentBoundsDecode(t *testing.T) {
 		for _, height := range []uint64{0, 100} {
 			log.Address, log.BlockNumber = d.Address, height
 			env, err = r.Decode(log)
-			if err == nil || env.Status != "quarantined" || env.FailureReason != "bounds" || env.Event != nil || !reflect.DeepEqual(env.RawSummary, summarizeRaw(log)) {
+			if err != nil || env.Status != "quarantined" || env.FailureReason != "bounds" || env.Event != nil || !reflect.DeepEqual(env.RawSummary, summarizeRaw(log)) {
 				t.Fatalf("deployment bounds envelope: %+v: %v", env, err)
 			}
 		}

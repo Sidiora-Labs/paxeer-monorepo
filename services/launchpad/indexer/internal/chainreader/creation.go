@@ -67,7 +67,7 @@ func CreationFromReceipt(registry *decode.Registry, receipt *ethtypes.Receipt, e
 		if err != nil {
 			return nil, err
 		}
-		if e.Event == nil || e.EmitterRole != "SidioraFactory" || e.EventName != "MarketCreated" {
+		if e.Status != "decoded" || e.Event == nil || e.EmitterRole != "SidioraFactory" || e.EventName != "MarketCreated" {
 			continue
 		}
 		if result != nil {
