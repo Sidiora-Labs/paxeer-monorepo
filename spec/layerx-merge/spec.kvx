@@ -16072,6 +16072,12 @@ value = "One. Run of the type Rotation returns the error of its context where th
 basis = "Gotcha 4753."
 affects = []
 
+[decision.3827]
+title = "The pause observer of the launchpad indexer takes the coverage of a created pool from its discovered epoch and sends no logs query"
+value = "One. The coverage of a pool holds for a range where a committed epoch of the role SidioraPool names it for that range, or where the qualified source holds a discovered epoch of that role for the address of the pool that starts at or before the creation order of the pool and has not ended before the end of the range. The coverage of the beacon stays a committed epoch of the role PoolBeacon. Two. The observer sends no logs query. Where the coverage does not hold for a range, the refresh builds a new base at its head under the present bounds of a base and reads no events. Three. The list of methods of the runtime transport does not change. Four. The helper rpcE2EPort hands out a number outside the range the system takes local ports from, checked by a bind, and no number twice in one process. Tasks 22.39.1004 and 22.39.1005."
+basis = "Gotcha 4754."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45732,6 +45738,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1005]
+title = "Hand the node cases of the sequencer package a local port outside the range of the system for local ports"
+reqs = ["22998.1"]
+touches = ["node/sequencer"]
+tests = []
+verification_contract = "go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestRPCE2EPort && go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestFollowerStartReceiptRPC && go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestSequencerRPC && go test -count=1 -list ^TestRPCE2EPort ./node/sequencer/ | grep -q ^TestRPCE2EPort"
+do_1 = "do_1 Gotcha 4754 part two, decision 3827 point four. Read the helper rpcE2EPort and the function newRPCE2EApp in node/sequencer/rpc_e2e_test.go, the callers of the helper in node/sequencer/follower_start_test.go, node/sequencer/proof_sequencer_executor_test.go and node/sequencer/proof_sequencer_receipt_test.go, and the place in node/app.go where the EVM server starts on the configured address."
+symbols = []
+
+[capability.22.39.1004]
+title = "Take the coverage of a created pool in the pause observer of the launchpad indexer from its discovered epoch and send no logs query"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... && go test -count=1 -timeout 30m ./internal/rolecheck/... && go test -count=1 -timeout 30m -run ^TestPauseObservation ./... && go test -count=1 -list ^TestPauseObservation ./... | grep -q ^TestPauseObservation"
+do_1 = "do_1 Gotcha 4754 part one, decision 3827 points one to three. Read services/launchpad/indexer/internal/app/pause_observations.go whole with the methods rawCoverage, readEvents and refresh, the statement of the raw logs and the statement of the pools, the place in services/launchpad/indexer/internal/app/app.go that builds the observer with the runtime client and the committed epochs and the place that builds that client through NewBoundedRPCClientWithArchive, the method RoundTrip of the type boundedRPCTransport in services/launchpad/indexer/internal/receipt/rpc.go with the list of methods it admits, the methods DiscoveredEpochs and Rehydrate and the function discoveryEpoch in services/launchpad/indexer/internal/receipt/identity.go with the order a discovered epoch starts at, and the function ReadDiscoveredMarkets in services/launchpad/indexer/internal/receipt/recovery.go."
+symbols = []
 
 [capability.22.39.1003]
 title = "Bring the record of statements of the launchpad API in step with the pool reserves statement of its store"
@@ -210058,6 +210082,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1004]
+title = "Take the coverage of a created pool in the pause observer of the launchpad indexer from its discovered epoch and send no logs query"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1004"]
+interfaces = []
+do_1 = "do_1 Gotcha 4754 part one, decision 3827 points one to three. Read services/launchpad/indexer/internal/app/pause_observations.go whole with the methods rawCoverage, readEvents and refresh, the statement of the raw logs and the statement of the pools, the place in services/launchpad/indexer/internal/app/app.go that builds the observer with the runtime client and the committed epochs and the place that builds that client through NewBoundedRPCClientWithArchive, the method RoundTrip of the type boundedRPCTransport in services/launchpad/indexer/internal/receipt/rpc.go with the list of methods it admits, the methods DiscoveredEpochs and Rehydrate and the function discoveryEpoch in services/launchpad/indexer/internal/receipt/identity.go with the order a discovered epoch starts at, and the function ReadDiscoveredMarkets in services/launchpad/indexer/internal/receipt/recovery.go."
+do_2 = "do_2 Let the observer take the coverage of a pool from a committed epoch of the role SidioraPool as today, or from a discovered epoch of that role the qualified source holds for the address of the pool, where that epoch starts at or before the creation order the canonical creations hold for the pool and has not ended before the end of the range. The app hands the observer a reader of the discovered epochs of the qualified source it runs, and the observer reads it at every refresh, so a pool created after the start of the process is covered. The coverage of the beacon stays as it is. Prove from the code of the source that the raw log store holds every log of a discovered pool from that order on, and name the place in the final message. Where it does not hold for a pool, name what is missing and keep the coverage of that pool as not given."
+do_3 = "do_3 Remove the logs query from the observer. Its client member is narrowed to the call pinned to a block hash it needs for the base. Where the coverage does not hold for a range, the refresh builds a new base at its head under the present bounds of a base and reads no events. The list of methods of the runtime transport does not change. The answers of the route /internal/ranking-evidence, their form, the checks of the cutoff and the present statements stay as they are."
+do_4 = "do_4 Add cases with the prefix TestPauseObservation. One builds the client through NewBoundedRPCClientWithArchive against a local test endpoint that answers the pinned call and records the method of every call it receives, with a created pool that no committed epoch names and a discovered epoch for it, runs the refresh, reads the route for a cutoff at the head with the status 200 and the pool as not paused, and finds no method outside the list of the transport in the record. One holds a stored event PauseToggled of a discovered pool between the base and the cutoff and reads that pool as paused. One runs without a committed epoch of the beacon and reads the answer from a base at the head, again without a logs query. Where a record of the module lists its statements, it follows the change. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && cd services/launchpad/indexer && go test -count=1 -timeout 30m ./internal/app/... && go test -count=1 -timeout 30m ./internal/rolecheck/... && go test -count=1 -timeout 30m -run ^TestPauseObservation ./... && go test -count=1 -list ^TestPauseObservation ./... | grep -q ^TestPauseObservation"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1003]
 title = "Bring the record of statements of the launchpad API in step with the pool reserves statement of its store"
 status = "done"
@@ -261684,6 +261739,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.1005]
+title = "Hand the node cases of the sequencer package a local port outside the range of the system for local ports"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1005"]
+interfaces = []
+do_1 = "do_1 Gotcha 4754 part two, decision 3827 point four. Read the helper rpcE2EPort and the function newRPCE2EApp in node/sequencer/rpc_e2e_test.go, the callers of the helper in node/sequencer/follower_start_test.go, node/sequencer/proof_sequencer_executor_test.go and node/sequencer/proof_sequencer_receipt_test.go, and the place in node/app.go where the EVM server starts on the configured address."
+do_2 = "do_2 Let the helper hand out a number above 1023 that lies outside the range the system takes local ports from. The range is read from the file /proc/sys/net/ipv4/ip_local_port_range where that file exists, and is taken as 32768 to 60999 where it does not. The helper checks a candidate by a bind on the loopback address that it closes again, hands out no number twice in one process, and starts its walk at a number derived from the process id, so two test binaries of one run do not walk the same numbers. A case ends with a clear message where no number is found after a bounded count of candidates. Only case files of the package change."
+do_3 = "do_3 Add cases with the prefix TestRPCE2EPort: every number handed out lies outside the range, two hundred calls give two hundred different numbers, and a number a listener of the case holds is not handed out. The cases that use the helper pass as before. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/sequencer"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/..."
+verify_cmd = "go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestRPCE2EPort && go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestFollowerStartReceiptRPC && go test -count=1 -timeout 30m ./node/sequencer/ -run ^TestSequencerRPC && go test -count=1 -list ^TestRPCE2EPort ./node/sequencer/ | grep -q ^TestRPCE2EPort"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.965]
 title = "Let the open expiry case of the runtime admission set the age of its held send by the lifetime setting"
