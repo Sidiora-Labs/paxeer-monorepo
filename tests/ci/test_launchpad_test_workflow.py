@@ -331,6 +331,6 @@ def test_launchpad_module_job_has_at_least_sixty_minutes():
         "launchpad-test", "launchpad-go-test", "launchpad-go-ci", "launchpad-go-wiring",
     }
     assert int(jobs["launchpad-go-test"]["timeout-minutes"]) >= 60
-    assert jobs["launchpad-test"]["timeout-minutes"] == "30"
+    assert int(jobs["launchpad-test"]["timeout-minutes"]) >= 60
     assert jobs["launchpad-go-ci"]["timeout-minutes"] == "360"
     assert "timeout-minutes" not in jobs["launchpad-go-wiring"]
