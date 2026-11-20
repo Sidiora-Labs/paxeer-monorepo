@@ -951,7 +951,10 @@ func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *ho
 		*after = ""
 	}
 	for _, token := range tokens {
-		if err = repository.DiscoverCanonical(ctx, token, stream); err != nil {
+		if err = repository.DiscoverCanonical(ctx, token, stream); errors.Is(err, holdings.ErrUnknownToken) {
+			*after = token
+			continue
+		} else if err != nil {
 			return err
 		}
 		result, catchErr := repository.CatchUpCanonicalAt(ctx, token, stream, strconv.FormatInt(typed, 10), transferLimit)
