@@ -302,10 +302,10 @@ func (c ConnectedMedia) ProjectDevelopmentLegacy(ctx context.Context, q sqlcdb.Q
 			}
 		}
 		if display.Name != nil {
-			params.Name = pgtype.Text{String: *display.Name, Valid: true}
+			params.Name = pgtype.Text{String: carriedCoinText(*display.Name, 100), Valid: true}
 		}
 		if display.Symbol != nil {
-			params.Symbol = pgtype.Text{String: *display.Symbol, Valid: true}
+			params.Symbol = pgtype.Text{String: carriedCoinText(*display.Symbol, 16), Valid: true}
 		}
 		params.Description = pgtype.Text{String: display.Description, Valid: display.Description != ""}
 		tags := display.Tags
