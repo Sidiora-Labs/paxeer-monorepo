@@ -27,6 +27,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+// PinnedRPCReader supports concurrent reads through its concurrency-safe RPC client.
+// Its client references are immutable after construction.
 type PinnedRPCReader struct {
 	*ethclient.Client
 	rpc *rpc.Client
@@ -279,9 +281,10 @@ type PreflightEngine struct {
 const preflightAttestationLimit = 16
 
 type preflightAttestations struct {
-	mu      sync.Mutex
-	kept    map[common.Hash]deployment.ActivationAttestation
-	reading map[common.Hash]*preflightAttestationRead
+	mu              sync.Mutex
+	concurrentReads int
+	kept            map[common.Hash]deployment.ActivationAttestation
+	reading         map[common.Hash]*preflightAttestationRead
 }
 
 type preflightAttestationRead struct {
@@ -295,6 +298,21 @@ func newPreflightAttestations() *preflightAttestations {
 		kept:    make(map[common.Hash]deployment.ActivationAttestation),
 		reading: make(map[common.Hash]*preflightAttestationRead),
 	}
+}
+
+// SetAttestationReads bounds concurrent reads within each new attestation.
+// Zero and one preserve serial reads. Higher limits require a concurrent reader.
+func (e *PreflightEngine) SetAttestationReads(reads int) error {
+	if e == nil || e.attestations == nil {
+		return deployment.Issue{Code: valuePreflightEngineMissing}
+	}
+	if reads < 0 || reads > 16 {
+		return deployment.Issue{Code: "attestation_policy_invalid"}
+	}
+	e.attestations.mu.Lock()
+	e.attestations.concurrentReads = reads
+	e.attestations.mu.Unlock()
+	return nil
 }
 
 // Attestation shares the identity read for a block hash and checks its block
@@ -323,7 +341,7 @@ func (e *PreflightEngine) Attestation(ctx context.Context, block common.Hash, no
 	if flight == nil {
 		flight = &preflightAttestationRead{done: make(chan struct{})}
 		cache.reading[block] = flight
-		go e.readAttestation(context.WithoutCancel(ctx), block, now, flight)
+		go e.readAttestation(context.WithoutCancel(ctx), block, now, flight, cache.concurrentReads)
 	}
 	cache.mu.Unlock()
 	select {
@@ -340,8 +358,8 @@ func (e *PreflightEngine) Attestation(ctx context.Context, block common.Hash, no
 	}
 }
 
-func (e *PreflightEngine) readAttestation(ctx context.Context, block common.Hash, now time.Time, flight *preflightAttestationRead) {
-	policy := deployment.Policy{Now: now, MaxAge: e.maxAge, Timeout: e.timeout}
+func (e *PreflightEngine) readAttestation(ctx context.Context, block common.Hash, now time.Time, flight *preflightAttestationRead, reads int) {
+	policy := deployment.Policy{Now: now, MaxAge: e.maxAge, Timeout: e.timeout, ConcurrentReads: reads}
 	attestation, err := deployment.Attest(ctx, e.reader, e.manifest, block, policy)
 	cache := e.attestations
 	cache.mu.Lock()
