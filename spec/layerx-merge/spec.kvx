@@ -209828,7 +209828,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.972]
 title = "Add the operator command of the launchpad that raises and reduces a capability through the control routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.971"]
