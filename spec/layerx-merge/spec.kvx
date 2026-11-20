@@ -261963,7 +261963,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.1009]
 title = "Let the standalone form of the expired lease admission case of the node require one or more records of a late renewal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
