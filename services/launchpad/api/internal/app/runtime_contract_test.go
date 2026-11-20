@@ -24,6 +24,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/brokerprovision"
 	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -105,6 +106,26 @@ func contractProcess(t *testing.T, command *exec.Cmd) func() {
 	return stop
 }
 
+func contractBrokerConfig(t *testing.T, i int, ports []int, dir string, leaf testpki.Leaf, caFile, operatorJWT, systemPublic, accountPublic, accountJWT, systemJWT string) string {
+	t.Helper()
+	path := filepath.Join(internaltest.RepositoryRoot(t), "deploy", "launchpad", "documents", "values", "broker.example.json")
+	var document brokerprovision.Document
+	if err := json.Unmarshal(contractRead(t, path), &document); err != nil {
+		t.Fatal(err)
+	}
+	var fileStoreBytes int64
+	for _, stream := range document.Streams {
+		fileStoreBytes += stream.Limits.MaxBytes * int64(stream.Limits.Replicas)
+	}
+	routes := []string{}
+	for j := 0; j < 3; j++ {
+		if i != j {
+			routes = append(routes, fmt.Sprintf("nats-route://127.0.0.1:%d", ports[2*j+1]))
+		}
+	}
+	return fmt.Sprintf("server_name: api_contract_%d\nhost: 127.0.0.1\nport: %d\nmax_payload: 2097152\njetstream { store_dir: %q\nmax_file_store: %d }\ntls { cert_file: %q, key_file: %q, ca_file: %q }\noperator: %q\nsystem_account: %q\nresolver: MEMORY\nresolver_preload: { %q: %q, %q: %q }\ncluster { name: api_contract\nlisten: 127.0.0.1:%d\nroutes: [%s] }\n", i, ports[2*i], filepath.Join(dir, "store"), fileStoreBytes, leaf.CertFile, leaf.KeyFile, caFile, operatorJWT, systemPublic, accountPublic, accountJWT, systemPublic, systemJWT, ports[2*i+1], strings.Join(routes, ","))
+}
+
 func contractBroker(t *testing.T, pki *testpki.PKI) (*nats.Conn, jetstream.JetStream, string, string) {
 	t.Helper()
 	key := func(kind nkeys.PrefixByte) (nkeys.KeyPair, string) {
@@ -170,13 +191,7 @@ func contractBroker(t *testing.T, pki *testpki.PKI) (*nats.Conn, jetstream.JetSt
 	}
 	for i := 0; i < 3; i++ {
 		dir := t.TempDir()
-		routes := []string{}
-		for j := 0; j < 3; j++ {
-			if i != j {
-				routes = append(routes, fmt.Sprintf("nats-route://127.0.0.1:%d", ports[2*j+1]))
-			}
-		}
-		text := fmt.Sprintf("server_name: api_contract_%d\nhost: 127.0.0.1\nport: %d\nmax_payload: 2097152\njetstream { store_dir: %q }\ntls { cert_file: %q, key_file: %q, ca_file: %q }\noperator: %q\nsystem_account: %q\nresolver: MEMORY\nresolver_preload: { %q: %q, %q: %q }\ncluster { name: api_contract\nlisten: 127.0.0.1:%d\nroutes: [%s] }\n", i, ports[2*i], filepath.Join(dir, "store"), leaf.CertFile, leaf.KeyFile, pki.CAFile, operatorJWT, systemPublic, accountPublic, accountJWT, systemPublic, systemJWT, ports[2*i+1], strings.Join(routes, ","))
+		text := contractBrokerConfig(t, i, ports, dir, leaf, pki.CAFile, operatorJWT, systemPublic, accountPublic, accountJWT, systemJWT)
 		path := filepath.Join(dir, "server.conf")
 		contractWrite(t, path, []byte(text))
 		_ = listeners[2*i].Close()
@@ -219,6 +234,31 @@ func contractBroker(t *testing.T, pki *testpki.PKI) (*nats.Conn, jetstream.JetSt
 		t.Fatal(err)
 	}
 	return nc, js, address, creds
+}
+
+func TestContractBrokerStorageBound(t *testing.T) {
+	path := filepath.Join(internaltest.RepositoryRoot(t), "deploy", "launchpad", "documents", "values", "broker.example.json")
+	document, err := brokerprovision.Read(strings.NewReader(string(contractRead(t, path))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want int64
+	for _, stream := range document.Streams {
+		want += stream.Limits.MaxBytes * int64(stream.Limits.Replicas)
+	}
+	if want <= 0 {
+		t.Fatal("broker document must require file storage")
+	}
+	ports := []int{4222, 6222, 4223, 6223, 4224, 6224}
+	dir := t.TempDir()
+	leaf := testpki.Leaf{CertFile: "broker.pem", KeyFile: "broker.key"}
+	for i := 0; i < 3; i++ {
+		text := contractBrokerConfig(t, i, ports, dir, leaf, "ca.pem", "operator", "system", "account", "account-jwt", "system-jwt")
+		storage := fmt.Sprintf("jetstream { store_dir: %q\nmax_file_store: %d }\n", filepath.Join(dir, "store"), want)
+		if !strings.Contains(text, storage) {
+			t.Errorf("node %d must configure file storage for all stream replicas: want %q", i, storage)
+		}
+	}
 }
 
 func contractEnvironment(values map[string]string) []string {
