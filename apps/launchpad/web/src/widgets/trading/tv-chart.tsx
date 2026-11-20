@@ -479,6 +479,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
         onMarkersChange={next => update({ markers: next })}
         markerActors={markerActors}
         freshness={freshness}
+        noTrades={noTrades}
         onRetry={() => retryRef.current?.()}
       />
       <ChartSplit height={height} onHeightChange={setHeight} min={CHART_MIN_HEIGHT} max={CHART_MAX_HEIGHT} defaultHeight={CHART_DEFAULT_HEIGHT}>
