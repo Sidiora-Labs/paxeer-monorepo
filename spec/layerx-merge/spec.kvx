@@ -16084,6 +16084,12 @@ value = "One. The opening price of a pool is the effective reserve of its state 
 basis = "Gotcha 4755."
 affects = []
 
+[decision.3829]
+title = "The search projection of the stats module takes the visibility of a pool from a view of the social schema at a policy event of the social service"
+value = "One. The schema chat gets the view pool_search_visibility_v2 with one row for every pool of the function social_canonical_pools and the members pool, token, public and revision. The member public is false where a row of safety_visibility with the status removed exists for the pool as a target of the type pool or for its token as a target of the type token, else true. The member revision is the sum of the revisions of the rows of safety_visibility for those two targets, zero where none exists, so it grows with every decision on either target. Two. The role stats_search_runtime reads that view by columns through the grants record, as it reads the view account_search_events_v2. Three. The search projection consumes the policy events of the social service under the consumer kind social_policy. An event of the kind visibility_changed whose target is of the type pool or token is the signal: the projection reads the rows of the view for that pool or that token and writes the row of authority_v2 for each pool with the member public of the view, without a tombstone, and with the visibility revision one plus the revision of the view row, since the row of a creation holds the revision one. The present rule holds: a row changes only where its stored revision is lower. Every other policy event is taken without a write. Four. The standalone form of the case TestLeaseExpiredAdmission requires one or more records of a late renewal. Tasks 22.39.1009 to 22.39.1011."
+basis = "Gotcha 4756."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45744,6 +45750,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1011]
+title = "Let the search projection of the stats module take the visibility of a pool at a policy event of the social service"
+reqs = ["22998.1"]
+touches = ["services/launchpad", "deploy/launchpad", "tools/deploy", "sdk/launchpad/shared/brokerprovision"]
+tests = []
+verification_contract = "anvil --version > /dev/null && python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash tools/deploy/tests/*-apply-variables.test.sh && bash deploy/launchpad/tests/*-values.test.sh && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -list ^TestConsumeSocialPolicy ./internal/search/ | grep -q ^TestConsumeSocialPolicy) && (cd sdk/launchpad/shared && go test -count=1 -timeout 30m ./brokerprovision/...)"
+do_1 = "do_1 Gotcha 4756 part two, decision 3829 point three. Read in the stats module the file internal/search/projection.go with the functions ConsumeAccountProfile and ConsumeCanonicalCreation, the write of the table authority_v2 for the change kind visibility and the row a creation writes, the file internal/app/app.go with the checks of the search subscriptions and the place that binds the consumer kind account_profile to its function, the composer deploy/launchpad/documents/stats.py with its rules for the member searchConsumers and its test deploy/launchpad/documents/test_compose.py, the example documents deploy/launchpad/documents/values/stats.example.json, deploy/launchpad/documents/values/broker.example.json and deploy/launchpad/documents/values/social.example.json, the function stageSafetyOutbox in services/launchpad/social/internal/app/app.go with the form of a policy event, and the view chat.pool_search_visibility_v2 with the read of the role stats_search_runtime in migrations/grants.json."
+symbols = []
+
+[capability.22.39.1010]
+title = "Add the view of the visibility of a pool for the search to the social schema and give the search role of the stats module its read"
+reqs = ["22998.1"]
+touches = ["migrations", "sdk/launchpad/shared/db/production"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd sdk/launchpad/shared && go test -count=1 -timeout 30m ./db/production/... && go test -count=1 -list ^TestSearchRolePoolVisibility ./db/production/ | grep -q ^TestSearchRolePoolVisibility)"
+do_1 = "do_1 Gotcha 4756 part two, decision 3829 points one and two. Read migrations/380000.sql with the tables safety_visibility and safety_outbox, the function social_canonical_pools in migrations/360001.sql, the function rankingVisibility in services/launchpad/social/internal/app/app.go with its statement over those two, the view account_search_events_v2 in migrations/350002.sql with its entries in migrations/grants.json and in migrations/registry.json, and the entry of the role stats_search_runtime in migrations/grants.json."
+symbols = []
+
+[capability.22.39.1009]
+title = "Let the standalone form of the expired lease admission case of the node require one or more records of a late renewal"
+reqs = ["22998.1"]
+touches = ["node/sequencer"]
+tests = []
+verification_contract = "go test -count=3 -timeout 30m ./node/sequencer/ -run ^TestLeaseExpiredAdmission"
+do_1 = "do_1 Gotcha 4756 part one, decision 3829 point four. Read the case TestLeaseExpiredAdmission in node/sequencer/lease_standalone_test.go with its two forms and the reader of the log records it builds, the functions renew and writeRenewal in node/sequencer/lease_renew.go and the function admission in node/sequencer/accepter.go."
+symbols = []
 
 [capability.22.39.1008]
 title = "Hold one entity for one coin in the search result of the launchpad web"
@@ -210115,6 +210148,69 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1011]
+title = "Let the search projection of the stats module take the visibility of a pool at a policy event of the social service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1010"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1011"]
+interfaces = []
+do_1 = "do_1 Gotcha 4756 part two, decision 3829 point three. Read in the stats module the file internal/search/projection.go with the functions ConsumeAccountProfile and ConsumeCanonicalCreation, the write of the table authority_v2 for the change kind visibility and the row a creation writes, the file internal/app/app.go with the checks of the search subscriptions and the place that binds the consumer kind account_profile to its function, the composer deploy/launchpad/documents/stats.py with its rules for the member searchConsumers and its test deploy/launchpad/documents/test_compose.py, the example documents deploy/launchpad/documents/values/stats.example.json, deploy/launchpad/documents/values/broker.example.json and deploy/launchpad/documents/values/social.example.json, the function stageSafetyOutbox in services/launchpad/social/internal/app/app.go with the form of a policy event, and the view chat.pool_search_visibility_v2 with the read of the role stats_search_runtime in migrations/grants.json."
+do_2 = "do_2 Add the function ConsumeSocialPolicy to the search projection in the manner of ConsumeAccountProfile, with the same bounds and the same delivery store. It takes an envelope of the event type social.policy.changed.v2 and refuses every other type. For a payload of the kind visibility_changed whose visibility names a target of the type pool or token it reads, in the transaction of the delivery, the rows of the view whose pool is the target of the type pool or whose token is the target of the type token, the addresses compared in lower case, and writes for each row the row of authority_v2 by decision 3829 point three with the statement form the change kind visibility uses today. Where a row changed, it marks the search for the pool as stale by the path a change of the kind visibility takes today. A payload of another kind, a target of another type and a target without a row in the view are taken without a write. The name of the view comes from one constant, and the statement goes into the record of the statements of the module with the value of every source it binds."
+do_3 = "do_3 Admit the consumer kind social_policy with the event type social.policy.changed.v2 in the checks of the search subscriptions in internal/app/app.go and bind it to ConsumeSocialPolicy, both in the manner of the kind account_profile. Admit the same pair in deploy/launchpad/documents/stats.py. The kinds creation and invalidation stay required, and the kind social_policy stays optional."
+do_4 = "do_4 Let the example documents carry the consumer: deploy/launchpad/documents/values/stats.example.json lists a search consumer of the kind social_policy on the policy subject of deploy/launchpad/documents/values/social.example.json in the stream that holds it, with a durable name of its own, and its policy admits that subject and that event type. Where deploy/launchpad/documents/values/broker.example.json and the inventory under sdk/launchpad/shared/brokerprovision list the consumers and the rights of the identities, the identity of the stats search gets that consumer and no right to publish on the subject. The value files and the variables file of the platform directory under deploy/launchpad follow only where a test of the verification reads them."
+do_5 = "do_5 Add cases with the prefix TestConsumeSocialPolicy in the package of the projection. A pool with a creation row and a view row that is not public with the revision two gets the row public false with the visibility revision three and leaves the search result. A later event with a view row that is public with the revision five gives public true with the visibility revision six and the pool is in the search result again. An event of the type token reaches the pool of that token. A second delivery of one event writes nothing. An event of another kind, a target of the type comment and a target without a view row write nothing and are acknowledged. An envelope of another event type is refused. One case runs the new statement under the role stats_search_runtime with the rights of the record, in the manner of the role cases of the module. Cases of the app package cover the admitted kind, a wrong event type for it and the binding, and a case of deploy/launchpad/documents/test_compose.py covers the pair in the composer. The present cases follow the change. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad", "deploy/launchpad", "tools/deploy", "sdk/launchpad/shared/brokerprovision"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile deploy/launchpad/documents/compose.py deploy/launchpad/documents/stats.py && (cd services/launchpad/stats-*ers && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash tools/deploy/tests/*-apply-variables.test.sh && bash deploy/launchpad/tests/*-values.test.sh && (cd services/launchpad/stats-*ers && python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && go test -count=1 -list ^TestConsumeSocialPolicy ./internal/search/ | grep -q ^TestConsumeSocialPolicy) && (cd sdk/launchpad/shared && go test -count=1 -timeout 30m ./brokerprovision/...)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1010]
+title = "Add the view of the visibility of a pool for the search to the social schema and give the search role of the stats module its read"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1006"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1010"]
+interfaces = []
+do_1 = "do_1 Gotcha 4756 part two, decision 3829 points one and two. Read migrations/380000.sql with the tables safety_visibility and safety_outbox, the function social_canonical_pools in migrations/360001.sql, the function rankingVisibility in services/launchpad/social/internal/app/app.go with its statement over those two, the view account_search_events_v2 in migrations/350002.sql with its entries in migrations/grants.json and in migrations/registry.json, and the entry of the role stats_search_runtime in migrations/grants.json."
+do_2 = "do_2 Add one migration file by the numbering and the form of the files of the schema chat. It creates the view chat.pool_search_visibility_v2 of decision 3829 point one over the function social_canonical_pools and the table safety_visibility, with the columns pool, token, public and revision, the addresses as the function gives them, and it revokes every right of the public role on the view, as migrations/350002.sql does for its view. The view reads no other table and carries no case id and no wallet. Register the file where migrations/registry.json and the sources under sdk/launchpad/shared/db/production list the migrations, with the tool the earlier changes used."
+do_3 = "do_3 Give the role stats_search_runtime one read on that view with its four columns in its entry in migrations/grants.json, in the form of its read on the view account_search_events_v2, with whatever right on the schema that read needs in the form the record uses for it. Renew the digests migrations/registry.json holds over that document with the same tool. The task changes no other role and no other object. Where the sources under sdk/launchpad/shared/db/production pin the entries of the role or the objects of the schema, they take the view and the read."
+do_4 = "do_4 Add cases with the prefix TestSearchRolePoolVisibility under sdk/launchpad/shared/db/production in the manner of sdk/launchpad/shared/db/production/charts_role_test.go. One asserts that the entry of the role holds the four columns of the view. One applies the migrations to a database of the test fixture of that package, where the package has one, and reads the view: a pool without a row of safety_visibility is public with the revision zero, a pool whose token holds a row with the status removed and the revision two is not public with the revision two, and after a row for the pool itself with the status restored and the revision three the pool is still not public and the revision is five. The present cases of the package follow the change. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["migrations", "sdk/launchpad/shared/db/production"]
+tests = []
+planned_paths = []
+build_cmd = "cd sdk/launchpad/shared && go vet ./db/production/..."
+verify_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && go test -count=1 -timeout 30m ./db/production/... && go test -count=1 -list ^TestSearchRolePoolVisibility ./db/production/ | grep -q ^TestSearchRolePoolVisibility)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1008]
 title = "Hold one entity for one coin in the search result of the launchpad web"
 status = "pending"
@@ -261864,6 +261960,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.1009]
+title = "Let the standalone form of the expired lease admission case of the node require one or more records of a late renewal"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1009"]
+interfaces = []
+do_1 = "do_1 Gotcha 4756 part one, decision 3829 point four. Read the case TestLeaseExpiredAdmission in node/sequencer/lease_standalone_test.go with its two forms and the reader of the log records it builds, the functions renew and writeRenewal in node/sequencer/lease_renew.go and the function admission in node/sequencer/accepter.go."
+do_2 = "do_2 Let the standalone form of the case require one or more records. Every record of that form carries the level WARN, the epoch the holder held before the wait and a lateness above zero. The other requirements of the standalone form and the whole standby form stay as they are, the lease of the case stays at 200 milliseconds, and the task changes no file outside node/sequencer/lease_standalone_test.go. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/sequencer"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/..."
+verify_cmd = "go test -count=3 -timeout 30m ./node/sequencer/ -run ^TestLeaseExpiredAdmission"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.1005]
 title = "Hand the node cases of the sequencer package a local port outside the range of the system for local ports"
