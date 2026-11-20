@@ -16000,6 +16000,12 @@ value = "One. From the width 1000 the statistics of the list of transactions sta
 basis = "Gotcha 4741."
 affects = []
 
+[decision.3815]
+title = "A node case waits for the state store before it reads the query state of the newest height after a commit"
+value = "One. A case of the package node that commits a block and then reads through a query context of the newest height calls the helper WaitForTestQueryHeight of node/test_helpers.go between the commit and the read. Two. The local block helper of the case on a governed leader change in node/leader_schedule_gov_test.go and the local block helper of the case on the switch at the activation in node/upgrades_sequencer_test.go call it at their end, in the form the block helper of node/leader_source_test.go has. Three. The asserts of the cases stay, their order stays, and no assert is wrapped in a retry. Four. No file outside the two case files changes: the helper, the buffer of the state store and the versioned read keep their form. Task 22.39.969."
+basis = "Gotcha 4742."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45660,6 +45666,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.969]
+title = "Let two node cases wait for the state store before they read the query state of the newest height after a commit"
+reqs = ["22998.1"]
+touches = ["node/leader_schedule_gov_test.go", "node/upgrades_sequencer_test.go"]
+tests = []
+verification_contract = "go test -count=1 -timeout 30m ./node/ -run ^TestLeaderScheduleFollowsGovernedChangeNextHeight && go test -count=1 -timeout 30m ./node/ -run ^TestUpgradesSequencerSwitchAtActivation && go test -count=1 -timeout 30m ./node/ -run ^TestAppLeaderSchedule && go test -count=20 -timeout 30m ./node/ -run ^TestLeaderScheduleFollowsGovernedChangeNextHeight"
+do_1 = "do_1 Gotcha 4742, decision 3815. Read node/leader_schedule_gov_test.go whole, in node/leader_source_test.go the block helper commitLeaderSourceBlock and one case that uses it, in node/test_helpers.go the helper WaitForTestQueryHeight, in node/upgrades_sequencer_test.go the case TestUpgradesSequencerSwitchAtActivation with its local block helper, and in sdk/storev2/rootmulti/store.go the function CacheMultiStoreWithVersion."
+symbols = []
 
 [capability.22.44.135]
 title = "Let the heading of a token view of the explorer show the whole name"
@@ -350709,6 +350724,37 @@ do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUE
 do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
+
+[task.22.39.969]
+title = "Let two node cases wait for the state store before they read the query state of the newest height after a commit"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.969"]
+interfaces = []
+do_1 = "do_1 Gotcha 4742, decision 3815. Read node/leader_schedule_gov_test.go whole, in node/leader_source_test.go the block helper commitLeaderSourceBlock and one case that uses it, in node/test_helpers.go the helper WaitForTestQueryHeight, in node/upgrades_sequencer_test.go the case TestUpgradesSequencerSwitchAtActivation with its local block helper, and in sdk/storev2/rootmulti/store.go the function CacheMultiStoreWithVersion."
+do_2 = "do_2 In node/leader_schedule_gov_test.go let the local block helper of the case call app.WaitForTestQueryHeight with the committed height after its commit and after its check of the last block height. Change no assert of the case and no order of its reads."
+do_3 = "do_3 In node/upgrades_sequencer_test.go let the local block helper of the case TestUpgradesSequencerSwitchAtActivation call the helper after its commit in the same form. The file stands inside the package, so the call takes no package name. Where the wait cannot hold after one block of that case, call it after the commit the read through the query context follows, and name that block and the reason in the final message. Change no assert of the case."
+do_4 = "do_4 Run the case of node/leader_schedule_gov_test.go fifty times in a row and the case of node/upgrades_sequencer_test.go ten times in a row by hand, and state both counts in the final message. Change no file outside the paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/leader_schedule_gov_test.go", "node/upgrades_sequencer_test.go"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./node/..."
+verify_cmd = "go test -count=1 -timeout 30m ./node/ -run ^TestLeaderScheduleFollowsGovernedChangeNextHeight && go test -count=1 -timeout 30m ./node/ -run ^TestUpgradesSequencerSwitchAtActivation && go test -count=1 -timeout 30m ./node/ -run ^TestAppLeaderSchedule && go test -count=20 -timeout 30m ./node/ -run ^TestLeaderScheduleFollowsGovernedChangeNextHeight"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.655]
 title = "Build the call environment of the upgrade lifecycle test with the chain configuration of the node"
