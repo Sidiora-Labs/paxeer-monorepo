@@ -49,10 +49,10 @@ func (m RoleManifest) capabilitySchemas() (map[string]string, error) {
 		"stats_runtime":    {"core/stats-workers/holdings": {"stats_transfer_holdings", "stats_transfer_holdings_owner"}, "core/stats-workers/search": {"stats_search", "stats_search_owner"}},
 		"api_rest_runtime": {valueCoreApiCache: {valueApiLimits, "api_limits_owner"}, valueCoreDiscovery: {valueNarrativeDiscovery, "narrative_discovery_owner"}, valueCoreNotifications: {valueDiscoveryNotifications, "discovery_notifications_owner"}},
 		"api_runtime":      {valueCoreApiCache: {valueApiLimits, "api_limits_owner"}, valueCoreDiscovery: {valueNarrativeDiscovery, "narrative_discovery_owner"}, valueCoreNotifications: {valueDiscoveryNotifications, "discovery_notifications_owner"}},
-		"identity_runtime": {"media/gateway/audit-source": {"gateway_audit_source", "gateway_audit_source_owner"}, "media/gateway/audit-sink": {"gateway_audit_sink", "gateway_audit_sink_owner"}, "media/gateway/storage": {"gateway", "gateway_owner"}, "security/policy": {"security", "security_owner"}},
+		"identity_runtime": {"media/gateway/audit-source": {"gateway_audit_source", "gateway_audit_source_owner"}, "media/gateway/audit-sink": {"gateway_audit_sink", "gateway_audit_sink_owner"}, "media/gateway/storage": {"gateway", "gateway_owner"}, "security/policy": {valueSecurity, "security_owner"}},
 	}
 	for _, role := range []string{"operator_runtime", "operator_registrar"} {
-		allowed[role] = map[string][2]string{"security/control": {"pnl", "pnl_owner"}}
+		allowed[role] = map[string][2]string{"security/control": {valuePnl, "pnl_owner"}}
 	}
 	for _, c := range m.SchemaCapabilities {
 		expected, ok := allowed[m.RuntimeRole][c.Service]
@@ -134,7 +134,7 @@ func (m RoleManifest) Validate() error {
 					return fmt.Errorf("sequence grants require own USAGE")
 				}
 			default:
-				if p != valueSELECT && (foreign || (p != "INSERT" && p != valueUPDATE && p != "DELETE")) {
+				if p != valueSELECT && (foreign || (p != valueINSERT && p != valueUPDATE && p != valueDELETE)) {
 					return fmt.Errorf("forbidden runtime privilege")
 				}
 			}
@@ -170,10 +170,10 @@ func (m RoleManifest) Validate() error {
 	return nil
 }
 func operatorInsertGrant(service string, g Grant) bool {
-	if service != "security/operator" || g.ObjectKind != valueTable || len(g.Privileges) != 1 || g.Privileges[0] != "INSERT" {
+	if service != "security/operator" || g.ObjectKind != valueTable || len(g.Privileges) != 1 || g.Privileges[0] != valueINSERT {
 		return false
 	}
-	return (g.Schema == "security" && (g.Object == "operator_enrolments" || g.Object == "operator_sessions")) || (g.Schema == "pnl" && g.Object == "authority_credentials")
+	return (g.Schema == valueSecurity && (g.Object == "operator_enrolments" || g.Object == "operator_sessions")) || (g.Schema == valuePnl && g.Object == "authority_credentials")
 }
 
 func (m RoleManifest) GrantSQL() ([]string, error) {
