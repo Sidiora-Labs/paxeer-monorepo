@@ -210295,7 +210295,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.997]
 title = "Name a topic without a first frame in the snapshot reads of the launchpad API with the code TOPIC_NOT_STARTED"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
