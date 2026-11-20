@@ -1,0 +1,50 @@
+{
+  "sourceStream": "chain125-canonical",
+  "consumerId": "pnl_inventory",
+  "generation": "g1",
+  "owner": "pnl-1",
+  "projectionVersion": "inventory-v1",
+  "epoch": 1,
+  "region": "mainnet-beta",
+  "consumer": {
+    "stream": "KINDLE_INDEXER_V1",
+    "durable": "pnl_inventory",
+    "batch": 16,
+    "maxAckPending": 32,
+    "maxWaiting": 1,
+    "maxDeliver": 5,
+    "fetchWaitMS": 250,
+    "ackWaitMS": 30000
+  },
+  "journeys": {
+    "realm": "production",
+    "identityEndpoint": "https://identity.kindlelaunch.example",
+    "identityPeerCertSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "identityCaFile": "/run/kindle/pnl/identity-ca.pem",
+    "identityCaSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "identityClientCertFile": "/run/kindle/pnl/identity-client-cert.pem",
+    "identityClientCertSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "identityClientKeyFile": "/run/kindle/pnl/identity-client-key.pem",
+    "identityClientKeySha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "fontDirectory": "/run/kindle/pnl/fonts",
+    "liveBatch": 4,
+    "releaseDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "interfaceDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "nodeIds": [
+      "primary",
+      "archive"
+    ],
+    "exportsDirectory": "/run/kindle/pnl/exports",
+    "brokerStream": "PNL_JOURNEYS",
+    "cdnOrigin": "https://cdn.kindlelaunch.example",
+    "cdnZone": "",
+    "rewardRuntimeHashes": {
+      "0xe8dcc844a8006dbf64f5bb851bcad90292a6409b": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "0x7b14808b72f61664cdb79d25e6d1587655571a66": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "0x05681da6f611c2dffd3e92611f6de2d247647927": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "0x85fcd13735f4309833a503ee804ea32395851479": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "programs": [],
+    "approvedCommunityWallets": []
+  }
+}
