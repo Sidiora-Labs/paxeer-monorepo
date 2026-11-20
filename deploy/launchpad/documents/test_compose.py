@@ -1196,6 +1196,33 @@ def test_compose_pnl_journey_documents_and_environment(tmp_path: Path) -> None:
     assert record["PNL_JOURNEY_CONFIG_DOCUMENT"] not in result.stdout
 
 
+def test_compose_pnl_journey_variable_key_preserves_other_members(tmp_path: Path) -> None:
+    values = _values(tmp_path)
+    source = _pnl_journey_values(values)
+    file_out = tmp_path / "file"
+    result = _run(values, file_out, "pnl")
+    assert result.returncode == 0, result.stderr
+    original = json.loads((file_out / "pnl.json").read_bytes())
+    expected = json.loads(base64.b64decode(original["PNL_JOURNEY_CONFIG_DOCUMENT"], validate=True))
+    for member in ("identityClientKeyFile", "identityClientKeySha256"):
+        assert expected[member] == source["journeys"][member]
+        del source["journeys"][member]
+        expected[member] = ""
+    (values / "pnl.json").write_text(json.dumps(source))
+    variable_out = tmp_path / "variable"
+    result = _run(values, variable_out, "pnl")
+    assert result.returncode == 0, result.stderr
+    record = json.loads((variable_out / "pnl.json").read_bytes())
+    raw = base64.b64decode(record["PNL_JOURNEY_CONFIG_DOCUMENT"], validate=True)
+    assert json.loads(raw) == expected
+    assert record["PNL_JOURNEY_CONFIG_SHA256"] == hashlib.sha256(raw).hexdigest()
+    assert {name: value for name, value in record.items() if name not in {
+        "PNL_JOURNEY_CONFIG_DOCUMENT", "PNL_JOURNEY_CONFIG_SHA256",
+    }} == {name: value for name, value in original.items() if name not in {
+        "PNL_JOURNEY_CONFIG_DOCUMENT", "PNL_JOURNEY_CONFIG_SHA256",
+    }}
+
+
 def test_compose_pnl_without_journeys_preserves_document_bytes(tmp_path: Path) -> None:
     import pnl
 
