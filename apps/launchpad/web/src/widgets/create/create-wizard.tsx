@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import {
   useCallback,
   useEffect,
@@ -1198,7 +1199,7 @@ export default function CreateWizard() {
                     data-purchase-raw={quote.amountOutRaw}
                     className="text-right tabular-nums text-text"
                   >
-                    {formatTokenAmount(quote.amountOutRaw)} {a.draft.symbol}
+                    {formatTokenAmount(quote.amountOutRaw)} {displayCoinText(a.draft.symbol, a.tokenAddress)}
                   </dd>
                   <dt className="text-text-faint">Minimum received</dt>
                   <dd
@@ -1206,7 +1207,7 @@ export default function CreateWizard() {
                     data-purchase-raw={quote.minOutRaw}
                     className="text-right tabular-nums text-text"
                   >
-                    {formatTokenAmount(quote.minOutRaw)} {a.draft.symbol}
+                    {formatTokenAmount(quote.minOutRaw)} {displayCoinText(a.draft.symbol, a.tokenAddress)}
                   </dd>
                   <dt className="text-text-faint">Price impact</dt>
                   <dd
@@ -1567,10 +1568,10 @@ export default function CreateWizard() {
                             }
                             className="flex w-full items-center justify-between gap-3 rounded-sm px-2 py-2 text-left text-sm text-text transition-colors duration-fast hover:bg-surface-hover disabled:text-text-disabled"
                           >
-                            <span className="truncate">
-                              {row.draft.name || 'Untitled'}{' '}
+                            <span className="min-w-0 truncate" title={`${displayCoinText(row.draft.name, row.tokenAddress)} $${displayCoinText(row.draft.symbol, row.tokenAddress)}`}>
+                              {displayCoinText(row.draft.name, row.tokenAddress) || 'Untitled'}{' '}
                               <span className="text-text-faint">
-                                ${row.draft.symbol}
+                                ${displayCoinText(row.draft.symbol, row.tokenAddress)}
                               </span>
                             </span>
                             <span className="shrink-0 text-xs text-text-faint">

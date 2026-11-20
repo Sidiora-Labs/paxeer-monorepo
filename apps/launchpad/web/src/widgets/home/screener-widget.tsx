@@ -109,6 +109,7 @@ export function ScreenerWidget({ filter, view }: WidgetProps) {
                       variant={cards ? 'grid' : 'screener'}
                       surface="surface-1"
                       image={row.image}
+                      tokenAddress={row.tokenAddress}
                       name={row.name}
                       symbol={row.symbol}
                       mcapRaw={row.mcapRaw}

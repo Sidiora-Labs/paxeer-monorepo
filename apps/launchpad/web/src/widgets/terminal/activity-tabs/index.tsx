@@ -1,4 +1,5 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useAccount } from 'wagmi';
 import { Megaphone, Zap } from 'lucide-react';
@@ -73,7 +74,7 @@ export default function TerminalActivityTabs({ poolAddress }: { poolAddress: str
 
   const token: FillsToken = snapshot.data?.token ?? unverifiedToken;
   const tokenAddress = snapshot.data?.pool.tokenAddress ?? null;
-  const symbol = snapshot.data?.token?.symbol ?? snapshot.data?.metadata?.token.symbol ?? 'Coin';
+  const symbol = displayCoinText(snapshot.data?.token?.symbol ?? snapshot.data?.metadata?.token.symbol, snapshot.data?.pool.tokenAddress);
   const holders = holderCountOf((live.state.stats ?? snapshot.data?.stats)?.holderCount);
   const fillsKnown = live.state.watermark !== null || live.state.rows.length > 0;
 

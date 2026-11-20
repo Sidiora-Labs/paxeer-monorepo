@@ -26,6 +26,7 @@ const fieldCopy: Record<string, string> = {
 
 export function fieldMessage(field: string, code: string | undefined): string | null {
   if (!code) return null;
+  if (code === 'unsafe_text' && (field === 'name' || field === 'symbol')) return `${field === 'name' ? 'Name' : 'Ticker'} must not contain control or text direction characters`;
   return code.includes(' ') ? code : fieldCopy[field] ?? code;
 }
 

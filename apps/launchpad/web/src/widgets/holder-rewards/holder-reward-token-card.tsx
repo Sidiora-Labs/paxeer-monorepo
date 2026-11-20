@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import type { MouseEvent } from 'react';
 import Link from 'next/link';
 import { AtSign, Coins, ExternalLink, Globe, Send } from 'lucide-react';
@@ -91,8 +92,8 @@ export function TokenLinkIcons({ links, tokenAddress, className }: { links: Soci
  * external links stay separately focusable.
  */
 export default function HolderRewardTokenCard({
-  name,
-  symbol,
+  name: rawName,
+  symbol: rawSymbol,
   image,
   tokenAddress,
   href,
@@ -107,6 +108,8 @@ export default function HolderRewardTokenCard({
   loading = false,
   className,
 }: HolderRewardTokenCardProps) {
+  const name = displayCoinText(rawName, tokenAddress);
+  const symbol = displayCoinText(rawSymbol, tokenAddress);
   const cardBg = surface === 'canvas' ? 'bg-surface-1' : 'bg-surface-2';
   const top3 = rank !== undefined && rank >= 1 && rank <= 3;
 
@@ -160,7 +163,7 @@ export default function HolderRewardTokenCard({
             {tokenAddress ? <CopyAddress address={tokenAddress} variant="icon" className="relative z-10 shrink-0" /> : null}
           </div>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-[calc(var(--sl-leading-xs)/var(--sl-text-xs))] text-text-faint">
-            {symbol ? <span className="truncate font-semibold uppercase" title={symbol}>${symbol}</span> : null}
+            {symbol ? <span className="truncate font-semibold" title={symbol}>${symbol}</span> : null}
             <AgeChip iso={createdAt} className="font-bold text-warning" />
             <TokenLinkIcons links={links} tokenAddress={tokenAddress} />
             {!strategyActive ? <StatusBadge status="neutral">Strategy changed</StatusBadge> : null}

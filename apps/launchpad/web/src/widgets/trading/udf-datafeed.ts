@@ -1,3 +1,4 @@
+import { displayCoinText } from '@/utils/coin-text';
 import { launchpadGeometry, launchpadMarkColors } from '@/app/presentation-tokens';
 import { dataApiUrl } from '@/core/sdk-config';
 import { CHART_UDF_ROUTES, chartsOrigin } from '@/core/charts-udf';
@@ -167,7 +168,7 @@ export function chartSymbolInfo(value: unknown, poolAddress: string, mode: Chart
   const pricescale = info.pricescale;
   if (typeof pricescale !== 'number' || !Number.isSafeInteger(pricescale) || pricescale < 10 || !/^10*$/.test(String(pricescale))) throw new Error('Invalid chart symbol pricescale');
   if (info.minmov !== 1 || info.currency_code !== 'USDL' || info.timezone !== 'Etc/UTC') throw new Error('Invalid chart symbol quote or timezone');
-  const description = text('description', 160);
+  const description = displayCoinText(text('description', 160), typeof info.tokenAddress === 'string' ? info.tokenAddress : pool);
   text('full_name', 64);
   return {
     name: pool,
