@@ -1,10 +1,10 @@
 'use client';
+import { displayCoinText } from '@/utils/coin-text';
 import Link from 'next/link';
 import { Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, Chip } from '@/ui/primitives';
 import { poolPath } from '@/core/app-foundation/navigation';
-import { shortAddress } from '@/utils/format';
 import type { LiveDirectoryEntry } from './use-live-directory';
 import { LiveBadge } from './live-badge';
 import { ViewerCountChip } from './viewer-count-chip';
@@ -21,9 +21,9 @@ export function streamTile(entry: Pick<LiveDirectoryEntry, 'thumbnailUrl' | 'ima
   return { kind: 'none' };
 }
 
-/** Coin name for display: metadata name, then symbol, then the short pool address. */
-export function coinLabel(entry: Pick<LiveDirectoryEntry, 'name' | 'symbol' | 'poolAddress'>): string {
-  return entry.name?.trim() || entry.symbol?.trim() || shortAddress(entry.poolAddress);
+/** Coin name for display, with a short token address for blank names. */
+export function coinLabel(entry: Pick<LiveDirectoryEntry, 'name' | 'symbol' | 'poolAddress'> & Partial<Pick<LiveDirectoryEntry, 'tokenAddress'>>): string {
+  return displayCoinText(entry.name, entry.tokenAddress ?? entry.poolAddress);
 }
 
 /** Accessible link name: "<title>, <coin>, live, 35 viewers". */
@@ -62,6 +62,7 @@ export interface StreamCardProps {
 
 export function StreamCard({ entry, creatorLabel, className }: StreamCardProps) {
   const name = coinLabel(entry);
+  const symbol = displayCoinText(entry.symbol, entry.tokenAddress ?? entry.poolAddress);
   return (
     <Link prefetch={false}
       href={streamHref(entry)}
@@ -79,11 +80,11 @@ export function StreamCard({ entry, creatorLabel, className }: StreamCardProps) 
         </span>
       </div>
       <div className="flex min-h-14 items-start gap-2 p-2 md:gap-3 md:p-3">
-        <Avatar src={entry.imageUrl} name={entry.symbol ?? name} size="lg" decorative className="hidden sm:inline-flex" />
+        <Avatar src={entry.imageUrl} name={symbol} size="lg" decorative className="hidden sm:inline-flex" />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-sm font-bold text-text md:text-md">{name}</span>
-            {entry.symbol ? <Chip variant="token" className="shrink-0">{entry.symbol}</Chip> : null}
+            <span className="min-w-0 truncate text-sm font-bold text-text md:text-md" title={name}>{name}</span>
+            <Chip variant="token" className="min-w-0 max-w-32"><span className="truncate" title={symbol}>{symbol}</span></Chip>
           </div>
           <p className="truncate text-xs text-text-faint">{creatorLabel}</p>
           <p className="truncate text-sm text-text-muted">{entry.stream.title}</p>

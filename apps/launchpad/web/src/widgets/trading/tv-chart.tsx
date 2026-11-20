@@ -1,5 +1,6 @@
 'use client';
 
+import { displayCoinText } from '@/utils/coin-text';
 import { launchpadChartRoles } from '@/app/presentation-tokens';
 import { surfaceColor } from '@/core/app-foundation/surface-color';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -125,7 +126,6 @@ function verifiedSupplyKey(token: { supplyQuality: string; totalSupplyRaw: strin
 export default function TvChart({ poolAddress, symbol, height: heightProp, onHeightChange }: TvChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const symbolRef = useRef(symbol);
-  symbolRef.current = symbol;
   const widgetRef = useRef<IChartingLibraryWidget | null>(null);
   const chartReadyRef = useRef(false);
   const datafeedRef = useRef<ReturnType<typeof createReplayUdfDatafeed> | null>(null);
@@ -178,6 +178,7 @@ export default function TvChart({ poolAddress, symbol, height: heightProp, onHei
 
   const snapshot = usePoolSnapshot(poolAddress);
   const token = snapshot.data?.token ?? null;
+  symbolRef.current = displayCoinText(symbol ?? token?.symbol, snapshot.data?.pool.tokenAddress ?? poolAddress);
   const supplyKey = verifiedSupplyKey(token);
   const verifiedSupply = useMemo<CanonicalSupply | undefined>(() => {
     if (supplyKey === null) return undefined;
