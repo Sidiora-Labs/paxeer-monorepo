@@ -380,6 +380,7 @@ func TestPauseObservationCutoffs(t *testing.T) {
 	c := newPauseChain(t)
 	address, pool, created := c.create(t, "Pause history")
 	c.retain(t, created)
+	c.coverRaw(address)
 	c.refresh(t)
 	server := httptest.NewServer(c.observation)
 	defer server.Close()
@@ -408,6 +409,7 @@ func TestPauseObservationCutoffs(t *testing.T) {
 	laterAddress, later, laterCreation := c.create(t, "Later pool")
 	laterPause := c.transact(t, later, "pause")
 	c.retain(t, laterPause)
+	c.coverRaw(address, laterAddress)
 	c.refresh(t)
 	t.Run("CreatedAfterBase", func(t *testing.T) {
 		if _, ok := readPauseResponse(t, server, created).Pools[strings.ToLower(laterAddress.Hex())]; ok {
@@ -537,7 +539,7 @@ func TestPauseObservationCutoffs(t *testing.T) {
 		c.observation.rpc = c.client
 	})
 	t.Run("BeaconUpgradeAndBaseCycle", func(t *testing.T) {
-		c.observation.epochs = nil
+		c.coverRaw(address, laterAddress)
 		implementation, _, _ := c.deploy(t, "SidioraPool")
 		upgrade := c.transact(t, c.beacon, "upgradeTo", implementation)
 		c.retain(t, upgrade)
