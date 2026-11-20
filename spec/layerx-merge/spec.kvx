@@ -16036,6 +16036,12 @@ value = "One. The admission of a creation in apps/launchpad/web/src/widgets/crea
 basis = "Gotcha 4747."
 affects = []
 
+[decision.3821]
+title = "The create view waits for the committed head after an approval and the preflight engine keeps the identity of a block hash"
+value = "One. After the approval proof of the creation fee the controller of the create view waits until the committed head of the runtime authority has reached the block of the approval receipt, for sixty seconds at most and with one read of the authority in two seconds at most, and reports the approval as confirmed only then. While it waits the view reads a plain line of its own. Where the wait ends without the head, the view reads a plain line that asks to press again in a moment, and not the line of a refused admission. The approval of a first purchase waits the same way and reports the approval in either case. Two. The preflight engine keeps the attestation of a block hash, for sixteen block hashes at most. Askers of one block hash share one read. A read that ended with an error is not kept, and an attestation that holds an issue is not kept. At every asking the engine applies the age rule of Attest to the block time of a kept attestation. A kept attestation keeps the observation time of its read, and a caller gets a copy. The functions Capabilities, SerialExport and Preflight and the envelope of the API take the attestation through the kept values. The measurement and the reconciliation of the creation fee keep reads of their own. Three. The type Policy gains a member for the number of reads of one attestation that may run at one time. Without it the reads follow one after the other as before. With it the reads that do not depend on each other run side by side, and the attestation, its identities and the order of its issues are those of the reads one after the other. The production authority of the API sets eight. Tasks 22.39.979 to 22.39.981."
+basis = "Gotcha 4748."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45696,6 +45702,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.981]
+title = "Let the identity reads of one launchpad attestation run side by side where the policy allows it"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/config/deployment", "sdk/launchpad/shared/config/capabilities", "services/launchpad/api/internal/app"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/shared && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -run ^TestAuthority ./internal/app/ && go test -count=1 -run ^TestProductionAuthority ./internal/app/ && go test -count=1 -run ^TestNetworkAuthorityRoutes ./internal/app/ && go test -count=1 -run ^TestNetworkAuthorityBinds ./internal/app/ && go test -count=1 -run ^TestPreflightResponse ./internal/app/ && go test -count=1 -run ^TestRecentAuthority ./internal/app/ && go test -count=1 -run ^TestDevelopmentAuthority ./internal/app/ && go test -count=1 -run ^TestDevelopmentPreflight ./internal/app/)"
+do_1 = "do_1 Gotcha 4748, decision 3821. Read sdk/launchpad/shared/config/deployment/attest.go whole, in sdk/launchpad/shared/config/capabilities/preflight.go the type PinnedRPCReader and the method of the engine that gives the attestation of a block hash, and in services/launchpad/api/internal/app/authority.go the function that builds the production authority with the constants of the authority."
+symbols = []
+
+[capability.22.39.980]
+title = "Let the preflight engine of the launchpad keep the identity it read for a block hash"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/config/capabilities", "services/launchpad/api/internal/app"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/shared && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -run ^TestAuthority ./internal/app/ && go test -count=1 -run ^TestProductionAuthority ./internal/app/ && go test -count=1 -run ^TestNetworkAuthorityRoutes ./internal/app/ && go test -count=1 -run ^TestNetworkAuthorityBinds ./internal/app/ && go test -count=1 -run ^TestPreflightResponse ./internal/app/ && go test -count=1 -run ^TestRecentAuthority ./internal/app/ && go test -count=1 -run ^TestDevelopmentAuthority ./internal/app/ && go test -count=1 -run ^TestDevelopmentPreflight ./internal/app/)"
+do_1 = "do_1 Gotcha 4748, decision 3821. Read in sdk/launchpad/shared/config/capabilities/preflight.go the type PreflightEngine and the functions NewPreflightEngine, Capabilities, SerialExport, Preflight, creationCost and ReconcileCreationFee, in sdk/launchpad/shared/config/deployment/attest.go the functions Attest, ValidateFor and ValidateFamilyFor and the type Policy, in services/launchpad/api/internal/app/authority.go the functions envelope, refreshEnvelope and startRefresh with the constants of the authority, and in sdk/launchpad/shared/config/capabilities/measurement.go the function measureCase."
+symbols = []
+
+[capability.22.39.979]
+title = "Let the create view of the launchpad web application wait for the committed head after an approval"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Gotcha 4748, decision 3821. Read in apps/launchpad/web/src/widgets/create/creation-controller.ts the functions approve, create, invalidate, assertReviewed and approvePurchase, in apps/launchpad/web/src/widgets/create/creation-adapters.ts the constructor and the functions approve, approvalProof, admitCreation and sendCreation, apps/launchpad/web/src/widgets/create/cap-admission.ts whole, in apps/launchpad/web/src/core/runtime-authority.ts the function committedHead inside loadRuntimeAuthority, in apps/launchpad/web/src/widgets/create/create-wizard.tsx the block that builds the controller and the function launch, apps/launchpad/web/src/widgets/create/launch-copy.ts whole and the case file apps/launchpad/web/src/widgets/create/native-creation-approval.test.ts."
+symbols = []
 
 [capability.22.39.978]
 title = "Let the example network document of the launchpad carry the revision the documents command computes"
@@ -209793,6 +209826,106 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.981]
+title = "Let the identity reads of one launchpad attestation run side by side where the policy allows it"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.980"]
+reqs = ["22998.1"]
+capabilities = ["22.39.981"]
+interfaces = []
+do_1 = "do_1 Gotcha 4748, decision 3821. Read sdk/launchpad/shared/config/deployment/attest.go whole, in sdk/launchpad/shared/config/capabilities/preflight.go the type PinnedRPCReader and the method of the engine that gives the attestation of a block hash, and in services/launchpad/api/internal/app/authority.go the function that builds the production authority with the constants of the authority."
+do_2 = "do_2 Give the type Policy in sdk/launchpad/shared/config/deployment/attest.go one member that holds the number of reads of one attestation that may run at one time. Zero and one mean one read after the other, in the order of today. The validation of the policy refuses a number below zero or above sixteen with its present issue. With a number above one Attest runs the reads that do not depend on each other side by side, never more at one time than the number. The reads of one role follow each other where one needs the result of another, the roles run beside each other, and the reads of the owner of the pool beacon and of the policy values run once the identities they depend on are known. For the same answers of the reader the attestation is equal to the one of the reads one after the other: the same identities, the same values and the issues in the same order. Where the context ends, Attest gives the issue it gives today. No read starts after the context has ended."
+do_3 = "do_3 Give the preflight engine one exported method that sets the number for the attestations it reads. An engine without that call reads one after the other. In services/launchpad/api/internal/app/authority.go name the number eight as a constant beside the constants of the authority and let the production authority set it where it builds its engine. The development authority, the measurement and the reconciliation of the creation fee keep one read after the other."
+do_4 = "do_4 State in the final message whether the type PinnedRPCReader is safe for concurrent use. Where it holds state without a lock, give it a lock."
+do_5 = "do_5 Cases in the new file sdk/launchpad/shared/config/deployment/attest_parallel_test.go, each name starting with TestAttestSideBySide, with a reader that is safe for concurrent use and counts the reads in flight, for a manifest that holds every kind of role. The attestation with the number eight equals the attestation with the number one, for a reader that answers every read and for readers that fail one read each of a code, of a storage slot, of an owner and of a policy value, the order of the issues included. With the number eight never more than eight reads are in flight and at some time more than one is. With the number one and with zero never more than one read is in flight. The validation refuses a number below zero and the number seventeen. A context that ends gives the issue of today. One case in the new file sdk/launchpad/shared/config/capabilities/preflight_attestation_reads_test.go, named TestPreflightAttestationReads: an engine with the number eight set reads side by side, and an engine without the call reads one after the other."
+do_6 = "do_6 Run the lint, the race cases and the cover check of the module under sdk/launchpad/shared, the lint of the API module and the cases of the authority. Change no existing case. Where an existing case does not pass, name it with its message in the final message. Add no package and no command directory. Change no file outside the paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/config/deployment", "sdk/launchpad/shared/config/capabilities", "services/launchpad/api/internal/app"]
+tests = []
+planned_paths = ["sdk/launchpad/shared/config/deployment/attest_parallel_test.go", "sdk/launchpad/shared/config/capabilities/preflight_attestation_reads_test.go"]
+build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && go vet ./...) && (cd services/launchpad/api && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/shared && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -run ^TestAuthority ./internal/app/ && go test -count=1 -run ^TestProductionAuthority ./internal/app/ && go test -count=1 -run ^TestNetworkAuthorityRoutes ./internal/app/ && go test -count=1 -run ^TestNetworkAuthorityBinds ./internal/app/ && go test -count=1 -run ^TestPreflightResponse ./internal/app/ && go test -count=1 -run ^TestRecentAuthority ./internal/app/ && go test -count=1 -run ^TestDevelopmentAuthority ./internal/app/ && go test -count=1 -run ^TestDevelopmentPreflight ./internal/app/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.980]
+title = "Let the preflight engine of the launchpad keep the identity it read for a block hash"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.975"]
+reqs = ["22998.1"]
+capabilities = ["22.39.980"]
+interfaces = []
+do_1 = "do_1 Gotcha 4748, decision 3821. Read in sdk/launchpad/shared/config/capabilities/preflight.go the type PreflightEngine and the functions NewPreflightEngine, Capabilities, SerialExport, Preflight, creationCost and ReconcileCreationFee, in sdk/launchpad/shared/config/deployment/attest.go the functions Attest, ValidateFor and ValidateFamilyFor and the type Policy, in services/launchpad/api/internal/app/authority.go the functions envelope, refreshEnvelope and startRefresh with the constants of the authority, and in sdk/launchpad/shared/config/capabilities/measurement.go the function measureCase."
+do_2 = "do_2 Give the engine one exported method that gives the attestation of a block hash, and keep in the engine the attestations it read, for sixteen block hashes at most. Where a further one comes, the one with the lowest block number leaves. A read through the method runs Attest with the reader, the manifest and the bounds of the engine, as the three functions do today. Askers of one block hash at one time share one read. The shared read runs under the timeout of the engine and not under the context of one asker, and an asker whose own context ends leaves with the error of its context. A read that ends with an error is not kept and an attestation that holds an issue is not kept, so the next asking reads anew. At every asking the method applies to a kept attestation the age rule Attest applies to the block time, with the time of the asking, and gives the stale issue of Attest where the rule fails. A kept attestation keeps the observation time of its read. A caller gets a copy whose maps and lists it may change without a change of the kept value. The method is safe for concurrent use."
+do_3 = "do_3 Let the functions Capabilities, SerialExport and Preflight take their attestation through the method in place of their own call of Attest. Each keeps its policy with the time of the asking for every later check and keeps every other read it makes. The functions measureCase and ReconcileCreationFee keep their own calls of Attest."
+do_4 = "do_4 In services/launchpad/api/internal/app/authority.go let the function envelope take the attestation of its head through the method of the engine in place of its own call of Attest. The engine holds the reader of the authority and a parsed copy of its manifest, so the attestation is the same. The envelope keeps its policy for the export, its comparison of the attestation with the head and its refusals. After an envelope is built, a preflight for the head of that envelope reads no identity of its own. The development authority keeps its form."
+do_5 = "do_5 Cases in the new file sdk/launchpad/shared/config/capabilities/preflight_attestation_reuse_test.go, each name starting with TestPreflightAttestationReuse, with a reader that counts its reads and is safe for concurrent use. A second asking for one block hash makes no read of code, of storage and no contract call. Askers of one block hash at one time share one read. A read that failed is not kept and the next asking reads anew. An attestation with an issue is not kept. A kept attestation whose block time has left the maximum age gives the stale issue. A change a caller makes to the maps or lists of an answer does not reach the next answer. A seventeenth block hash lets the one with the lowest block number leave. Capabilities, SerialExport and Preflight for one block hash together read the identity once. One case in the new file services/launchpad/api/internal/app/authority_attestation_reuse_test.go, named TestAuthorityAttestationReuse, on the fixtures of services/launchpad/api/internal/app/authority_readiness_test.go and services/launchpad/api/internal/app/authority_recent_head_test.go: after one envelope is built, a preflight for the head of that envelope makes no identity read through the reader, and an envelope built after it for the same head makes none either."
+do_6 = "do_6 Run the lint, the race cases and the cover check of the module under sdk/launchpad/shared, the lint of the API module and the cases of the authority. Where an existing case holds the number or the order of the reads of a later asking for one block hash, or changes between two askings what a reader gives for one block hash, let it ask through a fresh engine or for another block hash, change nothing else of what it asserts, and name every such case in the final message. Add no package and no command directory. Change no file outside the paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/config/capabilities", "services/launchpad/api/internal/app"]
+tests = []
+planned_paths = ["sdk/launchpad/shared/config/capabilities/preflight_attestation_reuse_test.go", "services/launchpad/api/internal/app/authority_attestation_reuse_test.go"]
+build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && go vet ./...) && (cd services/launchpad/api && go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/shared && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=api && (cd services/launchpad/api && go test -count=1 -run ^TestAuthority ./internal/app/ && go test -count=1 -run ^TestProductionAuthority ./internal/app/ && go test -count=1 -run ^TestNetworkAuthorityRoutes ./internal/app/ && go test -count=1 -run ^TestNetworkAuthorityBinds ./internal/app/ && go test -count=1 -run ^TestPreflightResponse ./internal/app/ && go test -count=1 -run ^TestRecentAuthority ./internal/app/ && go test -count=1 -run ^TestDevelopmentAuthority ./internal/app/ && go test -count=1 -run ^TestDevelopmentPreflight ./internal/app/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 210
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.979]
+title = "Let the create view of the launchpad web application wait for the committed head after an approval"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.976", "22.39.977"]
+reqs = ["22998.1"]
+capabilities = ["22.39.979"]
+interfaces = []
+do_1 = "do_1 Gotcha 4748, decision 3821. Read in apps/launchpad/web/src/widgets/create/creation-controller.ts the functions approve, create, invalidate, assertReviewed and approvePurchase, in apps/launchpad/web/src/widgets/create/creation-adapters.ts the constructor and the functions approve, approvalProof, admitCreation and sendCreation, apps/launchpad/web/src/widgets/create/cap-admission.ts whole, in apps/launchpad/web/src/core/runtime-authority.ts the function committedHead inside loadRuntimeAuthority, in apps/launchpad/web/src/widgets/create/create-wizard.tsx the block that builds the controller and the function launch, apps/launchpad/web/src/widgets/create/launch-copy.ts whole and the case file apps/launchpad/web/src/widgets/create/native-creation-approval.test.ts."
+do_2 = "do_2 Add to apps/launchpad/web/src/widgets/create/cap-admission.ts beside runtimeCreationAdmission one exported function that takes the same authority and gives a function of a block number and an optional signal. That function reads the committed head through the member committedHead of the network authority and returns once the number of the head is not below the block number. It reads at once and then no more often than once in two seconds, and each read has a bound of its own of ten seconds. A read that ends with an error counts as a head not yet reached. After sixty seconds without the head it ends with an error of a named class of its own, exported from apps/launchpad/web/src/widgets/create/cap-admission.ts, that holds the last read error as its cause. It ends at once where the signal aborts. The class is none of the admission error classes and its text holds no word the rules of the launch copy match."
+do_3 = "do_3 Let the adapter in apps/launchpad/web/src/widgets/create/creation-adapters.ts take the function as one further optional constructor value after the admission, and give the adapter one method that waits for the committed head to reach a block number. Without the value the method returns at once. In the function approve of apps/launchpad/web/src/widgets/create/creation-controller.ts, after the approval proof, set a message of its own that says the approval is confirmed and the view waits for the committed head, wait through the method for the block number of the receipt of the proof, and call invalidate with the present message only after the head is reached. Where the wait ends with its error, call invalidate with a message of its own that says the approval is confirmed and asks to create again in a moment, and end with that error. In the function approvePurchase wait the same way after its approval proof and set its present message whether the head was reached or not. Change nothing else of the two functions: every assert of the review, the admission of the stage approval, the wallet request and the approval proof keep their place and their order."
+do_4 = "do_4 In apps/launchpad/web/src/widgets/create/launch-copy.ts give the two new messages plain lines in the voice of the neighbouring lines: one for the waiting, which says the fee is approved and the coin is being prepared, and one for the wait that ran out, which says the fee is approved and asks to press the create button again in a moment. Let plainLaunchError give the second line for an error of the class of the wait, a wrapped one included, ahead of its line for a refused admission and ahead of every other rule of the error text but the line for a wallet rejection. Change no other line and no other rule."
+do_5 = "do_5 In apps/launchpad/web/src/widgets/create/create-wizard.tsx pass the function to the adapter where the controller is built. It reads the authority at the time of the call, the way the admission beside it does, and ends with the error of the wait where there is none. The function launch keeps its form."
+do_6 = "do_6 Cases in the new file apps/launchpad/web/src/widgets/create/approval-head.test.ts, each name starting with the words approval head. The wait returns at once where the first head stands at or above the block number. It reads again no sooner than two seconds after a read and returns when the head reaches the number. A read that fails counts as a head not yet reached and the wait goes on. After sixty seconds it ends with the error of its class, which holds the last read error as its cause. It ends at once where the signal aborts. In the form of apps/launchpad/web/src/widgets/create/native-creation-approval.test.ts: the function approve waits with the block number of the receipt before it reports the approval as confirmed, and where the wait ends with its error the reviewed state is reset and plainLaunchError gives the line of the wait that ran out and not the line on paused creation. The function approvePurchase reports its approval in either case."
+do_7 = "do_7 Run the cases of the web application. Name every existing case you changed in the final message. Change no file outside the paths. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/widgets/create/approval-head.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
