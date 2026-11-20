@@ -209960,7 +209960,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.973]
 title = "Let the composer of the launchpad write the journey configuration of the pnl service from its values"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
