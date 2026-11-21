@@ -16210,6 +16210,12 @@ value = "One. The event type of a market publication is the constant MarketSubje
 basis = "Gotcha 4776."
 affects = []
 
+[decision.3850]
+title = "A rejoin of an endpoint of the committed source of the indexer compares its recorded entries and reads them within the permits of the endpoint, and a delivery store claims and counts the rows whose subject its policy holds"
+value = "One. A rejoin of an endpoint compares at its end the generation, the count of 128 checks and each of the 128 recorded entries with the accepted history. A height that the source accepts for the first time after the rejoin recorded its entries is no ground to end the rejoin, and the comparison of the member acceptedVersion at the end of the rejoin goes. Two. The rejoin reads the 128 recorded heights several at a time within the bulk permits of the endpoint and compares the height and the hash of each answer with the recorded entry. The form of the reads is the choice of the participant. Against an endpoint that answers each call after 250 milliseconds the identity admission and the 128 reads end inside a bulk deadline of 15 seconds. Three. The mode accepted history of the case TestRecoveryRejectsIdentityChangesWhileVerifyingAcceptedBlocks follows point one: a rejoin during which the source accepts a new height above the recorded entries ends without an error and clears the quarantine, and a rejoin during which one of the 128 recorded entries changes or leaves the accepted history ends with an integrity error and keeps the quarantine. The mode endpoint generation stays. Cases whose names begin with TestRejoinSnapshot drive a rejoin on a source that accepts new heights while the rejoin runs, a rejoin with a changed recorded entry, and a rejoin against a fixture endpoint that answers each call after 250 milliseconds under a bulk deadline of 15 seconds. Four. The bounds of 2 seconds and 15 seconds, the count of 128, the quarantine at 3 results, the permits of an endpoint and every other refusal of the rejoin stay. No other case of the indexer module is removed, skipped or given a wider expectation. Task 22.39.1055. Five. The statement of the function Claim selects the pending rows whose subject the policy of the store holds as enabled. A pending row with another subject stays pending and unchanged for the store whose policy holds it. Six. The function Stats counts and ages the rows whose subject the policy of the store holds. The function CheckIngestAdmissionTx stays as it is. The class that the relay gives to a claimed row whose subject the policy holds and whose content the function Decode refuses stays. Rows that are in quarantine stay as they are. A case that expects a relay to give a class to a row whose subject its policy lacks changes its expectation: the row stays pending and without a lease. Seven. Cases whose names begin with TestClaimPolicySubjects bind two stores with disjoint policies to one schema against the PostgreSQL fixture of the package, enqueue rows through both and show that each relay publishes the rows of its own store, that the rows of the other store stay pending and without a lease, and that the function Stats of each store counts its own rows. The stores of the gateway app and of the user app keep their schema and their policies. No other case of the shared module, of the gateway module or of the user module is removed, skipped or given a wider expectation. Task 22.39.1056."
+basis = "Gotcha 4777."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45870,6 +45876,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1056]
+title = "Let a delivery store claim and count the rows of its outbox table whose subject its policy holds"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/delivery", "services/launchpad/gateway", "services/launchpad/user"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 30m -skip ^TestArchiveCapturesCommittedSourceWithActualObjectStore ./delivery/... && GOWORK=off go test -count=1 -list ^TestClaimPolicySubjects ./delivery/ | grep -q ^TestClaimPolicySubjects) && (cd services/launchpad/user && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module .) && (cd services/launchpad/gateway && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4777 second part, decision 3850 points five to seven. Read the functions NewStore, Enqueue, Claim, MarkPublished, Retry, Stats and CheckIngestAdmissionTx in sdk/launchpad/shared/delivery/store.go, the relay in sdk/launchpad/shared/delivery/relay.go, the functions Decode and Validate in sdk/launchpad/shared/delivery/envelope.go, the site of services/launchpad/gateway/internal/app/app.go that binds the identity store, the file services/launchpad/gateway/internal/auth/identity_events.go, the setting ACCOUNT_DELIVERY_SCHEMA in services/launchpad/user/internal/config/config.go and the site of services/launchpad/user/internal/app/account_runtime.go that binds the account store. The final message names every statement of the shared delivery package that reads rows of the table delivery_outbox by state, with its function, and every caller of the function Claim outside the relay."
+symbols = []
+
+[capability.22.39.1055]
+title = "Let a rejoin of an endpoint of the committed source of the indexer compare its recorded entries and read them within the permits of the endpoint"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=indexer && (cd services/launchpad/indexer && GOWORK=off GOFLAGS=-timeout=18m python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=3 -timeout 20m -run ^TestRejoinSnapshot ./internal/source/ && GOWORK=off go test -count=1 -list ^TestRejoinSnapshot ./internal/source/ | grep -q ^TestRejoinSnapshot)"
+do_1 = "do_1 Gotcha 4777 first part, decision 3850 points one to four. Read the functions RejoinEndpoint, admitIdentity, readBlock and retainBlock and the permits of an endpoint in services/launchpad/indexer/internal/source/committed.go, the function RecoverEndpoints in services/launchpad/indexer/internal/source/recovery.go, the caller of RejoinEndpoint in services/launchpad/indexer/internal/source/capacity.go, the part of services/launchpad/indexer/internal/app/app.go that registers the periodic job source_recovery and the case TestRecoveryRejectsIdentityChangesWhileVerifyingAcceptedBlocks in services/launchpad/indexer/internal/source/identity_lifecycle_test.go with its fixture. The final message names every site that reads or changes the member acceptedVersion and every caller of RejoinEndpoint."
+symbols = []
 
 [capability.22.39.1054]
 title = "Let the composition case of the pnl app that starts and ends its entrypoint in three rounds hold over consecutive runs"
@@ -210651,6 +210675,66 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1056]
+title = "Let a delivery store claim and count the rows of its outbox table whose subject its policy holds"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1056"]
+interfaces = []
+do_1 = "do_1 Gotcha 4777 second part, decision 3850 points five to seven. Read the functions NewStore, Enqueue, Claim, MarkPublished, Retry, Stats and CheckIngestAdmissionTx in sdk/launchpad/shared/delivery/store.go, the relay in sdk/launchpad/shared/delivery/relay.go, the functions Decode and Validate in sdk/launchpad/shared/delivery/envelope.go, the site of services/launchpad/gateway/internal/app/app.go that binds the identity store, the file services/launchpad/gateway/internal/auth/identity_events.go, the setting ACCOUNT_DELIVERY_SCHEMA in services/launchpad/user/internal/config/config.go and the site of services/launchpad/user/internal/app/account_runtime.go that binds the account store. The final message names every statement of the shared delivery package that reads rows of the table delivery_outbox by state, with its function, and every caller of the function Claim outside the relay."
+do_2 = "do_2 Change the statement of the function Claim under decision 3850 point five and the function Stats under point six. The order of the claim, its bounds, the lease and the fence stay."
+do_3 = "do_3 Add the cases whose names begin with TestClaimPolicySubjects to the package delivery under decision 3850 point seven and change the expectation of a case under the last sentence of point six where one exists. The present cases of the shared delivery package, of the gateway module and of the user module stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/delivery", "services/launchpad/gateway", "services/launchpad/user"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && GOWORK=off go vet ./delivery/...) && (cd services/launchpad/user && GOWORK=off go vet ./...) && (cd services/launchpad/gateway && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 30m -skip ^TestArchiveCapturesCommittedSourceWithActualObjectStore ./delivery/... && GOWORK=off go test -count=1 -list ^TestClaimPolicySubjects ./delivery/ | grep -q ^TestClaimPolicySubjects) && (cd services/launchpad/user && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module .) && (cd services/launchpad/gateway && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1055]
+title = "Let a rejoin of an endpoint of the committed source of the indexer compare its recorded entries and read them within the permits of the endpoint"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1055"]
+interfaces = []
+do_1 = "do_1 Gotcha 4777 first part, decision 3850 points one to four. Read the functions RejoinEndpoint, admitIdentity, readBlock and retainBlock and the permits of an endpoint in services/launchpad/indexer/internal/source/committed.go, the function RecoverEndpoints in services/launchpad/indexer/internal/source/recovery.go, the caller of RejoinEndpoint in services/launchpad/indexer/internal/source/capacity.go, the part of services/launchpad/indexer/internal/app/app.go that registers the periodic job source_recovery and the case TestRecoveryRejectsIdentityChangesWhileVerifyingAcceptedBlocks in services/launchpad/indexer/internal/source/identity_lifecycle_test.go with its fixture. The final message names every site that reads or changes the member acceptedVersion and every caller of RejoinEndpoint."
+do_2 = "do_2 Change the end of the rejoin under decision 3850 point one and its reads under point two. The comparison of the height and the hash per recorded entry, of the generation and of the count of checks stays, and a read that ends with an error ends the rejoin as before."
+do_3 = "do_3 Change the mode accepted history of the case under decision 3850 point three and add the cases whose names begin with TestRejoinSnapshot to the package internal/source. The bounds and counts of point four stay. The present cases of the indexer module stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/indexer && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=indexer && (cd services/launchpad/indexer && GOWORK=off GOFLAGS=-timeout=18m python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=3 -timeout 20m -run ^TestRejoinSnapshot ./internal/source/ && GOWORK=off go test -count=1 -list ^TestRejoinSnapshot ./internal/source/ | grep -q ^TestRejoinSnapshot)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
