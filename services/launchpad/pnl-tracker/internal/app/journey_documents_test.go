@@ -17,6 +17,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/ogrender/fonts"
 	inventory "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/brokerprovision"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production/coordinatortest"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -142,6 +143,28 @@ func TestJourneyDocumentsDeliverySubjectsDocumented(t *testing.T) {
 	section, _, _ = strings.Cut(section, "\n## ")
 	policy := delivery.Policy{Subjects: map[string]bool{inventory.RebuildSubject: true, "portfolio.snapshot.v2": true}, EventTypes: map[string]bool{inventory.RebuildSubject: true, "portfolio.snapshot.v2": true}}
 	policy = l18.RewardDeliveryPolicy(policy)
+	brokerRaw, err := os.ReadFile(filepath.Join(root, "deploy/launchpad/documents/values/broker.example.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	broker, err := brokerprovision.Read(bytes.NewReader(brokerRaw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var subjects []string
+	for _, stream := range broker.Streams {
+		if stream.Name == "PNL_JOURNEYS" {
+			subjects = stream.Subjects
+		}
+	}
+	if len(subjects) != len(policy.Subjects) {
+		t.Fatal("journey stream subjects must match the delivery policy")
+	}
+	for _, subject := range subjects {
+		if !policy.Subjects[subject] {
+			t.Errorf("journey stream subject %s is outside the delivery policy", subject)
+		}
+	}
 	for subject, admitted := range policy.Subjects {
 		if admitted && !strings.Contains(section, "`"+subject+"`") {
 			t.Errorf("journey delivery subject %s is missing", subject)
