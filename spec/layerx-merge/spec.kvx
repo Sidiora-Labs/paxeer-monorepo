@@ -210669,7 +210669,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1048]
 title = "Let every answer of the launchpad social module give the creation time of a message as the whole seconds at or below the stored time"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
