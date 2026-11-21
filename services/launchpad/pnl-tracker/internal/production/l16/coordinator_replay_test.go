@@ -624,13 +624,13 @@ func coordinatorReplayCurrentFillRows(t *testing.T, ctx context.Context, raw jso
 		if err != nil || hash != fill.Position.BlockHash || fmt.Sprint(header.Time) != fill.BlockTimestampSeconds {
 			t.Fatalf("recorded fill %d does not bind the replayed header: %s %v", i, hash, err)
 		}
-		headerWire, err := json.Marshal(header)
+		headerDigest, err := receiptHeaderDigest(header)
 		if err != nil {
 			t.Fatal(err)
 		}
 		// The supplemental capture reflects the node's corrected receipt root.
 		// Bind the current producer encoding to that recorded header artifact.
-		fill.Provenance.HeaderSHA256 = delivery.Hash(headerWire)
+		fill.Provenance.HeaderSHA256 = headerDigest
 		canonical, err = json.Marshal(fill)
 		if err != nil {
 			t.Fatal(err)
