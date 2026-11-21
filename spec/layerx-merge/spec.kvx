@@ -210813,7 +210813,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1063]
 title = "Give the fixture of the pnl app for the shared delivery store the claim statement as the file stands and the record of runtime statements its entry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
