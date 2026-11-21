@@ -210705,7 +210705,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1044]
 title = "Let the connected runtime of the launchpad social service run a background job again after an error that is not permanent and clear the stored error of the job once it runs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
