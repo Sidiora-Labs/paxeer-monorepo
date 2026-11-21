@@ -216,6 +216,34 @@ def test_launchpad_go_matrix_lists_every_module():
         assert any((ROOT / module).rglob("*_test.go")), module
 
 
+def test_launchpad_ci_matrix_matches_makefile_modules():
+    jobs = launchpad_go_workflow()["jobs"]
+    job = jobs["launchpad-go-ci"]
+    matrix = job["strategy"]["matrix"]
+    assert set(matrix) == {"module"}, "Run every module without exclusions or overrides"
+    entries = matrix["module"]
+    assert entries == jobs["launchpad-go-test"]["strategy"]["matrix"]["module"]
+    assert len(entries) == len(set(entries)), "Run each module exactly once"
+    text = (ROOT / "services/launchpad/Makefile").read_text()
+    (assignment,) = re.findall(
+        r"^MODULES := (.*?)(?=\n\s*\n)", text, re.M | re.S
+    )
+    make_modules = assignment.replace("\\\n", " ").split()
+    expected = {
+        (ROOT / "services/launchpad" / module)
+        .resolve().relative_to(ROOT).as_posix(): module
+        for module in make_modules
+    }
+    assert len(expected) == len(make_modules)
+    assert set(entries) == set(expected)
+    for module in entries:
+        result = subprocess.run(
+            ["realpath", "--relative-to=services/launchpad", module],
+            cwd=ROOT, capture_output=True, text=True, check=True,
+        )
+        assert result.stdout.strip() == expected[module], module
+
+
 def test_launchpad_makefile_ci_target_exists():
     text = (ROOT / "services/launchpad/Makefile").read_text()
     assert re.search(r"^export GOWORK := off$", text, re.M)
@@ -1193,7 +1221,9 @@ def test_launchpad_ci_job_runs_all_stages_with_go_test_services():
     workflow = launchpad_go_workflow()
     test_job = workflow["jobs"]["launchpad-go-test"]
     job = workflow["jobs"]["launchpad-go-ci"]
-    assert job["timeout-minutes"] == "360"
+    assert job["name"] == "Go CI"
+    assert job["timeout-minutes"] == "180"
+    assert job["strategy"]["fail-fast"] == "false"
     assert job["runs-on"] == test_job["runs-on"]
     assert job["env"] == test_job["env"]
     assert job["env"]["GOFLAGS"] == "-timeout=15m"
@@ -1209,7 +1239,11 @@ def test_launchpad_ci_job_runs_all_stages_with_go_test_services():
                    if step.get("uses", "").startswith("actions/setup-go@")]
     assert setup_go["with"]["go-version"] == "1.27.3"
     assert job["env"]["GOTOOLCHAIN"] == "go" + setup_go["with"]["go-version"]
-    (run,) = [step for step in steps if step.get("run") == "make -C services/launchpad ci"]
+    command = (
+        'make -C services/launchpad ci '
+        'MODULES="$(realpath --relative-to=services/launchpad "${{ matrix.module }}")"'
+    )
+    (run,) = [step for step in steps if step.get("run") == command]
     assert "working-directory" not in run
     assert steps[-1] == run
     for name in (
@@ -1224,7 +1258,7 @@ def test_launchpad_ci_job_runs_all_stages_with_go_test_services():
         (fixture,) = [step for step in steps if step.get("name") == name]
         assert fixture in test_job["steps"]
         assert steps.index(fixture) < steps.index(run)
-    assert job["strategy"]["matrix"]["module"] == ["sdk/launchpad/protocol"]
+    assert set(job["strategy"]["matrix"]["module"]) == launchpad_go_modules()
     (timestamps,) = [step for step in steps
                      if step.get("name") == "Enable database commit timestamps"]
     assert "ALTER SYSTEM SET track_commit_timestamp = on" in timestamps["run"]
