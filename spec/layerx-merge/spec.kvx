@@ -16198,6 +16198,12 @@ value = "One. The type OnlineIndexKey takes a form for the text of one element o
 basis = "Gotcha 4774."
 affects = []
 
+[decision.3848]
+title = "The Go files of the launchpad modules carry the text of the format tool, the target ci runs its static stages first, and the voice case that ends its provider session holds over 200 consecutive runs"
+value = "One. Every Go file of the modules that the list MODULES of the launchpad Makefile names carries the text the format tool of the Go release of the setting GOTOOLCHAIN gives, and the target fmt-check names no file. Two. The target lint reports no finding in any module of the list. A finding is answered by a change of the code that keeps the behaviour; the configuration file of the linter, its release and the rules it runs stay as they are. Three. The target ci names its stages in the order build, vet, fmt-check, lint, test, race and cover-check, so that the stages that need no service of the job run first. The set of the stages, the target all, the other targets and the job launchpad-go-ci with its one call of the target ci stay. Four. A case of the wiring checks holds the order of the stages of the target ci, and the README of the directory services/launchpad names that order. Task 22.39.1051. Five. The case TestRecordingReconcilerKeepsCommittedStartAndStopIntent passes in 200 consecutive runs of its own. Six. The change sits at the site that a reading of 200 runs of the case names. A condition of the fixture is handled in the function localLiveKit. A condition of the function call or of the function End is handled in that function: its result for every other answer stays, and a repeat of a request stays inside ten seconds in total and applies only where the answer shows that the provider did not act on the request. Seven. The case keeps its two reconcile passes, its expectations and its last call of the function End, and no case of the package is removed, skipped or given a wider expectation. Task 22.39.1052."
+basis = "Gotcha 4775."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45858,6 +45864,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1052]
+title = "Let the voice case of the social module that ends its provider session after two reconcile passes hold over 200 consecutive runs"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social/internal/voice"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=social && (cd services/launchpad/social && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=200 -timeout 30m -run ^TestRecordingReconcilerKeepsCommittedStartAndStopIntent ./internal/voice/)"
+do_1 = "do_1 Gotcha 4775 second part, decision 3848 points five to seven. Read services/launchpad/social/internal/voice/reconcile_boundaries_test.go whole, the functions call, Find, Start and End of the type LiveKit in services/launchpad/social/internal/voice/provider.go, the function localLiveKit in services/launchpad/social/internal/voice/local_provider_test.go and the error ErrUnavailable in services/launchpad/social/internal/voice/control.go. Run the case TestRecordingReconcilerKeepsCommittedStartAndStopIntent alone 200 times ahead of any change, with the output of the local media server and of the reverse proxy of the fixture kept per run and with the return site of each error ErrUnavailable of the functions call and End made visible for these runs only. The final message names the count of the runs per result and, for each result other than a pass, the return site, the status and the body length the client saw, and what the media server and the reverse proxy logged at that moment."
+symbols = []
+
+[capability.22.39.1051]
+title = "Bring the Go files of the launchpad modules into the text of the format tool, let the target lint report no finding and let the target ci run its static stages first"
+reqs = ["22998.1"]
+touches = ["services/launchpad", "sdk/launchpad", "tests/ci"]
+tests = []
+verification_contract = "anvil --version > /dev/null && python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py && python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py -k test_launchpad_ci_target_order && make -C services/launchpad vet fmt-check && GOFLAGS=-timeout=15m make -C services/launchpad lint"
+do_1 = "do_1 Gotcha 4775 first part, decision 3848 points one to four. Read services/launchpad/Makefile whole, the cases test_launchpad_makefile_ci_target_exists, test_launchpad_lint_release_and_module_selection and test_launchpad_ci_job_runs_all_stages_with_go_test_services in tests/ci/test_launchpad_go_tests_wired.py, the case test_launchpad_go_jobs_share_every_ci_preparation_step in tests/ci/test_launchpad_test_workflow.py, the job launchpad-go-ci in .github/workflows/launchpad-test.yml and the part of services/launchpad/README.md on the targets. Run the target fmt-check and the target lint over every module of the list ahead of any change. The final message names the files the format tool names and, per module, the count of the findings of the linter by rule."
+symbols = []
 
 [capability.22.39.1050]
 title = "Let the broker example of the launchpad deploy documents define the stream of the journeys of the pnl app and the stream of the account subjects of the user service"
@@ -210603,6 +210627,66 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1052]
+title = "Let the voice case of the social module that ends its provider session after two reconcile passes hold over 200 consecutive runs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1052"]
+interfaces = []
+do_1 = "do_1 Gotcha 4775 second part, decision 3848 points five to seven. Read services/launchpad/social/internal/voice/reconcile_boundaries_test.go whole, the functions call, Find, Start and End of the type LiveKit in services/launchpad/social/internal/voice/provider.go, the function localLiveKit in services/launchpad/social/internal/voice/local_provider_test.go and the error ErrUnavailable in services/launchpad/social/internal/voice/control.go. Run the case TestRecordingReconcilerKeepsCommittedStartAndStopIntent alone 200 times ahead of any change, with the output of the local media server and of the reverse proxy of the fixture kept per run and with the return site of each error ErrUnavailable of the functions call and End made visible for these runs only. The final message names the count of the runs per result and, for each result other than a pass, the return site, the status and the body length the client saw, and what the media server and the reverse proxy logged at that moment."
+do_2 = "do_2 Make the change at the site that reading names, under decision 3848 point six. Where the condition lies in the fixture, the function localLiveKit handles it, for example in the transport between the reverse proxy and the media server or in its wait for the first answer. Where it lies in the function call or in the function End, that function follows under the bounds of decision 3848 point six, and cases with a provider stand-in drive the changed function for the answer the reading names and for the answers that keep their result."
+do_3 = "do_3 Run the case alone 200 times again and name the count of the runs per result in the final message. The case keeps its two reconcile passes, its expectations and its last call of the function End under decision 3848 point seven. The present cases of the social module stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social/internal/voice"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/social && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=social && (cd services/launchpad/social && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=200 -timeout 30m -run ^TestRecordingReconcilerKeepsCommittedStartAndStopIntent ./internal/voice/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1051]
+title = "Bring the Go files of the launchpad modules into the text of the format tool, let the target lint report no finding and let the target ci run its static stages first"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1051"]
+interfaces = []
+do_1 = "do_1 Gotcha 4775 first part, decision 3848 points one to four. Read services/launchpad/Makefile whole, the cases test_launchpad_makefile_ci_target_exists, test_launchpad_lint_release_and_module_selection and test_launchpad_ci_job_runs_all_stages_with_go_test_services in tests/ci/test_launchpad_go_tests_wired.py, the case test_launchpad_go_jobs_share_every_ci_preparation_step in tests/ci/test_launchpad_test_workflow.py, the job launchpad-go-ci in .github/workflows/launchpad-test.yml and the part of services/launchpad/README.md on the targets. Run the target fmt-check and the target lint over every module of the list ahead of any change. The final message names the files the format tool names and, per module, the count of the findings of the linter by rule."
+do_2 = "do_2 Bring each file the format tool names into the text of the format tool of the Go release the Makefile sets, among them the seven files of gotcha 4775; such a change holds nothing but what the tool gives. Answer each finding of the linter by a change of the code under decision 3848 point two. For each package in which a file changes other than by the format tool, run its cases once ahead of the verification and name the result per package in the final message. The behaviour of every function stays."
+do_3 = "do_3 Let the target ci of services/launchpad/Makefile name its stages in the order build, vet, fmt-check, lint, test, race and cover-check under decision 3848 point three. Add to tests/ci/test_launchpad_go_tests_wired.py a case whose name begins with test_launchpad_ci_target_order that reads the Makefile and holds this order, and let services/launchpad/README.md name the order of the stages of the target ci. Run once the target race for the module user and for the module ranking-algo and the target cover-check for the module user, each with the variable MODULES on the make command line, and name the duration and the result of each in the final message; a result other than a pass is named and stays outside this task. The present cases stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad", "sdk/launchpad", "tests/ci"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && make -C services/launchpad build"
+verify_cmd = "anvil --version > /dev/null && python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py && python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py -k test_launchpad_ci_target_order && make -C services/launchpad vet fmt-check && GOFLAGS=-timeout=15m make -C services/launchpad lint"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
