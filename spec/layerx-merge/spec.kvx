@@ -16192,6 +16192,18 @@ value = "One. A candidate of a wallet at a pinned block is a creation of the cre
 basis = "Gotcha 4773."
 affects = []
 
+[decision.3847]
+title = "The raw log table carries two online indexes by emitter and topic, and the broker example defines the stream of the journeys of the pnl app and the stream of the account subjects of the user service"
+value = "One. The type OnlineIndexKey takes a form for the text of one element of a jsonb array column at a position from 0 to 3. A plan may name the same column in several keys of that form at different positions. The functions keys, CreateSQL, InspectOnlineIndex and matches follow that form in the way they follow the member Numeric, and the statement text of every present plan stays as it is. Two. The raw log table carries one index over chain_id, emitter, the text of the element 0 of topics, the text of the element 2 of topics, height, transaction_index and log_index, and one index over chain_id, emitter, the text of the element 0 of topics, the text of the element 3 of topics, height, transaction_index and log_index. Three. Each of the two indexes is one schema file of its own, with the numbers 60007 and 60008, created concurrently in the form of the files 60004 and 60005 and registered in the form of their entries. Four. The table with its columns, its primary key and its present index, the views, the readiness record and the result of every statement stay. A statement of the three functions takes another spelling only where the planner needs it to use an index, and its entry in the statement record follows. Five. The catalog of the history cases of the package l18 names the two files, so that the database of these cases carries the two indexes. Task 22.39.1049. Six. The broker example defines the stream PNL_JOURNEYS with the subjects of the delivery policy of the journeys and the stream USERS with the ten subjects of the user example. The value of the setting ACCOUNT_NATS_STREAM in a deployment that follows the examples is USERS. Seven. The limits of the two streams take the form of the present entries. A durable entry is added for each consumer of the launchpad modules that reads one of the two streams under a durable name, and none where no such consumer exists. Eight. A case of the compose checks reads every example of the directory values and holds that each stream an example names for a publisher or a consumer is defined in the broker example and that each subject an example names for that stream is covered by the subjects of the stream. Nine. A case of the user module or of the pnl module that builds one of the two streams takes the subjects and the limits from the entry of the broker example; such a case may keep a name of its own for its stream. The README of the deploy documents and the README of the package brokerprovision follow. Task 22.39.1050."
+basis = "Gotcha 4774."
+affects = []
+
+[decision.3848]
+title = "The Go files of the launchpad modules carry the text of the format tool, the target ci runs its static stages first, and the voice case that ends its provider session holds over 200 consecutive runs"
+value = "One. Every Go file of the modules that the list MODULES of the launchpad Makefile names carries the text the format tool of the Go release of the setting GOTOOLCHAIN gives, and the target fmt-check names no file. Two. The target lint reports no finding in any module of the list. A finding is answered by a change of the code that keeps the behaviour; the configuration file of the linter, its release and the rules it runs stay as they are. Three. The target ci names its stages in the order build, vet, fmt-check, lint, test, race and cover-check, so that the stages that need no service of the job run first. The set of the stages, the target all, the other targets and the job launchpad-go-ci with its one call of the target ci stay. Four. A case of the wiring checks holds the order of the stages of the target ci, and the README of the directory services/launchpad names that order. Task 22.39.1051. Five. The case TestRecordingReconcilerKeepsCommittedStartAndStopIntent passes in 200 consecutive runs of its own. Six. The change sits at the site that a reading of 200 runs of the case names. A condition of the fixture is handled in the function localLiveKit. A condition of the function call or of the function End is handled in that function: its result for every other answer stays, and a repeat of a request stays inside ten seconds in total and applies only where the answer shows that the provider did not act on the request. Seven. The case keeps its two reconcile passes, its expectations and its last call of the function End, and no case of the package is removed, skipped or given a wider expectation. Task 22.39.1052."
+basis = "Gotcha 4775."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45852,6 +45864,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1052]
+title = "Let the voice case of the social module that ends its provider session after two reconcile passes hold over 200 consecutive runs"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social/internal/voice"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=social && (cd services/launchpad/social && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=200 -timeout 30m -run ^TestRecordingReconcilerKeepsCommittedStartAndStopIntent ./internal/voice/)"
+do_1 = "do_1 Gotcha 4775 second part, decision 3848 points five to seven. Read services/launchpad/social/internal/voice/reconcile_boundaries_test.go whole, the functions call, Find, Start and End of the type LiveKit in services/launchpad/social/internal/voice/provider.go, the function localLiveKit in services/launchpad/social/internal/voice/local_provider_test.go and the error ErrUnavailable in services/launchpad/social/internal/voice/control.go. Run the case TestRecordingReconcilerKeepsCommittedStartAndStopIntent alone 200 times ahead of any change, with the output of the local media server and of the reverse proxy of the fixture kept per run and with the return site of each error ErrUnavailable of the functions call and End made visible for these runs only. The final message names the count of the runs per result and, for each result other than a pass, the return site, the status and the body length the client saw, and what the media server and the reverse proxy logged at that moment."
+symbols = []
+
+[capability.22.39.1051]
+title = "Bring the Go files of the launchpad modules into the text of the format tool, let the target lint report no finding and let the target ci run its static stages first"
+reqs = ["22998.1"]
+touches = ["services/launchpad", "sdk/launchpad", "tests/ci"]
+tests = []
+verification_contract = "anvil --version > /dev/null && python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py && python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py -k test_launchpad_ci_target_order && make -C services/launchpad vet fmt-check && GOFLAGS=-timeout=15m make -C services/launchpad lint"
+do_1 = "do_1 Gotcha 4775 first part, decision 3848 points one to four. Read services/launchpad/Makefile whole, the cases test_launchpad_makefile_ci_target_exists, test_launchpad_lint_release_and_module_selection and test_launchpad_ci_job_runs_all_stages_with_go_test_services in tests/ci/test_launchpad_go_tests_wired.py, the case test_launchpad_go_jobs_share_every_ci_preparation_step in tests/ci/test_launchpad_test_workflow.py, the job launchpad-go-ci in .github/workflows/launchpad-test.yml and the part of services/launchpad/README.md on the targets. Run the target fmt-check and the target lint over every module of the list ahead of any change. The final message names the files the format tool names and, per module, the count of the findings of the linter by rule."
+symbols = []
+
+[capability.22.39.1050]
+title = "Let the broker example of the launchpad deploy documents define the stream of the journeys of the pnl app and the stream of the account subjects of the user service"
+reqs = ["22998.1"]
+touches = ["deploy/launchpad", "tools/deploy", "sdk/launchpad/shared/brokerprovision", "services/launchpad"]
+tests = []
+verification_contract = "anvil --version > /dev/null && python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash tools/deploy/tests/*-apply-variables.test.sh && bash deploy/launchpad/tests/*-values.test.sh && python3 -m pytest -q deploy/launchpad/documents/test_compose.py -k test_broker_example_covers && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 30m ./brokerprovision/...) && (cd services/launchpad/user && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module .) && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+do_1 = "do_1 Gotcha 4774 second part, decision 3847 points six to nine. Read deploy/launchpad/documents/values/broker.example.json, deploy/launchpad/documents/values/pnl.journeys.example.json, deploy/launchpad/documents/values/user.example.json, the part of deploy/launchpad/documents/README.md on the journey stream, the subjects in services/launchpad/pnl-tracker/internal/production/l18/outbox.go, the publisher in services/launchpad/pnl-tracker/internal/app/app.go, services/launchpad/user/internal/app/account_runtime.go and services/launchpad/user/internal/config/config.go, the document type and the README of the package sdk/launchpad/shared/brokerprovision, and every case file of the launchpad modules and of the shared module that reads the broker example. The final message names for each of these case files whether it takes entries of the example by name or the whole document, and for each of the two streams its limits and why."
+symbols = []
+
+[capability.22.39.1049]
+title = "Give the raw log table of the launchpad schema two online indexes by emitter and topic for the reads of the reward read of the pnl app"
+reqs = ["22998.1"]
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad/pnl-tracker/internal"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestRewardLogIndex ./internal/production/l18/ | grep -q ^TestRewardLogIndex) && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 30m ./db/production/... && GOWORK=off go test -count=1 -list ^TestOnlineIndexTopic ./db/production/ | grep -q ^TestOnlineIndexTopic)"
+do_1 = "do_1 Gotcha 4774 first part, decision 3847 points one to five. Read sdk/launchpad/shared/db/production/online_indexes.go whole with its cases, the files migrations/60000.sql, migrations/190001.sql, migrations/60004.sql and migrations/60005.sql, the entries of the files 60004 and 60005 in migrations/registry.json and how the package sdk/launchpad/shared/db/production checks and applies such an entry, the functions rewardCandidates, indexedOwner and claimedHistory in services/launchpad/pnl-tracker/internal/production/l18/journeys.go, the catalog services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/catalog.json and how the history cases of the package l18 build their database from it. The final message names every statement of the launchpad modules that reads the raw log table or its view by emitter and topic, with its file, and which of the two indexes serves it."
+symbols = []
 
 [capability.22.39.1048]
 title = "Let every answer of the launchpad social module give the creation time of a message as the whole seconds at or below the stored time"
@@ -210583,9 +210631,129 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1052]
+title = "Let the voice case of the social module that ends its provider session after two reconcile passes hold over 200 consecutive runs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1052"]
+interfaces = []
+do_1 = "do_1 Gotcha 4775 second part, decision 3848 points five to seven. Read services/launchpad/social/internal/voice/reconcile_boundaries_test.go whole, the functions call, Find, Start and End of the type LiveKit in services/launchpad/social/internal/voice/provider.go, the function localLiveKit in services/launchpad/social/internal/voice/local_provider_test.go and the error ErrUnavailable in services/launchpad/social/internal/voice/control.go. Run the case TestRecordingReconcilerKeepsCommittedStartAndStopIntent alone 200 times ahead of any change, with the output of the local media server and of the reverse proxy of the fixture kept per run and with the return site of each error ErrUnavailable of the functions call and End made visible for these runs only. The final message names the count of the runs per result and, for each result other than a pass, the return site, the status and the body length the client saw, and what the media server and the reverse proxy logged at that moment."
+do_2 = "do_2 Make the change at the site that reading names, under decision 3848 point six. Where the condition lies in the fixture, the function localLiveKit handles it, for example in the transport between the reverse proxy and the media server or in its wait for the first answer. Where it lies in the function call or in the function End, that function follows under the bounds of decision 3848 point six, and cases with a provider stand-in drive the changed function for the answer the reading names and for the answers that keep their result."
+do_3 = "do_3 Run the case alone 200 times again and name the count of the runs per result in the final message. The case keeps its two reconcile passes, its expectations and its last call of the function End under decision 3848 point seven. The present cases of the social module stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social/internal/voice"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/social && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=social && (cd services/launchpad/social && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=200 -timeout 30m -run ^TestRecordingReconcilerKeepsCommittedStartAndStopIntent ./internal/voice/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1051]
+title = "Bring the Go files of the launchpad modules into the text of the format tool, let the target lint report no finding and let the target ci run its static stages first"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1051"]
+interfaces = []
+do_1 = "do_1 Gotcha 4775 first part, decision 3848 points one to four. Read services/launchpad/Makefile whole, the cases test_launchpad_makefile_ci_target_exists, test_launchpad_lint_release_and_module_selection and test_launchpad_ci_job_runs_all_stages_with_go_test_services in tests/ci/test_launchpad_go_tests_wired.py, the case test_launchpad_go_jobs_share_every_ci_preparation_step in tests/ci/test_launchpad_test_workflow.py, the job launchpad-go-ci in .github/workflows/launchpad-test.yml and the part of services/launchpad/README.md on the targets. Run the target fmt-check and the target lint over every module of the list ahead of any change. The final message names the files the format tool names and, per module, the count of the findings of the linter by rule."
+do_2 = "do_2 Bring each file the format tool names into the text of the format tool of the Go release the Makefile sets, among them the seven files of gotcha 4775; such a change holds nothing but what the tool gives. Answer each finding of the linter by a change of the code under decision 3848 point two. For each package in which a file changes other than by the format tool, run its cases once ahead of the verification and name the result per package in the final message. The behaviour of every function stays."
+do_3 = "do_3 Let the target ci of services/launchpad/Makefile name its stages in the order build, vet, fmt-check, lint, test, race and cover-check under decision 3848 point three. Add to tests/ci/test_launchpad_go_tests_wired.py a case whose name begins with test_launchpad_ci_target_order that reads the Makefile and holds this order, and let services/launchpad/README.md name the order of the stages of the target ci. Run once the target race for the module user and for the module ranking-algo and the target cover-check for the module user, each with the variable MODULES on the make command line, and name the duration and the result of each in the final message; a result other than a pass is named and stays outside this task. The present cases stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad", "sdk/launchpad", "tests/ci"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && make -C services/launchpad build"
+verify_cmd = "anvil --version > /dev/null && python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py tests/ci/test_launchpad_test_workflow.py && python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py -k test_launchpad_ci_target_order && make -C services/launchpad vet fmt-check && GOFLAGS=-timeout=15m make -C services/launchpad lint"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1050]
+title = "Let the broker example of the launchpad deploy documents define the stream of the journeys of the pnl app and the stream of the account subjects of the user service"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1050"]
+interfaces = []
+do_1 = "do_1 Gotcha 4774 second part, decision 3847 points six to nine. Read deploy/launchpad/documents/values/broker.example.json, deploy/launchpad/documents/values/pnl.journeys.example.json, deploy/launchpad/documents/values/user.example.json, the part of deploy/launchpad/documents/README.md on the journey stream, the subjects in services/launchpad/pnl-tracker/internal/production/l18/outbox.go, the publisher in services/launchpad/pnl-tracker/internal/app/app.go, services/launchpad/user/internal/app/account_runtime.go and services/launchpad/user/internal/config/config.go, the document type and the README of the package sdk/launchpad/shared/brokerprovision, and every case file of the launchpad modules and of the shared module that reads the broker example. The final message names for each of these case files whether it takes entries of the example by name or the whole document, and for each of the two streams its limits and why."
+do_2 = "do_2 Add to the broker example the stream PNL_JOURNEYS with the subjects of the delivery policy named in services/launchpad/pnl-tracker/internal/production/l18/outbox.go and the stream USERS with the ten subjects of the user example, each in the form of the present stream entries, with the durable entries of decision 3847 point seven. Let the case in services/launchpad/user/internal/app/deployment_test.go that builds the stream of the account runtime, and each case of the pnl module that builds a stream for the journeys, take the subjects and the limits from the entry of the example under decision 3847 point nine. Where a case of a module hands the whole document to a broker with a storage bound, let the bound follow the document. Let deploy/launchpad/documents/README.md name both streams as part of the example and the value USERS for the setting ACCOUNT_NATS_STREAM, and let the README of the package sdk/launchpad/shared/brokerprovision follow where it describes the streams of the example."
+do_3 = "do_3 Add to deploy/launchpad/documents/test_compose.py a case whose name begins with test_broker_example_covers. It reads every example document of the directory values and collects each stream an example names for a publisher or a consumer, among them the member brokerStream of the journey example and the stream members of the durable and consumer entries of the service examples. It holds that the broker example defines each of these streams and that each subject an example names for a stream is covered by the subjects of that stream under the wildcard rules of the broker, and that each subject of the user example is covered by the stream USERS. Ahead of the verification run once the package app of each launchpad module whose case file reads the broker example and name the result per module in the final message; a case that reads the example and does not pass with the two streams is brought in step inside this task. The present cases stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/launchpad", "tools/deploy", "sdk/launchpad/shared/brokerprovision", "services/launchpad"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && python3 -m py_compile deploy/launchpad/documents/compose.py && (cd services/launchpad/user && GOWORK=off go vet ./...) && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && python3 -m pytest -q deploy/launchpad/documents/test_compose.py && bash tools/deploy/tests/*-apply-variables.test.sh && bash deploy/launchpad/tests/*-values.test.sh && python3 -m pytest -q deploy/launchpad/documents/test_compose.py -k test_broker_example_covers && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 30m ./brokerprovision/...) && (cd services/launchpad/user && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module .) && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module .)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1049]
+title = "Give the raw log table of the launchpad schema two online indexes by emitter and topic for the reads of the reward read of the pnl app"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1047"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1049"]
+interfaces = []
+do_1 = "do_1 Gotcha 4774 first part, decision 3847 points one to five. Read sdk/launchpad/shared/db/production/online_indexes.go whole with its cases, the files migrations/60000.sql, migrations/190001.sql, migrations/60004.sql and migrations/60005.sql, the entries of the files 60004 and 60005 in migrations/registry.json and how the package sdk/launchpad/shared/db/production checks and applies such an entry, the functions rewardCandidates, indexedOwner and claimedHistory in services/launchpad/pnl-tracker/internal/production/l18/journeys.go, the catalog services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/catalog.json and how the history cases of the package l18 build their database from it. The final message names every statement of the launchpad modules that reads the raw log table or its view by emitter and topic, with its file, and which of the two indexes serves it."
+do_2 = "do_2 Give the type OnlineIndexKey the form of decision 3847 point one and let the functions keys, CreateSQL, InspectOnlineIndex and matches follow it. Add cases whose names begin with TestOnlineIndexTopic in the package production: the statement text of CreateSQL for a plan with two keys of the new form on one column and plain keys around them; the refusal of a position outside 0 to 3, of two keys with the same column and the same position, and of a key that sets the new form together with the member Numeric; and, with the database of the present online index cases, an index created from such a plan that InspectOnlineIndex finds and that matches its plan and does not match a plan with another position. Add the schema files 60007 and 60008 with the two indexes of decision 3847 point two, each in the form of the file 60004, and register them in the form of the entries of the files 60004 and 60005 with the checksums and the approval digest the tool of the package gives. Add the two files to the catalog of the history cases. The table, its primary key, its present index, the views and the readiness record stay as they are."
+do_3 = "do_3 Add cases whose names begin with TestRewardLogIndex in the package l18, with the database of the present history cases. The raw log table holds at least 20000 logs of other wallets, tokens and pools from the contracts NFT and Accumulator and a few logs of one wallet. The case takes the statement texts and their arguments from a recording of one call of the function Rewards for that wallet, not from a copy of the text. After an analyze of the table, the plan the database gives with its explain command for the candidate statement, for the statement of the function indexedOwner and for the statement of the function claimedHistory names one of the two indexes and holds no sequential read of the raw log table. The case may switch the planner setting for sequential reads off inside its transaction. The answer of the function Rewards for that wallet holds the markets of the wallet and no other. Where a statement needs another spelling for the planner, change it under decision 3847 point four and name it in the final message. The present cases of the two modules stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["migrations", "sdk/launchpad/shared/db/production", "services/launchpad/pnl-tracker/internal"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...) && (cd sdk/launchpad/shared && GOWORK=off go vet ./db/production/...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestRewardLogIndex ./internal/production/l18/ | grep -q ^TestRewardLogIndex) && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 30m ./db/production/... && GOWORK=off go test -count=1 -list ^TestOnlineIndexTopic ./db/production/ | grep -q ^TestOnlineIndexTopic)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1048]
 title = "Let every answer of the launchpad social module give the creation time of a message as the whole seconds at or below the stored time"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
