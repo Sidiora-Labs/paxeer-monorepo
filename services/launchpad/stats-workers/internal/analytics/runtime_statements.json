@@ -7847,7 +7847,7 @@
       "function": "Store.Enqueue",
       "call": 1,
       "expression": "\"INSERT INTO \"+s.table(\"delivery_outbox\")+\"(event_id,schema_version,subject,payload_hash,envelope) VALUES($1,$2,$3,$4,$5) ON CONFLICT(event_id) DO NOTHING\"",
-      "line": 149,
+      "line": 159,
       "sql": "INSERT INTO \"stats\".\"delivery_outbox\"(event_id,schema_version,subject,payload_hash,envelope) VALUES($1,$2,$3,$4,$5) ON CONFLICT(event_id) DO NOTHING",
       "kind": "INSERT",
       "tables": [
@@ -7857,14 +7857,14 @@
       "functions": [],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.Enqueue_1",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.Enqueue",
       "call": 2,
       "expression": "\"SELECT subject,envelope FROM \"+s.table(\"delivery_outbox\")+\" WHERE event_id=$1\"",
-      "line": 158,
+      "line": 168,
       "sql": "SELECT subject,envelope FROM \"stats\".\"delivery_outbox\" WHERE event_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -7878,15 +7878,15 @@
       "functions": [],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.Enqueue_2",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.Claim",
       "call": 1,
-      "expression": "`WITH picked AS (SELECT event_id FROM `+s.table(\"delivery_outbox\")+` WHERE state='pending' AND available_at<=clock_timestamp() AND (lease_until IS NULL OR lease_until<=clock_timestamp()) ORDER BY created_at,event_id FOR UPDATE SKIP LOCKED LIMIT $1)\n UPDATE `+s.table(\"delivery_outbox\")+` o SET lease_expiry_count=o.lease_expiry_count+CASE WHEN o.lease_until<=clock_timestamp() THEN 1 ELSE 0 END,claimed_at=clock_timestamp(),lease_owner=$2,lease_until=clock_timestamp()+($3::bigint*interval '1 millisecond'),fence=o.fence+1,attempts=o.attempts+1 FROM picked WHERE o.event_id=picked.event_id RETURNING o.event_id,o.subject,o.envelope,o.fence,o.attempts`",
-      "line": 180,
-      "sql": "WITH picked AS (SELECT event_id FROM \"stats\".\"delivery_outbox\" WHERE state='pending' AND available_at<=clock_timestamp() AND (lease_until IS NULL OR lease_until<=clock_timestamp()) ORDER BY created_at,event_id FOR UPDATE SKIP LOCKED LIMIT $1)\n UPDATE \"stats\".\"delivery_outbox\" o SET lease_expiry_count=o.lease_expiry_count+CASE WHEN o.lease_until<=clock_timestamp() THEN 1 ELSE 0 END,claimed_at=clock_timestamp(),lease_owner=$2,lease_until=clock_timestamp()+($3::bigint*interval '1 millisecond'),fence=o.fence+1,attempts=o.attempts+1 FROM picked WHERE o.event_id=picked.event_id RETURNING o.event_id,o.subject,o.envelope,o.fence,o.attempts",
+      "expression": "`WITH picked AS (SELECT event_id FROM `+s.table(\"delivery_outbox\")+` WHERE state='pending' AND subject=ANY($4::text[]) AND available_at<=clock_timestamp() AND (lease_until IS NULL OR lease_until<=clock_timestamp()) ORDER BY created_at,event_id FOR UPDATE SKIP LOCKED LIMIT $1)\n UPDATE `+s.table(\"delivery_outbox\")+` o SET lease_expiry_count=o.lease_expiry_count+CASE WHEN o.lease_until<=clock_timestamp() THEN 1 ELSE 0 END,claimed_at=clock_timestamp(),lease_owner=$2,lease_until=clock_timestamp()+($3::bigint*interval '1 millisecond'),fence=o.fence+1,attempts=o.attempts+1 FROM picked WHERE o.event_id=picked.event_id RETURNING o.event_id,o.subject,o.envelope,o.fence,o.attempts`",
+      "line": 190,
+      "sql": "WITH picked AS (SELECT event_id FROM \"stats\".\"delivery_outbox\" WHERE state='pending' AND subject=ANY($4::text[]) AND available_at<=clock_timestamp() AND (lease_until IS NULL OR lease_until<=clock_timestamp()) ORDER BY created_at,event_id FOR UPDATE SKIP LOCKED LIMIT $1)\n UPDATE \"stats\".\"delivery_outbox\" o SET lease_expiry_count=o.lease_expiry_count+CASE WHEN o.lease_until<=clock_timestamp() THEN 1 ELSE 0 END,claimed_at=clock_timestamp(),lease_owner=$2,lease_until=clock_timestamp()+($3::bigint*interval '1 millisecond'),fence=o.fence+1,attempts=o.attempts+1 FROM picked WHERE o.event_id=picked.event_id RETURNING o.event_id,o.subject,o.envelope,o.fence,o.attempts",
       "kind": "UPDATE",
       "tables": [
         "stats.delivery_outbox"
@@ -7904,21 +7904,22 @@
         "o.lease_until",
         "o.subject",
         "picked.event_id",
-        "state"
+        "state",
+        "subject"
       ],
       "functions": [
         "clock_timestamp"
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.Claim_1",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.MarkPublished",
       "call": 1,
       "expression": "\"UPDATE \"+s.table(\"delivery_outbox\")+\" SET acknowledgement_latency_ms=GREATEST(0,EXTRACT(EPOCH FROM (clock_timestamp()-claimed_at))*1000)::bigint,state='published',broker_stream=$4,broker_sequence=$5,published_at=clock_timestamp(),lease_owner=NULL,lease_until=NULL,failure_class=NULL WHERE event_id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() AND state='pending'\"",
-      "line": 212,
+      "line": 222,
       "sql": "UPDATE \"stats\".\"delivery_outbox\" SET acknowledgement_latency_ms=GREATEST(0,EXTRACT(EPOCH FROM (clock_timestamp()-claimed_at))*1000)::bigint,state='published',broker_stream=$4,broker_sequence=$5,published_at=clock_timestamp(),lease_owner=NULL,lease_until=NULL,failure_class=NULL WHERE event_id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() AND state='pending'",
       "kind": "UPDATE",
       "tables": [
@@ -7938,14 +7939,14 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.MarkPublished_1",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.Retry",
       "call": 1,
       "expression": "\"UPDATE \"+s.table(\"delivery_outbox\")+\" SET state=CASE WHEN attempts >= $4 OR $5 <> 'transient' THEN 'quarantined' ELSE 'pending' END,failure_class=$5,available_at=clock_timestamp()+($6::bigint*interval '1 millisecond'),lease_owner=NULL,lease_until=NULL WHERE event_id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() AND state='pending'\"",
-      "line": 243,
+      "line": 253,
       "sql": "UPDATE \"stats\".\"delivery_outbox\" SET state=CASE WHEN attempts >= $4 OR $5 <> 'transient' THEN 'quarantined' ELSE 'pending' END,failure_class=$5,available_at=clock_timestamp()+($6::bigint*interval '1 millisecond'),lease_owner=NULL,lease_until=NULL WHERE event_id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() AND state='pending'",
       "kind": "UPDATE",
       "tables": [
@@ -7964,14 +7965,14 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.Retry_1",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.CheckAttemptBudget",
       "call": 1,
       "expression": "\"UPDATE \"+s.table(\"delivery_outbox\")+\" SET state=CASE WHEN attempts>$4 THEN 'quarantined' ELSE state END,failure_class=CASE WHEN attempts>$4 THEN 'transient' ELSE failure_class END,lease_owner=CASE WHEN attempts>$4 THEN NULL ELSE lease_owner END,lease_until=CASE WHEN attempts>$4 THEN NULL ELSE lease_until END WHERE event_id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() AND state='pending' RETURNING attempts>$4\"",
-      "line": 263,
+      "line": 273,
       "sql": "UPDATE \"stats\".\"delivery_outbox\" SET state=CASE WHEN attempts>$4 THEN 'quarantined' ELSE state END,failure_class=CASE WHEN attempts>$4 THEN 'transient' ELSE failure_class END,lease_owner=CASE WHEN attempts>$4 THEN NULL ELSE lease_owner END,lease_until=CASE WHEN attempts>$4 THEN NULL ELSE lease_until END WHERE event_id=$1 AND lease_owner=$2 AND fence=$3 AND lease_until>clock_timestamp() AND state='pending' RETURNING attempts>$4",
       "kind": "UPDATE",
       "tables": [
@@ -7991,14 +7992,14 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.CheckAttemptBudget_1",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.Consume",
       "call": 1,
       "expression": "\"INSERT INTO \"+s.table(\"delivery_inbox\")+\"(consumer_id,projection_generation,event_id,envelope_hash) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING\"",
-      "line": 308,
+      "line": 318,
       "sql": "INSERT INTO \"stats\".\"delivery_inbox\"(consumer_id,projection_generation,event_id,envelope_hash) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
       "kind": "INSERT",
       "tables": [
@@ -8008,14 +8009,14 @@
       "functions": [],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.Consume_1",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.Consume",
       "call": 2,
       "expression": "\"SELECT envelope_hash FROM \"+s.table(\"delivery_inbox\")+\" WHERE consumer_id=$1 AND projection_generation=$2 AND event_id=$3\"",
-      "line": 318,
+      "line": 328,
       "sql": "SELECT envelope_hash FROM \"stats\".\"delivery_inbox\" WHERE consumer_id=$1 AND projection_generation=$2 AND event_id=$3",
       "kind": "SELECT",
       "tables": [
@@ -8030,14 +8031,14 @@
       "functions": [],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.Consume_2",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.quarantineConsumer",
       "call": 1,
       "expression": "\"INSERT INTO \"+s.table(\"delivery_quarantine\")+\"(consumer_id,projection_generation,envelope_hash,subject,envelope,failure_class) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING\"",
-      "line": 346,
+      "line": 356,
       "sql": "INSERT INTO \"stats\".\"delivery_quarantine\"(consumer_id,projection_generation,envelope_hash,subject,envelope,failure_class) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING",
       "kind": "INSERT",
       "tables": [
@@ -8047,14 +8048,14 @@
       "functions": [],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.quarantineConsumer_1",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.quarantineConsumer",
       "call": 2,
       "expression": "\"SELECT subject,envelope,failure_class FROM \"+s.table(\"delivery_quarantine\")+\" WHERE consumer_id=$1 AND projection_generation=$2 AND envelope_hash=$3\"",
-      "line": 352,
+      "line": 362,
       "sql": "SELECT subject,envelope,failure_class FROM \"stats\".\"delivery_quarantine\" WHERE consumer_id=$1 AND projection_generation=$2 AND envelope_hash=$3",
       "kind": "SELECT",
       "tables": [
@@ -8071,15 +8072,15 @@
       "functions": [],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.quarantineConsumer_2",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.Stats",
       "call": 1,
-      "expression": "`SELECT count(*) FILTER(WHERE state='pending'),\n COALESCE(sum(octet_length(envelope)) FILTER(WHERE state<>'published'),0)::bigint,\n count(*) FILTER(WHERE state='quarantined'),\n COALESCE(EXTRACT(EPOCH FROM (clock_timestamp()-min(created_at) FILTER(WHERE state<>'published'))),0)::double precision,\n COALESCE(sum(lease_expiry_count),0)::bigint,\n COALESCE(max(acknowledgement_latency_ms),0)::bigint FROM `+s.table(\"delivery_outbox\")",
-      "line": 375,
-      "sql": "SELECT count(*) FILTER(WHERE state='pending'),\n COALESCE(sum(octet_length(envelope)) FILTER(WHERE state<>'published'),0)::bigint,\n count(*) FILTER(WHERE state='quarantined'),\n COALESCE(EXTRACT(EPOCH FROM (clock_timestamp()-min(created_at) FILTER(WHERE state<>'published'))),0)::double precision,\n COALESCE(sum(lease_expiry_count),0)::bigint,\n COALESCE(max(acknowledgement_latency_ms),0)::bigint FROM \"stats\".\"delivery_outbox\"",
+      "expression": "`SELECT count(*) FILTER(WHERE state='pending'),\n COALESCE(sum(octet_length(envelope)) FILTER(WHERE state<>'published'),0)::bigint,\n count(*) FILTER(WHERE state='quarantined'),\n COALESCE(EXTRACT(EPOCH FROM (clock_timestamp()-min(created_at) FILTER(WHERE state<>'published'))),0)::double precision,\n COALESCE(sum(lease_expiry_count),0)::bigint,\n COALESCE(max(acknowledgement_latency_ms),0)::bigint FROM `+s.table(\"delivery_outbox\")+` WHERE subject=ANY($1::text[])`",
+      "line": 385,
+      "sql": "SELECT count(*) FILTER(WHERE state='pending'),\n COALESCE(sum(octet_length(envelope)) FILTER(WHERE state<>'published'),0)::bigint,\n count(*) FILTER(WHERE state='quarantined'),\n COALESCE(EXTRACT(EPOCH FROM (clock_timestamp()-min(created_at) FILTER(WHERE state<>'published'))),0)::double precision,\n COALESCE(sum(lease_expiry_count),0)::bigint,\n COALESCE(max(acknowledgement_latency_ms),0)::bigint FROM \"stats\".\"delivery_outbox\" WHERE subject=ANY($1::text[])",
       "kind": "SELECT",
       "tables": [
         "stats.delivery_outbox"
@@ -8089,7 +8090,8 @@
         "created_at",
         "envelope",
         "lease_expiry_count",
-        "state"
+        "state",
+        "subject"
       ],
       "functions": [
         "clock_timestamp",
@@ -8102,14 +8104,14 @@
       ],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.Stats_1",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.ConsumeOrdered",
       "call": 1,
       "expression": "\"INSERT INTO \"+s.table(\"delivery_inbox\")+\"(consumer_id,projection_generation,event_id,envelope_hash) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING\"",
-      "line": 510,
+      "line": 520,
       "sql": "INSERT INTO \"stats\".\"delivery_inbox\"(consumer_id,projection_generation,event_id,envelope_hash) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",
       "kind": "INSERT",
       "tables": [
@@ -8119,14 +8121,14 @@
       "functions": [],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.ConsumeOrdered_1",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.ConsumeOrdered",
       "call": 2,
       "expression": "\"SELECT envelope_hash FROM \"+s.table(\"delivery_inbox\")+\" WHERE consumer_id=$1 AND projection_generation=$2 AND event_id=$3\"",
-      "line": 523,
+      "line": 533,
       "sql": "SELECT envelope_hash FROM \"stats\".\"delivery_inbox\" WHERE consumer_id=$1 AND projection_generation=$2 AND event_id=$3",
       "kind": "SELECT",
       "tables": [
@@ -8141,14 +8143,14 @@
       "functions": [],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.ConsumeOrdered_2",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.QuarantineAfterRollback",
       "call": 1,
       "expression": "\"SELECT partition_kind,partition_key FROM \"+s.table(\"delivery_partition_leases\")+\" WHERE \"+predicate+\" ORDER BY partition_kind,partition_key LIMIT 1001 FOR UPDATE\"",
-      "line": 614,
+      "line": 624,
       "sql": "SELECT partition_kind,partition_key FROM \"stats\".\"delivery_partition_leases\" WHERE consumer_id=$1 AND projection_generation=$2 AND partition_kind=$3 AND partition_key=$4 ORDER BY partition_kind,partition_key LIMIT 1001 FOR UPDATE",
       "kind": "SELECT",
       "tables": [
@@ -8163,14 +8165,14 @@
       "functions": [],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.QuarantineAfterRollback_1",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.QuarantineAfterRollback",
       "call": 2,
       "expression": "\"SELECT partition_kind,partition_key FROM \"+s.table(\"delivery_partition_offsets\")+\" WHERE \"+predicate+\" ORDER BY partition_kind,partition_key LIMIT 1001 FOR UPDATE\"",
-      "line": 635,
+      "line": 645,
       "sql": "SELECT partition_kind,partition_key FROM \"stats\".\"delivery_partition_offsets\" WHERE consumer_id=$1 AND projection_generation=$2 AND partition_kind=$3 AND partition_key=$4 ORDER BY partition_kind,partition_key LIMIT 1001 FOR UPDATE",
       "kind": "SELECT",
       "tables": [
@@ -8185,14 +8187,14 @@
       "functions": [],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.QuarantineAfterRollback_2",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.QuarantineAfterRollback",
       "call": 3,
       "expression": "\"INSERT INTO \"+s.table(\"delivery_ordered_quarantine\")+\"(consumer_id,projection_generation,envelope_hash,failure_class,subject,publication_id,envelope,affected_pools,evidence_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING\"",
-      "line": 656,
+      "line": 666,
       "sql": "INSERT INTO \"stats\".\"delivery_ordered_quarantine\"(consumer_id,projection_generation,envelope_hash,failure_class,subject,publication_id,envelope,affected_pools,evidence_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING",
       "kind": "INSERT",
       "tables": [
@@ -8202,14 +8204,14 @@
       "functions": [],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.QuarantineAfterRollback_3",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.QuarantineAfterRollback",
       "call": 4,
       "expression": "\"SELECT subject,publication_id,envelope,affected_pools,evidence_digest FROM \"+s.table(\"delivery_ordered_quarantine\")+\" WHERE consumer_id=$1 AND projection_generation=$2 AND envelope_hash=$3 AND failure_class=$4 FOR UPDATE\"",
-      "line": 662,
+      "line": 672,
       "sql": "SELECT subject,publication_id,envelope,affected_pools,evidence_digest FROM \"stats\".\"delivery_ordered_quarantine\" WHERE consumer_id=$1 AND projection_generation=$2 AND envelope_hash=$3 AND failure_class=$4 FOR UPDATE",
       "kind": "SELECT",
       "tables": [
@@ -8229,14 +8231,14 @@
       "functions": [],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.QuarantineAfterRollback_4",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/store.go",
       "function": "Store.OriginalEnvelopeTx",
       "call": 1,
       "expression": "\"SELECT subject,envelope FROM \"+s.table(\"delivery_outbox\")+\" WHERE event_id=$1\"",
-      "line": 685,
+      "line": 695,
       "sql": "SELECT subject,envelope FROM \"stats\".\"delivery_outbox\" WHERE event_id=$1",
       "kind": "SELECT",
       "tables": [
@@ -8250,7 +8252,7 @@
       "functions": [],
       "sequences": [],
       "id": "sdk_launchpad_shared_delivery_store_Store.OriginalEnvelopeTx_1",
-      "source_sha256": "b62da5fe7f04e4665730b054fbcecb3f3b98273f86da33ca9f48cb92d1b54f4d"
+      "source_sha256": "c23cf7a4acd5a05e5d51a36251c193c39075857fdf98b37f68ef6ba28be2b315"
     },
     {
       "file": "sdk/launchpad/shared/delivery/partition.go",
@@ -9516,7 +9518,7 @@
       "function": "Store.ConsumeOrderedWithWatermark",
       "call": 1,
       "expression": "\"INSERT INTO \"+s.table(\"delivery_consumer_watermarks\")+`(consumer_id,generation,partition_kind,partition_key,broker_stream,broker_sequence,source_order,position_sequence,event_id,envelope_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(consumer_id,generation,partition_kind,partition_key) DO UPDATE SET broker_sequence=EXCLUDED.broker_sequence,source_order=EXCLUDED.source_order,position_sequence=EXCLUDED.position_sequence,event_id=EXCLUDED.event_id,envelope_hash=EXCLUDED.envelope_hash,committed_at=clock_timestamp() WHERE delivery_consumer_watermarks.broker_stream=EXCLUDED.broker_stream AND delivery_consumer_watermarks.position_sequence=EXCLUDED.position_sequence-1 AND delivery_consumer_watermarks.broker_sequence<EXCLUDED.broker_sequence`",
-      "line": 739,
+      "line": 749,
       "boundary": "Consumer watermark integration"
     },
     {
@@ -9524,7 +9526,7 @@
       "function": "Store.CheckIngestAdmissionTx",
       "call": 1,
       "expression": "\"SELECT pg_database_size(current_database()),COALESCE(sum(octet_length(envelope)) FILTER(WHERE state<>'published'),0)::bigint FROM \"+s.table(\"delivery_outbox\")",
-      "line": 766,
+      "line": 776,
       "boundary": "Indexer admission policy"
     },
     {
