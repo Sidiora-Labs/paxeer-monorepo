@@ -361,6 +361,50 @@ func (s *JourneyService) decodeCursor(token, who, program string) (rewardCursor,
 	}
 	return c, nil
 }
+func (s *JourneyService) rewardCandidates(ctx context.Context, who string, b Checkpoint, after string) ([]marketSource, error) {
+	tx, e := s.ledger.begin(ctx)
+	if e != nil {
+		return nil, e
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	rows, e := tx.Query(ctx, `SELECT c.nft_id::text,c.pool,c.creator,c.height,c.block_hash,c.transaction_hash,c.transaction_index::text,c.log_index::text
+   FROM indexer.indexer_canonical_creations_v1 c
+   WHERE c.nft_id>$1::numeric AND c.height<=$2 AND (
+    EXISTS (SELECT 1 FROM indexer.indexer_raw_logs_v1 l
+     JOIN indexer.indexer_block_completeness_v1 b ON b.chain_id=l.chain_id AND b.stream_id=$3
+      AND b.height=l.height AND b.block_hash=l.block_hash AND b.fetch_complete AND b.required_decode_complete
+     WHERE l.chain_id=125 AND l.emitter=$4 AND l.topics->>0=$5 AND l.topics->>2=$6
+      AND jsonb_array_length(l.topics)=4 AND l.height<=$2
+      AND CASE WHEN l.topics->>3 ~ '^0x[0-9a-f]{64}$' THEN (l.topics->>3)::numeric END=c.nft_id)
+    OR EXISTS (SELECT 1 FROM indexer.indexer_raw_logs_v1 l
+     JOIN indexer.indexer_block_completeness_v1 b ON b.chain_id=l.chain_id AND b.stream_id=$3
+      AND b.height=l.height AND b.block_hash=l.block_hash AND b.fetch_complete AND b.required_decode_complete
+     WHERE l.chain_id=125 AND l.emitter=$7 AND l.topics->>0=$8
+      AND l.topics->>1='0x000000000000000000000000'||lower(substr(c.pool,3)) AND l.topics->>2=$6 AND l.height<=$2))
+   ORDER BY c.nft_id LIMIT 100`, after, b.Number, s.sourceStream, NFT, nft.Events["Transfer"].ID.Hex(), addressTopic(who),
+		Accumulator, accumulator.Events["FeesClaimed"].ID.Hex())
+	if e != nil {
+		return nil, e
+	}
+	batch := []marketSource{}
+	for rows.Next() {
+		var m marketSource
+		if e = rows.Scan(&m.NFTID, &m.Pool, &m.Creator, &m.Height, &m.BlockHash, &m.TxHash, &m.TxIndex, &m.LogIndex); e != nil {
+			rows.Close()
+			return nil, e
+		}
+		batch = append(batch, m)
+	}
+	e = rows.Err()
+	rows.Close()
+	if e != nil {
+		return nil, e
+	}
+	if e = tx.Commit(ctx); e != nil {
+		return nil, e
+	}
+	return batch, nil
+}
 func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, cursor string, limit int) (RewardPage, error) {
 	out := RewardPage{Items: []iface.Reward{}}
 	who, e := wallet(actor.Wallet)
@@ -392,7 +436,7 @@ func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, curs
 		}
 	}
 	pinned.checked = &b
-	// Scan creation inventory in bounded pages, but page the wallet's rewards.
+	// Read wallet candidates in bounded pages, but page the wallet's rewards.
 	// Unrelated markets need no live contract read and cannot consume a page slot.
 	type relevantMarket struct {
 		source  marketSource
@@ -402,34 +446,9 @@ func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, curs
 	sources := []relevantMarket{}
 	scanAfter := after
 	for len(sources) <= limit {
-		tx, err := s.ledger.begin(ctx)
+		batch, err := s.rewardCandidates(ctx, who, b, scanAfter)
 		if err != nil {
 			return out, err
-		}
-		rows, err := tx.Query(ctx, `SELECT nft_id::text,pool,creator,height,block_hash,transaction_hash,transaction_index::text,log_index::text
-   FROM indexer.indexer_canonical_creations_v1 WHERE nft_id>$1::numeric AND height<=$2 ORDER BY nft_id LIMIT 100`, scanAfter, b.Number)
-		if err != nil {
-			_ = tx.Rollback(ctx)
-			return out, err
-		}
-		batch := []marketSource{}
-		for rows.Next() {
-			var m marketSource
-			if e = rows.Scan(&m.NFTID, &m.Pool, &m.Creator, &m.Height, &m.BlockHash, &m.TxHash, &m.TxIndex, &m.LogIndex); e != nil {
-				rows.Close()
-				_ = tx.Rollback(ctx)
-				return out, e
-			}
-			batch = append(batch, m)
-		}
-		e = rows.Err()
-		rows.Close()
-		if e != nil {
-			_ = tx.Rollback(ctx)
-			return out, e
-		}
-		if e = tx.Commit(ctx); e != nil {
-			return out, e
 		}
 		for _, m := range batch {
 			scanAfter = m.NFTID
