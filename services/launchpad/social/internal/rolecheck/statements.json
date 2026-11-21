@@ -429,10 +429,11 @@
       "o.lease_until",
       "o.subject",
       "picked.event_id",
-      "state"
+      "state",
+      "subject"
     ],
     "bindings": {},
-    "sql": "WITH picked AS (SELECT event_id FROM \"chat\".delivery_outbox WHERE state='pending' AND available_at<=clock_timestamp() AND (lease_until IS NULL OR lease_until<=clock_timestamp()) ORDER BY created_at,event_id FOR UPDATE SKIP LOCKED LIMIT $1)\n UPDATE \"chat\".delivery_outbox o SET lease_expiry_count=o.lease_expiry_count+CASE WHEN o.lease_until<=clock_timestamp() THEN 1 ELSE 0 END,claimed_at=clock_timestamp(),lease_owner=$2,lease_until=clock_timestamp()+($3::bigint*interval '1 millisecond'),fence=o.fence+1,attempts=o.attempts+1 FROM picked WHERE o.event_id=picked.event_id RETURNING o.event_id,o.subject,o.envelope,o.fence,o.attempts"
+    "sql": "WITH picked AS (SELECT event_id FROM \"chat\".delivery_outbox WHERE state='pending' AND subject=ANY($4::text[]) AND available_at<=clock_timestamp() AND (lease_until IS NULL OR lease_until<=clock_timestamp()) ORDER BY created_at,event_id FOR UPDATE SKIP LOCKED LIMIT $1)\n UPDATE \"chat\".delivery_outbox o SET lease_expiry_count=o.lease_expiry_count+CASE WHEN o.lease_until<=clock_timestamp() THEN 1 ELSE 0 END,claimed_at=clock_timestamp(),lease_owner=$2,lease_until=clock_timestamp()+($3::bigint*interval '1 millisecond'),fence=o.fence+1,attempts=o.attempts+1 FROM picked WHERE o.event_id=picked.event_id RETURNING o.event_id,o.subject,o.envelope,o.fence,o.attempts"
   },
   {
     "id": "shared/delivery/store.go:Store.MarkPublished:1",
@@ -631,10 +632,11 @@
       "created_at",
       "envelope",
       "lease_expiry_count",
-      "state"
+      "state",
+      "subject"
     ],
     "bindings": {},
-    "sql": "SELECT count(*) FILTER(WHERE state='pending'),\n COALESCE(sum(octet_length(envelope)) FILTER(WHERE state<>'published'),0)::bigint,\n count(*) FILTER(WHERE state='quarantined'),\n COALESCE(EXTRACT(EPOCH FROM (clock_timestamp()-min(created_at) FILTER(WHERE state<>'published'))),0)::double precision,\n COALESCE(sum(lease_expiry_count),0)::bigint,\n COALESCE(max(acknowledgement_latency_ms),0)::bigint FROM \"chat\".delivery_outbox"
+    "sql": "SELECT count(*) FILTER(WHERE state='pending'),\n COALESCE(sum(octet_length(envelope)) FILTER(WHERE state<>'published'),0)::bigint,\n count(*) FILTER(WHERE state='quarantined'),\n COALESCE(EXTRACT(EPOCH FROM (clock_timestamp()-min(created_at) FILTER(WHERE state<>'published'))),0)::double precision,\n COALESCE(sum(lease_expiry_count),0)::bigint,\n COALESCE(max(acknowledgement_latency_ms),0)::bigint FROM \"chat\".delivery_outbox WHERE subject=ANY($1::text[])"
   },
   {
     "id": "shared/queue/queue.go:EpochGuard.Assert:1",
