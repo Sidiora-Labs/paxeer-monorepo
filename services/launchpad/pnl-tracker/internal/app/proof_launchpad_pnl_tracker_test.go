@@ -45,6 +45,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-chi/chi/v5"
@@ -84,21 +85,41 @@ func proveLaunchpadPnLTracker(t *testing.T) {
 	execSQL(`INSERT INTO recovery.recovery_control(singleton,epoch,region,revision,checkpoint_sha256) VALUES(true,1,'local',1,$1)`, strings.Repeat("a", 64))
 	proofLaunchpadBootstrapRewardCoordinator(t, ctx, pool, root)
 	proofLaunchpadApplyRegisteredRewardMigration(t, ctx, pool, root)
-	execSQL(`CREATE TABLE indexer.indexer_canonical_creations (
-		nft_id numeric PRIMARY KEY,pool text NOT NULL,creator text NOT NULL,
-		height bigint NOT NULL,block_hash text NOT NULL,transaction_hash text NOT NULL,
-		transaction_index numeric NOT NULL,log_index numeric NOT NULL);
-		CREATE TABLE indexer.indexer_ingest_watermarks (
-		chain_id bigint,stream_id text,raw_complete_height bigint,typed_complete_height bigint);
-		CREATE TABLE indexer.indexer_block_completeness (
-		chain_id bigint,stream_id text,height bigint,block_hash text,
-		fetch_complete boolean,required_decode_complete boolean)`)
+	for _, table := range []string{"indexer_ingest_watermarks", "indexer_raw_logs", "indexer_block_completeness"} {
+		execSQL(internaltest.RegisteredObjectSQL(t, 60000, "TABLE", "indexer."+table))
+	}
+	execSQL(internaltest.RegisteredObjectSQL(t, 190001, "TABLE", "indexer.indexer_canonical_creations"))
+	for _, view := range []string{"indexer_canonical_creations_v1", "indexer_raw_logs_v1", "indexer_block_completeness_v1", "indexer_ingest_watermarks_v1"} {
+		execSQL(internaltest.RegisteredObjectSQL(t, 190001, "VIEW", "indexer."+view))
+	}
 	var head struct {
 		Number hexutil.Uint64 `json:"number"`
 		Hash   string         `json:"hash"`
 	}
 	if err := r.CallContext(ctx, &head, "eth_getBlockByNumber", "latest", false); err != nil {
 		t.Fatal(err)
+	}
+	var logs []types.Log
+	if err := r.CallContext(ctx, &logs, "eth_getLogs", map[string]any{"fromBlock": "0x0", "toBlock": hexutil.EncodeUint64(uint64(head.Number))}); err != nil {
+		t.Fatal(err)
+	}
+	for _, event := range logs {
+		topics, err := json.Marshal(event.Topics)
+		if err != nil {
+			t.Fatal(err)
+		}
+		execSQL(`INSERT INTO indexer.indexer_raw_logs(chain_id,transaction_hash,log_index,height,transaction_index,block_hash,emitter,topics,data)
+			VALUES(125,$1,$2,$3,$4,$5,$6,$7,$8)`, event.TxHash.Hex(), event.Index, event.BlockNumber, event.TxIndex, event.BlockHash.Hex(), strings.ToLower(event.Address.Hex()), topics, append([]byte{}, event.Data...))
+	}
+	for height := uint64(0); height <= uint64(head.Number); height++ {
+		var block struct {
+			Hash string
+		}
+		if err := r.CallContext(ctx, &block, "eth_getBlockByNumber", hexutil.EncodeUint64(height), false); err != nil {
+			t.Fatal(err)
+		}
+		execSQL(`INSERT INTO indexer.indexer_block_completeness(chain_id,stream_id,height,block_hash,raw_count,fetch_complete,required_decode_complete)
+			SELECT 125,'proof',$1,$2,count(*),true,true FROM indexer.indexer_raw_logs WHERE chain_id=125 AND height=$1`, height, block.Hash)
 	}
 	var minted []struct {
 		Topics           []string       `json:"topics"`
@@ -115,9 +136,19 @@ func proveLaunchpadPnLTracker(t *testing.T) {
 		t.Fatalf("actual NFT creation: logs=%+v err=%v", minted, err)
 	}
 	m := minted[0]
-	execSQL(`INSERT INTO indexer.indexer_canonical_creations VALUES(1,$1,$2,$3,$4,$5,$6,$7)`, fixture.Pool, fixture.Alice, uint64(m.BlockNumber), m.BlockHash, m.TransactionHash, uint64(m.TransactionIndex), uint64(m.LogIndex))
+	var creation struct {
+		Timestamp hexutil.Uint64
+	}
+	if err := r.CallContext(ctx, &creation, "eth_getBlockByNumber", hexutil.EncodeUint64(uint64(m.BlockNumber)), false); err != nil {
+		t.Fatal(err)
+	}
+	provenance, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	execSQL(`INSERT INTO indexer.indexer_canonical_creations(token,pool,creator,factory,optical,nft_id,height,block_hash,transaction_hash,transaction_index,log_index,block_timestamp,provenance,payload)
+		VALUES($1,$2,$3,$4,$4,1,$5,$6,$7,$8,$9,$10,$11,$11)`, fixture.Token, fixture.Pool, fixture.Alice, (common.Address{}).Hex(), uint64(m.BlockNumber), m.BlockHash, m.TransactionHash, uint64(m.TransactionIndex), uint64(m.LogIndex), uint64(creation.Timestamp), provenance)
 	execSQL(`INSERT INTO indexer.indexer_ingest_watermarks VALUES(125,'proof', $1,$1)`, uint64(head.Number))
-	execSQL(`INSERT INTO indexer.indexer_block_completeness VALUES(125,'proof',$1,$2,true,true)`, uint64(head.Number), head.Hash)
 	guard, err := queue.NewEpochGuard("recovery", 1, "local")
 	if err != nil {
 		t.Fatal(err)
@@ -356,7 +387,7 @@ func proveLaunchpadPnLTracker(t *testing.T) {
 	}
 }
 
-type proofLaunchpadFixture struct{ Pool, Alice, Bob string }
+type proofLaunchpadFixture struct{ Pool, Token, Alice, Bob string }
 
 func proofLaunchpadRewardRegistry(t *testing.T, root string) (production.MigrationRegistry, error) {
 
@@ -571,7 +602,15 @@ func proofLaunchpadPostgres(t *testing.T, ctx context.Context) (string, *pgxpool
 func proofLaunchpadChain(t *testing.T, ctx context.Context, root string) (*rpc.Client, proofLaunchpadFixture) {
 	t.Helper()
 	r, fixture := internaltest.NewAnvilFixture(t, ctx, root)
-	return r, proofLaunchpadFixture{Pool: fixture.Pool, Alice: fixture.Alice, Bob: fixture.Bob}
+	for name, address := range map[string]string{"pool": fixture.Pool, "token": fixture.Token, "alice": fixture.Alice, "bob": fixture.Bob} {
+		if !common.IsHexAddress(address) || common.HexToAddress(address) == (common.Address{}) {
+			t.Fatalf("contract fixture %s address is invalid: %q", name, address)
+		}
+	}
+	if fixture.Alice == fixture.Bob || fixture.Pool == fixture.Alice || fixture.Pool == fixture.Bob {
+		t.Fatalf("contract fixture requires distinct pool and owners: %+v", fixture)
+	}
+	return r, proofLaunchpadFixture{Pool: fixture.Pool, Token: fixture.Token, Alice: fixture.Alice, Bob: fixture.Bob}
 }
 
 func proofLaunchpadABI(t *testing.T, root, group, name string) abi.ABI {
