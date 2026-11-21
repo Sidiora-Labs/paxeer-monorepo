@@ -16246,6 +16246,12 @@ value = "One. In the file services/launchpad/pnl-tracker/internal/production/l18
 basis = "Gotcha 4782."
 affects = []
 
+[decision.3856]
+title = "Task 22.39.1060 takes the status of a task whose change stands on the main line through another task"
+value = "One. Task 22.39.1060 takes the status that the workflow names for a task whose change stands on the main line through another task. Two. Its last step names task 22.39.1063 as the task that carries the change. Three. The steps do_1 to do_3 of the task, its paths and its commands stay as they are. Four. No source changes, and the record services/launchpad/pnl-tracker/internal/rolecheck/statements.json stays as the main line holds it. No new task."
+basis = "Gotcha 4783."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -210903,7 +210909,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1060]
 title = "Give the entry of the claim statement of the shared delivery store in the record of runtime statements of the pnl app the statement as the file stands"
-status = "pending"
+status = "superseded"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210930,6 +210936,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3856. The entry that this task names stands on the main line through task 22.39.1063, and this task carries no change of its own."
 
 [task.22.39.1059]
 title = "Name the reference of each endpoint of the committed source at the start of the indexer app and state the origin of its address in the README of the deploy documents"
