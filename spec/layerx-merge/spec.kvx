@@ -16264,6 +16264,12 @@ value = "One. Task 22.39.1074 gives the validator that the generator writes for 
 basis = "Gotcha 4785. Decision 3857."
 affects = []
 
+[decision.3859]
+title = "The trading chart takes the live bar of every market from the candle route, and the funding line of the trade view shows the settled hourly rate and counts down to the next funding time of the market record"
+value = "One. Task 22.39.1077 gives the method subscribeBars of the class PerpsDatafeed one path for every symbol: the poll of the history endpoint of the candle route through the function activePoll at the present interval of 2000 milliseconds with the present query, which forwards the newest row under the present rule of the cached bar. The branch that calls the function subscribeKline leaves the method, and the method unsubscribeBars ends the poll of its listener as before. No call path of the web sends a subscription for a candle topic. The parts of the market stream file that serve only the candle topic and that no other file reads leave it: the functions subscribeKline and hasDedicatedKlineStream, the type of their subscriber, the state of a topic and its reads in the code for connection, frames and release. The function tvResolutionToKlineInterval stays an export of that file, because the datafeed forms the key of its series with it. The subscriptions of the symbol socket for the order book, the trades and the stats keep their form. A new case proves for a symbol that has a symbol socket that subscribeBars starts the poll, forwards a newer bar, drops an older one and sends no subscription for a candle topic, and that unsubscribeBars ends the poll. The class WebsocketService, the perps data gateway, its documents and the candle route stay as they are. Two. Task 22.39.1078 gives the funding line of the trade view this form. The time: the function normalizeMarket reads the member perp_next_funding_ms of a record into a new member of the type MarketSnapshot, a whole number of milliseconds, and null where the member is absent or no positive whole number. Such a member never refuses the record. The function nativeMarketRows passes the new member on as next_funding_time, and a snapshot that the function normalizeFeedMarkets builds carries null for it. The figure: where a row carries no predicted rate, the reader useFundingRate returns the last settled hourly rate of the market as a percentage with four decimals, in the rounding that it applies to a predicted rate, and null where the market holds no settled rate. No absent value becomes zero. The figure of a settled rate does not depend on the time. A predicted rate keeps its present form where a row carries one. The countdown: the reader counts down to the next funding time of the row of the market map whenever that row holds one, with or without a predicted rate. Where the time is absent or has passed, the countdown keeps its present form. The rule that forms the figure and the remaining time from a row and a clock value stands in a function without view state that the reader calls. How the settled hourly rate reaches the reader is the choice of the participant. The members est_funding_rate and last_funding_rate of a row keep their meaning, and the rule of the funding rate path of the native client stays. In the document docs/perps/data-api.md the one sentence that names the function which shows the settled hourly rate names the function that does so after the change, with a link in the present form. No other text of the document changes. A new case proves the mapping of normalizeMarket for a present, an absent and a malformed member, the row of nativeMarketRows, and the function of the figure and the remaining time for a row with a predicted rate, with a settled rate only and with neither, each with a time ahead and with a time that has passed. Three. Decision 3705 holds for both tasks: no markup, no label, no class and no measure of a view changes. The components of gotcha 4786 part five and the other readers of the member next_funding_time keep their code. Tasks 22.39.1077 and 22.39.1078."
+basis = "Gotcha 4786. Decision 3705."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45924,6 +45930,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1078]
+title = "Show the settled hourly rate and a countdown to the next funding time of the market record in the funding line of the trade view"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages", "docs/perps"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/funding-countdown.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/markets-price-window.test.ts"
+do_1 = "do_1 Gotcha 4786 parts four and five, decision 3859 points two and three. Read the function normalizeMarket and the type MarketSnapshot in the markets stream file useMarketsStream.ts of the package paxeer-backend, the functions nativeMarketRows of apps/perps/packages/paxeer-backend/src/nativeMetadata.ts and normalizeFeedMarkets of apps/perps/packages/paxeer-backend/src/nativeFeedMarkets.ts, the funding rate path of apps/perps/packages/paxeer-backend/src/nativeClient.ts, the reader useFundingRate whole, the file apps/perps/packages/paxeer-backend/src/core/perps/fundingRate.ts and the funding contract in docs/perps/data-api.md."
+symbols = []
+
+[capability.22.39.1077]
+title = "Take the live bar of the trading chart for every market from the candle route that serves its history"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/datafeed-live-bars.test.ts && test $(grep -c subscribeKline apps/perps/packages/paxeer-backend/src/core/datafeed/perps.ts) -eq 0"
+do_1 = "do_1 Gotcha 4786 parts one to three, decision 3859 points one and three. Read the methods subscribeBars and unsubscribeBars of apps/perps/packages/paxeer-backend/src/core/datafeed/perps.ts, the market stream file useSidPaxMarketStream.ts of the package paxeer-backend whole and the part of docs/perps/data-api.md on candles. Find every reader of the parts that point one lets leave before you take them out."
+symbols = []
 
 [capability.22.39.1076]
 title = "Add cases to the module security/control until the total of the coverage gate for the module reads 86.0 of 100 or more"
@@ -179328,6 +179352,66 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1078]
+title = "Show the settled hourly rate and a countdown to the next funding time of the market record in the funding line of the trade view"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1078"]
+interfaces = []
+do_1 = "do_1 Gotcha 4786 parts four and five, decision 3859 points two and three. Read the function normalizeMarket and the type MarketSnapshot in the markets stream file useMarketsStream.ts of the package paxeer-backend, the functions nativeMarketRows of apps/perps/packages/paxeer-backend/src/nativeMetadata.ts and normalizeFeedMarkets of apps/perps/packages/paxeer-backend/src/nativeFeedMarkets.ts, the funding rate path of apps/perps/packages/paxeer-backend/src/nativeClient.ts, the reader useFundingRate whole, the file apps/perps/packages/paxeer-backend/src/core/perps/fundingRate.ts and the funding contract in docs/perps/data-api.md."
+do_2 = "do_2 Add the member for the time and pass it on under point two, and give the reader the figure and the countdown of point two through a function without view state. Let the one sentence of docs/perps/data-api.md follow. Add the case of point two as apps/perps/tests/funding-countdown.test.ts in the form of the present cases under apps/perps/tests."
+do_3 = "do_3 Points two and three hold. The final message names the new member, the function of the figure and the remaining time with its file, the way the settled hourly rate reaches the reader, the sentence of the document before and after, and what the new case proves. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages", "docs/perps"]
+tests = []
+planned_paths = ["apps/perps/tests/funding-countdown.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/funding-countdown.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/markets-price-window.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1077]
+title = "Take the live bar of the trading chart for every market from the candle route that serves its history"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1077"]
+interfaces = []
+do_1 = "do_1 Gotcha 4786 parts one to three, decision 3859 points one and three. Read the methods subscribeBars and unsubscribeBars of apps/perps/packages/paxeer-backend/src/core/datafeed/perps.ts, the market stream file useSidPaxMarketStream.ts of the package paxeer-backend whole and the part of docs/perps/data-api.md on candles. Find every reader of the parts that point one lets leave before you take them out."
+do_2 = "do_2 Give subscribeBars the one path of point one and take the parts of point one out of the market stream file. Add the case of point one as apps/perps/tests/datafeed-live-bars.test.ts in the form of the present cases under apps/perps/tests, with a stand-in for the fetch of the candle route and for the clock where the poll needs one."
+do_3 = "do_3 Points one and three hold. The final message names each part that left the market stream file, each reader found in do_1 and what the new case proves. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages"]
+tests = []
+planned_paths = ["apps/perps/tests/datafeed-live-bars.test.ts"]
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/datafeed-live-bars.test.ts && test $(grep -c subscribeKline apps/perps/packages/paxeer-backend/src/core/datafeed/perps.ts) -eq 0"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
