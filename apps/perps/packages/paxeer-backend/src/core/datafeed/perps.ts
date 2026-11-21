@@ -6,13 +6,8 @@ import { activePoll } from "@paxeer-network/paxeer-backend/core/net/realtime";
  * Historical bars (`getBars`) read catalog-listed per-symbol UDF REST endpoints
  * directly through data.feed.chainflowtrading.com, using the browser Origin.
  *
- * Live bars (`subscribeBars`) come over WebSocket whenever the symbol has
- * a dedicated gateway WS (all 18 markets): we multiplex the
- * `<SYMBOL>@kline_<interval>` topic onto the same socket already used for
- * the orderbook + trade tape (`useSidPaxMarketStream.ts`). Symbols
- * without a dedicated WS and resolutions outside
- * the candle server's supported set (e.g. `1M`) fall back to a 2 s REST
- * poll on the same `/history` endpoint.
+ * Live bars (`subscribeBars`) poll the same candle history endpoint for
+ * every symbol every 2 seconds while the page is active.
  */
 
 import type {
@@ -28,12 +23,7 @@ import type {
   SubscribeBarsCallback,
   SearchSymbolsCallback,
 } from "@paxeer-network/paxeer-backend/types/tradingview";
-import {
-  hasDedicatedKlineStream,
-  subscribeKline,
-  tvResolutionToKlineInterval,
-  type SidPaxCandle,
-} from "@paxeer-network/paxeer-backend/hooks/perps/useSidPaxMarketStream";
+import { tvResolutionToKlineInterval } from "@paxeer-network/paxeer-backend/hooks/perps/useSidPaxMarketStream";
 
 import {
   candleFeedUrl,
@@ -45,20 +35,7 @@ import {
 // dependency for charts. Browser Origin authorizes these keyless requests.
 
 interface BarSubscription {
-  /** Tear down the subscription — either clears the poll interval or
-   *  unsubscribes from the WS kline topic. */
   cleanup: () => void;
-}
-
-function candleToBar(c: SidPaxCandle): Bar {
-  return {
-    time: c.time * 1000, // unix s → ms (TV expects ms)
-    open: c.open,
-    high: c.high,
-    low: c.low,
-    close: c.close,
-    volume: c.volume,
-  };
 }
 
 function barSeriesKey(symbol: string, resolution: ResolutionString): string {
@@ -278,15 +255,11 @@ export class PerpsDatafeed implements IBasicDataFeed {
     resolution: ResolutionString,
     onTick: SubscribeBarsCallback,
     listenerGuid: string,
-    onResetCacheNeededCallback: () => void,
+    _onResetCacheNeededCallback: () => void,
   ): void {
     const symbolKey = symbolInfo.ticker ?? symbolInfo.name;
-    // The market proxy and cache use the same bare ticker for all aliases.
-    const bareSymbol = normalizeFeedSymbol(symbolKey);
     const seriesKey = barSeriesKey(symbolKey, resolution);
 
-    // Helper — cache + forward a candle to TradingView, ignoring any
-    // out-of-order frames. Shared by both WS and REST paths.
     const pushBar = (bar: Bar) => {
       const cached = this.lastBarCache[seriesKey];
       if (!cached || bar.time >= cached.time) {
@@ -295,42 +268,6 @@ export class PerpsDatafeed implements IBasicDataFeed {
       }
     };
 
-    // Prefer the WS kline stream when the symbol has a dedicated market-
-    // proxy upstream AND the resolution maps to a supported interval.
-    // Fall back to REST polling for stocks (no per-symbol WS) and for
-    // exotic resolutions (e.g. "1M") that the candle servers don't
-    // produce.
-    const klineInterval = tvResolutionToKlineInterval(String(resolution));
-    if (klineInterval && hasDedicatedKlineStream(bareSymbol)) {
-      const unsubscribe = subscribeKline(
-        bareSymbol,
-        klineInterval,
-        {
-          onGap: () => {
-            delete this.lastBarCache[seriesKey];
-            onResetCacheNeededCallback();
-          },
-          onSnapshot: (candles) => {
-            // Only forward the most recent (possibly-in-progress) bar.
-            // TradingView already has the historical rows from getBars;
-            // the snapshot just warms `lastBarCache` + closes the gap
-            // between getBars finishing and the first live frame.
-            if (candles.length > 0) {
-              pushBar(candleToBar(candles[candles.length - 1]));
-            }
-          },
-          onUpdate: (candle) => {
-            pushBar(candleToBar(candle));
-          },
-        },
-        1000,
-      );
-      this.subscribers[listenerGuid] = { cleanup: unsubscribe };
-      return;
-    }
-
-    // REST polling fallback — same logic as before, just factored
-    // through `pushBar` so the bar-cache semantics are identical.
     const poll = () => {
       const now = Math.floor(Date.now() / 1000);
       const qs = new URLSearchParams({
