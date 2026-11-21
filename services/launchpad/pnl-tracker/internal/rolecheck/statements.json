@@ -5191,28 +5191,45 @@
     "sha256": "18f68f96951ceca85e2dda561a3256ae5d042a9a95d405cb6066e6bf52597adc"
   },
   {
-    "id": "internal/production/l18/journeys.go:JourneyService.Rewards:1",
+    "id": "internal/production/l18/journeys.go:JourneyService.rewardCandidates:1",
     "file": "services/launchpad/pnl-tracker/internal/production/l18/journeys.go",
-    "function": "JourneyService.Rewards",
+    "function": "JourneyService.rewardCandidates",
     "call": 1,
     "role": "pnl_runtime",
     "kind": "SELECT",
     "tables": [
-      "indexer.indexer_canonical_creations_v1"
+      "indexer.indexer_block_completeness_v1",
+      "indexer.indexer_canonical_creations_v1",
+      "indexer.indexer_raw_logs_v1"
     ],
     "sequences": [],
-    "functions": [],
-    "columns": [
-      "block_hash",
-      "creator",
-      "height",
-      "log_index",
-      "nft_id",
-      "pool",
-      "transaction_hash",
-      "transaction_index"
+    "functions": [
+      "pg_catalog.jsonb_array_length",
+      "pg_catalog.lower",
+      "pg_catalog.substr"
     ],
-    "sha256": "eb6a6edef08f69fb3feb2520b2378b01de47c491dd34bca5c52341c424020d97"
+    "columns": [
+      "b.block_hash",
+      "b.chain_id",
+      "b.fetch_complete",
+      "b.height",
+      "b.required_decode_complete",
+      "b.stream_id",
+      "c.block_hash",
+      "c.creator",
+      "c.height",
+      "c.log_index",
+      "c.nft_id",
+      "c.pool",
+      "c.transaction_hash",
+      "c.transaction_index",
+      "l.block_hash",
+      "l.chain_id",
+      "l.emitter",
+      "l.height",
+      "l.topics"
+    ],
+    "sha256": "f1788ce9a826d42582751676c5c332ce19f0385595ae10f7f9fcae2a7374783b"
   },
   {
     "id": "internal/production/l18/journeys.go:JourneyService.Prepare:1",

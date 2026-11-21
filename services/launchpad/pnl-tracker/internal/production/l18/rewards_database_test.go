@@ -137,6 +137,7 @@ type rewardHistoryDatabase struct {
 	outbox           map[string]string
 	audit            map[string]string
 	queries          []string
+	queryArgs        [][]string
 	claimPages       []int
 }
 
@@ -373,6 +374,7 @@ func (d *rewardHistoryDatabase) query(sql string, args []string) (rewardHistoryR
 	defer d.mu.Unlock()
 	sql = strings.Join(strings.Fields(sql), " ")
 	d.queries = append(d.queries, sql)
+	d.queryArgs = append(d.queryArgs, append([]string(nil), args...))
 	if d.transport != nil {
 		if result, handled, err := d.transport.query(sql, args); handled {
 			return result, err
@@ -428,6 +430,47 @@ func (d *rewardHistoryDatabase) query(sql string, args []string) (rewardHistoryR
 			return ok, fmt.Errorf("unavailable source checkpoint")
 		}
 		return rewardHistoryRows([]uint32{25, 16, 16}, []string{rewardHistoryHash(rewardHistoryUint(args[1])), "t", "t"}), nil
+	case strings.HasPrefix(sql, "SELECT c.nft_id::text,c.pool,c.creator,c.height,"):
+		if err := rewardHistoryRequire(sql, "c.nft_id>$1::numeric AND c.height<=$2", "b.chain_id=l.chain_id AND b.stream_id=$3", "b.height=l.height AND b.block_hash=l.block_hash AND b.fetch_complete AND b.required_decode_complete", "l.chain_id=125", "l.emitter=$4 AND l.topics->>0=$5 AND l.topics->>2=$6", "jsonb_array_length(l.topics)=4 AND l.height<=$2", "CASE WHEN l.topics->>3 ~ '^0x[0-9a-f]{64}$' THEN (l.topics->>3)::numeric END=c.nft_id", "l.emitter=$7 AND l.topics->>0=$8", "l.topics->>1='0x000000000000000000000000'||lower(substr(c.pool,3)) AND l.topics->>2=$6 AND l.height<=$2", "ORDER BY c.nft_id LIMIT 100"); err != nil {
+			return ok, err
+		}
+		if len(args) != 8 || args[2] != rewardHistoryStream || args[3] != NFT || args[4] != nft.Events["Transfer"].ID.Hex() || args[6] != Accumulator || args[7] != accumulator.Events["FeesClaimed"].ID.Hex() {
+			return ok, fmt.Errorf("unadmitted reward candidate interface")
+		}
+		after, _ := new(big.Int).SetString(args[0], 10)
+		height := rewardHistoryUint(args[1])
+		markets := append([]rewardHistoryMarket(nil), d.peers.Markets...)
+		sort.Slice(markets, func(i, j int) bool {
+			a, _ := new(big.Int).SetString(markets[i].ID, 10)
+			b, _ := new(big.Int).SetString(markets[j].ID, 10)
+			return a.Cmp(b) < 0
+		})
+		result := rewardHistoryRows([]uint32{25, 25, 25, 20, 25, 25, 25, 25})
+		for _, m := range markets {
+			id, _ := new(big.Int).SetString(m.ID, 10)
+			if id.Cmp(after) <= 0 || m.Height > height {
+				continue
+			}
+			candidate := false
+			for _, x := range d.peers.Transfers {
+				if x.NFTID == m.ID && addressTopic(x.Owner) == args[5] && x.Height <= height && x.BlockHash == rewardHistoryHash(x.Height) {
+					candidate = true
+				}
+			}
+			for _, x := range d.peers.Claims {
+				if addressTopic(x.Pool) == addressTopic(m.Pool) && addressTopic(x.Wallet) == args[5] && x.Height <= height && x.BlockHash == rewardHistoryHash(x.Height) {
+					candidate = true
+				}
+			}
+			if candidate {
+				result.rows = append(result.rows, rewardHistoryMarketRow(m))
+				if len(result.rows) == 100 {
+					break
+				}
+			}
+		}
+		result.tag = fmt.Sprintf("SELECT %d", len(result.rows))
+		return result, nil
 	case strings.Contains(sql, "FROM indexer.indexer_raw_logs_v1"):
 		if err := rewardHistoryRequire(sql, "b.stream_id=$1", "b.height=l.height", "b.block_hash=l.block_hash", "b.fetch_complete AND b.required_decode_complete", "l.chain_id=125", "l.topics->>0=$3"); err != nil {
 			return ok, err
@@ -657,6 +700,9 @@ func rewardHistorySignature(sql string) (params, fields []uint32) {
 	case strings.Contains(sql, "FROM indexer.indexer_block_completeness_v1"):
 		params = []uint32{25, 20}
 		fields = []uint32{25, 16, 16}
+	case strings.HasPrefix(sql, "SELECT c.nft_id::text,c.pool,c.creator,c.height,"):
+		params = []uint32{1700, 20, 25, 25, 25, 25, 25, 25}
+		fields = []uint32{25, 25, 25, 20, 25, 25, 25, 25}
 	case strings.Contains(sql, "FROM indexer.indexer_raw_logs_v1"):
 		if strings.Contains(sql, "SELECT l.topics->>2") {
 			params = []uint32{25, 25, 25, 25, 20}
