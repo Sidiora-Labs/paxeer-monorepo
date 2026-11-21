@@ -210777,7 +210777,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1050]
 title = "Let the broker example of the launchpad deploy documents define the stream of the journeys of the pnl app and the stream of the account subjects of the user service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
