@@ -210747,7 +210747,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1051]
 title = "Bring the Go files of the launchpad modules into the text of the format tool, let the target lint report no finding and let the target ci run its static stages first"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
