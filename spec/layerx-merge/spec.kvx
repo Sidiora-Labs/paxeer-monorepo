@@ -210807,7 +210807,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1049]
 title = "Give the raw log table of the launchpad schema two online indexes by emitter and topic for the reads of the reward read of the pnl app"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1047"]
