@@ -210906,7 +210906,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1072]
 title = "Let the cases that the baseline file names for the package auth of the shared module run without the skip pattern and pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
