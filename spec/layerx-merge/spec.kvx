@@ -16186,6 +16186,12 @@ value = "One. Decision 3844 points three and four hold for the job of the invent
 basis = "Gotcha 4772."
 affects = []
 
+[decision.3846]
+title = "The reward read of the pnl app pages over the creations the wallet has a log for, and the creation time of a social message is the whole seconds at or below the stored time"
+value = "One. A candidate of a wallet at a pinned block is a creation of the creation inventory at or below that block for which the raw logs hold, at or below that block, a transfer log of the contract NFT with the token id of the creation that names the wallet as receiver, or a log FeesClaimed of the contract Accumulator with the pool of the creation and the wallet. Each such log is joined with the block completeness of the source stream in the way the functions indexedOwner and claimedHistory join it. Two. The loop of the function Rewards reads the candidates of the wallet after the cursor in the order of the token id in pages of at most 100 and calls the functions indexedOwner and claimedHistory for candidates only. The rule that keeps a creation, the end of the loop, the limit, the flag for more, the cursor and the second loop with the preview stay as they are. Three. The number of statements of one call of the function Rewards does not depend on the creations of the inventory that are no candidates. Four. A creation that is no candidate is not read by the two functions, so no result of the two functions for such a creation reaches the answer. Five. The statement record of the package rolecheck of the module holds the new statements, and the stand-ins of the present cases follow them. The schema of the indexer with its indexes and the two functions stay as they are. Task 22.39.1047. Six. The creation time of a message of the social module in an answer is the whole seconds at or below the stored time, the form the method Unix gives. The answer of the function Send, the answers of the functions that read a stored message with the constant messageColumns, the event of the function messageVisibilityEvent and the time of the last message in the two conversation lists give the same number for the same stored time. Seven. The read statements take the floor of the epoch ahead of the cast. The stored time keeps its fraction, the function Send stays as it is, and the rule of 900 seconds for a change of a message stays and reads the time in the new form. Eight. The statement record of the package rolecheck of the social module holds the statements in their new form, and the stand-ins of the present cases follow them. Task 22.39.1048."
+basis = "Gotcha 4773."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45846,6 +45852,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1048]
+title = "Let every answer of the launchpad social module give the creation time of a message as the whole seconds at or below the stored time"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social/internal"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=social && (cd services/launchpad/social && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestCreationSecond ./internal/fanout/ | grep -q ^TestCreationSecond)"
+do_1 = "do_1 Gotcha 4773 second part, decision 3846 points six to eight. Read the function Send, the constant messageColumns and every function of services/launchpad/social/internal/fanout/durable.go that reads with it, the function messageVisibilityEvent in services/launchpad/social/internal/app/visibility.go, the conversation list statements in services/launchpad/social/internal/fanout/http.go and services/launchpad/social/internal/social/handlers.go, the entries of the statement record services/launchpad/social/internal/rolecheck/statements.json that hold the epoch of a column, and the cases of the module that hold the text of one of these statements. The final message names every statement of the module that reads a time as an epoch cast to a whole number, with its file and its form after the task."
+symbols = []
+
+[capability.22.39.1047]
+title = "Let the reward read of the pnl app of the launchpad page over the creations the wallet has a log for"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestRewardCandidates ./internal/production/l18/ | grep -q ^TestRewardCandidates)"
+do_1 = "do_1 Gotcha 4773 first part, decision 3846 points one to five. Read the function Rewards of the type JourneyService in services/launchpad/pnl-tracker/internal/production/l18/journeys.go whole, the functions indexedOwner, claimedHistory and decodeCursor, the cases of services/launchpad/pnl-tracker/internal/production/l18/rewards_database_test.go, services/launchpad/pnl-tracker/internal/production/l18/rewards_history_test.go and services/launchpad/pnl-tracker/internal/production/l18/reward_node_reads_test.go, the python check services/launchpad/pnl-tracker/internal/production/l18/test_reward_delivery_contract.py and the package rolecheck of the module with the statement record services/launchpad/pnl-tracker/internal/rolecheck/statements.json. The final message names the statements one call of the function makes for a wallet with two markets among 300 creations ahead of the task and after it, and states why every creation the present rule keeps is a candidate under decision 3846 point one."
+symbols = []
 
 [capability.22.39.1046]
 title = "Let the stats app of the launchpad run its consumer jobs again after an error that is not permanent and keep the error in its runtime health while a job fails"
@@ -210555,6 +210579,66 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1048]
+title = "Let every answer of the launchpad social module give the creation time of a message as the whole seconds at or below the stored time"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1048"]
+interfaces = []
+do_1 = "do_1 Gotcha 4773 second part, decision 3846 points six to eight. Read the function Send, the constant messageColumns and every function of services/launchpad/social/internal/fanout/durable.go that reads with it, the function messageVisibilityEvent in services/launchpad/social/internal/app/visibility.go, the conversation list statements in services/launchpad/social/internal/fanout/http.go and services/launchpad/social/internal/social/handlers.go, the entries of the statement record services/launchpad/social/internal/rolecheck/statements.json that hold the epoch of a column, and the cases of the module that hold the text of one of these statements. The final message names every statement of the module that reads a time as an epoch cast to a whole number, with its file and its form after the task."
+do_2 = "do_2 In the constant messageColumns, in the statement of the function messageVisibilityEvent and in the two conversation list statements take the floor of the epoch ahead of the cast to bigint, so that a read gives the whole seconds at or below the stored time. Where step one finds a further statement of the module that reads the time of a record as an epoch cast to a whole number while the answer of the write of that record takes the method Unix, give it the same form and name it in the final message. Bring the entries of the statement record and the stand-ins of the present cases that hold the text of a changed statement to the new form. The function Send, the stored time and the tables stay as they are."
+do_3 = "do_3 Add cases whose names begin with TestCreationSecond in the package fanout. With the database of the present durable cases and the member Clock of the store set to a time 700 milliseconds after a whole second: the answer of Send, the answer of a second Send with the same client id, the message in the replay of the conversation, the answers of the other functions of the store that return the stored message, the bytes of CurrentEvent for the payload of the message and the time of the last message in the conversation list hold the same creation time, and it is the whole second of the clock. The same holds with a clock 200 milliseconds after a whole second. One case of the package app whose name begins with TestCreationSecond holds the same for the event of the function messageVisibilityEvent. The present cases of the module stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social/internal"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/social && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=social && (cd services/launchpad/social && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestCreationSecond ./internal/fanout/ | grep -q ^TestCreationSecond)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1047]
+title = "Let the reward read of the pnl app of the launchpad page over the creations the wallet has a log for"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.1045"]
+reqs = ["22998.1"]
+capabilities = ["22.39.1047"]
+interfaces = []
+do_1 = "do_1 Gotcha 4773 first part, decision 3846 points one to five. Read the function Rewards of the type JourneyService in services/launchpad/pnl-tracker/internal/production/l18/journeys.go whole, the functions indexedOwner, claimedHistory and decodeCursor, the cases of services/launchpad/pnl-tracker/internal/production/l18/rewards_database_test.go, services/launchpad/pnl-tracker/internal/production/l18/rewards_history_test.go and services/launchpad/pnl-tracker/internal/production/l18/reward_node_reads_test.go, the python check services/launchpad/pnl-tracker/internal/production/l18/test_reward_delivery_contract.py and the package rolecheck of the module with the statement record services/launchpad/pnl-tracker/internal/rolecheck/statements.json. The final message names the statements one call of the function makes for a wallet with two markets among 300 creations ahead of the task and after it, and states why every creation the present rule keeps is a candidate under decision 3846 point one."
+do_2 = "do_2 Add to the type JourneyService one function that returns one page of the candidates of a wallet at a pinned block after a token id, at most 100 in the order of the token id, with the columns the present inventory statement of the loop returns. The function makes a number of statements that does not depend on the number of creations in the inventory. The receiver of a transfer log and the pool and the wallet of a log FeesClaimed are compared in the form the functions indexedOwner and claimedHistory compare them, and each log is joined with the block completeness of the source stream in the way these two functions join it. Let the loop of the function Rewards read its pages from that function in place of the inventory statement. The calls of the functions indexedOwner and claimedHistory, the rule that keeps a creation, the end of the loop, the limit, the flag for more, the cursor and the second loop stay as they are, and the text the python check reads in the body of the function Rewards stays. Add the new statements to the statement record of the package rolecheck in the form of its present entries and let the stand-ins of the present cases follow the new statements."
+do_3 = "do_3 Add cases whose names begin with TestRewardCandidates. With the database of the present history cases: one creation where the wallet is the receiver of the first transfer of the token id, one where the wallet is the receiver of a later transfer, one that the wallet passed on and holds a log FeesClaimed for, one that the wallet passed on without such a log, and creations without a log of the wallet. The page of the wallet holds the first three in the order of the token id and not the others. A limit of one gives one item and a cursor, and the cursor gives the next item. With a stand-in that counts statements: one call for a wallet with two markets makes the same number of statements with 3 creations and with 300 creations in the inventory, and no creation without a log of the wallet gets a call of the function indexedOwner or of the function claimedHistory. The two functions, the schema of the indexer and the other functions of the type stay as they are. The present cases of the module and the python check stay and pass. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off python3 ../../../tests/ci/data/launchpad_go_tests.py --module . && GOWORK=off go test -count=1 -list ^TestRewardCandidates ./internal/production/l18/ | grep -q ^TestRewardCandidates)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
