@@ -1421,8 +1421,8 @@
     "file": "services/launchpad/api/internal/broker/postgres_stream.go",
     "function": "PostgresReplay.Batch",
     "line": 501,
-    "expression": "\"SELECT sequence::text,frame FROM \"+r.source.table(\"stream_delivery_outbox\")+\" WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY sequence LIMIT $4\"",
-    "sql": "SELECT sequence::text,frame FROM \"api_stream\".\"stream_delivery_outbox\" WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY sequence LIMIT $4",
+    "expression": "\"SELECT sequence::text,frame FROM \"+r.source.table(\"stream_delivery_outbox\")+\" AS retained WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY retained.sequence LIMIT $4\"",
+    "sql": "SELECT sequence::text,frame FROM \"api_stream\".\"stream_delivery_outbox\" AS retained WHERE partition_id=$1 AND sequence>$2 AND sequence<=$3 ORDER BY retained.sequence LIMIT $4",
     "bindings": {},
     "roles": [
       "api_rest_runtime",
