@@ -16258,6 +16258,12 @@ value = "One. Task 22.39.1065 adds cases to the indexer module until the total t
 basis = "Gotcha 4784."
 affects = []
 
+[decision.3858]
+title = "The validator of a major other than 1 decodes each schema node and compiles each expression once for each process with the same results, the template file and the outputs of major 1 stay, and the charts module and the module security/control gain cases"
+value = "One. Task 22.39.1074 gives the validator that the generator writes for a major other than 1 this form: each schema node is decoded at most once for each process, and each pattern and each fixed expression is compiled at most once for each process. The validator stays safe for calls from several goroutines at once. The exported functions keep their names and their signatures, and for every input the result is the same as before: the same acceptance, and for a refused document the same error text with the same path. Whether the validator builds its rules when the package loads or keeps them at the first use is the choice of the participant. Two. The file tools/launchpad/production/interfaces/validator.go.txt stays byte for byte, and so do the files under sdk/launchpad/shared/interfaces/v1, the frozen source of the generator of major 1 and its digest. A run for major 1 reproduces the outputs of major 1 as before. The text for the other majors stands in a new template file beside the present one, the generator selects the template by major, and the member validatorTemplateSha256 of a manifest names the digest of the template that its major uses, with the comparison of sdk/launchpad/packages/sdk/scripts/generate.py following. Three. The file sdk/launchpad/shared/interfaces/v2/validators.gen.go is written by the generator from the schema input that the helper sdk/launchpad/packages/sdk/test/authoritative_inputs.py recovers, never by hand. The schema document that it carries stays byte for byte and the line that holds it keeps its form, so the case of sdk/launchpad/packages/sdk/test/service-contracts.test.mjs reads it as before. The file types.gen.go of major 2 and the generated files of the packages sdk and sdk-v2 keep their bytes. Before the change the participant records the results of the present validator of major 2 for a set of documents as test data: for each kind of rule that the type schemaRule holds at least one document that a definition of the schema accepts and one that it refuses, with the acceptance and the error text. A new case of the package of major 2 reads that record and requires the same results. A second new case proves that a repeated validation decodes no schema node and compiles no expression again, in the way the participant chooses. Four. Every record and case that names the digest of the generator or of a template follows: the file sdk/launchpad/packages/sdk-v2/release-manifest.json, the literal of sdk/launchpad/packages/sdk/test/generation.test.py, the current release record through the script generate of the package, and the cases of sdk/launchpad/packages/sdk/scripts/test_bundle_consumers.py. Where a check of the registry tools/launchpad/production/bootstrap/check-registry.json names the template among its inputs, it names the new template file as well, in the form that the cases of the registry require. The two files of the pnl module of gotcha 4785 part three compute their digest at run time and stay as they are. A record outside the paths of the task that names a digest of a changed file stays unchanged, and the final message names it with file and member. Five. Task 22.39.1068 requires task 22.39.1074. For its cases whose time follows the validator, the form is the validator of point one: the function parseStreamV2 and the read of a trade page of gotcha 4785 part one keep the order and the form in which they validate, and the source files of the api module gain no store of validation results. Six. Tasks 22.39.1075 and 22.39.1076 add cases until the total that the script tools/launchpad/coverage-gate.sh computes reads 91.0 of 100 or more for the charts module and 86.0 of 100 or more for the module security/control. Decision 3857 point one holds for both in every part: the choice of the packages and of the cases is the choice of the participant, a new case proves a behaviour that the code has through the fixtures that its package already uses and asserts a result, no source outside case files and their test data changes, no statement leaves a source file, no case leaves, no case gains a skip, and the script, the Makefile and the values of the gate stay as they are. Tasks 22.39.1074 to 22.39.1076."
+basis = "Gotcha 4785. Decision 3857."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45918,6 +45924,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1076]
+title = "Add cases to the module security/control until the total of the coverage gate for the module reads 86.0 of 100 or more"
+reqs = ["22998.1"]
+touches = ["services/launchpad/security/control"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=security/control && DEFAULT_MIN=86.0 GOFLAGS=-timeout=18m make -C services/launchpad cover-check MODULES=security/control"
+do_1 = "do_1 Decision 3858 point six, decision 3857 point one, gotcha 4784 part one. Read the targets cover and cover-check in services/launchpad/Makefile, the script tools/launchpad/coverage-gate.sh and the function run_tests in tests/ci/data/launchpad_go_tests.py. Run make -C services/launchpad cover-check MODULES=security/control by hand once before any change and note the total that the script prints for the module. The profile lies under services/launchpad/.cover, and the cover tool lists from it the functions with the share of their statements that the cases reach."
+symbols = []
+
+[capability.22.39.1075]
+title = "Add cases to the charts module until the total of the coverage gate for the module reads 91.0 of 100 or more"
+reqs = ["22998.1"]
+touches = ["services/launchpad/trading-charts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=trading-charts && MONEY_MIN=91.0 GOFLAGS=-timeout=18m make -C services/launchpad cover-check MODULES=trading-charts"
+do_1 = "do_1 Decision 3858 point six, decision 3857 point one, gotcha 4784 part one. Read the targets cover and cover-check in services/launchpad/Makefile, the script tools/launchpad/coverage-gate.sh and the function run_tests in tests/ci/data/launchpad_go_tests.py. Run make -C services/launchpad cover-check MODULES=trading-charts by hand once before any change and note the total that the script prints for the module. The profile lies under services/launchpad/.cover, and the cover tool lists from it the functions with the share of their statements that the cases reach."
+symbols = []
+
+[capability.22.39.1074]
+title = "Let the schema validator that the launchpad generator writes for a major other than 1 decode each schema node and compile each expression once for each process"
+reqs = ["22998.1"]
+touches = ["tools/launchpad/production", "sdk/launchpad/shared/interfaces", "sdk/launchpad/packages"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 30m ./interfaces/...) && python3 -m pytest -q tools/launchpad/production/interfaces/test_codegen.py && (cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/sdk --fail-if-no-match run test)"
+do_1 = "do_1 Gotcha 4785 parts one to three, decision 3858 points one to four. Read the functions emit and main of tools/launchpad/production/interfaces/codegen.py, the template tools/launchpad/production/interfaces/validator.go.txt whole, the helper sdk/launchpad/packages/sdk/test/authoritative_inputs.py, the script sdk/launchpad/packages/sdk/scripts/generate.py and the cases that parts two and three of the gotcha name. Before any change record the results of the present validator of major 2 for the set of documents of point three as test data."
+symbols = []
 
 [capability.22.39.1073]
 title = "Let the baseline file of the launchpad Go case runner hold no entry and let the cases that read it follow"
@@ -210874,6 +210907,96 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1076]
+title = "Add cases to the module security/control until the total of the coverage gate for the module reads 86.0 of 100 or more"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1076"]
+interfaces = []
+do_1 = "do_1 Decision 3858 point six, decision 3857 point one, gotcha 4784 part one. Read the targets cover and cover-check in services/launchpad/Makefile, the script tools/launchpad/coverage-gate.sh and the function run_tests in tests/ci/data/launchpad_go_tests.py. Run make -C services/launchpad cover-check MODULES=security/control by hand once before any change and note the total that the script prints for the module. The profile lies under services/launchpad/.cover, and the cover tool lists from it the functions with the share of their statements that the cases reach."
+do_2 = "do_2 Add cases under decision 3857 point one until the script reads 86.0 of 100 or more for the module. The task changes case files and test data only. Begin with the packages that hold the largest number of statements that no case reaches. Measure a single package through the go tool with a profile while you work and the whole module through the gate at the end."
+do_3 = "do_3 Point six holds. The final message names the total before and after and the packages that gained cases. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/security/control"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/security/control && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=security/control && DEFAULT_MIN=86.0 GOFLAGS=-timeout=18m make -C services/launchpad cover-check MODULES=security/control"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1075]
+title = "Add cases to the charts module until the total of the coverage gate for the module reads 91.0 of 100 or more"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1075"]
+interfaces = []
+do_1 = "do_1 Decision 3858 point six, decision 3857 point one, gotcha 4784 part one. Read the targets cover and cover-check in services/launchpad/Makefile, the script tools/launchpad/coverage-gate.sh and the function run_tests in tests/ci/data/launchpad_go_tests.py. Run make -C services/launchpad cover-check MODULES=trading-charts by hand once before any change and note the total that the script prints for the module. The profile lies under services/launchpad/.cover, and the cover tool lists from it the functions with the share of their statements that the cases reach."
+do_2 = "do_2 Add cases under decision 3857 point one until the script reads 91.0 of 100 or more for the module. The task changes case files and test data only. Begin with the packages that hold the largest number of statements that no case reaches. Measure a single package through the go tool with a profile while you work and the whole module through the gate at the end."
+do_3 = "do_3 Point six holds. The final message names the total before and after and the packages that gained cases. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/trading-charts"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/trading-charts && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=trading-charts && MONEY_MIN=91.0 GOFLAGS=-timeout=18m make -C services/launchpad cover-check MODULES=trading-charts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1074]
+title = "Let the schema validator that the launchpad generator writes for a major other than 1 decode each schema node and compile each expression once for each process"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1074"]
+interfaces = []
+do_1 = "do_1 Gotcha 4785 parts one to three, decision 3858 points one to four. Read the functions emit and main of tools/launchpad/production/interfaces/codegen.py, the template tools/launchpad/production/interfaces/validator.go.txt whole, the helper sdk/launchpad/packages/sdk/test/authoritative_inputs.py, the script sdk/launchpad/packages/sdk/scripts/generate.py and the cases that parts two and three of the gotcha name. Before any change record the results of the present validator of major 2 for the set of documents of point three as test data."
+do_2 = "do_2 Write the new template and let the generator select the template by major under points one and two. Run the generator for major 2 with the recovered schema input, write sdk/launchpad/shared/interfaces/v2/validators.gen.go from its output, and let the records and cases of point four follow. Add the two cases of point three to the package of major 2."
+do_3 = "do_3 Points one to four hold. The final message names the new template file, each record and case that changed with the member that changed, each record outside the paths that names a digest of a changed file, and the time that one validation of a large document takes before and after the change. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/launchpad/production", "sdk/launchpad/shared/interfaces", "sdk/launchpad/packages"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/launchpad/production/interfaces/codegen.py && anvil --version > /dev/null && (cd sdk/launchpad/shared && GOWORK=off go vet ./interfaces/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && (cd sdk/launchpad/shared && GOWORK=off go test -count=1 -timeout 30m ./interfaces/...) && python3 -m pytest -q tools/launchpad/production/interfaces/test_codegen.py && (cd apps/launchpad && pnpm install --frozen-lockfile && pnpm run build:packages && pnpm --filter ./../../sdk/launchpad/packages/sdk --fail-if-no-match run test)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 420
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1073]
 title = "Let the baseline file of the launchpad Go case runner hold no entry and let the cases that read it follow"
 status = "pending"
@@ -210906,7 +211029,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1072]
 title = "Let the cases that the baseline file names for the package auth of the shared module run without the skip pattern and pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -211029,7 +211152,7 @@ title = "Let the cases that the baseline file names for the packages internal/ap
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.1074"]
 reqs = ["22998.1"]
 capabilities = ["22.39.1068"]
 interfaces = []
