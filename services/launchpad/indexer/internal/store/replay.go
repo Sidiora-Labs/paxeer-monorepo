@@ -144,6 +144,7 @@ func (s *Store) AcquireReplay(ctx context.Context, id, owner string, ttl time.Du
 	j.Status = "running"
 	return j, tx.Commit(ctx)
 }
+
 const maxReplayRawDataBytes = 1 << 20
 
 func ValidateReplaySegment(segment ReplaySegment) error {

@@ -494,7 +494,7 @@ func matchesArchived(e *DecodedEnvelope, record ArchivedDecoderLog) error {
 	if e == nil || e.Raw.Identity != rawMetadata(record.Log).Identity || e.ABIRevision != expected.ABIRevision || e.EmitterRole != expected.Role || e.EventName != expected.EventName || e.EventSignature != expected.Signature || e.Status != expected.Status || e.FailureReason != expected.FailureReason || e.Opaque != expected.Opaque || !reflect.DeepEqual(e.Alerts, expected.Alerts) {
 		return fmt.Errorf("independent archived expectation mismatch: %s/%d", record.Log.TxHash, record.Log.Index)
 	}
-	if rawSizeAllowed(record.Log) && !(e.Status == valueQuarantined && e.FailureReason == "bounds") {
+	if rawSizeAllowed(record.Log) && (e.Status != valueQuarantined || e.FailureReason != "bounds") {
 		if !reflect.DeepEqual(e.Raw, rawLog(record.Log)) {
 			return fmt.Errorf("archived raw history lost")
 		}

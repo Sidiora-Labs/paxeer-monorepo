@@ -591,7 +591,7 @@ func (s *JourneyService) Prepare(ctx context.Context, actor Actor, key string, r
 		return nil, ErrConflict
 	}
 	var units hexutil.Uint64
-	if e = s.creator.rpc.CallContext(ctx, &units, "eth_estimateGas", map[string]any{"from": who, "to": call.To, "data": call.Data, "value": "0x0"}, map[string]any{fieldBlockHash: call.Preview.Block.Hash, fieldRequireCanonical: true}); e != nil {
+	if e = s.creator.rpc.CallContext(ctx, &units, "eth_estimateGas", map[string]any{"from": who, "to": call.To, fieldData: call.Data, "value": "0x0"}, map[string]any{fieldBlockHash: call.Preview.Block.Hash, fieldRequireCanonical: true}); e != nil {
 		return nil, e
 	}
 	if units == 0 {

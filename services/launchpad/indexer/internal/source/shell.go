@@ -2,9 +2,10 @@ package source
 
 import (
 	"encoding/hex"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"math/big"
 	"strings"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/ethereum/go-ethereum/common"

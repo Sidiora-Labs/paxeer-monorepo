@@ -1,6 +1,7 @@
 package processor
 
 const (
+	valueDecoded         = "decoded"
 	valueIndexer         = "indexer"
 	valueBackfill        = "backfill"
 	valueMarketCreated   = "MarketCreated"

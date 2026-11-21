@@ -425,6 +425,7 @@ func TestMediaReadDefaultDevelopment(t *testing.T) {
 		assertJSONError(t, response, body, http.StatusNotFound, "not_found")
 	})
 }
+
 // trackedDevFactory replays the deployed factory's receipt together with the
 // real indexer's retained creation output.
 func trackedDevFactory(t *testing.T) (string, *types.Receipt) {

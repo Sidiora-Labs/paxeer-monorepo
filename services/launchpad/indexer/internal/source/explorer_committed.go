@@ -3,12 +3,13 @@ package source
 import (
 	"context"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"math"
 	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 

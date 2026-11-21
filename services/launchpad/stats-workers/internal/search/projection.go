@@ -108,7 +108,7 @@ func (c Change) Validate() error {
 		if c.Document == nil || c.Document.Validate() != nil || c.PoolAddress != c.Document.PoolAddress {
 			return ErrInvalid
 		}
-	case "visibility":
+	case valueVisibility:
 		if !exactIdentity(c.PoolAddress) {
 			return ErrInvalid
 		}
@@ -230,7 +230,7 @@ func (p *Projection) authorizeTx(ctx context.Context, tx pgx.Tx, e delivery.Enve
 }
 func applyChangeTx(ctx context.Context, tx pgx.Tx, c Change) (bool, error) {
 	switch c.Kind {
-	case "visibility":
+	case valueVisibility:
 		result, err := tx.Exec(ctx, `INSERT INTO stats_search.authority_v2(pool_address,visibility_revision,public,tombstone) VALUES($1,$2,$3,$4) ON CONFLICT(pool_address) DO UPDATE SET visibility_revision=excluded.visibility_revision,public=excluded.public,tombstone=excluded.tombstone WHERE stats_search.authority_v2.visibility_revision<excluded.visibility_revision`, c.PoolAddress, c.Revision, c.Public, c.Tombstone)
 		return result.RowsAffected() > 0, err
 	case valueProfileDeletion:

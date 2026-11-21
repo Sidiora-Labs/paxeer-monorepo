@@ -5,12 +5,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"math"
 	"os"
 	"path/filepath"
 	"sort"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 

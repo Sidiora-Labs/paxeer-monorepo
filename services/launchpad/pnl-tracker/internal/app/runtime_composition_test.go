@@ -110,7 +110,6 @@ type journeyCompositionFixture struct {
 	consumer     *inventory.AccountingConsumer
 }
 
-
 func newJourneyCompositionFixture(t *testing.T) journeyCompositionFixture {
 	t.Helper()
 	ctx := context.Background()
