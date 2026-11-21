@@ -193,6 +193,30 @@ func assertBoundRequests(t *testing.T, requests []context.Context, caller contex
 	}
 }
 
+func createBoundStream(t *testing.T, ctx context.Context, js jetstream.JetStream, stream Stream) {
+	t.Helper()
+	if _, err := js.CreateStream(ctx, stream.BrokerConfig()); err != nil {
+		t.Fatal(err)
+	}
+	for {
+		info, err := inspectStream(ctx, js, stream.Name)
+		if err == nil {
+			if !equalStream(info.Config, stream.BrokerConfig()) {
+				t.Fatal("created stream configuration must match the document")
+			}
+			return
+		}
+		if !errors.Is(err, jetstream.ErrStreamNotFound) {
+			t.Fatal(err)
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+}
+
 func TestProvisionApplyBoundStreamCreation(t *testing.T) {
 	testBoundCreation(t, kindStream)
 }
@@ -216,9 +240,7 @@ func testBoundCreation(t *testing.T, kind string) {
 			defer cancel()
 			want := []Difference{{Kind: kindStream, Stream: d.Streams[0].Name, State: stateAbsent}}
 			if kind == kindDurable {
-				if _, err := js.CreateStream(ctx, d.Streams[0].BrokerConfig()); err != nil {
-					t.Fatal(err)
-				}
+				createBoundStream(t, ctx, js, d.Streams[0])
 				want = []Difference{{Kind: kindDurable, Stream: d.Streams[0].Name, Durable: d.Durables[0].Durable, State: stateAbsent}}
 			} else {
 				want = append(want, Difference{Kind: kindDurable, Stream: d.Streams[0].Name, Durable: d.Durables[0].Durable, State: stateAbsent})
@@ -340,9 +362,7 @@ func TestProvisionApplyBoundApplyDeadline(t *testing.T) {
 			setup, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			if kind == kindDurable {
-				if _, err := js.CreateStream(setup, d.Streams[0].BrokerConfig()); err != nil {
-					t.Fatal(err)
-				}
+				createBoundStream(t, setup, js, d.Streams[0])
 			}
 			caller, stop := context.WithTimeout(setup, 2500*time.Millisecond)
 			defer stop()

@@ -950,6 +950,78 @@ def test_broker_example_captures_all_api_relay_routes(tmp_path: Path) -> None:
     assert consumers == [consumer for consumer in broker["durables"] if consumer["Durable"] == "api_sockets_125_stats"]
 
 
+def _broker_subject_covered(pattern: str, subject: str) -> bool:
+    outer, inner = pattern.split("."), subject.split(".")
+    for index, token in enumerate(outer):
+        if token == ">":
+            return index == len(outer) - 1 and len(inner) > index
+        if index >= len(inner) or inner[index] == ">":
+            return False
+        if token != "*" and token != inner[index]:
+            return False
+    return len(outer) == len(inner)
+
+
+@pytest.mark.parametrize("pattern,subject,covered", [
+    ("a.*", "a.b", True), ("a.*", "a.b.c", False),
+    ("a.>", "a", False), ("a.>", "a.b.c", True),
+    ("a.>", "a.*", True), ("a.*", "a.>", False),
+    ("a.*.>", "a.>", False), ("a.b", "a.*", False),
+    ("market.candles.*.*", "market.candles.*.*", True),
+])
+def test_broker_subject_coverage(pattern: str, subject: str, covered: bool) -> None:
+    assert _broker_subject_covered(pattern, subject) is covered
+
+
+def _broker_example_bindings(value):
+    if isinstance(value, list):
+        for item in value:
+            yield from _broker_example_bindings(item)
+    elif isinstance(value, dict):
+        fields = {key.replace("_", "").lower(): item for key, item in value.items()}
+        for key, stream in fields.items():
+            if not key.endswith("stream") or key == "sourcestream":
+                continue
+            assert isinstance(stream, str) and stream, (key, stream)
+            prefix = key[:-len("stream")]
+            subjects = []
+            for subject_key in (prefix + "subject", prefix + "subjects"):
+                if subject_key in fields:
+                    named = fields[subject_key]
+                    if isinstance(named, dict):
+                        subjects.extend(named.values())
+                    elif isinstance(named, list):
+                        subjects.extend(named)
+                    else:
+                        subjects.append(named)
+            if key == "outputstream":
+                subjects.extend(fields[name] for name in ("statssubject", "searchinvalidationsubject") if name in fields)
+            if key == "eventstream":
+                subjects.extend(fields.get("interactionsubjects", {}).values())
+                if "mentionsubject" in fields:
+                    subjects.append(fields["mentionsubject"])
+            yield stream, subjects
+        for item in value.values():
+            yield from _broker_example_bindings(item)
+
+
+def test_broker_example_covers_publishers_and_consumers() -> None:
+    examples = {path.name: json.loads(path.read_bytes()) for path in sorted((ROOT / "values").glob("*.example.json"))}
+    broker = examples["broker.example.json"]
+    streams = {stream["name"]: stream for stream in broker["streams"]}
+    assert len(streams) == len(broker["streams"])
+    bindings = []
+    for name, example in examples.items():
+        for stream, subjects in _broker_example_bindings(example):
+            bindings.append((name, stream, subjects))
+    bindings.append(("user.example.json", "USERS", list(examples["user.example.json"]["subjects"].values())))
+    assert examples["pnl.journeys.example.json"]["journeys"]["brokerStream"] == "PNL_JOURNEYS"
+    for name, stream, subjects in bindings:
+        assert stream in streams, (name, stream)
+        for subject in subjects:
+            assert any(_broker_subject_covered(pattern, subject) for pattern in streams[stream]["subjects"]), (name, stream, subject)
+
+
 def test_compose_mounts_and_private_listeners_match_contract() -> None:
     source = (ROOT.parent / "docker-compose.strangler.yml").read_text()
     contracts = json.loads((ROOT.parent / "railway/variables.json").read_bytes())

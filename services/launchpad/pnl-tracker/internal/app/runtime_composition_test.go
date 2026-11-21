@@ -35,6 +35,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/brokerprovision"
 	sharedconfig "github.com/Sidiora-Technologies/KindleLaunch/shared/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 	shareddb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
@@ -152,6 +153,36 @@ func newJourneyCompositionFixture(t *testing.T) journeyCompositionFixture {
 		t.Fatal(err)
 	}
 	d.BrokerStream = "PNL_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	raw, err := os.ReadFile(filepath.Join(root, "deploy/launchpad/documents/values/broker.example.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	brokerExample, err := brokerprovision.Read(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var journeyStream brokerprovision.Stream
+	for _, entry := range brokerExample.Streams {
+		if entry.Name == "PNL_JOURNEYS" {
+			journeyStream = entry
+		}
+	}
+	if journeyStream.Name == "" {
+		t.Fatal("PNL_JOURNEYS stream must be declared")
+	}
+	journeyStream.Name = d.BrokerStream
+	js, err := jetstream.New(nc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = js.CreateStream(ctx, journeyStream.BrokerConfig()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := js.DeleteStream(context.Background(), journeyStream.Name); err != nil {
+			t.Error(err)
+		}
+	})
 	d.CDNOrigin = cfg.IdentityURL
 	d.RewardManifestDigest = l18.ManifestDigest
 	d.RewardRuntimeHashes = map[string]string{}
@@ -388,7 +419,7 @@ func TestJourneyCompositionBindsActualRuntimeComponents(t *testing.T) {
 	t.Run("composed inventory deployment", func(t *testing.T) {
 		assertComposedInventoryLifecycle(t, root, db, productionConfig)
 	})
-	runtime.Consumer = natsdriver.ConsumerConfig{Stream: d.BrokerStream, Durable: "pnl-composition", Subject: accounting.InventorySubject, Batch: 1, MaxAckPending: 4, MaxWaiting: 1, MaxDeliver: 8, FetchWait: 100 * time.Millisecond, AckWait: time.Second}
+	runtime.Consumer = natsdriver.ConsumerConfig{Stream: "PNL_INVENTORY_" + strings.ReplaceAll(uuid.NewString(), "-", ""), Durable: "pnl-composition", Subject: accounting.InventorySubject, Batch: 1, MaxAckPending: 4, MaxWaiting: 1, MaxDeliver: 8, FetchWait: 100 * time.Millisecond, AckWait: time.Second}
 	js, err := jetstream.New(nc)
 	if err != nil {
 		t.Fatal(err)

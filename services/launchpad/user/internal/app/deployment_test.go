@@ -15,7 +15,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"strings"
 	"syscall"
 	"testing"
@@ -128,12 +127,16 @@ func accountDeploymentLifecycle(t *testing.T, transport config.Config) {
 	if err := json.Unmarshal(read(filepath.Join(documents, "values/broker.example.json")), &brokerExample); err != nil {
 		t.Fatal(err)
 	}
-	stream := brokerExample.Streams[0]
-	stream.Name, stream.Subjects = transport.AccountNATSStream, []string{}
-	for _, subject := range subjects {
-		stream.Subjects = append(stream.Subjects, subject)
+	var stream brokerprovision.Stream
+	for _, entry := range brokerExample.Streams {
+		if entry.Name == "USERS" {
+			stream = entry
+		}
 	}
-	sort.Strings(stream.Subjects)
+	if stream.Name == "" {
+		t.Fatal("USERS stream must be declared")
+	}
+	stream.Name = transport.AccountNATSStream
 	brokerDocument := filepath.Join(t.TempDir(), "broker.json")
 	write(brokerDocument, encode(brokerprovision.Document{Streams: []brokerprovision.Stream{stream}, Durables: []natsdriver.ConsumerConfig{}}))
 	provision := exec.Command("go", "run", filepath.Join(root, "sdk/launchpad/shared/brokerprovision/cmd/brokerprovision"), "provision", "--document", brokerDocument, "--broker-env", "ACCOUNT_NATS_URL", "--token-env", "ACCOUNT_PROVISION_TOKEN")

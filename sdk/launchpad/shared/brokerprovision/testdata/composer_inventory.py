@@ -4,6 +4,7 @@ import importlib
 import json
 from pathlib import Path
 import sys
+import tempfile
 
 
 def inventory(root: Path) -> dict:
@@ -20,6 +21,9 @@ def inventory(root: Path) -> dict:
     docs = {service: {key: json.loads(value) if isinstance(value, bytes) else value
                       for key, value in document.items()}
             for service, document in docs.items()}
+    with tempfile.TemporaryDirectory() as values:
+        Path(values, "pnl.json").write_bytes((directory / "values/pnl.journeys.example.json").read_bytes())
+        journeys = importlib.import_module("pnl").documents("pnl", values)["PNL_JOURNEY_CONFIG_DOCUMENT"]
     consumers = []
     streams = {}
 
@@ -78,6 +82,15 @@ def inventory(root: Path) -> dict:
     fixed(gateway["stream"], gateway["durable"], "identity.account.v1")
     audit = gateway["audit"]
     fixed(audit["stream"], audit["durable"], audit["subject"])
+    stream("USERS", docs["user"]["ACCOUNT_SUBJECTS_DOCUMENT"].values())
+    stream(journeys["brokerStream"], [
+        "inventory.rebuild.v2", "portfolio.snapshot.v2", "fee.claimed",
+        "airdrop.epoch", "airdrop.claimed", "reward.funding", "reward.liability",
+        "reward.review", "reward.claim_prepared", "reward.community_authority",
+        "reward.payout_intent", "reward.paid", "reward.payout_state",
+        "reward.correction_review", "referral.analytics", "referral.bound",
+        "referral.code", "referral.consent", "referral.click", "referral.bind",
+    ])
     ordered_streams = {name: sorted(subjects) for name, subjects in streams.items()}
     for route in routes:
         ordered_streams[route["stream"]] = list(route["subjects"]) + sorted(
