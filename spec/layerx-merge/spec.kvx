@@ -16276,6 +16276,12 @@ value = "One. Task 22.39.1079 changes cases and test data only. No product file 
 basis = "Gotcha 4787."
 affects = []
 
+[decision.3861]
+title = "The node boundary relays the four read methods of the px family that the node client calls, each by name"
+value = "One. Task 22.39.1080 changes the crate under services/platform/hosted/paxeer and the document docs/wiki/PaxeerBoundary.md. No file of the node, of the client crate or of another service changes. Two. The relay admits px_getReceiptKeys, px_getCommit, px_getValidators and px_getHistory by name and passes each to the upstream as it passes pax_sequencerReceipt. The prefix of the px family does not become an allowed prefix. Three. Every other name of the px family, among them px_register and px_requestFunds, and every name outside the lists keeps the present answer with the code -32601 and does not reach the upstream. The denied list of the eth family stays as it is. Four. The length rule, the character rule, the rules of the envelope, the bounds of request and answer and the check of the upstream answer stay as they are. Five. Cases. One case of the relay names each of the four names and expects admission, and it names px_register, px_requestFunds and one further name of the px family and expects refusal. One case of services/platform/hosted/paxeer/tests/node_rpc_transport.rs sends px_getReceiptKeys through the relay to the local peer and expects the answer of the peer unchanged. One case of that file sends px_register and expects the answer with the code -32601 while the peer receives no request. The present cases stay as they are and pass. Six. The document names the four names in its sentence on the relayed set. Seven. Target: the cases of the binary target of the relay and the cases of services/platform/hosted/paxeer/tests/node_rpc_transport.rs pass. Task 22.39.1080."
+basis = "Gotcha 4788."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -45936,6 +45942,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1080]
+title = "Let the node boundary relay the four read methods of the px family that the node client calls"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/paxeer", "docs/wiki/PaxeerBoundary.md"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --bin layerx-paxeer-boundary && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --test node_rpc_transport"
+do_1 = "do_1 Gotcha 4788, decision 3861. Read the three constants and the function method_allowed of services/platform/hosted/paxeer/src/main.rs, the cases of services/platform/hosted/paxeer/tests/node_rpc_transport.rs with their helpers, and the calls of the type SequencerEndpoint in services/agent/crates/layerx-client/src/sequencer.rs. Confirm from rpc/testdata/served_methods_http.golden that the node serves each of the four names."
+symbols = []
 
 [capability.22.39.1079]
 title = "Let the authority cases of the launchpad gateway take the port of an authority process directly before its start"
@@ -229360,6 +229375,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1080]
+title = "Let the node boundary relay the four read methods of the px family that the node client calls"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1080"]
+interfaces = []
+do_1 = "do_1 Gotcha 4788, decision 3861. Read the three constants and the function method_allowed of services/platform/hosted/paxeer/src/main.rs, the cases of services/platform/hosted/paxeer/tests/node_rpc_transport.rs with their helpers, and the calls of the type SequencerEndpoint in services/agent/crates/layerx-client/src/sequencer.rs. Confirm from rpc/testdata/served_methods_http.golden that the node serves each of the four names."
+do_2 = "do_2 Give the relay the form of points two to four, add the cases of point five and bring the sentence of the document into the form of point six."
+do_3 = "do_3 Points one to seven hold. The final message names the constants after the change, each new case with its file, and the result of the two test commands. Where the main line has changed a file of this task meanwhile, take the main line and keep both changes. The files under the paths of this task are inside its paths, it makes no difference whether a case passed before the change, and no approval is needed. A case that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Do not run the formatter over a whole existing file: format only the lines you changed. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/paxeer", "docs/wiki/PaxeerBoundary.md"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --bin layerx-paxeer-boundary && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --test node_rpc_transport"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
